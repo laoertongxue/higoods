@@ -372,6 +372,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   const eventTarget = target as HTMLElement
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/craft/cutting/cut-piece-release') {
+    const page = await import('./pages/process-factory/cutting/cut-piece-release.ts')
+    return page.handleCraftCuttingCutPieceReleaseEvent(eventTarget, event)
+  }
   if (pagePath === '/fcs/craft/cutting/replacement-fabric-fei-tickets') {
     // Native filter input is read by the page's Query action; it must not
     // initialize unrelated FCS handlers while the user is typing.
@@ -395,6 +399,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     return page.handleUnifiedDispatchWorkbenchEvent(eventTarget, event)
   }
   if (pagePath === '/fcs/craft/cutting/warehouse-management/wait-handover') {
+    if (eventTarget.closest('[data-warehouse-map-action]')) {
+      const map = await import('./pages/process-factory/cutting/warehouse-location-map.ts')
+      return map.handleCuttingWarehouseLocationMapEvent(eventTarget, event)
+    }
     // 页面已加载仓储处理器；交出窗口不应再初始化整个 FCS 事件集合。
     const page = await import('./pages/process-factory/cutting/warehouse-hub.ts')
     return page.handleCraftCuttingWaitHandoverEvent(eventTarget)
@@ -660,6 +668,17 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
 
 async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
   const pathname = appStore.getState().pathname
+  if (
+    pathname.split('?')[0] === '/fcs/craft/cutting/warehouse-management/wait-handover'
+    && form.matches('[data-cutting-wait-handover-filters]')
+  ) {
+    const params = new URLSearchParams()
+    new FormData(form).forEach((value, name) => {
+      if (typeof value === 'string' && value.trim()) params.append(name, value.trim())
+    })
+    appStore.navigate(`/fcs/craft/cutting/warehouse-management/wait-handover?${params}`)
+    return false
+  }
   if (pathname.startsWith('/fcs/factories/profile')) {
     try {
       const factoryProfilePage = await getFactoryProfilePageModule()
@@ -887,15 +906,20 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
   // 一次页面会话只初始化一次读视图；保存动作自行在同一快照上读回。
   // 局部输入导致的render不得再次抢占保存/迁移锁，也不得并发初始化。
   productionEntryHydration ??= (async () => {
-    const productionContext = await import('./data/fcs/production-context-records.ts')
-    await productionContext.hydrateProductionContextRecords()
+    const [productionContext,records] = await Promise.all([import('./data/fcs/production-context-records.ts'),import('./data/fcs/cutting/cutting-record-repository.ts')])
+    const snapshot=await records.readCuttingRecords()
+    await productionContext.hydrateProductionContextRecords(snapshot)
     const partTickets = await import('./data/fcs/cutting/part-ticket-records.ts')
-    await partTickets.hydratePartTicketRecords()
+    await partTickets.hydratePartTicketRecords(snapshot)
     const sourceActions = await import('./data/fcs/production-context-actions.ts')
     sourceActions.hydrateProductionSourceEffects()
+    if(normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/') || normalizedPathname==='/fcs/print/preview') {
+      cuttingEntryHydration=import('./data/fcs/cutting/cutting-event-repository.ts').then(events=>events.hydrateCuttingEventRecords(snapshot,true)).catch(error=>{cuttingEntryHydration=undefined;throw error})
+      await cuttingEntryHydration
+    }
   })().catch(error => { productionEntryHydration = undefined; throw error })
   await productionEntryHydration
-  if (normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/pda/transfer-bag')
+  if (normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/pda/transfer-bag')
     || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/tasks/')
     || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     || normalizedPathname === '/fcs/pda/warehouse/wait-handover'
@@ -971,7 +995,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // PMS initialization pending until its original module entry is visited.
     const generatedPdaTask = normalizedPathname.match(/^\/fcs\/pda\/exec\/(TASKGEN-[^/]+)$/)
     let isGeneratedIndependentSewing = false
-    if (!/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
+    const cuttingPrintEntry = normalizedPathname === '/fcs/print/preview'
+      && ['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'REPLACEMENT_FABRIC_LABEL'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || '')
+    const cuttingReleaseChainEntry=cuttingPrintEntry || /^\/fcs\/(?:dispatch\/workbench|sewing-outsourcing(?:\/|$)|craft\/cutting\/(?:cut-piece-release|supplement-management|replacement-fabric-fei-tickets|warehouse-management\/wait-handover|handover-orders|transfer-bags|transfer-bag-detail)|pda\/cutting(?:\/|$))/.test(normalizedPathname)
+    // These pages read their preparation and ticket facts from the hydrated FCS
+    // sources. PMS keeps its initialization on its original module entries.
+    if (!cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
     // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
     const pcsFirstScreenImages = normalizedPathname === '/pcs/production-preparation/design-revision'
       ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
@@ -1002,6 +1031,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       }
     }
     await preparePageRouteEntry(normalizedPathname)
+    if (['/fcs/craft/cutting/replacement-fabric-fei-tickets', '/fcs/craft/cutting/warehouse-management/wait-handover', '/fcs/pda/cutting/simple-cut-piece-handover'].includes(normalizedPathname)) {
+      // The same published ordinary-ticket fixtures used by task printing and
+      // handover must be independently readable after a direct open or refresh.
+      const { ensureSimpleCutPieceHandoverFixtures } = await import('./data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+      ensureSimpleCutPieceHandoverFixtures()
+    }
     if (generatedPdaTask) {
       // Resolve the actual task after source hydration. Generated independent
       // sewing tasks use the same PCS/FCS facts as ordinary sewing; other
@@ -1166,7 +1201,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
         return page.renderTmfProcessPrintPreviewPage()
       }
       const printPreviewPage = await getPrintPreviewPageModule()
-      if (documentType === 'DISPATCH_TASK_SHEET' || documentType === 'PRODUCTION_CONFIRMATION') {
+      if (documentType === 'DISPATCH_TASK_SHEET' || documentType === 'PRODUCTION_CONFIRMATION' || documentType === 'REPLACEMENT_FABRIC_LABEL') {
         const { ensureSimpleCutPieceHandoverFixtures } = await import('./data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
         ensureSimpleCutPieceHandoverFixtures()
       }
@@ -1187,9 +1222,9 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
     }
     console.error('路由模块加载失败，进入降级页', error)
-    if (pathname.includes('/cutting/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
+    if (pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
       const reason = error instanceof Error ? error.message : String(error)
-      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。</p></section>`
+      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
     }
     return '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>'
   }
@@ -2043,7 +2078,7 @@ root.addEventListener('click', async (event) => {
     }
     return
   }
-  if (target.closest('[data-pcs-storage-retry]')) {
+  if (target.closest('[data-pcs-storage-retry], [data-cutting-record-retry]')) {
     event.preventDefault()
     window.location.reload()
     return

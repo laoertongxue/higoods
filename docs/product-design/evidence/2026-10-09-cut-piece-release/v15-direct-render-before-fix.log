@@ -1,0 +1,61 @@
+(node:15398) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 列表只读余量查询满足正整数身份门禁，K100/A205显示当前风险105、占用0及余量205 (35.616041ms)
+✔ 裁片放行保留唯一菜单键和地址，归属裁床仓库管理 (0.181791ms)
+✔ 字母与数值尺码升序，自定义尺码保留配置顺序 (0.533917ms)
+✔ 非法数量和空白保持非法，不夹取或四舍五入成另一个有效量 (0.084375ms)
+✔ 目标确认待保存及整票原因也受离开提醒保护，已保存目标和空白原因不误提醒 (0.110334ms)
+✔ 本页导航、补料、系统与当前页签退出统一提醒，关闭其他页签和折叠菜单不误提醒 (0.142917ms)
+✔ 未知自定义尺码在目标和放行矩阵明确提示待核对且保留原序，标准尺码不出现提示 (4.518ms)
+✔ 未确认与确认零放行分开，零放行不回退成目标281件 (0.069917ms)
+✔ 尚未确认且齐套未知时，确认汇总中的K和R均显示待核对而非零 (1.825667ms)
+✔ 目标与放行渲染为相同颜色行、尺码升序列，缺失SKU格保持不可编辑 (1.955583ms)
+✔ 逐票详情保留最终回仓实收、完整顺序、袋周期、成衣色与面料色以及差异 (0.33475ms)
+✔ 侧栏逐道显示真实交出单、回仓业务号和库位，记录编号放在展开依据中 (0.177625ms)
+✔ 加工完成未回仓仍显示未最终回仓，未知工艺不展示普通免工艺依据 (0.173ms)
+✖ 真实前道直转投影接入侧栏，末道实收80显示已最终回仓 (2.099542ms)
+✔ 跨工厂直转前道不必回裁床，最终实收80片显示已最终回仓 (0.198125ms)
+✔ 最终实际点收0片保留完成事实，不显示待加工或待回仓 (0.147125ms)
+✔ 历史实收有原始回仓数量但缺加工完成依据，明细保留实收且暂不计齐套 (0.14425ms)
+✔ 整票更正确认同时展示票袋工艺放行分配及保留历史责任 (7.089541ms)
+✔ 整票登记保存携带打开详情时的版本，旧页面不会改用后来读到的版本 (0.656791ms)
+✔ 文案采用短句，目标和放行保留操作边界，整票确认保留实际后果 (3.691875ms)
+✔ 具名静态演示材料使用既有真实图片，三道工艺仅按最终回仓计入 (0.727834ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 638.399958
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-release-ui.test.ts:1:15889
+✖ 真实前道直转投影接入侧栏，末道实收80显示已最终回仓 (2.099542ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression />已最终回仓</. Input:
+  
+  '<article class="mt-3 rounded-md border bg-white p-3" data-release-ticket-id="DIRECT-UI">\n' +
+    '    <div class="flex flex-wrap items-center justify-between gap-2"><strong class="text-sm">FT-DIRECT-UI</strong><span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-amber-700">待核对</span></div>\n' +
+    '    <div class="mt-2 grid gap-1 text-xs text-slate-600"><span>成衣 Black / M · 面料色 蓝</span><span>原票 100 片 · 当前有效实物 80 片 · 整票可用</span><span>来源 实际裁剪：未记录</span><span>裁片单 CUT-DIRECT</span><span>袋号 BAG-DIRECT · 使用周期 未记录</span><span>当前位置 裁床待交出仓</span></div>\n' +
+    '    <ol class="mt-3 space-y-2 border-l-2 border-blue-100 pl-3"><li class="rounded border p-2 text-xs "><div class="font-medium">第 1 / 2 道 · 烫画 · 辅助工艺</div><div class="mt-1 text-slate-600">承接厂 工厂1 · 已交下一工艺</div><div class="mt-1 tabular-nums">应回 100 片 · 加工 90 片 · 交出 0 片</div><div class="mt-1 text-amber-700">实际实收 尚未回仓</div></li><li class="rounded border p-2 text-xs border-blue-200 bg-blue-50/40"><div class="font-medium">第 2 / 2 道 · 绣花 · 特种工艺 · 最终工艺</div><div class="mt-1 text-slate-600">承接厂 工厂2 · 已实际回仓</div><div class="mt-1 tabular-nums">应回 90 片 · 加工 80 片 · 交出 0 片</div><div class="mt-1 text-emerald-700">实际实收 80 片</div><div class="mt-1 text-slate-500">回仓记录 业务编号未记录 · 回仓位置 未记录</div><details class="mt-1 text-slate-500"><summary class="cursor-pointer">查看记录编号</summary><p class="mt-1 break-all">RC-DIRECT-2</p></details><div class="mt-1 text-slate-500">仓管 · 2026-10-09T03:00</div></li></ol>\n' +
+    '    <div class="mt-3 rounded bg-slate-50 px-2 py-2 text-xs"><strong>当前可计入 80 片</strong><span class="ml-1">原因：尚未完成全部工艺及最终回仓</span></div>\n' +
+    '    \n' +
+    '    <div class="mt-3 border-t pt-2"><label class="block text-xs text-slate-600">整票不可用原因<input type="text" class="mt-1 h-8 w-full rounded border px-2 text-xs" value="" data-skip-page-rerender="true" data-cut-piece-release-field="ticketValidityReason" data-ticket-id="DIRECT-UI" ></label><button type="button" class="mt-2 rounded border px-3 py-1.5 text-xs disabled:opacity-50 border-rose-200 text-rose-700" data-skip-page-rerender="true" data-cut-piece-release-action="set-ticket-validity" data-ticket-id="DIRECT-UI" data-ticket-valid="false" data-ticket-no="FT-DIRECT-UI" data-ticket-validity-version="0" >登记整票不可用</button></div>\n' +
+    '  </article>'
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-ui.test.ts:255:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<article class="mt-3 rounded-md border bg-white p-3" data-release-ticket-id="DIRECT-UI">\n    <div class="flex flex-wrap items-center justify-between gap-2"><strong class="text-sm">FT-DIRECT-UI</strong><span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-amber-700">待核对</span></div>\n    <div class="mt-2 grid gap-1 text-xs text-slate-600"><span>成衣 Black / M · 面料色 蓝</span><span>原票 100 片 · 当前有效实物 80 片 · 整票可用</span><span>来源 实际裁剪：未记录</span><span>裁片单 CUT-DIRECT</span><span>袋号 BAG-DIRECT · 使用周期 未记录</span><span>当前位置 裁床待交出仓</span></div>\n    <ol class="mt-3 space-y-2 border-l-2 border-blue-100 pl-3"><li class="rounded border p-2 text-xs "><div class="font-medium">第 1 / 2 道 · 烫画 · 辅助工艺</div><div class="mt-1 text-slate-600">承接厂 工厂1 · 已交下一工艺</div><div class="mt-1 tabular-nums">应回 100 片 · 加工 90 片 · 交出 0 片</div><div class="mt-1 text-amber-700">实际实收 尚未回仓</div></li><li class="rounded border p-2 text-xs border-blue-200 bg-blue-50/40"><div class="font-medium">第 2 / 2 道 · 绣花 · 特种工艺 · 最终工艺</div><div class="mt-1 text-slate-600">承接厂 工厂2 · 已实际回仓</div><div class="mt-1 tabular-nums">应回 90 片 · 加工 80 片 · 交出 0 片</div><div class="mt-1 text-emerald-700">实际实收 80 片</div><div class="mt-1 text-slate-500">回仓记录 业务编号未记录 · 回仓位置 未记录</div><details class="mt-1 text-slate-500"><summary class="cursor-pointer">查看记录编号</summary><p class="mt-1 break-all">RC-DIRECT-2</p></details><div class="mt-1 text-slate-500">仓管 · 2026-10-09T03:00</div></li></ol>\n    <div class="mt-3 rounded bg-slate-50 px-2 py-2 text-xs"><strong>当前可计入 80 片</strong><span class="ml-1">原因：尚未完成全部工艺及最终回仓</span></div>\n    \n    <div class="mt-3 border-t pt-2"><label class="block text-xs text-slate-600">整票不可用原因<input type="text" class="mt-1 h-8 w-full rounded border px-2 text-xs" value="" data-skip-page-rerender="true" data-cut-piece-release-field="ticketValidityReason" data-ticket-id="DIRECT-UI" ></label><button type="button" class="mt-2 rounded border px-3 py-1.5 text-xs disabled:opacity-50 border-rose-200 text-rose-700" data-skip-page-rerender="true" data-cut-piece-release-action="set-ticket-validity" data-ticket-id="DIRECT-UI" data-ticket-valid="false" data-ticket-no="FT-DIRECT-UI" data-ticket-validity-version="0" >登记整票不可用</button></div>\n  </article>',
+    expected: />已最终回仓</,
+    operator: 'match',
+    diff: 'simple'
+  }

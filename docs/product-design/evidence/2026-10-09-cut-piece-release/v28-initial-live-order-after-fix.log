@@ -1,0 +1,16 @@
+(node:53938) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 冻结原票的真实仓库实收继续更新；冻结后新票进晚到队列，不冒充原产出 (6.468625ms)
+✔ 初始演示订单正常新增装袋手动票进入当前正式放行，保留原目标与放行且不混入PDA变体物料 (444.556375ms)
+✔ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (176.672041ms)
+✔ 裁床工艺来源读取不初始化未迁移的全厂接收需求，原工艺厂读取仍保护旧源 (395.509375ms)
+✔ 先读裁床来源再进入工艺厂，任务身份与需求数量一致且仓库记录可正常生成 (417.229083ms)
+✔ 已准备任务来源后，任务单预览不加载无关工艺厂接收来源 (472.093ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2057.156667

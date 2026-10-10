@@ -1,0 +1,718 @@
+{
+  "startedAt": "2026-10-09T20:16:51.609Z",
+  "scenarios": [
+    {
+      "name": "1366x768 list load",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 277,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 265,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 265,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 264,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 266,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1366x768 list query",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 96,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 97,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 96,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 98,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 96,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1366x768 list reset",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 99,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 117,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 116,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 116,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 116,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1280x720 list load",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 255,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 265,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 265,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 265,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 265,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1280x720 list query",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 95,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 97,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 98,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 98,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 96,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1280x720 list reset",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 100,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 114,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 116,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 116,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 117,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1024x768 list load",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 249,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 264,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 264,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 265,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1024x768 list query",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 96,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 97,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 98,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 97,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 97,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "1024x768 list reset",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 116,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 99,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 117,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 116,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 116,
+          "complete": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "assertions": [
+    {
+      "name": "query/reset completely visible 1366 0",
+      "passed": true,
+      "detail": {
+        "doc": 1366,
+        "width": 1366,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 981,
+            "right": 1041,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 1049,
+            "right": 1111,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1366 1",
+      "passed": true,
+      "detail": {
+        "doc": 1366,
+        "width": 1366,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 981,
+            "right": 1041,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 1049,
+            "right": 1111,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1366 2",
+      "passed": true,
+      "detail": {
+        "doc": 1366,
+        "width": 1366,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 981,
+            "right": 1041,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 1049,
+            "right": 1111,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1366 3",
+      "passed": true,
+      "detail": {
+        "doc": 1366,
+        "width": 1366,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 981,
+            "right": 1041,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 1049,
+            "right": 1111,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1366 4",
+      "passed": true,
+      "detail": {
+        "doc": 1366,
+        "width": 1366,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 981,
+            "right": 1041,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 1049,
+            "right": 1111,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1280 0",
+      "passed": true,
+      "detail": {
+        "doc": 1280,
+        "width": 1280,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 923.65625,
+            "right": 983.65625,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 991.65625,
+            "right": 1053.65625,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1280 1",
+      "passed": true,
+      "detail": {
+        "doc": 1280,
+        "width": 1280,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 923.65625,
+            "right": 983.65625,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 991.65625,
+            "right": 1053.65625,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1280 2",
+      "passed": true,
+      "detail": {
+        "doc": 1280,
+        "width": 1280,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 923.65625,
+            "right": 983.65625,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 991.65625,
+            "right": 1053.65625,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1280 3",
+      "passed": true,
+      "detail": {
+        "doc": 1280,
+        "width": 1280,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 923.65625,
+            "right": 983.65625,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 991.65625,
+            "right": 1053.65625,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1280 4",
+      "passed": true,
+      "detail": {
+        "doc": 1280,
+        "width": 1280,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 923.65625,
+            "right": 983.65625,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 991.65625,
+            "right": 1053.65625,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1024 0",
+      "passed": true,
+      "detail": {
+        "doc": 1024,
+        "width": 1024,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 638,
+            "right": 698,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 706,
+            "right": 768,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1024 1",
+      "passed": true,
+      "detail": {
+        "doc": 1024,
+        "width": 1024,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 638,
+            "right": 698,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 706,
+            "right": 768,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1024 2",
+      "passed": true,
+      "detail": {
+        "doc": 1024,
+        "width": 1024,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 638,
+            "right": 698,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 706,
+            "right": 768,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1024 3",
+      "passed": true,
+      "detail": {
+        "doc": 1024,
+        "width": 1024,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 638,
+            "right": 698,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 706,
+            "right": 768,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "query/reset completely visible 1024 4",
+      "passed": true,
+      "detail": {
+        "doc": 1024,
+        "width": 1024,
+        "buttons": [
+          {
+            "action": "query",
+            "text": "查询",
+            "x": 638,
+            "right": 698,
+            "width": 60,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          },
+          {
+            "action": "reset",
+            "text": "重置",
+            "x": 706,
+            "right": 768,
+            "width": 62,
+            "height": 36,
+            "whiteSpace": "nowrap"
+          }
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "output/playwright/cut-release-ui/list-responsive-1366x768-v36.png",
+    "output/playwright/cut-release-ui/list-responsive-1280x720-v36.png",
+    "output/playwright/cut-release-ui/list-responsive-1024x768-v36.png"
+  ],
+  "version": "v36",
+  "completedAt": "2026-10-09T20:16:58.922Z",
+  "passed": true,
+  "versionRef": "version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "assetManifestSHA256": "4b87a963b268ed5dc1dc0bc8e491022e22d99f1832bb2ed7bdea756c5fa382c2",
+  "rawLog": "output/playwright/cut-release-ui/list-responsive-v36-root.log"
+}

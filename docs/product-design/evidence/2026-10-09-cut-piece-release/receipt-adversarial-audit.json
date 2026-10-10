@@ -1,0 +1,135 @@
+{
+  "status": "automatic_scope_review_complete_browser_pending",
+  "round1": {
+    "method": "forward requirements→production entry→meaningful contracts",
+    "checks": [
+      {
+        "requirements": "BAG-001/BAG-002",
+        "businessResult": "普通票与工艺票、不同有序链不得同袋；同链不同每票stage ID必须可同袋",
+        "symbols": "assertSpecialCraftBagCompatibility/buildSpecialCraftBagChainKey",
+        "contract": "不同菲票的同一实际有序工艺链可同袋",
+        "automated": "passed",
+        "browser": "v9 actual same-chain M5+XL5 saved in BAG-RECEIPT-FINAL-01; final recheck pending"
+      },
+      {
+        "requirements": "RECEIPT-001/RECEIPT-002",
+        "businessResult": "多票按各票实收且不按原预计数或总量比例分摊",
+        "symbols": "submitSpecialCraftBagReturn/listSpecialCraftTicketReturnFacts",
+        "contract": "双票12/8→11/6",
+        "automated": "passed",
+        "browser": "pending final v9"
+      },
+      {
+        "requirements": "RECEIPT-003",
+        "businessResult": "每票自己的stage/current来源/袋cycle/实际派厂/库位",
+        "symbols": "appendWaitHandoverSpecialCraftHandoverEvent/strict parsers",
+        "contract": "双票独立stage+actual厂projection",
+        "automated": "passed",
+        "browser": "v9 actual APF selected assigned task vs printed SPF saved genuine handout; final receipt mixed-time blocked"
+      },
+      {
+        "requirements": "RECEIPT-004/RECEIPT-005",
+        "businessResult": "空白不为零，安全整数≤应回，差异/零需原因",
+        "symbols": "receipt validations",
+        "contract": "空白/小数/NaN/Infinity/超安全数/指数/超量/零无原因拒绝不写",
+        "automated": "passed",
+        "browser": "v9 blank/missing-completion/difference-reason blocks preserve inputs; correct zero final receipt pending time fix"
+      },
+      {
+        "requirements": "CRAFT-003/CRAFT-004/CRAFT-005",
+        "businessResult": "明确核对加工完成，最终回仓实收才计E；legacy null不补true",
+        "symbols": "processingCompleted guard/getter/applySpecialCraftReceiptToBinding",
+        "contract": "未核对拒绝；legacy保留P/E0/completionEvidenceKnownfalse",
+        "automated": "passed",
+        "browser": "pending final v9"
+      },
+      {
+        "requirements": "CRAFT-002/CRAFT-007",
+        "businessResult": "1..N有序链，前道直接转交不造裁床库存，不倍增",
+        "symbols": "directTransfer/listSpecialCraftProcessingCompletionFacts",
+        "contract": "single100→95→final90；double12/8→11/7→10/6",
+        "automated": "passed",
+        "browser": "pending final v9"
+      },
+      {
+        "requirements": "RECEIPT-006/VALID-003/CHANGE-001/CHANGE-003",
+        "businessResult": "更正替代最新量，原票和旧实交不改，换cycle无库存反冲",
+        "symbols": "correctSpecialCraftTicketReturn",
+        "contract": "100回仓→旧实交100→更正90 K90/P90/risk10；新cycle再89/risk11旧100",
+        "automated": "passed",
+        "browser": "pending final v9"
+      },
+      {
+        "requirements": "RECEIPT-007",
+        "businessResult": "Web/PDA读取共享严格事件，正常fixtures显式completiontrue",
+        "symbols": "wait-handover-actions/pda-cutting-inbound/pda-handover-detail",
+        "contract": "PDA workflow+cutting all 13checks",
+        "automated": "passed",
+        "browser": "pending final v9"
+      }
+    ]
+  },
+  "round2": {
+    "method": "reverse code/legacy入口→requirements and hostile boundary cases",
+    "findings": [
+      {
+        "defect": "per-ticket specialCraftId used for common chain identity",
+        "result": "fixed stable ordered code/type+category+factory+version and both adapters/shared dispatch helper"
+      },
+      {
+        "defect": "bag head first stage applied to second ticket handover/return/direct",
+        "result": "fixed per-ticket payload join and true root projectReleaseTicket second ticket E0→E6"
+      },
+      {
+        "defect": "actual assigned factory blocked by old printed default",
+        "result": "fixed exact selected RuntimeProcessTask binding actual factory, original field unchanged"
+      },
+      {
+        "defect": "legacy receipt completion unknown could become done",
+        "result": "fixed null overlay Exception, P retained E0"
+      },
+      {
+        "defect": "already-out/newcycle corrections incorrectly barred or inventory reversed",
+        "result": "facts-only correction same transaction, current K/risk updated old liability retained"
+      },
+      {
+        "defect": "successful modal keeps close/cancel buttons disabled while instructing to close",
+        "result": "one-line close-dialog restoration; submitted fields and submit stay locked, build+actual recheck pending"
+      },
+      {
+        "defect": "source ISO and return minute text compare lexically; valid later receipt rejected",
+        "result": "new operation defaults keep ISO seconds/timezone, explicit old minute accepted; root shared Date/ledger comparison; 16 tests pass, real existing source recheck pending"
+      },
+      {
+        "defect": "PDA无袋实回 render 用首票refs阶段显示第二票应回待识别，并回退原票99而非实际8",
+        "result": "先失败真render反例，再复用逐票payload stage+实际snapshot解析；第二票应回8/占位8，提交和显示同口径",
+        "requirements": "RECEIPT-003/RECEIPT-007",
+        "evidence": "receipt-r2-return-correction-before.log → receipt-r2-return-correction.log"
+      },
+      {
+        "defect": "无袋实收未消费10→9更正因bagFact空被无条件设ADJUST0",
+        "result": "回溯原无袋实收及后续真实装袋/消费；在原独立仓库存时ADJUST-1，后续新袋或实交后ADJUST0；原记录/实际9责任不改，重试去重",
+        "requirements": "RECEIPT-006/CHANGE-001/CHANGE-003",
+        "evidence": "receipt-r2-return-correction-before.log → receipt-r2-return-correction.log"
+      },
+      {
+        "defect": "重新装袋9后原实收依据更正8，raw整袋候选/submit仍允许9",
+        "result": "先候选true反例，再共享门禁同时拒绝旧袋9；已知来源的P/E/完整工艺与整票valid均核对，自身storage严格最新实收上限；原袋9不被静默改写",
+        "requirements": "RECEIPT-006/VALID-003/CHANGE-003",
+        "evidence": "receipt-r2-stale-bag-before.log → receipt-r2-return-correction.log"
+      }
+    ],
+    "unresolved": [
+      "最终统一版本 Web/PDA 真实4/0实收、正常两道直转最终回仓、适用动作各五样本，等待独占窗口"
+    ]
+  },
+  "tests": {
+    "command": "node --import tsx --test tests/unit/cut-piece-special-craft-receipts.test.ts",
+    "tests": 20,
+    "pass": 20,
+    "durationMs": 943.163333,
+    "log": "receipt-r2-return-correction.log"
+  },
+  "currentSourceDiffCheck": "passed",
+  "finalOverallClaim": false
+}

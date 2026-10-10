@@ -1,0 +1,3 @@
+[check-cut-piece-release-available-qty] 裁床放行确认版本检查通过
+(node:9913) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

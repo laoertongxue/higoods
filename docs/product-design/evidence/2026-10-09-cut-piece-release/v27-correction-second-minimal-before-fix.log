@@ -1,0 +1,66 @@
+(node:50088) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ 带袋同一秒连续逐票更正有独立事实，同一更正重试只保存一次 (54.235ms)
+✖ 无袋同一秒连续逐票更正有独立事实，同一更正重试只保存一次 (5.368125ms)
+✔ 保留历史换袋确认按真实来源入仓先后匹配，ISO与本地文本不丢来源库位 (1.193291ms)
+✔ 特殊工艺实回库位从原票快照读取生产单，零实收票不冒充当前库存关联 (5.629084ms)
+✔ PDA实际入仓入口保留默认时间秒与时区，同一分钟交出后可逐票回仓 (5.76975ms)
+✔ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (3.575458ms)
+✔ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (17.317709ms)
+✔ 明确单道无袋实收9合法实交后更正7保留旧9责任与真实接收厂 (13.909833ms)
+✔ 整袋候选与提交共享未知来源、未知必要工艺及整票不可用阻断，caller不能给空事件绕过 (25.952875ms)
+✔ 连续工艺具名示例仅提供真实技术包两条未分配任务，不写事实或覆盖旧任务 (4.112375ms)
+✔ 不同菲票的同一实际有序工艺链可同袋，链身份不使用每票阶段ID (0.302583ms)
+✔ 同链两张菲票保留各自阶段身份并分别实收，不把第二票当第一票工艺 (3.939ms)
+✔ 连续工艺直接由实际持有厂转交下道，前道完成与最后回仓分开记账 (5.043375ms)
+✔ 同袋两票连续转交按每票前道和下道身份核对，最后分别回仓 (3.706417ms)
+✔ 实际任务绑定明确匹配技术包部位工艺、色码、目标对象和当前分配，不采用默认厂 (0.220167ms)
+✔ 特殊工艺交出只能读取原票当前阶段与唯一实际承接任务 (0.148625ms)
+✔ ISO来源交出后同一分钟实际回仓保留秒与时区，不被文本格式判为早于来源 (6.433583ms)
+✔ 逐票实收分别计数，更正库存仅按差额且保留原票 (5.111541ms)
+✔ 未核对加工完成不得保存；历史完成未知保留实收P而不能冒充齐套 (3.227208ms)
+✔ 缺逐票确认、空白、小数、超量与未说明差异都不写入 (3.347ms)
+✔ 明确零量点收保留事实，但不生成库存或后道实物 (3.13975ms)
+✔ 按身份与顺序分袋，普通和不同工艺链被阻断 (0.0845ms)
+✔ 无袋按票独立点收，不能重复新增或回到其他裁床工厂 (4.145375ms)
+✔ 多道工艺分别保留同票阶段实收，末道不会累加前道数量 (8.634625ms)
+✔ 100片已经交出后更正为90片只改依据，保留原实交责任且不反冲库存 (13.436292ms)
+✔ 同一分钟旧入仓分钟时间晚于精确装袋账本，不退回已装袋状态 (0.78125ms)
+✔ 正常入仓默认保留完整时刻，同分钟装袋后入仓可继续交出 (0.598833ms)
+✔ 实际带袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (3.232792ms)
+✔ 实际无袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (3.013709ms)
+✔ 实际空袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (8.5645ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 28
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 917.570125
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:2330
+✖ 带袋同一秒连续逐票更正有独立事实，同一更正重试只保存一次 (54.235ms)
+  Error: 事件编号 cutting-event:CRAFT-IN:SPECIAL-HR-RETURN-SAME-SECOND-带袋-BAG-SPECIAL-RETURN-SAME-SECOND-带袋-usage:BAG-SPECIAL-RETURN-SAME-SECOND-带袋:1-usage:BAG-SPECIAL-RETURN-SAME-SECOND-带袋:1:handover:1-SAME-SECOND-带袋-01:20260801012130 已被其他幂等事实占用。
+      at appendCuttingRuntimeEventIdempotentValidated (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cutting-runtime-event-ledger.ts:1299:11)
+      at correctSpecialCraftTicketReturn (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:4227:18)
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:38:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:2330
+✖ 无袋同一秒连续逐票更正有独立事实，同一更正重试只保存一次 (5.368125ms)
+  Error: 事件编号 cutting-event:CRAFT-IN:SPECIAL-HR-RETURN-SAME-SECOND-无袋-SAME-SECOND-无袋-01:20260801012130 已被其他幂等事实占用。
+      at appendCuttingRuntimeEventIdempotentValidated (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cutting-runtime-event-ledger.ts:1299:11)
+      at correctSpecialCraftTicketReturn (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:4227:18)
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:38:23)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)

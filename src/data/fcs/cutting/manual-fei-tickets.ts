@@ -9,6 +9,8 @@ import {
 } from './generated-fei-tickets.ts'
 import { encodeFeiTicketQr } from './qr-codes.ts'
 import { CUTTING_MANUAL_FEI_TICKET_SOURCES_STORAGE_KEY } from './storage/fei-tickets-storage.ts'
+import { productionOrders } from '../production-orders.ts'
+import { getProductionOrderCutPieceParts } from '../production-order-tech-pack-runtime.ts'
 
 export interface ManualFeiTicketOperationLog {
   logId: string
@@ -327,6 +329,38 @@ function linkSiblingTickets(records: GeneratedFeiTicketSourceRecord[]): Generate
   })
 }
 
+/** 排唛架按颜色汇总的代表 SKU 不作为尺码票身份；建票按当前单的明确颜色、尺码定位。 */
+export function resolveManualFeiTicketSourceRows(rows: MarkerPlan['pieceExplosionRows']): MarkerPlan['pieceExplosionRows'] {
+  const uniqueRows = new Map<string, MarkerPlan['pieceExplosionRows'][number]>()
+  for (const row of rows) {
+    const previous = uniqueRows.get(row.id)
+    if (previous) {
+      const keys = [...new Set([...Object.keys(previous), ...Object.keys(row)])].sort()
+      if (keys.some(key => JSON.stringify(previous[key as keyof typeof row]) !== JSON.stringify(row[key as keyof typeof row]))) {
+        throw new Error('同一裁片明细内容不同，请核对唛架后重试。')
+      }
+      continue
+    }
+    uniqueRows.set(row.id, row)
+  }
+  return [...uniqueRows.values()].map(row => {
+    const order = productionOrders.find(item => item.productionOrderId === row.sourceProductionOrderId)
+    if (!order) throw new Error('未找到来源生产单，请重新选择唛架。')
+    const skus = order.demandSnapshot.skuLines.filter(sku => sku.color === row.colorCode && sku.size === row.sizeCode)
+    if (skus.length !== 1) throw new Error('颜色、尺码无法对应唯一 SKU，请核对生产单。')
+    const parts = getProductionOrderCutPieceParts(order.productionOrderId).filter(part =>
+      part.materialSku === row.materialSku
+      && (!part.applicableColorList.length || part.applicableColorList.includes(row.colorCode))
+      && (!part.applicableSizeList.length || part.applicableSizeList.includes(row.sizeCode)))
+    const exact = parts.filter(part => part.partCode === row.partCode)
+    const matches = exact.length ? exact : parts.filter(part => part.partNameCn === row.partCode && part.partNameCn === row.partNameCn)
+    if (matches.length !== 1 || matches[0].pieceCountPerGarment !== row.piecePerGarment) {
+      throw new Error('部位或每件片数与技术资料不一致，请核对唛架。')
+    }
+    return { ...row, skuCode: skus[0].skuCode, partCode: matches[0].partCode }
+  })
+}
+
 export function createManualFeiTicketBatch(input: CreateManualFeiTicketBatchInput): {
   batchId: string
   records: GeneratedFeiTicketSourceRecord[]
@@ -340,12 +374,12 @@ export function createManualFeiTicketBatch(input: CreateManualFeiTicketBatchInpu
   const selectedSizes = Object.entries(input.sizePiecePerLayer)
     .filter(([, qty]) => normalizePositiveInteger(qty) > 0)
     .map(([size]) => normalizeText(size))
-  const sourceRows = input.markerPlan.pieceExplosionRows.filter((row) => {
+  const sourceRows = resolveManualFeiTicketSourceRows(input.markerPlan.pieceExplosionRows.filter((row) => {
     const colorMatches = !memberColor || !normalizeText(row.colorCode) || normalizeText(row.colorCode) === memberColor
     const materialMatches = !memberMaterial || !normalizeText(row.materialSku) || normalizeText(row.materialSku) === memberMaterial
     const sizeMatches = !selectedSizes.length || selectedSizes.includes(normalizeText(row.sizeCode))
     return colorMatches && materialMatches && sizeMatches
-  })
+  }))
   if (!sourceRows.length) throw new Error('该唛架成员没有可生成菲票的裁片部位明细。')
 
   let recordIndex = 0

@@ -6,6 +6,8 @@ import {
   assertCutPieceReleaseDispatchAvailable,
   confirmCutPieceReleaseAvailableQty,
   getCutPieceDispatchReadinessForTask,
+  getCutPieceReleaseSummaryForProductionOrder,
+  listCutPieceReleaseTargetSnapshots,
   listCutPieceReleaseAvailableQtyVersions,
   requiresCutPieceReleaseForProcessCodes,
   resetCutPieceReleasePrototypeStoreForTesting,
@@ -25,6 +27,13 @@ import {
 
 const taskId = 'TASKGEN-202603-0002-002__ORDER'
 const runtimeState = captureRuntimeDirectDispatchState()
+
+function currentReleaseBasis(productionOrderId: string) {
+  const summary = getCutPieceReleaseSummaryForProductionOrder(productionOrderId)
+  const target = listCutPieceReleaseTargetSnapshots(productionOrderId).at(-1)
+  assert(summary && target, '缺少当前放行与目标依据')
+  return { basisMatrixVersion: summary.latestMatrixVersion, basisTargetVersion: target.matrixVersion }
+}
 
 resetCutPieceReleasePrototypeStoreForTesting()
 resetEffectiveTaskAssignmentsForTests()
@@ -69,8 +78,7 @@ try {
 
   const raisedRelease = confirmCutPieceReleaseAvailableQty({
     productionOrderId: 'PO-202603-0002',
-    basisMatrixVersion: 1,
-    basisTargetVersion: 1,
+    ...currentReleaseBasis('PO-202603-0002'),
     releaseQtyByColorSize: {
       'Grey::S': 500,
       'Grey::M': 700,
@@ -82,6 +90,17 @@ try {
     confirmedAt: '2026-08-31 09:10:00',
   })
   assert.equal(raisedRelease.ok, true)
+  const versionsBeforeStaleBasis = listCutPieceReleaseAvailableQtyVersions('PO-202603-0002')
+  const currentBasis = currentReleaseBasis('PO-202603-0002')
+  const staleRelease = confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'PO-202603-0002', ...currentBasis,
+    basisMatrixVersion: currentBasis.basisMatrixVersion - 1,
+    releaseQtyByColorSize: { 'Grey::S': 500, 'Grey::M': 700, 'Grey::L': 800, 'Grey::XL': 500 },
+    riskReason: '不能用旧依据重写最新放行。', confirmedBy: '裁床主管 王敏', confirmedAt: '2026-08-31 09:11:00',
+  })
+  assert.equal(staleRelease.ok, false, '保存阶段必须阻断过期的矩阵依据')
+  assert.match(staleRelease.message, /放行依据已变化/)
+  assert.deepEqual(listCutPieceReleaseAvailableQtyVersions('PO-202603-0002'), versionsBeforeStaleBasis, '过期依据失败不得改变有效版本或历史')
   assert.doesNotThrow(() => assertCutPieceReleaseDispatchAvailable({
     productionOrderId: task.productionOrderId,
     productionOrderNo: task.productionOrderNo,
@@ -128,8 +147,7 @@ try {
   const versionsBeforeRejectedDecrease = listCutPieceReleaseAvailableQtyVersions('PO-202603-0002')
   const rejectedDecrease = confirmCutPieceReleaseAvailableQty({
     productionOrderId: 'PO-202603-0002',
-    basisMatrixVersion: 1,
-    basisTargetVersion: 1,
+    ...currentReleaseBasis('PO-202603-0002'),
     releaseQtyByColorSize: {
       'Grey::S': 399,
       'Grey::M': 680,
@@ -151,8 +169,7 @@ try {
 
   const decreaseToFloor = confirmCutPieceReleaseAvailableQty({
     productionOrderId: 'PO-202603-0002',
-    basisMatrixVersion: 1,
-    basisTargetVersion: 1,
+    ...currentReleaseBasis('PO-202603-0002'),
     releaseQtyByColorSize: {
       'Grey::S': 400,
       'Grey::M': 680,

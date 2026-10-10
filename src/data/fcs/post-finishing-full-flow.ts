@@ -3774,9 +3774,10 @@ export function setPostFinishingDemoBootstrapEnabled(enabled: boolean): void {
 }
 
 function shouldBootstrapPostFinishingDemo(): boolean {
-  if (typeof window === 'undefined' || !globalThis.localStorage) return false
+  if (typeof window === 'undefined') return false
   try {
-    return globalThis.localStorage.getItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY) !== 'empty'
+    const storage = globalThis.localStorage
+    return Boolean(storage) && storage.getItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY) !== 'empty'
   } catch {
     return false
   }

@@ -1,0 +1,82 @@
+✔ ISO与旧本地文本按实际时刻排序，不按空格与T字典排序 (1.577291ms)
+✔ 同一时刻不同时间表达仍按账本序号和稳定ID防重复 (6.204417ms)
+✔ 整组同分钟含低精度记录时，唯一可靠顺序形成稳定全序，不按成对条件切换 (0.64625ms)
+✔ 全部精确时刻仍按秒排序，跨分钟不会被新账本号倒置 (0.083292ms)
+✔ 缺少或重复账本顺序不恢复低精度秒数，沿用原时刻规则 (0.087166ms)
+✔ 共享生命周期在同分钟旧入仓后允许交出，并保留原周期和事实 (0.324958ms)
+✔ 同分钟物理回收之后报废按真实顺序生效，不被周期边界副本或秒数重排 (0.151292ms)
+(node:44640) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 列表只读余量查询满足正整数身份门禁，K100/A205显示当前风险105、占用0及余量205 (34.768ms)
+✔ 裁片放行保留唯一菜单键和地址，归属裁床仓库管理 (0.1595ms)
+✔ 字母与数值尺码升序，自定义尺码保留配置顺序 (0.488167ms)
+✔ 非法数量和空白保持非法，不夹取或四舍五入成另一个有效量 (0.078541ms)
+✔ 目标确认待保存及整票原因也受离开提醒保护，已保存目标和空白原因不误提醒 (0.121916ms)
+✔ 本页导航、补料、系统与当前页签退出统一提醒，关闭其他页签和折叠菜单不误提醒 (0.132333ms)
+✔ 未知自定义尺码在目标和放行矩阵明确提示待核对且保留原序，标准尺码不出现提示 (5.074084ms)
+✔ 未确认与确认零放行分开，零放行不回退成目标281件 (0.118583ms)
+✔ 尚未确认且齐套未知时，确认汇总中的K和R均显示待核对而非零 (2.05225ms)
+✔ 目标与放行渲染为相同颜色行、尺码升序列，缺失SKU格保持不可编辑 (2.393958ms)
+✔ 逐票详情保留最终回仓实收、完整顺序、袋周期、成衣色与面料色以及差异 (0.529416ms)
+✔ 侧栏逐道显示真实交出单、回仓业务号和库位，记录编号放在展开依据中 (0.341291ms)
+✔ 加工完成未回仓仍显示未最终回仓，未知工艺不展示普通免工艺依据 (0.186375ms)
+✔ 真实前道直转投影接入侧栏，末道实收80显示已最终回仓 (0.422125ms)
+✔ 跨工厂直转前道不必回裁床，最终实收80片显示已最终回仓 (0.146417ms)
+✔ 最终实际点收0片保留完成事实，不显示待加工或待回仓 (0.125875ms)
+✔ 历史实收有原始回仓数量但缺加工完成依据，明细保留实收且暂不计齐套 (0.144875ms)
+✔ 整票更正确认同时展示票袋工艺放行分配及保留历史责任 (6.279209ms)
+✔ 整票登记保存携带打开详情时的版本，旧页面不会改用后来读到的版本 (0.721208ms)
+✔ 文案采用短句，目标和放行保留操作边界，整票确认保留实际后果 (8.999708ms)
+✔ 具名静态演示材料使用既有真实图片，三道工艺仅按最终回仓计入 (0.890209ms)
+✔ 示例内部身份只在追溯展开中显示，真实票号完整保留且确认仍显示实际影响 (24.695209ms)
+✔ 真实生成的工艺记录内部UUID只在展开中显示，不替换真实业务号 (2.303083ms)
+(node:44641) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (69.479541ms)
+✔ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (18.113ms)
+✔ 明确单道无袋实收9合法实交后更正7保留旧9责任与真实接收厂 (12.192917ms)
+✔ 整袋候选与提交共享未知来源、未知必要工艺及整票不可用阻断，caller不能给空事件绕过 (22.128875ms)
+✔ 连续工艺具名示例仅提供真实技术包两条未分配任务，不写事实或覆盖旧任务 (4.019542ms)
+✔ 不同菲票的同一实际有序工艺链可同袋，链身份不使用每票阶段ID (0.282583ms)
+✔ 同链两张菲票保留各自阶段身份并分别实收，不把第二票当第一票工艺 (4.513083ms)
+✔ 连续工艺直接由实际持有厂转交下道，前道完成与最后回仓分开记账 (5.154708ms)
+✔ 同袋两票连续转交按每票前道和下道身份核对，最后分别回仓 (4.360959ms)
+✔ 实际任务绑定明确匹配技术包部位工艺、色码、目标对象和当前分配，不采用默认厂 (0.303417ms)
+✔ 特殊工艺交出只能读取原票当前阶段与唯一实际承接任务 (0.284166ms)
+✔ ISO来源交出后同一分钟实际回仓保留秒与时区，不被文本格式判为早于来源 (6.894625ms)
+✔ 逐票实收分别计数，更正库存仅按差额且保留原票 (6.294083ms)
+✔ 未核对加工完成不得保存；历史完成未知保留实收P而不能冒充齐套 (3.613875ms)
+✔ 缺逐票确认、空白、小数、超量与未说明差异都不写入 (3.4705ms)
+✔ 明确零量点收保留事实，但不生成库存或后道实物 (3.477875ms)
+✔ 按身份与顺序分袋，普通和不同工艺链被阻断 (0.151375ms)
+✔ 无袋按票独立点收，不能重复新增或回到其他裁床工厂 (3.965625ms)
+✔ 多道工艺分别保留同票阶段实收，末道不会累加前道数量 (8.81ms)
+✔ 100片已经交出后更正为90片只改依据，保留原实交责任且不反冲库存 (13.117583ms)
+✔ 同一分钟旧入仓分钟时间晚于精确装袋账本，不退回已装袋状态 (0.874375ms)
+✔ 正常入仓默认保留完整时刻，同分钟装袋后入仓可继续交出 (0.64475ms)
+✔ 实际带袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (3.525375ms)
+✖ 实际无袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.344875ms)
+✔ 实际空袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.912333ms)
+ℹ tests 55
+ℹ suites 0
+ℹ pass 54
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 832.642083
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:69719
+✖ 实际无袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.344875ms)
+  Error: 无袋回仓操作人与载荷不一致。
+      at submitSpecialCraftTicketOnlyReturn (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:3991:11)
+      at appendWaitHandoverSpecialCraftReturnEvent (/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/wait-handover-runtime.ts:2419:10)
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:762:19)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

@@ -1,0 +1,3020 @@
+{
+  "branch": "codex/sidebar-menu-group-ui",
+  "baseCommit": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "requirements": [
+    {
+      "id": "SCOPE-001",
+      "source": "1.2",
+      "requirement": "仅本轮范围内调整，不新增真实后端、云存储或无关流程",
+      "workPackage": "WP01 / C01～C15",
+      "binding": "E09、E10，完整 diff 与范围检查",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/main.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "1.2",
+        "3.1",
+        "19.18"
+      ]
+    },
+    {
+      "id": "MENU-001",
+      "source": "9.1 / U01",
+      "requirement": "菜单仅移到裁床仓库管理且无重复入口",
+      "workPackage": "WP05 / C01",
+      "binding": "E01",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/list direct route complete"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/app-shell-config.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "9.1"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381534+00:00",
+      "semanticReviewNote": "实际活动入口位于裁床仓库；菜单树契约仅出现一次；旧裁后组无重复。"
+    },
+    {
+      "id": "MENU-002",
+      "source": "9.1",
+      "requirement": "保留现有对象、页面地址及直达能力",
+      "workPackage": "WP05 / C01",
+      "binding": "E01",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/HTTP cache disabled direct route complete"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.1"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381978+00:00",
+      "semanticReviewNote": "未访问上游独立直达详情及列表，保留原路径。"
+    },
+    {
+      "id": "SOURCE-001",
+      "source": "5.1 / U04",
+      "requirement": "只有有效已装袋票贡献放行计算，不直接用未装袋产出",
+      "workPackage": "WP01、WP03 / C02、C03、C07",
+      "binding": "E02、E04；S02",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-36",
+        "R1-44",
+        "R1-57",
+        "R1-58"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "19.19",
+        "19.9",
+        "5.1"
+      ]
+    },
+    {
+      "id": "SOURCE-002",
+      "source": "5.1、13.2 / 19.1（手动来源细化）",
+      "requirement": "有效手动唛架票装袋后进入同一计算且不伪造铺布",
+      "workPackage": "WP01、WP03 / C03",
+      "binding": "E02、E08；S17",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-07",
+        "R1-10",
+        "R1-16",
+        "R1-19",
+        "R1-44",
+        "R1-45"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/manual-fei-tickets.ts",
+        "src/data/fcs/cutting/fei-ticket-numbering.ts",
+        "src/pages/process-factory/cutting/marker-plan-model.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "5.1",
+        "13.2",
+        "19.1",
+        "19.9",
+        "19.10"
+      ]
+    },
+    {
+      "id": "SOURCE-003",
+      "source": "3.2、5.1 / 19.6",
+      "requirement": "成衣色码、材料 BOM 行和部位身份准确对应",
+      "workPackage": "WP01 / C03、C04、C07",
+      "binding": "E02、E04；S08、S09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-39",
+        "R1-07",
+        "R1-10",
+        "R1-19",
+        "R1-44"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "3.2",
+        "5.1",
+        "19.6",
+        "19.9"
+      ]
+    },
+    {
+      "id": "SOURCE-004",
+      "source": "5.1、7.1 / 19.4 / 19.5 / 19.7",
+      "requirement": "换袋、正常移库 / 交出不重复增产或扣减累计齐套",
+      "workPackage": "WP01、WP03 / C07、C13",
+      "binding": "E02、E08；S16、S21",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-41",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50",
+        "R1-57",
+        "R1-58",
+        "R1-59",
+        "R1-60",
+        "R1-62",
+        "R1-64",
+        "R1-66"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "13.1",
+        "13.4",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.19",
+        "19.4",
+        "19.5",
+        "19.7",
+        "5.3"
+      ]
+    },
+    {
+      "id": "VALID-001",
+      "source": "5.2 / U05",
+      "requirement": "不提供同票部分可用、部分剔除或拆票输入",
+      "workPackage": "WP01、WP05 / C06、C07",
+      "binding": "E02、E07；S03",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-ticket-validity.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "5.2"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381982+00:00"
+    },
+    {
+      "id": "VALID-002",
+      "source": "5.2 / 19.3",
+      "requirement": "整票不可用排除当前数量和后续流转且保留追溯",
+      "workPackage": "WP01、WP06 / C07、C13",
+      "binding": "E02、E08；S03",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-22"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "5.2",
+        "19.3"
+      ]
+    },
+    {
+      "id": "VALID-003",
+      "source": "5.2、11.1",
+      "requirement": "整票更正不改原票、确认决定和历史交接责任",
+      "workPackage": "WP01、WP04、WP06 / C03、C05、C13",
+      "binding": "E02、E05、E08",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion",
+        "ui-browser.json#/scenarios/validity-conflict-browser.json/old tab validity version conflict rejects overwrite and retains reason"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-02",
+        "R1-14"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "5.2"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381984+00:00"
+    },
+    {
+      "id": "BAG-001",
+      "source": "5.3 / 用户流程图",
+      "requirement": "普通票与工艺票不能同袋",
+      "workPackage": "WP01、WP05 / C07",
+      "binding": "E02、E07；S23",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-45",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "5.3",
+        "19.10",
+        "19.13"
+      ]
+    },
+    {
+      "id": "BAG-002",
+      "source": "5.3 / 用户流程图",
+      "requirement": "不同必要工艺链与顺序不能同袋",
+      "workPackage": "WP01、WP05 / C07、C09",
+      "binding": "E02、E07；S23",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-13",
+        "R1-45",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "5.3",
+        "19.10",
+        "19.13"
+      ]
+    },
+    {
+      "id": "BAG-003",
+      "source": "5.3",
+      "requirement": "同票有效占用、袋周期与重复扫描不会重复累计",
+      "workPackage": "WP01、WP02 / C07、C08、C14",
+      "binding": "E02、E09；S16",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-34",
+        "R1-45",
+        "R1-49",
+        "R1-60"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.10",
+        "19.13",
+        "19.19",
+        "5.3"
+      ]
+    },
+    {
+      "id": "CRAFT-001",
+      "source": "6.1 / U06 / 19.2（具名示例来源） / 19.3",
+      "requirement": "工艺要求来自具体部位与版本，覆盖辅助和特种",
+      "workPackage": "WP01、WP02 / C03、C09",
+      "binding": "E03",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-15",
+        "R1-27",
+        "R1-31",
+        "R1-34",
+        "R1-48",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "6.1",
+        "19.2",
+        "19.3",
+        "19.12",
+        "19.13"
+      ]
+    },
+    {
+      "id": "CRAFT-002",
+      "source": "6.1 / U06 / 19.2（具名示例来源）",
+      "requirement": "工艺链支持一至 N 道有序必要工艺",
+      "workPackage": "WP02 / C09",
+      "binding": "E03；S05",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-12",
+        "R1-13",
+        "R1-34",
+        "R1-48",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "4.1",
+        "6.2",
+        "6.3",
+        "19.2",
+        "19.12",
+        "19.13"
+      ]
+    },
+    {
+      "id": "CRAFT-003",
+      "source": "6.2 / U07 / 19.2（具名示例来源）",
+      "requirement": "非最终回仓不计入齐套",
+      "workPackage": "WP02、WP03 / C08、C09",
+      "binding": "E03、E04；S05",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-12",
+        "R1-48",
+        "R1-49",
+        "R1-63"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "6.2"
+      ]
+    },
+    {
+      "id": "CRAFT-004",
+      "source": "6.2 / U07 / 19.2（具名示例来源）",
+      "requirement": "最终加工完成但未回裁床仓不计入齐套",
+      "workPackage": "WP02、WP03 / C08、C09",
+      "binding": "E03、E04；S04",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-48",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "6.2",
+        "19.2",
+        "19.12",
+        "19.13"
+      ]
+    },
+    {
+      "id": "CRAFT-005",
+      "source": "6.2 / U07 / 19.2（具名示例来源）",
+      "requirement": "全链满足后以最终有效实收片数计入",
+      "workPackage": "WP02、WP03 / C08、C09",
+      "binding": "E03、E04；S06",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-12",
+        "R1-22",
+        "R1-44",
+        "R1-48",
+        "R1-49",
+        "R1-57",
+        "R1-58",
+        "R1-62",
+        "R1-63",
+        "R1-64"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "19.9",
+        "6.2"
+      ]
+    },
+    {
+      "id": "CRAFT-006",
+      "source": "6.1、7.2 / 19.2（具名示例来源）",
+      "requirement": "缺工艺绑定或要求不全不默认无需工艺",
+      "workPackage": "WP01、WP03 / C03、C09",
+      "binding": "E03、E04；S18",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-12",
+        "R1-27",
+        "R1-48",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "6.1",
+        "19.2",
+        "19.12",
+        "19.13"
+      ]
+    },
+    {
+      "id": "CRAFT-007",
+      "source": "6.4 / 19.2（具名示例来源）",
+      "requirement": "多道工艺统计按唯一裁片计数，不按道数倍增",
+      "workPackage": "WP03、WP05 / C09、C06",
+      "binding": "E03、E07；S05",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-48",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "6.4",
+        "19.2",
+        "19.12",
+        "19.13"
+      ]
+    },
+    {
+      "id": "CRAFT-008",
+      "source": "6.4 / 19.2（具名示例来源） / 19.3",
+      "requirement": "未加工、加工完成待回仓、最终已回仓与差异明确区分",
+      "workPackage": "WP03、WP05 / C09、C06",
+      "binding": "E03、E07；S04、S06",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-48",
+        "R1-49",
+        "R1-57",
+        "R1-58",
+        "R1-62",
+        "R1-63"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "19.3",
+        "6.3",
+        "9.5"
+      ]
+    },
+    {
+      "id": "RECEIPT-001",
+      "source": "8.1、8.2 / U08 / 19.2（具名示例来源） / 19.7",
+      "requirement": "多票回仓逐票保存各自实际实收",
+      "workPackage": "WP02 / C08、C09、C10",
+      "binding": "E03、E08；S07",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-42",
+        "R1-56"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "19.19",
+        "19.7",
+        "4.1",
+        "8.1",
+        "8.2"
+      ]
+    },
+    {
+      "id": "RECEIPT-002",
+      "source": "8.2 / U08 / 19.2（具名示例来源）",
+      "requirement": "不按总量、预计量比例或多个阶段自动分摊实收",
+      "workPackage": "WP02 / C09、C10",
+      "binding": "E03、E08；S07",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/pda-cutting-handover.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "8.1",
+        "8.2"
+      ]
+    },
+    {
+      "id": "RECEIPT-003",
+      "source": "8.2、8.3 / 19.2（具名示例来源） / 19.3 / 19.4 / 19.5 / 19.6 / 19.7",
+      "requirement": "绑定真实当前来源单、票、工艺阶段、厂和库位",
+      "workPackage": "WP02 / C08、C10",
+      "binding": "E03、E08；S23",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-13",
+        "R1-15",
+        "R1-20",
+        "R1-37",
+        "R1-38",
+        "R1-39",
+        "R1-40",
+        "R1-41",
+        "R1-42",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-57",
+        "R1-58",
+        "R1-61"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.1",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "19.3",
+        "19.4",
+        "19.5",
+        "19.6",
+        "19.7",
+        "3.1",
+        "3.2",
+        "8.3"
+      ]
+    },
+    {
+      "id": "RECEIPT-004",
+      "source": "8.3 / 19.2（具名示例来源） / 19.7",
+      "requirement": "实收必须非负安全整数，空白不当零，零量明确点收",
+      "workPackage": "WP02 / C08、C10",
+      "binding": "E03、E08",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-42",
+        "R1-12"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "8.2",
+        "8.3",
+        "19.7"
+      ]
+    },
+    {
+      "id": "RECEIPT-005",
+      "source": "8.3 / 19.2（具名示例来源）",
+      "requirement": "实收不无依据超应回量，差异据实记录与说明",
+      "workPackage": "WP02 / C08、C09、C10",
+      "binding": "E03、E08；S06、S07",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-12"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "8.2",
+        "8.3"
+      ]
+    },
+    {
+      "id": "RECEIPT-006",
+      "source": "8.3、15.2 / 19.2（具名示例来源） / 19.3 / 19.8",
+      "requirement": "原收货更正替代有效量，重复重试不新增数量",
+      "workPackage": "WP02 / C08、C14",
+      "binding": "E03、E09；S16",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-43",
+        "R1-22",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-59",
+        "R1-61",
+        "R1-62",
+        "R1-63"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.3",
+        "19.8",
+        "6.2",
+        "8.3"
+      ]
+    },
+    {
+      "id": "RECEIPT-007",
+      "source": "8.1、8.4 / 19.2（具名示例来源） / 19.5 / 19.6 / 19.8",
+      "requirement": "Web 与 PDA 回仓保存和读取同一事实",
+      "workPackage": "WP02、WP06 / C08、C10、C14",
+      "binding": "E08、E09；S19",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-20",
+        "R1-38",
+        "R1-40",
+        "R1-43",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50",
+        "R1-57",
+        "R1-58",
+        "R1-59",
+        "R1-62"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/pda-cutting-handover.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-actions.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.19",
+        "19.5",
+        "19.6",
+        "19.8",
+        "8.1",
+        "8.3",
+        "8.4"
+      ]
+    },
+    {
+      "id": "QTY-001",
+      "source": "7.1、7.4 / U12",
+      "requirement": "目标实物候选 C 与最终齐套 K 分开",
+      "workPackage": "WP03 / C04、C05",
+      "binding": "E04；S04、S10",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-57",
+        "R1-59",
+        "R1-63",
+        "R1-64"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.19",
+        "4.2",
+        "7.1"
+      ]
+    },
+    {
+      "id": "QTY-002",
+      "source": "7.2",
+      "requirement": "按单耗向下取整，不把片数直接当件数",
+      "workPackage": "WP03 / C04",
+      "binding": "E04；S01、S08",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.2"
+      ]
+    },
+    {
+      "id": "QTY-003",
+      "source": "7.2",
+      "requirement": "必需部位、材料分别取短板，不跨色码抵扣",
+      "workPackage": "WP03 / C04",
+      "binding": "E04；S01、S08、S09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-44"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/generated-cut-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.2",
+        "19.9"
+      ]
+    },
+    {
+      "id": "QTY-004",
+      "source": "3.2、7.2",
+      "requirement": "已知左右实例分别满足，缺部位不能被其他数量掩盖",
+      "workPackage": "WP01、WP03 / C03、C04",
+      "binding": "E02、E04；S08",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/generated-cut-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.2"
+      ]
+    },
+    {
+      "id": "QTY-005",
+      "source": "7.2",
+      "requirement": "无 SKU、已知零量和资料缺失是不同结果",
+      "workPackage": "WP03、WP05 / C04、C06",
+      "binding": "E04、E07；S18",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-09"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.2"
+      ]
+    },
+    {
+      "id": "QTY-006",
+      "source": "7.3",
+      "requirement": "工艺等待不作为物理补裁缺口",
+      "workPackage": "WP03、WP06 / C04、C15",
+      "binding": "E04、E08；S04",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-05"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.3",
+        "13.3"
+      ]
+    },
+    {
+      "id": "TARGET-001",
+      "source": "7.4、9.3 / U12",
+      "requirement": "同色码从原材料候选选择目标，不改成自由输入",
+      "workPackage": "WP03、WP05 / C04、C06",
+      "binding": "E04、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/physical target candidate selection and cancel",
+        "ui-browser.json#/scenarios/saved-browser.json/target physical candidate save"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "7.4",
+        "9.3"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381988+00:00"
+    },
+    {
+      "id": "TARGET-002",
+      "source": "7.4、11.1 / U13",
+      "requirement": "事实变化不自动改目标或使原目标快照不可读",
+      "workPackage": "WP04 / C05",
+      "binding": "E05；S10",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion",
+        "ui-browser.json#/scenarios/ordinary-browser.json/historical matrix drawer and close"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-05",
+        "R1-44"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "3.2",
+        "7.4",
+        "9.3",
+        "11.1",
+        "19.9"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381990+00:00"
+    },
+    {
+      "id": "TARGET-003",
+      "source": "9.3",
+      "requirement": "主动重选确认才保存新目标，取消保留原快照",
+      "workPackage": "WP04、WP05 / C05、C06",
+      "binding": "E05、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/target confirmation back to editing preserves candidate and cancel restores saved target",
+        "ui-browser.json#/scenarios/saved-browser.json/target physical candidate save"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.4",
+        "9.3"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381991+00:00"
+    },
+    {
+      "id": "RELEASE-001",
+      "source": "7.5 / U10",
+      "requirement": "未齐套仍可在目标内人工风险放行",
+      "workPackage": "WP04 / C05",
+      "binding": "E05；S04",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/release save preserves directly typed risk reason through quantity blur"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "3.1",
+        "4.1",
+        "4.2",
+        "7.5",
+        "10.2"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381993+00:00"
+    },
+    {
+      "id": "RELEASE-002",
+      "source": "7.5",
+      "requirement": "已知当前风险大于零时放行原因必填",
+      "workPackage": "WP04、WP05 / C05、C06",
+      "binding": "E05、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/release save preserves directly typed risk reason through quantity blur",
+        "ui-browser.json#/scenarios/save-failure-browser.json/risk release save transaction abort preserves prior A and editable quantity/reason"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.5"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381995+00:00"
+    },
+    {
+      "id": "RELEASE-003",
+      "source": "7.5、11.3 / U14",
+      "requirement": "新放行不得低于有效已分配占用",
+      "workPackage": "WP04 / C05",
+      "binding": "E05；S12",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.5",
+        "11.3"
+      ]
+    },
+    {
+      "id": "RELEASE-004",
+      "source": "7.5 / U14",
+      "requirement": "新放行不得高于目标，风险原因不豁免",
+      "workPackage": "WP04 / C05",
+      "binding": "E05",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/release invalid quantity error and coordinate focus"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.5",
+        "9.4",
+        "11.3"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381996+00:00"
+    },
+    {
+      "id": "RELEASE-005",
+      "source": "7.5、9.4",
+      "requirement": "打开已有放行沿用保存值，不自动改成当前齐套",
+      "workPackage": "WP04、WP05 / C05、C06",
+      "binding": "E05、E07；S11",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/release save preserves directly typed risk reason through quantity blur"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-01"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "10.1"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381998+00:00"
+    },
+    {
+      "id": "CHANGE-001",
+      "source": "10.1、11.1 / U13",
+      "requirement": "当前有效事实实时更新，人工放行决定不自动失效",
+      "workPackage": "WP04 / C05",
+      "binding": "E05；S11、S15",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-44"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "3.2",
+        "8.4",
+        "10.1",
+        "11.1",
+        "19.9"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.381999+00:00"
+    },
+    {
+      "id": "CHANGE-002",
+      "source": "7.1、10.1",
+      "requirement": "当前风险与确认时风险分别保存 / 展示",
+      "workPackage": "WP04、WP05 / C05、C06",
+      "binding": "E05、E07；S15",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion",
+        "ui-browser.json#/scenarios/saved-browser.json/saved version log pagination and per-SKU historical facts"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.7",
+        "10.1",
+        "11.2"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382001+00:00"
+    },
+    {
+      "id": "CHANGE-003",
+      "source": "11.1、11.3 / U13",
+      "requirement": "事实更正不自动取消或修改旧分配",
+      "workPackage": "WP04、WP06 / C05、C12",
+      "binding": "E05、E06；S11",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "11.1",
+        "11.3"
+      ]
+    },
+    {
+      "id": "CHANGE-004",
+      "source": "11.2 / 9.7（标准列表及独立数量变化筛选）",
+      "requirement": "有实际差异提示受影响色码，重复读取不造变化版本",
+      "workPackage": "WP04 / C05",
+      "binding": "E05、E09；S16",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/maintain effective release records reviewed live facts"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.7",
+        "11.2"
+      ],
+      "plannedFinalPageBindings": [
+        "ui-browser.json#/runs/list-browser.json/scenarios（标准查询、重置、分页、排序、列设置、拖拽）",
+        "ui-browser.json#/runs/craft-export-browser.json/scenarios/list effective release status and fact review filters",
+        "list-responsive-v29.json（1366/1280/1024）"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382003+00:00"
+    },
+    {
+      "id": "CHANGE-005",
+      "source": "9.4、11.2",
+      "requirement": "人工维持 / 调整以最新依据保存新版本并留历史",
+      "workPackage": "WP04、WP05 / C05、C06",
+      "binding": "E05、E07；S11、S12",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/maintain effective release records reviewed live facts",
+        "ui-browser.json#/scenarios/saved-browser.json/saved version log pagination and per-SKU historical facts"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-01",
+        "R1-02"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "10.2",
+        "11.2",
+        "11.4"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382005+00:00"
+    },
+    {
+      "id": "PAGE-001",
+      "source": "9.2、9.3 / U02、U03",
+      "requirement": "目标确认矩阵为成衣颜色行、尺码升序列",
+      "workPackage": "WP05 / C06",
+      "binding": "E01、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1366x768",
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1280x720",
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1024x768",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target XL material candidate selection and cancel"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-25"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "9.2",
+        "9.3"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382007+00:00",
+      "semanticReviewNote": "实际颜色行Black/White/Navy/Red、M/L/XL列；三种尺寸及1024 XL滚动后可点击。"
+    },
+    {
+      "id": "PAGE-002",
+      "source": "9.2、9.4 / U02、U03",
+      "requirement": "放行确认矩阵采用同一轴和坐标",
+      "workPackage": "WP05 / C06",
+      "binding": "E01、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/release matrix cell details and close",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual release XL quantity edit and cancel"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "9.2",
+        "9.4"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382009+00:00",
+      "semanticReviewNote": "目标与放行使用同一坐标；1024 XL499确为XL输入，未误改M/L。"
+    },
+    {
+      "id": "PAGE-003",
+      "source": "9.2",
+      "requirement": "使用业务尺码顺序，未知自定义顺序明确待核对",
+      "workPackage": "WP05 / C06",
+      "binding": "E01、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target M material candidate selection and cancel",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target L material candidate selection and cancel",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target XL material candidate selection and cancel"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.2"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382011+00:00",
+      "semanticReviewNote": "标准数值/字母升序与自定义保原序的明确待核对实际渲染契约；标准M/L/XL真实操作。"
+    },
+    {
+      "id": "PAGE-004",
+      "source": "9.4",
+      "requirement": "数量编辑与开详情交互分开，错误定位具体色码",
+      "workPackage": "WP05 / C06",
+      "binding": "E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/release invalid quantity error and coordinate focus",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual release M quantity edit and cancel"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.2",
+        "9.4"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382012+00:00",
+      "semanticReviewNote": "数量输入不触发抽屉，非法原值保留，实际Black/M焦点和具体错误，不夹取或取整。"
+    },
+    {
+      "id": "PAGE-005",
+      "source": "9.5 / U09",
+      "requirement": "单元格展示需工艺、最终已回仓和未完成片数",
+      "workPackage": "WP05 / C06",
+      "binding": "E07；S04、S06",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts M ticket trace",
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts L ticket trace"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "6.4",
+        "9.5"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382014+00:00",
+      "semanticReviewNote": "单票三道需90、最终87、未完成0与差异3分列，未计三次270；M末道未回仓明确显示。"
+    },
+    {
+      "id": "PAGE-006",
+      "source": "9.6 / U09",
+      "requirement": "单元格打开对应色码 / 材料的侧栏详情",
+      "workPackage": "WP05 / C06",
+      "binding": "E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1366x768",
+        "ui-browser.json#/scenarios/ordinary-browser.json/material cell drawer and close",
+        "ui-browser.json#/scenarios/ordinary-browser.json/keyboard cell activation focus trap and Escape"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.6"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382016+00:00",
+      "semanticReviewNote": "颜色尺码及材料三个入口打开对应原对象，键盘/焦点/Esc正常，无跨格。"
+    },
+    {
+      "id": "PAGE-007",
+      "source": "9.6 / 19.3 / 19.6",
+      "requirement": "侧栏有部位、菲票、袋、逐道工艺和逐票实收来源",
+      "workPackage": "WP05 / C06",
+      "binding": "E07、E08",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts M ticket trace",
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts L ticket trace",
+        "ui-browser.json#/scenarios/craft-export-browser.json/drawer material part and craft status filters"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-39",
+        "R1-15",
+        "R1-35",
+        "R1-44",
+        "R1-47",
+        "R1-48",
+        "R1-49"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.6",
+        "19.3",
+        "19.6",
+        "19.9",
+        "19.11",
+        "19.12",
+        "19.13"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382018+00:00",
+      "semanticReviewNote": "逐票各道真实承接、交出/回仓业务号及实收、责任、时间保留；原内部记录仅展开。实际新票回仓链仍另验RECEIPT。"
+    },
+    {
+      "id": "PAGE-008",
+      "source": "9.6",
+      "requirement": "真实图片可看大图并处理关闭、Esc和失败状态",
+      "workPackage": "WP05 / C06",
+      "binding": "E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/real image zoom decode and Escape close",
+        "ui-browser.json#/scenarios/ordinary-browser.json/image zoom explicit close button",
+        "ui-browser.json#/scenarios/ordinary-browser.json/image zoom outside mask close",
+        "ui-browser.json#/scenarios/craft-export-browser.json/thumbnail reload completes explicit failed-image state",
+        "ui-browser.json#/scenarios/craft-export-browser.json/failed image zoom open completes explicit failure",
+        "ui-browser.json#/scenarios/craft-export-browser.json/failed image zoom Escape closes and restores thumbnail focus",
+        "style-images-v36.json#/scenarios",
+        "material-images-v36.json#/scenarios",
+        "output/playwright/cut-release-ui/visual-inspection-v36.json"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "9.2",
+        "9.6",
+        "16.2",
+        "19.15",
+        "19.17"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382021+00:00",
+      "semanticReviewNote": "全部9款与必需材料实际解码，各自对应缩略图；大图关闭/遮罩/Esc焦点恢复，模拟失败可见。新增照片为明确静态原型示例。"
+    },
+    {
+      "id": "PAGE-009",
+      "source": "9.7",
+      "requirement": "未确认、暂不放行0和目标数量不混用",
+      "workPackage": "WP05 / C06",
+      "binding": "E07；S20",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/craft-export-browser.json/unknown material support K and current risk remain waiting on direct route"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-09",
+        "R1-65"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "10.2",
+        "19.19",
+        "9.2"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382023+00:00",
+      "semanticReviewNote": "实际未知资料K和R显示待核对；未确认与A0不回退成目标281由实际渲染契约覆盖。"
+    },
+    {
+      "id": "PAGE-010",
+      "source": "9.7",
+      "requirement": "日志区分决定与事实，导出单位和当前版本不混入草稿",
+      "workPackage": "WP05 / C06",
+      "binding": "E05、E07",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/saved version log pagination and per-SKU historical facts",
+        "ui-browser.json#/scenarios/craft-export-browser.json/current filtered CSV saved values excludes other-tab unsaved draft",
+        "ui-browser.json#/scenarios/list-browser.json/matrix fact history expand collapse and pagination"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-65"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.19",
+        "9.7"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382025+00:00",
+      "semanticReviewNote": "当前筛选导出只含已保存量、件/片及当前版本，兄弟标签页999草稿未混入；日志分页保留各SKU确认事实。"
+    },
+    {
+      "id": "DISPATCH-001",
+      "source": "12.1",
+      "requirement": "放行门禁适用从车缝开始任务，整包自裁保持原策略",
+      "workPackage": "WP06 / C11、C12",
+      "binding": "E06；S24",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/sewing-assignment-readiness.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "12.1"
+      ]
+    },
+    {
+      "id": "DISPATCH-002",
+      "source": "12.2 / U11",
+      "requirement": "适用任务没有有效放行不得新增分配",
+      "workPackage": "WP06 / C05、C12",
+      "binding": "E06；S14",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "12.2"
+      ]
+    },
+    {
+      "id": "DISPATCH-003",
+      "source": "7.1、12.2 / U14",
+      "requirement": "分配不得超过有效放行减有效占用，不提供超量豁免",
+      "workPackage": "WP06 / C05、C12",
+      "binding": "E06；S14",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-09"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "12.2"
+      ]
+    },
+    {
+      "id": "DISPATCH-004",
+      "source": "12.2 / U11",
+      "requirement": "未齐套和辅料未配齐本身不阻断适用车缝分配",
+      "workPackage": "WP06 / C11、C12",
+      "binding": "E06；S13",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/sewing-assignment-readiness.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.1",
+        "4.1",
+        "4.2",
+        "12.2"
+      ]
+    },
+    {
+      "id": "DISPATCH-005",
+      "source": "12.2",
+      "requirement": "页面候选、提交与共享保存检查采用同一门禁",
+      "workPackage": "WP06 / C11、C12",
+      "binding": "E06、E09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "3.1",
+        "12.2",
+        "12.4"
+      ]
+    },
+    {
+      "id": "ACCESSORY-001",
+      "source": "12.3",
+      "requirement": "配料读取真实物料事实，不用裁片齐套赋值",
+      "workPackage": "WP06 / C05、C11",
+      "binding": "E06、E08",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "12.3"
+      ]
+    },
+    {
+      "id": "ACCESSORY-002",
+      "source": "12.3",
+      "requirement": "配料与工艺欠数分别可见并交由PPIC继续跟进",
+      "workPackage": "WP06 / C11、C12",
+      "binding": "E06、E08；S13",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/pages/sewing-outsourcing/tasks.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "3.1",
+        "4.1",
+        "12.3"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-001",
+      "source": "13.1 / 19.3",
+      "requirement": "简易交出保留既有整票范围和接收边界，不强制装袋",
+      "workPackage": "WP06 / C13、H02",
+      "binding": "E08",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-27",
+        "R1-34",
+        "R1-45"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.2",
+        "4.2",
+        "13.1",
+        "19.1",
+        "19.3",
+        "19.10"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-002",
+      "source": "13.1 / 19.3 / 19.5 / 19.6 / 19.7",
+      "requirement": "两类交出共享消耗、防重复并使用最终有效实物量",
+      "workPackage": "WP06 / C08、C13",
+      "binding": "E08；S16、S21",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-40",
+        "R1-41",
+        "R1-42",
+        "R1-22",
+        "R1-36",
+        "R1-37",
+        "R1-47",
+        "R1-49",
+        "R1-59",
+        "R1-60",
+        "R1-64"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "13.1",
+        "19.11",
+        "19.13",
+        "19.19",
+        "19.3",
+        "19.5",
+        "19.6",
+        "19.7"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-003",
+      "source": "13.1 / 19.3",
+      "requirement": "最低应回责任读实交 / 实收及退回，不读放行承诺替代",
+      "workPackage": "WP06 / C13、H02、H04",
+      "binding": "E08；S21",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "13.1",
+        "19.3"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-004",
+      "source": "13.2 / 19.1（手动来源细化）",
+      "requirement": "原票打印身份和分纸规则保留，手动来源不中断",
+      "workPackage": "WP06 / C03、H03",
+      "binding": "E08；S17",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-07",
+        "R1-08",
+        "R1-10",
+        "R1-11",
+        "R1-16",
+        "R1-19",
+        "R1-26",
+        "R1-32"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/manual-fei-tickets.ts",
+        "src/data/fcs/cutting/fei-ticket-numbering.ts",
+        "src/pages/process-factory/cutting/marker-plan-model.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "1.2",
+        "13.2",
+        "16.2"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-005",
+      "source": "13.3",
+      "requirement": "补料读已确认目标和最新实物，保留原来源及人工发起规则",
+      "workPackage": "WP06 / C15、H04",
+      "binding": "E04、E08；S10",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "supplement-browser.json#/scenarios/整票变化后补料用最新实物且目标保持208件",
+        "supplement-browser.json#/scenarios/人工提交到确认页再返回保留来源"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-05",
+        "R1-06",
+        "R1-28"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/supplement-management.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "7.3",
+        "13.3"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382027+00:00"
+    },
+    {
+      "id": "DOWNSTREAM-006",
+      "source": "13.3",
+      "requirement": "退仓票 / 自由补料不直接叠加新增齐套",
+      "workPackage": "WP06 / C15、H04",
+      "binding": "E08；S22",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "13.3"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-007",
+      "source": "13.4",
+      "requirement": "冻结裁剪依据保留但真实后续仓库工艺事实继续反映",
+      "workPackage": "WP03、WP06 / C05",
+      "binding": "E04、E08；S22",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-03"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "13.4"
+      ]
+    },
+    {
+      "id": "STORE-001",
+      "source": "15.1、15.2",
+      "requirement": "本次业务按记录保存于现有IDB，不增业务localStorage回退",
+      "workPackage": "WP02、WP04、WP07 / C05、C14",
+      "binding": "E09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-04"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.1"
+      ]
+    },
+    {
+      "id": "STORE-002",
+      "source": "8.4、15.2 / 19.3 / 19.8",
+      "requirement": "关联动作原子保存，事务完成后才成功和更新数量",
+      "workPackage": "WP02、WP04 / C14",
+      "binding": "E09；S19",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-43",
+        "R1-02",
+        "R1-24",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cutting-event-repository.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "8.4",
+        "15.2",
+        "19.3",
+        "19.8",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14"
+      ]
+    },
+    {
+      "id": "STORE-003",
+      "source": "15.2 / 19.7 / 19.8",
+      "requirement": "保存阶段核对来源 / 占用版本并识别多页冲突",
+      "workPackage": "WP02、WP04、WP06 / C14、C12",
+      "binding": "E09；S19",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-42",
+        "R1-43",
+        "R1-14",
+        "R1-18",
+        "R1-24",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/cut-piece-ticket-validity.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "11.4",
+        "12.4",
+        "15.2",
+        "19.7",
+        "19.8",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14"
+      ]
+    },
+    {
+      "id": "STORE-004",
+      "source": "15.1、15.4 / 19.8",
+      "requirement": "刷新、关闭重开、直达下游独立读回同一保存结果",
+      "workPackage": "WP07 / C14",
+      "binding": "E09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-43",
+        "R1-01",
+        "R1-02",
+        "R1-08",
+        "R1-11",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.2",
+        "19.8",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.19"
+      ]
+    },
+    {
+      "id": "STORE-005",
+      "source": "15.3",
+      "requirement": "迁移保留历史、可中断恢复，验证后才清理旧源",
+      "workPackage": "WP07 / C05、C14",
+      "binding": "E09",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/legacy-migration-browser.json/legacy migration real transaction abort retains original LS and closed-pages confirmation",
+        "ui-browser.json#/scenarios/legacy-migration-browser.json/legacy migration retry commits and verifies before removing old exclusive key",
+        "migration-browser.json"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-04",
+        "R1-29"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.3"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382030+00:00"
+    },
+    {
+      "id": "STORE-006",
+      "source": "15.3",
+      "requirement": "历史缺失证据标待核对，不伪造装袋或工艺实收",
+      "workPackage": "WP07 / C05、C09",
+      "binding": "E09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.3"
+      ]
+    },
+    {
+      "id": "STORE-007",
+      "source": "15.1、15.3 / 19.3 / 19.7",
+      "requirement": "普通读取不种子落盘、不全量业务整包重写或长期双写",
+      "workPackage": "WP02、WP07 / C14、C05",
+      "binding": "E09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-41",
+        "R1-04",
+        "R1-06",
+        "R1-30",
+        "R1-31",
+        "R1-32",
+        "R1-44",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts",
+        "src/data/fcs/post-finishing-full-flow.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts",
+        "src/data/fcs/special-craft-task-orders.ts::listCutPieceSpecialCraftTaskOrderSources",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/pages/print/print-preview.ts::loadPrintAdapter",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.1",
+        "19.3",
+        "19.4",
+        "19.7",
+        "19.9",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14"
+      ]
+    },
+    {
+      "id": "STORE-008",
+      "source": "15.4 / 19.3",
+      "requirement": "读取 / 保存失败保留旧数据和输入，不虚假成功",
+      "workPackage": "WP02、WP04、WP07 / C14",
+      "binding": "E09；S19",
+      "status": "已实现待验证",
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/save-failure-browser.json/risk release save transaction abort preserves prior A and editable quantity/reason",
+        "ui-browser.json#/scenarios/validity-conflict-browser.json/old tab validity version conflict rejects overwrite and retains reason",
+        "idb-open-browser.json",
+        "storage-browser.json"
+      ],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-04",
+        "R1-06",
+        "R1-17",
+        "R1-20",
+        "R1-21",
+        "R1-28",
+        "R1-29",
+        "R1-30",
+        "R1-31",
+        "R1-32",
+        "R1-49",
+        "R1-50"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/post-finishing-full-flow.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts",
+        "src/data/fcs/special-craft-task-orders.ts::listCutPieceSpecialCraftTaskOrderSources",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/pages/print/print-preview.ts::loadPrintAdapter"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.4",
+        "19.3",
+        "19.13",
+        "19.14",
+        "19.16"
+      ],
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382032+00:00"
+    },
+    {
+      "id": "STORE-009",
+      "source": "15.1、15.4",
+      "requirement": "文件引用和现有备份覆盖新增事实，不自动清空用户数据",
+      "workPackage": "WP07 / C14",
+      "binding": "E09；无新附件时文件新写入不适用",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/cutting-record-repository.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "15.1",
+        "15.4"
+      ]
+    },
+    {
+      "id": "VERIFY-001",
+      "source": "16.2 / 19.2（具名示例来源） / 9.7（标准列表及独立数量变化筛选）",
+      "requirement": "同代码工作树的命名页面按相应设备完成主要任务",
+      "workPackage": "WP08 / 第16.2节",
+      "binding": "E10",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-25",
+        "R1-55",
+        "R1-56",
+        "R1-57"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/main.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "16.1",
+        "16.2",
+        "19.15",
+        "19.16",
+        "19.17",
+        "19.18",
+        "19.19",
+        "19.2",
+        "9.7"
+      ],
+      "plannedFinalPageBindings": [
+        "ui-browser.json#/runs/list-browser.json/scenarios（标准查询、重置、分页、排序、列设置、拖拽）",
+        "ui-browser.json#/runs/craft-export-browser.json/scenarios/list effective release status and fact review filters",
+        "list-responsive-v29.json（1366/1280/1024）"
+      ]
+    },
+    {
+      "id": "VERIFY-002",
+      "source": "16.3 / 19.2（具名示例来源） / 19.4 / 19.5 / 19.6 / 19.7 / 19.8",
+      "requirement": "S01～S24逐项验证并更新冲突旧脚本 / Mock / 文案",
+      "workPackage": "WP08 / 第14节",
+      "binding": "E01～E09",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-36",
+        "R1-37",
+        "R1-38",
+        "R1-39",
+        "R1-40",
+        "R1-41",
+        "R1-42",
+        "R1-43",
+        "R1-44",
+        "R1-45",
+        "R1-46",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50",
+        "R1-55",
+        "R1-56",
+        "R1-57"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "scripts/check-cut-piece-release-matrix.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "14",
+        "16.1",
+        "16.3",
+        "17.1",
+        "17.2",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.15",
+        "19.16",
+        "19.17",
+        "19.18",
+        "19.19",
+        "19.2",
+        "19.4",
+        "19.5",
+        "19.6",
+        "19.7",
+        "19.8",
+        "19.9"
+      ]
+    },
+    {
+      "id": "PERF-001",
+      "source": "16.4",
+      "requirement": "适用加载与关键动作5样本均完整完成≤1000ms",
+      "workPackage": "WP08 / 第16.4节",
+      "binding": "E10",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-06",
+        "R1-18",
+        "R1-24",
+        "R1-25",
+        "R1-28",
+        "R1-30",
+        "R1-31",
+        "R1-32",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50",
+        "R1-55",
+        "R1-56"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/cutting-event-repository.ts",
+        "src/data/fcs/cutting/cutting-runtime-event-ledger.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/pages/process-factory/cutting/wait-handover-actions.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "16.4",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.15",
+        "19.16",
+        "19.17",
+        "19.18",
+        "19.19"
+      ]
+    },
+    {
+      "id": "VERIFY-003",
+      "source": "16.5、17.3",
+      "requirement": "正反向需求追踪、证据SHA和接受回执齐备才称完整交付",
+      "workPackage": "WP08 / 本章矩阵",
+      "binding": "E01～E10",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "AGENTS.md"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "16.1",
+        "16.5",
+        "17.3"
+      ]
+    },
+    {
+      "id": "COPY-001",
+      "source": "19.1 / Huawei 界面用语 / 19.3",
+      "requirement": "仅保留当前决策和操作必要信息，删除重复说明",
+      "workPackage": "WP05、WP06、WP08",
+      "binding": "文案专项、命名页面、打印与两轮审查",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-17",
+        "R1-23",
+        "R1-26",
+        "R1-27",
+        "R1-29",
+        "R1-35",
+        "R1-46",
+        "R1-57",
+        "R1-61",
+        "R1-65",
+        "R1-66"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.1",
+        "19.10",
+        "19.19",
+        "19.3"
+      ]
+    },
+    {
+      "id": "COPY-002",
+      "source": "19.1 / Huawei 界面用语 / 19.3",
+      "requirement": "使用简短常用词、明确动作与统一当前/历史数量术语",
+      "workPackage": "WP05、WP06、WP08",
+      "binding": "文案专项、命名页面、打印与两轮审查",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-23",
+        "R1-25",
+        "R1-26",
+        "R1-33",
+        "R1-35",
+        "R1-61",
+        "R1-65",
+        "R1-66"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.1",
+        "19.19",
+        "19.3"
+      ]
+    },
+    {
+      "id": "COPY-003",
+      "source": "19.1 / Huawei 界面用语 / 19.3 / 19.4",
+      "requirement": "换片票列表、打印、混袋清单不显示内部路径，扫码与持久身份不变",
+      "workPackage": "WP05、WP06、WP08",
+      "binding": "文案专项、命名页面、打印与两轮审查",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-08",
+        "R1-11",
+        "R1-23",
+        "R1-26",
+        "R1-27",
+        "R1-61"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "13.2",
+        "19.1",
+        "19.19",
+        "19.3",
+        "19.4"
+      ]
+    },
+    {
+      "id": "COPY-004",
+      "source": "19.1 / Huawei 界面用语 / 19.3 / 19.4 / 19.6 / 19.7",
+      "requirement": "异常保留具体问题和处理动作，危险确认保留实际影响，必要门禁不被删掉",
+      "workPackage": "WP05、WP06、WP08",
+      "binding": "文案专项、命名页面、打印与两轮审查",
+      "status": "已实现待验证",
+      "automation": [],
+      "pageEvidence": [],
+      "review1": "待最终证据",
+      "review2": "待最终证据",
+      "reviewFindings": [
+        "R1-39",
+        "R1-42",
+        "R1-17",
+        "R1-21",
+        "R1-23",
+        "R1-24",
+        "R1-26",
+        "R1-28",
+        "R1-29",
+        "R1-30",
+        "R1-33",
+        "R1-35",
+        "R1-46",
+        "R1-61",
+        "R1-64"
+      ],
+      "productConfirmation": "业务方案：用户确认 2026-10-09；最终运行界面尚无用户接受回执，不声明 accepted 或远端交付",
+      "implementation": [
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "verificationVersion": "v43候选；源级735项通过，当前完整浏览器和双审待闭环",
+      "sourceSections": [
+        "19.1",
+        "19.10",
+        "19.16",
+        "19.19",
+        "19.3",
+        "19.4",
+        "19.6",
+        "19.7"
+      ]
+    }
+  ],
+  "verificationVersion": "当前候选最终证据仍待通过",
+  "version": "v43",
+  "versionRef": "version-v43.json",
+  "sourceManifestSHA256": "97a2b8acb9ba31e9f193d2eac88eaadebbbcc75434aaa397680df76cb38ecb48",
+  "assetManifestSHA256": "005258049809153f84101a50b5057eb925c28c19699959cbd877b48320c28a77"
+}

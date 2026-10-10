@@ -11,9 +11,10 @@ import { getProductionOrderCutPieceParts } from '../production-order-tech-pack-r
 import { DEDICATED_CUTTING_FACTORY_ID } from '../factory-mock-data.ts'
 import { getSewingCutPieceResponsibilityProjection, initializeSewingCutPieceResponsibility, listSewingCutPieceHandoverEvents } from '../sewing-cut-piece-responsibility.ts'
 import { listSpreadingResultGeneratedFeiTickets, type GeneratedFeiTicketSourceRecord } from './generated-fei-tickets.ts'
+import { listManualFeiTicketSources } from './manual-fei-tickets.ts'
 import { findCuttingSewingDispatchByFeiTicketNo } from './sewing-dispatch.ts'
 import { resolveTransferBagCurrentUse } from './transfer-bag-operations.ts'
-import { getSpecialCraftFeiTicketSummary } from './special-craft-fei-ticket-flow.ts'
+import { getCutPieceReleaseEligibilityForDetail, listCutPieceReleaseTicketDetails, type CutPieceReleaseTicketEligibility } from './cut-piece-release-facts.ts'
 import {
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, appendCuttingRuntimeEventIdempotentValidated,
   listManagedCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents,
@@ -72,6 +73,7 @@ export function selectSimpleCutPieceTickets(input: {
   unavailableReasons: Map<string, string>
   ambiguousSkuCodes: Set<string>
   legacyQuantityWithoutTickets: boolean
+  ticketEligibilityById?: ReadonlyMap<string, CutPieceReleaseTicketEligibility>
 }) {
   const selected: SimpleCutPieceTicketSnapshot[] = []
   const excluded: SimpleCutPieceHandoverPreview['excluded'] = []
@@ -84,16 +86,21 @@ export function selectSimpleCutPieceTickets(input: {
     const sku = allocated.get(ticket.skuCode)
     const identity = { skuCode: ticket.skuCode, color: sku?.color || ticket.skuColor, size: sku?.size || ticket.skuSize, partCode: ticket.partCode }
     const requirement = requirements.get(key(identity))
-    const qty = ticket.actualCutPieceQty
+    const eligibility = input.ticketEligibilityById?.get(ticket.feiTicketId)
+    const qty = eligibility?.found && eligibility.canHandover ? eligibility.physicalPieceQty : ticket.actualCutPieceQty
+    const finalManualOutput = ticket.sourceBasisType === 'MANUAL_MARKER_PLAN'
+      && eligibility?.found && eligibility.requiresSpecialCraft && eligibility.canHandover && eligibility.eligiblePieceQty > 0
     if (!sku || !sameText(sku.color, ticket.skuColor) || !sameText(sku.size, ticket.skuSize)) reason = '不属于本工厂分配的 SKU / 颜色 / 尺码'
     else if (input.consumedIds.has(ticket.feiTicketId)) reason = '已交出，不可重复交出'
     else if (input.legacyQuantityWithoutTickets) reason = '本任务存在未对应菲票的历史实交，请主管先核对历史交出范围'
     else if (input.ambiguousSkuCodes.has(ticket.skuCode)) reason = '同一 SKU 分给多个任务，现有编号范围不能唯一确定本票归属，请计划人员核对'
-    else if (ticket.sourceBasisType !== 'ACTUAL_CUTTING_OUTPUT' && ticket.sourceBasisType !== 'SPREADING_RESULT') reason = '尚无有效的实际裁剪完成来源'
+    else if (ticket.sourceBasisType !== 'ACTUAL_CUTTING_OUTPUT' && ticket.sourceBasisType !== 'SPREADING_RESULT' && !finalManualOutput) reason = '尚无有效的实际裁剪完成来源'
     else if (ticket.printStatus === 'VOIDED') reason = '菲票已作废'
-    else if (!Number.isInteger(qty) || qty <= 0 || !ticket.sourceOutputLineId) reason = '实际裁剪片数或产出来源不完整'
+    else if (!Number.isSafeInteger(ticket.actualCutPieceQty) || ticket.actualCutPieceQty <= 0 || !Number.isSafeInteger(qty) || qty <= 0 || !ticket.sourceOutputLineId) reason = '实际裁剪片数或产出来源不完整'
     else if (!requirement) reason = '未在当前任务冻结部位中找到本票，请核对技术资料'
     else if (input.occupiedIds.has(ticket.feiTicketId)) reason = `已装入中转袋${input.occupiedBagNumbers?.get(ticket.feiTicketId) ? ` ${input.occupiedBagNumbers.get(ticket.feiTicketId)}` : ''}，请按中转袋交出流程处理`
+    else if (eligibility?.found && !eligibility.canHandover) reason = eligibility.reason || '裁片尚不可交出，请核对原票和工艺回仓。'
+    else if (!eligibility?.found && (ticket.hasSpecialCraft || ticket.specialCrafts?.length || ticket.secondaryCrafts?.length)) reason = '特殊工艺回仓资料未匹配，请核对原票。'
     else if (input.unavailableReasons.has(ticket.feiTicketId)) reason = input.unavailableReasons.get(ticket.feiTicketId)!
     else if (qty + (running.get(key(identity)) || 0) > requirement.allocatedGarmentQty * requirement.piecesPerGarment) reason = '整票超过本任务该 SKU / 部位剩余应交量，请主管核对；不能直接拆票交出'
     if (reason) { excluded.push({ feiTicketNo: ticket.feiTicketNo, reason }); continue }
@@ -140,15 +147,18 @@ export function resolveSimpleCutPieceHandover(raw: string): SimpleCutPieceHandov
     const use = resolveTransferBagCurrentUse(bagCode)
     use.tickets.forEach((ticket) => { occupiedIds.add(ticket.feiTicketId); occupiedBagNumbers.set(ticket.feiTicketId, bagCode) })
   }
-  const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === assignment.productionOrderId)
+  const tickets = [...new Map([...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources()]
+    .filter((ticket) => ticket.productionOrderId === assignment.productionOrderId)
+    .map((ticket) => [ticket.feiTicketId, ticket])).values()]
+  const ticketIds = new Set(tickets.map((ticket) => ticket.feiTicketId))
+  const details = new Map(listCutPieceReleaseTicketDetails(ticketIds).map((detail) => [detail.ticketId, detail]))
+  const ticketEligibilityById = new Map(tickets.map((ticket) => [ticket.feiTicketId, getCutPieceReleaseEligibilityForDetail(details.get(ticket.feiTicketId))]))
   const unavailableReasons = new Map<string, string>()
   tickets.forEach((ticket) => {
-    const dispatch = findCuttingSewingDispatchByFeiTicketNo(ticket.feiTicketNo, { initializeLegacyDemo: false, specialCraftRequired: ticket.hasSpecialCraft })
+    // 这里只查旧交出/袋占用；工艺资格和实物数量由本次共享资料快照判断。
+    const dispatch = findCuttingSewingDispatchByFeiTicketNo(ticket.feiTicketNo, { initializeLegacyDemo: false, specialCraftRequired: false })
     if (['已交出', '已回写', '差异', '异议中'].includes(dispatch.feiTicketSewingStatus)) consumedIds.add(ticket.feiTicketId)
     else if (dispatch.transferBag) { occupiedIds.add(ticket.feiTicketId); occupiedBagNumbers.set(ticket.feiTicketId, dispatch.transferBag.transferBagNo) }
-    const craft = ticket.hasSpecialCraft ? getSpecialCraftFeiTicketSummary(ticket.feiTicketNo) : { needSpecialCraft: false, returnStatus: '无', currentQty: ticket.actualCutPieceQty }
-    if ((ticket.hasSpecialCraft || craft.needSpecialCraft) && craft.returnStatus !== '已回仓') unavailableReasons.set(ticket.feiTicketId, '特殊工艺尚未全部回仓')
-    else if (craft.needSpecialCraft && craft.currentQty !== ticket.actualCutPieceQty) unavailableReasons.set(ticket.feiTicketId, '特殊工艺回仓数量有差异，请主管先核对菲票实际数量')
   })
   const otherAssignments = listEffectiveTaskAssignments().filter((item) => item.assignmentId !== assignment.assignmentId
     && item.status === 'EFFECTIVE' && item.productionOrderId === assignment.productionOrderId
@@ -157,7 +167,7 @@ export function resolveSimpleCutPieceHandover(raw: string): SimpleCutPieceHandov
   const knownRecordIds = new Set(simpleEvents.map((event) => event.payload.handoverRecordId))
   const legacyQuantityWithoutTickets = allHandover.some((event) => !knownRecordIds.has(event.handoverRecordId)
     && !events.some((fact) => fact.refs.handoverRecordId === event.handoverRecordId && fact.refs.feiTicketIds?.length))
-  const selection = selectSimpleCutPieceTickets({ sheet, requirements, tickets, handedOver, consumedIds, occupiedIds, occupiedBagNumbers, unavailableReasons, ambiguousSkuCodes, legacyQuantityWithoutTickets })
+  const selection = selectSimpleCutPieceTickets({ sheet, requirements, tickets, handedOver, consumedIds, occupiedIds, occupiedBagNumbers, unavailableReasons, ambiguousSkuCodes, legacyQuantityWithoutTickets, ticketEligibilityById })
   const lines = requirements.map((line) => ({ ...line, requiredPieceQty: line.allocatedGarmentQty * line.piecesPerGarment,
     handedOverPieceQty: handedOver.get(key(line)) || 0,
     availablePieceQty: selection.tickets.filter((ticket) => key(ticket) === key(line)).reduce((sum, ticket) => sum + ticket.pieceQty, 0),

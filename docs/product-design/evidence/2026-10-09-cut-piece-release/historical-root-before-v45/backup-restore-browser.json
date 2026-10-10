@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "records": 35,
+  "commands": 9,
+  "files": 0,
+  "latestReleaseVersion": 6,
+  "scope": "无新增附件，完整实体与命令读回一致",
+  "version": "v36",
+  "rootVersionRef": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "runtime": "http://127.0.0.1:4191",
+  "notPerformanceEvidence": true,
+  "rawLog": "docs/product-design/evidence/2026-10-09-cut-piece-release/backup-native-v36.log",
+  "capturedAt": "2026-10-09T20:21:34.407634+00:00"
+}

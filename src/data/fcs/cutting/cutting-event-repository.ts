@@ -8,6 +8,7 @@ import { getBrowserLocalStorage, withBrowserBusinessStorage, type BrowserStorage
 import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, type CuttingStoredRecord } from './cutting-record-repository.ts'
 import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, deserializeCuttingRuntimeEventLedgerStorage,
   installCuttingCommittedEventReader, installManagedCuttingEventScope, listManagedCuttingRuntimeEvents, type CuttingRuntimeEvent } from './cutting-runtime-event-ledger.ts'
+import { withCuttingRuntimeEventReadFrame } from './cutting-runtime-event-ledger.ts'
 import { replacementStateFromRecords, replacementStateToRecords, publishReplacementFabricState } from './replacement-fabric-repository.ts'
 import type { ReplacementFabricState } from './replacement-fabric-fei-tickets.ts'
 import { installCuttingReceiptTaskProjection } from '../runtime-task-read-bridge.ts'
@@ -48,15 +49,16 @@ export function committedCuttingEvents(): CuttingRuntimeEvent[] { return committ
 export function mergeCommittedCuttingEvents(legacy: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
   return [...new Map([...legacy, ...committed].map(event => [event.eventId, event])).values()]
 }
-export async function hydrateCuttingEventRecords(): Promise<void> {
-  const snapshot = await readCuttingRecords()
-  await hydrateProductionContextRecords(snapshot)
-  await hydratePartTicketRecords(snapshot)
+export async function hydrateCuttingEventRecords(provided?:import('./cutting-record-repository.ts').CuttingRecordSnapshot,sourcesPrepared=false): Promise<void> {
+  const snapshot = provided || await readCuttingRecords()
+  if(!sourcesPrepared) {await hydrateProductionContextRecords(snapshot);await hydratePartTicketRecords(snapshot)}
   prepareManagedScope(snapshot.records)
   publishReplacementFabricState(await replacementStateFromRecords(snapshot))
   committed = snapshot.records.filter(record => record.collection === 'cutting-events').map(record => record.value as CuttingRuntimeEvent)
   ready = true
   installCuttingCommittedEventReader(mergeCommittedCuttingEvents, snapshot.revision)
+  const release=await import('../cut-piece-release.ts')
+  await release.hydrateCutPieceReleaseRecords(snapshot)
   const firstReceipts = new Map<string, { at: string; recordNo: string }>()
   for (const event of [...committed].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))) {
     if (event.eventStatus === '已取消') continue
@@ -83,12 +85,11 @@ export async function runCuttingEventAction<T>(input: {
   id: string; intent: string; action: (storage: BrowserStorageLike) => T
   validate?: (input: { state: ReplacementFabricState; before: CuttingRuntimeEvent[]; after: CuttingRuntimeEvent[]; result: T; storage: BrowserStorageLike }) => void
 }): Promise<T> {
-  await hydrateCuttingEventRecords()
-  const prior = await readCuttingCommand(input.id)
-  if (prior) { if (prior.intent !== input.intent) throw new Error('本次操作编号对应不同内容，请重新核对。'); return prior.result as T }
   const snapshot = await readCuttingRecords()
-  await hydrateProductionContextRecords(snapshot)
-  await hydratePartTicketRecords(snapshot)
+  await hydrateCuttingEventRecords(snapshot)
+  const prior = await readCuttingCommand(input.id)
+  if (prior) { if (prior.intent !== input.intent) throw new Error('本次操作编号对应不同内容，请重新核对。'); await hydrateCuttingEventRecords(); return prior.result as T }
+  const release=await import('../cut-piece-release.ts')
   const assertSourcesCurrent = captureReplacementFabricSourceGuard()
   const persisted = snapshot.records.filter(record => record.collection === 'cutting-events').map(record => record.value as CuttingRuntimeEvent)
   const native = getBrowserLocalStorage()
@@ -103,7 +104,8 @@ export async function runCuttingEventAction<T>(input: {
     setItem(key, value) { if (key !== CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) throw new Error(`本次动作包含未登记的保存 ${key}，已撤回。`); raw = value },
     removeItem() { throw new Error('交出动作不能清空业务记录。') },
   }
-  const partMutation = preparePartTicketMutation(() => withBrowserBusinessStorage(storage, () => input.action(storage)))
+  const releaseMutation=release.prepareCutPieceReleaseMutation(()=>preparePartTicketMutation(() => withBrowserBusinessStorage(storage, () => withCuttingRuntimeEventReadFrame(storage,()=>{const result=input.action(storage);release.listCutPieceReleaseRecords();return result}))))
+  const partMutation=releaseMutation.result
   const result = partMutation.result
   if (result instanceof Promise) throw new Error('裁床事务准备必须同步完成。')
   const after = deserializeCuttingRuntimeEventLedgerStorage(raw).events
@@ -114,10 +116,17 @@ export async function runCuttingEventAction<T>(input: {
   const previous = new Map(snapshot.records.map(record => [record.id, record]))
   const eventRecords: CuttingStoredRecord[] = after.filter(event => beforeEvents.get(event.eventId) !== JSON.stringify(event))
     .map(event => ({ id: `cutting-event:${event.eventId}`, collection: 'cutting-events', value: event }))
-  const puts = [...partMutation.change.puts, ...eventRecords, ...replacementStateToRecords(state), ...productionContextInitializationRecords(), ...partTicketInitializationRecords(), ...cuttingEventScopeInitializationRecords()].filter(record => JSON.stringify(previous.get(record.id)) !== JSON.stringify(record))
-  await commitCuttingRecords({ revision: snapshot.revision, change: { puts, deletes: partMutation.change.deletes }, assertSourcesCurrent: () => { assertSourcesCurrent(); assertPartTicketLegacyUnchanged(); assertManagedScopeCurrent() }, command: { id: input.id, intent: input.intent, result, at: new Date().toISOString() } })
+  const puts = [...releaseMutation.change.puts, ...partMutation.change.puts, ...eventRecords, ...replacementStateToRecords(state), ...productionContextInitializationRecords(), ...partTicketInitializationRecords(), ...cuttingEventScopeInitializationRecords()].filter(record => JSON.stringify(previous.get(record.id)) !== JSON.stringify(record))
+  await commitCuttingRecords({ revision: snapshot.revision, change: { puts, deletes: [...(partMutation.change.deletes || []),...(releaseMutation.change.deletes || [])] }, assertSourcesCurrent: () => { assertSourcesCurrent(); assertPartTicketLegacyUnchanged(); assertManagedScopeCurrent() }, command: { id: input.id, intent: input.intent, result, at: new Date().toISOString() } })
   await hydrateCuttingEventRecords()
   return result
 }
 
 installPartTicketCuttingScopeBridge({ initializationRecords: cuttingEventScopeInitializationRecords, assertCurrent: assertManagedScopeCurrent })
+
+export function prepareCommittedCuttingEventSnapshot(snapshot:import('./cutting-record-repository.ts').CuttingRecordSnapshot):void {
+  prepareManagedScope(snapshot.records)
+  committed=snapshot.records.filter(record=>record.collection==='cutting-events').map(record=>record.value as CuttingRuntimeEvent)
+  ready=true
+  installCuttingCommittedEventReader(mergeCommittedCuttingEvents,snapshot.revision)
+}

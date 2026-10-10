@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "/Users/laoer/.codex/worktrees/9ec5/higoods/tests/browser/verify-cut-piece-release-idb-open.py", line 30, in <module>
+    if not found:raise RuntimeError(log)
+                 ^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: /Users/laoer/.npm/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/tools/cli-client/session.js:60
+      throw new Error(`Browser '${this.name}' is not open. Run
+            ^
+
+Error: Browser 'release-open-failure' is not open. Run
+
+  playwright-cli -s=release-open-failure open
+
+to start the browser session.
+    at Session.run (/Users/laoer/.npm/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/tools/cli-client/session.js:60:13)
+    at async runInSession (/Users/laoer/.npm/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/tools/cli-client/program.js:270:18)
+    at async program (/Users/laoer/.npm/_npx/31e32ef8478fbf80/node_modules/playwright-core/lib/tools/cli-client/program.js:254:20)
+
+Node.js v26.8.2
+

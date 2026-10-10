@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "samples": [
+    331.599853515625,
+    266,
+    266.400146484375,
+    266.10009765625,
+    264.300048828125
+  ],
+  "failures": [
+    96.80000000447035,
+    63.399999998509884,
+    63.29999999701977,
+    64.79999999701977,
+    64.60000000149012
+  ],
+  "max": 331.599853515625,
+  "runtime": "http://127.0.0.1:4190",
+  "isolatedProfile": true,
+  "script": "/Users/laoer/.codex/worktrees/9ec5/higoods/output/playwright/cut-release-storage/verify-idb-open-endpoint-v47.py",
+  "log": "output/playwright/cut-release-storage/idb-open-run.log",
+  "version": "v47",
+  "versionRef": "version-v47.json",
+  "sourceManifestSHA256": "aa1c2e9b60fafbf844146244c68ad25f8eb00a4c07f90a24e44aa7023afbaf1e",
+  "assetManifestSHA256": "4fbe0fb5e84cff9aca174790247707881d1da1c96d61d9b838158fe7cbd5328a",
+  "startedAt": "2026-10-09T22:57:13.978871+00:00",
+  "completedAt": "2026-10-09T22:57:16.578102+00:00"
+}

@@ -68,6 +68,7 @@ export interface SupplementDraftMeta {
   readonly styleImageAlt: string
   readonly releaseSnapshotId?: string
   readonly releaseMatrixVersion?: number
+  readonly releaseQuantityMatrixVersion?: number
   readonly releaseTargetConfirmedAt?: string
 }
 

@@ -15,8 +15,12 @@ import {
 } from '../../data/fcs/cutting/manual-fei-tickets.ts'
 
 type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
-/** 部位票和中转袋标签只加载对应模板，避免初始化无关生产确认业务。 */
+/** 任务单、部位票和中转袋标签只加载对应模板。 */
 async function loadPrintAdapter(documentType: PrintDocumentType): Promise<PrintAdapter> {
+  if (documentType === 'DISPATCH_TASK_SHEET') {
+    const sheet = await import('./templates/dispatch-task-sheet-template.ts')
+    return { buildPrintDocument: sheet.buildDispatchTaskSheetPrintDocument, renderPrintDocument: sheet.renderDispatchTaskSheetTemplate }
+  }
   if (documentType === 'PRINTING_ROLL_LABEL') {
     const { ensurePcsRecordState } = await import('../../data/pcs-record-runtime.ts')
     await ensurePcsRecordState()

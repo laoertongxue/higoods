@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-10-09T20:08:17.867558+00:00",
+  "versionRef": "version-v35.json",
+  "phase": "ROOT当前630samples及实际18截图通过；最终receipt/dispatch/16checks及双审待闭环",
+  "rows": [
+    {
+      "file": "ui-browser.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 395,
+      "maximumMs": 534.39990234375,
+      "sha256": "bc97e0c55896b1ee50bd1c66a2b528a3d187a24611de243e999e34be4f92f020",
+      "performanceEvidence": true
+    },
+    {
+      "file": "list-responsive-v35.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 45,
+      "maximumMs": 267,
+      "sha256": "035dbbd54b2d7204a3e77c6feca5e21429641ddbf960edf7b9cf8b5605884946",
+      "performanceEvidence": true
+    },
+    {
+      "file": "demo-copy-v35.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 15,
+      "maximumMs": 100.89990234375,
+      "sha256": "ec8b379d44e721be72d1b9a79b1753b94ad6d202713198bfa8e497ed4e2946a9",
+      "performanceEvidence": true
+    },
+    {
+      "file": "supplement-browser.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 50,
+      "maximumMs": 502.6000000014901,
+      "sha256": "35b0f8c0397c065d4f947b0d6dba8ff961cbfb79bdef86d689695beb07a826c9",
+      "performanceEvidence": true
+    },
+    {
+      "file": "idb-open-browser.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 10,
+      "maximumMs": 346.800048828125,
+      "sha256": "91cc36177049e1356fef32f2c65947e90705ec2ee8cab384618ac1176639b1fe",
+      "performanceEvidence": true
+    },
+    {
+      "file": "storage-browser.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "e9669657b9e840e0a3bb5f391fda9934a40a8483b7395d4ea1fe906a1a1f9538",
+      "performanceEvidence": false
+    },
+    {
+      "file": "migration-browser.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "fdc31a1ff0072370913e973c03bba5ba2118305860b548cecbd33980abb566b9",
+      "performanceEvidence": false
+    },
+    {
+      "file": "backup-restore-browser.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "ada89db724f4de54b9193acf34c6c2f0fca38047f7edd496b56a3e994dc8101a",
+      "performanceEvidence": false
+    },
+    {
+      "file": "style-images-v35.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 60,
+      "maximumMs": 343.7001953125,
+      "sha256": "5dda502c9799505778816317b5a640ea241284b98b2cee8563a1493b0cf521b3",
+      "performanceEvidence": true
+    },
+    {
+      "file": "material-images-v35.json",
+      "passed": true,
+      "version": "v35",
+      "sampleCount": 55,
+      "maximumMs": 326.300048828125,
+      "sha256": "fa1466650b4791bafd26c15205cc31cbf200aedb937293f39ef7a349c7889cb4",
+      "performanceEvidence": true
+    }
+  ],
+  "rawSampleCount": 630,
+  "allPassed": true,
+  "scope": "仅root负责的页面/文案/存储，绝非完整项目验收",
+  "sourceManifestSHA256": "1f9c55c6b9e947b64ec9c2e3aa303d2f022914f2a4b88afff7e43d0c0f34bb3f",
+  "assetManifestSHA256": "6231918f6be751a40cfca13ca93ee8558439836b2fa613fe215f1c08bf6f7796"
+}

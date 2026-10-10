@@ -1160,6 +1160,11 @@ const supplementStorageKey = 'higood:list-page:/fcs/craft/cutting/supplement-man
 const defaultSupplementStorage = createMemoryStorageWithSeed()
 const supplementDom = installSupplementBrowser(defaultSupplementStorage)
 const supplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-check')
+const publishedSupplementRecords = supplementPage.bootstrapSupplementManagementMockData()
+supplementPage.renderCraftCuttingSupplementManagementPage()
+assert.equal(listSupplementOrders().length, publishedSupplementRecords.length, '普通读取不得隐式生成补料或加工单')
+// 分页和加工节点的丰富场景由检查显式准备，不要求业务页面首次读取写入演示事实。
+supplementPage.bootstrapSupplementManagementGeneratedFixturesForTesting()
 assert.equal(
   typeof supplementPage.normalizeSupplementListPreferences,
   'function',

@@ -1,0 +1,17 @@
+/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:4415
+  if (!eligibility.ok) throw new Error(eligibility.reason)
+                             ^
+
+Error: 菲票来源未找到，请核对票号。
+    at submitWholeBagHandover (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:4415:30)
+    at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/wait-handover-runtime.ts:1854:14)
+    at Array.map (<anonymous>)
+    at replay (/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/wait-handover-runtime.ts:1852:41)
+    at submitWaitHandoverTaskBatch (/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/wait-handover-runtime.ts:1885:5)
+    at Module.submitPdaTransferBagRepack (/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/pda-cutting-transfer-bag-repack.ts:763:10)
+    at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/scripts/check-transfer-bag-repack-recovery.ts:121:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v26.8.2

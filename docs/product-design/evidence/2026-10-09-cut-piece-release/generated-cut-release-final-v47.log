@@ -1,0 +1,3 @@
+PASS 有效装袋40片→S6 XL4；未装袋排除；去重/外单/BOM隔离/左右实例；手动来源与缺资料/已知零
+(node:9920) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

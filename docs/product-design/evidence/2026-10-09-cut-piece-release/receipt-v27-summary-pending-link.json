@@ -1,0 +1,837 @@
+{
+  "status": "receipt_operations_verified_release_link_pending_root_judgment",
+  "primaryVersion": "v27",
+  "manifest": "version-v27.json",
+  "sourceSHA256": "b6ffd82227ddf3054650255c6590e4137152d66a8952d9c84322dce9152cb76b",
+  "assetSHA256": "f348396442bd2f04ffd5ed391d356e10baa0d5957e1539ecb1e40262ad344779",
+  "firstActualAt": "2026-10-09T17:27:16.926207+00:00",
+  "lastActualAt": "2026-10-09T17:45:11.037525+00:00",
+  "actions": "receipt-v27-actions.jsonl",
+  "summary": [
+    {
+      "action": "web-original-lawful-correction-1",
+      "passed": true,
+      "ms": 397.6000000014901,
+      "qty": 3,
+      "historyUnchanged": true,
+      "paperUnchanged": true,
+      "id": "cutting-event:CRAFT-IN:SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204-BAG-RECEIPT-FINAL-01-cycle:BAG-RECEIPT-FINAL-01:202610090844-cycle:BAG-RECEIPT-FINAL-01:202610090844:handover:1-manual-fei-QESI9X-manual-fei-C22V28:20261009171600:RECEIPT_CORRECTION:4"
+    },
+    {
+      "action": "web-original-lawful-correction-2",
+      "passed": true,
+      "ms": 397.19999999552965,
+      "qty": 4,
+      "historyUnchanged": true,
+      "paperUnchanged": true,
+      "id": "cutting-event:CRAFT-IN:SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204-BAG-RECEIPT-FINAL-01-cycle:BAG-RECEIPT-FINAL-01:202610090844-cycle:BAG-RECEIPT-FINAL-01:202610090844:handover:1-manual-fei-QESI9X-manual-fei-C22V28:20261009171600:RECEIPT_CORRECTION:4:RECEIPT_CORRECTION:5"
+    },
+    {
+      "action": "web-original-lawful-correction-3",
+      "passed": true,
+      "ms": 397.1000000014901,
+      "qty": 3,
+      "historyUnchanged": true,
+      "paperUnchanged": true,
+      "id": "cutting-event:CRAFT-IN:SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204-BAG-RECEIPT-FINAL-01-cycle:BAG-RECEIPT-FINAL-01:202610090844-cycle:BAG-RECEIPT-FINAL-01:202610090844:handover:1-manual-fei-QESI9X-manual-fei-C22V28:20261009171600:RECEIPT_CORRECTION:4:RECEIPT_CORRECTION:5:RECEIPT_CORRECTION:6"
+    },
+    {
+      "action": "web-original-lawful-correction-4",
+      "passed": true,
+      "ms": 417.19999999552965,
+      "qty": 4,
+      "historyUnchanged": true,
+      "paperUnchanged": true,
+      "id": "cutting-event:CRAFT-IN:SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204-BAG-RECEIPT-FINAL-01-cycle:BAG-RECEIPT-FINAL-01:202610090844-cycle:BAG-RECEIPT-FINAL-01:202610090844:handover:1-manual-fei-QESI9X-manual-fei-C22V28:20261009171600:RECEIPT_CORRECTION:4:RECEIPT_CORRECTION:5:RECEIPT_CORRECTION:6:RECEIPT_CORRECTION:7"
+    },
+    {
+      "action": "web-original-lawful-correction-5",
+      "passed": true,
+      "ms": 412.79999999701977,
+      "qty": 3,
+      "historyUnchanged": true,
+      "paperUnchanged": true,
+      "id": "cutting-event:CRAFT-IN:SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204-BAG-RECEIPT-FINAL-01-cycle:BAG-RECEIPT-FINAL-01:202610090844-cycle:BAG-RECEIPT-FINAL-01:202610090844:handover:1-manual-fei-QESI9X-manual-fei-C22V28:20261009171600:RECEIPT_CORRECTION:4:RECEIPT_CORRECTION:5:RECEIPT_CORRECTION:6:RECEIPT_CORRECTION:7:RECEIPT_CORRECTION:8"
+    },
+    {
+      "action": "normal-two-stage-sample1",
+      "passed": true,
+      "bag": "BAG-DIRECT-V27-01",
+      "location": "A-R02-L04-P01",
+      "ticketNos": [
+        "TM-FVUUO-SNF9Q-002",
+        "TM-FVUUO-SNF9Q-006"
+      ],
+      "actual": {
+        "original": 5,
+        "directPerTicket": 4,
+        "finalM": 3,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 450.5,
+        "inbound": 307.29999999701977,
+        "firstStage": 349.3999999985099,
+        "directNext": 348,
+        "create": 519.2000000029802,
+        "paperTab": 157.39999999850988,
+        "preview": 189,
+        "print": 232.5,
+        "pdaRead": 65.69999999552965,
+        "finalPda": 257.6000000014901
+      },
+      "focused": {
+        "field": "",
+        "tag": "INPUT",
+        "value": "XL压褶4片全部不可用"
+      }
+    },
+    {
+      "action": "normal-two-stage-sample2",
+      "passed": true,
+      "bag": "BAG-DIRECT-V27-02",
+      "location": "A-R02-L04-P02",
+      "ticketNos": [
+        "TM-FVUUO-ZGOPH-006",
+        "TM-FVUUO-ZGOPH-002"
+      ],
+      "actual": {
+        "original": 5,
+        "directPerTicket": 4,
+        "finalM": 3,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 459.3999999985099,
+        "inbound": 338.80000000447035,
+        "firstStage": 380,
+        "directNext": 381.29999999701977,
+        "create": 534.5,
+        "paperTab": 177.60000000149012,
+        "preview": 178.10000000149012,
+        "print": 231.89999999850988,
+        "pdaRead": 59.19999999552965,
+        "finalPda": 322.20000000298023
+      },
+      "focused": {
+        "field": "",
+        "tag": "INPUT",
+        "value": "M压褶损耗1片"
+      }
+    },
+    {
+      "action": "normal-two-stage-sample3",
+      "passed": true,
+      "bag": "BAG-DIRECT-V27-03",
+      "location": "A-R02-L03-P01",
+      "ticketNos": [
+        "TM-FVUUO-WF6ZK-006",
+        "TM-FVUUO-WF6ZK-002"
+      ],
+      "actual": {
+        "original": 5,
+        "directPerTicket": 4,
+        "finalM": 3,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 489.8999999985099,
+        "inbound": 365.8999999985099,
+        "firstStage": 398.8999999985099,
+        "directNext": 414.1000000014901,
+        "create": 530.3999999985099,
+        "paperTab": 175.60000000149012,
+        "preview": 176.20000000298023,
+        "print": 284.3999999985099,
+        "pdaRead": 69.79999999701977,
+        "finalPda": 265.8999999985099
+      },
+      "focused": {
+        "field": "",
+        "tag": "INPUT",
+        "value": "M压褶损耗1片"
+      }
+    },
+    {
+      "action": "normal-two-stage-sample4",
+      "passed": true,
+      "bag": "BAG-DIRECT-V27-04",
+      "location": "A-R02-L03-P02",
+      "ticketNos": [
+        "TM-FVUUO-VBFTY-006",
+        "TM-FVUUO-VBFTY-002"
+      ],
+      "actual": {
+        "original": 5,
+        "directPerTicket": 4,
+        "finalM": 3,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 522.2999999970198,
+        "inbound": 373.69999999552965,
+        "firstStage": 430.70000000298023,
+        "directNext": 450.29999999701977,
+        "create": 569.2000000029802,
+        "paperTab": 176.60000000149012,
+        "preview": 173.19999999552965,
+        "print": 266.69999999552965,
+        "pdaRead": 64,
+        "finalPda": 286.20000000298023
+      },
+      "focused": {
+        "field": "",
+        "tag": "INPUT",
+        "value": "M压褶损耗1片"
+      }
+    },
+    {
+      "action": "normal-two-stage-sample5",
+      "passed": true,
+      "bag": "BAG-DIRECT-V27-05",
+      "location": "A-R02-L03-P03",
+      "ticketNos": [
+        "TM-FVUUO-L6NJ3-006",
+        "TM-FVUUO-L6NJ3-002"
+      ],
+      "actual": {
+        "original": 5,
+        "directPerTicket": 4,
+        "finalM": 3,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 580.3999999985099,
+        "inbound": 409.1000000014901,
+        "firstStage": 464.90000000596046,
+        "directNext": 463.29999999701977,
+        "create": 606.3000000044703,
+        "paperTab": 159.20000000298023,
+        "preview": 178.40000000596046,
+        "print": 282.79999999701977,
+        "pdaRead": 69.20000000298023,
+        "finalPda": 299.70000000298023
+      },
+      "focused": {
+        "field": "",
+        "tag": "INPUT",
+        "value": "M压褶损耗1片"
+      }
+    },
+    {
+      "action": "web-original-correction-guard-five-each-valid",
+      "samples": 30,
+      "timings": [
+        {
+          "ms": 248.60000000149012
+        },
+        {
+          "ms": 213.60000000149012
+        },
+        {
+          "ms": 219.39999999850988
+        },
+        {
+          "ms": 200.89999999850988
+        },
+        {
+          "ms": 204.39999999850988
+        },
+        {
+          "ms": 214
+        },
+        {
+          "ms": 185.79999999701977
+        },
+        {
+          "ms": 187.10000000149012
+        },
+        {
+          "ms": 186.60000000149012
+        },
+        {
+          "ms": 203.29999999701977
+        },
+        {
+          "ms": 219.10000000149012
+        },
+        {
+          "ms": 219.5
+        },
+        {
+          "ms": 186
+        },
+        {
+          "ms": 185.5
+        },
+        {
+          "ms": 219.5
+        },
+        {
+          "ms": 211
+        },
+        {
+          "ms": 186.80000000447035
+        },
+        {
+          "ms": 186.39999999850988
+        },
+        {
+          "ms": 186.89999999850988
+        },
+        {
+          "ms": 185.79999999701977
+        },
+        {
+          "ms": 213.29999999701977
+        },
+        {
+          "ms": 185.39999999850988
+        },
+        {
+          "ms": 186.5
+        },
+        {
+          "ms": 186.89999999850988
+        },
+        {
+          "ms": 186.70000000298023
+        },
+        {
+          "ms": 195.5
+        },
+        {
+          "ms": 187
+        },
+        {
+          "ms": 186.19999999552965
+        },
+        {
+          "ms": 185.5
+        },
+        {
+          "ms": 186.39999999850988
+        }
+      ],
+      "cases": [
+        "blank",
+        "over-expected",
+        "difference-reason-empty",
+        "receipt-unchecked",
+        "correction-confirm-unchecked",
+        "correction-reason-empty"
+      ]
+    },
+    {
+      "action": "bag-mixed-and-cross-chain-five-each",
+      "samples": 10,
+      "timings": [
+        {
+          "ms": 371.69999999552965
+        },
+        {
+          "ms": 330.5
+        },
+        {
+          "ms": 324.3999999985099
+        },
+        {
+          "ms": 324.3999999985099
+        },
+        {
+          "ms": 324
+        },
+        {
+          "ms": 324.09999999403954
+        },
+        {
+          "ms": 324.19999999552965
+        },
+        {
+          "ms": 322.8999999985099
+        },
+        {
+          "ms": 325.6000000014901
+        },
+        {
+          "ms": 324.19999999552965
+        }
+      ],
+      "cases": [
+        "ordinary-special",
+        "different-ordered-chain"
+      ]
+    },
+    {
+      "action": "web-first-receipt-guards-seven-five-each",
+      "samples": 35,
+      "timings": [
+        {
+          "ms": 246.40000000596046
+        },
+        {
+          "ms": 216.30000000447035
+        },
+        {
+          "ms": 203.5
+        },
+        {
+          "ms": 218.5
+        },
+        {
+          "ms": 219
+        },
+        {
+          "ms": 213.19999999552965
+        },
+        {
+          "ms": 202.5
+        },
+        {
+          "ms": 203.60000000149012
+        },
+        {
+          "ms": 202
+        },
+        {
+          "ms": 234.20000000298023
+        },
+        {
+          "ms": 228.20000000298023
+        },
+        {
+          "ms": 203.5
+        },
+        {
+          "ms": 202.09999999403954
+        },
+        {
+          "ms": 203
+        },
+        {
+          "ms": 219.70000000298023
+        },
+        {
+          "ms": 215.10000000149012
+        },
+        {
+          "ms": 203.19999999552965
+        },
+        {
+          "ms": 236.10000000149012
+        },
+        {
+          "ms": 202.5
+        },
+        {
+          "ms": 202.89999999850988
+        },
+        {
+          "ms": 212.39999999850988
+        },
+        {
+          "ms": 184.40000000596046
+        },
+        {
+          "ms": 204.29999999701977
+        },
+        {
+          "ms": 233.89999999850988
+        },
+        {
+          "ms": 216.59999999403954
+        },
+        {
+          "ms": 211.60000000149012
+        },
+        {
+          "ms": 236.10000000149012
+        },
+        {
+          "ms": 218.20000000298023
+        },
+        {
+          "ms": 201.40000000596046
+        },
+        {
+          "ms": 204.29999999701977
+        },
+        {
+          "ms": 234.89999999850988
+        },
+        {
+          "ms": 203
+        },
+        {
+          "ms": 202.5
+        },
+        {
+          "ms": 201.10000000149012
+        },
+        {
+          "ms": 204.19999999552965
+        }
+      ],
+      "cases": [
+        "blank",
+        "completion-unchecked",
+        "difference-reason-empty",
+        "over-expected",
+        "receipt-unchecked",
+        "negative",
+        "fraction"
+      ]
+    },
+    {
+      "action": "pda-first-receipt-guards-seven-five-each",
+      "samples": 35,
+      "timings": [
+        {
+          "ms": 239.29999999701977
+        },
+        {
+          "ms": 218.5
+        },
+        {
+          "ms": 220.20000000298023
+        },
+        {
+          "ms": 217.80000000447035
+        },
+        {
+          "ms": 219.60000000149012
+        },
+        {
+          "ms": 230.60000000149012
+        },
+        {
+          "ms": 219.39999999850988
+        },
+        {
+          "ms": 219.60000000149012
+        },
+        {
+          "ms": 220.39999999850988
+        },
+        {
+          "ms": 221.19999999552965
+        },
+        {
+          "ms": 245.79999999701977
+        },
+        {
+          "ms": 236
+        },
+        {
+          "ms": 218.80000000447035
+        },
+        {
+          "ms": 221
+        },
+        {
+          "ms": 235.90000000596046
+        },
+        {
+          "ms": 220.20000000298023
+        },
+        {
+          "ms": 219.20000000298023
+        },
+        {
+          "ms": 221.10000000149012
+        },
+        {
+          "ms": 201.79999999701977
+        },
+        {
+          "ms": 219.90000000596046
+        },
+        {
+          "ms": 229.79999999701977
+        },
+        {
+          "ms": 201.69999999552965
+        },
+        {
+          "ms": 239.70000000298023
+        },
+        {
+          "ms": 220.89999999850988
+        },
+        {
+          "ms": 219.60000000149012
+        },
+        {
+          "ms": 225.20000000298023
+        },
+        {
+          "ms": 219.89999999850988
+        },
+        {
+          "ms": 232
+        },
+        {
+          "ms": 218.5
+        },
+        {
+          "ms": 219.90000000596046
+        },
+        {
+          "ms": 220.10000000149012
+        },
+        {
+          "ms": 220.39999999850988
+        },
+        {
+          "ms": 220.39999999850988
+        },
+        {
+          "ms": 220.5
+        },
+        {
+          "ms": 236.79999999701977
+        }
+      ],
+      "cases": [
+        "blank",
+        "completion-unchecked",
+        "difference-reason-empty",
+        "over-expected",
+        "receipt-unchecked",
+        "negative",
+        "fraction"
+      ]
+    },
+    {
+      "action": "single-stage-Web-4-0-sample1",
+      "passed": true,
+      "bag": "BAG-SINGLE-V27-01",
+      "location": "A-R01-L03-P02",
+      "ticketNos": [
+        "TM-FVUUO-P1SVU-005",
+        "TM-FVUUO-P1SVU-001"
+      ],
+      "actual": {
+        "original": 5,
+        "finalM": 4,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 614.6000000014901,
+        "inbound": 449.3999999985099,
+        "firstStage": 480.40000000596046,
+        "receipt": 495.20000000298023
+      },
+      "oldFactsUnchanged": true
+    },
+    {
+      "action": "single-stage-Web-4-0-sample2",
+      "passed": true,
+      "bag": "BAG-SINGLE-V27-02",
+      "location": "A-R01-L03-P03",
+      "ticketNos": [
+        "TM-FVUUO-UBI64-001",
+        "TM-FVUUO-UBI64-005"
+      ],
+      "actual": {
+        "original": 5,
+        "finalM": 4,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 683.8999999985099,
+        "inbound": 513.6000000014901,
+        "firstStage": 513.4000000059605,
+        "receipt": 548
+      },
+      "oldFactsUnchanged": true
+    },
+    {
+      "action": "single-stage-Web-4-0-sample3",
+      "passed": true,
+      "bag": "BAG-SINGLE-V27-03",
+      "location": "A-R01-L03-P04",
+      "ticketNos": [
+        "TM-FVUUO-XIXYM-001",
+        "TM-FVUUO-XIXYM-005"
+      ],
+      "actual": {
+        "original": 5,
+        "finalM": 4,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 700.6999999955297,
+        "inbound": 494.3999999985099,
+        "firstStage": 597.1999999955297,
+        "receipt": 563.0999999940395
+      },
+      "oldFactsUnchanged": true
+    },
+    {
+      "action": "single-stage-Web-4-0-sample4",
+      "passed": true,
+      "bag": "BAG-SINGLE-V27-04",
+      "location": "A-R02-L02-P01",
+      "ticketNos": [
+        "TM-FVUUO-Z0I65-005",
+        "TM-FVUUO-Z0I65-001"
+      ],
+      "actual": {
+        "original": 5,
+        "finalM": 4,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 751.6999999955297,
+        "inbound": 520.8999999985099,
+        "firstStage": 563,
+        "receipt": 595.7000000029802
+      },
+      "oldFactsUnchanged": true
+    },
+    {
+      "action": "single-stage-Web-4-0-sample5",
+      "passed": true,
+      "bag": "BAG-SINGLE-V27-05",
+      "location": "A-R02-L02-P02",
+      "ticketNos": [
+        "TM-FVUUO-SRAQ1-001",
+        "TM-FVUUO-SRAQ1-005"
+      ],
+      "actual": {
+        "original": 5,
+        "finalM": 4,
+        "finalXL": 0
+      },
+      "timings": {
+        "bagging": 812.2000000029802,
+        "inbound": 629.6000000014901,
+        "firstStage": 614.5,
+        "receipt": 630.1999999955297
+      },
+      "oldFactsUnchanged": true
+    },
+    {
+      "action": "pda-duplicate-receipt-idempotent-success-five",
+      "samples": 5,
+      "timings": [
+        {
+          "ms": 402.6000000014901
+        },
+        {
+          "ms": 320.69999999552965
+        },
+        {
+          "ms": 318.20000000298023
+        },
+        {
+          "ms": 320
+        },
+        {
+          "ms": 318.70000000298023
+        }
+      ],
+      "cases": [
+        "normal"
+      ]
+    },
+    {
+      "action": "web-return-read-select-close-reopen-five",
+      "samples": 5,
+      "timings": [
+        {
+          "openMs": 532.7000000029802,
+          "selectMs": 124.10000000149012,
+          "closeMs": 81
+        },
+        {
+          "openMs": 214.60000000149012,
+          "selectMs": 132.70000000298023,
+          "closeMs": 80.79999999701977
+        },
+        {
+          "openMs": 233,
+          "selectMs": 132.30000000447035,
+          "closeMs": 79.39999999850988
+        },
+        {
+          "openMs": 216.80000000447035,
+          "selectMs": 114.5,
+          "closeMs": 80.89999999850988
+        },
+        {
+          "openMs": 215,
+          "selectMs": 115.5,
+          "closeMs": 81.30000000447035
+        }
+      ],
+      "cases": [
+        "normal"
+      ]
+    },
+    {
+      "action": "pda-fresh-current-locations-five",
+      "samples": 5,
+      "timings": [
+        {
+          "ms": -67535.79999999702
+        },
+        {
+          "ms": -41
+        },
+        {
+          "ms": -18.69999999552965
+        },
+        {
+          "ms": 14.300000004470348
+        },
+        {
+          "ms": -5.299999997019768
+        }
+      ],
+      "cases": [
+        "normal"
+      ]
+    },
+    {
+      "action": "pda-fresh-current-locations-five-absolute-clock",
+      "samples": 5,
+      "timings": [
+        {
+          "ms": 558.800048828125
+        },
+        {
+          "ms": 546
+        },
+        {
+          "ms": 546.5
+        },
+        {
+          "ms": 561.800048828125
+        },
+        {
+          "ms": 545.2998046875
+        }
+      ],
+      "cases": [
+        "normal"
+      ]
+    }
+  ],
+  "excludeTimingActions": [
+    "pda-duplicate-final-receipt-five",
+    "pda-fresh-current-locations-five"
+  ],
+  "openLinkObservation": {
+    "route": "/fcs/craft/cutting/cut-piece-release?productionOrderId=PO-202603-0002&productionOrderNo=PO-202603-0002",
+    "record": "cpr-PO-202603-0002",
+    "legacyMaterial": "FAB",
+    "legacyPart": "body",
+    "drawerOnlyDemo": true,
+    "newReceiptTicketNotShown": "TM-FVUUO-SNF9Q-002",
+    "rootJudgmentPending": true
+  },
+  "overallPassed": false,
+  "browserCpuWindow": "returned_root_on_new_link_observation"
+}

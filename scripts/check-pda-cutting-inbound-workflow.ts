@@ -119,6 +119,7 @@ const latestControlValues: Record<string, string> = {
   scanCode: 'FT-CUT-LATEST-001',
 }
 const fakeWorkflowContainer: HTMLElement = Object.assign(Object.create(null), {
+  querySelectorAll() { return [] },
   querySelector(selector: string) {
     const field = Object.keys(latestControlValues).find((key) => selector.includes(`="${key}"`))
     return field ? { value: latestControlValues[field] } : null
@@ -143,6 +144,18 @@ workflow.syncPdaCuttingInboundFormFromControls(latestFormState, resolvedWorkflow
 assert.equal(latestFormState.carrierCode, latestControlValues.carrierCode, '确认前必须同步输入框中的最新袋码')
 assert.equal(latestFormState.locationScan, latestControlValues.locationScan, '确认前必须同步输入框中的最新库位扫码')
 assert.equal(latestFormState.scanCode, latestControlValues.scanCode, '确认前必须同步输入框中的最新菲票扫码值')
+const receiptInputs: Record<string, { value?: string; checked?: boolean }> = {
+  '[data-pda-craft-receipt-qty]': { value: '0' },
+  '[data-pda-craft-receipt-reason]': { value: '全部损耗' },
+  '[data-pda-craft-receipt-confirmed]': { checked: true },
+  '[data-pda-craft-processing-completed]': { checked: false },
+}
+const fakeReceiptContainer = Object.assign(Object.create(null), {
+  querySelector: fakeWorkflowContainer.querySelector,
+  querySelectorAll() { return [{ dataset: { pdaCraftReceiptTicket: 'TEST-FEI-RECEIPT' }, querySelector: (selector: string) => receiptInputs[selector] || null }] },
+}) as HTMLElement
+workflow.syncPdaCuttingInboundFormFromControls(latestFormState, fakeReceiptContainer)
+assert.deepEqual(latestFormState.specialCraftReceipts['TEST-FEI-RECEIPT'], { returnedQty: '0', differenceReason: '全部损耗', confirmed: true, processingCompleted: false }, '逐票实收保留明确零量与未核对完成，不能默认补造完成')
 
 assert.equal(workflow.PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS, 150, '扫码枪输入 debounce 必须为约 150ms')
 assert.equal(
@@ -392,7 +405,7 @@ const buildInboundConfirmHarness = (taskId: string, carrierCode: string) => {
     innerHTML: '',
     scrollTop: 287,
     attributes: new Map<string, string>(),
-    querySelectorAll() { return [carrierInput, ticketInput] },
+    querySelectorAll(selector: string) { return selector === '[data-pda-craft-receipt-ticket]' ? [] : [carrierInput, ticketInput] },
     setAttribute(key: string, value: string) { this.attributes.set(key, value) },
     removeAttribute(key: string) { this.attributes.delete(key) },
     querySelector(selector: string) {
@@ -977,6 +990,7 @@ const specialReturnCandidate = {
   ticketNo: 'PDA-SPECIAL-RETURN-FEI-001',
   hasSpecialCraft: true,
   specialCraftDisplayLabel: '绣花',
+  specialCraftChainKey: JSON.stringify(['V1', [['绣花', '特种工艺', 'CRAFT-FACTORY-RETURN']]]),
   receiverFactoryDisplay: '特殊工艺回仓测试厂',
 } as const
 workflow.confirmPdaBagging({
@@ -988,6 +1002,7 @@ workflow.confirmPdaBagging({
 workflow.appendPdaCuttingInboundRuntimeEvent({
   ...workflow.createPdaCuttingInboundFormState(),
   carrierCode: specialReturnBagCode,
+  specialCraftReceipts: { [specialReturnCandidate.feiTicketId]: { returnedQty: String(specialReturnCandidate.actualCutPieceQty), differenceReason: '', confirmed: true, processingCompleted: true } },
   selectedLocationIds: [runtimeLocationRef.locationId],
 }, 'inbound-location', [specialReturnCandidate], specialReturnStorage, [runtimeLocationRef])
 const specialUsageCycleId = buildWaitHandoverLifecycleByBagCode(
@@ -1039,6 +1054,7 @@ workflow.appendPdaCuttingInboundRuntimeEvent({
   ...workflow.createPdaCuttingInboundFormState(),
   operatorName: '特殊工艺回仓员',
   carrierCode: specialReturnBagCode,
+  specialCraftReceipts: { [specialReturnCandidate.feiTicketId]: { returnedQty: String(specialReturnCandidate.actualCutPieceQty), differenceReason: '', confirmed: true, processingCompleted: true } },
   selectedLocationIds: [runtimeLocationRef.locationId],
 }, 'inbound-location', [specialReturnCandidate], specialReturnStorage, [runtimeLocationRef])
 assert.equal(

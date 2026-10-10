@@ -1,0 +1,104 @@
+### Result
+{"prepared":{"sample":6,"remark":"v28-profiler连续工艺正常来源6","createMs":782.6999999955297,"paperTabMs":185,"previewMs":196.39999999850988,"printMs":415.3999999985099,"visual":{"createVisual":{"fontStatus":"loaded","fontFaceCount":0,"fontFaceRules":0,"images":[],"pendingImages":0},"paperTabVisual":{"fontStatus":"loaded","fontFaceCount":0,"fontFaceRules":0,"images":[],"pendingImages":0},"previewVisual":{"fontStatus":"loaded","fontFaceCount":0,"fontFaceRules":0,"images":[],"pendingImages":0},"printVisual":{"fontStatus":"loaded","fontFaceCount":0,"fontFaceRules":0,"images":[],"pendingImages":0}},"batchId":"manual-batch-MI4IGJ","tickets":[{"id":"manual-fei-OSBI66","no":"TM-FVUUO-YFCDI-006","qty":5,"printStatus":"PRINTED","size":"XL","crafts":[{"specialCraftId":"manual-batch-MI4IGJ-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01","craftCategory":"辅助工艺","craftType":"打条","craftName":"打条","receiverFactoryId":"FAC-APF","receiverFactoryCode":"APF","receiverFactoryName":"APF - 辅助工艺","receiverFactoryType":"辅助工艺厂","affectedPartCode":"tdv_demand_SPU_2024_005-pattern-main-back","affectedPartName":"后片","affectedSize":"XL","affectedPieceQty":5,"requirementSource":"技术包","handoverStatus":"未交出","returnStatus":"未回仓","remark":""},{"specialCraftId":"manual-batch-MI4IGJ-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02","craftCategory":"辅助工艺","craftType":"压褶","craftName":"压褶","receiverFactoryId":"FAC-APF","receiverFactoryCode":"APF","receiverFactoryName":"APF - 辅助工艺","receiverFactoryType":"辅助工艺厂","affectedPartCode":"tdv_demand_SPU_2024_005-pattern-main-back","affectedPartName":"后片","affectedSize":"XL","affectedPieceQty":5,"requirementSource":"技术包","handoverStatus":"未交出","returnStatus":"未回仓","remark":""}]},{"id":"manual-fei-PSH7J9","no":"TM-FVUUO-YFCDI-002","qty":5,"printStatus":"PRINTED","size":"M","crafts":[{"specialCraftId":"manual-batch-MI4IGJ-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01","craftCategory":"辅助工艺","craftType":"打条","craftName":"打条","receiverFactoryId":"FAC-APF","receiverFactoryCode":"APF","receiverFactoryName":"APF - 辅助工艺","receiverFactoryType":"辅助工艺厂","affectedPartCode":"tdv_demand_SPU_2024_005-pattern-main-back","affectedPartName":"后片","affectedSize":"M","affectedPieceQty":5,"requirementSource":"技术包","handoverStatus":"未交出","returnStatus":"未回仓","remark":""},{"specialCraftId":"manual-batch-MI4IGJ-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02","craftCategory":"辅助工艺","craftType":"压褶","craftName":"压褶","receiverFactoryId":"FAC-APF","receiverFactoryCode":"APF","receiverFactoryName":"APF - 辅助工艺","receiverFactoryType":"辅助工艺厂","affectedPartCode":"tdv_demand_SPU_2024_005-pattern-main-back","affectedPartName":"后片","affectedSize":"M","affectedPieceQty":5,"requirementSource":"技术包","handoverStatus":"未交出","returnStatus":"未回仓","remark":""}]}],"originalOrdinary":[{"id":"manual-fei-I5SMKL","no":"TM-FVUUO-YFCDI-008","qty":5},{"id":"manual-fei-I5SMKM","no":"TM-FVUUO-YFCDI-007","qty":5},{"id":"manual-fei-P0A7A5","no":"TM-FVUUO-YFCDI-005","qty":5},{"id":"manual-fei-PKIIFA","no":"TM-FVUUO-YFCDI-001","qty":5},{"id":"manual-fei-WF034T","no":"TM-FVUUO-YFCDI-003","qty":5},{"id":"manual-fei-WF034U","no":"TM-FVUUO-YFCDI-004","qty":5}],"route":"http://127.0.0.1:4190/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=manual-fei-PSH7J9%2Cmanual-fei-OSBI66&paperColor=YELLOW"},"bag":"BAG-DIRECT-V28-PROFILE-06","button":true}
+### Ran Playwright code
+```js
+await (async(page)=>{async function readRecords(page, collections) {
+ return page.evaluate(collections=>new Promise((resolve,reject)=>{const q=indexedDB.open('higood-cutting-records-v1');q.onerror=()=>reject(q.error);q.onsuccess=()=>{const db=q.result,tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAll();tx.oncomplete=()=>{const records=r.result.filter(x=>collections.includes(x.collection)).map(x=>({collection:x.collection,value:x.value}));db.close();resolve(records)};tx.onerror=()=>reject(tx.error)}}),collections);
+}
+async function painted(page){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))}
+async function currentTicketRows(page){return page.locator('[data-pda-craft-receipt-ticket]').evaluateAll(es=>es.map(e=>({id:e.dataset.pdaCraftReceiptTicket,qty:e.querySelector('[data-pda-craft-receipt-qty]').value,reason:e.querySelector('[data-pda-craft-receipt-reason]').value,confirmed:e.querySelector('[data-pda-craft-receipt-confirmed]').checked,completed:e.querySelector('[data-pda-craft-processing-completed]').checked})))}
+async function visualComplete(page){return page.evaluate(async()=>{await document.fonts.ready;const imgs=[...document.images];await Promise.all(imgs.map(img=>img.decode().catch(()=>{})));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));let fontFaceRules=0;for(const s of document.styleSheets){try{for(const rule of s.cssRules)if(rule instanceof CSSFontFaceRule)fontFaceRules++;}catch{}}return {fontStatus:document.fonts.status,fontFaceCount:document.fonts.size,fontFaceRules,images:imgs.map(e=>({src:e.currentSrc||e.src,complete:e.complete,naturalWidth:e.naturalWidth})),pendingImages:imgs.filter(e=>!e.complete||!e.naturalWidth).length}})}
+async function createAndPrint(page, sample, version){
+ const remark=`${version}连续工艺正常来源${sample}`;
+ await page.setViewportSize({width:1024,height:768});
+ await page.goto('http://127.0.0.1:4190/fcs/craft/cutting/fei-tickets');
+ await page.getByRole('button',{name:'手动增加打印菲票',exact:true}).waitFor();
+ await page.getByRole('button',{name:'手动增加打印菲票',exact:true}).click();
+ const d=page.getByRole('dialog',{name:'手动增加打印菲票'});
+ await d.locator('[data-cutting-fei-manual-field=markerPlanId]').selectOption('marker-plan-1791559507941-tra25e');
+ await d.locator('[data-cutting-fei-manual-size=M]').fill('5');
+ await d.locator('[data-cutting-fei-manual-size=XL]').fill('5');
+ await d.locator('[data-cutting-fei-manual-field=remark]').fill(remark);
+ await d.locator('[data-cutting-fei-manual-field=remark]').blur();
+ const ct=await page.evaluate(()=>performance.now());
+ await d.getByRole('button',{name:'确认生成菲票',exact:true}).click();
+ await d.waitFor({state:'hidden'});
+ const records=await readRecords(page,['part-ticket:manual-records']);
+ const created=records.map(x=>x.value).filter(x=>x.remark===remark||JSON.stringify(x).includes(remark));
+ if(created.length!==8) throw new Error(`manual saved count ${created.length}`);
+ const special=created.filter(x=>x.hasSpecialCraft);
+ if(special.length!==2)throw new Error('not two genuine special tickets');
+ const createVisual=await visualComplete(page);const createMs=await page.evaluate(t=>performance.now()-t,ct);
+ await page.locator('tr').nth(1).getByRole('button',{name:'菲票明细',exact:true}).click();
+ await page.getByRole('button',{name:'有特殊工艺 · 黄色热敏纸（2）',exact:true}).waitFor();
+ const tabT=await page.evaluate(()=>performance.now());
+ await page.getByRole('button',{name:'有特殊工艺 · 黄色热敏纸（2）',exact:true}).click();
+ await page.getByRole('button',{name:'全部打印（2）',exact:true}).waitFor();
+ const paperTabVisual=await visualComplete(page);const paperTabMs=await page.evaluate(t=>performance.now()-t,tabT);
+ await page.getByRole('button',{name:'全部打印（2）',exact:true}).click();
+ await page.getByRole('button',{name:'已装入黄色热敏纸，进入预览',exact:true}).waitFor();
+ const pt=await page.evaluate(()=>performance.now());
+ await page.getByRole('button',{name:'已装入黄色热敏纸，进入预览',exact:true}).click();
+ await page.locator('[data-print-preview-action=print]').waitFor();
+ await page.locator('[data-real-qr] svg').first().waitFor();
+ await page.locator('img').evaluateAll(es=>Promise.all(es.map(e=>e.complete?Promise.resolve():new Promise(r=>{e.onload=r;e.onerror=r}))));
+ const previewVisual=await visualComplete(page);const previewMs=await page.evaluate(t=>performance.now()-t,pt);
+ const printT=await page.evaluate(()=>performance.now());
+ await page.locator('[data-print-preview-action=print]').click();
+ let printed;
+ for(let n=0;n<100;n++){
+  const rs=await readRecords(page,['part-ticket:manual-records']);
+  printed=rs.map(x=>x.value).filter(x=>special.some(s=>s.feiTicketId===x.feiTicketId));
+  if(printed.length===2&&printed.every(x=>x.printStatus==='PRINTED'))break;
+  await page.waitForTimeout(10);
+ }
+ if(!printed||!printed.every(x=>x.printStatus==='PRINTED'))throw new Error('original print not durable');
+ const printVisual=await visualComplete(page);const printMs=await page.evaluate(t=>performance.now()-t,printT);
+ return {sample,remark,createMs,paperTabMs,previewMs,printMs,visual:{createVisual,paperTabVisual,previewVisual,printVisual},batchId:created[0].manualBatchId||created[0].sourceOutputLineId.split('-marker-plan-')[0],tickets:printed.map(x=>({id:x.feiTicketId,no:x.feiTicketNo,qty:x.qty,printStatus:x.printStatus,size:x.skuSize,crafts:x.specialCrafts})),originalOrdinary:created.filter(x=>!x.hasSpecialCraft).map(x=>({id:x.feiTicketId,no:x.feiTicketNo,qty:x.qty})),route:page.url()};
+}
+async function saveDialogAction(page,m,name,bagCode){
+ const t=await page.evaluate(()=>performance.now());await m.getByRole('button',{name,exact:true}).click();await m.getByRole('button',{name:'已保存',exact:true}).waitFor({timeout:8000});
+ const read=(await readRecords(page,['cutting-events'])).map(x=>x.value).filter(e=>e.refs?.transferBagCode===bagCode);
+ const visual=await visualComplete(page);return {visual,ms:await page.evaluate(t=>performance.now()-t,t),body:await m.innerText(),events:read};
+}
+async function closeDialog(page){const m=page.locator('#cutting-wait-handover-web-action-modal');await m.getByRole('button',{name:'关闭',exact:true}).last().click();await m.waitFor({state:'hidden'});}
+async function saveChain(page, prepared, sample, version, proof={}){
+ const bag=`BAG-DIRECT-${version.toUpperCase()}-${String(sample).padStart(2,'0')}`;
+ const location=['A-R01-L02-P01','A-R01-L02-P03','A-R01-L02-P04','A-R01-L01-P01','A-R01-L01-P02'][sample-1];
+ const locationId='CUT-WH-LOC-'+location;
+ const m=page.locator('#cutting-wait-handover-web-action-modal');
+ await page.goto('http://127.0.0.1:4190/fcs/craft/cutting/warehouse-management/wait-handover');await page.locator('[data-wait-handover-action=open-bagging]').waitFor();
+ await page.locator('[data-wait-handover-action=open-bagging]').click();
+ await m.locator('[data-wait-handover-field=bagCode]').fill(bag);
+ await m.locator('[data-wait-handover-field=ticketScanInput]').fill(prepared.tickets.map(x=>x.no).join('\n'));
+ const bagging=await saveDialogAction(page,m,'确认菲票装袋',bag);proof.bagging=bagging;await closeDialog(page);
+ await page.locator('[data-wait-handover-action=open-inbound]').click();
+ await m.locator('[data-wait-handover-field=bagCode]').fill(bag);await m.locator('[data-wait-handover-field=warehouseArea]').fill('A区');await m.locator('[data-wait-handover-field=locationCode]').fill(location);
+ const inbound=await saveDialogAction(page,m,'确认中转袋入仓',bag);proof.inbound=inbound;await closeDialog(page);
+ await page.locator('[data-wait-handover-action=open-special-craft-handover]').click();await m.locator('[data-wait-handover-field=bagCode]').selectOption(bag);
+ await m.locator('[data-wait-handover-field=specialCraftTaskSelection] option[value="SC-RELEASE-DEMO-0002-1__ORDER"]').waitFor({state:'attached'});await m.locator('[data-wait-handover-field=specialCraftTaskSelection]').selectOption('SC-RELEASE-DEMO-0002-1__ORDER');
+ await m.locator('[data-wait-handover-field=operatorName]').fill('连续工艺验收仓管');await m.locator('[data-wait-handover-field=secondConfirm]').check();
+ const firstStage=await saveDialogAction(page,m,'确认特殊工艺交出',bag);proof.firstStage=firstStage;await closeDialog(page);
+ await page.locator('[data-wait-handover-action=open-special-craft-handover]').click();await m.locator('[data-wait-handover-field=bagCode]').selectOption(bag);
+ await m.locator('[data-wait-handover-field=specialCraftTaskSelection] option[value="SC-RELEASE-DEMO-0002-2__ORDER"]').waitFor({state:'attached'});await m.locator('[data-wait-handover-field=specialCraftTaskSelection]').selectOption('SC-RELEASE-DEMO-0002-2__ORDER');
+ for(const ticket of prepared.tickets){const r=m.locator(`[data-direct-transfer-ticket="${ticket.id}"]`);await r.locator('[data-direct-qty]').fill('4');await r.locator('[data-direct-reason]').fill(`${ticket.size}打条损耗1片`);await r.locator('[data-direct-reason]').blur();await r.locator('[data-direct-completed]').check();}
+ await m.locator('[data-wait-handover-field=operatorName]').fill('连续工艺验收仓管');await m.locator('[data-wait-handover-field=secondConfirm]').check();
+ const directNext=await saveDialogAction(page,m,'确认特殊工艺交出',bag);proof.directNext=directNext;
+ if(directNext.events.filter(e=>e.eventType==='特殊工艺回仓').length)throw new Error('direct created intermediate warehouse receipt');
+ await page.setViewportSize({width:390,height:844});await page.goto('http://127.0.0.1:4190/fcs/pda/cutting/inbound/TASK-CUT-PDA-NO-PICKUP-0301?action=inbound-location');await page.locator('[data-pda-cut-inbound-field=carrierCode]').waitFor();
+ const scanT=await page.evaluate(()=>performance.now());await page.locator('[data-pda-cut-inbound-field=carrierCode]').fill(bag);await page.locator('[data-pda-cut-inbound-field=carrierCode]').press('Enter');await page.locator('[data-pda-craft-receipt-ticket]').first().waitFor();const pdaSourceVisual=await visualComplete(page);const pdaSourceReadMs=await page.evaluate(t=>performance.now()-t,scanT);
+ await page.locator(`[data-warehouse-map-action=toggle-location][data-location-id="${locationId}"]`).click();
+ for(const ticket of prepared.tickets){const r=page.locator(`[data-pda-craft-receipt-ticket="${ticket.id}"]`);await r.locator('[data-pda-craft-receipt-qty]').fill(ticket.size==='XL'?'0':'3');await r.locator('[data-pda-craft-receipt-qty]').blur();await r.locator('[data-pda-craft-receipt-confirmed]').check();await r.locator('[data-pda-craft-processing-completed]').check();await r.locator('[data-pda-craft-receipt-reason]').fill(ticket.size==='XL'?'XL压褶4片全部不可用':'M压褶损耗1片');}
+ await painted(page);const before=await currentTicketRows(page);const focused=await page.evaluate(()=>({field:document.activeElement?.getAttribute("data-pda-craft-receipt-reason"),tag:document.activeElement?.tagName,value:document.activeElement?.value}));proof.before=before;proof.focused=focused;proof.pdaSourceReadMs=pdaSourceReadMs;
+ const old=await page.locator('[data-pda-cut-inbound-field=carrierCode]').elementHandle();const t=await page.evaluate(()=>performance.now());await page.getByRole('button',{name:'确认入仓',exact:true}).click();await page.waitForFunction(e=>!e.isConnected,old);const events=(await readRecords(page,['cutting-events'])).map(x=>x.value).filter(e=>e.refs?.transferBagCode===bag);const finalVisual=await visualComplete(page);const finalPdaMs=await page.evaluate(t=>performance.now()-t,t);const receipts=events.filter(e=>e.eventType==='特殊工艺回仓');proof.finalPdaMs=finalPdaMs;proof.receipts=receipts;
+ if(receipts.length!==1)throw new Error(`receipt count ${receipts.length}`);
+ for(const b of before){const fact=receipts[0].payload.returnedFeiTicketItems.find(x=>x.feiTicketId===b.id);if(!fact||fact.returnedQty!==Number(b.qty)||fact.differenceReason!==b.reason||fact.processingCompleted!==b.completed)throw new Error(`DOM/payload mismatch ${b.id}`);}
+ await page.reload();await page.locator('[data-pda-cut-inbound-field=carrierCode]').waitFor();await page.getByText(`中转袋 ${bag}`,{exact:true}).waitFor();
+ const freshRead=(await readRecords(page,['cutting-events'])).map(x=>x.value).filter(e=>e.refs?.transferBagCode===bag);
+ return {sample,bag,location,prepared,bagging,inbound,firstStage,directNext,pdaSourceReadMs,pdaSourceVisual,before,focused,finalPdaMs,finalVisual,receipts,freshRead,readbackLocationText:await page.locator(`[data-warehouse-map-action=open-occupancy][data-location-id="${locationId}"]`).innerText()};
+}
+const prepared=await createAndPrint(page,6,'v28-profiler');const bag='BAG-DIRECT-V28-PROFILE-06';await page.goto('http://127.0.0.1:4190/fcs/craft/cutting/warehouse-management/wait-handover');await page.locator('[data-wait-handover-action=open-bagging]').waitFor();await page.locator('[data-wait-handover-action=open-bagging]').click();const m=page.locator('#cutting-wait-handover-web-action-modal');await m.locator('[data-wait-handover-field=bagCode]').fill(bag);await m.locator('[data-wait-handover-field=ticketScanInput]').fill(prepared.tickets.map(x=>x.no).join('\n'));return {prepared,bag,button:await m.getByRole('button',{name:'确认菲票装袋',exact:true}).isVisible()}})(page);
+```
+### Page
+- Page URL: http://127.0.0.1:4190/fcs/craft/cutting/warehouse-management/wait-handover
+- Page Title: HiGood - Vanilla TypeScript Clone

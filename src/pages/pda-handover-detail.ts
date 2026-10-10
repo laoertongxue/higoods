@@ -1,4 +1,10 @@
 import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
+import { runCuttingEventAction } from '../data/fcs/cutting/cutting-event-repository.ts'
+import { listSpecialCraftReturnSourceCandidates, listSpecialCraftTicketReturnFacts, submitSpecialCraftBagReturn, validateSpecialCraftTicketReceipts } from '../data/fcs/cutting/transfer-bag-operations.ts'
+import { loadWarehouseLayoutSnapshot } from './process-factory/cutting/warehouse-location-layout-store.ts'
+import { buildWarehouseLocationMapProjection, listStableWarehouseLocationRefs, revalidateWarehouseLocationSelection } from './process-factory/cutting/warehouse-location-map-model.ts'
+import { buildWaitHandoverLocationOccupancyStates } from './process-factory/cutting/wait-handover-runtime.ts'
+import { listCuttingRuntimeEvents } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { renderMixedBagTicket, mixedBagSummary } from '../components/ui/mixed-bag-contents.ts'
 import { productionOrders } from '../data/fcs/production-orders.ts'
 import { readWoolQuerySnapshot } from '../data/fcs/wool-domain/queries.ts'
@@ -82,7 +88,6 @@ import {
   isSpecialCraftDispatchPickupRecord,
   isSpecialCraftReturnHandoverRecord,
   markSpecialCraftFactoryReceivedFromHandover,
-  receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse,
   syncSpecialCraftReturnObjectionByHandoverRecord,
 } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
@@ -141,6 +146,8 @@ interface PdaHandoverDetailState {
   writebackRemark: string
   writebackPreviewConfirmedAt: string
   writebackSyncWarning: string
+  specialCraftTicketReceipts: Record<string, { returnedQty: string; differenceReason: string; confirmed: boolean; processingCompleted?: boolean }>
+  specialCraftReturnLocationId: string
   waterHandoverConfirm: {
     token: string
     handoverId: string
@@ -180,6 +187,8 @@ const detailState: PdaHandoverDetailState = {
   writebackRemark: '',
   writebackPreviewConfirmedAt: '',
   writebackSyncWarning: '',
+  specialCraftTicketReceipts: {},
+  specialCraftReturnLocationId: '',
   waterHandoverConfirm: null,
 }
 
@@ -1634,6 +1643,7 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
 
 function renderReceiverWritebackForm(record: PdaHandoverRecord): string {
   if (detailState.writebackRecordId !== record.recordId) return ''
+  if (!record.sourceWoolHandoverId && isSpecialCraftReturnHandoverRecord(record.handoverRecordId || record.recordId)) return renderSpecialCraftTicketReceiptForm(record)
 
   return `
     <div class="space-y-3 rounded-md border bg-muted/20 p-3" data-testid="handout-writeback-form">
@@ -1689,6 +1699,51 @@ function renderReceiverWritebackForm(record: PdaHandoverRecord): string {
       </div>
     </div>
   `
+}
+
+function getSpecialCraftReceiptSource(record: PdaHandoverRecord) {
+  const bindings = getSpecialCraftReturnBindingsByHandoverRecordId(record.handoverRecordId || record.recordId)
+  const candidates = listSpecialCraftReturnSourceCandidates().filter(source => !source.correctionOfEventId && bindings.length > 0 && bindings.every(binding => binding.specialCraftId === source.ticketStageIds[binding.feiTicketId] && binding.targetFactoryId === source.receiverFactoryId && source.ticketSnapshot.some(ticket => ticket.feiTicketId === binding.feiTicketId)))
+  return candidates.length === 1 ? candidates[0] : null
+}
+
+function getSpecialCraftReceiptLocationProjection(source: NonNullable<ReturnType<typeof getSpecialCraftReceiptSource>>) {
+  const event = listCuttingRuntimeEvents().find(item => item.eventId === source.sourceHandoverEventId)
+  const factoryId = (event?.payload as { locationRef?: { factoryId: string } } | undefined)?.locationRef?.factoryId || ''
+  const warehouse = findFactoryInternalWarehouseByFactoryAndKind(factoryId, 'WAIT_HANDOVER')
+  if (!warehouse) return null
+  const snapshot = loadWarehouseLayoutSnapshot(warehouse).snapshot
+  const occupancies = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents())
+    .filter(state => state.locationRef.factoryId === warehouse.factoryId && state.locationRef.warehouseId === warehouse.warehouseId)
+    .map(state => ({ occupancyId: `wait-handover:${state.sourceEventId}`, footprintId: `bag:${state.bagCode}`,
+      locationId: state.locationRef.locationId, productionOrderNo: state.productionOrderNo,
+      objectNo: state.bagCode, objectName: `中转袋 ${state.bagCode}`, qty: state.totalPieceQty,
+      unit: '片', inboundAt: state.inboundAt, inboundBy: state.inboundBy }))
+  return { projection: buildWarehouseLocationMapProjection(warehouse, snapshot, occupancies), locations: listStableWarehouseLocationRefs(warehouse, snapshot) }
+}
+
+function renderSpecialCraftTicketReceiptForm(record: PdaHandoverRecord): string {
+  const bindings = getSpecialCraftReturnBindingsByHandoverRecordId(record.handoverRecordId || record.recordId)
+  const saved = listSpecialCraftTicketReturnFacts().filter(fact => bindings.some(binding => binding.feiTicketId === fact.feiTicketId && binding.specialCraftId === fact.specialCraftId))
+  if (bindings.length && saved.length === bindings.length) return `<div class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm"><div class="font-semibold">逐票回仓已保存</div>${saved.map(fact => `<div class="mt-2">${escapeHtml(fact.feiTicketNo)}：实收 ${fact.returnedQty} 片${fact.differenceReason ? ` · ${escapeHtml(fact.differenceReason)}` : ''}</div>`).join('')}<div class="mt-2 text-xs">${escapeHtml(saved[0].returnedBy)} · ${escapeHtml(saved[0].returnedAt)}。</div></div>`
+  const source = getSpecialCraftReceiptSource(record)
+  if (!source) return '<div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">未找到交出记录，请核对菲票、工艺与交出厂。<a class="mt-2 block text-primary underline" href="/fcs/pda/warehouse/wait-handover?scope=cutting">前往裁床待交出仓按票点收</a></div>'
+  const locationContext = getSpecialCraftReceiptLocationProjection(source)
+  const locations = locationContext ? locationContext.locations.filter(location => revalidateWarehouseLocationSelection(locationContext.projection, [location.locationId]).ok) : []
+  return `<div class="space-y-3 rounded-md border p-3" data-testid="special-craft-ticket-receipt-form"><div class="text-sm font-semibold">逐票实收 · ${escapeHtml(source.craftType)}</div><p class="text-xs text-muted-foreground">${escapeHtml(source.receiverFactoryName)} · ${escapeHtml(source.bagCode)}。逐票填写实收；零量也须填写。</p>${source.ticketSnapshot.map(ticket => {
+    const receipt = detailState.specialCraftTicketReceipts[ticket.feiTicketId]
+    return `<section class="rounded border p-3 text-sm" data-special-craft-receipt-ticket="${escapeHtml(ticket.feiTicketId)}"><div class="font-medium">${escapeHtml(ticket.feiTicketNo)} · ${escapeHtml(ticket.partName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(ticket.color)} / ${escapeHtml(ticket.size)} · 应回 ${ticket.pieceQty} 片</div><label class="mt-2 block">实收（片）<input class="mt-1 h-11 w-full rounded border px-3" type="number" min="0" max="${ticket.pieceQty}" step="1" data-special-receipt-qty data-pda-handoverd-field="specialCraftReceipt" data-skip-page-rerender="true" value="${escapeAttr(receipt?.returnedQty || '')}" /></label><label class="mt-2 block">差异说明<input class="mt-1 h-11 w-full rounded border px-3" data-special-receipt-reason data-pda-handoverd-field="specialCraftReceipt" data-skip-page-rerender="true" value="${escapeAttr(receipt?.differenceReason || '')}" placeholder="少回或零量须说明" /></label><label class="mt-2 flex min-h-10 items-center gap-2"><input type="checkbox" data-special-receipt-confirmed data-pda-handoverd-field="specialCraftReceipt" data-skip-page-rerender="true" ${receipt?.confirmed ? 'checked' : ''} />已点收这张菲票</label><label class="mt-2 flex min-h-10 items-center gap-2"><input type="checkbox" data-special-processing-completed data-pda-handoverd-field="specialCraftReceipt" data-skip-page-rerender="true" ${receipt?.processingCompleted ? 'checked' : ''} />已核对本阶段加工完成</label></section>`
+  }).join('')}<label class="block text-sm">回仓库位<select class="mt-1 h-11 w-full rounded border px-3" data-pda-handoverd-field="specialCraftReturnLocationId" data-skip-page-rerender="true"><option value="">请选择本裁床工厂的空闲库位</option>${locations.map(location => `<option value="${escapeAttr(location.locationId)}" ${detailState.specialCraftReturnLocationId === location.locationId ? 'selected' : ''}>${escapeHtml(location.areaName)} / ${escapeHtml(location.shelfNo)} / ${escapeHtml(location.locationNo)}</option>`).join('')}</select></label><button class="h-11 w-full rounded bg-primary text-sm text-primary-foreground" data-pda-handoverd-action="submit-receiver-writeback" data-record-id="${escapeAttr(record.recordId)}">确认逐票回仓</button></div>`
+}
+
+function syncSpecialCraftReceiptControls(container: ParentNode): void {
+  for (const row of container.querySelectorAll<HTMLElement>('[data-special-craft-receipt-ticket]')) detailState.specialCraftTicketReceipts[row.dataset.specialCraftReceiptTicket || ''] = {
+    returnedQty: row.querySelector<HTMLInputElement>('[data-special-receipt-qty]')?.value.trim() || '', differenceReason: row.querySelector<HTMLInputElement>('[data-special-receipt-reason]')?.value.trim() || '',
+    confirmed: Boolean(row.querySelector<HTMLInputElement>('[data-special-receipt-confirmed]')?.checked),
+    processingCompleted: Boolean(row.querySelector<HTMLInputElement>('[data-special-processing-completed]')?.checked),
+  }
+  const location = container.querySelector<HTMLSelectElement>('[data-pda-handoverd-field="specialCraftReturnLocationId"]')
+  if (location) detailState.specialCraftReturnLocationId = location.value
 }
 
 export interface ReceiverWritebackSlaPreview {
@@ -2391,6 +2446,10 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
     fieldNode instanceof HTMLSelectElement
   ) {
     const field = fieldNode.dataset.pdaHandoverdField
+    if (field === 'specialCraftReceipt' || field === 'specialCraftReturnLocationId') {
+      syncSpecialCraftReceiptControls(fieldNode.closest('[data-testid="special-craft-ticket-receipt-form"]') || document)
+      return true
+    }
     if (!field) return true
 
     if (field === 'pickupDisputeQty') {
@@ -2802,6 +2861,12 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
       return true
     }
     detailState.writebackRecordId = record.recordId
+    if (!record.sourceWoolHandoverId && isSpecialCraftReturnHandoverRecord(record.handoverRecordId || record.recordId)) {
+      detailState.specialCraftTicketReceipts = {}
+      detailState.specialCraftReturnLocationId = ''
+      detailState.writebackQty = ''
+      return true
+    }
     detailState.writebackQty = typeof getRecordReceiverWrittenQty(record) === 'number'
       ? String(getRecordReceiverWrittenQty(record))
       : String(record.submittedQty ?? record.plannedQty ?? '')
@@ -2829,6 +2894,31 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
       showPdaHandoverDetailToast('当前记录暂不可确认收货')
+      return true
+    }
+    if (!record.sourceWoolHandoverId && isSpecialCraftReturnHandoverRecord(record.handoverRecordId || record.recordId)) {
+      try {
+        syncSpecialCraftReceiptControls(actionNode.closest('[data-testid="special-craft-ticket-receipt-form"]') || document)
+        const source = getSpecialCraftReceiptSource(record)
+        if (!source) throw new Error('没有找到当前加工的实际交出单，请重新核对菲票。')
+        const ticketReceipts = source.ticketSnapshot.map(ticket => {
+          const receipt = detailState.specialCraftTicketReceipts[ticket.feiTicketId]
+          if (!receipt?.confirmed) throw new Error(`请先点收并确认 ${ticket.feiTicketNo} 的实收片数。`)
+          return { feiTicketId: ticket.feiTicketId, returnedQty: receipt.returnedQty, differenceReason: receipt.differenceReason, processingCompleted: receipt.processingCompleted }
+        })
+        validateSpecialCraftTicketReceipts(source.ticketSnapshot, ticketReceipts)
+        const locationContext = getSpecialCraftReceiptLocationProjection(source)
+        if (!locationContext || !revalidateWarehouseLocationSelection(locationContext.projection, [detailState.specialCraftReturnLocationId]).ok) throw new Error('库位不存在、已被占用或不属于本裁床工厂，请重新选择。')
+        const locationRef = locationContext.locations.find(location => location.locationId === detailState.specialCraftReturnLocationId)!
+        const operatorName = getPdaRuntimeContext()?.userName || '接收方扫码员'
+        const intent = JSON.stringify([source.sourceHandoverRecordId, ticketReceipts, locationRef, operatorName])
+        await runCuttingEventAction({ id: `PDA-SPECIAL-RECEIPT:${source.sourceHandoverRecordId}`, intent,
+          action: storage => submitSpecialCraftBagReturn({ sourceHandoverRecordId: source.sourceHandoverRecordId, bagCode: source.bagCode,
+            returnedTicketIds: source.ticketSnapshot.map(ticket => ticket.feiTicketId), ticketReceipts,
+            locationRef: { ...locationRef, warehouseKind: 'WAIT_HANDOVER' }, operator: { operatorName, operatorRole: '特殊工艺回仓员' }, source: 'PDA' }, storage),
+        })
+        showPdaHandoverDetailToast('回仓已保存。')
+      } catch (error) { showPdaHandoverDetailToast(`本次未保存：${error instanceof Error ? error.message : String(error)}。输入已保留。`) }
       return true
     }
     const receiverWrittenQty = Number(detailState.writebackQty)
@@ -2896,27 +2986,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
         '工厂端移动应用',
       )
 
-      if (isPrompt7ReturnFlow) {
-        try {
-          const returnBindings = getSpecialCraftReturnBindingsByHandoverRecordId(handoverRecordId)
-          const receivedFeiTicketNos =
-            returnBindings.length > 0
-              ? returnBindings.map((item) => item.feiTicketNo)
-              : updated.cutPieceLines?.map((line) => line.feiTicketNo).filter((ticketNo): ticketNo is string => Boolean(ticketNo)) || []
-          receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse({
-            returnHandoverRecordId: handoverRecordId,
-            receivedFeiTicketNos,
-            receiverWrittenQty: updated.receiverWrittenQty ?? receiverWrittenQty,
-            receiverName: updated.receiverWrittenBy || '接收方扫码员',
-            receivedAt: updated.receiverWrittenAt || nowTimestamp(),
-            differenceReason: updated.diffReason || undefined,
-          })
-        } catch (error) {
-          if (!isWarehouseLinkageSkippableError(error)) {
-            throw error
-          }
-        }
-      } else if (isPostFinishingReturnFlow) {
+      if (isPostFinishingReturnFlow) {
         // 后道交出由当前 full-flow 权威事实同步待交出仓，不再写通用工厂内部仓。
       } else {
         try {

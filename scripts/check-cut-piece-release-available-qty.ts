@@ -13,7 +13,7 @@ const productionOrderId = 'po-14671'
 // 1. 正常确认
 const first = confirmCutPieceReleaseAvailableQty({
   productionOrderId,
-  basisMatrixVersion: 9,
+  basisMatrixVersion: getCutPieceReleaseSummaryForProductionOrder(productionOrderId)!.latestMatrixVersion,
   basisTargetVersion: 9,
   releaseQtyByColorSize: {
     'Black::M': 200, 'Black::L': 350, 'Black::XL': 500,
@@ -48,7 +48,7 @@ const riskyValues = {
 }
 const second = confirmCutPieceReleaseAvailableQty({
   productionOrderId,
-  basisMatrixVersion: 9,
+  basisMatrixVersion: getCutPieceReleaseSummaryForProductionOrder(productionOrderId)!.latestMatrixVersion,
   basisTargetVersion: 9,
   releaseQtyByColorSize: riskyValues,
   riskReason: '袖口裁片现场已裁未点收，裁床主管确认可先发车缝。',
@@ -64,7 +64,7 @@ assert.equal(versionsAfterSecond.length, 3, '版本日志递增')
 
 // 5. 不可超目标
 const over = confirmCutPieceReleaseAvailableQty({
-  productionOrderId, basisMatrixVersion: 9, basisTargetVersion: 9,
+  productionOrderId, basisMatrixVersion: getCutPieceReleaseSummaryForProductionOrder(productionOrderId)!.latestMatrixVersion, basisTargetVersion: 9,
   releaseQtyByColorSize: {
     'Black::M': 300, 'Black::L': 350, 'Black::XL': 500,
     'White::M': 180, 'White::L': 270, 'White::XL': 330,
@@ -78,7 +78,7 @@ assert.match(over.message || '', /不能超过目标数量/)
 
 // 6. 风险原因必填
 const noReason = confirmCutPieceReleaseAvailableQty({
-  productionOrderId, basisMatrixVersion: 9, basisTargetVersion: 9,
+  productionOrderId, basisMatrixVersion: getCutPieceReleaseSummaryForProductionOrder(productionOrderId)!.latestMatrixVersion, basisTargetVersion: 9,
   releaseQtyByColorSize: riskyValues,
   riskReason: '', confirmedBy: '裁床主管', confirmedAt: '2026-07-25',
 })

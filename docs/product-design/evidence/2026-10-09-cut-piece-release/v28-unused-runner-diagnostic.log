@@ -1,0 +1,8 @@
+npm warn exec The following package was not found and will be installed: vitest@5.0.3
+
+ RUN  v5.0.3 /Users/laoer/.codex/worktrees/9ec5/higoods
+
+(node:53799) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 冻结原票的真实仓库实收继续更新；冻结后新票进晚到队列，不冒充原产出 (5.746458ms)
+ ❯ tests/unit/cut-piece-release-frozen-warehouse.test.ts (0 test)

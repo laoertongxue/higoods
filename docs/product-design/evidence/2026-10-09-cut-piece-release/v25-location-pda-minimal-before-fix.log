@@ -1,0 +1,84 @@
+(node:46667) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ 特殊工艺实回库位从原票快照读取生产单，零实收票不冒充当前库存关联 (60.695458ms)
+✖ PDA实际入仓入口保留默认时间秒与时区，同一分钟交出后可逐票回仓 (5.075708ms)
+✔ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (3.934958ms)
+✔ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (18.166042ms)
+✔ 明确单道无袋实收9合法实交后更正7保留旧9责任与真实接收厂 (12.952959ms)
+✔ 整袋候选与提交共享未知来源、未知必要工艺及整票不可用阻断，caller不能给空事件绕过 (26.58875ms)
+✔ 连续工艺具名示例仅提供真实技术包两条未分配任务，不写事实或覆盖旧任务 (4.200292ms)
+✔ 不同菲票的同一实际有序工艺链可同袋，链身份不使用每票阶段ID (0.294667ms)
+✔ 同链两张菲票保留各自阶段身份并分别实收，不把第二票当第一票工艺 (3.959ms)
+✔ 连续工艺直接由实际持有厂转交下道，前道完成与最后回仓分开记账 (4.803292ms)
+✔ 同袋两票连续转交按每票前道和下道身份核对，最后分别回仓 (4.113541ms)
+✔ 实际任务绑定明确匹配技术包部位工艺、色码、目标对象和当前分配，不采用默认厂 (0.252375ms)
+✔ 特殊工艺交出只能读取原票当前阶段与唯一实际承接任务 (0.156875ms)
+✔ ISO来源交出后同一分钟实际回仓保留秒与时区，不被文本格式判为早于来源 (7.079ms)
+✔ 逐票实收分别计数，更正库存仅按差额且保留原票 (5.105583ms)
+✔ 未核对加工完成不得保存；历史完成未知保留实收P而不能冒充齐套 (3.332458ms)
+✔ 缺逐票确认、空白、小数、超量与未说明差异都不写入 (3.574291ms)
+✔ 明确零量点收保留事实，但不生成库存或后道实物 (3.115167ms)
+✔ 按身份与顺序分袋，普通和不同工艺链被阻断 (0.089958ms)
+✔ 无袋按票独立点收，不能重复新增或回到其他裁床工厂 (3.90225ms)
+✔ 多道工艺分别保留同票阶段实收，末道不会累加前道数量 (9.429791ms)
+✔ 100片已经交出后更正为90片只改依据，保留原实交责任且不反冲库存 (13.146125ms)
+✔ 同一分钟旧入仓分钟时间晚于精确装袋账本，不退回已装袋状态 (0.810625ms)
+✔ 正常入仓默认保留完整时刻，同分钟装袋后入仓可继续交出 (0.615834ms)
+✔ 实际带袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.984792ms)
+✔ 实际无袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (3.023542ms)
+✔ 实际空袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.9165ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 25
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 767.650208
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:2281
+✖ 特殊工艺实回库位从原票快照读取生产单，零实收票不冒充当前库存关联 (60.695458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - 'PO-LOCATION-A'
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:35:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'PO-LOCATION-A',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:4426
+✖ PDA实际入仓入口保留默认时间秒与时区，同一分钟交出后可逐票回仓 (5.075708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '2026-08-01 10:00'
+  - '2026-08-01T02:00:30.000Z'
+               ^
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:54:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '2026-08-01 10:00',
+    expected: '2026-08-01T02:00:30.000Z',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

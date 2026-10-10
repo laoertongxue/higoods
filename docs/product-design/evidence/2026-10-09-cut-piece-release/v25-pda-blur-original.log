@@ -1,0 +1,20 @@
+### Result
+{"startedAt":"2026-10-09T16:58:01.206Z","url":"http://127.0.0.1:4190/fcs/pda/cutting/inbound/TASK-CUT-PDA-NO-PICKUP-0301?action=inbound-location","version":"v25","samples":[{"action":"qty-fill3-blur","immediate":"3","after":"3","sameNode":false},{"action":"reason-blur-without-submit","buttonStillConnected":true,"qtyAfter":"3","reasonAfter":"M压褶损耗1片"}],"completedAt":"2026-10-09T16:58:01.352Z"}
+### Ran Playwright code
+```js
+await (async page=>{
+ const result={startedAt:new Date().toISOString(),url:page.url(),version:'v25',samples:[]};
+ const row=page.locator('[data-pda-craft-receipt-ticket="manual-fei-F2UMOU"]');
+ const qty=row.locator('[data-pda-craft-receipt-qty]');
+ const before=await qty.elementHandle();
+ await qty.fill('3');const immediate=await qty.inputValue();await qty.blur();
+ await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+ result.samples.push({action:'qty-fill3-blur',immediate,after:await qty.inputValue(),sameNode:await before.evaluate(el=>el.isConnected)});
+ const reason=row.locator('[data-pda-craft-receipt-reason]');await reason.fill('M压褶损耗1片');
+ const button=await page.getByRole('button',{name:'确认入仓',exact:true}).elementHandle();
+ await reason.blur();await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+ result.samples.push({action:'reason-blur-without-submit',buttonStillConnected:await button.evaluate(el=>el.isConnected),qtyAfter:await qty.inputValue(),reasonAfter:await reason.inputValue()});
+ result.completedAt=new Date().toISOString();return result;
+}
+)(page);
+```

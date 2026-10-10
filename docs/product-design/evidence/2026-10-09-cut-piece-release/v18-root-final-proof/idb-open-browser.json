@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "samples": [
+    265.199951171875,
+    232.60009765625,
+    267.800048828125,
+    230.300048828125,
+    264.5
+  ],
+  "failures": [
+    78.39999999850988,
+    60.79999999701977,
+    62.19999999925494,
+    63.69999999925494,
+    66.5
+  ],
+  "max": 267.800048828125,
+  "runtime": "http://127.0.0.1:4190",
+  "isolatedProfile": true,
+  "script": "/Users/laoer/.codex/worktrees/9ec5/higoods/tests/browser/verify-cut-piece-release-idb-open.py",
+  "log": "output/playwright/cut-release-storage/idb-open-run.log",
+  "version": "v18",
+  "rootVersionRef": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v18.json",
+  "sourceManifestSHA256": "a41806b307c68640a56cb227f7b9c0d269e8d108ddfa4e9cfb563c36e16f9bc8",
+  "assetManifestSHA256": "57ef2685652392a80f5291283b4d94fc6098c4c5b3cfb544b30175c386876348",
+  "sourceAssetsUnchangedVerifiedAt": "2026-10-09T12:48:23.248949+00:00",
+  "executionInterval": {
+    "startedAfter": "2026-10-09T12:39:10.211881+00:00",
+    "completedBy": "2026-10-09T12:40:00.575686+00:00",
+    "basis": "Sequential v18 batch after manifest creation; retained raw log and isolated profile. Original driver records action timings but no absolute per-run start."
+  },
+  "profile": "output/playwright/cut-release-storage/profile-open-failure-v17"
+}

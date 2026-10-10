@@ -46,7 +46,8 @@ for (const marker of [
   'data-wait-handover-field="handoverPpicSelection"',
 ]) assert(dialogs.includes(marker), `Web 中转袋交出五步流程缺少：${marker}`)
 
-assert(dialogs.includes('Web 端手工填写为主'), 'Web 必须明确以手工填写、搜索或选择为主')
+// COPY-001/004：实际填写、选择入口保留，不强制恢复已删除的重复说明。
+assert(dialogs.includes("'bagCode'") && dialogs.includes('ticketScanInput') && dialogs.includes('handoverTaskSelection'), 'Web 必须保留袋码、菲票输入与任务选择入口')
 assert(!dialogs.includes('扫码优先，手工输入兜底'), 'Web 不得显示 PDA 扫码优先文案')
 assert(dialogs.includes('正常进入拆袋重装，不作为异常'), '袋内其他菲票必须进入正常重装，不得显示为交出异常')
 assert(actions.includes('其他菲票属于正常重装对象，不是交出异常'), 'Web 核对结果必须明确其他菲票不是异常')

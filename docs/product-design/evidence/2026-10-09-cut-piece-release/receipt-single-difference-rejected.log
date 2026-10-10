@@ -1,0 +1,6 @@
+### Result
+{"feedback":"TM-FVUUO-YQ2AV-001：少回 1 片，请填写实际点收差异原因。","inputs":[{"value":"4","disabled":false},{"value":"0","disabled":false}]}
+### Ran Playwright code
+```js
+await (async (page) => ({feedback:await page.locator("[data-wait-handover-feedback]").innerText(),inputs:await page.locator("[data-return-qty]").evaluateAll(es=>es.map(e=>({value:e.value,disabled:e.disabled})))}))(page);
+```

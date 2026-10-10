@@ -1,0 +1,179 @@
+(node:12735) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (103.339083ms)
+✖ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (5.784625ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 790.681667
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:1751
+✖ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (103.339083ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /应回数量[\s\S]*?8 片/. Input:
+  
+  '\n' +
+    '    <div class="space-y-3 text-xs" data-task-id="PDA-TASK">\n' +
+    '      <div class="rounded-xl border px-3 py-3">\n' +
+    '        <div class="grid gap-2">\n' +
+    '          \n' +
+    '    <label class="block space-y-1">\n' +
+    '      <span class="text-muted-foreground">来源特殊工艺交出单</span>\n' +
+    '      <input\n' +
+    '        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n' +
+    '        data-pda-cut-handover-field="specialCraftOrderScan"\n' +
+    '        value=""\n' +
+    '        placeholder="SPECIAL-HO-RETURN-PDA-STAGE"\n' +
+    '      />\n' +
+    '    </label>\n' +
+    '  \n' +
+    '          \n' +
+    '    <label class="block space-y-1">\n' +
+    '      <span class="text-muted-foreground">回仓中转袋</span>\n' +
+    '      <input\n' +
+    '        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n' +
+    '        data-pda-cut-handover-field="specialCraftReturnBagScan"\n' +
+    '        value=""\n' +
+    '        placeholder="无中转袋则留空"\n' +
+    '      />\n' +
+    '    </label>\n' +
+    '  \n' +
+    '          \n' +
+    '    <label class="block space-y-1">\n' +
+    '      <span class="text-muted-foreground">回仓菲票</span>\n' +
+    '      <input\n' +
+    '        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n' +
+    '        data-pda-cut-handover-field="specialCraftReturnFeiTicketScan"\n' +
+    '        value="FT-PDA-STAGE-B"\n' +
+    '        placeholder="FT-PDA-STAGE-B"\n' +
+    '      />\n' +
+    '    </label>\n' +
+    '  \n' +
+    '          \n' +
+    '    <label class="block space-y-1">\n' +
+    '      <span class="text-muted-foreground">扫码加库位</span>\n' +
+    '      <input\n' +
+    '        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n' +
+    '        data-pda-cut-handover-field="specialCraftReturnLocationScan"\n' +
+    '        value=""\n' +
+    '        placeholder="扫描库位后按回车"\n' +
+    '      />\n' +
+    '    </label>\n' +
+    '  \n' +
+    '          \n' +
+    '    <label class="block space-y-1">\n' +
+    '      <span class="text-muted-foreground">实回数量</span>\n' +
+    '      <input\n' +
+    '        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n' +
+    '        data-pda-cut-handover-field="specialCraftReturnQty"\n' +
+    '        value=""\n' +
+    '        placeholder="99"\n' +
+    '      />\n' +
+    '    </label>\n' +
+    '  \n' +
+    '          \n' +
+    '    <label class="block space-y-1">\n' +
+    '      <span class="text-muted-foreground">差异说明</span>\n' +
+    '      <input\n' +
+    '        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n' +
+    '        data-pda-cut-handover-field="specialCraftReturnReason"\n' +
+    '        value=""\n' +
+    '        placeholder="少回或零量须说明"\n' +
+    '      />\n' +
+    '    </label>\n' +
+    '  \n' +
+    '          <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" data-pda-cut-handover-field="specialCraftProcessingCompleted"  />已核对本阶段加工完成</label>\n' +
+    '        </div>\n' +
+    '        <div class="mt-2 text-xs text-muted-foreground" data-pda-special-craft-return-location-feedback></div>\n' +
+    '      </div>\n' +
+    '      <div data-pda-special-craft-return-location-map><div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">当前没有可用库位。</div></div>\n' +
+    '      \n' +
+    '    <section class="grid grid-cols-2 gap-2">\n' +
+    '      \n' +
+    '            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n' +
+    '              <div class="text-xs text-muted-foreground">菲票</div>\n' +
+    '              <div class="mt-1 text-sm font-semibold text-foreground">FT-PDA-STAGE-B</div>\n' +
+    '              \n' +
+    '            </article>\n' +
+    '          \n' +
+    '            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n' +
+    '              <div class="text-xs text-muted-foreground">裁片部位</div>\n' +
+    '              <div class="mt-1 text-sm font-semibold text-foreground">后片 / L</div>\n' +
+    '              \n' +
+    '            </article>\n' +
+    '          \n' +
+    '            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n' +
+    '              <div class="text-xs text-muted-foreground">应回数量</div>\n' +
+    '              <div class="mt-1 text-sm font-semibold text-foreground">待识别</div>\n' +
+    '              \n' +
+    '            </article>\n' +
+    '          \n' +
+    '            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n' +
+    '              <div class="text-xs text-muted-foreground">回仓状态</div>\n' +
+    '              <div class="mt-1 text-sm font-semibold text-foreground">待回仓</div>\n' +
+    '              \n' +
+    '            </article>\n' +
+    '          \n' +
+    '            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n' +
+    '              <div class="text-xs text-muted-foreground">承接工厂</div>\n' +
+    '              <div class="mt-1 text-sm font-semibold text-foreground">特殊工艺回仓测试厂</div>\n' +
+    '              \n' +
+    '            </article>\n' +
+    '          \n' +
+    '            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n' +
+    '              <div class="text-xs text-muted-foreground">已选库位</div>\n' +
+    '              <div class="mt-1 text-sm font-semibold text-foreground">待选择</div>\n' +
+    '              \n' +
+    '            </article>\n' +
+    '          \n' +
+    '    </section>\n' +
+    '  \n' +
+    '      \n' +
+    '      <button\n' +
+    '        class="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"\n' +
+    '        data-pda-cut-handover-action="confirm-special-craft-return"\n' +
+    '        data-task-id="PDA-TASK"\n' +
+    '      >\n' +
+    '        确认特殊工艺回仓入仓\n' +
+    '      </button>\n' +
+    '    </div>\n' +
+    '  '
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:32:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\n    <div class="space-y-3 text-xs" data-task-id="PDA-TASK">\n      <div class="rounded-xl border px-3 py-3">\n        <div class="grid gap-2">\n          \n    <label class="block space-y-1">\n      <span class="text-muted-foreground">来源特殊工艺交出单</span>\n      <input\n        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n        data-pda-cut-handover-field="specialCraftOrderScan"\n        value=""\n        placeholder="SPECIAL-HO-RETURN-PDA-STAGE"\n      />\n    </label>\n  \n          \n    <label class="block space-y-1">\n      <span class="text-muted-foreground">回仓中转袋</span>\n      <input\n        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n        data-pda-cut-handover-field="specialCraftReturnBagScan"\n        value=""\n        placeholder="无中转袋则留空"\n      />\n    </label>\n  \n          \n    <label class="block space-y-1">\n      <span class="text-muted-foreground">回仓菲票</span>\n      <input\n        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n        data-pda-cut-handover-field="specialCraftReturnFeiTicketScan"\n        value="FT-PDA-STAGE-B"\n        placeholder="FT-PDA-STAGE-B"\n      />\n    </label>\n  \n          \n    <label class="block space-y-1">\n      <span class="text-muted-foreground">扫码加库位</span>\n      <input\n        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n        data-pda-cut-handover-field="specialCraftReturnLocationScan"\n        value=""\n        placeholder="扫描库位后按回车"\n      />\n    </label>\n  \n          \n    <label class="block space-y-1">\n      <span class="text-muted-foreground">实回数量</span>\n      <input\n        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n        data-pda-cut-handover-field="specialCraftReturnQty"\n        value=""\n        placeholder="99"\n      />\n    </label>\n  \n          \n    <label class="block space-y-1">\n      <span class="text-muted-foreground">差异说明</span>\n      <input\n        class="h-10 w-full rounded-xl border bg-background px-3 text-sm"\n        data-pda-cut-handover-field="specialCraftReturnReason"\n        value=""\n        placeholder="少回或零量须说明"\n      />\n    </label>\n  \n          <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" data-pda-cut-handover-field="specialCraftProcessingCompleted"  />已核对本阶段加工完成</label>\n        </div>\n        <div class="mt-2 text-xs text-muted-foreground" data-pda-special-craft-return-location-feedback></div>\n      </div>\n      <div data-pda-special-craft-return-location-map><div class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">当前没有可用库位。</div></div>\n      \n    <section class="grid grid-cols-2 gap-2">\n      \n            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n              <div class="text-xs text-muted-foreground">菲票</div>\n              <div class="mt-1 text-sm font-semibold text-foreground">FT-PDA-STAGE-B</div>\n              \n            </article>\n          \n            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n              <div class="text-xs text-muted-foreground">裁片部位</div>\n              <div class="mt-1 text-sm font-semibold text-foreground">后片 / L</div>\n              \n            </article>\n          \n            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n              <div class="text-xs text-muted-foreground">应回数量</div>\n              <div class="mt-1 text-sm font-semibold text-foreground">待识别</div>\n              \n            </article>\n          \n            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n              <div class="text-xs text-muted-foreground">回仓状态</div>\n              <div class="mt-1 text-sm font-semibold text-foreground">待回仓</div>\n              \n            </article>\n          \n            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n              <div class="text-xs text-muted-foreground">承接工厂</div>\n              <div class="mt-1 text-sm font-semibold text-foreground">特殊工艺回仓测试厂</div>\n              \n            </article>\n          \n            <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">\n              <div class="text-xs text-muted-foreground">已选库位</div>\n              <div class="mt-1 text-sm font-semibold text-foreground">待选择</div>\n              \n            </article>\n          \n    </section>\n  \n      \n      <button\n        class="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"\n        data-pda-cut-handover-action="confirm-special-craft-return"\n        data-task-id="PDA-TASK"\n      >\n        确认特殊工艺回仓入仓\n      </button>\n    </div>\n  ',
+    expected: /应回数量[\s\S]*?8 片/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:3117
+✖ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (5.784625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== -1
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:46:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: -1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

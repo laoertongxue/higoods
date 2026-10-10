@@ -1,0 +1,1522 @@
+{
+  "scenarios": [
+    {
+      "name": "HTTP cache disabled direct route complete",
+      "samples": [
+        {
+          "durationMs": 284.6000000014901,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 28.5
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 28.600000001490116
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 215.80000000447035
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.6000000014901161,
+              "responseEnd": 3.2000000029802322,
+              "domContentLoadedEventEnd": 29.30000000447035,
+              "loadEventEnd": 30.100000001490116
+            }
+          ]
+        },
+        {
+          "durationMs": 247.89999999850988,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10.099999994039536
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 181.59999999403954
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.1999999955296516,
+              "responseEnd": 1.6999999955296516,
+              "domContentLoadedEventEnd": 10.599999994039536,
+              "loadEventEnd": 11.199999995529652
+            }
+          ]
+        },
+        {
+          "durationMs": 248.29999999701977,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.799999997019768
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.899999998509884
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 184.59999999403954
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.1999999955296516,
+              "responseEnd": 2,
+              "domContentLoadedEventEnd": 12.399999998509884,
+              "loadEventEnd": 12.399999998509884
+            }
+          ]
+        },
+        {
+          "durationMs": 264.70000000298023,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.600000001490116
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.700000002980232
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 201.30000000447035
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.1000000014901161,
+              "responseEnd": 1.7000000029802322,
+              "domContentLoadedEventEnd": 12.100000001490116,
+              "loadEventEnd": 12.200000002980232
+            }
+          ]
+        },
+        {
+          "durationMs": 248.20000000298023,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10.5
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10.600000001490116
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 183.10000000149012
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.2000000029802322,
+              "responseEnd": 1.8000000044703484,
+              "domContentLoadedEventEnd": 11,
+              "loadEventEnd": 11.900000005960464
+            }
+          ]
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "hydration and both matrices, all visible material image decode, next frame"
+    },
+    {
+      "name": "full detail reload complete",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 251.5,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 246.2001953125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 249.5,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 251.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 247.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "list direct route complete",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 249.300048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 265.000244140625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 249.60009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 250.599853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 266.10009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "list full reload complete",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 266.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 266.199951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 264.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 249.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 250.80029296875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "in-app detail return to list route complete",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 333,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 349.2998046875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 332.5,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 348.199951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 367.500244140625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "list view matrix opens named detail in new tab",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 420.099853515625,
+          "complete": true,
+          "visibility": {
+            "state": "visible",
+            "focused": true
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 366.7998046875,
+          "complete": true,
+          "visibility": {
+            "state": "visible",
+            "focused": true
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 361.39990234375,
+          "complete": true,
+          "visibility": {
+            "state": "visible",
+            "focused": true
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 372,
+          "complete": true,
+          "visibility": {
+            "state": "visible",
+            "focused": true
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 347.599853515625,
+          "complete": true,
+          "visibility": {
+            "state": "visible",
+            "focused": true
+          }
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "actual list button new tab, both matrices, image decode, next frame"
+    },
+    {
+      "name": "target cell details 1366x768",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 105.900146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 118,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 97.5,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 123.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 159.10009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "target cell details 1280x720",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 176.10009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 114.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 97.900146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 167.2998046875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 109.39990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "target cell details 1024x768",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 195.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 148.599853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 116.199951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 135.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 128.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "release matrix cell details and close",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 101.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 115.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 116.400146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 115.400146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 115.39990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "material cell drawer and close",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 100.599853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 136.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 267.300048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 92,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 116.10009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "keyboard cell activation focus trap and Escape",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 63.699951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 50,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 163.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 49.699951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 49.900146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "real image zoom decode and Escape close",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 99.699951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 101.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 95.89990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 100.39990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 99.10009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "image zoom explicit close button",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 131.699951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 132.699951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 132.7998046875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 132.7998046875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 132.60009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "image zoom outside mask close",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 131.5,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 135,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 129,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 133.599853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 130.300048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "physical target candidate selection and cancel",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 242.900146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 232.300048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 232.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 250.300048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 231.89990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "target confirmation back to editing preserves candidate and cancel restores saved target",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 333.10009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 333.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 332.300048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 332.099853515625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 333,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "release invalid quantity error and coordinate focus",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 236.199951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 218.5,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 234,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 216,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 232.900146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "historical matrix drawer and close",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 93,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 99.39990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 99.699951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 98.199951171875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 100.800048828125,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    },
+    {
+      "name": "release version log with saved facts",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 134.2998046875,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 2,
+          "durationMs": 131.60009765625,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 3,
+          "durationMs": 133.900146484375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 4,
+          "durationMs": 132.89990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        },
+        {
+          "index": 5,
+          "durationMs": 132.89990234375,
+          "complete": true,
+          "idbPending": 0,
+          "idbCompleted": 0
+        }
+      ],
+      "passed": true,
+      "completeIncludes": "DOM assertion, visible image decode, next frame; save scenarios additionally IndexedDB transaction complete"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "ordinary direct route does not write business records",
+      "passed": true,
+      "detail": [
+        {
+          "durationMs": 284.6000000014901,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 28.5
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 28.600000001490116
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 215.80000000447035
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.6000000014901161,
+              "responseEnd": 3.2000000029802322,
+              "domContentLoadedEventEnd": 29.30000000447035,
+              "loadEventEnd": 30.100000001490116
+            }
+          ]
+        },
+        {
+          "durationMs": 247.89999999850988,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10.099999994039536
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 181.59999999403954
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.1999999955296516,
+              "responseEnd": 1.6999999955296516,
+              "domContentLoadedEventEnd": 10.599999994039536,
+              "loadEventEnd": 11.199999995529652
+            }
+          ]
+        },
+        {
+          "durationMs": 248.29999999701977,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.799999997019768
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.899999998509884
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 184.59999999403954
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.1999999955296516,
+              "responseEnd": 2,
+              "domContentLoadedEventEnd": 12.399999998509884,
+              "loadEventEnd": 12.399999998509884
+            }
+          ]
+        },
+        {
+          "durationMs": 264.70000000298023,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.600000001490116
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 11.700000002980232
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 201.30000000447035
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.1000000014901161,
+              "responseEnd": 1.7000000029802322,
+              "domContentLoadedEventEnd": 12.100000001490116,
+              "loadEventEnd": 12.200000002980232
+            }
+          ]
+        },
+        {
+          "durationMs": 248.20000000298023,
+          "complete": true,
+          "idbWrites": 0,
+          "localStorageWrites": [
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10.5
+            },
+            {
+              "key": "higood-tabs",
+              "sizeBytes": 765,
+              "at": 10.600000001490116
+            },
+            {
+              "key": "higood:list-page:/fcs/craft/cutting/cut-piece-release",
+              "sizeBytes": 503,
+              "at": 183.10000000149012
+            }
+          ],
+          "idbPending": 0,
+          "navigationType": "navigate",
+          "timing": [
+            {
+              "requestStart": 1.2000000029802322,
+              "responseEnd": 1.8000000044703484,
+              "domContentLoadedEventEnd": 11,
+              "loadEventEnd": 11.900000005960464
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "list includes original PO14671",
+      "passed": true
+    },
+    {
+      "name": "list includes original PO14671",
+      "passed": true
+    },
+    {
+      "name": "list includes original PO14671",
+      "passed": true
+    },
+    {
+      "name": "list includes original PO14671",
+      "passed": true
+    },
+    {
+      "name": "list includes original PO14671",
+      "passed": true
+    },
+    {
+      "name": "same ascending columns",
+      "passed": true,
+      "detail": [
+        "成衣颜色 / 尺码",
+        "M",
+        "L",
+        "XL"
+      ]
+    },
+    {
+      "name": "garment color rows",
+      "passed": true
+    },
+    {
+      "name": "target has no arbitrary numeric inputs",
+      "passed": true
+    },
+    {
+      "name": "saved release initially locked",
+      "passed": true
+    },
+    {
+      "name": "concise quantity rule appears once",
+      "passed": true
+    },
+    {
+      "name": "current quantities use consistent business terms",
+      "passed": true
+    },
+    {
+      "name": "viewport 1366 usable main content",
+      "passed": true,
+      "detail": {
+        "scrollWidth": 1366,
+        "innerWidth": 1366
+      }
+    },
+    {
+      "name": "all material details at 1366",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1366",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1366",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1366",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1366",
+      "passed": true
+    },
+    {
+      "name": "largest size column accessible 1366",
+      "passed": true,
+      "detail": {
+        "x": 1093.9375,
+        "y": 412.8125,
+        "width": 96,
+        "height": 36
+      }
+    },
+    {
+      "name": "viewport 1280 usable main content",
+      "passed": true,
+      "detail": {
+        "scrollWidth": 1280,
+        "innerWidth": 1280
+      }
+    },
+    {
+      "name": "all material details at 1280",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1280",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1280",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1280",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1280",
+      "passed": true
+    },
+    {
+      "name": "largest size column accessible 1280",
+      "passed": true,
+      "detail": {
+        "x": 1019.8125,
+        "y": 388.8125,
+        "width": 96,
+        "height": 36
+      }
+    },
+    {
+      "name": "viewport 1024 usable main content",
+      "passed": true,
+      "detail": {
+        "scrollWidth": 1024,
+        "innerWidth": 1024
+      }
+    },
+    {
+      "name": "all material details at 1024",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1024",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1024",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1024",
+      "passed": true
+    },
+    {
+      "name": "all material details at 1024",
+      "passed": true
+    },
+    {
+      "name": "largest size column accessible 1024",
+      "passed": true,
+      "detail": {
+        "x": 845,
+        "y": 412.8125,
+        "width": 96,
+        "height": 36
+      }
+    },
+    {
+      "name": "release drawer all four material sources",
+      "passed": true
+    },
+    {
+      "name": "release drawer all four material sources",
+      "passed": true
+    },
+    {
+      "name": "release drawer all four material sources",
+      "passed": true
+    },
+    {
+      "name": "release drawer all four material sources",
+      "passed": true
+    },
+    {
+      "name": "release drawer all four material sources",
+      "passed": true
+    },
+    {
+      "name": "drawer keeps keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "drawer keeps keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "drawer keeps keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "drawer keeps keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "drawer keeps keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "Escape returns thumbnail keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "candidate A physical support 220",
+      "passed": true
+    },
+    {
+      "name": "target cancel restores actual previously saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "candidate A physical support 220",
+      "passed": true
+    },
+    {
+      "name": "target cancel restores actual previously saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "candidate A physical support 220",
+      "passed": true
+    },
+    {
+      "name": "target cancel restores actual previously saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "candidate A physical support 220",
+      "passed": true
+    },
+    {
+      "name": "target cancel restores actual previously saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "candidate A physical support 220",
+      "passed": true
+    },
+    {
+      "name": "target cancel restores actual previously saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "return to edit keeps physical candidate220",
+      "passed": true
+    },
+    {
+      "name": "cancel after back edit restores actual saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "return to edit keeps physical candidate220",
+      "passed": true
+    },
+    {
+      "name": "cancel after back edit restores actual saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "return to edit keeps physical candidate220",
+      "passed": true
+    },
+    {
+      "name": "cancel after back edit restores actual saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "return to edit keeps physical candidate220",
+      "passed": true
+    },
+    {
+      "name": "cancel after back edit restores actual saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "return to edit keeps physical candidate220",
+      "passed": true
+    },
+    {
+      "name": "cancel after back edit restores actual saved whole cell",
+      "passed": true
+    },
+    {
+      "name": "invalid input kept and focused 0",
+      "passed": true
+    },
+    {
+      "name": "error names Black / M",
+      "passed": true
+    },
+    {
+      "name": "invalid input kept and focused 1",
+      "passed": true
+    },
+    {
+      "name": "error names Black / M",
+      "passed": true
+    },
+    {
+      "name": "invalid input kept and focused 2",
+      "passed": true
+    },
+    {
+      "name": "error names Black / M",
+      "passed": true
+    },
+    {
+      "name": "invalid input kept and focused 3",
+      "passed": true
+    },
+    {
+      "name": "error names Black / M",
+      "passed": true
+    },
+    {
+      "name": "invalid input kept and focused 4",
+      "passed": true
+    },
+    {
+      "name": "error names Black / M",
+      "passed": true
+    },
+    {
+      "name": "history facts section visible",
+      "passed": true
+    },
+    {
+      "name": "history facts section visible",
+      "passed": true
+    },
+    {
+      "name": "history facts section visible",
+      "passed": true
+    },
+    {
+      "name": "history facts section visible",
+      "passed": true
+    },
+    {
+      "name": "history facts section visible",
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    "target-1366x768.png",
+    "release-1366x768.png",
+    "largest-size-1366x768.png",
+    "target-1280x720.png",
+    "release-1280x720.png",
+    "largest-size-1280x720.png",
+    "target-1024x768.png",
+    "release-1024x768.png",
+    "largest-size-1024x768.png",
+    "material-matrix-real-images.png",
+    "material-image-zoom.png"
+  ],
+  "route": "/fcs/craft/cutting/cut-piece-release?productionOrderId=po-14671",
+  "startedAt": "2026-10-09T22:54:44.650Z",
+  "browser": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+    "platform": "MacIntel",
+    "hardwareConcurrency": 8,
+    "deviceMemory": 16,
+    "devicePixelRatio": 1,
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    }
+  },
+  "completedAt": "2026-10-09T22:55:05.807Z"
+}

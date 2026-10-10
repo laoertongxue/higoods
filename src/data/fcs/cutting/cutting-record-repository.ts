@@ -118,6 +118,33 @@ export function diffCuttingRecords(before: CuttingStoredRecord[], after: Cutting
     deletes: before.filter(record => !next.has(record.id)).map(record => record.id) }
 }
 
+/** 新放行事实读回与备份共同校验；坏资料不能变成空列表或覆盖静态演示。 */
+export function validateCutPieceReleaseStoredRecords(records:CuttingStoredRecord[]):void {
+  const object=(value:unknown):value is Record<string,any>=>Boolean(value) && typeof value==='object' && !Array.isArray(value)
+  const text=(value:unknown)=>typeof value==='string' && Boolean(value.trim())
+  const quantity=(value:unknown)=>typeof value==='number' && Number.isSafeInteger(value) && value>=0
+  const quantities=(value:unknown)=>object(value) && Object.values(value).every(quantity)
+  const fail=()=>{throw new Error('裁片放行保存资料的身份、数量或关联不完整，请重新读取或核对备份；原资料未被覆盖。')}
+  for(const row of records) {
+    if(row.collection==='cut-piece-ticket-validity') {
+      const value=row.value as any
+      if(!object(value) || row.id!==value.id || !text(value.ticketId) || typeof value.valid!=='boolean' || !text(value.reason) || !text(value.operator) || !text(value.at) || !quantity(value.version) || value.version<1)fail()
+      continue
+    }
+    if(!row.collection.startsWith('cut-piece-release-'))continue
+    const value=row.value as any,kind=row.collection.slice('cut-piece-release-'.length)
+    if(!object(value) || !row.id.startsWith(`cut-piece-release:${kind}:`))fail()
+    if(kind==='order') {if(!object(value.input) || !text(value.input.productionOrderId) || !object(value.input.planQtyByColorSize) || !Object.values(value.input.planQtyByColorSize).every(quantities) || !Array.isArray(value.input.requirements) || !Array.isArray(value.spreadingAdjustmentKeys))fail()}
+    else if(kind==='fact') {if(!text(value.productionOrderId) || !text(value.factId) || !text(value.materialId) || !text(value.partId) || !text(value.garmentColor) || !text(value.size) || !quantity(value.actualPieceQty) || value.physicalPieceQty!==undefined && !quantity(value.physicalPieceQty))fail()}
+    else if(kind==='target') {if(!text(value.productionOrderId) || !text(value.snapshotId) || !quantity(value.matrixVersion) || !object(value.targetPreview) || !quantities(value.targetPreview.colorSizeTargets))fail()}
+    else if(kind==='decision') {if(!text(value.productionOrderId) || !text(value.releaseVersionId) || !quantity(value.releaseVersionNo) || value.releaseVersionNo<1 || !quantities(value.releaseQtyByColorSize) || !quantities(value.riskReleaseQtyByColorSize) || !quantity(value.totalReleaseConfirmQty) || !quantity(value.totalRiskReleaseQty) || Object.values(value.releaseQtyByColorSize).reduce((sum:number,qty:any)=>sum+qty,0)!==value.totalReleaseConfirmQty || Object.values(value.riskReleaseQtyByColorSize).reduce((sum:number,qty:any)=>sum+qty,0)!==value.totalRiskReleaseQty)fail()}
+    else if(kind==='matrix') {if(!text(value.productionOrderId) || !quantity(value.version) || !object(value.matrixSnapshot) || !Array.isArray(value.matrixSnapshot.colorGroups))fail()}
+    else if(kind==='event' || kind==='late') {if(!text(value.productionOrderId) || !text(value.eventId))fail()}
+    else if(kind==='legacy') {if(!object(value.item) || !object(value.item.input) || !text(value.item.input.productionOrderId))fail()}
+    else fail()
+  }
+}
+
 export interface CuttingRecordBackup {
   format: 'higood-cutting-record-backup'; version: 1; exportedAt: string
   records: CuttingStoredRecord[]; commands: CuttingStoredCommand[]; files: Array<{ id: string; blob: Blob }>
@@ -138,6 +165,7 @@ export function validateCuttingRecordBackup(value: unknown): asserts value is Cu
   if (data.records.some(row => typeof row.collection !== 'string' || !row.collection || row.value === undefined)
     || data.commands.some(row => typeof row.intent !== 'string' || !row.intent)
     || data.files.some(row => !(row.blob instanceof Blob))) throw new Error('备份内容不完整，未改动现有数据。')
+  validateCutPieceReleaseStoredRecords(data.records)
   const tickets = new Map(data.records.filter(row => row.collection === 'replacement-tickets').map(row => [String((row.value as { id?: string }).id), row.value as Record<string, unknown>]))
   if (new Set([...tickets.values()].map(ticket => ticket.ticketNo)).size !== tickets.size) throw new Error('备份包含重复换片布票号。')
   const handoverIds = new Set(data.records.filter(row => row.collection === 'cutting-events').map(row => (row.value as { refs?: { handoverRecordId?: string } }).refs?.handoverRecordId).filter(Boolean))

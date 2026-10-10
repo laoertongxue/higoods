@@ -35,6 +35,8 @@ import {
 } from './kol-goto-special-flow.ts'
 import type { DispatchAcceptanceSlaRuleSource } from './dispatch-acceptance-sla.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
+import { getProductionOrderCutPieceParts } from './production-order-tech-pack-runtime.ts'
+import { buildSpecialCraftReleaseDemoTasks } from './cutting/special-craft-release-demo-tasks.ts'
 import type {
   ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
@@ -1143,8 +1145,9 @@ function createInitialProcessTasks(): ProcessTask[] {
   const generatedTasks = buildGeneratedProcessTasksFromArtifacts()
   // processTasks 仅作为“任务单兼容层”，主来源必须是统一生成引擎的 TASK 产物。
   // 字典中每个活跃工艺至少保留 3 条由生产单 + 技术包快照派生的 mock。
+  // 本轮连续工艺演示仅追加具名待分配示例，不改既有拆解或预先保存现场事实。
   if (!generatedTasks.length) return []
-  return generatedTasks
+  return generatedTasks.concat(buildSpecialCraftReleaseDemoTasks(productionOrders.find(order => order.productionOrderId === 'PO-202603-0002'), getProductionOrderCutPieceParts('PO-202603-0002')))
 }
 
 export const processTasks: ProcessTask[] = createInitialProcessTasks()

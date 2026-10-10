@@ -1,0 +1,42 @@
+✔ ISO与旧本地文本按实际时刻排序，不按空格与T字典排序 (1.514167ms)
+✔ 同一时刻不同时间表达仍按账本序号和稳定ID防重复 (5.915084ms)
+✔ 整组同分钟含低精度记录时，唯一可靠顺序形成稳定全序，不按成对条件切换 (0.596792ms)
+✔ 全部精确时刻仍按秒排序，跨分钟不会被新账本号倒置 (0.073625ms)
+✔ 缺少或重复账本顺序不恢复低精度秒数，沿用原时刻规则 (0.076875ms)
+✔ 共享生命周期在同分钟旧入仓后允许交出，并保留原周期和事实 (0.297417ms)
+✔ 同分钟物理回收之后报废按真实顺序生效，不被周期边界副本或秒数重排 (0.133417ms)
+✖ 同步动作反复读同一账本只转换一次，副本可修改，写后/下一动作/异常退出仍独立重读 (2.992375ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 174.695833
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-release-chronology.test.ts:1:5227
+✖ 同步动作反复读同一账本只转换一次，副本可修改，写后/下一动作/异常退出仍独立重读 (2.992375ms)
+  AssertionError [ERR_ASSERTION]: 同一未改账本不重复转换
+  
+  3 !== 1
+  
+      at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-chronology.test.ts:84:11)
+      at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-chronology.test.ts:78:189)
+      at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-chronology.test.ts:80:42)
+      at withBrowserBusinessStorage (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/browser-storage.ts:13:16)
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-chronology.test.ts:80:3)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

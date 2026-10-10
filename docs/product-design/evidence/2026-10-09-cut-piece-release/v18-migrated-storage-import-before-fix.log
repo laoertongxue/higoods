@@ -1,0 +1,43 @@
+✖ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (122.30075ms)
+
+Interrupted while running:
+
+⚠ tests/unit/cutting-migrated-storage-import.test.ts (tests/unit/cutting-migrated-storage-import.test.ts:1:1)
+✖ tests/unit/cutting-migrated-storage-import.test.ts (45112.218834ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45143.750667
+
+✖ failing tests:
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:1:68
+✖ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (122.30075ms)
+  AssertionError [ERR_ASSERTION]: Got unwanted rejection.
+  Actual message: "window.addEventListener is not a function"
+      at async TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:14:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: window.addEventListener is not a function
+        at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/pcs-record-runtime.ts:773:12)
+        at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+        at async node:internal/modules/esm/loader:650:26
+        at async waitForActual (node:assert:615:5)
+        at async strict.doesNotReject (node:assert:758:33)
+        at async TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:14:5)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3),
+    expected: undefined,
+    operator: 'doesNotReject',
+    diff: 'simple'
+  }
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:1:1
+✖ tests/unit/cutting-migrated-storage-import.test.ts (45112.218834ms)
+  'Promise resolution is still pending but the event loop has already resolved'

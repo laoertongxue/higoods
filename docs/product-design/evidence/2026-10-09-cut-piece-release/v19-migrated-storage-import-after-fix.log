@@ -1,0 +1,9 @@
+✔ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (244.226709ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 317.869959

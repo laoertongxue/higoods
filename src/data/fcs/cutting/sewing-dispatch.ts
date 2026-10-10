@@ -1,5 +1,5 @@
 import { listSimpleCutPieceHandoverEvents, isFeiTicketSimplyHandedOver } from './cutting-runtime-event-ledger.ts'
-import { listCuttingRuntimeEventsByType } from './cutting-runtime-event-ledger.ts'
+import { listCuttingRuntimeEventsByType, listManagedCuttingRuntimeEvents } from './cutting-runtime-event-ledger.ts'
 import { listWoolPanelCuttingReceiptSources } from '../wool-domain/cutting-receipts.ts'
 import { buildStableWoolPartCode } from '../wool-domain/tech-pack-source.ts'
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
@@ -37,6 +37,9 @@ import {
   type GeneratedFeiTicketSourceRecord,
 } from './generated-fei-tickets.ts'
 import type { FeiTicketQrPayload } from './qr-payload.ts'
+import { listManualFeiTicketSources } from './manual-fei-tickets.ts'
+import { getCutPieceReleaseTicketEligibility, getCutPieceReleaseEligibilityForDetail, listCutPieceReleaseTicketDetails } from './cut-piece-release-facts.ts'
+import { assertSpecialCraftBagCompatibility, buildSpecialCraftBagChainKey, isCompleteSuccessfulWholeBagHandoverEvent, resolveTransferBagCurrentUsesFromEvents } from './transfer-bag-operations.ts'
 import {
   getSpecialCraftFeiTicketSummary,
   listCuttingSpecialCraftFeiTicketBindingsForProjection,
@@ -334,6 +337,8 @@ export interface CuttingSewingDispatchValidationResult {
     | '菲票尺码不匹配'
     | '菲票部位不匹配'
     | '菲票已发出'
+    | '菲票不可用'
+    | '裁片实物已变化'
     | '中转袋待核对'
     | '通过'
   validationMessage: string
@@ -963,12 +968,34 @@ function isColorApplicable(applicableColorList: string[], colorName: string): bo
   return applicableColorList.includes(colorName) || applicableColorList.includes('按 SKU 适配')
 }
 
-function mapSpecialCraftReturnStatus(feiTicketNo: string): {
+let ticketEligibilitySnapshot: Map<string, ReturnType<typeof getCutPieceReleaseTicketEligibility>> | null = null
+function withTicketEligibilitySnapshot<T>(read: () => T): T {
+  if (ticketEligibilitySnapshot) return read()
+  ticketEligibilitySnapshot = new Map(listCutPieceReleaseTicketDetails().map((detail) => [detail.ticketId, getCutPieceReleaseEligibilityForDetail(detail)]))
+  try { return read() } finally { ticketEligibilitySnapshot = null }
+}
+function readTicketEligibility(ticketId: string) {
+  return ticketEligibilitySnapshot
+    ? ticketEligibilitySnapshot.get(ticketId) || getCutPieceReleaseEligibilityForDetail(undefined)
+    : getCutPieceReleaseTicketEligibility(ticketId)
+}
+
+function mapSpecialCraftReturnStatus(feiTicketNo: string, knownTicket?: GeneratedFeiTicketSourceRecord | null): {
   specialCraftRequired: boolean
   specialCraftReturnStatus: CuttingSewingSpecialCraftReturnStatus
 } {
+  const sourceTicket = knownTicket || getFeiTicketByNo(feiTicketNo) || listManualFeiTicketSources().find((ticket) => ticket.feiTicketNo === feiTicketNo)
+  const eligibility = readTicketEligibility(sourceTicket?.feiTicketId || feiTicketNo)
+  if (eligibility.found) {
+    if (!eligibility.craftRequirementKnown) return { specialCraftRequired: true, specialCraftReturnStatus: '待确认顺序' }
+    if (!eligibility.requiresSpecialCraft) return { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' }
+    return { specialCraftRequired: true, specialCraftReturnStatus: eligibility.canHandover ? '已回仓' : '未回仓' }
+  }
   const specialCraftSummary = getSpecialCraftFeiTicketSummary(feiTicketNo)
   if (!specialCraftSummary.needSpecialCraft) {
+    if (sourceTicket?.hasSpecialCraft || sourceTicket?.specialCrafts?.length || sourceTicket?.secondaryCrafts?.length) {
+      return { specialCraftRequired: true, specialCraftReturnStatus: '待确认顺序' }
+    }
     return { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' }
   }
   // 特殊工艺差异待处理不阻断裁片交出：最后一道已回仓、当前所在为裁床厂待交出仓且 currentQty > 0，即可进入交出缺口核对。
@@ -986,11 +1013,20 @@ function getTicketQty(ticket: GeneratedFeiTicketSourceRecord): number {
 }
 
 function getTicketDispatchQty(ticket: GeneratedFeiTicketSourceRecord): number {
+  const eligibility = readTicketEligibility(ticket.feiTicketId)
+  if (eligibility.found) return eligibility.valid && eligibility.canHandover ? eligibility.physicalPieceQty : 0
+  // 无法关联原票的旧工艺展示记录只供历史追溯，不能据合成材料与片数新增实物交出。
+  if (ticket.sourceOutputLineId?.startsWith('SC-RET-') || ticket.qrValue?.startsWith('SPECIAL-CRAFT-RETURN:')) return 0
   const summary = getSpecialCraftFeiTicketSummary(ticket.feiTicketNo)
   if (summary.needSpecialCraft && summary.returnStatus.includes('已回仓')) {
     return Math.max(summary.currentQty, 0)
   }
   return getTicketQty(ticket)
+}
+
+function bagCraftIdentity(ticket: GeneratedFeiTicketSourceRecord) {
+  const hasSpecialCraft = Boolean(ticket.hasSpecialCraft || ticket.specialCrafts?.length || ticket.secondaryCrafts?.length)
+  return { feiTicketNo: ticket.feiTicketNo, hasSpecialCraft, specialCraftChainKey: buildSpecialCraftBagChainKey({ hasSpecialCraft, craftSequenceVersion: ticket.craftSequenceVersion, specialCrafts: ticket.specialCrafts }) }
 }
 
 function buildReturnedSpecialCraftFeiTicketSource(binding: CuttingSpecialCraftFeiTicketBinding): GeneratedFeiTicketSourceRecord {
@@ -1110,13 +1146,17 @@ function listSewingDispatchFeiTicketSources(): GeneratedFeiTicketSourceRecord[] 
   if (seedTicketSources) return seedTicketSources
   const byNo = new Map<string, GeneratedFeiTicketSourceRecord>()
   listSpreadingResultGeneratedFeiTickets().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
-  listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
+  listManualFeiTicketSources().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
+  // 回仓事实改变实际可交数，不能用合成回仓票覆盖原票的材料、部位及打印身份。
+  listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach((ticket) => {
+    if (!byNo.has(ticket.feiTicketNo)) byNo.set(ticket.feiTicketNo, ticket)
+  })
   listWoolPanelCuttingReceiptSources().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
   return [...byNo.values()]
 }
 
 function resolveFeiTicketForSewingDispatch(feiTicketNo: string): GeneratedFeiTicketSourceRecord | null {
-  return getFeiTicketByNo(feiTicketNo) || listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().find((ticket) => ticket.feiTicketNo === feiTicketNo) || listWoolPanelCuttingReceiptSources().find((ticket) => ticket.feiTicketNo === feiTicketNo) || null
+  return getFeiTicketByNo(feiTicketNo) || listManualFeiTicketSources().find((ticket) => ticket.feiTicketNo === feiTicketNo) || listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().find((ticket) => ticket.feiTicketNo === feiTicketNo) || listWoolPanelCuttingReceiptSources().find((ticket) => ticket.feiTicketNo === feiTicketNo) || null
 }
 
 function buildContentItemFromFeiTicket(
@@ -1218,6 +1258,19 @@ function getOccupiedFeiTicketNos(options?: { excludeBagId?: string; initializeLe
       bag.scannedFeiTicketNos.forEach((feiTicketNo) => occupied.add(feiTicketNo))
     }
   })
+  const events = listManagedCuttingRuntimeEvents()
+  const currentUses = resolveTransferBagCurrentUsesFromEvents(unique(events.map((event) => event.refs.transferBagCode || '')), events)
+  for (const use of currentUses.values()) {
+    if (use.mainStatus !== 'IDLE' && use.mainStatus !== 'DISABLED') {
+      for (const ticket of use.tickets) occupied.add(ticket.feiTicketNo)
+    }
+  }
+  // 袋回收只释放载体；已交给车缝的裁片不能从另一个交出入口再次消耗。
+  for (const event of events) {
+    if (isCompleteSuccessfulWholeBagHandoverEvent(event)) {
+      for (const ticketNo of event.refs.feiTicketNos || []) occupied.add(ticketNo)
+    }
+  }
   // The current warehouse UI uses the existing carrier event ledger. A wool receipt
   // bound there must not also become available to the dispatch batch consumer.
   listCuttingRuntimeEventsByType('菲票装袋').forEach((event) => {
@@ -1407,6 +1460,9 @@ function listReadyFeiTicketSourcesForSewingDispatch(input: {
     if (input.colorName && ticket.garmentColor !== input.colorName) return false
     if (input.sizeCode && ticket.skuSize !== input.sizeCode) return false
     if (input.partName && ticket.partName !== input.partName) return false
+    const eligibility = readTicketEligibility(ticket.feiTicketId)
+    if (eligibility.found && (!eligibility.valid || !eligibility.canHandover || eligibility.physicalPieceQty <= 0)) return false
+    if (getTicketDispatchQty(ticket) <= 0) return false
     let specialCraft = seedSpecialCraftStatuses?.get(ticket.feiTicketNo)
     if (!specialCraft) {
       specialCraft = mapSpecialCraftReturnStatus(ticket.feiTicketNo)
@@ -1444,7 +1500,7 @@ export function getEligibleFeiTicketsForSewingDispatch(input: {
   partName?: string
   excludeBagId?: string
 }): GeneratedFeiTicketSourceRecord[] {
-  return clone(listAvailableFeiTicketsForSewingDispatchInternal(input))
+  return withTicketEligibilitySnapshot(() => clone(listAvailableFeiTicketsForSewingDispatchInternal(input)))
 }
 
 export function listAvailableFeiTicketsForSewingDispatch(input: {
@@ -1455,10 +1511,10 @@ export function listAvailableFeiTicketsForSewingDispatch(input: {
   partName?: string
   excludeBagId?: string
 } = {}): GeneratedFeiTicketSourceRecord[] {
-  return clone(listAvailableFeiTicketsForSewingDispatchInternal(input))
+  return withTicketEligibilitySnapshot(() => clone(listAvailableFeiTicketsForSewingDispatchInternal(input)))
 }
 
-export function listAvailableCutPieceInventoryForSewingDispatch(input: {
+function buildAvailableCutPieceInventoryForSewingDispatch(input: {
   cuttingFactoryId?: string
   productionOrderId?: string
   colorName?: string
@@ -1498,6 +1554,10 @@ export function listAvailableCutPieceInventoryForSewingDispatch(input: {
       'zh-CN',
     ),
   ))
+}
+
+export function listAvailableCutPieceInventoryForSewingDispatch(input: Parameters<typeof buildAvailableCutPieceInventoryForSewingDispatch>[0] = {}): CuttingSewingDispatchInventoryPieceLine[] {
+  return withTicketEligibilitySnapshot(() => buildAvailableCutPieceInventoryForSewingDispatch(input))
 }
 
 export function listAvailableSkuInventoryForSewingDispatch(input: {
@@ -1602,7 +1662,7 @@ function buildAllocationShortageItems(
   return shortageItems
 }
 
-export function buildSewingTaskAllocationProjectionFromInventory(
+function buildSewingTaskAllocationProjectionFromInventorySnapshot(
   inventoryRecords: SewingTaskAllocationInventoryRecord[],
 ): SewingTaskAllocationProjection {
   const occupiedFeiTicketNos = getOccupiedFeiTicketNos({ initializeLegacyDemo: false })
@@ -1624,8 +1684,10 @@ export function buildSewingTaskAllocationProjectionFromInventory(
   let supplementalTickets: Map<string, GeneratedFeiTicketSourceRecord> | undefined
   let woolTickets: Map<string, GeneratedFeiTicketSourceRecord> | undefined
 
-  inventoryRecords.forEach((record) => {
-    let ticket = getFeiTicketByNo(record.feiTicketNo)
+  const manualTickets = new Map(listManualFeiTicketSources().map((ticket) => [ticket.feiTicketNo, ticket]))
+  inventoryRecords.forEach((sourceRecord) => {
+    let record = sourceRecord
+    let ticket = getFeiTicketByNo(record.feiTicketNo) || manualTickets.get(record.feiTicketNo) || null
     if (!ticket && record.hasSpecialCraft) {
       supplementalTickets ??= new Map(listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().map(ticket => [ticket.feiTicketNo, ticket]))
       ticket = supplementalTickets.get(record.feiTicketNo) || null
@@ -1637,6 +1699,14 @@ export function buildSewingTaskAllocationProjectionFromInventory(
     if (record.voidStatus === '已作废' || ticket?.printStatus === 'VOIDED') {
       excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票已作废' })
       return
+    }
+    const eligibility = readTicketEligibility(ticket?.feiTicketId || record.feiTicketId)
+    if (eligibility.found && !eligibility.valid) {
+      excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: eligibility.reason || '整张菲票不可用' })
+      return
+    }
+    if (eligibility.found && eligibility.canHandover) {
+      record = { ...record, pieceQty: eligibility.physicalPieceQty }
     }
     if (record.printStatus === '未打印' || record.printStatus === '待打印') {
       excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票未打印' })
@@ -1666,7 +1736,7 @@ export function buildSewingTaskAllocationProjectionFromInventory(
       return
     }
     const mappedSpecialCraft = ticket && (ticket.hasSpecialCraft || record.hasSpecialCraft)
-      ? mapSpecialCraftReturnStatus(record.feiTicketNo)
+      ? mapSpecialCraftReturnStatus(record.feiTicketNo, ticket)
       : { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' as const }
     const specialCraft = {
       specialCraftRequired: mappedSpecialCraft.specialCraftRequired || Boolean(record.hasSpecialCraft),
@@ -1822,6 +1892,10 @@ export function buildSewingTaskAllocationProjectionFromInventory(
       '库存占用不等于交出；交出单和交出记录留给后续流程。',
     ],
   }
+}
+
+export function buildSewingTaskAllocationProjectionFromInventory(inventoryRecords: SewingTaskAllocationInventoryRecord[]): SewingTaskAllocationProjection {
+  return withTicketEligibilitySnapshot(() => buildSewingTaskAllocationProjectionFromInventorySnapshot(inventoryRecords))
 }
 
 function buildPickingRequiredItems(allocation: SewingTaskAllocation): HandoverPickingRequiredItem[] {
@@ -2463,6 +2537,7 @@ export function scanFeiTicketIntoTransferBag(input: {
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const bag = findTransferBagById(storeRef, input.transferBagId)
+  assertTransferBagEditableBeforeHandover(bag.transferBagId)
   const ticket = resolveFeiTicketForSewingDispatch(input.feiTicketNo)
   const batch = findDispatchBatchById(storeRef, bag.dispatchBatchId)
   const order = findDispatchOrderById(storeRef, bag.dispatchOrderId)
@@ -2494,11 +2569,26 @@ export function scanFeiTicketIntoTransferBag(input: {
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
   }
   if (ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' && ticket.receivingFactoryId !== order.cuttingFactoryId) throw new Error('毛织产物不属于当前裁厂实际接收，不能装袋')
+  if (bag.scannedFeiTicketNos.includes(ticket.feiTicketNo)) {
+    const result: CuttingSewingDispatchValidationResult = { ...baseResult, validationType: '菲票重复', validationMessage: '此菲票已在当前袋内，数量保持不变' }
+    storeRef.validationResults.push(result)
+    return { updatedTransferBag: clone(bag), validationResult: clone(result) }
+  }
   if (ticket.productionOrderId !== bag.productionOrderId) {
     const result: CuttingSewingDispatchValidationResult = {
       ...baseResult,
       validationType: '菲票不属于本生产单',
       validationMessage: '菲票不属于本生产单',
+    }
+    storeRef.validationResults.push(result)
+    return { updatedTransferBag: clone(bag), validationResult: clone(result) }
+  }
+  const eligibility = getCutPieceReleaseTicketEligibility(ticket.feiTicketId)
+  if (ticket.printStatus === 'VOIDED' || (!eligibility.found && ticket.sourceOutputLineId?.startsWith('SC-RET-')) || (eligibility.found && (!eligibility.valid || !eligibility.craftRequirementKnown || eligibility.physicalPieceQty <= 0))) {
+    const result: CuttingSewingDispatchValidationResult = {
+      ...baseResult,
+      validationType: '菲票不可用',
+      validationMessage: eligibility.reason || '菲票已作废或工艺要求待核对，不能加入交出记录',
     }
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
@@ -2567,6 +2657,19 @@ export function scanFeiTicketIntoTransferBag(input: {
             : '特殊工艺未回仓',
       validationMessage: '特殊工艺未回仓，暂不加入本次车缝交出；不影响其他已裁出部位提交交出记录',
       blocking: false,
+    }
+    storeRef.validationResults.push(result)
+    return { updatedTransferBag: clone(bag), validationResult: clone(result) }
+  }
+
+  try {
+    const existingTickets = bag.scannedFeiTicketNos.map((no) => resolveFeiTicketForSewingDispatch(no))
+    if (existingTickets.some((source) => !source)) throw new Error('袋内原菲票来源待核对，不能继续装袋')
+    assertSpecialCraftBagCompatibility([...existingTickets.filter((source): source is GeneratedFeiTicketSourceRecord => Boolean(source)), ticket].map(bagCraftIdentity))
+  } catch (error) {
+    const result: CuttingSewingDispatchValidationResult = {
+      ...baseResult, validationType: '中转袋待核对',
+      validationMessage: error instanceof Error ? error.message : '普通与工艺票或不同工艺链不能同袋',
     }
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
@@ -2654,13 +2757,15 @@ export function removeFeiTicketFromTransferBag(input: {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const bag = findTransferBagById(storeRef, input.transferBagId)
   assertTransferBagEditableBeforeHandover(bag.transferBagId)
+  const storedPieceQty = (bag.contentItems || []).find((item) => item.sourceKind === 'FEI_TICKET' && item.feiTicketNo === input.feiTicketNo)?.currentQty
   bag.scannedFeiTicketNos = bag.scannedFeiTicketNos.filter((feiTicketNo) => feiTicketNo !== input.feiTicketNo)
   bag.contentItems = (bag.contentItems || []).filter((item) => item.feiTicketNo !== input.feiTicketNo)
   bag.pieceLines.forEach((line) => {
     if (!line.scannedFeiTicketNos.includes(input.feiTicketNo)) return
     const ticket = resolveFeiTicketForSewingDispatch(input.feiTicketNo)
     line.scannedFeiTicketNos = line.scannedFeiTicketNos.filter((feiTicketNo) => feiTicketNo !== input.feiTicketNo)
-    line.scannedPieceQty = Math.max(line.scannedPieceQty - (ticket ? getTicketDispatchQty(ticket) : 0), 0)
+    // 移出撤销当时装入的数量；不能用更正后的实收数留下虚构余量。
+    line.scannedPieceQty = Math.max(line.scannedPieceQty - (storedPieceQty ?? (ticket ? getTicketDispatchQty(ticket) : 0)), 0)
     line.missingPieceQty = Math.max(line.requiredPieceQty - line.scannedPieceQty, 0)
     line.overPieceQty = Math.max(line.scannedPieceQty - line.requiredPieceQty, 0)
     line.completeStatus = line.missingPieceQty === 0 && line.overPieceQty === 0 ? '已核对' : '有缺口'
@@ -2783,6 +2888,22 @@ export function validateTransferBagForMixedPacking(transferBagId: string): {
   normalizeTransferBagRuntimeFields(bag)
   const duplicateTickets = bag.scannedFeiTicketNos.filter((feiTicketNo, index, list) => list.indexOf(feiTicketNo) !== index)
   const results: CuttingSewingDispatchValidationResult[] = []
+  if (bag.dispatchStatus === '未交出') {
+    try {
+      const tickets = bag.scannedFeiTicketNos.map((no) => resolveFeiTicketForSewingDispatch(no))
+      if (tickets.some((ticket) => !ticket)) throw new Error('袋内原菲票来源待核对')
+      assertSpecialCraftBagCompatibility(tickets.filter((ticket): ticket is GeneratedFeiTicketSourceRecord => Boolean(ticket)).map(bagCraftIdentity))
+    } catch (error) {
+      results.push({
+        validationId: `CSV-${bag.transferBagId}-CRAFT-GROUP`, dispatchOrderId: bag.dispatchOrderId,
+        dispatchBatchId: bag.dispatchBatchId, transferBagId: bag.transferBagId, productionOrderId: bag.productionOrderId,
+        productionOrderNo: bag.productionOrderNo, colorName: '', sizeCode: '', partName: '',
+        requiredPieceQty: 0, scannedPieceQty: 0, missingPieceQty: 0, overPieceQty: 0,
+        specialCraftRequired: true, specialCraftStatus: '待确认顺序', validationType: '中转袋待核对',
+        validationMessage: error instanceof Error ? error.message : '袋内工艺分组待核对', blocking: true,
+      })
+    }
+  }
   duplicateTickets.forEach((feiTicketNo) => {
     const ticket = resolveFeiTicketForSewingDispatch(feiTicketNo)
     results.push({
@@ -2811,7 +2932,30 @@ export function validateTransferBagForMixedPacking(transferBagId: string): {
     const ticket = item.feiTicketNo ? resolveFeiTicketForSewingDispatch(item.feiTicketNo) : undefined
     const belongsToBatch = ticket && ticket.productionOrderId === batch.productionOrderId
       && (ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT' || ticket.receivingFactoryId === findDispatchOrderById(storeRef, bag.dispatchOrderId).cuttingFactoryId)
-    if (belongsToBatch) return
+    if (belongsToBatch) {
+      if (bag.dispatchStatus !== '未交出') return
+      const eligibility = getCutPieceReleaseTicketEligibility(ticket.feiTicketId)
+      const craft = mapSpecialCraftReturnStatus(ticket.feiTicketNo)
+      const valid = ticket.printStatus !== 'VOIDED' && (!eligibility.found || (eligibility.valid && eligibility.canHandover))
+        && (!craft.specialCraftRequired || craft.specialCraftReturnStatus === '已回仓')
+      const actualQty = getTicketDispatchQty(ticket)
+      if (valid && Number.isSafeInteger(item.currentQty) && item.currentQty > 0 && item.currentQty === actualQty) return
+      results.push({
+        validationId: `CSV-${bag.transferBagId}-${ticket.feiTicketNo}-CURRENT`,
+        dispatchOrderId: bag.dispatchOrderId, dispatchBatchId: bag.dispatchBatchId, transferBagId: bag.transferBagId,
+        productionOrderId: bag.productionOrderId, productionOrderNo: bag.productionOrderNo,
+        colorName: item.colorName || '', sizeCode: item.sizeCode || '', partName: item.partName || '',
+        requiredPieceQty: actualQty, scannedPieceQty: item.currentQty, missingPieceQty: Math.max(actualQty - item.currentQty, 0),
+        overPieceQty: Math.max(item.currentQty - actualQty, 0), specialCraftRequired: craft.specialCraftRequired,
+        specialCraftStatus: craft.specialCraftReturnStatus,
+        validationType: valid ? '裁片实物已变化' : '菲票不可用',
+        validationMessage: valid
+          ? `${ticket.feiTicketNo} 当前实际可交 ${actualQty} 片，与袋内已确认 ${item.currentQty} 片不同，请移出后重新扫码核对`
+          : `${ticket.feiTicketNo}：${eligibility.reason || '尚未完成必要工艺并最终回仓或菲票已不可用'}，不能交出`,
+        blocking: true,
+      })
+      return
+    }
     results.push({
       validationId: `CSV-${bag.transferBagId}-CONTENT-${String(index + 1).padStart(3, '0')}`,
       dispatchOrderId: bag.dispatchOrderId,
@@ -2974,16 +3118,9 @@ export function submitCuttingSewingDispatchBatch(input: {
   updatedTransferBags: CuttingSewingTransferBag[]
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
-  const validation = validateDispatchBatchCompleteness(input.dispatchBatchId)
-  const blocking = validation.validationResults.find((item) => item.blocking)
-  if (blocking) throw new Error(blocking.validationMessage)
   const batch = findDispatchBatchById(storeRef, input.dispatchBatchId)
   const order = findDispatchOrderById(storeRef, batch.dispatchOrderId)
-  if (batch.feiTicketNos.some((no) => isFeiTicketSimplyHandedOver('', no))) throw new Error('本批菲票已经通过简易裁片交出，请重新核对。')
-  const submittedPieceQty = getDispatchBatchPieceQty(storeRef, batch)
-  if (submittedPieceQty <= 0) throw new Error('当前没有可交出裁片，不能新增交出记录')
-  const gapSummary = buildDispatchGapSummary(validation.validationResults)
-  const cuttingHandoverSummary = buildCuttingHandoverRecordSummary(storeRef, order, batch, submittedPieceQty)
+  // 已交出的重试返回原历史，后续实物更正不能改写已发生的交接与责任。
   if (batch.handoverRecordId) {
     const record = findPdaHandoverRecord(batch.handoverRecordId)
     if (record) {
@@ -2998,6 +3135,14 @@ export function submitCuttingSewingDispatchBatch(input: {
       }
     }
   }
+  const validation = validateDispatchBatchCompleteness(input.dispatchBatchId)
+  const blocking = validation.validationResults.find((item) => item.blocking)
+  if (blocking) throw new Error(blocking.validationMessage)
+  if (batch.feiTicketNos.some((no) => isFeiTicketSimplyHandedOver('', no))) throw new Error('本批菲票已经通过简易裁片交出，请重新核对。')
+  const submittedPieceQty = getDispatchBatchPieceQty(storeRef, batch)
+  if (submittedPieceQty <= 0) throw new Error('当前没有可交出裁片，不能新增交出记录')
+  const gapSummary = buildDispatchGapSummary(validation.validationResults)
+  const cuttingHandoverSummary = buildCuttingHandoverRecordSummary(storeRef, order, batch, submittedPieceQty)
   const handoverOrder = upsertPdaHandoverHeadMock(buildHandoverHead(order))
   const record = createFactoryHandoverRecord({
     handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,

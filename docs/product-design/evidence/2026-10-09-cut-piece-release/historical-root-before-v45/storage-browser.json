@@ -1,0 +1,150 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "name": "普通读取及静态投影不落盘",
+      "passed": true
+    },
+    {
+      "name": "事务 complete 才成功，保存仅新决定及必要元数据",
+      "passed": true,
+      "details": {
+        "revision": 1,
+        "records": [
+          [
+            "cut-piece-release:decision:cr-avail-po-14671-v1",
+            "cut-piece-release-decision"
+          ],
+          [
+            "cut-piece-release:decision:cr-avail-po-14671-v2",
+            "cut-piece-release-decision"
+          ],
+          [
+            "cutting-event-scope:post-cutting-v2",
+            "cutting-event-scopes"
+          ],
+          [
+            "part-ticket-migration:cuttingFeiTicketDrafts",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingFeiTicketPrintJobs",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingFeiTicketRecords",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingManualFeiTicketSources",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingMarkerPlanLedger",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingMarkerPlanSourceLedger",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingMarkerSpreadingLedger",
+            "part-ticket-migrations"
+          ],
+          [
+            "part-ticket-migration:cuttingTransferBagLedger",
+            "part-ticket-migrations"
+          ],
+          [
+            "retired-cut-piece-pickup:scope",
+            "retired-cut-piece-pickup-scopes"
+          ],
+          [
+            "source-migration:higood.effective-task-assignments.v2",
+            "production-context-migrations"
+          ],
+          [
+            "source-migration:higood.formal-created-production-orders.v1",
+            "production-context-migrations"
+          ],
+          [
+            "source-migration:higood.production-assignment-effects.v1",
+            "production-context-migrations"
+          ],
+          [
+            "source-migration:higood.runtime-process-task-actions.v1",
+            "production-context-migrations"
+          ],
+          [
+            "source-migration:higood.sewing-task-responsibility-transfers.v1",
+            "production-context-migrations"
+          ],
+          [
+            "source-migration:higood:fcs:production-contracts:v2",
+            "production-context-migrations"
+          ],
+          [
+            "source-migration:higood:sewing-sample-approval:v3",
+            "production-context-migrations"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "重复保存返回同一决定，刷新重新独立读回",
+      "passed": true
+    },
+    {
+      "name": "QuotaExceeded 及事务中止均不留下半套事实或虚假成功",
+      "passed": true,
+      "details": "未保存，存储空间不足。输入已保留，请释放空间后重试。"
+    },
+    {
+      "name": "同版本两个事务仅一个提交，冲突保存不静默覆盖",
+      "passed": true,
+      "details": [
+        {
+          "result": "A",
+          "revision": 3,
+          "replayed": false
+        },
+        "Error: 其他页面已更新票据或交出记录。本次未保存，请刷新并重新核对后确认。"
+      ]
+    },
+    {
+      "name": "localStorage 满额时业务仍保存于 IDB；无后备双写",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "name": "localStorage 访问被禁时仍用 IDB 保存，不伪造空用户数据",
+      "passed": true,
+      "details": 5
+    },
+    {
+      "name": "整票不可用保存、幂等、独立回读，原票和决定不变",
+      "passed": true,
+      "details": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "revision": 9,
+        "basis": 13,
+        "maintainedVersion": 6
+      }
+    },
+    {
+      "name": "备份包含新增逐记录事实，冲突整批撤回不清空",
+      "passed": true,
+      "details": {
+        "recordCount": 35,
+        "fileCount": 0
+      }
+    }
+  ],
+  "version": "v36",
+  "rootVersionRef": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "runtime": "http://127.0.0.1:4191",
+  "notPerformanceEvidence": true,
+  "rawLog": "docs/product-design/evidence/2026-10-09-cut-piece-release/storage-native-v36.log",
+  "capturedAt": "2026-10-09T20:21:29.015899+00:00"
+}

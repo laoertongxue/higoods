@@ -24,7 +24,7 @@ assert.ok(
   '裁片放行 mock 必须覆盖可计算但待主管确认的场景',
 )
 assert.ok(
-  records.some((record) => record.matrixStatus === '可计算' && record.targetStatus === '目标后数据已变化'),
+  records.some((record) => record.matrixStatus === '可计算' && record.requiresReview),
   '裁片放行 mock 必须覆盖目标确认后又有新裁片事实的复核场景',
 )
 assert.ok(
@@ -70,7 +70,7 @@ assert.ok(
   '裁片放行 mock 必须覆盖暂不放行状态，并来自真实放行确认版本',
 )
 assert.ok(
-  records.some((record) => record.releaseAvailableStatus === '确认后需复核' && record.latestReleaseVersion > 0),
+  records.some((record) => record.requiresReview && record.latestReleaseVersion > 0),
   '裁片放行 mock 必须覆盖已有放行版本后裁片事实变化的确认后需复核状态',
 )
 assert.ok(
@@ -91,7 +91,7 @@ records.forEach((record) => {
   assert.ok(typeof record.releaseConfirmQty === 'number' && record.releaseConfirmQty >= 0, `${record.productionOrderNo} 必须有合法 releaseConfirmQty`)
   assert.ok(typeof record.releaseAvailableStatus === 'string' && record.releaseAvailableStatus.length > 0, `${record.productionOrderNo} 必须有合法 releaseAvailableStatus`)
   assert.ok(typeof record.latestReleaseVersion === 'number', `${record.productionOrderNo} 必须有 latestReleaseVersion`)
-  assert.ok(typeof record.riskReleaseQty === 'number' && record.riskReleaseQty >= 0, `${record.productionOrderNo} 必须有合法 riskReleaseQty`)
+  assert.ok(record.skuLines.some(line=>line.completeKitQty===null)?record.riskReleaseQty===null:typeof record.riskReleaseQty === 'number' && record.riskReleaseQty >= 0, `${record.productionOrderNo} 必须有合法 riskReleaseQty`)
   assert.ok(typeof record.totalTargetQty === 'number' && record.totalTargetQty >= 0, `${record.productionOrderNo} 必须有合法 totalTargetQty`)
   assert.equal(summary?.releaseAvailableStatus, record.releaseAvailableStatus, `${record.productionOrderNo} 列表与 PPIC 摘要放行状态必须一致`)
   assert.equal(summary?.ppicAvailableDispatchQty, record.releaseConfirmQty, `${record.productionOrderNo} PPIC 可派总量必须等于裁床确认可做放行数量`)
@@ -102,12 +102,12 @@ records.forEach((record) => {
   }
   if (record.releaseAvailableStatus === '风险放行') {
     assert.ok(latestVersion?.riskReason.trim(), `${record.productionOrderNo} 风险放行必须填写风险原因`)
-    assert.ok(record.riskReleaseQty > 0, `${record.productionOrderNo} 风险放行必须有风险数量`)
+    assert.ok(record.historicalRiskReleaseQty > 0, `${record.productionOrderNo} 风险放行历史必须有确认时风险数量`)
     assert.ok(record.releaseConfirmQty <= record.totalTargetQty, `${record.productionOrderNo} 风险放行也不能超过目标数量`)
   }
   if (record.releaseAvailableStatus === '按齐套放行') {
     assert.ok(record.releaseConfirmQty > 0, `${record.productionOrderNo} 按齐套放行必须有可派数量`)
-    assert.equal(record.riskReleaseQty, 0, `${record.productionOrderNo} 按齐套放行不能有风险数量`)
+    assert.equal(latestVersion?.totalRiskReleaseQty, 0, `${record.productionOrderNo} 确认当时按齐套放行不得记历史风险；当前差异单独计算`)
   }
   if (record.releaseAvailableStatus === '暂不放行') {
     assert.ok(record.totalTargetQty > 0, `${record.productionOrderNo} 暂不放行必须先维护目标`)
@@ -131,13 +131,13 @@ records.forEach((record) => {
     assert.ok(line.completeKitQty >= 0, `${record.productionOrderNo} 的齐套数不能为负数`)
     assert.ok(line.releaseQty >= 0, `${record.productionOrderNo} 的放行数不能为负数`)
     assert.ok(typeof line.releaseConfirmQty === 'number' && line.releaseConfirmQty >= 0, `${record.productionOrderNo} 的 SKU 行必须有合法 releaseConfirmQty`)
-    assert.ok(typeof line.riskReleaseQty === 'number' && line.riskReleaseQty >= 0, `${record.productionOrderNo} 的 SKU 行必须有合法 riskReleaseQty`)
+    assert.ok(line.completeKitQty===null?line.riskReleaseQty===null:typeof line.riskReleaseQty === 'number' && line.riskReleaseQty >= 0, `${record.productionOrderNo} 的 SKU 行必须有合法 riskReleaseQty`)
   })
 })
 
 assert.ok(byStatus('按齐套放行').length >= 1, '必须保留按齐套放行场景，便于演示稳定基准')
 assert.ok(byStatus('风险放行').length >= 1, '必须保留风险放行场景，便于演示风险原因和版本变化')
 assert.ok(byStatus('暂不放行').length >= 1, '必须保留暂不放行场景，便于演示 PPIC 阻断')
-assert.ok(byStatus('确认后需复核').length >= 1, '必须保留确认后需复核场景，便于演示事实变化后复核')
+assert.ok(records.filter(record=>record.requiresReview && record.latestReleaseVersion>0).length >= 1, '必须保留确认后需复核场景，便于演示事实变化后复核')
 
 console.log('[check-cut-piece-release-mock-records] 裁片放行管理 mock 数据检查通过')

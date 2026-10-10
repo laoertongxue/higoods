@@ -1,0 +1,32 @@
+(node:16026) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (129.645542ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1169.168917
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:3195
+✖ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (129.645542ms)
+  AssertionError [ERR_ASSERTION]: 候选须阻断袋9与当前有效实收8的冲突
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:64:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,34 @@
+{
+  "version": "v49",
+  "historicalChecks": {
+    "version": "v47",
+    "path": "docs/product-design/evidence/2026-10-09-cut-piece-release/final-checks-v47.json",
+    "reason": "v48 only craft requirement fallback changed; targeted unit regression and current affected pages supplement these unchanged checks"
+  },
+  "commands": [
+    {
+      "name": "workflow",
+      "argv": [
+        "npm",
+        "run",
+        "workflow:verify",
+        "--",
+        "--output",
+        "docs/product-design/evidence/2026-10-09-cut-piece-release/task-receipt.json",
+        "--task-boundary",
+        "本轮裁片放行：有效已装袋票、部位连续工艺最终逐票实收、颜色尺码矩阵、人工目标放行历史、车缝分配与配料、Web/PDA打印、记录级本地保存及必要界面文案；83份声明源文件；不包含远端发布或无关既有工作",
+        "--base",
+        "155144308f6b2931a8acb229a579e04ec99af41d"
+      ],
+      "startedAt": "2026-10-10T00:56:37.862162+00:00",
+      "completedAt": "2026-10-10T00:57:49.039614+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "output/playwright/cut-release-ui/workflow-final-v49-complete.log",
+      "sha256": "793e022dd749ed9bc19bb3b6f60ee6aee12ee63d7a5a678457779a24356ec7ce"
+    }
+  ],
+  "passed": true,
+  "scope": "v48 routed final checks; unchanged v47 targeted checks retain their original version",
+  "completedAt": "2026-10-10T00:57:49.039614+00:00"
+}

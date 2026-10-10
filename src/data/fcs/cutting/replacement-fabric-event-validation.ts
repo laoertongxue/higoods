@@ -1,7 +1,9 @@
 import { getPdaSession, listFactoryPdaRoles } from '../store-domain-pda.ts'
 import type { BrowserStorageLike } from '../../browser-storage.ts'
 import type { CuttingRuntimeEvent, TransferBagTicketFactSnapshot } from './cutting-runtime-event-ledger.ts'
-import { resolveTransferBagCurrentUse } from './transfer-bag-operations.ts'
+import { listManagedCuttingRuntimeEvents } from './cutting-runtime-event-ledger.ts'
+import { isManagedCuttingEvent } from './cutting-event-scope.ts'
+import { resolveTransferBagCurrentUsesFromEvents } from './transfer-bag-operations.ts'
 import { listReplacementFabricOrderRows, resolveReplacementFabricRuntimeTaskContext } from './replacement-fabric-source.ts'
 import { assertReplacementTicketCurrent, validateReplacementFabricHandover, type ReplacementFabricState, type ReplacementFabricTicket } from './replacement-fabric-fei-tickets.ts'
 import { replacementFabricBagTicket } from './mixed-transfer-bag-ticket.ts'
@@ -17,11 +19,10 @@ export function validateReplacementFabricEventBatch(input: {
   const preHandover = input.after.filter(event => oldIds.has(event.eventId)
     || !['新增交出记录', '简易裁片交出'].includes(event.eventType))
   const bagCodes = new Set(preHandover.flatMap(event => [event.refs.transferBagCode || '', ...(event.refs.transferBagCodes || [])]).filter(Boolean))
-  const beforeRaw = JSON.stringify({ events: preHandover })
-  const beforeStorage: BrowserStorageLike = { getItem: () => beforeRaw }
+  const beforeUses = resolveTransferBagCurrentUsesFromEvents([...bagCodes], preHandover.filter(isManagedCuttingEvent))
   const locations = new Map<string, string>()
   for (const code of bagCodes) {
-    const use = resolveTransferBagCurrentUse(code, beforeStorage)
+    const use = beforeUses.get(code)!
     use.tickets.forEach(ticket => locations.set(ticket.feiTicketId, use.usageCycleId || code))
   }
   const groups = new Map<string, { taskId: string; factoryId: string; ids: string[]; bagUseIds: string[]; pieceQty: number; events: CuttingRuntimeEvent[] }>()
@@ -36,14 +37,14 @@ export function validateReplacementFabricEventBatch(input: {
           : ((payload.feiTicketItems || []) as TransferBagTicketFactSnapshot[])
     for (const item of items.filter(item => item.ticketKind === 'REPLACEMENT_FABRIC')) {
       const ticket = input.state.tickets.find(ticket => ticket.id === item.feiTicketId)
-      if (!ticket) throw new Error(`换片布票 ${item.feiTicketNo} 不存在，请重新扫码。`)
+      if (!ticket) throw new Error('换片布票不存在，请重新扫码。')
       assertReplacementTicketCurrent(ticket, scopes)
-      if (!input.state.prints.some(record => record.ticketId === ticket.id)) throw new Error(`换片布票 ${item.feiTicketNo} 尚未确认打印。`)
+      if (!input.state.prints.some(record => record.ticketId === ticket.id)) throw new Error('换片布票尚未确认打印，请先打印。')
       const expected = replacementFabricBagTicket(ticket)
       for (const field of ['materialKey', 'materialCode', 'materialName', 'quantity', 'quantityUnit', 'replacementSequence', 'pieceQty', 'productionOrderId', 'productionOrderNo', 'color', 'materialImageUrl', 'feiTicketNo'] as const) {
-        if (item[field] !== expected[field]) throw new Error(`换片布票 ${item.feiTicketNo} 的内容与原票不一致，请重新扫描。`)
+        if (item[field] !== expected[field]) throw new Error('换片布票与原票不一致，请重新扫描。')
       }
-      if (input.state.receipts.some(receipt => receipt.ticket.id === ticket.id)) throw new Error(`换片布票 ${item.feiTicketNo} 已交出，不能重新装袋或交出。`)
+      if (input.state.receipts.some(receipt => receipt.ticket.id === ticket.id)) throw new Error('换片布票已交出，不能再次装袋或交出。')
     }
     if (!['新增交出记录', '简易裁片交出'].includes(event.eventType)) continue
     if (event.eventSource === 'PDA' && typeof document !== 'undefined') {
@@ -79,8 +80,9 @@ export function validateReplacementFabricEventBatch(input: {
   }
   // 同次装袋也不能让一张实物票占用两只袋；以最终使用周期检查，重装不误报来源袋。
   const afterBagCodes = new Set(input.after.flatMap(event => [event.refs.transferBagCode || '', ...(event.refs.transferBagCodes || [])]).filter(Boolean))
+  const afterUses = resolveTransferBagCurrentUsesFromEvents([...afterBagCodes], listManagedCuttingRuntimeEvents(input.storage))
   const occupied = new Map<string, string>()
-  for (const code of afterBagCodes) for (const ticket of resolveTransferBagCurrentUse(code, input.storage).tickets) {
+  for (const code of afterBagCodes) for (const ticket of afterUses.get(code)!.tickets) {
     if (ticket.ticketKind !== 'REPLACEMENT_FABRIC') continue
     const prior = occupied.get(ticket.feiTicketId)
     if (prior && prior !== code) throw new Error(`换片布票已经装入 ${prior}，不能重复装入 ${code}。`)

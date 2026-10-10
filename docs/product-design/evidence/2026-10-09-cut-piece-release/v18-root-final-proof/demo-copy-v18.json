@@ -1,0 +1,196 @@
+{
+  "startedAt": "2026-10-09T12:43:07.091Z",
+  "version": "v18",
+  "scenarios": [
+    {
+      "name": "original identity expand",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 90,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 96,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 100,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 99,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 99,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "original identity collapse",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 100,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 98,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 100,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 97,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 101,
+          "complete": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "native whole ticket confirmation cancel",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 111,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm"
+        },
+        {
+          "index": 2,
+          "durationMs": 81,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm"
+        },
+        {
+          "index": 3,
+          "durationMs": 101,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm"
+        },
+        {
+          "index": 4,
+          "durationMs": 84,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm"
+        },
+        {
+          "index": 5,
+          "durationMs": 100,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm"
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "assertions": [
+    {
+      "name": "default sample identity short and raw hidden",
+      "passed": true,
+      "detail": "示例菲票 001\n已最终回仓\n成衣 松石绿 / L · 面料色 主面料\n原票 90 片 · 当前有效实物 87 片 · 整票可用\n来源 静态演示已装袋菲票：PB-14677-01\n裁片单 CUT14677-A · 铺布单 PB-14677-01\n袋号 示例中转袋 001\n查看原始编号\n当前位置 裁床待交出仓（静态演示）\n第 1 / 3 道 · 烫画 · 辅助工艺\n承接厂 演示烫画厂 · 已回仓\n应回 90 片 · 加工 90 片 · 交出 90 片\n实际实收 88 片\n回仓记录 单号未记录 · 回仓位置 未记录\n查看记录编号\n演示裁床仓管 Siti · 2026-07-24 09:00\n第 2 / 3 道 · 绣花 · 特种工艺\n承接厂 演示绣花厂 · 已回仓\n应回 88 片 · 加工 88 片 · 交出 88 片\n实际实收 88 片\n回仓记录 单号未记录 · 回仓位置 未记录\n查看记录编号\n演示裁床仓管 Siti · 2026-07-24 14:00\n第 3 / 3 道 · 烫钻 · 辅助工艺 · 最终工艺\n承接厂 演示烫钻厂 · 已回仓\n应回 88 片 · 加工 88 片 · 交出 88 片\n实际实收 87 片\n回仓记录 单号未记录 · 回仓位置 未记录\n查看记录编号\n演示裁床仓管 Siti · 2026-07-25 15:00\n当前可计入 87 片依据：最终工艺实际实收\n\n差异原因：静态演示：第一道实收少2片，末道再少1片；最终实收87片。\n\n整票不可用原因\n登记整票不可用"
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；使用周期 示例装袋周期；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "cancel retains original whole ticket valid status",
+      "passed": true
+    }
+  ],
+  "completedAt": "2026-10-09T12:43:08.999Z",
+  "passed": true,
+  "rootVersionRef": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v18.json",
+  "sourceManifestSHA256": "a41806b307c68640a56cb227f7b9c0d269e8d108ddfa4e9cfb563c36e16f9bc8",
+  "assetManifestSHA256": "57ef2685652392a80f5291283b4d94fc6098c4c5b3cfb544b30175c386876348",
+  "rawLog": "output/playwright/cut-release-ui/demo-copy-v18.log"
+}

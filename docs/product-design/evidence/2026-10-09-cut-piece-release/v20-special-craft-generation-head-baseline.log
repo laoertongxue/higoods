@@ -1,0 +1,21 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 特殊工艺加工单 generationKey 必须唯一
+
+155 !== 176
+
+    at <anonymous> (/private/var/folders/p5/sm3z8lc52y7gycyy2dg4y6380000gn/T/higood-readonly-baseline-oxss0sxq/scripts/check-special-craft-task-generation.ts:716:8)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 155,
+  expected: 176,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

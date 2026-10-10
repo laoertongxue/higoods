@@ -1,0 +1,12 @@
+{
+  "version": "v49",
+  "declaredSourceCount": 85,
+  "applicationSourceUnchangedSinceV48": true,
+  "assetManifestIdenticalToV48": true,
+  "verificationDelta": [
+    "scripts/check-pda-cutting-transfer-bag-handover.ts",
+    "scripts/check-standard-list-page-template.ts",
+    "scripts/check-transfer-bag-three-status.ts"
+  ],
+  "allCurrentSourceHashesMatched": true
+}

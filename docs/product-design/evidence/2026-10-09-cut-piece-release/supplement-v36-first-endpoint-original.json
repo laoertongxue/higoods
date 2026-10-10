@@ -1,0 +1,806 @@
+{
+  "startedAt": "2026-10-09T20:19:43.070Z",
+  "scenarios": [
+    {
+      "name": "补料目标入口冷启动",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 532.7999999970198,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577183611.1,
+            "origin": 1791577183078.3,
+            "now": 532.7999999970198
+          },
+          "rawOriginalCollectorMs": 533.7999999970198
+        },
+        {
+          "index": 2,
+          "durationMs": 579.2999999970198,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577184193.1,
+            "origin": 1791577183613.8,
+            "now": 579.2999999970198
+          },
+          "rawOriginalCollectorMs": 580
+        },
+        {
+          "index": 3,
+          "durationMs": 281.20000000298023,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577184476.9,
+            "origin": 1791577184195.7,
+            "now": 281.20000000298023
+          },
+          "rawOriginalCollectorMs": 281.6000000014901
+        },
+        {
+          "index": 4,
+          "durationMs": 365.8999999985099,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577184844.7,
+            "origin": 1791577184478.8,
+            "now": 365.8999999985099
+          },
+          "rawOriginalCollectorMs": 372.29999999701977
+        },
+        {
+          "index": 5,
+          "durationMs": 267.70000000298023,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577185126.4,
+            "origin": 1791577184858.7,
+            "now": 267.70000000298023
+          },
+          "rawOriginalCollectorMs": 268.5
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "补料目标入口整页刷新",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 263.6000000014901,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577185392.7,
+            "origin": 1791577185129.2,
+            "now": 263.6000000014901
+          },
+          "rawOriginalCollectorMs": 264.29999999701977
+        },
+        {
+          "index": 2,
+          "durationMs": 266.1000000014901,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577185661.4001,
+            "origin": 1791577185395.3,
+            "now": 266.1000000014901
+          },
+          "rawOriginalCollectorMs": 266.5
+        },
+        {
+          "index": 3,
+          "durationMs": 281.29999999701977,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577185944.7,
+            "origin": 1791577185663.4,
+            "now": 281.29999999701977
+          },
+          "rawOriginalCollectorMs": 282.19999999552965
+        },
+        {
+          "index": 4,
+          "durationMs": 297.3999999985099,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577186244.5999,
+            "origin": 1791577185947.2,
+            "now": 297.3999999985099
+          },
+          "rawOriginalCollectorMs": 297.70000000298023
+        },
+        {
+          "index": 5,
+          "durationMs": 264.6000000014901,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577186511.4001,
+            "origin": 1791577186246.8,
+            "now": 264.6000000014901
+          },
+          "rawOriginalCollectorMs": 265.19999999552965
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "放行去补料按钮及完整结果",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 149.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577187227.9,
+            "origin": 1791577186513.4,
+            "now": 714.5
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 150.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577187627.5999,
+            "origin": 1791577187229.7,
+            "now": 397.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 165.300048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577188027.1,
+            "origin": 1791577187629.1,
+            "now": 398
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 149.099853515625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577188427.3,
+            "origin": 1791577188029.1,
+            "now": 398.20000000298023
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 166.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577188877.8,
+            "origin": 1791577188429,
+            "now": 448.79999999701977
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "缺原因不提交且具体错误",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 99.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577188977.8,
+            "origin": 1791577188429,
+            "now": 548.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 66.199951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189044.5,
+            "origin": 1791577188429,
+            "now": 615.5
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 65.300048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189111.1,
+            "origin": 1791577188429,
+            "now": 682.0999999940395
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 65.199951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189177.8,
+            "origin": 1791577188429,
+            "now": 748.7999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 65.300048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189244.7,
+            "origin": 1791577188429,
+            "now": 815.6999999955297
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "原裁片单选择",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 30.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189278,
+            "origin": 1791577188429,
+            "now": 849
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 32.7998046875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189311.4,
+            "origin": 1791577188429,
+            "now": 882.3999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 31.800048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189344.7,
+            "origin": 1791577188429,
+            "now": 915.7999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 31.199951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189377.3,
+            "origin": 1791577188429,
+            "now": 948.2999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 32.099853515625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189410.7,
+            "origin": 1791577188429,
+            "now": 981.6999999955297
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "补料原因选择",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 32.60009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189444.6,
+            "origin": 1791577188429,
+            "now": 1015.5999999940395
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 31.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189477.9,
+            "origin": 1791577188429,
+            "now": 1048.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 32.900146484375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189511.3,
+            "origin": 1791577188429,
+            "now": 1082.2999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 31.60009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189543.3,
+            "origin": 1791577188429,
+            "now": 1114.2999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 34.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189578,
+            "origin": 1791577188429,
+            "now": 1149
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "补料原因填写",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 32.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189611.3,
+            "origin": 1791577188429,
+            "now": 1182.2999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 31.800048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189643.7,
+            "origin": 1791577188429,
+            "now": 1214.6999999955297
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 33.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189677.9,
+            "origin": 1791577188429,
+            "now": 1248.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 31.800048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189710.2,
+            "origin": 1791577188429,
+            "now": 1281.1999999955297
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 33.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189744.2,
+            "origin": 1791577188429,
+            "now": 1315.1999999955297
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "人工提交到确认页再返回保留来源",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 97.800048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577189843.1,
+            "origin": 1791577188429,
+            "now": 1414.0999999940395
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 81.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577190142.9,
+            "origin": 1791577188429,
+            "now": 1713.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 99.39990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577190327.9,
+            "origin": 1791577188429,
+            "now": 1898.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 99.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577190511.3,
+            "origin": 1791577188429,
+            "now": 2082.2999999970198
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 100.900146484375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577190694.6,
+            "origin": 1791577188429,
+            "now": 2265.5999999940395
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "从确认页返回草稿",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 81.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577190776.9,
+            "origin": 1791577188429,
+            "now": 2347.89999999851
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 82.7001953125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577190944.6,
+            "origin": 1791577188429,
+            "now": 2515.5999999940395
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 81.599853515625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577191126.4,
+            "origin": 1791577188429,
+            "now": 2697.39999999851
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 82.39990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577191309.5,
+            "origin": 1791577188429,
+            "now": 2880.5
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 100.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "at": 1791577191511.2,
+            "origin": 1791577188429,
+            "now": 3082.2999999970198
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "整票变化后补料用最新实物且目标保持208件",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 567.1000000014901,
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 491.79999999701977,
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 477.69999999552965,
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 480.79999999701977,
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 477.8999999985099,
+          "complete": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "assertions": [
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "整票登记已持久完成 0",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:5a2799a62a8fc53558e00a8242640b697b824af8c18eeb7109ac4ee2302315ae",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": false,
+        "reason": "补料最新实物复演 0",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:19:51.994Z",
+        "version": 1
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 0",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 0",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "part": "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+        "trace": "裁片放行目标\n目标数量 V9\n当前实物 V11\n确认时间 2026-06-03 17:00:00"
+      }
+    },
+    {
+      "name": "整票登记已持久完成 1",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:808a0690a2fe81383542ab7d261e4031aec2c9a03161481c47e25fc20fc162f7",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": true,
+        "reason": "补料最新实物复演 1",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:19:53.029Z",
+        "version": 2
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 1",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 1",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "trace": "裁片放行目标\n目标数量 V9\n当前实物 V12\n确认时间 2026-06-03 17:00:00"
+      }
+    },
+    {
+      "name": "整票登记已持久完成 2",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:91c38702cc12a992adf63882358d5c21746df7da305dbd954bfdde51a4392c4c",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": false,
+        "reason": "补料最新实物复演 2",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:19:53.964Z",
+        "version": 3
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 2",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 2",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "part": "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+        "trace": "裁片放行目标\n目标数量 V9\n当前实物 V13\n确认时间 2026-06-03 17:00:00"
+      }
+    },
+    {
+      "name": "整票登记已持久完成 3",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:da407eb90fdaf0d5ca02b291b2a3e6ce117e89a1ddd81dc87e8f8e4cfcb7be69",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": true,
+        "reason": "补料最新实物复演 3",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:19:54.869Z",
+        "version": 4
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 3",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 3",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "trace": "裁片放行目标\n目标数量 V9\n当前实物 V14\n确认时间 2026-06-03 17:00:00"
+      }
+    },
+    {
+      "name": "整票登记已持久完成 4",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:1aa75f905d0997eb0fd41d7b176210b5db3e29e4c6011046eee048421a653553",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": false,
+        "reason": "补料最新实物复演 4",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:19:55.763Z",
+        "version": 5
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 4",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 4",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "part": "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+        "trace": "裁片放行目标\n目标数量 V9\n当前实物 V15\n确认时间 2026-06-03 17:00:00"
+      }
+    },
+    {
+      "name": "可用目标入口尺寸 1366",
+      "passed": true
+    },
+    {
+      "name": "可用目标入口尺寸 1280",
+      "passed": true
+    },
+    {
+      "name": "可用目标入口尺寸 1024",
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    "output/playwright/cut-release-supplement/latest-physical-1366x768.png",
+    "output/playwright/cut-release-supplement/latest-physical-1280x720.png",
+    "output/playwright/cut-release-supplement/latest-physical-1024x768.png"
+  ],
+  "scope": "放行目标/最新实物补料读取，保留既有人工创建规则",
+  "traceBefore": "裁片放行目标\n目标数量 V9\n当前实物 V10\n确认时间 2026-06-03 17:00:00",
+  "traceAfter": "裁片放行目标\n目标数量 V9\n当前实物 V15\n确认时间 2026-06-03 17:00:00",
+  "completedAt": "2026-10-09T20:19:56.583Z",
+  "passed": true,
+  "script": "/Users/laoer/.codex/worktrees/9ec5/higoods/output/playwright/cut-release-supplement/verify-supplement-endpoint-v36.py",
+  "log": "output/playwright/cut-release-supplement/supplement-browser.log",
+  "runtime": "http://127.0.0.1:4190",
+  "browserSession": "release-supplement-endpoint-final-v36",
+  "priorFailure": "output/playwright/cut-release-supplement/supplement-before-readonly-bootstrap.json",
+  "version": "v36",
+  "versionRef": "version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "assetManifestSHA256": "4b87a963b268ed5dc1dc0bc8e491022e22d99f1832bb2ed7bdea756c5fa382c2"
+}

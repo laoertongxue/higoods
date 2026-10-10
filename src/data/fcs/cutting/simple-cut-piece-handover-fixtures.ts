@@ -13,7 +13,6 @@ import { listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.
 import { appendWaitHandoverBaggingEvent, buildWaitHandoverRuntimeTicketFromGeneratedTicket } from '../../../pages/process-factory/cutting/wait-handover-runtime.ts'
 import { listCuttingSpecialCraftFeiTicketBindings, createSpecialCraftDispatchHandoverFromFeiTickets, markSpecialCraftFactoryReceivedFromHandover, linkSpecialCraftCompletionToReturnWaitHandoverStock, createSpecialCraftReturnHandover, receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse, refreshGeneratedSpecialCraftFeiTicketBindings } from './special-craft-fei-ticket-flow.ts'
 import { captureSpecialCraftTaskStore, restoreSpecialCraftTaskStore } from '../special-craft-task-orders.ts'
-import { getBrowserLocalStorage } from '../../browser-storage.ts'
 
 export const SIMPLE_CUT_PIECE_DEMO_ORDER_ID = 'PO-DEMO-SIMPLE-0916'
 const stamp = '2026-09-16 09:00:00'
@@ -74,7 +73,7 @@ export function ensureSimpleCutPieceHandoverFixtures(): void {
       restoreRuntimeDirectDispatchState(state, false)
     })
     ensureAdditionalTaskSheetDemoScenarios()
-    if (getBrowserLocalStorage()) { appendSimpleCutPieceDemoCuttingBatch(1); appendSimpleCutPieceDemoCuttingBatch(1,'PO-DEMO-SEW-IRON-0916') }
+    if (typeof window !== 'undefined') { appendSimpleCutPieceDemoCuttingBatch(1); appendSimpleCutPieceDemoCuttingBatch(1,'PO-DEMO-SEW-IRON-0916') }
     initialized = true
     })
   } finally { initializing = false }

@@ -78,22 +78,29 @@ function restore(value:unknown):void {
 export async function saveProductionSourceAction<T>(input:{id:string;intent:string;action:()=>T;events?:boolean;
  captureAdditional?:()=>unknown;restoreAdditional?:(value:unknown)=>void;
  prepareChange?:(result:T)=>CuttingRecordChange;assertAdditionalSourcesCurrent?:()=>void}):Promise<T> {
-  const captureAll=()=>({source:capture(),additional:input.captureAdditional?.()})
-  const restoreAll=(value:unknown)=>{const state=value as ReturnType<typeof captureAll>;restore(state.source);input.restoreAdditional?.(state.additional)}
+  const release=await import('./cut-piece-release.ts')
+  const awaitDiffCuttingRecords=await import('./cutting/cutting-record-repository.ts')
+  let releaseBefore:ReturnType<typeof release.captureCutPieceReleaseRecords>=[]
+  const captureAll=()=>({source:capture(),release:release.captureCutPieceReleaseState(),additional:input.captureAdditional?.()})
+  const restoreAll=(value:unknown)=>{const state=value as ReturnType<typeof captureAll>;restore(state.source);release.restoreCutPieceReleaseState(state.release);input.restoreAdditional?.(state.additional)}
   const eventRepo=await import('./cutting/cutting-event-repository.ts')
   const part=await import('./cutting/part-ticket-records.ts')
   const prepareSnapshot=async(snapshot:CuttingRecordSnapshot)=>{
     await part.hydratePartTicketRecords(snapshot)
-    eventRepo.prepareManagedScope(snapshot.records)
+    eventRepo.prepareCommittedCuttingEventSnapshot(snapshot)
+    await release.hydrateCutPieceReleaseRecords(snapshot)
+    releaseBefore=release.captureCutPieceReleaseRecords()
   }
   const prepareChange=(result:T):CuttingRecordChange=>{
     const extra=input.prepareChange?.(result) || {puts:[]}
-    const puts=[...extra.puts,...part.partTicketInitializationRecords(),...eventRepo.cuttingEventScopeInitializationRecords()]
-    return {...extra,puts:[...new Map(puts.map(record=>[record.id,record])).values()]}
+    const {diffCuttingRecords}=awaitDiffCuttingRecords
+    const releaseChange=diffCuttingRecords(releaseBefore,release.captureCutPieceReleaseRecords())
+    const puts=[...releaseChange.puts,...extra.puts,...part.partTicketInitializationRecords(),...eventRepo.cuttingEventScopeInitializationRecords()]
+    return {...extra,puts:[...new Map(puts.map(record=>[record.id,record])).values()],deletes:[...(extra.deletes || []),...(releaseChange.deletes || [])]}
   }
   const assertAdditionalSourcesCurrent=()=>{part.assertPartTicketLegacyUnchanged();eventRepo.assertManagedScopeCurrent();input.assertAdditionalSourcesCurrent?.()}
   if(!input.events) return saveProductionContextAction({...input,prepareSnapshot,prepareChange,assertAdditionalSourcesCurrent,capture:captureAll,restore:restoreAll,action:()=>{
-    const before=captureEffects();const result=input.action();persistChangedEffects(before,captureEffects());return result
+    const before=captureEffects();const result=input.action();persistChangedEffects(before,captureEffects());release.listCutPieceReleaseRecords();return result
   }})
   const ledger=await import('./cutting/cutting-runtime-event-ledger.ts')
   const {withBrowserBusinessStorage,getBrowserLocalStorage}=await import('../browser-storage.ts')
@@ -109,7 +116,7 @@ export async function saveProductionSourceAction<T>(input:{id:string;intent:stri
       const events=[...ledger.listManagedCuttingRuntimeEvents().filter(event=>!persistedIds.has(event.eventId)),...snapshot.records.filter(record=>record.collection==='cutting-events').map(record=>record.value)]
       raw=JSON.stringify({events});before=ledger.deserializeCuttingRuntimeEventLedgerStorage(raw).events
     },capture:captureAll,restore:restoreAll,
-    action:()=>{const previous=captureEffects();const result=withBrowserBusinessStorage(storage,input.action);persistChangedEffects(previous,captureEffects());return result},
+    action:()=>{const previous=captureEffects();const result=withBrowserBusinessStorage(storage,()=>{const result=input.action();release.listCutPieceReleaseRecords();return result});persistChangedEffects(previous,captureEffects());return result},
     prepareChange:(result)=>{
       const after=ledger.deserializeCuttingRuntimeEventLedgerStorage(raw).events
       const previous=new Map(before.map(event=>[event.eventId,JSON.stringify(event)]))

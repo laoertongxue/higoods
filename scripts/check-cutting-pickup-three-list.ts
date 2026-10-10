@@ -48,7 +48,7 @@ import {
   buildPickupOrderCards,
 } from '../src/pages/process-factory/cutting/pickup-management-card-model.ts'
 import {
-  bootstrapSupplementManagementMockData,
+  bootstrapSupplementManagementGeneratedFixturesForTesting as bootstrapSupplementManagementMockData,
   listSupplementRecords,
   resetSupplementManagementMockDataForTest,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'

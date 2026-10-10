@@ -1,0 +1,4229 @@
+{
+  "version": "v40",
+  "baseHead": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "branch": "codex/sidebar-menu-group-ui",
+  "service": "http://127.0.0.1:4190",
+  "assetManifestSHA256": "4d518d19a077de7d6e3e2f8b74fbcae3ad15ab12b0c989920835eab66ebcc55f",
+  "sourceManifestSHA256": "fa953376ff17102cf412e516dda4d87abe9e244f9cc2ba4bc1acc8b55cefc962",
+  "assets": [
+    {
+      "path": "dist/assets/adjustments-B3idAoNs.js",
+      "sha256": "d73f0e8ac76c45d4a8bb87e233dd130469c0435a64e304f67ca9f920ecb67de6"
+    },
+    {
+      "path": "dist/assets/app-shared-Ce0GdlNc.js",
+      "sha256": "4baa733ad680ac222b3ca3778325b75a188f9c63054213e90a8409f1175c9b50"
+    },
+    {
+      "path": "dist/assets/app-shared-Ce0GdlNc.js.br",
+      "sha256": "f50620dd6125ec6d9a02a6ae2b6837c21fc5b0663c8af2f03605c45448291249"
+    },
+    {
+      "path": "dist/assets/app-shared-Ce0GdlNc.js.gz",
+      "sha256": "7e0dd099119f9e3a246a825a42fc62661a00e51ee630a2b3bdbb412e3331c1eb"
+    },
+    {
+      "path": "dist/assets/audit-records-C4HptXev.js",
+      "sha256": "a6f341213a28c7c76fa778e01b19c54672b91e109330468f6143c7d06b4900e1"
+    },
+    {
+      "path": "dist/assets/authorization-code-DFztwpS2.js",
+      "sha256": "b356c8e1b7881893cab26e1c54b1a84b686a17e5dff617b18a55c6400c27004f"
+    },
+    {
+      "path": "dist/assets/badge-DbUQOZoe.js",
+      "sha256": "f000eb527a94d6dce22ae19f56fc9b36e97581549f2d20e163f8bf094745dde4"
+    },
+    {
+      "path": "dist/assets/batches-BJbF0I9h.js",
+      "sha256": "3e1c361174b632266195401a28460e91b3829c689fabe5ccef348db757046ca6"
+    },
+    {
+      "path": "dist/assets/binding-process-pda-scan-B7jxkiHd.js",
+      "sha256": "1697e61b507083fe1a0cfc7c43103353706f3b910084c9d87401fcf557221bf7"
+    },
+    {
+      "path": "dist/assets/binding-process-pda-scan-B7jxkiHd.js.br",
+      "sha256": "f345277260e8ee29209c35ec910c7482c5959f17f4ece87d3d55d509f5267afb"
+    },
+    {
+      "path": "dist/assets/binding-process-pda-scan-B7jxkiHd.js.gz",
+      "sha256": "38293a6426d71417710f082cc0a1671d9598fe45d640118e6d251e1628d1898c"
+    },
+    {
+      "path": "dist/assets/binding-process-warehouse-linkage-service-CA8gKUwD.js",
+      "sha256": "34c9dfb215125ad03728cf10a72839f6e33538237a3f4d7343978de5bab99bbc"
+    },
+    {
+      "path": "dist/assets/binding-process-warehouse-linkage-service-CA8gKUwD.js.br",
+      "sha256": "13cf66d47e757e09ccad382b6db8d229d835f67155009b88f97e5b73f1e090b2"
+    },
+    {
+      "path": "dist/assets/binding-process-warehouse-linkage-service-CA8gKUwD.js.gz",
+      "sha256": "d228a25199d6cf2d0272c137adae11f1e61c8eb98ddeac2847dc73bc3ec01b2f"
+    },
+    {
+      "path": "dist/assets/bom-detail-Da9Wn42X.js",
+      "sha256": "22a095d31b8e977788925d2b015b49d8479cfc82ae2708bb4909619b0c878f27"
+    },
+    {
+      "path": "dist/assets/bom-detail-eAr-Ek6h.js",
+      "sha256": "eec46f05ebd7ab511a189920cf89678c0c1630cef40901811a12307a186942c6"
+    },
+    {
+      "path": "dist/assets/bom-templates-Be3j2ikc.js",
+      "sha256": "c390cb170a6922b649c7d5d801f66bb759cbdb61139866fd922922fece87003c"
+    },
+    {
+      "path": "dist/assets/bom-templates-ChqjVeph.js",
+      "sha256": "6e190b3de903f69b54a426a27b6605296354686405e100673e2cbd07980c7074"
+    },
+    {
+      "path": "dist/assets/capability-g7UUBARK.js",
+      "sha256": "8c6493aa4e4de04c5bf960cf9710c0e40543a84af4b0f56b24dcd0525483ef41"
+    },
+    {
+      "path": "dist/assets/commands-pd-nZUwo.js",
+      "sha256": "989995a1bbd125655cf76c327018fabfb6472d10a83e69fcd8c6488d91ae876c"
+    },
+    {
+      "path": "dist/assets/commands-pd-nZUwo.js.br",
+      "sha256": "05db7d966a17dde7f7bb093106dc6587e82907fe4b040fad2f4f1a795ff3d280"
+    },
+    {
+      "path": "dist/assets/commands-pd-nZUwo.js.gz",
+      "sha256": "36605906240000d4bd9c35338f32833ded11d1df651ce276e6b6d356d643f672"
+    },
+    {
+      "path": "dist/assets/confirmation-print-Df2Cnrb_.js",
+      "sha256": "1d3bd023b725cfa386f7f6e489310e56c46cea167fb342864e84fb098ce46000"
+    },
+    {
+      "path": "dist/assets/context-CzM8Nqcp.js",
+      "sha256": "4b417f1e75c0f71bcc35e8d03b775ab3410a206a18c75c62273971092476cd46"
+    },
+    {
+      "path": "dist/assets/context-DPnUIZQ2.js",
+      "sha256": "991311cd4d690611772480207a422e3c19f53fa9e78376111dff8fe0ffe4fb00"
+    },
+    {
+      "path": "dist/assets/continuous-stock-QP0BphcV.js",
+      "sha256": "d89603ea99f00767c30986376dfac91eeb735dce60fcad9b6255dd345d67343c"
+    },
+    {
+      "path": "dist/assets/core-DY4TJI7p.js",
+      "sha256": "1f7b7f9259bdd93b31a2e8ad847ea09ea09283a2d260ad03cb8424c67b289953"
+    },
+    {
+      "path": "dist/assets/craft-actions-DO3P6SAo.js",
+      "sha256": "71e787b5ba456f73682cc7142e33b18e8706712cb04cb4fad3b6509d6116e9dd"
+    },
+    {
+      "path": "dist/assets/craft-actions-DO3P6SAo.js.br",
+      "sha256": "7fa3493dc774a7d8a5a9d7da5a720b5ba27d31b4aa39443770cb4413beed34fc"
+    },
+    {
+      "path": "dist/assets/craft-actions-DO3P6SAo.js.gz",
+      "sha256": "c4a592acdcf1baabe790042c89ded31f57926ca6dcfc342c6263c490dfc1c266"
+    },
+    {
+      "path": "dist/assets/cut-order-release-integration-CWI0LJeF.js",
+      "sha256": "75e92b761dfbc0c8ab6733314b6f2757b6b0de58fff78e3d2de8fc855060259b"
+    },
+    {
+      "path": "dist/assets/cut-order-supplement-fixture-w9I7sKzD.js",
+      "sha256": "5b8cffc9f840527cd7cf45504e7a6788705163423b6df314589e790ddf33a55c"
+    },
+    {
+      "path": "dist/assets/cut-orders-C1cplOIo.js",
+      "sha256": "1980eac35f77bcb5007e4e13ec6802e944ffdee5f947dae8a0e08a732c7699c6"
+    },
+    {
+      "path": "dist/assets/cut-piece-handover-skV3HVMl.js",
+      "sha256": "49592e0e60036306fa2bdfd863bdc4a213eac185fb02fe4a8ba956ddb238ae56"
+    },
+    {
+      "path": "dist/assets/cut-piece-release-BBjfmxqj.js",
+      "sha256": "208adb5443feeddba0861b443a249a55858b079501717dfbd451eaeacfc47149"
+    },
+    {
+      "path": "dist/assets/cut-piece-release-BBjfmxqj.js.br",
+      "sha256": "a72d1a3a4dbcab50a8f889d4d2b312f5cabef0cc516ea6c5059c1b00690d1667"
+    },
+    {
+      "path": "dist/assets/cut-piece-release-BBjfmxqj.js.gz",
+      "sha256": "6126f120e857e704243fbe33d4a1e3ecaefc657deaf989d6ddf6402377b39d6b"
+    },
+    {
+      "path": "dist/assets/cut-piece-release-C9ZK-ISJ.js",
+      "sha256": "8f89cb1e545e35f8401486970d1931b8b0a08bd2387810f6430cb6278ce55c68"
+    },
+    {
+      "path": "dist/assets/cut-piece-return-domain-DBX95-bz.js",
+      "sha256": "80f6c646382a2e7b6e0886fa9d8bf98cacf2853d777966f472d548043822eb88"
+    },
+    {
+      "path": "dist/assets/cut-piece-return-warehouse-DWx-_l4B.js",
+      "sha256": "33ee12837dd22cedff286c730ba6545295bfdfe336ca5d0d029d65327dbe2523"
+    },
+    {
+      "path": "dist/assets/cut-piece-returns-BvecqxcY.js",
+      "sha256": "d9daf0bd48a1c3f02d4493638b5774b491b73fb7ba054c97fd463680cf4d7218"
+    },
+    {
+      "path": "dist/assets/cutting-SpkSk_5i.js",
+      "sha256": "5f7a083a2c51bc3533ac0164cd1edf3018d2682bdb3e44c247aab40c954ac906"
+    },
+    {
+      "path": "dist/assets/cutting-daily-production-report-BIJTzEtD.js",
+      "sha256": "400245f17ec18f45e19a4db398e72529da80aba6e2dcffd0710e64f3b46c387a"
+    },
+    {
+      "path": "dist/assets/cutting-event-migration-Ty1ZV1u0.js",
+      "sha256": "0a108e419b8621ed2d606b828922adec39a7ad5cc67aaa983901c8d3c1a18777"
+    },
+    {
+      "path": "dist/assets/cutting-event-repository-L1M2x_dW.js",
+      "sha256": "9209a4d9408435f2bd419d9c7ca8b3a5c77a4a9206c3d5b50ad10fdfbe755fc2"
+    },
+    {
+      "path": "dist/assets/cutting-file-maintenance-BIMpUW2o.js",
+      "sha256": "f66dc382739b5cf3672e501f523c541f2e25b518abc7cef8fbcb554836dad3a5"
+    },
+    {
+      "path": "dist/assets/cutting-mainline-B7TZVzRx.js",
+      "sha256": "25a7a2070003a9a2940462b5e888f2724310d43ae0c83df9ce386fbf58abe51f"
+    },
+    {
+      "path": "dist/assets/cutting-record-identity-CtTd0WGy.js",
+      "sha256": "84690cf2676fb5beb306fbe97426d108fcfb04c371cb3dbcb13e6c284847f7a8"
+    },
+    {
+      "path": "dist/assets/cutting-record-identity-CtTd0WGy.js.br",
+      "sha256": "b7d0fd57f4f0702a2fa32973df40ce4127233bf06eaf045db9145a3d735865f4"
+    },
+    {
+      "path": "dist/assets/cutting-record-identity-CtTd0WGy.js.gz",
+      "sha256": "89a7bfa469e813dbd829f0819d69cbb5811a0fbfa0d990c7e5bdabfcef54e340"
+    },
+    {
+      "path": "dist/assets/cutting-record-repository-BfMs2u4w.js",
+      "sha256": "00732e7b21de0dd8610ef7dfd02c23c5fc09a6ef509edbc18174a799c058884f"
+    },
+    {
+      "path": "dist/assets/cutting-record-repository-BfMs2u4w.js.br",
+      "sha256": "84643ed121b4f486cb511e6de9ebb624b2e2267dce2f8dd5d7a4c8995d80fa19"
+    },
+    {
+      "path": "dist/assets/cutting-record-repository-BfMs2u4w.js.gz",
+      "sha256": "e23f6ebec677c7a05f93212869875b5d4232918aad5408c438945c9061911c4e"
+    },
+    {
+      "path": "dist/assets/cutting-runtime-event-ledger-DV8qplDb.js",
+      "sha256": "e68fdb032f42b04db73c798afcb6da424fd4882cc748fa816f82d5cc6ef64dc9"
+    },
+    {
+      "path": "dist/assets/cutting-runtime-event-ledger-DV8qplDb.js.br",
+      "sha256": "a2bb5ecd7f3ec7233cd13d7c89e3bbdaddba2ee7e627e80b28f6abf3c4837afd"
+    },
+    {
+      "path": "dist/assets/cutting-runtime-event-ledger-DV8qplDb.js.gz",
+      "sha256": "6cf382eee39f9e9f671ace00934e5e46aabc3f8e87f59c8304c8e7e3b55e022a"
+    },
+    {
+      "path": "dist/assets/cutting-statistics-ab-material-DP2IYd2e.js",
+      "sha256": "432ba34df89ac15dad49030dfc724488533f0604cc7ca565372142d65534ee1b"
+    },
+    {
+      "path": "dist/assets/cutting-summary-Cz8lYDGl.js",
+      "sha256": "614143bc44f38c2927cc0d7463402ca654a709770f937acee795008ee6b1a0c1"
+    },
+    {
+      "path": "dist/assets/cutting-task-routing-DcuYbyxp.js",
+      "sha256": "f6146cb7a2e5b215393c056cf1f5eb9c352a498a2c07a26d5292e07b5a60fe75"
+    },
+    {
+      "path": "dist/assets/cutting-task-routing-DcuYbyxp.js.br",
+      "sha256": "a7a6c016cca2b7e2c361a9851c314069bf500e30c89c75d7ea2277ae6b1f1280"
+    },
+    {
+      "path": "dist/assets/cutting-task-routing-DcuYbyxp.js.gz",
+      "sha256": "471681aa8977fabd2e58a92943309069b0db15bb45e2694d927d5c37488fe165"
+    },
+    {
+      "path": "dist/assets/dashboards-CCRaBjV_.js",
+      "sha256": "e0f67b25134e25c583eebf0533352f93328e15d4345501beacbbb44b2b54d70f"
+    },
+    {
+      "path": "dist/assets/data-management-X_Bg7ght.js",
+      "sha256": "8d8cded0e10b0027fc8e5ce55f786684f43c3e5d335b246ed307e1b3cf157dff"
+    },
+    {
+      "path": "dist/assets/deduction-analysis-DUkiUqKz.js",
+      "sha256": "84e93cf2b84064cfe7915edf73f02a04cfd03f8d1dffe6dd5ac4a5d519255c0b"
+    },
+    {
+      "path": "dist/assets/demand-domain-BYHUe43_.js",
+      "sha256": "9f7a4b67f8ddc85aa046d9bde1fecc4725dbe97a357f1f83eafb6f0d1a642314"
+    },
+    {
+      "path": "dist/assets/design-revision-pcs-command-3MSjhKnc.js",
+      "sha256": "7a803d3ffd17415376e830167a9f858f4dc91f29cec0ec706285adad36e1f25b"
+    },
+    {
+      "path": "dist/assets/design-revision-pcs-command-3MSjhKnc.js.br",
+      "sha256": "eaf9c9a87f222f9da0fac8c9a7583395530dd11b9a9d9270cfc7c316db811953"
+    },
+    {
+      "path": "dist/assets/design-revision-pcs-command-3MSjhKnc.js.gz",
+      "sha256": "cdb0e5a223e233ae873f9d425aa627d8f56657a11b42941ad2e2447afd0e82f2"
+    },
+    {
+      "path": "dist/assets/design-revision-pcs-storage-D2ozVRMd.js",
+      "sha256": "73fff65125d4a52787853d707de657353cba68183e382597493cacae9472b531"
+    },
+    {
+      "path": "dist/assets/design-revision-pcs-storage-D2ozVRMd.js.br",
+      "sha256": "d1cfc59a7c6c3e5f88137a065ef6b187d54b70c55887948dff3ef416fee0368b"
+    },
+    {
+      "path": "dist/assets/design-revision-pcs-storage-D2ozVRMd.js.gz",
+      "sha256": "02f37a4817616344725443ae3db753abaf6cabbd300b6b605b512c11b9863822"
+    },
+    {
+      "path": "dist/assets/detail-domain-DFvQ3n1P.js",
+      "sha256": "f9f581506d7f25695660790cd29194ebb398487eec11373a3f66813c6ea51a14"
+    },
+    {
+      "path": "dist/assets/detail.adapter-CLJvfWmo.js",
+      "sha256": "0c997547fd92913463bcd8932794604b5f6c172f445afacd42cbbbfb930d51e8"
+    },
+    {
+      "path": "dist/assets/dialogs-B0YjzD3k.js",
+      "sha256": "55850f9f9cc880cda6016cb5ce5cf9c2a42947b119bf15bcb8141526cb5aa621"
+    },
+    {
+      "path": "dist/assets/dialogs-CoCzMBx_.js",
+      "sha256": "7ec5cbe24ea0904ad1deaf145acd24986947e499ed9481fd5a08c27bc264f9b7"
+    },
+    {
+      "path": "dist/assets/dialogs-Dpv7J6q7.js",
+      "sha256": "7820279435841d946a69563c2424901735e35c7da594a2f05297bbad4cd13d71"
+    },
+    {
+      "path": "dist/assets/dialogs-Mk0bRID6.js",
+      "sha256": "341df1f1d2c9e8bb44e7ae4084e8cb10f652aa3caca6c122409f156de73da9f5"
+    },
+    {
+      "path": "dist/assets/dialogs-u43o7f_D.js",
+      "sha256": "8b689d07df0f955ef9e106964355ad1a9a8798b8aa3f58a19abc0b157e3218f1"
+    },
+    {
+      "path": "dist/assets/dispatch-7zPFpzqV.js",
+      "sha256": "44be9e927498493035f0c69fc9c853279433cfb197afd06f687ef7e6cd8f2669"
+    },
+    {
+      "path": "dist/assets/dispatch-acceptance-sla-Beaf93ZK.js",
+      "sha256": "076fa002a8e6a4da4c9b145b040f5f4627a2cf8e802070016d3be59105022376"
+    },
+    {
+      "path": "dist/assets/dispatch-acceptance-sla-Beaf93ZK.js.br",
+      "sha256": "38243d25f22ed47ddcec50ec2a69e3c141b01131c2e17b63b3eee178f52dbcc3"
+    },
+    {
+      "path": "dist/assets/dispatch-acceptance-sla-Beaf93ZK.js.gz",
+      "sha256": "35b8433552db24ece2a92e8ff3ac5f1fcfd9bdf8d64ee84b225baae6f1db1ffd"
+    },
+    {
+      "path": "dist/assets/dispatch-acceptance-sla-CiL7qHRA.js",
+      "sha256": "7af341f219ad7ea81a775a37344b015724f11fecb42415f740e14d68744311f7"
+    },
+    {
+      "path": "dist/assets/dispatch-task-sheet-BFcOp8OT.js",
+      "sha256": "ef1c3a7aeb337b20357edc3fd554d61724af1f7b365d1c4c9323ab9f0797a2e4"
+    },
+    {
+      "path": "dist/assets/dispatch-task-sheet-template-Dm69VG8Z.js",
+      "sha256": "146b12ad5fc8a621e0bbcf1c235a491a37ba0b4bb050c1c23678442940653997"
+    },
+    {
+      "path": "dist/assets/dispatch-tenders-Cbnz34BJ.js",
+      "sha256": "15b16ebab5deb8457c59f57ff0b989399555e81eefb93562d8a375ad5277c89a"
+    },
+    {
+      "path": "dist/assets/domain-snapshot-C6W4zL1v.js",
+      "sha256": "73c5b58841a658c3f130875e29750f9802c6e5b8af8fae11fe3c19017e766559"
+    },
+    {
+      "path": "dist/assets/domain-snapshot-C6W4zL1v.js.br",
+      "sha256": "08652bbfbc47bb7c04197a2b898e0eb700065a8af33fc44960f88ab4e32e1d16"
+    },
+    {
+      "path": "dist/assets/domain-snapshot-C6W4zL1v.js.gz",
+      "sha256": "f579a3b75cf1543b9a453e4cb54c7db70e3e94c841c8fefd9422333e6cdb9ce6"
+    },
+    {
+      "path": "dist/assets/dye-work-order-online-domain-CX6w5vzI.js",
+      "sha256": "0719eee2d66be55f49df3ebe354ef3e40b3aaf40e9d8106ec951c76c21445b83"
+    },
+    {
+      "path": "dist/assets/dye-work-order-online-domain-CX6w5vzI.js.br",
+      "sha256": "851e3f484283adc111c950081596b0c9a28d9f3df92612b36fa5acaa1802c2fa"
+    },
+    {
+      "path": "dist/assets/dye-work-order-online-domain-CX6w5vzI.js.gz",
+      "sha256": "f564de80fe429b43b38a618f1b0066bf2161243875d02f389adb3b36fde92eca"
+    },
+    {
+      "path": "dist/assets/dye-work-order-online-view-D1VNBsit.js",
+      "sha256": "ec3ab8fb86b563f1c2af4f720704ac75923cafd2ab484a0a20bdd7fbf0e66b0e"
+    },
+    {
+      "path": "dist/assets/dye-work-order-times-w7U4XCtx.js",
+      "sha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e"
+    },
+    {
+      "path": "dist/assets/dye-work-order-times-w7U4XCtx.js.br",
+      "sha256": "cb4e1c06571a25035f958441aa6efd3357e116d8fe88b6f6cf9e7672168ce60e"
+    },
+    {
+      "path": "dist/assets/dye-work-order-times-w7U4XCtx.js.gz",
+      "sha256": "ac5507fefdc01291f4d9e5016c915e289877bac7329febd2b57f27fbcec4984c"
+    },
+    {
+      "path": "dist/assets/dyeing-BVCVBQo5.js",
+      "sha256": "6c70963a62661d3719e4bca61ce7bb7a0765252eb24005b699a54a03514acec0"
+    },
+    {
+      "path": "dist/assets/dyeing-material-receipts-Bn4K7giz.js",
+      "sha256": "8fe06e6f9fdfa7418d6f3b74fdab9fd29d4acffae7dbe3cf7a09323577daecce"
+    },
+    {
+      "path": "dist/assets/dyeing-material-receipts-Bn4K7giz.js.br",
+      "sha256": "28bbfa3b21d7495a38af0f066fc8097c3b6e00d650b185b50f423c9772683b21"
+    },
+    {
+      "path": "dist/assets/dyeing-material-receipts-Bn4K7giz.js.gz",
+      "sha256": "f5bc8f41b983ef52054c5c7ad475853589422fb895ead302f36e8a711855707e"
+    },
+    {
+      "path": "dist/assets/dyeing-warehouse-view-DyS4g2dB.js",
+      "sha256": "3b9b3e795d41ae61bbddfc8284d06bb1d60a1cc7332092ddf646eafad9ca6e99"
+    },
+    {
+      "path": "dist/assets/early-process-management-Cu4k8HPI.js",
+      "sha256": "a6f946873fe44abe04f54e72552cddfa1a2137788f7eb17c176ac10954fd79bd"
+    },
+    {
+      "path": "dist/assets/effective-task-assignments-xHNOgCNR.js",
+      "sha256": "e0406d24362908c29d6a0b45f58ca8674987a6408d223f3c8965bdae91894289"
+    },
+    {
+      "path": "dist/assets/effective-task-assignments-xHNOgCNR.js.br",
+      "sha256": "a9de19a362729f50ff08747792f1f8ce934f9ffb0d97a86c48e53075429c377a"
+    },
+    {
+      "path": "dist/assets/effective-task-assignments-xHNOgCNR.js.gz",
+      "sha256": "a55d1a9c47d2ade3a03b9db474e15b0f40d0e6ed7a70f27f411d0012f0b6005e"
+    },
+    {
+      "path": "dist/assets/engineering-file-upload-D3ngfDSy.js",
+      "sha256": "3e06d4e50c8ec9512e191edd7abc20eb4c5b69a3a5dcec6e208737d65de6fb7b"
+    },
+    {
+      "path": "dist/assets/events-C6F8ccUy.js",
+      "sha256": "fd62a478416a7d034af6a93f9bf181be2d6ec94ba6ce941b208d116950ae230a"
+    },
+    {
+      "path": "dist/assets/events-DNddjK5d.js",
+      "sha256": "abcbebd3cc8929b446e56df938fdab68379826ec46c36219e954588074aebb40"
+    },
+    {
+      "path": "dist/assets/events-DY-qIbyP.js",
+      "sha256": "be545199a6ff5facc8dba3393bb4eb063872c1bba357144a4aa95e7f482885e0"
+    },
+    {
+      "path": "dist/assets/events-DZe5A45-.js",
+      "sha256": "112090bac64c4f10415549d39786d11a7bc4247b4a7ac5bcf6890bef4d44bdcd"
+    },
+    {
+      "path": "dist/assets/execution-prep-projection-helpers-D3uOx-fd.js",
+      "sha256": "b4ac5aca66823ccf9b6d42528186b0521c271490bd367351a7ac01b4803b8f42"
+    },
+    {
+      "path": "dist/assets/fact-view-BHYFPOg7.js",
+      "sha256": "0d42c3de745da97d60e96bc2534118441a03483ee3dafa4bbbded82a874c02d5"
+    },
+    {
+      "path": "dist/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "sha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+    },
+    {
+      "path": "dist/assets/factory-capacity-profile-mock-Dv5YtZGT.js.br",
+      "sha256": "2365e64e765de1794bfc80709f9423843402d5ea74974b563452ecca54c80af9"
+    },
+    {
+      "path": "dist/assets/factory-capacity-profile-mock-Dv5YtZGT.js.gz",
+      "sha256": "c78617fcf7d7afecc45abc34fe8766e0ff68efd2706e5138539f7aef0978c8b6"
+    },
+    {
+      "path": "dist/assets/factory-onboarding-W7JoGPHd.js",
+      "sha256": "4d5a49aafe00d5fbd56125319d9db051b38953ee04247ecf56f54fbc376314cc"
+    },
+    {
+      "path": "dist/assets/factory-onboarding-flow-BiiF5Yiu.js",
+      "sha256": "2865593e7c94ec59273650ffe5c3eaab71dfb07d90f3c99040753ee0112b3e79"
+    },
+    {
+      "path": "dist/assets/factory-onboarding-flow-BiiF5Yiu.js.br",
+      "sha256": "1231d71cff8be4487a9b56daea3cf36c0ffd04dc4eebd32bfcb3c9e38baea70e"
+    },
+    {
+      "path": "dist/assets/factory-onboarding-flow-BiiF5Yiu.js.gz",
+      "sha256": "a8947968bacbc7afac841f83b9e1c2fe9289744977552d66ab20806394ff3b62"
+    },
+    {
+      "path": "dist/assets/factory-performance-D2Dyo3lp.js",
+      "sha256": "ea130267336503fa9f60e840cb745b3083e7f6a670582441904642bab6c010e5"
+    },
+    {
+      "path": "dist/assets/factory-profile-H6vvEFa0.js",
+      "sha256": "fe4e627026cd4d8a4fa2bd82ad78f8fb9f9b880da40b7d3cab14781c80f4c7ca"
+    },
+    {
+      "path": "dist/assets/factory-receiving-P13Y8fLg.js",
+      "sha256": "06422729bea2c601bfd26bf0ca93e64f059f230e304acdc8525d5b225f229708"
+    },
+    {
+      "path": "dist/assets/factory-receiving-P13Y8fLg.js.br",
+      "sha256": "0e22c385de97ccd252b86900ee2dee66caefa97ef066b798419b49ffbd2d276b"
+    },
+    {
+      "path": "dist/assets/factory-receiving-P13Y8fLg.js.gz",
+      "sha256": "c7e4a5543bfeb4be3427b90123f82eb6f235be9491fac94332d9bcf1c396dcff"
+    },
+    {
+      "path": "dist/assets/factory-receiving-links-CVCSDqIB.js",
+      "sha256": "a6c232b352861724cdd4d9cbc4b2978cf25ee93872c24997d28b4a6dfbd54163"
+    },
+    {
+      "path": "dist/assets/factory-sample-verification-flow-DB_aoRbg.js",
+      "sha256": "b4f27740d3550b085db4d173623212e1f08b252787252ef3ca816609fa671564"
+    },
+    {
+      "path": "dist/assets/factory-status-CaaHgi3C.js",
+      "sha256": "41422fbb7672515e4970b072e234bd11f0a2682925477e9428b84697d1c5349f"
+    },
+    {
+      "path": "dist/assets/factory-types-DbcizYGx.js",
+      "sha256": "ce4a793a4db35a9dee205ba882de044d4af3d7bf3ac826ea7ff467541a7adaaa"
+    },
+    {
+      "path": "dist/assets/factory-types-DbcizYGx.js.br",
+      "sha256": "ac6cc27d00797c65bc2504c3e4adde3dfa7fc5adcd70e84cd48d87c004815e79"
+    },
+    {
+      "path": "dist/assets/factory-types-DbcizYGx.js.gz",
+      "sha256": "98e992aa09d868da79b7d4d475c906fdb18ee0ca284f8cd8deb862821205abd8"
+    },
+    {
+      "path": "dist/assets/fcs-handlers-Cccg74we.js",
+      "sha256": "b200599250ddb1d7cb5b4a10d4cb5b2cccfec9a400c8113a3d773ee677407ece"
+    },
+    {
+      "path": "dist/assets/fcs-pda-pickup-dispute-BsNebfXJ.js",
+      "sha256": "12814a6ea4e6fdb8d8e5a57d052cd8217d2a78d12dd6777fbc76feb31b65ac23"
+    },
+    {
+      "path": "dist/assets/fcs-production-tech-pack-snapshot-DRY2U0ZY.js",
+      "sha256": "02fed4b394fac556691ff4d3637e93b7586d1a15c9aeec56c26bc87fe18fb00e"
+    },
+    {
+      "path": "dist/assets/fcs-route-links-CdIu8Xoq.js",
+      "sha256": "4939e250907fe9d7142c27415d1b1c21e0032dd2fa571121a4d9f5088cbf0ab4"
+    },
+    {
+      "path": "dist/assets/fcs-route-links-CdIu8Xoq.js.br",
+      "sha256": "6b5bc50da8a51bafea05c8d2e6da4d4da0867092c2e451113774ea083c978585"
+    },
+    {
+      "path": "dist/assets/fcs-route-links-CdIu8Xoq.js.gz",
+      "sha256": "0f8683ce0b298a57a3f4098684ab8863c8084e53a3863918f0feb13f3069c734"
+    },
+    {
+      "path": "dist/assets/fei-ticket-numbering-Cbj-O2HE.js",
+      "sha256": "4e7b876ac1913b78fcf9b70f6e7b567f0422265222acfd96ca4d444dfbbf9f7d"
+    },
+    {
+      "path": "dist/assets/fei-ticket-numbering-DLqFzm9h.js",
+      "sha256": "cc13fd38e922560100a9a7836e533d9173a9fc9f7b02f9cf467667cd68bcc290"
+    },
+    {
+      "path": "dist/assets/fei-tickets-oYgji5fN.js",
+      "sha256": "090cdae2ff0a5f155dffd6d05c3291987d6a18386fc5483b8729edaa0098a9a6"
+    },
+    {
+      "path": "dist/assets/fei-tickets-storage-7KaIHPKx.js",
+      "sha256": "4e702ff32485d0fd6081ff7ca2f91ed6762a1ba72a01bcb7f0db52d729647e50"
+    },
+    {
+      "path": "dist/assets/fei-tickets-storage-7KaIHPKx.js.br",
+      "sha256": "cdbd44d8f728f505560c70e52803736d9b754abc4b28ebe69040823e42ff19db"
+    },
+    {
+      "path": "dist/assets/fei-tickets-storage-7KaIHPKx.js.gz",
+      "sha256": "33f87ea8a0af888851de3192e60cf4f0eaababcf14ca366eb2c10c79975eeeac"
+    },
+    {
+      "path": "dist/assets/filter-bar-Ba0risiZ.js",
+      "sha256": "3be60e2daeebaefa20784356ca16b7a2c47bfa9fe3362b144ecbfa7229a2b50d"
+    },
+    {
+      "path": "dist/assets/first-leg-carriers-BW3Bvlo7.js",
+      "sha256": "bf97ed642ece1106fb6aa6e395ae20f99899af188c18facf613adbf79ec47986"
+    },
+    {
+      "path": "dist/assets/first-leg-logistics-DuuAhURC.js",
+      "sha256": "ec09cc2cab561b152d4ad50a99e8ee8b3e3d116581bcb980db4f6a572a96badc"
+    },
+    {
+      "path": "dist/assets/first-leg-shipments-BZ6AFTQL.js",
+      "sha256": "6919890c9ab0aebad1c57fd41858e14859cb864ae88d53bceb04e88a79a49b35"
+    },
+    {
+      "path": "dist/assets/form-DxtyRl7u.js",
+      "sha256": "df45b901b7bca7b860c2bac556e3d5d21c45d3b1d9f6c87a32e36ac8dcfaed60"
+    },
+    {
+      "path": "dist/assets/full-flow-print-x2vHTmbd.js",
+      "sha256": "0134dbd9eeb4a01f5e642e7c781058ff14dff9322ab7fbe4b3c7dfbc6182ef78"
+    },
+    {
+      "path": "dist/assets/garment-spu-replacement-v4pQVbCg.js",
+      "sha256": "786170fb51873b8f875846576d23ede5694f3a6608689666d8c3ee1386485480"
+    },
+    {
+      "path": "dist/assets/garment-spu-replacements-BZFnYCgF.js",
+      "sha256": "c4b39503f03914826cbfab6bdce30a2a52a280641a166537b5ba7c8fd58e1cf9"
+    },
+    {
+      "path": "dist/assets/generated-cut-orders-DnX1_xD_.js",
+      "sha256": "573491c28f9cdcaab12356d3fbec49767118d02fdefcbff341a2a272ac1d225d"
+    },
+    {
+      "path": "dist/assets/generated-cut-orders-DnX1_xD_.js.br",
+      "sha256": "0963c3f9dc61fe746ef349976cf4356d92850a0ac2bf757188d10dc2e84e849b"
+    },
+    {
+      "path": "dist/assets/generated-cut-orders-DnX1_xD_.js.gz",
+      "sha256": "f4a5f9d6c34a5cdac4637f2326060e6e5e07bb743e639c47639bdd22cb18bf87"
+    },
+    {
+      "path": "dist/assets/generated-cut-release-COogCHgU.js",
+      "sha256": "a1b0e400fe5ebc89b4e308b1c5568cfeeabec8a59b97506908f66d789585f0f9"
+    },
+    {
+      "path": "dist/assets/generated-fei-tickets-BTKYvwBe.js",
+      "sha256": "cec2342f87b75baf22557c31a9b5382ebb21f463730420b31213dd6287a22f36"
+    },
+    {
+      "path": "dist/assets/generated-fei-tickets-BTKYvwBe.js.br",
+      "sha256": "bcc5b2f7a059f9aa0196c7f64cfe64da9b2e99a7a8415516d140d611564ede95"
+    },
+    {
+      "path": "dist/assets/generated-fei-tickets-BTKYvwBe.js.gz",
+      "sha256": "9318511fbd87bf89f12caf67d44b3df6d93a49c6fa75ab51e331832807852d39"
+    },
+    {
+      "path": "dist/assets/handover-ledger-view-Kk4xJuFf.js",
+      "sha256": "d8d27774a7659fef6e1db8825e40ead0ee84facf5ed80edc58da59ab6d39eeac"
+    },
+    {
+      "path": "dist/assets/handover-orders-7GsEtUGL.js",
+      "sha256": "55e41da2310b4d47fe6886d54bf334029beb977168620288145813a302929950"
+    },
+    {
+      "path": "dist/assets/handover-orders-UzydzRfB.js",
+      "sha256": "d30f0efac646c6592ee56e1c75fdc4ec962a796a8048cf98abc75f68a57f95d0"
+    },
+    {
+      "path": "dist/assets/handover-print-CpAYF37V.js",
+      "sha256": "d12b766ebc15196e205815802a53180e75c67e5142bd3033227d4a95dbaa1e6b"
+    },
+    {
+      "path": "dist/assets/handover-records-BG5SmkHd.js",
+      "sha256": "a3830f4c87af0fb877c966f01b36ddb69e8ccb2f4bdc928c0db0f242c15ebb16"
+    },
+    {
+      "path": "dist/assets/handover-records-T_gN8GI6.js",
+      "sha256": "0a23e328c8ac5c8fcbcd42380a499501701c8949e2be7ddf7be32a2d4b7ef94c"
+    },
+    {
+      "path": "dist/assets/helpers-BFKa6pUf.js",
+      "sha256": "bc22540ee400538ec15cb5a0f38d58a370045fa9d6a3fd90c9f75ef96a2e74a7"
+    },
+    {
+      "path": "dist/assets/history-Dp5kYeoj.js",
+      "sha256": "6ebb334770b741d95069572358c267f698f7800d9d539f20e41d25c698a9a2a2"
+    },
+    {
+      "path": "dist/assets/idb-storage-DYscBY_v.js",
+      "sha256": "8bfe4d27d71863a93ad31932a3c4a7adf6b0c2a38258f75553b65aafa32535f1"
+    },
+    {
+      "path": "dist/assets/images-Q79qfJD0.js",
+      "sha256": "1f73134f94c33f19809cfc806f411b787c02f468a6be1ed0685387b76b86ff28"
+    },
+    {
+      "path": "dist/assets/index--GzcKvNw.js",
+      "sha256": "2cfba651db8627b7b6c7111fca72ab634ba4a72abcb23a885c2d19e10e9a8e22"
+    },
+    {
+      "path": "dist/assets/index--GzcKvNw.js.br",
+      "sha256": "fb2a59b5421467666edf992b868b796cf6cf324be81d564e7dedc5d06216a646"
+    },
+    {
+      "path": "dist/assets/index--GzcKvNw.js.gz",
+      "sha256": "213686d940f4b40ee344ed73609808d80f11b03be39f837ff97c57cf8369c407"
+    },
+    {
+      "path": "dist/assets/index-9fpxoRyW.js",
+      "sha256": "56fa2544029b23a82e055cd17667db317ac4843a19c9a9ddec90602d2d22ad77"
+    },
+    {
+      "path": "dist/assets/index-9fpxoRyW.js.br",
+      "sha256": "d9ae6fc0a749f2c8dd187d42b7134562ff036357dd423c119fff779796cbd7e7"
+    },
+    {
+      "path": "dist/assets/index-9fpxoRyW.js.gz",
+      "sha256": "1119e98216514b7bc73786100cb00687431b901d29fb1c43969d19453f26ee3d"
+    },
+    {
+      "path": "dist/assets/index-Cy2G8LcO.js",
+      "sha256": "44ca1b51989ce495485f440056844a6d41640f06f7ea2f556b642bff021cfcfd"
+    },
+    {
+      "path": "dist/assets/index-DIT6Kke5.css",
+      "sha256": "4ae1dae55b5b203082a97ecb80017497516bb5c1a52d85a683b827dd4ed19a55"
+    },
+    {
+      "path": "dist/assets/index-DIT6Kke5.css.br",
+      "sha256": "3b615c0c3bee90cfee0360027d77d01e82285ae9977e01fdf6863a6da4eb010f"
+    },
+    {
+      "path": "dist/assets/index-DIT6Kke5.css.gz",
+      "sha256": "c9bc1291fbcc9eee994fe958116eb2f42c0cbad24b0bd45e1286683a75f57c3d"
+    },
+    {
+      "path": "dist/assets/index-ahCzqgw3.js",
+      "sha256": "1cebba13ed3ee59b8f93e9b6ab737829e86423ceadd66aaef7ed5b0aacc1d238"
+    },
+    {
+      "path": "dist/assets/index-ahCzqgw3.js.br",
+      "sha256": "a666022577adcd9279a3c9759f9bd4bb184c82320bfc1bea6d34f33ee962642e"
+    },
+    {
+      "path": "dist/assets/index-ahCzqgw3.js.gz",
+      "sha256": "2ea7a117d8dcb50b84b68365f2a2e238603d46b826fd106ca1062028b15d6183"
+    },
+    {
+      "path": "dist/assets/inventory-monitor-rqURVK4E.js",
+      "sha256": "7980c906df8a905a203c461d110291a3dbe0f154c8645d430e3292f86e67d2da"
+    },
+    {
+      "path": "dist/assets/kol-demands-Ci2b0TGm.js",
+      "sha256": "450cb89954a7b43a880082908ba5c66e15b199f2320e69bd0c50f43d93ef9e85"
+    },
+    {
+      "path": "dist/assets/kol-goto-fixed-total-ledger-CVbpSJSF.js",
+      "sha256": "dad4c8256fc0981ac7d937d334a396cd614b2e23122f42d8f8e6fff1941bc85e"
+    },
+    {
+      "path": "dist/assets/kol-goto-fixed-total-ledger-CVbpSJSF.js.br",
+      "sha256": "ff5d86f820022bfeb8996d595604c8d45e394fcfb8e3f02c6db76b58af9dd51f"
+    },
+    {
+      "path": "dist/assets/kol-goto-fixed-total-ledger-CVbpSJSF.js.gz",
+      "sha256": "09c11e7072158089cd4fb5b74aef59b22d68e60faa465a767ceeafb38da58253"
+    },
+    {
+      "path": "dist/assets/kol-goto-pda-domain-CNLryVoj.js",
+      "sha256": "7d29fcba4ccdab546fa5b56a4d37b748ff8607022dc53325032579c62be5b071"
+    },
+    {
+      "path": "dist/assets/kol-goto-pda-domain-CNLryVoj.js.br",
+      "sha256": "f96d2335dc80839c36b3dcccb2ad00dd1850edbdbf12595f3848178f8fb1aefc"
+    },
+    {
+      "path": "dist/assets/kol-goto-pda-domain-CNLryVoj.js.gz",
+      "sha256": "a496b5a48f387c1117adfe57346985ac99e0cbd394bc61adf3e0b8053ceba00f"
+    },
+    {
+      "path": "dist/assets/label-print-template-BExN-24q.js",
+      "sha256": "7138c93ef9824598954fbf1e9308bc24764c47caa449d42b3f04b94cc3201606"
+    },
+    {
+      "path": "dist/assets/lace-factory-domain-E69dJw3K.js",
+      "sha256": "5bc64c80d0420b358e9ca782c15182a2028226efd10761bbadf362369bae0754"
+    },
+    {
+      "path": "dist/assets/lace-factory-domain-E69dJw3K.js.br",
+      "sha256": "13404ce6f24e75584909514b68abeda6d8bec9f7ce3c600d6f8577d851b56640"
+    },
+    {
+      "path": "dist/assets/lace-factory-domain-E69dJw3K.js.gz",
+      "sha256": "9f4048fff1b101d0fdd47dd4e9b88eb9c877b4fdea9180f2dc346237643724d0"
+    },
+    {
+      "path": "dist/assets/layout.helpers-B2KW1-EU.js",
+      "sha256": "df634f60558eed94e424ca20f1c71f203604324bf0cfac8f3257a88423bff27d"
+    },
+    {
+      "path": "dist/assets/list-BEgREkRy.js",
+      "sha256": "7739d84ad243b92705adf44b21e0c1ec0cd49a23e170034c2ee0e9f8355b1079"
+    },
+    {
+      "path": "dist/assets/list-export-Dxrri3Rk.js",
+      "sha256": "4a817e00fae69f4b2b74a1de3719801539419f299e17d9290c9113004c2d5004"
+    },
+    {
+      "path": "dist/assets/logistics-reconciliations-CR1eFHcH.js",
+      "sha256": "c4004020ae18640ee33eca086bba2d35d41cb0647fd5bfba428019dcda0c97c7"
+    },
+    {
+      "path": "dist/assets/los-live-room-master-COV73jw3.js",
+      "sha256": "f79ea1fbf0e3569890176e52ed63def36a0f7609b039e0b640ac179080f44638"
+    },
+    {
+      "path": "dist/assets/los-live-room-master-COV73jw3.js.br",
+      "sha256": "a6c531f8e4f3633a78fa165cc0468e7afb78260effe80c4aa2f4644cebd3a160"
+    },
+    {
+      "path": "dist/assets/los-live-room-master-COV73jw3.js.gz",
+      "sha256": "6240dcd2c42ad35500ddb88832913e5e153aa0d089305aa03f74a0a271a21a28"
+    },
+    {
+      "path": "dist/assets/los-live-rooms-SvrNag9R.js",
+      "sha256": "f415202d47e4f888a1be45e3812672654ca5dbd55bc2c1817e17e27653b2030e"
+    },
+    {
+      "path": "dist/assets/machine-associations-Ce1OsGYq.js",
+      "sha256": "e215238236cdbeedebdeaeb985759dff791fe783321e2b48c29a9d9b6df46025"
+    },
+    {
+      "path": "dist/assets/machine-associations-DLvgVMc8.js",
+      "sha256": "bb80dc870656c77f90b671d0becf015ed1e4d40993d1747eec3abd7914e89d33"
+    },
+    {
+      "path": "dist/assets/machine-associations-DLvgVMc8.js.br",
+      "sha256": "ee1565590e17d97fa892b316e2d67438688018d7a2c4be756beebc20cee64fd6"
+    },
+    {
+      "path": "dist/assets/machine-associations-DLvgVMc8.js.gz",
+      "sha256": "28a94087b12aec38c9450586fd23babae22f201d30a4f7c3bc310b982a1f3182"
+    },
+    {
+      "path": "dist/assets/machines-DAHVq8uh.js",
+      "sha256": "93e069660b844be3370e74a0e3c9f7e5989adcac335ea2d45e48130481d23b68"
+    },
+    {
+      "path": "dist/assets/manual-fei-tickets-jFQ1UZ8l.js",
+      "sha256": "67afa05c549107d031d2ae761ae49ab029ba6fccb76955829f95e5749010ba7c"
+    },
+    {
+      "path": "dist/assets/manual-fei-tickets-jFQ1UZ8l.js.br",
+      "sha256": "4bcdb6ae0055b439d883a9b6b5b945b6fffad7e07e631011594eb11e89ebacbe"
+    },
+    {
+      "path": "dist/assets/manual-fei-tickets-jFQ1UZ8l.js.gz",
+      "sha256": "d60faa63bb7b7fcddc06a3326fdf43af971df259acf84c63dc0d07570f49feb2"
+    },
+    {
+      "path": "dist/assets/marker-plan-iID-VFLZ.js",
+      "sha256": "3cf1c9428e588f71b6fbc6a7980fe6950e9439398a4e1a60c5a1185c288ef255"
+    },
+    {
+      "path": "dist/assets/marker-plan-model-IMIdQuez.js",
+      "sha256": "e6f5c8fe3c9b55f151e21ab6619128cdc8981a036464d7ec569093fcdaee581c"
+    },
+    {
+      "path": "dist/assets/marker-plan-model-IMIdQuez.js.br",
+      "sha256": "5dde731360635d06443219e3e1c15ed558429cd4028eec45ad4bce3685de23db"
+    },
+    {
+      "path": "dist/assets/marker-plan-model-IMIdQuez.js.gz",
+      "sha256": "ce9b3c051ff2cf707a2534198a1fab034bb007a7cd11f0afed96203abce63eaa"
+    },
+    {
+      "path": "dist/assets/marker-plan-occupancy-BjxSIsY5.js",
+      "sha256": "338d3ad20dcd7aac5720a36f36de07fb7878da12e21497c2cb21976865bc7aac"
+    },
+    {
+      "path": "dist/assets/marker-plan-occupancy-BjxSIsY5.js.br",
+      "sha256": "a24debe2c00c636afb0512ec7ae60b7d25a817d44d3cd71cff193ad2a2ac3f43"
+    },
+    {
+      "path": "dist/assets/marker-plan-occupancy-BjxSIsY5.js.gz",
+      "sha256": "64d7f4e605fca1f9c5b6b3068f9e1af4f45ddd775d2056b1007258fa5e4e3b06"
+    },
+    {
+      "path": "dist/assets/marker-plan-projection-DBHKYz6n.js",
+      "sha256": "601809d86e026e2fc1ced5170c2a43eb85c2d55b00d4eedba88eaf853b445f28"
+    },
+    {
+      "path": "dist/assets/marker-plan-projection-DBHKYz6n.js.br",
+      "sha256": "1c9b5ba0180589878586b3b8d884b0094222bd9b659dd44b6094fd3017886d70"
+    },
+    {
+      "path": "dist/assets/marker-plan-projection-DBHKYz6n.js.gz",
+      "sha256": "e4a8f1c4c84f85e167908052c9de011b7f175899e8793816828c6ed191841e59"
+    },
+    {
+      "path": "dist/assets/marker-plan-source-model-oEE3lQGU.js",
+      "sha256": "cf9cf6fb12f25d58ac211cca6b1e04b0c87dc93b704f8fb27c46dddaf808033f"
+    },
+    {
+      "path": "dist/assets/marker-plan-source-model-oEE3lQGU.js.br",
+      "sha256": "2c68600aebada363f531c0811080df7c4764d4276464c00cbb7cf0f607482bc7"
+    },
+    {
+      "path": "dist/assets/marker-plan-source-model-oEE3lQGU.js.gz",
+      "sha256": "1accfbb9e23f1837ffebf4917fd3f7ad411fe40f9c8d8bca070f002097d1334b"
+    },
+    {
+      "path": "dist/assets/marker-spreading-3Ls6Vyq1.js",
+      "sha256": "9f74c8f9b9cd9b29ef22680611ef9685381d66a25a322f29409d422b16ac66cd"
+    },
+    {
+      "path": "dist/assets/marker-spreading-projection-Dxk7t_ui.js",
+      "sha256": "03be4354e3b0c56195ea813bf30d148f00dc351a154dd32af5e0a94b05de1c92"
+    },
+    {
+      "path": "dist/assets/marker-spreading-utils-BACzcpj9.js",
+      "sha256": "f0305b877d79484fa992c0b97ef46a07dccd0e6f2978d6f5442a55b0b521972b"
+    },
+    {
+      "path": "dist/assets/material-archives-pqy5qieI.js",
+      "sha256": "3815ef9ee09fe5f28980ea2fffdc8dac55aba03446d4a7ba44a9b660618f15e0"
+    },
+    {
+      "path": "dist/assets/material-handover-Q6HRVNLf.js",
+      "sha256": "f0bfc0da1e8d13aa56b3a0c5d0ecccda6a8519790e76e73e2c22ac3d6b527715"
+    },
+    {
+      "path": "dist/assets/material-identity-xTXrZ7OI.js",
+      "sha256": "7b9c484a0bac31b097dacbcd5d17c2e271cde8914f592cfee5df2709a306eeb0"
+    },
+    {
+      "path": "dist/assets/material-identity-xTXrZ7OI.js.br",
+      "sha256": "67995565cc8e7c190612f49269dece40f842d659c9992e066454d4e680daecac"
+    },
+    {
+      "path": "dist/assets/material-identity-xTXrZ7OI.js.gz",
+      "sha256": "872d9ac915fa9a944752796cd97b6fff14f8a386f1661c676c2c50d50661e08a"
+    },
+    {
+      "path": "dist/assets/material-inventory-VYOvQNpu.js",
+      "sha256": "c8fe0c49f5846c8f4e8794daaba19a115755ba7cd596c1b5517d4586ef3e1fb6"
+    },
+    {
+      "path": "dist/assets/material-issue-Fi9Fu2Zx.js",
+      "sha256": "044c3e1e266a75bdcb7f83d14159fdbca1d80ae6c7afd0dd64f2e5eb152bed6c"
+    },
+    {
+      "path": "dist/assets/material-ledger-DLWiLyDQ.js",
+      "sha256": "b36a8bc1d5fcf45689c5a292bfcca3d85ba3adfc492f5c4da459b9f038a6c992"
+    },
+    {
+      "path": "dist/assets/material-ledger-DLWiLyDQ.js.br",
+      "sha256": "1ec773bd296e0135ff424ab7a1df3481e35ef6d01938f4912832687afae1d74c"
+    },
+    {
+      "path": "dist/assets/material-ledger-DLWiLyDQ.js.gz",
+      "sha256": "66a2851a07c0625eb67b602a26790e0279a99ab3ee7eeaa308fbe2939e5e347e"
+    },
+    {
+      "path": "dist/assets/material-prep-BEdE433f.js",
+      "sha256": "2bc4d9e8944cf07072cca5c049b7c102fbdf2c11f34782d077744e1bb7520e5c"
+    },
+    {
+      "path": "dist/assets/material-preparation-Dj_G3hFO.js",
+      "sha256": "7671eec0e36dd84ef9e6bca5b67179decb786322888c3ef04b575ffd6b8898a5"
+    },
+    {
+      "path": "dist/assets/material-process-plans-D0yZCI7z.js",
+      "sha256": "f1a2cda82b7289a1a8177e93f38a901198d28589ebde53de98ac7dbaaee8101f"
+    },
+    {
+      "path": "dist/assets/material-process-plans-Dc0rNcV7.js",
+      "sha256": "f832f0ec9ab53cb484794e5c7888c1baffbc7d80c08fecf67b8712913e0e4874"
+    },
+    {
+      "path": "dist/assets/material-purchase-orders-BBbSb2VM.js",
+      "sha256": "19c92c64b41691ef9ac3fef3f0d4306a68cc43adaf61d8318741891055de7f3e"
+    },
+    {
+      "path": "dist/assets/material-purchase-orders-Dy50SMON.js",
+      "sha256": "88138abdc9830fddb848f9c3e9ee08fc536402ba8169f9acef7764ae69be9fa4"
+    },
+    {
+      "path": "dist/assets/material-purchase-references-Dr3euq4w.js",
+      "sha256": "4a21339059d2f75b46d499c272c95b46ea4675dda0a826a7c3ee3c1a877ac4d9"
+    },
+    {
+      "path": "dist/assets/material-purchase-tracking-Cy6L39k-.js",
+      "sha256": "71076b66c2ebf4785827636d513dcedb501d30240fd809ed5853f0cbfa48f7e1"
+    },
+    {
+      "path": "dist/assets/material-reconciliations-C_fGBXWq.js",
+      "sha256": "a854b5a13da446f23be9664585ffa125cecd47ccdb3fa8c7bae2228b0fa4774c"
+    },
+    {
+      "path": "dist/assets/material-requirements-CoWk9wNn.js",
+      "sha256": "aca3cfa06a1b0ceee49d79d08aea51002befe669c31a83be1a4f9cce9a808407"
+    },
+    {
+      "path": "dist/assets/material-requirements-M-8R9sid.js",
+      "sha256": "f44024afc80109633bc2017d5f68cb5dd6687ac08d63a07c3f87665f620d4e8e"
+    },
+    {
+      "path": "dist/assets/material-statements-_ecn8_jk.js",
+      "sha256": "74885fd41594f2429473606956853cf08385dd801e41100337edc479b0d4c074"
+    },
+    {
+      "path": "dist/assets/material-transfers-B_9MJGmv.js",
+      "sha256": "9a2e4ca8cb020609a982a970975e3379c46f625a6592e6ac3d778e8f0dd63fab"
+    },
+    {
+      "path": "dist/assets/materials-DQo18LQz.js",
+      "sha256": "edb1ab69a5408eb18e6c3c1548e4f24953d0a28ba015b5b9255340a3ccfe9fd6"
+    },
+    {
+      "path": "dist/assets/meta-DqPRPSX8.js",
+      "sha256": "c697aa1320f71b54b21462b80c8b78a2162dd7c473167f970ab774ce78b1d6ca"
+    },
+    {
+      "path": "dist/assets/milestone-configs-B1d7hf-w.js",
+      "sha256": "2e4521e439fea49fcd94d98d7dc942edc72224f3237163eab95c1c8a2c8c281a"
+    },
+    {
+      "path": "dist/assets/milestone-configs-B1d7hf-w.js.br",
+      "sha256": "2d05e8c1be626e6780bedab499be729da611f841f2a09a24d25262ac6f05c96d"
+    },
+    {
+      "path": "dist/assets/milestone-configs-B1d7hf-w.js.gz",
+      "sha256": "08da5ee030b119788db67613b79b3b039960f14f0c68d345a7d1b4afb39839ef"
+    },
+    {
+      "path": "dist/assets/mixed-bag-contents-DsAMB1Ro.js",
+      "sha256": "f0f0fb57580d10c7d718319d73989f12c1be8c2a25b619ffd56423a0e6c187ab"
+    },
+    {
+      "path": "dist/assets/mixed-transfer-bag-ticket-DETTPWFm.js",
+      "sha256": "72a43d76f4aea97776dc69957e3c0a12f3290ae77acbcee989535d10c5a56fb7"
+    },
+    {
+      "path": "dist/assets/mixed-transfer-bag-ticket-DETTPWFm.js.br",
+      "sha256": "0c909ea0a48db3496ff335a4f2ae0c74d32f70b731b83e9ff66a0e32387ab9ef"
+    },
+    {
+      "path": "dist/assets/mixed-transfer-bag-ticket-DETTPWFm.js.gz",
+      "sha256": "03145630c6ca511453a9ad47041aa2b9ab5d56f1fd746f4400186d70dd2d56ef"
+    },
+    {
+      "path": "dist/assets/mobile-B10WLjas.js",
+      "sha256": "2ff94c3b66d4609f12e59bf366f78df0fe85043924fcaae08b764fee531b9595"
+    },
+    {
+      "path": "dist/assets/mobile-B10WLjas.js.br",
+      "sha256": "b2a5fd5d66328048e1c2509e8b60b94a80256e169360ccd39247ecbbe6ad2292"
+    },
+    {
+      "path": "dist/assets/mobile-B10WLjas.js.gz",
+      "sha256": "75fb4f8d357602cc39468a827985f855818700f0dda188755d9c15df5b17891f"
+    },
+    {
+      "path": "dist/assets/mobile-execution-task-index-BhqqlX5U.js",
+      "sha256": "d20369ce48760abc2cb3c09145cd3d966e9d7336cd19d54897176797c2742e8e"
+    },
+    {
+      "path": "dist/assets/mobile-execution-task-index-BhqqlX5U.js.br",
+      "sha256": "f68ac4b3562b72adfbe3f1b0d70774173a421c634369749662331f3762f7e01e"
+    },
+    {
+      "path": "dist/assets/mobile-execution-task-index-BhqqlX5U.js.gz",
+      "sha256": "471e5c5b2ceb5d02ea25d92132c27d7a4ee0c0a38f9e7d8c3a270a6d0f9b5f11"
+    },
+    {
+      "path": "dist/assets/navigation-context-5GcHOdSg.js",
+      "sha256": "38ecf72eb050aa1b95fc01afb8719c89bfaf5ff2051f4e0ca0dd5753a748ded6"
+    },
+    {
+      "path": "dist/assets/order-list-columns-CijfPYtD.js",
+      "sha256": "dd06656327a376e3c8297ac8c5d192651e3c268b915623b46cad4d0846e95aa0"
+    },
+    {
+      "path": "dist/assets/order-pages-BLg6Ma6N.css",
+      "sha256": "cbfcc4e4216da8c6ff0828d091f8b459476b483cba469d4d56debaabf1f2f92f"
+    },
+    {
+      "path": "dist/assets/order-pages-BLg6Ma6N.css.br",
+      "sha256": "e3175189226d8d1a557b4b903cfa5652c54ed291a47977e6f9e70c95aa641c69"
+    },
+    {
+      "path": "dist/assets/order-pages-BLg6Ma6N.css.gz",
+      "sha256": "5ae82bc21486100082c9981cbec8d1b8a3831f7c747e2ac4bd8d4aaa738127e9"
+    },
+    {
+      "path": "dist/assets/orders-domain-Cy5tE2Dw.js",
+      "sha256": "62775f6be4df5ce0a5d3e3f0f254b1af523fc98d890533edf30acbc6f5c39344"
+    },
+    {
+      "path": "dist/assets/other-HppfcQt3.js",
+      "sha256": "08d662f65cd3fc9cd23b6f2ef09929c9b02d5dab7c30c8488ff96ccb47c3cc1b"
+    },
+    {
+      "path": "dist/assets/outbound-orders-D9Q0tR1U.js",
+      "sha256": "66b07893bb0432a2a188cd76a94a7196d3d041fa07d375e7e48b7109b2e633db"
+    },
+    {
+      "path": "dist/assets/output-documents-BesgFXth.js",
+      "sha256": "19c9e791c561ee7923ad2ebb6d28f95306aabb710e32365746b39e799debd1f8"
+    },
+    {
+      "path": "dist/assets/output-stock-YfHyVg9m.js",
+      "sha256": "c22a5d434bb528636612316a5ade9c0aa07f4664d1973fe813c20bbd98016602"
+    },
+    {
+      "path": "dist/assets/overview-Czl6MUpI.js",
+      "sha256": "30acfa79ed53b42008907f2774d6f39a44497ab7b65a45c6f6c0a3c106ae5454"
+    },
+    {
+      "path": "dist/assets/overview.adapter-DI7tifD9.js",
+      "sha256": "132b1d8b342432257d3bacdba7e8d7d59287ce3c65341320a277c710211e64ff"
+    },
+    {
+      "path": "dist/assets/overview.helpers-BP2F5Yu8.js",
+      "sha256": "7cb2cdae4a3e1526f065005a48c271d17dc709ae5b98c334f54e6c99e3b76105"
+    },
+    {
+      "path": "dist/assets/part-ticket-records-x1tko8ij.js",
+      "sha256": "e5131500fac926721f3d3ca47650a92c18911fe6e10756603967823ba003887e"
+    },
+    {
+      "path": "dist/assets/part-ticket-records-x1tko8ij.js.br",
+      "sha256": "0fa74fedfd7a1c0a7c62fda69e6598f87c9c6d79afd493f837bc1e3eeca15368"
+    },
+    {
+      "path": "dist/assets/part-ticket-records-x1tko8ij.js.gz",
+      "sha256": "6cba45f22c4389164ea6bc05bb2b76879dc8b1a1a339e7970314234bbe02bbfb"
+    },
+    {
+      "path": "dist/assets/payment-requests-B2EAzRg2.js",
+      "sha256": "4a7a12c514dd301227848d6571baa4827c58c0d4df3f15c9c26f64ce82a1ee0d"
+    },
+    {
+      "path": "dist/assets/payment-requests-BWpYtlyr.js",
+      "sha256": "891f50fed06a1e3a290ab5bd8e15e2b828b9c09b261dc35d1dd15a97a1969b38"
+    },
+    {
+      "path": "dist/assets/payment-sync-CQ3pZCxD.js",
+      "sha256": "6098221d9baae59c0f84485836d101216aeb2773d9f918cabf4db16ae3f73509"
+    },
+    {
+      "path": "dist/assets/pcs-action-dialog-BDH5t3S9.js",
+      "sha256": "72521b402b6fdcb448ca94f9afd2caccb7d2a8643c6a62eef88e0c40587eaea5"
+    },
+    {
+      "path": "dist/assets/pcs-channel-legacy-conversion-Dg3I_fD9.js",
+      "sha256": "a289eabc7e9a7bd52ecdb05179f47836bde40f088267b10a750336d1e973a895"
+    },
+    {
+      "path": "dist/assets/pcs-channel-products-DSuetFR-.js",
+      "sha256": "f40559dfad220de5f5e04f343596e3f0400e2bf8f29640bcabf52e81c534b6cf"
+    },
+    {
+      "path": "dist/assets/pcs-channel-stores-DswDFOLb.js",
+      "sha256": "92bfb443563ca08d4cb6e67184e80453a535940bae1fd3103eca0fad53f3f72f"
+    },
+    {
+      "path": "dist/assets/pcs-config-workspace-B7Me6MCA.js",
+      "sha256": "74f9c01d8705178c19e138f36866988e7377158f2c64931231c5fbca9501ef0f"
+    },
+    {
+      "path": "dist/assets/pcs-config-workspace-repository-BCjybVkz.js",
+      "sha256": "3d9c8df40b06c49684db6d345418062b049a69790555181c2cc5acfa074a5f32"
+    },
+    {
+      "path": "dist/assets/pcs-config-workspace-repository-BCjybVkz.js.br",
+      "sha256": "1e84f3e688f192daf05c767aacb1f1f9dda2b3306aeb62bf6ec3f9ecf1fd666a"
+    },
+    {
+      "path": "dist/assets/pcs-config-workspace-repository-BCjybVkz.js.gz",
+      "sha256": "d4e8cbb3feff216eb1279478499824bb6d904c073a3e562c44d0ca4711565865"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-bom-snapshot-source-DlXUWD87.js",
+      "sha256": "23994f15e1220ebc7d1876b06ee1d225d2854a8a93c5dc9a2694e5bdc6f1bb48"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-bom-snapshot-source-DlXUWD87.js.br",
+      "sha256": "ddb48d7e002c2b17fb33f7346862f9c5aaeb01d69c3d16f287af9f68a7532eb2"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-bom-snapshot-source-DlXUWD87.js.gz",
+      "sha256": "e4a813da4d6249e01b5ae7df463dd538d08cccaa0a0a32d176197453d4870344"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-master-detail-CbNFLZhB.js",
+      "sha256": "3b91bd7d6561c3004b092e2bd2c0e69c101b93279b10e043ec1ea43aa3f69b97"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-master-list-CqoXK9nV.js",
+      "sha256": "4350ee3f3105092010202f747712ae17da2edd98ae8ffa7e7d7fd2984b1bddb5"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-master-view-model-lDqmXpvM.js",
+      "sha256": "6abb5e59fe3c889ca1c440a0933ba9944edb4708e2c39c6141a04ed31dae7c1e"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-preparation-projection-CZR-EzKH.js",
+      "sha256": "3b29fd422bf10ff2d5bb5ca3b0604f9a56221ec745d2f8e3f336a3ada370e80b"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-tasks-C-Xse7ya.js",
+      "sha256": "74ab534d71404db9149e4a9fe22547842e0e707f393803e0420d151d692e2786"
+    },
+    {
+      "path": "dist/assets/pcs-engineering-tech-pack-workspace-BZR2it0D.js",
+      "sha256": "f26d09b07cff07a3924bb2837f226c0c59320347d459ad55367aefde3c0054d0"
+    },
+    {
+      "path": "dist/assets/pcs-handlers-CI6ZDiwP.js",
+      "sha256": "675481d0bfeb667291a99d95935d9b1a7850bf72d782c2b0cc4910edafb52173"
+    },
+    {
+      "path": "dist/assets/pcs-independent-sampling-CgoRyj2D.js",
+      "sha256": "b94b9462b3c9099c8da5ac01de2d779fa329a245ef86f72bd17c00d53c4f14e9"
+    },
+    {
+      "path": "dist/assets/pcs-material-archive-detail-CNYpAY9a.js",
+      "sha256": "381bd5f12c88e1401c7229756d9fa6b50cab68e80d300744cf9880adb462f935"
+    },
+    {
+      "path": "dist/assets/pcs-material-handoff-Db8gcHbI.js",
+      "sha256": "486df6d27c5ce3208b86b1cb9d5d8a521044f119a66dda63afcf1513432afac5"
+    },
+    {
+      "path": "dist/assets/pcs-part-template-library-BR5b3ubJ.js",
+      "sha256": "137a8654dfd978c88d5faa5950a0420d6424ff9049476dda97939e73863a702f"
+    },
+    {
+      "path": "dist/assets/pcs-part-template-library-ClIjCUS6.js",
+      "sha256": "ae59c48505bf93714dd111800dc081978f3692bde93252f85473d90f080cdbe7"
+    },
+    {
+      "path": "dist/assets/pcs-part-template-library-ClIjCUS6.js.br",
+      "sha256": "d49a9edd9db0f710d29cd7f57bf83ad66788c527bea2c7c92ea8a18b2955a4d3"
+    },
+    {
+      "path": "dist/assets/pcs-part-template-library-ClIjCUS6.js.gz",
+      "sha256": "d7ab41e78eb1779e6d4b4b4903a971e91f17c2d4b2d4a76281256c61a0aa8944"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-CYtHpyaY.js",
+      "sha256": "ffcb82771925c46e036b1727d318e20fb6d96c06371f1d0d2497ba27edbd9de6"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-CYtHpyaY.js.br",
+      "sha256": "49822f7a5d0999d54b87cab9cd2cb14bb82b7a72519d3d68aaebc0965431632a"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-CYtHpyaY.js.gz",
+      "sha256": "12df383661203f2ec7ed8048719af370053be4be6b1aa873f8cc8d65e850c451"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-KECx0sMR.js",
+      "sha256": "e48a18f64474632cd45aa52e6019631badfe89ecec7ee69f6845706bf269b3fc"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-config-fBdF7Iq6.js",
+      "sha256": "5514a1affedd63e3967570592caa418464d949889ddf5f5e133b25f97cd6413a"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-create-D0QC2OET.js",
+      "sha256": "eea35f020d6d1381b446b3cb95ea072de74d7b56b107ae654e15a4dcaed65ad8"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-library-detail-DggwK8Oj.js",
+      "sha256": "89c3e970f1a8161605a399d8aff5b20a9308f60f3988a130f8159f483f5b9c24"
+    },
+    {
+      "path": "dist/assets/pcs-pattern-parse.worker-B3_rAVMB.js",
+      "sha256": "be64c9cbe71217af1efbb524301744ae9783e15fe9f63558d98c19f4d26cfd4c"
+    },
+    {
+      "path": "dist/assets/pcs-product-archives-lGtDxH78.js",
+      "sha256": "0fa65b0936d30af7f4a504e609846a1e15818bdbdcc6051a5194799890055ce9"
+    },
+    {
+      "path": "dist/assets/pcs-product-information-Bf8_mYyu.js",
+      "sha256": "19a3a69a7072b7af7a38b87e23fab2eb00b514f4b330f52a67396b146a456601"
+    },
+    {
+      "path": "dist/assets/pcs-product-reference-check-C8WEtgGD.js",
+      "sha256": "87c854806db49ed2ed0184dc1784a1860734c9bbde31e11f5af01537db31d51a"
+    },
+    {
+      "path": "dist/assets/pcs-record-baseline-BWpImHil.json",
+      "sha256": "282848953f11e0d97345dbba8b2b78c102b2ced73aeb0374b3a312f304f02b09"
+    },
+    {
+      "path": "dist/assets/pcs-record-baseline-BWpImHil.json.br",
+      "sha256": "41a675fbacc4d5a6b1ec269596ae1ee09396c124d11caf705a19eaf5c8f7916a"
+    },
+    {
+      "path": "dist/assets/pcs-record-baseline-BWpImHil.json.gz",
+      "sha256": "d66db2c9906f5b498fceaa076e6728ceca666c155021c5507d58c9053f22b735"
+    },
+    {
+      "path": "dist/assets/pcs-record-bootstrap-DPp6D-Dr.js",
+      "sha256": "6d49ce6e3c7741302a7c34821d35d9ce6fdff932a8240c42406d51ffa6fe97c8"
+    },
+    {
+      "path": "dist/assets/pcs-record-bootstrap-DPp6D-Dr.js.br",
+      "sha256": "05be07b8cf65d953815ae8bc827de63cbaa3b9a5c00777240acf32371ad4a771"
+    },
+    {
+      "path": "dist/assets/pcs-record-bootstrap-DPp6D-Dr.js.gz",
+      "sha256": "a37690257227f510a66f1738afa09970e42d6ba8f6de828b7a27f154ccb8658b"
+    },
+    {
+      "path": "dist/assets/pcs-record-core-Cucs9Mu1.js",
+      "sha256": "287f6cfc759c1ec27d4abb5703f624197f92caf45723895e6a6b13d604d5ebde"
+    },
+    {
+      "path": "dist/assets/pcs-record-core-Cucs9Mu1.js.br",
+      "sha256": "c5cac4d19857a44a16fb55b94619d2a5a7a6ecdafa2de773bf45dc978eac48d0"
+    },
+    {
+      "path": "dist/assets/pcs-record-core-Cucs9Mu1.js.gz",
+      "sha256": "80b7ae89276e8f3de99fd6889b197717879ebfb49e2f5aec1fec8c80fdaed899"
+    },
+    {
+      "path": "dist/assets/pcs-sample-label-b1GM0gZ9.js",
+      "sha256": "8d6d7b519c84a4d40052a81a16285f872f6b4d5f4f3add4d965e6d0c1f2b9530"
+    },
+    {
+      "path": "dist/assets/pcs-sample-management-BfE3jR8N.js",
+      "sha256": "8640137cac803d009004976f95c38fdb3e16e5cea862c6d236beb0a134a2b23a"
+    },
+    {
+      "path": "dist/assets/pcs-storage-error-D2ucxlT-.js",
+      "sha256": "6eb4b22fe728cbd8f886d1086a2aa587550c0c7a8435cfd527fcd994e74bbf87"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-bootstrap-DKOU5DtT.js",
+      "sha256": "1267a17495ab2d941b9b960bafe99851700a926b11a9d2a58faf7f0cca2ec0ef"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-bootstrap-DKOU5DtT.js.br",
+      "sha256": "cd150b1d6ac1a03bcfa5b9a10bb3631fcda3187fce3769744ffd8eca2290a3ce"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-bootstrap-DKOU5DtT.js.gz",
+      "sha256": "18db4a8f32fbf577ac61b8e0ea4a275f68d2800a0b669baf0c386afe8c231fff"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-review-BORNZGT8.js",
+      "sha256": "1ddfb60d35de32dd55cc4b330ba1b85607f8156d85939993b0ed8d7bacd2d1b2"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-review-BORNZGT8.js.br",
+      "sha256": "d69516905926b55ba49828f0c46a9afbcab4b79212847555878c621ee55e217e"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-review-BORNZGT8.js.gz",
+      "sha256": "c47f0d37b7c1a9d4aa7f00af98cd7def2b17e7d9d65fd871e5d3693b503ec0ec"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-review-notification-repository-Co8aNF5r.js",
+      "sha256": "1ba3e3e258fc718d5b30b6483abb3e3a9224a3b23d5d87d41c336e6b9d5bb538"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-review-notification-repository-Co8aNF5r.js.br",
+      "sha256": "d11d33419d38651488d2748b6772e6f2cb55e3e37a637bd9c257ce766f4a7be2"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-review-notification-repository-Co8aNF5r.js.gz",
+      "sha256": "16c3cbc6bf6b4d776c3d61a0d03c9370b394015455813a02e98f6155256466b6"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-version-log-repository-C9nRLGA4.js",
+      "sha256": "9e5f37f6d963c1c49514c0ae20817e6f311d1a4c557837cb8d86c8c177e5fc02"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-version-log-repository-C9nRLGA4.js.br",
+      "sha256": "3de4eb8a1543b04dd0c2bbcde99e4274513a286b3171ea3ca4da05d84de31c15"
+    },
+    {
+      "path": "dist/assets/pcs-tech-pack-version-log-repository-C9nRLGA4.js.gz",
+      "sha256": "c845c3cad5dcd124b45a365a33f9d6b4505a83f31d1604c8bc834d925ee79df9"
+    },
+    {
+      "path": "dist/assets/pcs-technical-data-BmPkUNjh.js",
+      "sha256": "5a35fae1b0f9d5b29ca46632e7e362252d5ce851b4542058af2ba5268e60ec1e"
+    },
+    {
+      "path": "dist/assets/pcs-technical-data-tech-pack-list-DF365YQT.js",
+      "sha256": "736311a34f8c2225442f17cef04673362175ca4a81de6345b5c2a5db84505c50"
+    },
+    {
+      "path": "dist/assets/pcs-testing-order-create-HCSOR21p.js",
+      "sha256": "38daf9435799ea79bb47d360855e2500c634072c2f72075ea3b00b8e8266dac4"
+    },
+    {
+      "path": "dist/assets/pcs-testing-order-detail-CtYipS1g.js",
+      "sha256": "37adc7cc1cd7a5f18a3ebd34793d4a8c96f1f648cb82c62c44fa5417e530da74"
+    },
+    {
+      "path": "dist/assets/pcs-testing-order-list-C3TZpBcO.js",
+      "sha256": "d6eb7ee56e508ab5cd9fd1e1c79902f477a3329e4cac8ac406ca4fe5f219fe37"
+    },
+    {
+      "path": "dist/assets/pda-DkAPaFQL.js",
+      "sha256": "729eab69b3dc217270e8403ac3013ca9b570f8804995ed106754ed265197d8e1"
+    },
+    {
+      "path": "dist/assets/pda-cutting-execution-source-Di3NJG_M.js",
+      "sha256": "682912e2818930d50049c56a23f9d6171029d72c1288f2b5f648f3631df18b62"
+    },
+    {
+      "path": "dist/assets/pda-cutting-execution-source-Di3NJG_M.js.br",
+      "sha256": "31a623468d7f55d352f58bc74ff87377cf28a956bcda220e01e364dd173f2a3f"
+    },
+    {
+      "path": "dist/assets/pda-cutting-execution-source-Di3NJG_M.js.gz",
+      "sha256": "2f04ce7b8c50df57ac8dee46a3a1f8574d5282b8243f9e0c287b43044448d0a5"
+    },
+    {
+      "path": "dist/assets/pda-cutting-execution-unit-wlmwTTlM.js",
+      "sha256": "a9cf9c5aa1c6ea602efad3f053954e611c2f5eead02e8b992c361e6acaa32191"
+    },
+    {
+      "path": "dist/assets/pda-cutting-fei-ticket-numbering-Ct6H1bEK.js",
+      "sha256": "102df230b5ac498752f62a1b04eda37b5067583488fc2e8ecb799bf7d07a1eea"
+    },
+    {
+      "path": "dist/assets/pda-cutting-handover-2ozoTD3s.js",
+      "sha256": "d6b4c7202f9872d51f3e9076a9441dee7bd9bd5856ac5ccf1fd9c49e735ad01f"
+    },
+    {
+      "path": "dist/assets/pda-cutting-inbound-DRQsOK5a.js",
+      "sha256": "1d96f5807529faeee623a05fd8c1758c16d3f2f98bf8c5662c9417be371550fa"
+    },
+    {
+      "path": "dist/assets/pda-cutting-nav-context-hEIBt4_j.js",
+      "sha256": "aedffeea26b96a9357e188af980526092d9f876fd38477ea7d5c4835cd983f3b"
+    },
+    {
+      "path": "dist/assets/pda-cutting-nav-context-hEIBt4_j.js.br",
+      "sha256": "28b0c9956a7600955caa367f5c89aec9296aa9120f217cce339f994698582e02"
+    },
+    {
+      "path": "dist/assets/pda-cutting-nav-context-hEIBt4_j.js.gz",
+      "sha256": "2a8c947c2f814ce6cf4bf4617df437c27eb8f0f1635a996472e859524d10f734"
+    },
+    {
+      "path": "dist/assets/pda-cutting-runtime-action-inputs-D9hzhyqw.js",
+      "sha256": "358395821a0861d13f3f1de72bb9d5d928f9f7f1f1a04e274c0ab2ab909f7d03"
+    },
+    {
+      "path": "dist/assets/pda-cutting-runtime-action-inputs-D9hzhyqw.js.br",
+      "sha256": "3eee6c8770c93916a4e39f413beaba8b4bb9b780b83af9a28ca25197d3006414"
+    },
+    {
+      "path": "dist/assets/pda-cutting-runtime-action-inputs-D9hzhyqw.js.gz",
+      "sha256": "067f6cd7d8a2fef0ae54e39fc8d39c69e68d93ede170d9ec09772a58b05ce750"
+    },
+    {
+      "path": "dist/assets/pda-cutting-save-BSbdN7My.js",
+      "sha256": "64710751d6a9ce9f8d55b8ccbe164a0177a4c38be5f7a5ba15ff80b29877d2df"
+    },
+    {
+      "path": "dist/assets/pda-cutting-shared-BZNg09sg.js",
+      "sha256": "48a98fd6f72d478b4640c2d230ee9b8f6bada114b64ddbce1d8d4ba07e183600"
+    },
+    {
+      "path": "dist/assets/pda-cutting-shared-BZNg09sg.js.br",
+      "sha256": "a1603fe30e280b142a77c0250f390b45403a89b7b06c4b6b68036b9c66e1d207"
+    },
+    {
+      "path": "dist/assets/pda-cutting-shared-BZNg09sg.js.gz",
+      "sha256": "968ba3613143fb6a2c2dccd57256b9fefe921b100b948af8a2f99954c4be5f88"
+    },
+    {
+      "path": "dist/assets/pda-cutting-simple-cut-piece-handover-CX2fRppR.js",
+      "sha256": "0f6f6b82984c9ef118e685a5352c6b27091dc3b02c998eac053aceba263d7240"
+    },
+    {
+      "path": "dist/assets/pda-cutting-spreading-SNmd4bkz.js",
+      "sha256": "516eacd0fdbbc2dae9864ba430979cf221b6217191a71bd6166ce8edbbf4d455"
+    },
+    {
+      "path": "dist/assets/pda-cutting-task-detail-CpE-CokE.js",
+      "sha256": "3d74d649f2f88adb17efff1f8609990495783f8505380db4b5469866316501b7"
+    },
+    {
+      "path": "dist/assets/pda-cutting-task-detail-CpE-CokE.js.br",
+      "sha256": "b8bdcad33e7db628ba5c54c5042a754bf1bcce7fee4c8c473148779166a66dd2"
+    },
+    {
+      "path": "dist/assets/pda-cutting-task-detail-CpE-CokE.js.gz",
+      "sha256": "385d606d380fa5ce27a1f18c3ba2fa754df421416159b0def0e9796166d5f795"
+    },
+    {
+      "path": "dist/assets/pda-cutting-transfer-bag-recovery-YMJFlvM8.js",
+      "sha256": "6779d2e4ab8c571a5651c2ee11a293e0933d0bca6edd5243df65f10d89e38095"
+    },
+    {
+      "path": "dist/assets/pda-cutting-transfer-bag-repack-l0iCufqc.js",
+      "sha256": "d3b28d5777121c495f62a0cb80b9f9357a010f21620d1e2670e598a31001c830"
+    },
+    {
+      "path": "dist/assets/pda-cutting-transfer-bag-scrap-BWClMD6W.js",
+      "sha256": "da6645e30e31a6ca967d659d3daf679c6b43800842b2e68d0d5766ebaa8649b7"
+    },
+    {
+      "path": "dist/assets/pda-cutting-wait-handover-actions-Di5UvE2N.js",
+      "sha256": "e7652c9bfc81c76d02a7310f99b61ef383d6bb59a10a60d931fbf77283e28f45"
+    },
+    {
+      "path": "dist/assets/pda-exec-DJSL1J1i.js",
+      "sha256": "53015d8f9854edbdd67d1b820026e22f1cf88258509d39c16d7fe9cbfe68ec2f"
+    },
+    {
+      "path": "dist/assets/pda-exec-detail-4cT8MBDR.js",
+      "sha256": "dfa05ad13b74d2ca81d69645b82ef20e5e64367886cfbbd1169ac0d9dc6561e5"
+    },
+    {
+      "path": "dist/assets/pda-exec-detail-4cT8MBDR.js.br",
+      "sha256": "5bf53ccb0df9ab52edc591b3d7e141df9592d038537ad2592feda931d7a8cbe4"
+    },
+    {
+      "path": "dist/assets/pda-exec-detail-4cT8MBDR.js.gz",
+      "sha256": "e95a84959cd29296a36a8285de0eabfa4fddf374ccb13d55b2133e6dc79fe181"
+    },
+    {
+      "path": "dist/assets/pda-exec-link-ZajQiarY.js",
+      "sha256": "3a126c51dc31cd89620c8ed5253c36dd483729cd7ac856d2a90618687a1e4e78"
+    },
+    {
+      "path": "dist/assets/pda-exec-link-ZajQiarY.js.br",
+      "sha256": "5df2ad1c39ec86f368920a6502a8dccae64b5f330b73cf46caf5161bd7e86123"
+    },
+    {
+      "path": "dist/assets/pda-exec-link-ZajQiarY.js.gz",
+      "sha256": "dd8ed004d913ff6770b0188014027a1e10a9eb49b085f58548ebc50e15caa094"
+    },
+    {
+      "path": "dist/assets/pda-execution-D_-upnNW.js",
+      "sha256": "421eb6461a885dd37fc27d223533cf82bd37a5d512f1eed0efc3e4fd1fc21151"
+    },
+    {
+      "path": "dist/assets/pda-handlers-BPwY3TSg.js",
+      "sha256": "13c20f5c0d2d347e29eb5ceb250fffe057049b79aa52ab2d3687ccb5ac2a0b95"
+    },
+    {
+      "path": "dist/assets/pda-handlers-BPwY3TSg.js.br",
+      "sha256": "ac55448920d70c6544d5d14b36cc36f9f4defad5df20d41ae1650fadfebdd414"
+    },
+    {
+      "path": "dist/assets/pda-handlers-BPwY3TSg.js.gz",
+      "sha256": "8ef8ff5082605b61c513671e407893e0e51b45ef896fdf3d69059418370dab8e"
+    },
+    {
+      "path": "dist/assets/pda-handover-WJMmOA7u.js",
+      "sha256": "44bd665e36fdaff02cedf5e52900f706cc1228a6ad76b596c4973e6407122c01"
+    },
+    {
+      "path": "dist/assets/pda-handover-detail-6EcYW0Es.js",
+      "sha256": "8b75a12a1c1d9392c927a4d6c7a8d73f98c386207bb44c193b59390a4cdaa99d"
+    },
+    {
+      "path": "dist/assets/pda-login-CmHSAotD.js",
+      "sha256": "905d158de7bad2514b8a7e4f50c6a428e3b4cc5b2c4e41031e98eb281bbfb415"
+    },
+    {
+      "path": "dist/assets/pda-notify-C2uth6Ie.js",
+      "sha256": "c8dfff13e427784a2ed2c0444a1d53e4780238328c1eb3e2424ef0817e6398ef"
+    },
+    {
+      "path": "dist/assets/pda-notify-detail-C06Dkmpt.js",
+      "sha256": "13e919c30f3fb68354f06c3475a77ea56021e0b9665bf2d1b75e5cea4f9ed84e"
+    },
+    {
+      "path": "dist/assets/pda-notify-due-soon-B2hMwfFO.js",
+      "sha256": "80cfe96699c8fe89dd79d4f38e82a21a33aab94172d817628f13352b67b024cb"
+    },
+    {
+      "path": "dist/assets/pda-onboarding-C4I9OSC_.js",
+      "sha256": "b0819d0699939744fc792c2337819e226692149f0860059fcd7fcb4627a7b0be"
+    },
+    {
+      "path": "dist/assets/pda-post-finishing-flow-Dnia9-88.js",
+      "sha256": "c2fec7e664cf4991b2eb7ffeac75ec098fca12410a27fd5eb8a1cadf14e3efea"
+    },
+    {
+      "path": "dist/assets/pda-quality-BRl1U56A.js",
+      "sha256": "3ce1ffabe28ee7a7ffca9bf4ccb43eb2aab44e4c97db829a68807e3ad5132cd9"
+    },
+    {
+      "path": "dist/assets/pda-runtime-DFUAfyNF.js",
+      "sha256": "2bfbac68205c7e23bad57fa11f46fdafc9e6ad6106506b8bdabac41b1eb17f1e"
+    },
+    {
+      "path": "dist/assets/pda-runtime-DFUAfyNF.js.br",
+      "sha256": "48c45408f1e65406bdb8fff39fd95b885406a2f3cc00633efd0dd623068e9f95"
+    },
+    {
+      "path": "dist/assets/pda-runtime-DFUAfyNF.js.gz",
+      "sha256": "13283a146ec52ed82aabe872cbf918d44b0173b4149b687faa84b834fbd6111b"
+    },
+    {
+      "path": "dist/assets/pda-settlement-BzLXysCy.js",
+      "sha256": "c86898b2efb971b31eb3929c8b1c92c82e1d7b8284311fcff1499b9776bc34fe"
+    },
+    {
+      "path": "dist/assets/pda-sewing-self-return-Cxlkwzbj.js",
+      "sha256": "8d297e5a8f4d14f98c5ce2c0b40e26d9d0b8d45ecd79b1029fdfa82997119c1c"
+    },
+    {
+      "path": "dist/assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+      "sha256": "79c7418eb1d2cc2f99022b5130010378765b18a9e84eb85b33db1c74d9c513e8"
+    },
+    {
+      "path": "dist/assets/pda-sewing-self-return-mode-CVT5AEl1.js.br",
+      "sha256": "eccdd7f298654c5aead1aace3a020a0eb34144ae5bd911e4c095a3035512be18"
+    },
+    {
+      "path": "dist/assets/pda-sewing-self-return-mode-CVT5AEl1.js.gz",
+      "sha256": "56cbd675ad53c7631661dc6a94866e562f0c02f2ea361ce6b5d41698a06589ce"
+    },
+    {
+      "path": "dist/assets/pda-shell-AMo9PZHT.js",
+      "sha256": "80641ef93752960144e7a55ac5e61c33bd9ad8d3b143c29d3ea560e59f1c6154"
+    },
+    {
+      "path": "dist/assets/pda-shell-AMo9PZHT.js.br",
+      "sha256": "8b11272d1e2f20f6f32066a0acdd3899c1b5ae72e4f1ae0b1a1f600c0cac7220"
+    },
+    {
+      "path": "dist/assets/pda-shell-AMo9PZHT.js.gz",
+      "sha256": "82e2e7ff63f406fea59a81bf476aad38d3dcf2998cb09e12d4cb41afa20cf2b4"
+    },
+    {
+      "path": "dist/assets/pda-start-link-D1cWMGr-.js",
+      "sha256": "c56c62b4b419f35d15958a45decb16c392384d864cc2cce830ddea73a91cd402"
+    },
+    {
+      "path": "dist/assets/pda-start-link-D1cWMGr-.js.br",
+      "sha256": "f86a6755f465c16cc6a94e9c0937133b52b42a160c64aa12a97dcb26fa0a5183"
+    },
+    {
+      "path": "dist/assets/pda-start-link-D1cWMGr-.js.gz",
+      "sha256": "4ab25e05642b7d8663b027b462b02689c72fc62970e8921040865da741832234"
+    },
+    {
+      "path": "dist/assets/pda-task-receive-CyYyhynK.js",
+      "sha256": "259acd7e2ce5efa73f19c5d53ff75630f2262c32ec85bd3d9e2bed8a770f59db"
+    },
+    {
+      "path": "dist/assets/pda-task-receive-detail-BFUAUYq7.js",
+      "sha256": "73fa1cb69ef612c6f7f3c4da7b64b17e80723bbd7772feee98d9d691dd26745e"
+    },
+    {
+      "path": "dist/assets/pda-transfer-bag-detail-CrJ_1nZ0.js",
+      "sha256": "752da595c2ac968a174b8ebd302abaa50683f87b5d22915d68b84d4206dce640"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-RgdmbU7y.js",
+      "sha256": "c5728af7413c4ec206e0f0ed295629fb44be9ef70f83df5d720beee5e2a564c3"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-inbound-records-CrKWBXRM.js",
+      "sha256": "10eaf30cbf10b9efdaf90543e0025a8521f0b77a3bf1be91e84890cdf46644d0"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-outbound-records-M4OoIqJg.js",
+      "sha256": "164f082b9c0e8f2f604dee81c5d11ac417c4c83b2562a6a1e89c8d99b05e4c94"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-shared-DCHGlmMy.js",
+      "sha256": "ffa98e9796f62fbe88fcea2ee78bd79f03439554a83e920e95d7c87c013836f6"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-shared-DCHGlmMy.js.br",
+      "sha256": "3ac40d5d337f6e87041353331e3a90c780df14183de6ae0c547432f8879666f9"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-shared-DCHGlmMy.js.gz",
+      "sha256": "8b8a9df90fc29cf16e11b584dddc478d53b6be5d786341489765f4f87cbf6ad1"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-stocktake-CFZG96Gl.js",
+      "sha256": "2a46a5154f752676f1d1f044638da61d2369566c791a6c97a170bbe1ac33a8d6"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-wait-handover-KgPmplD6.js",
+      "sha256": "59b8a4ad7a05a66a7a975f9202ed2e1ef55e132b04525548bb620123ecbd6fa4"
+    },
+    {
+      "path": "dist/assets/pda-warehouse-wait-process-CmMGqb2G.js",
+      "sha256": "c45cb80a2426bb247e7b02c731528fc825e8248378dc24e6786d39649267e5c6"
+    },
+    {
+      "path": "dist/assets/pda-wool-fact-execution-B3ECRytN.js",
+      "sha256": "4e6bd3067f9e64176b244deba2df679c79b762890b88ca318a056ab28f351065"
+    },
+    {
+      "path": "dist/assets/pda-wool-fact-execution-B3ECRytN.js.br",
+      "sha256": "4bc46c2c429bfd072c4bb0c77c2f39bd7a0593da5fd458aeac41051b7a200da6"
+    },
+    {
+      "path": "dist/assets/pda-wool-fact-execution-B3ECRytN.js.gz",
+      "sha256": "6b9cf7d83036f73263c7201d9ccbb45e8adb83b568d0c762dc4f507be4b83f4a"
+    },
+    {
+      "path": "dist/assets/pda-wool-warehouse-flows-BuDHDWuR.js",
+      "sha256": "633b4b61bea1fe9c4df8c5d304d521cee448e417f3c9673309e6b5d6cb47cebb"
+    },
+    {
+      "path": "dist/assets/pending-receipts-B33aShp-.js",
+      "sha256": "9dc6802dc74084e4d2069e27bddef6c2bebd82b093c812eda2febbe2b5689434"
+    },
+    {
+      "path": "dist/assets/pending-receipts-BJLjJtP1.js",
+      "sha256": "bbd79d24822307d251c8ae40f05277ba32a4b221ba49ac68182b9430a4b7bd33"
+    },
+    {
+      "path": "dist/assets/pending-receipts-BZzB9mUY.js",
+      "sha256": "d78826aa53004748668b3a3c384a9aed67723687466b6c8a65e6865ade555e14"
+    },
+    {
+      "path": "dist/assets/pickup-management-list-C9f5NyTk.js",
+      "sha256": "6495d620c07f235fbb1a6afa55de6d40d0cf18a37e0bb70c27d33ffd387bda10"
+    },
+    {
+      "path": "dist/assets/pickup-management-runtime-i5AxxRda.js",
+      "sha256": "a8484d3562633fc34f8fe9c1aef3d80060817a7e0cef5c4858acdc3e54c5dacb"
+    },
+    {
+      "path": "dist/assets/placeholder-Db96AsYD.js",
+      "sha256": "5e754b93e418e99e2e8e9798e492ede545727639dfa616b852cf04c64a782b9e"
+    },
+    {
+      "path": "dist/assets/platform-process-result-view-DMElb_QR.js",
+      "sha256": "0f57fe5423e9a8c29f9d4bc482a44ad993bfd8348f2a6f0ac78887bfcfa3c9df"
+    },
+    {
+      "path": "dist/assets/platform.adapter-BTh5OhUc.js",
+      "sha256": "cac71707c5efa88b906ef14dde024e0a92f55e1aa553696b0bfc35295ecce098"
+    },
+    {
+      "path": "dist/assets/pms-excel-import-DnMCWv6B.js",
+      "sha256": "d64da46253d56e75b52cd4d237d6def47bf725581efc7d1001f4c0bf81ba8036"
+    },
+    {
+      "path": "dist/assets/pms-export-CRZxW7LK.js",
+      "sha256": "03bf7f9b95e049d32c8d02a7a48cff9507648bd2fccfb5f2134014417770f331"
+    },
+    {
+      "path": "dist/assets/pms-handlers-CRZrj8QT.js",
+      "sha256": "c45efa250bb68f0d55b11b02960a23013fd690e66b66a2e22c58396384445d80"
+    },
+    {
+      "path": "dist/assets/post-finishing-current-read-model-KkdEcPfp.js",
+      "sha256": "bb287dcd61bf0af8784b9819f4c71582dfe6cc13ca12b84f815306ca0d3bfd74"
+    },
+    {
+      "path": "dist/assets/post-finishing-current-read-model-KkdEcPfp.js.br",
+      "sha256": "03897aeb839f6624426741d8b06153a73b13ed9c81bf038697ee440c5722ff16"
+    },
+    {
+      "path": "dist/assets/post-finishing-current-read-model-KkdEcPfp.js.gz",
+      "sha256": "bc8397889352d6b4b25d144ae07e0dc95e6d1dacd995ce1098925575b09ba914"
+    },
+    {
+      "path": "dist/assets/post-finishing-full-flow-B9rDf5AW.js",
+      "sha256": "6a2df2683a4faba97e6372392be2e44c4166c755bcf90f514e37c3fd3b41c4fb"
+    },
+    {
+      "path": "dist/assets/post-finishing-full-flow-B9rDf5AW.js.br",
+      "sha256": "5ff8f33d345350467074751e1df9f09396ae450b2c6278f8ec81f963b10fc692"
+    },
+    {
+      "path": "dist/assets/post-finishing-full-flow-B9rDf5AW.js.gz",
+      "sha256": "bc643dd8c13c468ccb6badc62540ebd07008488e7818a5e8ffe543839de15d2d"
+    },
+    {
+      "path": "dist/assets/post-finishing-qc-print-template-2A6aSXGd.js",
+      "sha256": "2b6568252c0b4b94e405554f57cf84cf6ac6bbede2cbe3239deca788201e3045"
+    },
+    {
+      "path": "dist/assets/post-finishing-spu-technical-parameters-7ZT1ykOB.js",
+      "sha256": "edf1c5f2ba1f90c994c4e069f2dbd2abf9a9967dbfae0259f5370ee2e5926224"
+    },
+    {
+      "path": "dist/assets/pre-settlement-ledger-repository-Bl9fAlNc.js",
+      "sha256": "16902d69e6278fdb726ef6fc86e56050adeb9cfd303e7806f2504dbcbef30803"
+    },
+    {
+      "path": "dist/assets/preparation-material-receipt-sources-D1wHTH0x.js",
+      "sha256": "05ea622316fb1869088ee2b27bded10d8251153cb76e6944de265948b68e2382"
+    },
+    {
+      "path": "dist/assets/preparation-material-receipt-sources-D1wHTH0x.js.br",
+      "sha256": "06cff88dd28d03dcd079f2a1402c9eaf619a800a2f79faf76b3f3d3b338e8933"
+    },
+    {
+      "path": "dist/assets/preparation-material-receipt-sources-D1wHTH0x.js.gz",
+      "sha256": "595585985e87447bc0881aebfb08702888718e2b6ada2319e5914fd004f795c9"
+    },
+    {
+      "path": "dist/assets/preparation-timing-CK4NfAzt.js",
+      "sha256": "ab7d18e799f4ebdab0fa414e64a8453f6dd6cd3dd000a39f62226a55dfad40b3"
+    },
+    {
+      "path": "dist/assets/presentation-BhAoMR-0.js",
+      "sha256": "c5e6b0d99134de16d201c290ee61551c7ce97bddacc88b8c2e61b4767387b603"
+    },
+    {
+      "path": "dist/assets/print-preview-Brj2-P3A.js",
+      "sha256": "bdafa89aaa9272d1c44097bddb13f1574d31af43c47a74aabe5c0aba020b4891"
+    },
+    {
+      "path": "dist/assets/print-service-CyrwQfQw.js",
+      "sha256": "2e31cebee2a6008b546807a59c1df3da600ee42338d58525b75e2a1ab6810489"
+    },
+    {
+      "path": "dist/assets/print-service-CyrwQfQw.js.br",
+      "sha256": "615487981c0c7b66a8b0bbb07605c1dc186e47bca98b068dd8cbd46855046362"
+    },
+    {
+      "path": "dist/assets/print-service-CyrwQfQw.js.gz",
+      "sha256": "342bb75c524d9b9fd150b927f9dab341c3fc0efce4147bac3a078dddb5379343"
+    },
+    {
+      "path": "dist/assets/print-styles-BjQBw8jj.js",
+      "sha256": "2222d0c366d459d919b2ea15f0f395f0c7ecb5ba15bd53a93d7df3cd46977f34"
+    },
+    {
+      "path": "dist/assets/print-template-registry-DCZmvaCO.js",
+      "sha256": "ce1ab3ee701f9dbf36c8d4bea1920480a810e74324f60b5cdd4e11d06bf377cf"
+    },
+    {
+      "path": "dist/assets/printing-T5wVQklo.js",
+      "sha256": "1dd9e829aeebc2e335010e593dbb3ae9ee914bc69901802280facff09d3496bb"
+    },
+    {
+      "path": "dist/assets/printing-sheet-preview-DqYu4Dhi.js",
+      "sha256": "d4277e57d885feb641a43786f109311c66cd9ba91ac736bbca1dd321ccb4a028"
+    },
+    {
+      "path": "dist/assets/printing-sheet-template-CQRyiPVs.js",
+      "sha256": "61c86d7a95dddc6631930d4c16f47e2706531c574f9495fa74387454e80641d0"
+    },
+    {
+      "path": "dist/assets/printing-work-order-template-vFgFI9Rh.js",
+      "sha256": "52dbf3c5fc5056f280a6afb48039606e66f77ff24a77f9ce6fa6fa3b12cb139a"
+    },
+    {
+      "path": "dist/assets/process-action-writeback-service-i8PMgLWN.js",
+      "sha256": "47d1b2fd488c22e23f586873dd3a3792a004e986c77c31bc1cb431d06f1b31ec"
+    },
+    {
+      "path": "dist/assets/process-action-writeback-service-i8PMgLWN.js.br",
+      "sha256": "c5ea04452871c8eba47de51224ddf4e1d7f7d8318f6427335d38c2be66b7d0e5"
+    },
+    {
+      "path": "dist/assets/process-action-writeback-service-i8PMgLWN.js.gz",
+      "sha256": "33633e66a0545cf2d6c1cf97620142937f9d0b3fe66d9d4a317601320a0a1144"
+    },
+    {
+      "path": "dist/assets/process-domain-DxpeHB_x.js",
+      "sha256": "203bf4d24afb837f359f86dcc61a1739e035f67b91042e1b0244b51e5304466c"
+    },
+    {
+      "path": "dist/assets/process-dye-orders-BE6wOwbb.js",
+      "sha256": "fc21c900b57b817f03c79b444553538f91bf99818ea7c52767970d1638a35b96"
+    },
+    {
+      "path": "dist/assets/process-mobile-task-binding-DgArYKzq.js",
+      "sha256": "f7e4980679a4093857655475de02b8fc71ff9d59d98595e75194fb3c53dcfac0"
+    },
+    {
+      "path": "dist/assets/process-mobile-task-binding-DgArYKzq.js.br",
+      "sha256": "502fc816ed58cd5c5ecc49548b9ef0b4b77bcdd75242a852730fccf90c433ee8"
+    },
+    {
+      "path": "dist/assets/process-mobile-task-binding-DgArYKzq.js.gz",
+      "sha256": "e88e5d84e721bea1d156d99a255a4af1ac0d857335dc0796daa687a7235d6687"
+    },
+    {
+      "path": "dist/assets/process-order-list-controller-DydDeG-h.js",
+      "sha256": "41dc8c0f21698098d47ce3dfd65132b30952f5d23ba12b3529c02dc02ed0d04d"
+    },
+    {
+      "path": "dist/assets/process-order-list-presentation-uk1TIisc.js",
+      "sha256": "0f3852d7c83bd739e28ebe7303dd592de756a397b2c033ecf41f3be03258020d"
+    },
+    {
+      "path": "dist/assets/process-order-task-links-DK5i33Ig.js",
+      "sha256": "ef36d557c3f4c16b9f2ea0450485528cc5f14d785b3d5490deb5f7fab8863102"
+    },
+    {
+      "path": "dist/assets/process-order-task-links-DK5i33Ig.js.br",
+      "sha256": "7f6c863f6bec40ca991d3c68ab8b1dcef2c133c37914040026cbe0bca96e34af"
+    },
+    {
+      "path": "dist/assets/process-order-task-links-DK5i33Ig.js.gz",
+      "sha256": "f69533a2cef8dd1fbf9e1e2a6d2ef81dec1b21a728a965005d2dba73035e3338"
+    },
+    {
+      "path": "dist/assets/process-order-task-relations-CnlyJuI5.js",
+      "sha256": "7a56e8a3cce1d1a2cd87c0aa70ce0ded327aabe42dbd8bd9f2cb637226a71f6e"
+    },
+    {
+      "path": "dist/assets/process-order-three-axis-view-SEN4WFwa.js",
+      "sha256": "b04454f2924fc5e5240d1f95660cd7f8c789cab2a831d0b5a164855ff7fb0401"
+    },
+    {
+      "path": "dist/assets/process-order-three-axis-view-SEN4WFwa.js.br",
+      "sha256": "e1f6a9c5ccf112a5db63f283667907abadc1a2902b5f6f43c87b9ee1d44af60b"
+    },
+    {
+      "path": "dist/assets/process-order-three-axis-view-SEN4WFwa.js.gz",
+      "sha256": "9655097f54e70db700fb19b86de98e692decf5a2b83a378ea8ae81d5ff8281c8"
+    },
+    {
+      "path": "dist/assets/process-print-orders-CNo8poW1.js",
+      "sha256": "a4d4dfb90d3d81f3fd4579210755d5cf8ec8ea7775b8e2aa5a1a9562d89ac19c"
+    },
+    {
+      "path": "dist/assets/process-statistics-domain-CmAGagyX.js",
+      "sha256": "5f00ab0269f33d5bc6c46c15deb22955ceefb1fc1ac5338aca811f582af24c45"
+    },
+    {
+      "path": "dist/assets/process-tasks-DxQz0R9K.js",
+      "sha256": "943dcd6d4f9a007e8f1f9aa6ba2e4a12b8e42988a6cfc80ff6237197407cd9e7"
+    },
+    {
+      "path": "dist/assets/process-tasks-DxQz0R9K.js.br",
+      "sha256": "b6d7b21897ed681af61313a5a3768d3110ed46862a6f72ee3c649fa365da3d99"
+    },
+    {
+      "path": "dist/assets/process-tasks-DxQz0R9K.js.gz",
+      "sha256": "c9941eea24f359cf3b1d1cd551a3e95ef376f7054027170389c81d1987948170"
+    },
+    {
+      "path": "dist/assets/process-warehouse-domain-BkTK7t77.js",
+      "sha256": "11a107dd1ef4a26993d594e4208d85279ddfe929ef5190e9a57dca6b16d68efa"
+    },
+    {
+      "path": "dist/assets/process-warehouse-domain-BkTK7t77.js.br",
+      "sha256": "1eef6595fa5e98617ef0138c6061d903129ffce78d5559e856268e8921452ae8"
+    },
+    {
+      "path": "dist/assets/process-warehouse-domain-BkTK7t77.js.gz",
+      "sha256": "e4646f3a7fcba69d6216f098fec57504a992e62e5d9e864200b7d1c8e688cce7"
+    },
+    {
+      "path": "dist/assets/process-water-soluble-orders-BV98IyuU.js",
+      "sha256": "7087bd8158ff443ba27850e35ce7d8b964f6234d6c9b7058920011f792ee2684"
+    },
+    {
+      "path": "dist/assets/process-web-status-actions-BKa0pjfS.js",
+      "sha256": "732bd345a39ecb1dc6b2a4911ce64b425cd7076bec28b397a26da9ad2d8b7e30"
+    },
+    {
+      "path": "dist/assets/process-work-order-generation-service-DNHWFGgs.js",
+      "sha256": "975f24408d08fe4a0d4a7134452963635427279497bc5553d1e12c63a9be8c4d"
+    },
+    {
+      "path": "dist/assets/process-work-order-quality-settlement-DdlGSd0c.js",
+      "sha256": "0258c3602e4e13f69c7a4d00f6a97aafa17bb1a2b363b27101df2c71adde869c"
+    },
+    {
+      "path": "dist/assets/process-work-order-source-view-DiMGFXC4.js",
+      "sha256": "fcbcbd375dda85e84be4bc00a9ac165d537aeab2094447d8c9ec4e1d8c27eedd"
+    },
+    {
+      "path": "dist/assets/product-purchase-orders-C2AR17i1.js",
+      "sha256": "71c6615e5a29721b562055dc7b1d7847d947b7ab29071d63f68cdd98adfc8031"
+    },
+    {
+      "path": "dist/assets/product-purchase-orders-DIMg_xft.js",
+      "sha256": "a1792ab8f1c131e8fc27c358820c368aa7718359cedd94705cc9f58ab6e72007"
+    },
+    {
+      "path": "dist/assets/product-skus-CEt6Fukj.js",
+      "sha256": "6d6c3585abe94ec48f37ddbd6228a525f866d541b997606859877cc0e2ae28b8"
+    },
+    {
+      "path": "dist/assets/product-skus-CjDgBKW-.js",
+      "sha256": "80421966040dfa0e09319fa80094a321d90adb8662e13df9bd93c2b05e2fa59d"
+    },
+    {
+      "path": "dist/assets/production-D_-VyVGW.js",
+      "sha256": "77383f7d72d6d636ad76a96e764807d78960f3b6adebf3ccb61c5d5e8cdc8b80"
+    },
+    {
+      "path": "dist/assets/production-confirmation-DyreQ6yy.js",
+      "sha256": "cbfc1dfc3c0eba073f551c9cfa7d7bc68971d3845c146095f3d1fa2d83adc8a9"
+    },
+    {
+      "path": "dist/assets/production-context-actions-BlaWQ4pE.js",
+      "sha256": "fc2837524f81b23c5d8dd3cbebfe6ac75011b6152d81fc82c3af60e8017db28e"
+    },
+    {
+      "path": "dist/assets/production-context-actions-BlaWQ4pE.js.br",
+      "sha256": "fc362d71f9c571afb6d9023caf664da270874c53fea42c5e4ba31e1812961bd5"
+    },
+    {
+      "path": "dist/assets/production-context-actions-BlaWQ4pE.js.gz",
+      "sha256": "be5747744867d18cf0484d58b1c9376778ca015c699698d7475c41a8201d6cce"
+    },
+    {
+      "path": "dist/assets/production-context-records-D5Le5JbE.js",
+      "sha256": "aa88856a26010c8139eb05c1f503d97ea03cd412430c5b57a7a74b75515326d3"
+    },
+    {
+      "path": "dist/assets/production-context-records-D5Le5JbE.js.br",
+      "sha256": "d9eda59f3cb7406fc1510a69e0b726d51a50521019323e05839c73cbc66f9c5d"
+    },
+    {
+      "path": "dist/assets/production-context-records-D5Le5JbE.js.gz",
+      "sha256": "61e0440b36e51716afcbf7021aa52beb8e4020550a134ae36e3b3002f050b84e"
+    },
+    {
+      "path": "dist/assets/production-context-recovery-CTzBwDlF.js",
+      "sha256": "84319692b5998db0544b63945718abf075d0f7d936c445254d13ae773f6c9679"
+    },
+    {
+      "path": "dist/assets/production-contract-center-D0wtEaW6.js",
+      "sha256": "eaf417093778f5529cbb21ca78f3fd431a9b45414ecc93a99623cc71ccd69e20"
+    },
+    {
+      "path": "dist/assets/production-contract-master-template-B957I2uc.js",
+      "sha256": "693711b0ea79e3dc8f36a16e90144342af28e52f05335d86b029d20c444e029a"
+    },
+    {
+      "path": "dist/assets/production-contract-print-CHR7VtAN.js",
+      "sha256": "0300df331454d2eae4ad449daa26c848047ebf1172ee0545b926c22cb5d78196"
+    },
+    {
+      "path": "dist/assets/production-contracts-cSUGtSBs.js",
+      "sha256": "9d8d9a70f51076eb36bcdde99992ea42cf2440e1725854369cb07fb33b019886"
+    },
+    {
+      "path": "dist/assets/production-contracts-cSUGtSBs.js.br",
+      "sha256": "44a4e3f46eb1ac498fe943bc171983bdcd101052df3cec216e6ac7b7c0357f16"
+    },
+    {
+      "path": "dist/assets/production-contracts-cSUGtSBs.js.gz",
+      "sha256": "f2939bf3dd4e1641640e5e912519ee71628fed22acefb931b9194ffcd24d0690"
+    },
+    {
+      "path": "dist/assets/production-craft-dict-XhlR8UsB.js",
+      "sha256": "66ec8ee33b341193f0c66f034a77c31cb749f713b8d99e897d8ae7d8456b690b"
+    },
+    {
+      "path": "dist/assets/production-demand-early-process-work-orders-BGryWg0e.js",
+      "sha256": "ea4f20f1b4d5e6cb4958511c05b70bdb249b204e9e2c712da7cba5ece12eb8ba"
+    },
+    {
+      "path": "dist/assets/production-object-overview-C33PAmE1.js",
+      "sha256": "5d64ccfdbe62f022ee9f521e2782488db79a5a9c0fba86ce49d7ff6a486e5e85"
+    },
+    {
+      "path": "dist/assets/production-object-overview-KT6lPeik.js",
+      "sha256": "3d9e0a467a275ec25c23e6f79f7ad6e1acd7948da810d6884f34d5fe67af3deb"
+    },
+    {
+      "path": "dist/assets/production-object-overview-KT6lPeik.js.br",
+      "sha256": "57348fc53a2ed0d9c55f11b0a66e20dfa9b0444d9370d2959c5e733f9e687b15"
+    },
+    {
+      "path": "dist/assets/production-object-overview-KT6lPeik.js.gz",
+      "sha256": "747ba1995e17e2f53d44fb6a99d67e84acbcb5359672ebce8234bb2e15912d13"
+    },
+    {
+      "path": "dist/assets/production-order-duration-C4ULK17k.js",
+      "sha256": "8b04dd2992c508916cedfdfa9a048400f97d327a9e59f6b384aec721c9d2fe31"
+    },
+    {
+      "path": "dist/assets/production-order-identity-C02FYgZa.js",
+      "sha256": "f9d921192b54651956a9dac9b730fef39d0f52cb9f9f6a0ceafdde0fbaeb1930"
+    },
+    {
+      "path": "dist/assets/production-order-identity-C02FYgZa.js.br",
+      "sha256": "63515f1ea99b8c5d675eb3124ef1f00572f85fcd46612763580314f48cdaffe1"
+    },
+    {
+      "path": "dist/assets/production-order-identity-C02FYgZa.js.gz",
+      "sha256": "b9c2af1d901f6af0b37979b6f40a5c7e8a34cb7ecb4db3984f956b90c82037b6"
+    },
+    {
+      "path": "dist/assets/production-order-progress-tracking-CWwI0Tmw.js",
+      "sha256": "c60e29d5cb6a471c7d1c084ceea2114410da44954bc6bb02a831aad7152f3050"
+    },
+    {
+      "path": "dist/assets/production-order-tech-pack-runtime-CHfV4amT.js",
+      "sha256": "7d0c36e647a6d373bba2531545cbe3a7d731a39b5eba9ae5adcd3eed119f8946"
+    },
+    {
+      "path": "dist/assets/production-order-tech-pack-runtime-CHfV4amT.js.br",
+      "sha256": "39a1551e25a0a265338e5f7e00d9cc602ea26c3c379fdbc6ddda7976e856c467"
+    },
+    {
+      "path": "dist/assets/production-order-tech-pack-runtime-CHfV4amT.js.gz",
+      "sha256": "d4586adb78107550a80eb2a39d4989eb115e3cbdfa0aacf877bbdb33fa900491"
+    },
+    {
+      "path": "dist/assets/production-orders-DLMH6Qua.js",
+      "sha256": "ddf54c76f12940fddcada6eec87982444f4b09214008795dc875866d165b75a7"
+    },
+    {
+      "path": "dist/assets/production-orders-DLMH6Qua.js.br",
+      "sha256": "f88fa617533be27e1359957fde3382568dfe8fe2d4aaefed0c35495ebbae766b"
+    },
+    {
+      "path": "dist/assets/production-orders-DLMH6Qua.js.gz",
+      "sha256": "8fca9ec93ab9f323e1108019675e428874d70c1fd7673171dd171352c219ed98"
+    },
+    {
+      "path": "dist/assets/production-progress-WNp3jWsf.js",
+      "sha256": "f748f3af2e9673e6feecfb711d1a16b2cceff77163f216bf3128773e76de782b"
+    },
+    {
+      "path": "dist/assets/production-receipts-CZI6iQgd.js",
+      "sha256": "208558706c65a520ed7465c64b78b483fcb98e3a550f08502083ac0774b6ce4e"
+    },
+    {
+      "path": "dist/assets/production-return-fulfillment-Dbbgd9wc.js",
+      "sha256": "74d9a6961889f8875e473574978d46a5187f209395272e6a9ff6d602f8572220"
+    },
+    {
+      "path": "dist/assets/production-return-fulfillment-Dbbgd9wc.js.br",
+      "sha256": "6a833ba609ba2c1bc8b38472d4d26d2fb172d7ef28962af3087666b6e66faa42"
+    },
+    {
+      "path": "dist/assets/production-return-fulfillment-Dbbgd9wc.js.gz",
+      "sha256": "3dfef402eb3850db804a589b1633f72100a1e98e1539eb41836f4899c8ba6a96"
+    },
+    {
+      "path": "dist/assets/production-source-shared-Bj4b3XYm.js",
+      "sha256": "5bb87a741a8f18a0bbf30f2dac060524e510f6a724b98553cbf084d16667cde7"
+    },
+    {
+      "path": "dist/assets/production-source-shared-Bj4b3XYm.js.br",
+      "sha256": "4704ca8757572ac116c34a95aecc7b15aff0624f641240bb726d4ca76211daae"
+    },
+    {
+      "path": "dist/assets/production-source-shared-Bj4b3XYm.js.gz",
+      "sha256": "59894444ec80c360314d912329febb287b1572e8e9b3334c155501ba9e5b34c9"
+    },
+    {
+      "path": "dist/assets/production-tech-pack-change-domain-DccZ6tY8.js",
+      "sha256": "c4e0db73e45a130fdde6f4fbdd9369e8832e6c3d49f6c6458d40d7b61d392a65"
+    },
+    {
+      "path": "dist/assets/production-tech-pack-change-domain-DccZ6tY8.js.br",
+      "sha256": "953ca7317be0a8f7f41d4bced68de854618e398fba49df1ae77fd7408b41601c"
+    },
+    {
+      "path": "dist/assets/production-tech-pack-change-domain-DccZ6tY8.js.gz",
+      "sha256": "88aa7e23cae2e4e99912fdc3fb33fc65bf7efa9f0932980fc078de5df6e61380"
+    },
+    {
+      "path": "dist/assets/production-timeliness-Vff-2v5T.js",
+      "sha256": "2b45035b9dc2c6a0b950fdd1a28d32a7f92613bca55baf17d3649749a1152d81"
+    },
+    {
+      "path": "dist/assets/production-timeliness-Vff-2v5T.js.br",
+      "sha256": "ccec39ba6daadabc56f0959dba238faa0879ea772caca3fb5698e7add1d3fc3a"
+    },
+    {
+      "path": "dist/assets/production-timeliness-Vff-2v5T.js.gz",
+      "sha256": "c901a0b19bfca566beb6ede4f76199acf16b96c324a7f613bdfc2f6a3ef9acb0"
+    },
+    {
+      "path": "dist/assets/progress-board-Br5p2oRh.js",
+      "sha256": "a40544555a9903c35bcf0bbe2d8b679528a35a2d9fd09210824deb476cdc9e61"
+    },
+    {
+      "path": "dist/assets/progress-cutting-detail-7uc4ypJo.js",
+      "sha256": "a1c420a1ba06543c590a96489acc7aaace42c31d197d769e75b3a22530b65e76"
+    },
+    {
+      "path": "dist/assets/progress-cutting-exception-center-BkysRlcV.js",
+      "sha256": "f39b6c5248ad5fe7d6933aabc35a09310ad5e2a2dbc5586824fc32d8ae623ebb"
+    },
+    {
+      "path": "dist/assets/progress-cutting-overview-DraNBXBq.js",
+      "sha256": "192154050655bf55815a96b75cd93a0be2fe0c0a42fafdcd1931416f6f21f689"
+    },
+    {
+      "path": "dist/assets/progress-exception-lifecycle-BJx0gSBY.js",
+      "sha256": "9c7e053d57bb011a221be10e8aa2852d35fbea06b4d36e0b5ded3cb3f24deeec"
+    },
+    {
+      "path": "dist/assets/progress-exception-lifecycle-BJx0gSBY.js.br",
+      "sha256": "8dfa33f06426d5f4f39f86c9747df7b20635049641c4ef587f65c4416b811efe"
+    },
+    {
+      "path": "dist/assets/progress-exception-lifecycle-BJx0gSBY.js.gz",
+      "sha256": "4078a1456a26f38c5cf114d47dae0d13d180c01502ed356c0413c3433d347964"
+    },
+    {
+      "path": "dist/assets/progress-exceptions-DOJS5Ip0.js",
+      "sha256": "c06be63c8cf6b114356bade38843b2ed99861db27b1d94417efe7ed482f26381"
+    },
+    {
+      "path": "dist/assets/progress-handover-C8cJ9yt-.js",
+      "sha256": "925abda90d03a1f6845c8a54c18014819fd6d851bc46ee62502bab207efc5837"
+    },
+    {
+      "path": "dist/assets/progress-handover-order-D_Lzux41.js",
+      "sha256": "7516ac94e5afc141e92f3d8f79aa6e541bef13221e9c32ab1546d7a43089549c"
+    },
+    {
+      "path": "dist/assets/progress-material-BUR-6Z3E.js",
+      "sha256": "6e896bce480d02b4ca36476d30de7e2d73f913759d7dcb095dafb28dcc6d4f6d"
+    },
+    {
+      "path": "dist/assets/progress-milestone-config-BFw_1Yyb.js",
+      "sha256": "fb5871af4e80f3f178d1f86efa4dccb9fd9d915da13b36c01e2bc5c357b364de"
+    },
+    {
+      "path": "dist/assets/progress-statistics-linkage-CoSwhy4c.js",
+      "sha256": "de5199267a837ac48248310ffb6214780d033aafd5796461e9941180f18ef043"
+    },
+    {
+      "path": "dist/assets/progress-urge-oul2BmWk.js",
+      "sha256": "4adbd10811fe9510815ffa5230c34a38dbc74ba55a1d3ffea6ddf090c2f9ea62"
+    },
+    {
+      "path": "dist/assets/purchase-demands-BsiK769f.js",
+      "sha256": "62d820d3948513475ea97694346744cff474eb08c01bc558b6cd0aa1815fd5ba"
+    },
+    {
+      "path": "dist/assets/purchase-suggestions-CVpQLmRu.js",
+      "sha256": "fc35d0bd5868f9a4b21badc7539860a34bd5d5a98b3e591819aa08577a808fb6"
+    },
+    {
+      "path": "dist/assets/purchase-suggestions-Co2JhzBz.js",
+      "sha256": "5112bba252aea5fdae4cf72b4d1130c008153c163cc1e56d7fcb400d6e278675"
+    },
+    {
+      "path": "dist/assets/qc-orders-9AvJaH96.js",
+      "sha256": "c504bf61e13d21d5060b53113cd0091b267807c9b4ee97136cde5b1026d74b4e"
+    },
+    {
+      "path": "dist/assets/qc-records-aWYmJOZS.js",
+      "sha256": "f027ceeeeb38cfbdb17914054960b6ff098ee3f5fd74e8ab69ca8529506f1380"
+    },
+    {
+      "path": "dist/assets/qc-workbench-DUyzAK2X.js",
+      "sha256": "aecc74789f68aa7d911c9070d3a8cca5ce8b96775e62c66080494f1292a74bbb"
+    },
+    {
+      "path": "dist/assets/quality-chain-adapter-DmMwymgR.js",
+      "sha256": "850e525d9d84c31c7ac0b2a2fdf568cb5e8981ebbc908256810ecb14fc995e88"
+    },
+    {
+      "path": "dist/assets/quality-deduction-repository-CumkjhpR.js",
+      "sha256": "0a4e5fa01c7f276539aeaa29fff154f3c71429a43722a997aaaabd036265dac8"
+    },
+    {
+      "path": "dist/assets/quality-deduction-repository-CumkjhpR.js.br",
+      "sha256": "7fa833087f19f767c37a6ad9e27c08df3230c570b0c1d66960267ad19ab31fb9"
+    },
+    {
+      "path": "dist/assets/quality-deduction-repository-CumkjhpR.js.gz",
+      "sha256": "95045e3c7f06104400c89215322ab0d441985a40a925aef28146adf53d435a27"
+    },
+    {
+      "path": "dist/assets/quality-deduction-selectors-Cnvak1Nv.js",
+      "sha256": "669863153dd0266c9b002e9b046913533139344862654bc85f6de42fd4b532b0"
+    },
+    {
+      "path": "dist/assets/real-barcode-BHpCtURR.js",
+      "sha256": "94aff0e20b6694b2a0010640bced897f361e6c45e12b7bb7becd8dc4b37ad056"
+    },
+    {
+      "path": "dist/assets/real-qr-CPyuFUed.js",
+      "sha256": "15e6bed4f4963484cf588f71ab58496e7a06bf2c5a16e037edee92f08bfbfc82"
+    },
+    {
+      "path": "dist/assets/real-qr-CPyuFUed.js.br",
+      "sha256": "327add6ab55be294c76d3a447a371464b1553f84f8d63293b9fee569e9aebb05"
+    },
+    {
+      "path": "dist/assets/real-qr-CPyuFUed.js.gz",
+      "sha256": "a636139d9485fe55bd98dabb046fedfd736d9e33be77f75a7f97d627987e7774"
+    },
+    {
+      "path": "dist/assets/real-qr-placeholder-CKA4YXlP.js",
+      "sha256": "cf838f061395b7cfd305466bc15722cade0200ced406ec77d4f736e297d86834"
+    },
+    {
+      "path": "dist/assets/real-qr-placeholder-CKA4YXlP.js.br",
+      "sha256": "12b3b57532b84032e63f47ef7a3dead72f1bcf900477529a31e3b01f63b9f7f2"
+    },
+    {
+      "path": "dist/assets/real-qr-placeholder-CKA4YXlP.js.gz",
+      "sha256": "db86af9c27f57d24c421d3763288881432d7aa640592db0f34682ecd265da3ce"
+    },
+    {
+      "path": "dist/assets/recheck-orders-XlOrRwv-.js",
+      "sha256": "0298f21377f3ff1199d44ee3d4e25bb5a53f91ac5cb6f675b8bceadd3a2bf811"
+    },
+    {
+      "path": "dist/assets/reconciliations-D33eZazL.js",
+      "sha256": "852813ea7cc23e82b98dd508687094ae2ad8f2cea4b382779bf21e43a6af100c"
+    },
+    {
+      "path": "dist/assets/relations-_6fwvmuP.js",
+      "sha256": "3f2a9a72e933d05d85f625f01c204a25ec98bdc632cebe0b908456eb612f644e"
+    },
+    {
+      "path": "dist/assets/replacement-fabric-fei-tickets-DtBUNgLC.js",
+      "sha256": "b84229f9e20c2ba2ab2a280b228298c93b4275725424b6e9177db2978bd83bc2"
+    },
+    {
+      "path": "dist/assets/replacement-fabric-fei-tickets-ETZuScC4.js",
+      "sha256": "7c94a4d416dfbd089bef92b9c614bdb5b6f238a37858dbbbbb9f0cacb1d97e47"
+    },
+    {
+      "path": "dist/assets/replacement-fabric-label-template-DupTuYvo.js",
+      "sha256": "c9aaf08993ba57996be0637fd6d6e5943e3e0a996425e9b21a09f365597a3be1"
+    },
+    {
+      "path": "dist/assets/replacement-fabric-preview-CMIiU2Yo.js",
+      "sha256": "b0ef9d4ebc815c92bfb5b38baeda3b512a8ba4530cafa8389fc10e3df4be350b"
+    },
+    {
+      "path": "dist/assets/replacement-fabric-repository-CE6mR_RK.js",
+      "sha256": "41e79cb5174ee65bb659840933d383db787bc4068f15622d1d1b84327f4a9443"
+    },
+    {
+      "path": "dist/assets/replacement-fabric-scan-B4xRRHEU.js",
+      "sha256": "efbbf824a0f0d95c5765051fab8f10be1b35875502d7daad8c1beea5c45d8bae"
+    },
+    {
+      "path": "dist/assets/reports-BMwmd5xh.js",
+      "sha256": "296aafa600579d70c06471e44a68a54cca61f0e36cfde44bf60658937d9cfc02"
+    },
+    {
+      "path": "dist/assets/responsibility-transfers-fQrZbXEw.js",
+      "sha256": "8ce392f8d208de1e4ab4c5478050ef95c2bbf01978ee99cc9e2073bd709fd116"
+    },
+    {
+      "path": "dist/assets/result-list-B1lc6sI2.js",
+      "sha256": "74d6dcad74501c8e9da456ba781eef758aa8e9870813c450c45b72cb7efb52d6"
+    },
+    {
+      "path": "dist/assets/retired-cut-piece-pickup-history-DBvU-EMC.js",
+      "sha256": "bb11d0c57bbf62366a6f630b881995e4ccfa27393d093d8f5d4d10302de55927"
+    },
+    {
+      "path": "dist/assets/retired-process-history-CJUukX0u.js",
+      "sha256": "9074d7a6ebdc56c69206285c81cca12d52f4a8b50db825127a81215d2a97ecdb"
+    },
+    {
+      "path": "dist/assets/return-inbound-Ca7lWX8E.js",
+      "sha256": "043984be7034286834eff50f35b53b453c3990b63e2f943542c8d79966a44c6a"
+    },
+    {
+      "path": "dist/assets/returns-Cea_orZJ.js",
+      "sha256": "be423ba1f2e584618a09332ae74f9c9d85de183e21e64b11b5f37609961943f0"
+    },
+    {
+      "path": "dist/assets/routes-fcs-BuscjNT0.js",
+      "sha256": "c4ca6db0819da881391c625c3c82bfae919224a8e76ecaebb3c8d1c5c9470cb0"
+    },
+    {
+      "path": "dist/assets/routes-los-D0srOJDA.js",
+      "sha256": "364a5429fc416879ca10069b52d9b7a28ce9a321ffa6799ba18a9dbd90bd62f8"
+    },
+    {
+      "path": "dist/assets/routes-pcs-DiYCyWuN.js",
+      "sha256": "4ff0e9f351907707d3ebe5c435a0f3e9042b5e1256bd585d60cfcbecb6bcf42a"
+    },
+    {
+      "path": "dist/assets/routes-pda-Cly-i9JA.js",
+      "sha256": "c83e55e737a8e7506448c50834676d517afb002dc87f0d18c90cfe641d9580b2"
+    },
+    {
+      "path": "dist/assets/routes-pms-XMbPIBGA.js",
+      "sha256": "f7b67b3f78030c9d71802f867720467286128a0a6898876460a5a86366dc1186"
+    },
+    {
+      "path": "dist/assets/routes-wls-qU8BZafB.js",
+      "sha256": "33fc8c2536c0a9b6a4cd2c60c32618be264a9c8e4738540e0eeff852e91f2175"
+    },
+    {
+      "path": "dist/assets/runtime-inputs-CSo0Omqm.js",
+      "sha256": "c308c88fad615107bc8df70e249efd0154b07a7d9d9c342643f8b2841194e9ad"
+    },
+    {
+      "path": "dist/assets/runtime-inputs-CSo0Omqm.js.br",
+      "sha256": "031d3a1090acf1439639be676dd60cc3405b193d5c47a490564b8ecdffeedab9"
+    },
+    {
+      "path": "dist/assets/runtime-inputs-CSo0Omqm.js.gz",
+      "sha256": "817ed24787f031e753f8036add008560e278a85fa5986960b0833428d24f0881"
+    },
+    {
+      "path": "dist/assets/runtime-projections-BJ0xiUCk.js",
+      "sha256": "3953542d8187fb8d982361829f500a76f430b866371fc2a888267fa08be200bf"
+    },
+    {
+      "path": "dist/assets/runtime-task-tenders-YGz6fHpq.js",
+      "sha256": "c797da1ac5479391aca0ef7305967ffdc368011e52e323b84278639ff88e73a9"
+    },
+    {
+      "path": "dist/assets/runtime-task-tenders-YGz6fHpq.js.br",
+      "sha256": "43338b863ab3d6ccacb50aef4c84f6dbf58105b53e12b0d69ed9525d19e7bc65"
+    },
+    {
+      "path": "dist/assets/runtime-task-tenders-YGz6fHpq.js.gz",
+      "sha256": "11df493bb833a4791ffcbbac867b2ff15fe517c9e2bb880cf6c6b6c8eead9bb9"
+    },
+    {
+      "path": "dist/assets/sample-approval-suggestions-W9IKYQLm.js",
+      "sha256": "efac8a6fa191ff990880f6c59e5dfe8488c2edf6d85efa927ee197afe942815b"
+    },
+    {
+      "path": "dist/assets/sample-warehouse-7GhCjo5s.js",
+      "sha256": "0b55e18bfaf10eebb1828c2bdf767cf7672634e43ccc8a92b6c6ff5e260a8b48"
+    },
+    {
+      "path": "dist/assets/sample-warehouse-projection-BLrXOFzv.js",
+      "sha256": "24179953cf7442d87f05960784dd8aa6b0a05c1dc51d7d7b2fb904fcbdef91e4"
+    },
+    {
+      "path": "dist/assets/semi-finished-orders-BcEd89aO.js",
+      "sha256": "272123af04a8dec69f62ade04557247ccd0d4ab926fe19dc851129af41428ae1"
+    },
+    {
+      "path": "dist/assets/settings-B10oC3dS.js",
+      "sha256": "1a979a91b58526e73905ee6dce81ba1d498499ecbc59acc0a4dbedf366c99d45"
+    },
+    {
+      "path": "dist/assets/settlement-8J2iMuc1.js",
+      "sha256": "bcfd47d98db8c100c1de7f1646c9cc1d7300275125cb8e493bd6abf501c75c7e"
+    },
+    {
+      "path": "dist/assets/settlement-cutting-input-CryEcd7I.js",
+      "sha256": "5052c019f67748a5a9982ca49cf6b6ffc87266aa33d16eafebe595736881064e"
+    },
+    {
+      "path": "dist/assets/settlement-flow-boundaries-DbkSNas3.js",
+      "sha256": "41425f9d6e678cf347e7fe4cf3209193d0a8ae12ebe35b37ee0709d6d8e4e453"
+    },
+    {
+      "path": "dist/assets/settlement-linked-mock-factory-Cn0tOaZl.js",
+      "sha256": "170e2c5c2f768470d4244fec504bc409dd8557c54abe46e1ea874a7b7a388ea4"
+    },
+    {
+      "path": "dist/assets/settlement-linked-mock-factory-Cn0tOaZl.js.br",
+      "sha256": "d447710ae9d8871b5b7766f57cd082339950983bfd3a9f1f4324c1c425d718ef"
+    },
+    {
+      "path": "dist/assets/settlement-linked-mock-factory-Cn0tOaZl.js.gz",
+      "sha256": "7ed00727c2bfacbd1ff53272f4f604e4593f7bc7771491026da1a4a12cbdc933"
+    },
+    {
+      "path": "dist/assets/sewing-CH5t8v8S.js",
+      "sha256": "d9262f444cea780db4925d2f913376fd92ba3a0642213d1eec1066be4457fe91"
+    },
+    {
+      "path": "dist/assets/sewing-cut-piece-responsibility-DjUFylJS.js",
+      "sha256": "74591d6002cf90bfd93b60bb71848816da1c7885066d1a660c275f66a06822fa"
+    },
+    {
+      "path": "dist/assets/sewing-cut-piece-responsibility-DjUFylJS.js.br",
+      "sha256": "95d6436a84f404ba0497b57bde3cac82d6aa2ee6e8777268f3d83375fa2a307a"
+    },
+    {
+      "path": "dist/assets/sewing-cut-piece-responsibility-DjUFylJS.js.gz",
+      "sha256": "a174d8692c35861828706e57fd1c071f13cce57fb4baafc88aa170497f8b21e6"
+    },
+    {
+      "path": "dist/assets/sewing-cut-piece-return-workflow-BQgwYWpj.js",
+      "sha256": "3d7a2a988fd4145f6c32871507cacc4aba2f54ee024b6b4c62cd750a7684b7c5"
+    },
+    {
+      "path": "dist/assets/sewing-dispatch-COlKOgIn.js",
+      "sha256": "b7c4ad3117bb85921005f823fc0b5978ceecf8f6a7ad55b260417327bfc1c700"
+    },
+    {
+      "path": "dist/assets/sewing-dispatch-COlKOgIn.js.br",
+      "sha256": "423a7fd716c045372c91387646e5c1b2b50cca15749c2d6c9d92a3a9edbbbddc"
+    },
+    {
+      "path": "dist/assets/sewing-dispatch-COlKOgIn.js.gz",
+      "sha256": "414acbf80664097390a7fd893d4353c0106a8e2a951e1fa260d6ccdbb1991876"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-demo-c28S243D.js",
+      "sha256": "f1a42d2cbda520cf279ee523ff65f82b6e74044e615e2c193d1893f9e859b082"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-responsibility-BQeo3Eii.js",
+      "sha256": "4bacf4d4f939c3a38508dfa79c265a7ef18cd3eb4eff4129cc0ef96b10248ba4"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-responsibility-BQeo3Eii.js.br",
+      "sha256": "47def74afe0e6c005c913f35f5666b80c0b4e354e0b42c99d7c2cf1d1804347f"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-responsibility-BQeo3Eii.js.gz",
+      "sha256": "fc36fbb29cc5e7baf5a448c9305e26ac77a26ce710d80ae81cdb5b6c298419ef"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-return-tracking-DBXoiaSR.js",
+      "sha256": "5105df1c950394e37057c692c002383f60469be0bda013c782beab0aac837e8a"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-supplement-tracking-Bcimg_ad.js",
+      "sha256": "fd5ba72d0e7b6c8737c0a2643c491d47c331dddac46c42c79b7309609c39c9ef"
+    },
+    {
+      "path": "dist/assets/sewing-outsourcing-workbench-C29T0Bj0.js",
+      "sha256": "f0c0b74141c734c24afdda6be64fc46c18d442525e44e840128c90c18b0ec564"
+    },
+    {
+      "path": "dist/assets/sewing-pickup-slips-BZyZHbQP.js",
+      "sha256": "872acc4e2b9b8a9f0e89bc2a18631fb8a68c97f27e4d229364f8fee20fd071a5"
+    },
+    {
+      "path": "dist/assets/shared-CUDAZ_QT.js",
+      "sha256": "f26615bdb16d24f94b1a286559f2816508d196bfdb880cd6cb1cd9b1619a9fb0"
+    },
+    {
+      "path": "dist/assets/shared-CUlzvEfM.js",
+      "sha256": "64f767b3d13ef0bfff4561d05ea68e87b818e13bc4b67510d76ac3e46dbdeb6e"
+    },
+    {
+      "path": "dist/assets/shared-DKNBqneI.js",
+      "sha256": "93508f7899ae51c0b8d7c3d2e579eef1211937b9f532431f1ff12490221e6270"
+    },
+    {
+      "path": "dist/assets/shared-DaBS3Doh.js",
+      "sha256": "513f8dcce31e39290fd81491bfcbca94b1d22e41cef04f1a9d0ccf87df29ddf2"
+    },
+    {
+      "path": "dist/assets/shared-DaYxnu1x.js",
+      "sha256": "6d10c84e0796592b174507e718c8caf89631e176cafb37e340d04ecda7a8b5f9"
+    },
+    {
+      "path": "dist/assets/shared-mroQS0Hu.js",
+      "sha256": "f8e6e9dba77569dfd78bfe559935f1aa614ea12de067fd53188f026d2bc692d2"
+    },
+    {
+      "path": "dist/assets/shared-seed-CGi2rQR7.js",
+      "sha256": "c2ee6fb0595631b5b1bd2c64a63f6dbc86a560ee7f7bd644dd990e2a46e87b07"
+    },
+    {
+      "path": "dist/assets/simple-cut-piece-handover-fixtures-CcXXAN-i.js",
+      "sha256": "5a68c0d8b4e6c110216bbc3f2a4976dc602847a0b93fa31d2b2f9288f6192db0"
+    },
+    {
+      "path": "dist/assets/simple-cut-piece-handover-ui-lPCNDoR2.js",
+      "sha256": "38424a660d153c4c16f82c333d1748bea70a285968c2f8718e2ea45886650462"
+    },
+    {
+      "path": "dist/assets/source-document-detail-Bjdu4-Jl.js",
+      "sha256": "9aeac1bba9bb16f87802ae6e13e80abf9eb184359ca699c67b096f0426112962"
+    },
+    {
+      "path": "dist/assets/special-craft-pda-scope-CtmZCDsE.js",
+      "sha256": "8972cd91a47d014e37705c0d8f1d19786d6b00feb33242e2b8cdfdd19c2e3352"
+    },
+    {
+      "path": "dist/assets/special-craft-pda-scope-CtmZCDsE.js.br",
+      "sha256": "b4270b6dc63b5a2b2ef56e4237e0ba4b03b01d7c9b4cd2c418f4223b3e8685b3"
+    },
+    {
+      "path": "dist/assets/special-craft-pda-scope-CtmZCDsE.js.gz",
+      "sha256": "27cb94c1f1739981496c9ee8c02a5f67a1da6f155bc5ed3e7dfc52648c13081b"
+    },
+    {
+      "path": "dist/assets/special-craft-task-orders-DJhd2Og0.js",
+      "sha256": "db8728f6f0ea6ca2bb38fdc04042205835541a77be4c8f5abf8467c41c2dc698"
+    },
+    {
+      "path": "dist/assets/special-craft-task-orders-DJhd2Og0.js.br",
+      "sha256": "9c8e8ce30d03687b3711ef3fae423a3e1870a6467ac2aedd77900084578cfeeb"
+    },
+    {
+      "path": "dist/assets/special-craft-task-orders-DJhd2Og0.js.gz",
+      "sha256": "62c8ef3717c81d1a6c1fe60de8b84f388c8960cf821df7c6d4946dbfb241020e"
+    },
+    {
+      "path": "dist/assets/special-processes-DTdyrP16.js",
+      "sha256": "15c86a73bb55a202e85c82b21863111fd6c5a6c50ffce584ff7394e6d03d906f"
+    },
+    {
+      "path": "dist/assets/stage-display-Bl3rVURf.js",
+      "sha256": "775d3115beebd88d3ed2ae02220def259ea75b8fc2a1d00d157d020a09020942"
+    },
+    {
+      "path": "dist/assets/stage-display-Bl3rVURf.js.br",
+      "sha256": "f8ae1419ac681ca64559df8fef1f601553ad62e4fe8ea0078c04684512d540bf"
+    },
+    {
+      "path": "dist/assets/stage-display-Bl3rVURf.js.gz",
+      "sha256": "fcb848de952d437c3636fe140a07a2269c625ee9650ec7799fc16e07c10e49c1"
+    },
+    {
+      "path": "dist/assets/stage-order-detail-DtSBV1Zf.js",
+      "sha256": "6b7e6ac44657ad465304b3e79e7b04bc0b257b2ee27603e6c2dd01a2a9a1d1fe"
+    },
+    {
+      "path": "dist/assets/stage-orders-BDJrWTJs.js",
+      "sha256": "22e182834616963d0816983e936343ac0ca5814c16a57dad9d99cd2d1e884273"
+    },
+    {
+      "path": "dist/assets/statements-B6vLl9E0.js",
+      "sha256": "40eab64af4750b8f905445113cec4d40e48722a82adcbc64dd5b4e52b5a8521b"
+    },
+    {
+      "path": "dist/assets/statistics-3W9TU_vz.js",
+      "sha256": "f99cb1fa1e38f38dcaacc53c6f405a573178a0f3af5ed70fa7883aca0d5cb778"
+    },
+    {
+      "path": "dist/assets/statistics-C4ftakzH.js",
+      "sha256": "18f94a2964d4832cf861b568f80987fca48a29a455920eaa87c68aef19909f1d"
+    },
+    {
+      "path": "dist/assets/stock-seed-Cj8lLuwm.js",
+      "sha256": "1ea9a77d40b8f12edf45fa42954ad25c755decc265ebec735b211b624230d4e2"
+    },
+    {
+      "path": "dist/assets/store-domain-dispatch-process-hb9WBoGO.js",
+      "sha256": "703b5e4a5be8eae2ef85ebf0beee4cce574b59ae58c829027124366ffa4a24cf"
+    },
+    {
+      "path": "dist/assets/store-domain-pda-Bl4jkAiC.js",
+      "sha256": "94fad4cc05d804ac1d89dc4569cbfbc3be54e59a060f38a4b22f6dca124fd1e8"
+    },
+    {
+      "path": "dist/assets/store-domain-pda-Bl4jkAiC.js.br",
+      "sha256": "5cbc8103e5102a33aa9417bc1800de26d6aadf19ae83b64ef3efdff887ab29f0"
+    },
+    {
+      "path": "dist/assets/store-domain-pda-Bl4jkAiC.js.gz",
+      "sha256": "da09665deea4bf775511d81bf92ee31249307e38b299b57c236e0653734ad877"
+    },
+    {
+      "path": "dist/assets/store-domain-progress-CE_JU3oz.js",
+      "sha256": "c5880b0b1b8a4e729f50e74aef2c985344fb0a92228cf95b4408925c088415c3"
+    },
+    {
+      "path": "dist/assets/store-domain-progress-CE_JU3oz.js.br",
+      "sha256": "6fe55dc1838e19065fb90813b0be95f5a7576b3b10e0bcfc780cd7f3968e8122"
+    },
+    {
+      "path": "dist/assets/store-domain-progress-CE_JU3oz.js.gz",
+      "sha256": "0a2f1e765dee30d51ec85481eb1325a254ee326b909a8a090d428c6c969655e3"
+    },
+    {
+      "path": "dist/assets/store-domain-quality-bootstrap-J1qmOPoL.js",
+      "sha256": "64b9b28bc3bc38d18b6eb09e42d8813c1797b93482a87647e92a18c04bd257c0"
+    },
+    {
+      "path": "dist/assets/store-domain-settlement-seeds-B7faIwct.js",
+      "sha256": "a61408c5542d61b12abccb79f0cc83a57e260596876643d19e00bc93d36e5e45"
+    },
+    {
+      "path": "dist/assets/store-domain-settlement-seeds-B7faIwct.js.br",
+      "sha256": "78050c73a8185d8f9f2558832c60b9719f3e48db335fd486d1e89f12decfbc59"
+    },
+    {
+      "path": "dist/assets/store-domain-settlement-seeds-B7faIwct.js.gz",
+      "sha256": "a543f341905ba114326f861c5de1cfa9e282747d79f5ec5c3c2b6bd1e4a33a08"
+    },
+    {
+      "path": "dist/assets/store-domain-statement-source-adapter-BmOcm3Ke.js",
+      "sha256": "ae4d295e353c24aacac29cebfa85fee6ac6d03c791dde56ad098ecdc75621a99"
+    },
+    {
+      "path": "dist/assets/subject-operations-DvirrseX.js",
+      "sha256": "5f5dd6a97ca07828f0e988ec58c2c0cf08282fc0ffb1b2b79eafe8ac341dc1a4"
+    },
+    {
+      "path": "dist/assets/supplement-management-CAPGzmQR.js",
+      "sha256": "aeafadd8a31b98beab77083d2c1060445e35c48942b75c2d84a537b2894ae795"
+    },
+    {
+      "path": "dist/assets/supplement-material-prep-demand-registry-DI-N3DvB.js",
+      "sha256": "63462fcb6dea27116c79d872d3db523f3e108eae687e1504f727e12778ce7494"
+    },
+    {
+      "path": "dist/assets/supplement-node-facts-kF_ZPt01.js",
+      "sha256": "ac25077cda88b568210123e6666406222463158078617907ee3068c9e18fb374"
+    },
+    {
+      "path": "dist/assets/supplement-order-registry-CHnc7juB.js",
+      "sha256": "8b97ac8bd8b783a88b9812a78c9c5e0b8ffa3d53d5addc688494e5ac20910e40"
+    },
+    {
+      "path": "dist/assets/supplement-order-registry-CHnc7juB.js.br",
+      "sha256": "af81b032e6b2154264e81e0f19544305dc34b66e965a93028357062b20965be6"
+    },
+    {
+      "path": "dist/assets/supplement-order-registry-CHnc7juB.js.gz",
+      "sha256": "fbf6e68018ca56964c3d85ed1e438248565bc4cb043bf1520dd05ba30800d2d7"
+    },
+    {
+      "path": "dist/assets/supplements-_s-_0BvV.js",
+      "sha256": "bd1b54567c9a2b52ec8e39bd44f7d735809538d41b4c0b561c60613589c3019b"
+    },
+    {
+      "path": "dist/assets/supplier-confirmations-Bd8D62W3.js",
+      "sha256": "9c610b52335dc33f23d9ab16d47e724c2087e2366757b37cf2a7081c7c797af9"
+    },
+    {
+      "path": "dist/assets/supplier-confirmations-D_dtFwwg.js",
+      "sha256": "85247f3bf94f193c5a50f5e86ff3d5ac61af2d75717d0deab109a55ad3306a7e"
+    },
+    {
+      "path": "dist/assets/supplier-supply-archives-Bid-xGw5.js",
+      "sha256": "8eba881b026a7d1231604f577047ada3eca255c5c076ead0cdd6791a6a8fff71"
+    },
+    {
+      "path": "dist/assets/supplier-supply-archives-CHFLojSi.js",
+      "sha256": "e7ed6678363c74ac190ad9ff272cb29f9989bc8428f9b8fd8397aa77fc1ca9fb"
+    },
+    {
+      "path": "dist/assets/suppliers-DOxcttzm.js",
+      "sha256": "d995650f7ae45b7eb38307c58a7eefc0dce4eaf9e94f364b5a4fcd2b12da0c8f"
+    },
+    {
+      "path": "dist/assets/suppliers-FnARQKIL.js",
+      "sha256": "19121e3d0d7845474f1863d13ef366d9565606c3c3d85a9fad13e1f30f4dd319"
+    },
+    {
+      "path": "dist/assets/table-DkUvzy2A.js",
+      "sha256": "6927d0c6d589a98ec936620354fde0955dc9d66a1bc4160d9b8edfee45ed2d45"
+    },
+    {
+      "path": "dist/assets/tabs--aCvt7MO.js",
+      "sha256": "9d91086a38431bfcb7c62d6535a48f07a395614d7d7262d52baf234dd7c0b28a"
+    },
+    {
+      "path": "dist/assets/task-breakdown-CFO0D6ju.js",
+      "sha256": "dbe596b5c540f1f3d47705a9c3bf4f538dde90de9e7a88791253787436218c7f"
+    },
+    {
+      "path": "dist/assets/task-chain-pages-adapter-D7CL7hwy.js",
+      "sha256": "d4c6036d51093f57c51d043516603a75ec3338ff3f413be1d6bafe244ea6bb3e"
+    },
+    {
+      "path": "dist/assets/task-chain-pages-adapter-D7CL7hwy.js.br",
+      "sha256": "3282aff96ffde8909498b431e865e63d8e16c5cb70009272176c86441852e896"
+    },
+    {
+      "path": "dist/assets/task-chain-pages-adapter-D7CL7hwy.js.gz",
+      "sha256": "db08f53f1a9367840821a41214ba47ad39fa3d8e577cdc64134409b926dd3c5b"
+    },
+    {
+      "path": "dist/assets/task-delivery-card-P0PPhlJe.js",
+      "sha256": "79d66a87855e35e034d01ae736b022426b803ff920262169afbdbdb596635327"
+    },
+    {
+      "path": "dist/assets/task-detail-G-HgU0iF.js",
+      "sha256": "871924e0901dc0f352a73928772ec661a5458d4f81b770e67666b4d9afe9e0f1"
+    },
+    {
+      "path": "dist/assets/task-execution-adapter-BaNSlWUS.js",
+      "sha256": "0654ccb86571e1b782abf7ee5b024e808144d3ae8a2eb6a2ab16afdf643d9353"
+    },
+    {
+      "path": "dist/assets/task-execution-adapter-BaNSlWUS.js.br",
+      "sha256": "36c7dc50d03d4c4861dd33b881d68c372d95de0cf51feefbe8cd4797e586ebaa"
+    },
+    {
+      "path": "dist/assets/task-execution-adapter-BaNSlWUS.js.gz",
+      "sha256": "eba9aec5a09c4594620b1c40fc0aa7d68f4b1e8d1a6c0b8299bdf966680d286b"
+    },
+    {
+      "path": "dist/assets/task-handover-domain-DfY6KVQW.js",
+      "sha256": "2c930080d4afd42a9acecbf438fc7cf3956a6b7ae380efc9dc1054ba59ce2f7e"
+    },
+    {
+      "path": "dist/assets/task-handover-domain-DfY6KVQW.js.br",
+      "sha256": "95cb639612d95f94d126d4231d098ea0a52a1fe008eadf6a65a8e1eaf7cc5d43"
+    },
+    {
+      "path": "dist/assets/task-handover-domain-DfY6KVQW.js.gz",
+      "sha256": "36894005302cdca23257d19dfc8e64c05d783f83e5e50aab3914b27ad1f19fed"
+    },
+    {
+      "path": "dist/assets/task-orders-Dc73PLKw.js",
+      "sha256": "ee956e66fb848c3cc907eea844a547be245d85d8424739ae66c40f57403f53c3"
+    },
+    {
+      "path": "dist/assets/task-route-card-BIpA11vy.js",
+      "sha256": "04aa5b1882867ebfdc6380c0486ba563d58ccf5b97f8ea8d3004489408749241"
+    },
+    {
+      "path": "dist/assets/tasks-BQFbWCi7.js",
+      "sha256": "7e7cfef7464bb2a9bde8b6ab38322f8a9eeaa615a57b00ca4360bcc4833e6ce0"
+    },
+    {
+      "path": "dist/assets/tasks-Bp0mGp6M.js",
+      "sha256": "b36616a1f9d6dacf730e19396ec395e289e7069e0a12619c80f44c0a7d59c057"
+    },
+    {
+      "path": "dist/assets/tech-pack-7KCD4ywA.js",
+      "sha256": "8b486680b2a99f1df50ef906b200e175b0fb8aa27a2fae76b6d0f56abfeb4ddd"
+    },
+    {
+      "path": "dist/assets/third-party-factory-comprehensive-assessment-ClF5DniK.js",
+      "sha256": "52b0c1b6dd96f9d6249a8254cf5d7660631dfc3a3b7e84424b15c74c5330c7d5"
+    },
+    {
+      "path": "dist/assets/third-party-factory-rating-DrEaSxZF.js",
+      "sha256": "4a4c63593cda362194896c4b538e4764836831ea8692a4220e911f6bc52052fe"
+    },
+    {
+      "path": "dist/assets/tipping-form--77HBsyM.js",
+      "sha256": "fa9a0ddd7b579d195cde8b4c8d429f9ad6410368bcf8940834d24a3db6573f33"
+    },
+    {
+      "path": "dist/assets/tmf-base-demo-DoxZNeI_.js",
+      "sha256": "2acb7c7caa161de6bc817428bb8b13a44675ddc177e964efb8d0514dc2262477"
+    },
+    {
+      "path": "dist/assets/tmf-domain-shared-CsnEeaO8.js",
+      "sha256": "244726ed87d721f953e81f1fc443cb87853f782359d69f9ac0253daea36807e2"
+    },
+    {
+      "path": "dist/assets/tmf-domain-shared-CsnEeaO8.js.br",
+      "sha256": "93cf064ca35fa46a323bb7575afb7af44ceac46eeeb64acdeeacba2ec6eba7b9"
+    },
+    {
+      "path": "dist/assets/tmf-domain-shared-CsnEeaO8.js.gz",
+      "sha256": "22ade1fdaae962e7eb2c6bd822561563f85b62b8dd7c77fa41103108dc7ea5d0"
+    },
+    {
+      "path": "dist/assets/tmf-material-purchases-M8WcdVg9.js",
+      "sha256": "ed8e4e522fb06dc25cb41f972df6068940ddaa1f1e2e3c02892b18bb1700b70d"
+    },
+    {
+      "path": "dist/assets/tmf-process-continuation-B3hoPFRr.js",
+      "sha256": "113faba4c2c69e239cce4d2df80b3c2682eb9c1e1d703852b72064d17e713f1d"
+    },
+    {
+      "path": "dist/assets/tmf-process-continuation-B3hoPFRr.js.br",
+      "sha256": "0771e1a907dd439e1ecf1f17761822af55516e00f5b5c40bafa903b87044a93b"
+    },
+    {
+      "path": "dist/assets/tmf-process-continuation-B3hoPFRr.js.gz",
+      "sha256": "88e9b06279e45bdd1e3db4a71c948e47a8b9c7565fab068d6ccefaf9e9f5dd7f"
+    },
+    {
+      "path": "dist/assets/tmf-process-print-preview-CoMCCNkx.js",
+      "sha256": "3847a5f10c0dfc7e1417b445d7d7be8e8e8a13d5b22d3dc68c4cb84090a68a36"
+    },
+    {
+      "path": "dist/assets/tmf-process-sheet-template-Upwlmdhc.js",
+      "sha256": "0ceac75cd481fa7c1be3cc4b25ce575121d75d7494847bada711dacf9c4b71b3"
+    },
+    {
+      "path": "dist/assets/tmf-reference-images-6geKcU1B.js",
+      "sha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+    },
+    {
+      "path": "dist/assets/tmf-reference-images-6geKcU1B.js.br",
+      "sha256": "4c5eeb24139954e1af566e21a63d044ddff4e9c92f7369d63cae458fc5195c40"
+    },
+    {
+      "path": "dist/assets/tmf-reference-images-6geKcU1B.js.gz",
+      "sha256": "96e5e6d7190c112bb270bdddd0668aeb9f94044ace3b5a68cb0aada1be37a875"
+    },
+    {
+      "path": "dist/assets/tmf-upstream-process-orders-BtmxjpGH.js",
+      "sha256": "8e75edd3e78cf96623ae941206be8dcf93a68985efa494ceb5e0c121d53d582b"
+    },
+    {
+      "path": "dist/assets/tmf-upstream-receiving-TFheK5eI.js",
+      "sha256": "5b4cc415cb822f20ddf818d1df4a9fa892b8012f53b7a6451fde78791270f350"
+    },
+    {
+      "path": "dist/assets/tmf-work-order-view-cDokS506.js",
+      "sha256": "5f7eb8e1cf07be91fa436874aef76975e5581e6b67ea880553de2ea1d78b75a6"
+    },
+    {
+      "path": "dist/assets/toast-BXUvgm0t.js",
+      "sha256": "a18fa1a1259ee0e409fbaba84a1487bada073d07079421cecedd6e20e468de4d"
+    },
+    {
+      "path": "dist/assets/trace-CABPJH4F.js",
+      "sha256": "a3a6d68917b77875d450848cf898625617e51f5475daf6b019c82f8ac9b66533"
+    },
+    {
+      "path": "dist/assets/trade-subjects-B1U82DIE.js",
+      "sha256": "fb16a8c688161a392e7e6380c88223444d0afe27bda1c5d3a72cda19518e2a11"
+    },
+    {
+      "path": "dist/assets/trade-subjects-DTKvhtpA.js",
+      "sha256": "0a782da6803fecf8b49d6d72ecf7a672e843a022515515231765014cccf44b59"
+    },
+    {
+      "path": "dist/assets/transfer-bag-goods-label-BxwmjnDV.js",
+      "sha256": "1c1040dc11440d90eed9d10d9ffa308f11dd5d10c8ded5fa4d8badcfd82ea642"
+    },
+    {
+      "path": "dist/assets/transfer-bag-handover-mock-zPWmZLCV.js",
+      "sha256": "067b5756f0fee9d4cac4de393efcb336978b0316ec5c84a65b0f40d2dbd0d94b"
+    },
+    {
+      "path": "dist/assets/transfer-bag-operations-Q9lYlFRW.js",
+      "sha256": "c0696f53f281e1e8580c145231fb26be1b44d1ea8fd29a9f0dae0268800748ba"
+    },
+    {
+      "path": "dist/assets/transfer-bag-operations-Q9lYlFRW.js.br",
+      "sha256": "ffe7a1151ae1a98d39c4e5ff7250859a7a4201a69ee2a4671c5a0328ac903f76"
+    },
+    {
+      "path": "dist/assets/transfer-bag-operations-Q9lYlFRW.js.gz",
+      "sha256": "7d84411ba5aacf7544e9e33b8e1cd1a4a5d999c25c745e547d0416aa5172d0bb"
+    },
+    {
+      "path": "dist/assets/transfer-bag-repack-mock-CdZ5PuKT.js",
+      "sha256": "48d0dddcc06d54203f82349dfc8ca3d6b760e908fb246394e2cdb0ef6fb33fbd"
+    },
+    {
+      "path": "dist/assets/transfer-bag-return-model-DdWmWFBs.js",
+      "sha256": "cfb9ffe0462427ed736fa3b320499c3a1aaaa51a29a30f66d72af309860b7971"
+    },
+    {
+      "path": "dist/assets/transfer-bags-D7KVEu7Y.js",
+      "sha256": "e4e183abefa792b7f4b6386254444b52f00c36fb282ad906ce19eeed8baa5d76"
+    },
+    {
+      "path": "dist/assets/transfer-bags-projection-DtxDFTTF.js",
+      "sha256": "b559037e339bce82a580cd4037c4a0fd1551f34212fd5b487b9c1cf021d33e11"
+    },
+    {
+      "path": "dist/assets/transit-dashboard-BlCjddi9.js",
+      "sha256": "531296bf14e87b24b0e2f9a2a6f4e1cae7292ea8af60aa40b85965e2d3b7fc7f"
+    },
+    {
+      "path": "dist/assets/transit-receipts-B4YKHFoE.js",
+      "sha256": "a2498536d6fcb1db9cf06da7e20123a43c5186725ef490a86c88a54811095478"
+    },
+    {
+      "path": "dist/assets/transit-simple-lists-CcprulQS.js",
+      "sha256": "5cba66505e74f569d446cdd1d164e979810af02253fdff88f8928e97b3395754"
+    },
+    {
+      "path": "dist/assets/transit-warehouse-CGN4xIMS.js",
+      "sha256": "2e728e2097cb1872360b410f1c65529dbdec25219c196e02abb8ddeb6591fca0"
+    },
+    {
+      "path": "dist/assets/unified-dispatch-workbench-Dbp6qo1P.js",
+      "sha256": "dccd9f94ab40b49662427c7701f8bac7997e4dc56dabfe818536eaee4432d17d"
+    },
+    {
+      "path": "dist/assets/units-clzDucaW.js",
+      "sha256": "8939c9e131f048ade408ccd069982aae81bbd3b363c5a3165b4e3c44228918d9"
+    },
+    {
+      "path": "dist/assets/wait-handover-actions-BiKs7Tui.js",
+      "sha256": "bb98aba688e09344d7cc158a9ef54bf29e9a0bf1099018f085cdd1da99917dcb"
+    },
+    {
+      "path": "dist/assets/wait-handover-runtime-D9_U4KKA.js",
+      "sha256": "bec63595d1d7a47ffaa597ca89668d87dfced1a9db81e8dd7692da25a3c3d6ca"
+    },
+    {
+      "path": "dist/assets/warehouse-BK2My8k1.js",
+      "sha256": "5ea2dde9e65d2721e2ed687e16034144b9de11579075385df1a3ad311c0e115f"
+    },
+    {
+      "path": "dist/assets/warehouse-BwW4419M.js",
+      "sha256": "769411c4c0dec2db22439784de9f352438ce2b1a7486893545d28a33ddda0cdd"
+    },
+    {
+      "path": "dist/assets/warehouse-CZHcKjch.js",
+      "sha256": "36d875f960d46b75a34d6b2798bc4e2af0307546090499ce1f06aa7b52f4a19a"
+    },
+    {
+      "path": "dist/assets/warehouse-C_4IDiL-.js",
+      "sha256": "1c89797ac20a1a1d71847586ca426644e7514aa034ca0f4aeda2b033ae798468"
+    },
+    {
+      "path": "dist/assets/warehouse-DCl0HfM0.js",
+      "sha256": "660d6d2ed38c8c7a1882ef79c4fbb8a3c94db6e46172b209b12e7adac659dcf3"
+    },
+    {
+      "path": "dist/assets/warehouse-hub-CLcpEL-W.js",
+      "sha256": "462a5077b84cf7f9493329bc6b14df1b114ded1166c677da22c033033ba7f4b3"
+    },
+    {
+      "path": "dist/assets/warehouse-location-map-BqOg8e_9.js",
+      "sha256": "c95ec9c81d97ca480074428b07b925921068e816e5dfdd53509d0e580be00602"
+    },
+    {
+      "path": "dist/assets/warehouse-location-map-model-BMzRpnZd.js",
+      "sha256": "2ae17bd15e4d40233d42e58054231714f6e973e86f5a208032f996607cf92a94"
+    },
+    {
+      "path": "dist/assets/warehouse-location-map-txzdJ51y.js",
+      "sha256": "c12018b1f01cd06ac78ce2fc8f73fd852eab9b85bb7e4ec55611eeb492506228"
+    },
+    {
+      "path": "dist/assets/warehouse-runtime-C5HbAubg.js",
+      "sha256": "bfb60475906fec29f1fb4c984115fdb1f1f0f91238de4bb1ca82a7c82b89831b"
+    },
+    {
+      "path": "dist/assets/warehouse-runtime-C5HbAubg.js.br",
+      "sha256": "d4a87343ffce7971530244250b2aeea64ad6644bdea9372ab77496b89d9139b8"
+    },
+    {
+      "path": "dist/assets/warehouse-runtime-C5HbAubg.js.gz",
+      "sha256": "55d596403a307715a6b16d12c01b8b05603f582b7738a9302046c2e22ebb0d34"
+    },
+    {
+      "path": "dist/assets/warehouse-shared-DiZpv1z5.js",
+      "sha256": "4defac0954748340c6082ab638b56eb6ccb492a8e6b328ec741f33457f7aaacd"
+    },
+    {
+      "path": "dist/assets/warehouse-standard-eSA47dX6.js",
+      "sha256": "f1f1bb72b3bf2896d40a769f2f82e2b2f9ac367de04dc15117b74ebbd0c961f1"
+    },
+    {
+      "path": "dist/assets/warehouses-CFyO4IUz.js",
+      "sha256": "7269ea15377de79064226afa1c0cccd7c8bbcabe3adc1b62a4bb947464bacad2"
+    },
+    {
+      "path": "dist/assets/warehouses-CSFYi5tN.js",
+      "sha256": "9da91f2dcf218f94bc64e75703c1e71e69a9d21e5a05b0fe2269249fd64d43a6"
+    },
+    {
+      "path": "dist/assets/water-soluble-orders-DX7FQgP7.js",
+      "sha256": "826f3b30a232e942cdc83aee9fb9dfd0606b5bd6510999c456ea105eda6817ca"
+    },
+    {
+      "path": "dist/assets/wls-accessory-receipts-9MJZ5hcO.js",
+      "sha256": "9825a4ae9c13015fbc99418003eb97f32e96600c40440bedb8580f5879dea027"
+    },
+    {
+      "path": "dist/assets/wls-fabric-demand-board-ChIU83n6.js",
+      "sha256": "d5a4c485c7c4662676774188fb64f143baf4bde2142f46d8068b9e49328550ce"
+    },
+    {
+      "path": "dist/assets/wls-finished-inbound-Dr9_y7WL.js",
+      "sha256": "060139e0520526bc67b55f7b66b9175b01cdc53f00d9162324334b0c9bc7f236"
+    },
+    {
+      "path": "dist/assets/wls-garment-relabel-tasks-BEuJCo2s.js",
+      "sha256": "f7ab9fc7c5bafcfe7d0d2fce4096a8c88b5dc0b9f179d54e0c746dc731a5bf95"
+    },
+    {
+      "path": "dist/assets/wls-inbound-BCMsdpuf.js",
+      "sha256": "9c51a0fefc9128dc8883561bb27fe77f18175a43ab1d3280d317c948d6092b2d"
+    },
+    {
+      "path": "dist/assets/wls-page-handlers-D1jBXd1D.js",
+      "sha256": "b572e260f8f858d72884110791487ef53230cf27be43ff52fbe700eb71e8ecea"
+    },
+    {
+      "path": "dist/assets/wool-pda-scan-BLkBmBRa.js",
+      "sha256": "86b22511c61b704b25d275b7f5c798bd96f14cbb7de61a6c2681cd6afea0de3f"
+    },
+    {
+      "path": "dist/assets/work-order-action-policy-B_htTkaE.js",
+      "sha256": "eaeb9ea1bcea41155e8a8c30da8a09fe6cf58e6710a29e1c16ded4d8efa831d0"
+    },
+    {
+      "path": "dist/assets/work-order-detail-B65j0dRi.js",
+      "sha256": "ec947b87a898932946d2ef7bb868ac442bd6e7cb7a0aeee01099db58ee07f628"
+    },
+    {
+      "path": "dist/assets/work-order-detail-BWT7kmJW.js",
+      "sha256": "59609179e61da05c215b19c6097b7b4d061af0d175c8acdb336d8236a740bc6b"
+    },
+    {
+      "path": "dist/assets/work-order-detail-ByTgxKsX.js",
+      "sha256": "fcc561ea3801bf413ae8633df3bb771a353bcb159f4360759aa92a56f0096d12"
+    },
+    {
+      "path": "dist/assets/work-order-detail-CqqRcYUd.js",
+      "sha256": "fd9d357404ce3c8d2536fd1ba4caee20c6df0006d328c357ef8ffa6d610a2308"
+    },
+    {
+      "path": "dist/assets/work-order-detail-EBqOZ6yQ.js",
+      "sha256": "d37b0ca75dac42e89fdd70f92b7933ff6d24b2e36bdb0b80572e9938fc570c13"
+    },
+    {
+      "path": "dist/assets/work-order-detail-PcHu1rv6.js",
+      "sha256": "a33ec68b203bd1a84643d5d07378a8f226299a875be03fc2c68c074572ef1bac"
+    },
+    {
+      "path": "dist/assets/work-orders-BJcEFkRO.js",
+      "sha256": "1acc3c1bfbda3c212485f8bb66a251bf98480dc218dcbb82fe6644ebeac57539"
+    },
+    {
+      "path": "dist/assets/work-orders-C9T7ATr5.js",
+      "sha256": "f5d122494e9f56ae6c7590bd65a9f0c4f03c164077d03d0a3704f22723fa2cd3"
+    },
+    {
+      "path": "dist/assets/work-orders-DTP50sqH.js",
+      "sha256": "87d1e35292596288378ee03a5f61e7a1b0732e769a06c01af0cd80d443595bf5"
+    },
+    {
+      "path": "dist/assets/work-orders-YE8x533S.js",
+      "sha256": "0b6715e2f6659c8b63a849b0d725395e148a009cfb98ca39debf09a917407e92"
+    },
+    {
+      "path": "dist/assets/workbench-ChlVZBZx.js",
+      "sha256": "f565f7bb35d1c3540465618d2b37fc472f58fcf98ce19480a4aaa3077a7c907d"
+    },
+    {
+      "path": "dist/assets/workbench-Dnn2OOqB.js",
+      "sha256": "42d0311a2acc3ee8d3c1dd81f5dff2e96c48cf75d18098ead59fef9bcbb43371"
+    },
+    {
+      "path": "dist/assets/workbench-rZptq8-E.js",
+      "sha256": "8538fdb6b0a99d6ee666ab3fd751973f8eeebb9bc03616937c382b48d73d14be"
+    },
+    {
+      "path": "dist/assets/yarn-shipments-CPn2QB-4.js",
+      "sha256": "30e7a018121e6d0b581f6a3c4e05cee391a3d16b48683c41387c09243366053b"
+    },
+    {
+      "path": "dist/cardigan-sample.jpg",
+      "sha256": "60783ec116a22813467b84b7c243e5c9aa06ccf37d4a0b10c8a1ffcf9736535f"
+    },
+    {
+      "path": "dist/denim-shorts-sample.jpg",
+      "sha256": "c1f5f70e40a7887afbf38c6c32086bed37411d064e6b7edae09f07be212ae7db"
+    },
+    {
+      "path": "dist/design-revision-demo/style-prj-202603-012-blue-floral-polo-effect.jpg",
+      "sha256": "2eb0fe9bcc72631f04745d370589606642bf72512f339054c6d281cd4aa1aba0"
+    },
+    {
+      "path": "dist/design-revision-demo/style-prj-202603-012-polo-m.prj",
+      "sha256": "583c8d0f5cc7d90b931bf8f18c51c2ce09b5c79a8e45620d3015d95a41fb0a29"
+    },
+    {
+      "path": "dist/dress-sample-1.jpg",
+      "sha256": "9298df575a973199866ec8e7c0b18cb7b1685c2f0bfe90d77ed9c0cd05f3bffd"
+    },
+    {
+      "path": "dist/fcs/contracts/template/production-contract-master-1.png",
+      "sha256": "f56c97571e35091212e55ca2e26b7089d33b135550141c2d46761bcbd2221cad"
+    },
+    {
+      "path": "dist/fcs/contracts/template/production-contract-master-2.png",
+      "sha256": "e10df5d5618c8624f4479f6f6a0040b9bb38a360b299b87ad2dd526c87b0434d"
+    },
+    {
+      "path": "dist/fcs/contracts/template/production-contract-master.pdf",
+      "sha256": "faa13a7aa6942f41c30ac3651ff78ea728841dedd941a99a5ea8b5de62edff8c"
+    },
+    {
+      "path": "dist/higood-logo.png",
+      "sha256": "6460670d9e06fd81633680606b5ddfd1de8dbe2189abc94cb79c0c000247a588"
+    },
+    {
+      "path": "dist/images/production-timing/A01-effect.jpg",
+      "sha256": "09edecd07728f2c78184e5fba55009255b9928a2103c6a8bf7deea4b90241113"
+    },
+    {
+      "path": "dist/images/production-timing/A02-effect.jpg",
+      "sha256": "7372ede2cbbb4a9341d95a1f84e284b831bcb98bac587ecd9ca96cf95d78d09f"
+    },
+    {
+      "path": "dist/images/production-timing/A03-effect.jpg",
+      "sha256": "67a773ed8ef9a958867819007378267d392f58ed1c9b2d543ec9aaaa42959d47"
+    },
+    {
+      "path": "dist/images/production-timing/F02-effect.jpg",
+      "sha256": "f4de4b37d0e263654fa356f1c919444a312b3ac5bfcaace8d1c5b76b243780ef"
+    },
+    {
+      "path": "dist/images/production-timing/material-effect-sources.json",
+      "sha256": "e9a6ea089efede8d0378fc3b04f60f31ff3d455adcb14d0f95a86bc002c3007d"
+    },
+    {
+      "path": "dist/images/production-timing/shirt-086-print.jpg",
+      "sha256": "2077310fd3b7af9ea6811e04b96d66aeeabb600e26f28be0ccbe89c557e14ee4"
+    },
+    {
+      "path": "dist/images/production-timing/shirt-086.jpg",
+      "sha256": "b5b19d31c1a663eb437cf18fb4353e52804749b0b1d0bcbec83727e93425517e"
+    },
+    {
+      "path": "dist/index.html",
+      "sha256": "34f411677ddab5ad674463852a03f0ceac89382d7beef38ab71abd804b0d7b7d"
+    },
+    {
+      "path": "dist/jacket-sample.jpg",
+      "sha256": "bb8990e32f5d2174ca0797f5952f24359c2a3e5d5ea4d4543f76bceb1331852b"
+    },
+    {
+      "path": "dist/lace-dress-sample.jpg",
+      "sha256": "49f6db7ebcbdaf1564ac4c3f94d1ea5bcfa6382db8adeaff322c29955bc5e405"
+    },
+    {
+      "path": "dist/materials/accessory-button.jpg",
+      "sha256": "3cccc696c930dacb045f7a098f7b3b002514bd34aed8a29fb7f60436fddba9e5"
+    },
+    {
+      "path": "dist/materials/accessory-elastic-band.jpg",
+      "sha256": "6039bd84259e99101656b0112c187be1cb1403741f1addc0b2fad0bc3afb1898"
+    },
+    {
+      "path": "dist/materials/accessory-label.jpg",
+      "sha256": "45fe17d786a69dc47e18c9e77d35136d549c36a794b322963e4b179b056213ef"
+    },
+    {
+      "path": "dist/materials/accessory-zipper.jpg",
+      "sha256": "b0dc5dc9fa18c7121101d1db7eaf6958f99beaf10dcf03b14b5da981676d5a74"
+    },
+    {
+      "path": "dist/materials/archive/03170a87fd957af3c1672371e197470a.png",
+      "sha256": "518ccd147b6679fbe3bf9fb3b94b6de5c02d47ba23a58b484f057cf1723bdec7"
+    },
+    {
+      "path": "dist/materials/archive/23c0221901139951ff63a0071c75267c.gif",
+      "sha256": "a755e1a25e85146769908d5b77d142e70d498df0cad4b7bd2b54cb877655ccd1"
+    },
+    {
+      "path": "dist/materials/archive/291197a6d0717c9d8832fff8b329299e.jpg",
+      "sha256": "e656044e4aeb803c85429a9322200cce8d0c69826fa0e9767f0a97f6c58572f8"
+    },
+    {
+      "path": "dist/materials/archive/2feb56c3b75979a9f839217decc23b74.jpeg",
+      "sha256": "505148277fc21381bc219dddedb678ea9f4d7d66a83233ddec4112f36a60d0a3"
+    },
+    {
+      "path": "dist/materials/archive/4595f8e168082d676f32f9b977984a2a.png",
+      "sha256": "17351114e591badbe86decb6cf55f429d05bbe64f336a159789a1447b5313bad"
+    },
+    {
+      "path": "dist/materials/archive/4b45b816574f99080d0b06f30c9464af.jpg",
+      "sha256": "55814a7c2ac153d89f0da4d2d8f93bc6820b552c699259537cab1ce4b974d3d7"
+    },
+    {
+      "path": "dist/materials/archive/597cd021cdc26b4c4ec98d67ea289851.png",
+      "sha256": "055dfaf9c0054cc9fde25d9e309f1557d0c1474a637cc914b72990ffa219b906"
+    },
+    {
+      "path": "dist/materials/archive/766c6496dba8cace985d7b8598a1a5cd.jpg",
+      "sha256": "138155c1f40df23aa7017da18ceeeee4d1156de8ec8627993419c9d58dc13852"
+    },
+    {
+      "path": "dist/materials/archive/83358027dc8efb43359af8b6996d12fa.jpg",
+      "sha256": "85c6dfcc2b58c3ac263a9dfcdad29939ee5e0a6d1cec0f4ce27fcd88967b5cda"
+    },
+    {
+      "path": "dist/materials/archive/8e7910031d7e27bed3951f0369555a83.png",
+      "sha256": "d7d46fb9b35338929b9e4e2cb8e657a435f0c4e0c55b75890ce7f53f4559f73d"
+    },
+    {
+      "path": "dist/materials/archive/aee58e719c2f35faab770954c5d809ba.png",
+      "sha256": "69a535554d13bab4d3ba69e3b7f343f082df52ad404e80d2b2ba37a67a0a2bb7"
+    },
+    {
+      "path": "dist/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg",
+      "sha256": "cc3750f499336c9657692edc164a1d075a04b2919c0c5d03be16fc359a631d45"
+    },
+    {
+      "path": "dist/materials/archive/cf4795cd9b8a6964c389b1708d66678a.png",
+      "sha256": "3b7dd77cf62814e3641431f784f5c1b422041b6bea15059706bcef3b38198008"
+    },
+    {
+      "path": "dist/materials/archive/e0f7c7ce28085289101a5aaab57e8b72.jpg",
+      "sha256": "3f4e1cf52ca348d185dd819b74ccec5ed0567c36d1288ec23cb28716eaca4801"
+    },
+    {
+      "path": "dist/materials/archive/e6a76d165ac01ac683f40377e1515351.jpg",
+      "sha256": "492d067b14bf4d141dca42f8221b2cc0a5464cd5fc43d2ab39f156c80e2b64fe"
+    },
+    {
+      "path": "dist/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "sha256": "e878495c8d49a5157787c9fd2781fa7c04160857f05f71ca00201033f25a9f17"
+    },
+    {
+      "path": "dist/materials/archive/f8f3566efc82709add4e08fe108b7dfc.jpg",
+      "sha256": "b90a7904efc4763e97367fe66944f5c2948153fa288d0c3838a8a49a0b8e5158"
+    },
+    {
+      "path": "dist/materials/cut-piece-release/girl-ruffle-pink.jpg",
+      "sha256": "b5ae350b301e80c059ec031680905e779af08b70f34f721b076231beae7d57e4"
+    },
+    {
+      "path": "dist/materials/fabric-contrast.jpg",
+      "sha256": "8a642c2d374371a3820d28f0f28f7906309d8451f97374f585736e49cddee68a"
+    },
+    {
+      "path": "dist/materials/fabric-lining.jpg",
+      "sha256": "1ff058b0d80c76a713299ff9d75c81dce9684664f3442b0c15986f64205f8bfc"
+    },
+    {
+      "path": "dist/materials/fabric-main.jpg",
+      "sha256": "11bca49ce3bad2cab2e26629e5f70e2ec4fa368765f3bfb7b5d60065a09bcb72"
+    },
+    {
+      "path": "dist/materials/fei-ticket/black-splice-fabric.png",
+      "sha256": "d79c2cfce758becdeb554d8bbca1176cfe1f63f4a58e90011010220a37279ad3"
+    },
+    {
+      "path": "dist/materials/fei-ticket/black-stretch-twill.png",
+      "sha256": "06d0f0c7af6bd859b745ef6fd06a7798ad15a4edc275e0042e4bb7c14d5ed4e1"
+    },
+    {
+      "path": "dist/materials/fei-ticket/blue-white-print-cotton.png",
+      "sha256": "afb8fb9114b9edc51ccaa21b0823ddd48fdbf5858d7da7243818024edefefd50"
+    },
+    {
+      "path": "dist/materials/fei-ticket/charcoal-splice-fabric.png",
+      "sha256": "d36b15ae4df7880ad3a617c1e31e5ad00d3837243f604c05a9103e770e57ec0d"
+    },
+    {
+      "path": "dist/materials/fei-ticket/charcoal-stretch-twill.png",
+      "sha256": "a04ca906fb149c59bd2a153dd8d6aff2ba66c03f59fb149e17031d94d07a05d6"
+    },
+    {
+      "path": "dist/materials/fei-ticket/fog-grey-sweatshirt-fleece.png",
+      "sha256": "7ace80a749e0c7d06a3888025707e6082acd73fe19e5aff82363be018bf3a7f3"
+    },
+    {
+      "path": "dist/materials/fei-ticket/grey-main-fabric.png",
+      "sha256": "84cdefae259032aff984f7abf9e8e4bbb68305c04509cd27365bc24fa8bd6a99"
+    },
+    {
+      "path": "dist/materials/fei-ticket/khaki-canvas.png",
+      "sha256": "608f3fdf0c75c395f86badf22e88bd94c4157c149931124c46b4f64d5c6d5f2b"
+    },
+    {
+      "path": "dist/materials/fei-ticket/khaki-splice-fabric.png",
+      "sha256": "61ad3ea6a020ff0d15a88c1c62e546dc108a7c4467e1b6b4baa8cb3169c3c2b1"
+    },
+    {
+      "path": "dist/materials/fei-ticket/navy-main-fabric.png",
+      "sha256": "aac3a0897459bde790b409939ed879519103ff3756b697bade3dde8126b0980f"
+    },
+    {
+      "path": "dist/materials/fei-ticket/navy-splice-fabric.png",
+      "sha256": "0e061a5a7ed4559daa6894dd27a641316b5356391c3f12588da98cb73d94d51f"
+    },
+    {
+      "path": "dist/materials/fei-ticket/red-dress-crepe.png",
+      "sha256": "cd26be856c1b2ee5e07fc2876924f649161c80813d8fc2b1c4f82bfb1b12fee1"
+    },
+    {
+      "path": "dist/materials/fei-ticket/sources.json",
+      "sha256": "913f4638aeaa7cb8fe7e327cfca6946522e3a578774b4f953e31e59862a8e212"
+    },
+    {
+      "path": "dist/materials/fei-ticket/white-poplin.png",
+      "sha256": "458870c433109166715b3386fc95775f334ce482d8c122397965765f214cddf3"
+    },
+    {
+      "path": "dist/materials/packing-bag.jpg",
+      "sha256": "abcee7ce9326ef91b29f1f89869c58ac12df00146998b26927d29c2dcf9f372f"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/aline-black.jpg",
+      "sha256": "011af1337701367e5489ca243d9798ab188285f75b9603e92c403c247be13e89"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/aline-white.jpg",
+      "sha256": "7aba84dd0aa7b0232955977a30626a939268fc449c8c49708cd0807a7c0b2765"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/batik-black.jpg",
+      "sha256": "db3e41a70aaea85c1d56d43b6cb2b8c645cc2258ffe25339f3ad39a233ce6987"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/batik-white.jpg",
+      "sha256": "e6dbf3bb42309fe06ebc202cc8ad24cd664b870a7baf3b10a358776b86404dfe"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/blazer-black.jpg",
+      "sha256": "e9baa2da4e99c1e82dc13b835417cb0d2669f646997c006cf99fe14780170089"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/blazer-white.png",
+      "sha256": "6759de41e25d3f622644857a1cbe0f871ffc21da7cc4c32efb607402ada5039b"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/blouse-champagne.webp",
+      "sha256": "b87236f60e8bcf18bf1f02f8cce4f20c51de4096a7633250b80e19d61511af91"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cardigan-beige.jpg",
+      "sha256": "c43985132a876ddeca95faa49149c55b0a3c4138819434e0a0957524adfdc99e"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cardigan-black.jpg",
+      "sha256": "31dcf2d4f5b417bc24cb77b7a64db1f2d5ba75a06594b7e6b3be95b439f5b451"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cardigan-white.jpg",
+      "sha256": "7be5bacd3dc354eaf0c74bfc6f86054a58497cf18b08438c158c64e2ce95bf0f"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cargo-black.jpg",
+      "sha256": "1f89cb9637ed1beb128b955d7794105af81cfa59989559cbfc07fdcadd512c74"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cargo-white.jpg",
+      "sha256": "f6c32fc8d02a2cc317a05e8da2ac8fd59667b8472f340dc0a0a80636d1b53b71"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/casual-dress-black.jpg",
+      "sha256": "114bcf3fd5f1fb0225806eb863858ee67fa4fa25bf7640fcc4b221bc9c040e5b"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/casual-dress-white.jpg",
+      "sha256": "40b33f3b7c3ac075959f59e697aba47785b75a35199d99b9558174f017813dd5"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cotton-black.jpg",
+      "sha256": "ec70ac75911419c1edf8f78d6474b464e80e335a8328c9d18fe1175a428665e6"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/cotton-white.jpg",
+      "sha256": "e333b4f2b2b27e424333ed8b8ed0d947bba5f09537fc284aa27f54b077716cfc"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/dress-blue.jpg",
+      "sha256": "aa2dbadb26070749cd050d61e98a1384738ae2094c8438be22fc72d77b194e21"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/dress-floral-black.jpg",
+      "sha256": "0fb1a670d03dbfd1b94cbddba0865698d148c6a9deb7d665ed92550b4034e38d"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/dress-floral-white.jpg",
+      "sha256": "f5b2c962ee1c8a4488fc686987ead53d42f41ed0856f0d130abe0404ea89a6a2"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/dress-khaki.jpg",
+      "sha256": "1bd95bb22e128a96e2298223939a71d0b86793ad80934d8b4b181347a47f4792"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/dress-red-print.jpg",
+      "sha256": "9db87708fc9fd50695d1d66e2256aaf5466df5fce57f28515056d5b62e8fda69"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/dress-wine.jpg",
+      "sha256": "e968d7b56ddf2276430e327131ad7f6b159ef1281877adeda247bfa89f62b4b7"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/embroidered-dress-black.jpg",
+      "sha256": "f40480c5172422ab9760e2f96929cd0ea468cf126c62056cdb53eb635a4f4973"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/embroidered-dress-white.jpg",
+      "sha256": "616d849da3cf0ac01afb676a6fb3f59db367db5515732474464a1aaffba84e06"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/flannel-black.jpg",
+      "sha256": "d74af020942000a000b64fcb50c24697485840f0ae91c04c2418596982262198"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/flannel-blue.jpg",
+      "sha256": "ac956a7b2043566cd9b84b176f021918db2a1b44b2aa08b78dc9fe87716e42b7"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/flannel-white.jpg",
+      "sha256": "b305c74063a9291667a925842bbdaa73f1ae0ffcaee8c9ef9851f29d7ae23100"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/fringe-pink.jpg",
+      "sha256": "0299c25bc4b9513d1beaeb29650e3167c8dfa3fb78e6e6cbce86f1a66637d216"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/hawaii-black.jpg",
+      "sha256": "f784cfae2ee9486e72f63816831f49c7f9cab1a211507a7f4912265d18f3aad0"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/hawaii-white.jpg",
+      "sha256": "378fbd0cb9140a0fb061560cc6050159b880a8ef923e9f735ce72cbe75b2e0cd"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/hood-black.jpg",
+      "sha256": "336d047ef9de8f930b4116cb56527a0b6a673ea4efad1745e92d4668b340a7bf"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/hood-grey.jpg",
+      "sha256": "cf536b1b1d3051edcff421418b3fc463163e4fe5a82799e3fec940092460025e"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/hood-white.jpg",
+      "sha256": "78ca512d64bccb0ddde26fb9995e95bed1eb9ecf6fbd0753c096cea2523a648e"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jacket-army.jpg",
+      "sha256": "ff33152f95cfc860b708b235e7067b21f62886cdea45e4252a7f4e1550e9dc22"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jacket-black.jpg",
+      "sha256": "aef50416f86a76282a60a7a95533d39d558627e780d1409ca839124b05667826"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jacket-blue.jpg",
+      "sha256": "3ad453d8e565b3f870b0614ac8bdf55a77b46b278305bcfa630f079cca41918b"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jacket-khaki.jpg",
+      "sha256": "5e812c8be692e078b8f0a47b95345a7821833a36d89c975a934f7f0002932ea4"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jacket-white.jpg",
+      "sha256": "f293cc4eded18fddfac92df092ce455d02541b76543f01ddfd113bc5827f8fd8"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jacket-wine.jpg",
+      "sha256": "f49e60e8a0c3ebba5e8f11d1a32d084f83cc18a7b4d606c3b0675d3eb62afb32"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jeans-black.jpg",
+      "sha256": "487f60135d3e8f5767be5f1df942a96748044e01d70d5043dced8a62d3e54cff"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jeans-white.jpg",
+      "sha256": "6a9bba8306a78439e4bfa642758eeb671a12430d2ca8e5c30e769c63c2d96793"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jogger-black.jpg",
+      "sha256": "4d833fe9d9411ec5f710be2b80b85135851bbc3f2c9cb3beb308f2e9687ed88d"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jogger-white.jpg",
+      "sha256": "9dd63915c5ecd04f7f9c44bdfc2b0f17c709913644ea9eb9e37f6e50cdc61bcc"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jumpsuit-black.jpg",
+      "sha256": "ec554e9ec04b7b1cb64bb43472d5a51adf15cbaa92aa1d36a44ce20e3c861a57"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/jumpsuit-white.jpg",
+      "sha256": "2cbb818a77e2619e26fe4ab8abc1d019825dbb4303f5c58814aea04f990bac7e"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/knife.jpg",
+      "sha256": "2eee76f090af08b1e9cb1b337fd1a570862613802d87354f0af1686501b76d93"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/knit-coral.jpg",
+      "sha256": "81a046c56c7071269fe34b5a9f09693568abe550d380c7e7629a707c3ff269e6"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/lace-dress-black.jpg",
+      "sha256": "54d20148955a5058f857fec82f8da8657e56c8a99ec2ab0eaca15cb76f078ee0"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/lace-dress-white.jpg",
+      "sha256": "e16825d6ce2a4afe43228f213e04e32d73d2dbcf54ebbd4c3ae3c556e0f6f51c"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/lace-top-black.jpg",
+      "sha256": "383ae51110c41f709c678df9511abbd2f344667a30f33bc23f71fe53542478f2"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/lace-top-white.jpg",
+      "sha256": "72f342cf2d58dad45cfe4bae1c2473ee615ec7ee84ed95f34de21c05b0b638e0"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/linen-dress-black.jpg",
+      "sha256": "bf583cbd133f57f8ccd0a519ee0516fd7f4bc6b247fe2aa3311d966a7da08aac"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/linen-dress-white.jpg",
+      "sha256": "19ec681663ebf6aaf00d02738e573185ec1838f915da55df7bce1d12879e8a8f"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/linen-white.jpg",
+      "sha256": "cdd493a777625c026e5838b1da5d241887eb8de4300683722ab275d1c33d96c3"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/organza-blue.jpg",
+      "sha256": "c942f922d9c44631c914bfd1dd1ab3bf0b1755ff07fcb7d22f1031f0b27202e3"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/pleated-black.jpg",
+      "sha256": "21ae1955cd825d3c8b67a86dfd4823a551276bde730cbfa52af6722d508e20d6"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/pleated-white.jpg",
+      "sha256": "89063b2bb5d66cec2011e647dfde3e822db3da0d5e488433390139093b2e2727"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/polo-black.webp",
+      "sha256": "d8332dc5579adbbd820e4b8785d65a2a77f78c17c6246c5d6db8dcff6c4b9cb0"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/polo-white.jpg",
+      "sha256": "c5303006723fbf2c9f0f1f47c15cad20e7533c0f756b27350ae8f9dcf52633e4"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/print-tee-black.jpg",
+      "sha256": "56963d3832bcc0827eb942a880f7a09f1f12c7c609ae0b0f200aa37dcd67f280"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/print-tee-white.jpg",
+      "sha256": "96dccae9aa37b21b903ed48b1167bf847ca083d9edaf608aee06ece52a346979"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/rib-blue.jpg",
+      "sha256": "d3edd1356d9b4f14f6f838103a580689cef8246cf1cf9afabc3d8ff1c08212b6"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shirt-black.jpg",
+      "sha256": "a607d7485c65aa8fa2311ab1faf96b0ab16c49d0be25ade6b7b4a23d69128ba0"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shirt-blue.jpg",
+      "sha256": "d6911a7ac99503dee0a9e306a72d10325816e6ce57eb5a82b758ef68e0842210"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shirt-floral-blue.jpg",
+      "sha256": "b5b19d31c1a663eb437cf18fb4353e52804749b0b1d0bcbec83727e93425517e"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shirt-khaki.jpg",
+      "sha256": "05ad4592a7b417b0635447e63f615348c1bf71ecc0fb4e8551a1144ae35cd5ab"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shirt-wine.jpg",
+      "sha256": "e25c947f054bd7b63b7802a1d49c1bc90df557dc14e5133e59294e401b2e410b"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shorts-black.jpg",
+      "sha256": "1268a6e32f972371dea90c7d3553528a76ceb08906393f7d117fde190afb490b"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shorts-navy.jpg",
+      "sha256": "764248e87c231df14de0bc8289e6ddb0cfe08cad35f3580a58d951978a2e9e4c"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/shorts-white.jpg",
+      "sha256": "ef7fcb5081404c79ccf9324a7c1de81db760451152a123856f14891ff5a8bcf9"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/suit-navy.jpg",
+      "sha256": "42a7d34f3618f60ee13f6b9d3f21914b0391bf3da2171dbb7ddf20073717c4a7"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/sweat-black.jpg",
+      "sha256": "ce1bd10166246da026f591ab134d64155978c17b3dcb626f6125560713fdfa2a"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/sweat-white.jpg",
+      "sha256": "b1fb27260222d967166f755d7c60b8827c5c3a7666558552c58c8e8ccbd82e86"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/sweater-cream.jpg",
+      "sha256": "900d2314e04687b0bb83cf67433d4ece743342e44a5d482cf8c298ccbe0bec5f"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/tape-white.jpg",
+      "sha256": "b1e7ac293fac0a2d096bc71796becc39eafb851f91b086df4656684619a5494b"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/tee-black.jpg",
+      "sha256": "4baaa3c6c9c776fe45d2b258820c47d6d19931813935dd4a926a1b244d397fce"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/tee-navy.png",
+      "sha256": "6ec14b62bc528f58631b3bd39160540f3e7ada5e76da7dc56912016ef6c8058d"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/tee-red.jpg",
+      "sha256": "b2e5defe903646b21c67686a2d1d28165c6707c7833d169f9cc3d88e95416a30"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/tee-white.jpg",
+      "sha256": "d0ba34d4bb36e0e92a3f9807a3b2dbbe31fe2fbc707455cd4bb0463ac5114792"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/thread-black.png",
+      "sha256": "463f7e3ca0c01d09e19442055b6c78d7f968b9853c749b1f2e83682fd20df3e9"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/thread-white.jpg",
+      "sha256": "820c717b22e6769d7a70eb44a33c0b31e4818bc70464125e564d22ea32addc47"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/trousers-black.jpg",
+      "sha256": "43dac16ffd2dad9c5f22c5f97efceccb95802388f79ffeb9a5e881f0479ac3fa"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/trousers-navy.jpg",
+      "sha256": "957a031fde6e767da4c8e708c83ad90e0d1e847b46829984bf861fc90b9ff1e4"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/trousers-white.jpg",
+      "sha256": "c395ff08ca5ce89627d6fa22c74d297f476779ec1bdbde9d07ed64e7b7ddfd8d"
+    },
+    {
+      "path": "dist/materials/pcs-reviewed/vest-green.jpg",
+      "sha256": "f952d427a4b0b6dd04d22181d9e2e4168c8df25456925591e28ee862818044d3"
+    },
+    {
+      "path": "dist/materials/process-orders/cotton-yarn-cone.jpg",
+      "sha256": "c59a1c46538d9407f955efdfa3dd5965e7b7ffd47f1736366160ee488e9a8522"
+    },
+    {
+      "path": "dist/materials/process-orders/cotton-yarn-cone.source.json",
+      "sha256": "70143952873b3ed1a8389584ee259303e0921b78dede0193f4a755ec508e0e1e"
+    },
+    {
+      "path": "dist/materials/process-orders/fog-blue-woven.png",
+      "sha256": "8c9c6c08082fe6863f4cb8437659d7c2f16d3957ca385bd856f9d435b48986a2"
+    },
+    {
+      "path": "dist/materials/process-orders/greige-cotton-polyester-woven.jpg",
+      "sha256": "c697c6cb3c2f56dba292d372ee6a7c9ec9936a4f6333caf4ab5c0373d5db8ee8"
+    },
+    {
+      "path": "dist/materials/process-orders/navy-combed-cotton-interlock.jpg",
+      "sha256": "ba1e3da7312a65f5be6b89b19b64e71224495935184650d7d11ce64d5f6516f3"
+    },
+    {
+      "path": "dist/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+      "sha256": "1cc2edf18aa89dcca4018a7558e0e1e5a8dbd9f37dff4ffdf2c5749f42216afc"
+    },
+    {
+      "path": "dist/materials/process-orders/rose-cotton-jersey.png",
+      "sha256": "847932c63ade361ce8ce483a4cc36609e811b2012514dc68a16f9c23716fb6fb"
+    },
+    {
+      "path": "dist/materials/process-orders/sources.json",
+      "sha256": "df921e1fbfb588a3efca788178c153d04a827b3eacf6e3aa445428b272fde82d"
+    },
+    {
+      "path": "dist/materials/process-orders/white-black-cotton-jersey.jpg",
+      "sha256": "4314fb5b88467c67d5ccaa0a9db3a1b07d2018fd5f62257b16f550ef312bfb53"
+    },
+    {
+      "path": "dist/materials/process-orders/white-cotton-jersey.jpg",
+      "sha256": "e2372b5479a693e82f81729533f3da583504b4ab1208e0bcb2cacbc9d0744bf1"
+    },
+    {
+      "path": "dist/materials/process-orders/white-water-soluble-lace-12-15mm.jpg",
+      "sha256": "5ae149cc5f2da41cabd683a8f77062e070aff87434399415d35bd7946b0e75f0"
+    },
+    {
+      "path": "dist/materials/sources.json",
+      "sha256": "8db87ab04e7fa3c0c15da5c97229afb78175102a13bb5248e0ae74352d98aa6d"
+    },
+    {
+      "path": "dist/materials/tmf/rope-real-bundle.jpg",
+      "sha256": "2268d4cae8bb72b1f3fcf824ff06a4c5f467a438404d1f095b6bca41752e7559"
+    },
+    {
+      "path": "dist/materials/tmf/rope-reference-white.jpg",
+      "sha256": "2268d4cae8bb72b1f3fcf824ff06a4c5f467a438404d1f095b6bca41752e7559"
+    },
+    {
+      "path": "dist/materials/tmf/tip-metal-aglet.jpg",
+      "sha256": "a3b40085a2082df7616ac1aefe06a659a28b67a1c021a9fa2a86cbb444779873"
+    },
+    {
+      "path": "dist/materials/tmf/tip-plastic-aglet.jpg",
+      "sha256": "86d74d7cf76e0efa27f6875763a34f19023b2a89331b661f25cfd6c14326f914"
+    },
+    {
+      "path": "dist/materials/tmf/tip-silicone-dip.jpg",
+      "sha256": "decb781aff1ed6f58cee5643d43ef88ba2e407be01f8231d53c226d2faeaaad7"
+    },
+    {
+      "path": "dist/materials/tmf/webbing-dyed-blue.jpg",
+      "sha256": "79ce6303b9eec2f7e4cbd2df978108dbdf725f01f6e4122b8dc12654a20f8a96"
+    },
+    {
+      "path": "dist/materials/tmf/webbing-printed-pattern.jpg",
+      "sha256": "70deb76e838cff40426ba468215340caebf5b3ee57c2c31344cdafa74da15f9c"
+    },
+    {
+      "path": "dist/materials/tmf/webbing-real-box.jpg",
+      "sha256": "3051bcf7c045fb7a931d56c629bf7dd63075e62beee371060264970e7d714e2b"
+    },
+    {
+      "path": "dist/materials/tmf/webbing-real-roll.jpg",
+      "sha256": "e3548a3c896ec6e9e2d61fc8419af4c5ee7606360975600f66fefc7704521a4c"
+    },
+    {
+      "path": "dist/materials/tmf/webbing-reference-white.jpg",
+      "sha256": "e3548a3c896ec6e9e2d61fc8419af4c5ee7606360975600f66fefc7704521a4c"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-large.jpg",
+      "sha256": "8fb8ca71d6de7afb21b1c3b2fe0976f99c7d416a0ccd27fd2ffeb6b115280959"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-thumb.jpg",
+      "sha256": "e08fdb88b8590a8c2035e94d9fcfd2aeb74f675242ac3e95341d63ef9b033cf7"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1558618666-fcd25c85cd64-large.jpg",
+      "sha256": "ec8914229422c48e06daea5517c726252d7b441695a0ab2b40bfa7cd5d0f7ca8"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1558618666-fcd25c85cd64-thumb.jpg",
+      "sha256": "6b5fd8a979e8177005d0ac9c75c0eb69995e311d0fedddc5bee668bce7df1f6b"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1584273143981-41c073dfe8f8-large.jpg",
+      "sha256": "0df3fd7b6467ad67054429a4a759743c774d1878aa6806755d8db437ef73a8e4"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1584273143981-41c073dfe8f8-thumb.jpg",
+      "sha256": "3c2280db7a3608cc02e4658fb2bf300b1a93cbd1470f8160022861edcb23980a"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1603912699214-92627f304eb6-large.jpg",
+      "sha256": "dd2778e9693217304f8391a405c293b0423b0eeca1e6771e84c56a612e249545"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1603912699214-92627f304eb6-thumb.jpg",
+      "sha256": "ae0b53ac0f11c6b31136851ccb9749126e975f712dce21d05f4c5ea36a938f08"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1618354691373-d851c5c3a990-large.jpg",
+      "sha256": "3555a82a65a763cc8e707968a4386c2fd25ccd9a27fe9d986df195b6a78a6ae2"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/photo-1618354691373-d851c5c3a990-thumb.jpg",
+      "sha256": "dfec8ba09c841c4f20ccfd7ae5500feb1f9fef0692d657335133a0eb520b37c4"
+    },
+    {
+      "path": "dist/materials/wls/fabric-demand/sources.json",
+      "sha256": "7c3b4470b2e9aab720988557f0311d8c4270c8304d874875e608b24b43c73a28"
+    },
+    {
+      "path": "dist/materials/yarn-stitching.jpg",
+      "sha256": "3465b735045ca65e756adb74a700b41109ba91b71ecb724021524b9d5a769508"
+    },
+    {
+      "path": "dist/pants-sample.jpg",
+      "sha256": "7fee66cfa62746c3562edbafebff3eda10a7a2307963b35ebab245ef71e6a180"
+    },
+    {
+      "path": "dist/placeholder.svg",
+      "sha256": "74795aeadd0467a3bc2ef6f457a3367364147b3837b28d9fb33b900722a593ed"
+    },
+    {
+      "path": "dist/production-confirmation-demo/fog-grey-open-end-zipper.png",
+      "sha256": "e249e0a6c1dbfa0457b42a488465007229d1e49e2382e5c09a2324dac0c72877"
+    },
+    {
+      "path": "dist/production-confirmation-demo/fog-grey-rib-knit.png",
+      "sha256": "cccfadf209e1eb88c100e77fe85105175f8b40b548e18d2858ad96fa92b8161f"
+    },
+    {
+      "path": "dist/production-confirmation-demo/grey-zip-hoodie-pattern.svg",
+      "sha256": "7c7a8a1e6317fb6e41f6f9b21c60bcb4d8b6eada067934c623004da0e7241a54"
+    },
+    {
+      "path": "dist/production-confirmation-demo/grey-zip-hoodie.dxf",
+      "sha256": "d14b0651d9e2192d320cc58f819b0ec0977b6fc65dc987c7669964ca19cae156"
+    },
+    {
+      "path": "dist/production-confirmation-demo/grey-zip-hoodie.png",
+      "sha256": "bdfa30b2f50cb537cd13bb8b10c2eb22c685bf4b5f23e6f11c2abd28c9acf279"
+    },
+    {
+      "path": "dist/production-confirmation-demo/grey-zip-hoodie.prj",
+      "sha256": "dabcef30ca74153c150a7bba859c5c0f14fb7759bfd30a3af568c22c4b69b67c"
+    },
+    {
+      "path": "dist/production-confirmation-demo/grey-zip-hoodie.rul",
+      "sha256": "ace1f1f7ecada88b235845350a0539c14e87ee376a62815ee096ae0450246f95"
+    },
+    {
+      "path": "dist/production-confirmation-demo/sources.json",
+      "sha256": "632e9219e1660f5f8cc832048cf227e9cab423ab1b1aa306def433605bad61f6"
+    },
+    {
+      "path": "dist/shirt-sample.jpg",
+      "sha256": "737b78268880e4fe66170f7839b13e5460e5433ee55bb9a83a02ccbb619d6fcb"
+    },
+    {
+      "path": "dist/technical-data/dye-standard-demo.md",
+      "sha256": "e82d319e8cc3cd9721ca6578e0f9cd634ccbafddd12a40ade0bf86b9717f006f"
+    },
+    {
+      "path": "dist/technical-data/print-pl001197-demo.svg",
+      "sha256": "42c65a3954a7a305007dfe8920f6f18e42712e1eff65129a172628ac3db75ec9"
+    },
+    {
+      "path": "dist/tshirt-sample.jpg",
+      "sha256": "ff0d1c9e398d626597d515565e99ee525f98d0c0ae799b11f213b87bf8b27545"
+    }
+  ],
+  "sources": [
+    {
+      "path": "public/materials/cut-piece-release/girl-ruffle-pink.jpg",
+      "sha256": "b5ae350b301e80c059ec031680905e779af08b70f34f721b076231beae7d57e4"
+    },
+    {
+      "path": "scripts/check-cut-piece-release-available-qty.ts",
+      "sha256": "22496e9b2ecf9b7d032f76f90cd07a5063504e18436e36df244d7435b6a8c7b4"
+    },
+    {
+      "path": "scripts/check-cut-piece-release-matrix.ts",
+      "sha256": "fb9bfdddf374abf4da953db8c22015cb52206330883f987df296902553fa4fe1"
+    },
+    {
+      "path": "scripts/check-cut-piece-release-mock-records.ts",
+      "sha256": "8a44bbf1424d6e0274b346a1249e8c769222bfaf4ed87cf1045ef357f9601a47"
+    },
+    {
+      "path": "scripts/check-cutting-pickup-three-list.ts",
+      "sha256": "df65e20cb2e3f4014158e1c9f735e953a33059cf2e6680cbc557fbb679ac6d1b"
+    },
+    {
+      "path": "scripts/check-cutting-sewing-dispatch.ts",
+      "sha256": "ae84d6904c6d37cde49328fbade412f1aab42c59eabf79248a5ec44f48203641"
+    },
+    {
+      "path": "scripts/check-cutting-special-craft-dispatch-return.ts",
+      "sha256": "678db5061a386d782ef7d2439634baa17e6ef599b93ef9ce52827089e5a06306"
+    },
+    {
+      "path": "scripts/check-cutting-supplement-process-work-orders.ts",
+      "sha256": "8dd8cec3746a86752e0432b841a49f0e41cc1812f80bf67e449aafeb1f2c162f"
+    },
+    {
+      "path": "scripts/check-generated-cut-release.ts",
+      "sha256": "3732a8228466c204b658d8321380c522c98d92ad9629debc68bc55eea928cd33"
+    },
+    {
+      "path": "scripts/check-pda-cutting-inbound-workflow.ts",
+      "sha256": "ea6a7264410dccb28a27511f613b9ad4777a1c795c412e9b2fcf117e8bf9913f"
+    },
+    {
+      "path": "scripts/check-release-dispatch-preparation.ts",
+      "sha256": "bf9da125921850c1ac77a219ecfa4d4c2be53cbd52ed252da2a1498ef6197371"
+    },
+    {
+      "path": "scripts/check-release-physical-final-quantity.ts",
+      "sha256": "454c505c341001afb45fff0c9eeaaa5db8edcfa884ec269565f679c198a99223"
+    },
+    {
+      "path": "scripts/check-sewing-outsourcing-release-gate.ts",
+      "sha256": "5729dea5955e0368d143c2941e2e420378cd565b5f182c51ad0c15777288da25"
+    },
+    {
+      "path": "scripts/check-simple-cut-piece-final-receipt.ts",
+      "sha256": "4a5f75cfe17ad5f5250a1b07b934b61ead84f72aa19f4143732301675c58a749"
+    },
+    {
+      "path": "scripts/check-simple-cut-piece-handover-fixtures.ts",
+      "sha256": "9f17e61badaac38e613d0522aabf362868a110c697b2b40beb26a45e377316ff"
+    },
+    {
+      "path": "scripts/check-transfer-bag-repack-recovery.ts",
+      "sha256": "ddaaa154f3d5c557aafb16dc06af9854fc8c12156135367dc2ea46122e6a7495"
+    },
+    {
+      "path": "scripts/check-transfer-bag-three-status.ts",
+      "sha256": "8308bec18409d299db23306d878482bfefcec3fb32100a0fca37e010ec0f10bd"
+    },
+    {
+      "path": "scripts/check-web-cutting-transfer-bag-actions.ts",
+      "sha256": "5e4943d27116198e67efb4b9f15d30ea3e3fa24c22c3760043aea0bd0665f3e1"
+    },
+    {
+      "path": "src/components/ui/mixed-bag-contents.ts",
+      "sha256": "0912a0b22f378414983bddcae8299cdeb1840b65f5b8f2e419c6cba18b9cf99d"
+    },
+    {
+      "path": "src/data/app-shell-config.ts",
+      "sha256": "831bc65351fdbc2f4603b53f015aa2a09aefa6ffb6b0d452fc45a8ef9749b6da"
+    },
+    {
+      "path": "src/data/fcs/cut-piece-release-domain.ts",
+      "sha256": "810b3aa0676821d1d5d21574852a4afba05b72d0700a5deb01a270db9b45d01f"
+    },
+    {
+      "path": "src/data/fcs/cut-piece-release.ts",
+      "sha256": "d787c3630280365eb8e8631cefe550495e1c08ea5e026777a4bf4b71c9099224"
+    },
+    {
+      "path": "src/data/fcs/cutting/cut-piece-release-facts.ts",
+      "sha256": "2f20cf458c72b54b9c5db8dd88d20382f43598b1a5f2e47c0359b9b3362cce45"
+    },
+    {
+      "path": "src/data/fcs/cutting/cut-piece-ticket-validity.ts",
+      "sha256": "b80d2c272885364a50db6fa16e9fbd2dcb42097539b82824c1563444894d2c60"
+    },
+    {
+      "path": "src/data/fcs/cutting/cutting-event-repository.ts",
+      "sha256": "d18d10e54308e305910c3f6f78ca941a5a49a2a7965d1e42a4406dbb5b877b6e"
+    },
+    {
+      "path": "src/data/fcs/cutting/cutting-record-repository.ts",
+      "sha256": "cc28cbbaa514d47109e84b7edd07474ec4f31b4cf3bef92115a0fd206a70ec96"
+    },
+    {
+      "path": "src/data/fcs/cutting/cutting-runtime-chronology.ts",
+      "sha256": "ddbbfb41622916e5612bcfdf0e4f064ec5a745971e1de7d88e6290f9dd905b8a"
+    },
+    {
+      "path": "src/data/fcs/cutting/cutting-runtime-event-ledger.ts",
+      "sha256": "44093f5cdef9df67417d61f51cb3c732f43db77177cd51db9e8c4c72277cdce5"
+    },
+    {
+      "path": "src/data/fcs/cutting/fei-ticket-numbering.ts",
+      "sha256": "f98ef759d6a9128308e8c23aae6eb7aecd294159d86475be5a1d1d3ffb8cc9f0"
+    },
+    {
+      "path": "src/data/fcs/cutting/generated-cut-orders.ts",
+      "sha256": "eaac9cd91b56bdd7f0b6a660fca9fa49a8d5312f7ae2aa1d3939921ff2179dde"
+    },
+    {
+      "path": "src/data/fcs/cutting/generated-cut-release.ts",
+      "sha256": "6da1019c304254f5713d57db4696c17be37de01f07048f0b896230142f5f00c2"
+    },
+    {
+      "path": "src/data/fcs/cutting/manual-fei-tickets.ts",
+      "sha256": "5db749aa408d687e3d9150f7a615e7424730f37d96deadc1d77216a6a90e7ea8"
+    },
+    {
+      "path": "src/data/fcs/cutting/production-material-prep.ts",
+      "sha256": "4930a3bfb7aa3ad09d4d58c918d82dc5d6b4aafc7001211b34e67bb61f4b6204"
+    },
+    {
+      "path": "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+      "sha256": "300a4eae83b92b776b23db363567f0965778be31a61761791ce1ab7251fedac5"
+    },
+    {
+      "path": "src/data/fcs/cutting/sewing-dispatch.ts",
+      "sha256": "a2b3e08f577ee3755ec5b79f67d7206f83274e17be9b2ec0e06f9c79c6deb203"
+    },
+    {
+      "path": "src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts",
+      "sha256": "50785d939bf61994a8765e6ef56adca4a0a4ef67a1c15b772be693a34f129cb6"
+    },
+    {
+      "path": "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+      "sha256": "a4c304a5e6206f4e836df7a186f0fc60d11212b2e4470c4317c6f001d932b7fc"
+    },
+    {
+      "path": "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+      "sha256": "9045cd9d96e970edf3104cb74d37d4b82abd5c5381aad9cda252a65ca7d7618d"
+    },
+    {
+      "path": "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+      "sha256": "116c0437513da64fb04534ad3e4ff0563e58ee9f4d89d3ea1e80a2ea2329bd9b"
+    },
+    {
+      "path": "src/data/fcs/cutting/supplement-order-registry.ts",
+      "sha256": "56b9557e137f67bcb54724038985759d3327eb216912ee8c88b9878e4c724213"
+    },
+    {
+      "path": "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+      "sha256": "f7b541d90b0445d46d2ea1d0188f87b2dd3a31e99207713e57d0d9a63979410c"
+    },
+    {
+      "path": "src/data/fcs/cutting/transfer-bag-operations.ts",
+      "sha256": "9d8543ddaebd4c81318bbaf7502eb8aa514b8023b97871255612464b76be70ef"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-full-flow.ts",
+      "sha256": "beed3f20883e98d7cb8eee942b7a79d595a0583f71bf38472e0948b8a65ab85e"
+    },
+    {
+      "path": "src/data/fcs/process-tasks.ts",
+      "sha256": "8efa1f02aee77c950414503acf160eadcd8c26af40b4c547603260786cd44ec4"
+    },
+    {
+      "path": "src/data/fcs/production-context-actions.ts",
+      "sha256": "098fd6368d20d02d1958655fdba5bc526c7884c504cfcd8541001a5dcef46c9a"
+    },
+    {
+      "path": "src/data/fcs/production-tech-pack-snapshot-builder.ts",
+      "sha256": "6390c18c806d3f6502d4927f86a38b392a84746013778c4434fe6553a0d9167a"
+    },
+    {
+      "path": "src/data/fcs/sewing-assignment-readiness.ts",
+      "sha256": "a0bcd4a767abef0f7d002b54c7ce6aed4068431fcc4809e6f9e15ce3587bc8d9"
+    },
+    {
+      "path": "src/data/fcs/special-craft-task-orders.ts",
+      "sha256": "1299f2b2c5042a26035ae5f36d68cbc445ae42c2442137f73fb50f8d00dd5c81"
+    },
+    {
+      "path": "src/main.ts",
+      "sha256": "506a5ebc10341d581cd4194400d54efd3bdab34ac6d84ed06ed3f694219fffa7"
+    },
+    {
+      "path": "src/pages/pda-cutting-handover.ts",
+      "sha256": "20ea954588cfc2ba859a2ddeb907d77c9ae3649f906ecc206e5f509e17d97c7e"
+    },
+    {
+      "path": "src/pages/pda-cutting-inbound.ts",
+      "sha256": "e974c2496a59cd02d89d8a267b650eceeff164d367753652468f42b94fc911d4"
+    },
+    {
+      "path": "src/pages/pda-handover-detail.ts",
+      "sha256": "3ee33e779b11dfdd6415f20e44f4789f9e72c7c5841e06ef87d4ba6f0fc34c18"
+    },
+    {
+      "path": "src/pages/print/print-preview.ts",
+      "sha256": "1eee1d49087dc8e24132868d0911e2355a3d471b84df8481ad3b05918383def8"
+    },
+    {
+      "path": "src/pages/print/replacement-fabric-preview.ts",
+      "sha256": "0853bd98ee3e67d7876c7ff8039db58e9250b7fc01e63ece98190bd857a35107"
+    },
+    {
+      "path": "src/pages/print/templates/dispatch-task-sheet-template.ts",
+      "sha256": "6fcbd0d3ca67e18afee3ceec7e65cd4acc5f0cd7f94a3e68aa5cf058e5e69058"
+    },
+    {
+      "path": "src/pages/print/templates/replacement-fabric-label-template.ts",
+      "sha256": "85e447b6edab2d895be34e4bc2310ae22f87e82dbc560b61f09ec5f869698402"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/cut-piece-release.ts",
+      "sha256": "332a816f8c5b44906da5358c7831ad4fff3e35655f9f0dc09c013162064355f0"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/fei-tickets.ts",
+      "sha256": "f0a896732aedd8b489e6f3a70416132e0e74919e519887efe6eec36bc80c9c24"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/marker-plan-model.ts",
+      "sha256": "e8a7377b6edca26c8fb61f0ed7f04264ae8499ce13d7f96928a760091c9758b0"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+      "sha256": "a33075a576f06360dbaaf25c7ccc13a4957a27ff9fd23a71421a35cbe6bd76a4"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/supplement-management.ts",
+      "sha256": "8012ea24def041bcde20f85dbe62e4da99d5255a3c661c3e53e6ffeeb5705687"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/transfer-bags-model.ts",
+      "sha256": "97b1660725f60398a9e59ce5c2d815b07e2e236dde3798eee7ad38580c26ecdb"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/wait-handover-actions.ts",
+      "sha256": "a368f002d08914b20e7eae493624ab27b4196ccfd2e174d7f4680738870cbfb3"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/wait-handover-dialogs.ts",
+      "sha256": "f5d1606be3bd2f5b10d25dcbe74e7398e69adc8429bec6f86917773f29b41000"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+      "sha256": "8284a5f98cfaa5272af6f357592ec36b828850e433cda5387061fc0ee696f674"
+    },
+    {
+      "path": "src/pages/process-factory/cutting/warehouse-hub.ts",
+      "sha256": "4e3b352283260df5bbf8cc9da7e0085b5bf07ecac34bb6c1f66c842d3ce17766"
+    },
+    {
+      "path": "src/pages/sewing-outsourcing/tasks.ts",
+      "sha256": "d1229abd8a0ebf51abb94283620e03cfe35446638f079a0ead08addcf665e839"
+    },
+    {
+      "path": "src/pages/simple-cut-piece-handover-ui.ts",
+      "sha256": "9cee734f1526154e24a571f597e664caef7927b8acc441d19d068323863d8da7"
+    },
+    {
+      "path": "src/pages/unified-dispatch-workbench.ts",
+      "sha256": "294106c861b3345d68b5bc6007952a24ca9ac579f96777e3d833f625a31c5759"
+    },
+    {
+      "path": "tests/browser/cut-piece-release-storage-harness.ts",
+      "sha256": "844b9e919c0698309522a446394033d1eca5a3b0700e53d7f14a6c5b984c7f34"
+    },
+    {
+      "path": "tests/browser/verify-cut-piece-release-idb-open.py",
+      "sha256": "eb8746045458d02f96a299008e00acd6aaf312cfc3cbe946d6bc11cfa9526ea8"
+    },
+    {
+      "path": "tests/browser/verify-cut-piece-release-supplement.py",
+      "sha256": "256be9f9aed59082344b0be0691ee704184f91b5d6b41efc78cc1aaa4dbdd6b4"
+    },
+    {
+      "path": "tests/unit/cut-piece-release-chronology.test.ts",
+      "sha256": "74d4c3b85188b8aa3d3e34cfa0109933e2b2fb1ffd1d9e5b0f56be45f44703d6"
+    },
+    {
+      "path": "tests/unit/cut-piece-release-dispatch-identity.test.ts",
+      "sha256": "c58a367710863e1b85079c973765c1447333ddf0b3f5794f97f995c1734323b1"
+    },
+    {
+      "path": "tests/unit/cut-piece-release-facts.test.ts",
+      "sha256": "67583ac62f94dd9e3636ce0af3bd3d16b37e92b0c6505adf21bccc779a3369e8"
+    },
+    {
+      "path": "tests/unit/cut-piece-release-frozen-warehouse.test.ts",
+      "sha256": "c000c2c670b6780064ec4f639dcae15ea24ae34df912975e951fe2a5c4463a4c"
+    },
+    {
+      "path": "tests/unit/cut-piece-release-persisted-validation.test.ts",
+      "sha256": "c65adf2554a181d72166b1bcad9aae234f48a82541c68106853940033b72b087"
+    },
+    {
+      "path": "tests/unit/cut-piece-release-ui.test.ts",
+      "sha256": "7c0102d35259797a98ec10babc746760eed43f61259c2551780b3c7f0ff84627"
+    },
+    {
+      "path": "tests/unit/cut-piece-special-craft-receipts.test.ts",
+      "sha256": "3fa2da877b7004596eeef883a683cb07c38be9ca0fa884eec48ffb404f2a0444"
+    },
+    {
+      "path": "tests/unit/cutting-migrated-storage-import.test.ts",
+      "sha256": "ed51e50ca00dd83ed99d5a491e2e10fbccc3d0176d03426d45e9e209d74c2476"
+    },
+    {
+      "path": "tests/unit/manual-fei-ticket-source-identity.test.ts",
+      "sha256": "f91d99131c95fea3d88cc15eb011fb998e4127beb93cbc2f96d001c1d1ca4a18"
+    },
+    {
+      "path": "tests/unit/replacement-fabric-copy.test.ts",
+      "sha256": "a5cae46528586a20c7c6f54ed4e74f94ec67d049782461c28d2a3e05ba50a56d"
+    }
+  ],
+  "worktree": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+  "capturedAt": "2026-10-09T21:30:03.389610+00:00",
+  "buildLog": "docs/product-design/evidence/2026-10-09-cut-piece-release/build-v40.log",
+  "unitTests": {
+    "total": 734,
+    "passed": 734,
+    "failed": 0
+  },
+  "generatedAt": "2026-10-09T21:30:03.389610+00:00",
+  "servedEntry": "/assets/index-ahCzqgw3.js",
+  "servedEntryVerified": true,
+  "changesFromV39": [
+    "src/data/fcs/cutting/cut-piece-release-facts.ts",
+    "src/data/fcs/cutting/transfer-bag-operations.ts",
+    "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+    "tests/unit/cut-piece-special-craft-receipts.test.ts"
+  ]
+}

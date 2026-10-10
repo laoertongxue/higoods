@@ -1,0 +1,1512 @@
+{
+  "status": "in_progress",
+  "verifiedAt": "2026-10-09T16:57:38.503263+00:00",
+  "branch": "codex/sidebar-menu-group-ui",
+  "baseHead": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "service": "http://127.0.0.1:4190",
+  "prototypeOnly": true,
+  "browserProfile": "release-receipt persistent headless; profile-final",
+  "version": "v9",
+  "assetManifestSHA256": "58f2e84411c5b3392af41528c00617d2b7d3496d8ab159766f7aaacd67f9528c",
+  "excludedEvidence": "v5 cold samples and previous temporary browser preparations are not final verification",
+  "actualPreparation": {
+    "productionOrder": "PO-202603-0004",
+    "markerNo": "MKP-20261009-001",
+    "markerId": "marker-plan-1791533183757-9ppwbn",
+    "manualBatchId": "manual-batch-QGWOPJ",
+    "quantities": {
+      "Black/M": 5,
+      "Black/XL": 5
+    },
+    "uiReadBack": "手动建票批次\n\n无铺布单 / 唛架编号 MKP-20261009-001\n\n菲票明细 8 条 / 裁片 40 片\n\n\t\n\n生产单：PO-202603-0004\n\n裁片单：CUT-260302-004-01\n\nSPU：SPU-2024-010\n\n颜色：Black\n\n\t\n\n后片 / M · 5 片 · 编号 手动建票（无铺布层序）\n\n前片 / M · 5 片 · 编号 手动建票（无铺布层序）\n\n袖片 / M · 5 片 · 编号 手动建票（无铺布层序）\n\n另 5 条明细，进入部位明细查看。\n\n\t\n\n是否有特殊工艺：是\n\n特殊工艺类型：无；模板工序 / 特种工艺\n\n承接工厂：无；模板工序：SPF - 特种工艺\n\n\t\n\n打印时间：2026-10-09T08:09:32.425Z\n\n最近补打：无\n\n打印次数：8\n\n打印人：裁床打票员\n\n\t已打印 8 条\t\n全部打印\n菲票明细",
+    "persistentCloseReopenVerified": true,
+    "rawReadbackLog": "/tmp/receipt-final-persistence-readback.log",
+    "assignedTaskId": "TASKGEN-202603-0004-003__ORDER",
+    "assignedTaskNo": "TASKGEN-202603-0004-003",
+    "assignedFactoryId": "FAC-APF",
+    "originalPrintedDefaultFactory": "FAC-SPF",
+    "ticketNumbers": [
+      "TM-FVUUO-YQ2AV-001",
+      "TM-FVUUO-YQ2AV-002",
+      "TM-FVUUO-YQ2AV-003",
+      "TM-FVUUO-YQ2AV-004",
+      "TM-FVUUO-YQ2AV-005",
+      "TM-FVUUO-YQ2AV-006",
+      "TM-FVUUO-YQ2AV-007",
+      "TM-FVUUO-YQ2AV-008"
+    ]
+  },
+  "automaticChecks": {
+    "receiptUnit": {
+      "tests": 16,
+      "pass": 16,
+      "durationMs": 1805.296583,
+      "evidence": "receipt-unit.log"
+    },
+    "pdaWorkflow": "receipt-pda-workflow.log",
+    "cuttingAll": "receipt-cutting-all.log",
+    "scopeTypes": "receipt-types.log"
+  },
+  "actualGaps": [
+    {
+      "scope": "saved dialog close",
+      "result": "all close/cancel controls disabled after saved; UI says close then reopen",
+      "resolution": "owned one-line restore close-dialog controls; pending unified build and real recheck"
+    },
+    {
+      "scope": "mixed-time final receipt",
+      "result": "genuine ISO handout vs default minute text compares lexically and blocks later actual receipt",
+      "resolution": "owned default full ISO+legacy explicit minute compatibility; 16 receipt units passed, shared chronology root scope pending"
+    },
+    {
+      "scope": "PO0002 direct source",
+      "result": "saved main marker includes splice/pocket rows marked main; real technical snapshot materials differ; valid manual guard blocks generation",
+      "resolution": "root owns exact material mapping/filter fix; two approved UNASSIGNED named demo task sources included v9"
+    }
+  ],
+  "remaining": [
+    "root same-second distinct correction event identity fix/freeze and original lawful correction recovery",
+    "five actual Web original4/0 corrections with current final build and durable history preserved",
+    "current Web/PDA first-receipt processing-completed/blank/reason/over/confirmation negatives",
+    "ordinary/special/cross-chain mixed bag blocking, duplicate and current actual reread/close/reopen proof",
+    "scope device/images/copy/current release stage sidecar and two final item-by-item adversarial audits"
+  ],
+  "sourceChangesAfterBuild": [
+    "success dialog close controls restored",
+    "new operation times preserve ISO seconds/timezone; shared chronology pending root"
+  ],
+  "actualSingleStage": {
+    "bagCode": "BAG-RECEIPT-FINAL-01",
+    "ticketIds": [
+      "manual-fei-QESI9X",
+      "manual-fei-C22V28"
+    ],
+    "ticketNos": [
+      "TM-FVUUO-YQ2AV-001",
+      "TM-FVUUO-YQ2AV-005"
+    ],
+    "originalQty": [
+      5,
+      5
+    ],
+    "assignedTaskId": "TASKGEN-202603-0004-003__ORDER",
+    "actualFactoryId": "FAC-APF",
+    "printedDefaultFactoryId": "FAC-SPF",
+    "sourceHandoverRecordId": "SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204",
+    "location": "A区/A-R01-L01-P03",
+    "bagging": "saved; two same chain different per-ticket stages accepted",
+    "inbound": "saved",
+    "handout": "saved; actual selected assigned APF overrides printed SPF",
+    "blank": "rejected; inputs preserved",
+    "processingCompletionUnchecked": "rejected; inputs preserved",
+    "differenceWithoutReason": "rejected; inputs preserved",
+    "validFinalReturn": "blocked by mixed ISO/HH:mm chronology; zero writes; source fix and rebuild pending",
+    "intendedReturnQty": [
+      4,
+      0
+    ],
+    "intendedDifferenceReasons": [
+      "模板加工损耗1片",
+      "模板加工后5片全部不可用，实收0片"
+    ],
+    "beforeReturnEventCount": 3
+  },
+  "actualDirectPreparation": {
+    "prototypeOnly": true,
+    "source": "named UNASSIGNED static demo based on existing PO0002 techpack; these are prototype data, not real factory facts",
+    "orderedPart": "tdv_demand_SPU_2024_005-pattern-main-back",
+    "stages": [
+      {
+        "taskId": "SC-RELEASE-DEMO-0002-1__ORDER",
+        "craftCode": "CRAFT_000032",
+        "craft": "打条",
+        "factoryId": "FAC-APF",
+        "normalUiAssignmentSaved": true
+      },
+      {
+        "taskId": "SC-RELEASE-DEMO-0002-2__ORDER",
+        "craftCode": "CRAFT_3000002",
+        "craft": "压褶",
+        "factoryId": "FAC-SPF",
+        "normalUiAssignmentSaved": true
+      }
+    ],
+    "assignmentPriceIDRPerPiece": 1200,
+    "reloadReadback": true,
+    "markerNo": "MKP-20261009-002",
+    "manualGeneration": "blocked true material mismatch; root correction pending nextbuild"
+  },
+  "currentVerificationVersion": {
+    "version": "v26",
+    "sourceManifestSHA256": "fc9bb1bbf8895ae8c01d31406b58ae1909785db1a18ce4e08b2b2214d24a45e0",
+    "assetManifestSHA256": "6e5ca0852137df7d78f2661c4cb7556e1e8a3cb9e4b26a45556d07947fa33c4f",
+    "manifest": "version-v26.json"
+  },
+  "v22Actual": {
+    "actions": "receipt-v22-actions.jsonl",
+    "singleStage": {
+      "source": "existing normal manual printed PO0004",
+      "ticketIds": [
+        "manual-fei-QESI9X",
+        "manual-fei-C22V28"
+      ],
+      "sourceHandoverRecordId": "SPECIAL-HR-special-craft-handover:12c3db7d-8ff3-4137-ac92-45686e369204",
+      "actualFactoryId": "FAC-APF",
+      "originalPrintedDefault": "FAC-SPF",
+      "originalQty": [
+        5,
+        5
+      ],
+      "returnedQty": [
+        4,
+        0
+      ],
+      "processingCompleted": [
+        true,
+        true
+      ],
+      "negativeGuards": [
+        "blank",
+        "unchecked completion",
+        "missing difference reason",
+        "over expected quantity"
+      ],
+      "saved": true,
+      "fullReloadReadback": true,
+      "closeEnabled": true,
+      "performanceFirstSaveExcluded": "CLI final close locator strict ambiguity after genuine completed save; no returned timing",
+      "image": "output/playwright/cut-release-receipt/v22-web-4-zero-saved.png"
+    },
+    "directPreparation": {
+      "namedMockTasksOnly": true,
+      "oldOwnInvalidDraftDeletedViaNormalUi": true,
+      "oldInvalidDraftId": "marker-plan-1791535032256-yrn5b5",
+      "newMarkerId": "marker-plan-1791559507941-tra25e",
+      "newMarkerNo": "MKP-20261009-002",
+      "manualBatchId": "manual-batch-X4ZI8B",
+      "yellowTicketIds": [
+        "manual-fei-XT0BGC",
+        "manual-fei-PHHFGD"
+      ],
+      "yellowTicketNos": [
+        "TM-FVUUO-VP59G-002",
+        "TM-FVUUO-VP59G-006"
+      ],
+      "originalQty": [
+        5,
+        5
+      ],
+      "originalPrintUiAndDurable": true,
+      "bag": "BAG-DIRECT-V22-01",
+      "baggingSaved": true,
+      "inboundSaved": true,
+      "currentFailure": "minute precision inbound is sorted before second precision bagging; current becomes PACKED and handout bag select excludes it after reload",
+      "failureImage": "output/playwright/cut-release-receipt/v22-new-inbound-missing-handover.png",
+      "sourceFix": "parent is reviewing minimal chronology+inbound default fix for v23; no current normal direct completion claimed"
+    }
+  },
+  "v23Actual": {
+    "actions": "receipt-v23-actions.jsonl",
+    "oldBagsCandidatesRestored": [
+      "BAG-DIRECT-V22-01",
+      "BAG-PDA-RECEIPT-01"
+    ],
+    "loadedEntry": "/assets/index-DxcV_HMJ.js",
+    "actualStage1TaskSelection": "SC-RELEASE-DEMO-0002-1__ORDER",
+    "actualFactory": "FAC-APF",
+    "submitFailed": "BAG-DIRECT-V22-01 当前为使用中 / 菲票已装袋，不能整袋交出。",
+    "result": "no CRAFT-OUT saved; earlier normal bagging/inbound remain",
+    "rootCause": "wait-handover lifecycle resort uses pair comparator, losing new collection chronology from bag candidate",
+    "rawFailureLog": "/tmp/receipt-v23-direct-first-handout.log",
+    "passedNormalDirectOrPda": false,
+    "failureImage": "output/playwright/cut-release-receipt/v23-stage1-submit-lifecycle-blocked.png",
+    "durableAfterFailure": "Exactly original BAGGING seq55 + TICKET-IN seq56, samecycle, no CRAFT-OUT"
+  },
+  "v24Actual": {
+    "actions": "receipt-v24-actions.jsonl",
+    "status": "partial_normal_chain_complete_current_po_display_gap_pending_fix",
+    "originalDirectBag": {
+      "bagCode": "BAG-DIRECT-V22-01",
+      "originalFactsTimesUnchanged": true,
+      "firstStageSaved": true,
+      "firstStageTimingExcluded": "saved button succeeded; driver awaited different feedback text, no valid timing",
+      "firstStageEventNo": "CRAFT-OUT-20261009161859",
+      "directNextSaved": true,
+      "directNextMs": 247.8,
+      "noIntermediateWarehouseReturn": true,
+      "finalPdaSaved": true,
+      "finalPdaMs": 138.3,
+      "expectedQty": [
+        4,
+        4
+      ],
+      "returnedQty": [
+        3,
+        0
+      ],
+      "quantityCorrect": true,
+      "reasonEvidenceNotFullyPassed": "driver entered different XL reason but did not record final DOM; saved both causes equal M previous reason; preserved original receipt, not claimed full pass"
+    },
+    "newIndependentNormalChain": {
+      "markerId": "marker-plan-1791559507941-tra25e",
+      "markerNo": "MKP-20261009-002",
+      "batchId": "manual-batch-F72D4H",
+      "ticketIds": [
+        "manual-fei-LVF7R2",
+        "manual-fei-APVIKB"
+      ],
+      "ticketNos": [
+        "TM-FVUUO-UU3BX-002",
+        "TM-FVUUO-UU3BX-006"
+      ],
+      "bagCode": "BAG-DIRECT-V24-01",
+      "manualCreationMs": 432.4,
+      "originalPrintSaved": true,
+      "originalPrintTimingExcluded": "driver awaited other document-type feedback after actual print; durable original print source subsequently accepted by real bagging",
+      "baggingMs": 260.6,
+      "inboundMs": 161.6,
+      "firstStageMs": 165.1,
+      "directNextMs": 230.9,
+      "finalPdaMs": 152.1,
+      "normalTasks": [
+        "SC-RELEASE-DEMO-0002-1__ORDER",
+        "SC-RELEASE-DEMO-0002-2__ORDER"
+      ],
+      "actualFactories": [
+        "FAC-APF",
+        "FAC-SPF"
+      ],
+      "finalOriginalSourceFactory": "FACTORY-ONBOARD-0035",
+      "location": "A-R01-L02-P02",
+      "expectedQty": [
+        4,
+        4
+      ],
+      "returnedQty": [
+        3,
+        0
+      ],
+      "reasons": [
+        "M压褶损耗1片",
+        "XL压褶4片全部不可用"
+      ],
+      "domBeforeMatchesDurable": true,
+      "processingCompleted": [
+        true,
+        true
+      ]
+    },
+    "guards": {
+      "route": "/fcs/pda/cutting/inbound/TASK-CUT-PDA-NO-PICKUP-0301?action=inbound-location",
+      "viewport": "390x844",
+      "fiveSamplesEach": [
+        "blank",
+        "completion-unchecked",
+        "difference-reason-empty",
+        "over-current-expected",
+        "receipt-unchecked"
+      ],
+      "samplesAction": "pda-final-guards-five-each",
+      "allInputsPreserved": true,
+      "wrongSourceFactoryBlocked": {
+        "login": "OWN-CUTTING-001_admin prototype account",
+        "result": "库位不属于本次交出的裁床工厂",
+        "noReturnEvent": true,
+        "positiveLogin": "onboarding_35 via real login form",
+        "factoryId": "FACTORY-ONBOARD-0035"
+      }
+    },
+    "openCurrentGaps": [
+      {
+        "scope": "PDA current occupied location PO label",
+        "selector": "[data-pda-inbound-location-map] [data-warehouse-map-action=open-occupancy][data-location-id=CUT-WH-LOC-A-R01-L02-P02]",
+        "observed": "未关联生产单",
+        "actualTicketSnapshotPo": "PO-202603-0002",
+        "receiptRefsPo": "",
+        "image": "output/playwright/cut-release-receipt/v24-pda-current-location-po-gap.png",
+        "rootFixPending": true
+      },
+      {
+        "scope": "PDA producer occurredAt still minute truncated",
+        "source": "src/pages/pda-cutting-inbound.ts specialCraftReturn branch",
+        "rootFixPending": true
+      }
+    ],
+    "performanceComplete": false,
+    "remainingValidFirstStageSamples": 4,
+    "remainingValidPdaFinalSamples": 4,
+    "remainingValidDirectNextSamples": 3,
+    "currentVersionCompleteClaim": false
+  },
+  "v25Actual": {
+    "actions": "receipt-v25-actions.jsonl",
+    "sourceManifestSHA256": "105e6e852d1694bc694c82fd97c8921db7dfaad4008a5b24f78f5c0b0b00104f",
+    "assetManifestSHA256": "acf85fbe2cb7313eb6e6eda23f06a64b6d920a2de6122a6445fcbc2a489738f5",
+    "oldLocationCardsShowCorrectPo": {
+      "BAG-DIRECT-V22-01": "PO-202603-0002",
+      "BAG-DIRECT-V24-01": "PO-202603-0002"
+    },
+    "newNormalSource": {
+      "bagCode": "BAG-DIRECT-V25-01",
+      "ticketIds": [
+        "manual-fei-1P76HJ",
+        "manual-fei-F2UMOU"
+      ],
+      "ticketNos": [
+        "TM-FVUUO-TCTKK-006",
+        "TM-FVUUO-TCTKK-002"
+      ],
+      "newOriginalPrintedSources": true,
+      "baggingSaved": true,
+      "firstStageSaved": true,
+      "directNextSaved": true,
+      "finalReceiptSaved": false,
+      "failure": "last focused input direct submit caused DOM redraw; M qty blank, no result message and no receipt event",
+      "diagnosis": "unconfirmed; isolate single qty/reason fill/blur and actual DOM values next window",
+      "originalLog": "/tmp/receipt-v25-normal-two-stage-sample1.log",
+      "image": "output/playwright/cut-release-receipt/v25-focused-input-submit-observed.png"
+    },
+    "validPerformanceSamples": 0,
+    "excludedTimings": "whole driver threw at final receipt count0, step timings were not returned; do not infer timings from event timestamps",
+    "currentVersionCompleteClaim": false,
+    "pauseReason": "root requested window for adjacent repack mixed-time counterexample/fix"
+  },
+  "v26Actual": {
+    "status": "partial_verified_pause_for_source_identity_collision",
+    "actions": "receipt-v26-actions.jsonl",
+    "prototypeMockOnly": true,
+    "fiveTwoStageChains": {
+      "count": 5,
+      "actions": [
+        "normal-two-stage-sample1",
+        "normal-two-stage-sample2",
+        "normal-two-stage-sample3",
+        "normal-two-stage-sample4",
+        "normal-two-stage-sample5"
+      ],
+      "lastFieldFocusedDirectSubmit": true,
+      "originalQtyPerTicket": 5,
+      "firstStageQtyPerBag": 10,
+      "directQtyPerTicket": 4,
+      "finalQty": {
+        "M": 3,
+        "XL": 0
+      },
+      "intermediateWarehouseReturn": false,
+      "batches": [
+        {
+          "bag": "BAG-DIRECT-V26-01",
+          "location": "A-R01-L04-P01",
+          "tickets": [
+            {
+              "id": "manual-fei-L4LKIL",
+              "no": "TM-FVUUO-W8DR9-002",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "M",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-W0ZX16-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-W0ZX16-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            },
+            {
+              "id": "manual-fei-RAC7SM",
+              "no": "TM-FVUUO-W8DR9-006",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "XL",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-W0ZX16-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-W0ZX16-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            }
+          ],
+          "locationReadback": "P01 · 占用\nA-R01-L04-P01\nPO-202603-0002\n中转袋 BAG-DIRECT-V26-01\n3 片"
+        },
+        {
+          "bag": "BAG-DIRECT-V26-02",
+          "location": "A-R01-L04-P02",
+          "tickets": [
+            {
+              "id": "manual-fei-ICXHVU",
+              "no": "TM-FVUUO-ZEWJG-002",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "M",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-P9RA8C-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-P9RA8C-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            },
+            {
+              "id": "manual-fei-R69PCH",
+              "no": "TM-FVUUO-ZEWJG-006",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "XL",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-P9RA8C-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-P9RA8C-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            }
+          ],
+          "locationReadback": "P02 · 占用\nA-R01-L04-P02\nPO-202603-0002\n中转袋 BAG-DIRECT-V26-02\n3 片"
+        },
+        {
+          "bag": "BAG-DIRECT-V26-03",
+          "location": "A-R01-L04-P03",
+          "tickets": [
+            {
+              "id": "manual-fei-CVGCAL",
+              "no": "TM-FVUUO-TSSR4-002",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "M",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-D180FW-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-D180FW-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            },
+            {
+              "id": "manual-fei-FVANA4",
+              "no": "TM-FVUUO-TSSR4-006",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "XL",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-D180FW-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-D180FW-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            }
+          ],
+          "locationReadback": "P03 · 占用\nA-R01-L04-P03\nPO-202603-0002\n中转袋 BAG-DIRECT-V26-03\n3 片"
+        },
+        {
+          "bag": "BAG-DIRECT-V26-04",
+          "location": "A-R01-L04-P04",
+          "tickets": [
+            {
+              "id": "manual-fei-PJTTTJ",
+              "no": "TM-FVUUO-VRLA3-002",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "M",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-GTO8WC-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-GTO8WC-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            },
+            {
+              "id": "manual-fei-W8GBBK",
+              "no": "TM-FVUUO-VRLA3-006",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "XL",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-GTO8WC-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-GTO8WC-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            }
+          ],
+          "locationReadback": "P04 · 占用\nA-R01-L04-P04\nPO-202603-0002\n中转袋 BAG-DIRECT-V26-04\n3 片"
+        },
+        {
+          "bag": "BAG-DIRECT-V26-05",
+          "location": "A-R02-L01-P01",
+          "tickets": [
+            {
+              "id": "manual-fei-BJENZT",
+              "no": "TM-FVUUO-WPFMN-002",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "M",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-V0ZKKR-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-V0ZKKR-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::M::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "M",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            },
+            {
+              "id": "manual-fei-PI5A00",
+              "no": "TM-FVUUO-WPFMN-006",
+              "qty": 5,
+              "printStatus": "PRINTED",
+              "size": "XL",
+              "crafts": [
+                {
+                  "specialCraftId": "manual-batch-V0ZKKR-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-01",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "打条",
+                  "craftName": "打条",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                },
+                {
+                  "specialCraftId": "manual-batch-V0ZKKR-marker-plan-1791559507941-tra25e::cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm::Grey::XL::SKU-005-S-GRY::tdv_demand_SPU_2024_005-bom-main::后片-1-special-craft-02",
+                  "craftCategory": "辅助工艺",
+                  "craftType": "压褶",
+                  "craftName": "压褶",
+                  "receiverFactoryId": "FAC-APF",
+                  "receiverFactoryCode": "APF",
+                  "receiverFactoryName": "APF - 辅助工艺",
+                  "receiverFactoryType": "辅助工艺厂",
+                  "affectedPartCode": "tdv_demand_SPU_2024_005-pattern-main-back",
+                  "affectedPartName": "后片",
+                  "affectedSize": "XL",
+                  "affectedPieceQty": 5,
+                  "requirementSource": "技术包",
+                  "handoverStatus": "未交出",
+                  "returnStatus": "未回仓",
+                  "remark": ""
+                }
+              ]
+            }
+          ],
+          "locationReadback": "P01 · 占用\nA-R02-L01-P01\nPO-202603-0002\n中转袋 BAG-DIRECT-V26-05\n3 片"
+        }
+      ],
+      "timingsMs": [
+        {
+          "sample": 1,
+          "create": 459.1000000014901,
+          "paperTab": 175.29999999701977,
+          "preview": 195,
+          "print": 183.19999999552965,
+          "bagging": 340.6000000014901,
+          "inbound": 246.10000000149012,
+          "firstStage": 249.20000000298023,
+          "directNext": 265,
+          "pdaRead": 61,
+          "finalPda": 171.29999999701977
+        },
+        {
+          "sample": 2,
+          "create": 418.1000000014901,
+          "paperTab": 160,
+          "preview": 179.30000000447035,
+          "print": 200.5,
+          "bagging": 386.79999999701977,
+          "inbound": 259.5,
+          "firstStage": 263.79999999701977,
+          "directNext": 263,
+          "pdaRead": 61.80000000447035,
+          "finalPda": 184.70000000298023
+        },
+        {
+          "sample": 3,
+          "create": 461.30000000447035,
+          "paperTab": 159.80000000447035,
+          "preview": 180,
+          "print": 199.60000000149012,
+          "bagging": 348.59999999403954,
+          "inbound": 252.5,
+          "firstStage": 281.5,
+          "directNext": 299.79999999701977,
+          "pdaRead": 57.100000001490116,
+          "finalPda": 192.60000000149012
+        },
+        {
+          "sample": 4,
+          "create": 495.1000000014901,
+          "paperTab": 179.10000000149012,
+          "preview": 177.19999999552965,
+          "print": 199.39999999850988,
+          "bagging": 354.19999999552965,
+          "inbound": 270.59999999403954,
+          "firstStage": 298.20000000298023,
+          "directNext": 298.19999999552965,
+          "pdaRead": 63.20000000298023,
+          "finalPda": 203.5
+        },
+        {
+          "sample": 5,
+          "create": 495.69999999552965,
+          "paperTab": 172.80000000447035,
+          "preview": 172.70000000298023,
+          "print": 215.69999999552965,
+          "bagging": 371.79999999701977,
+          "inbound": 298,
+          "firstStage": 314.70000000298023,
+          "directNext": 315.1000000014901,
+          "pdaRead": 61.70000000298023,
+          "finalPda": 266.5
+        }
+      ]
+    },
+    "webCorrectionGuards": {
+      "action": "web-original-correction-guard-five-each-valid",
+      "validCount": 30,
+      "kinds": [
+        "blank",
+        "over-expected",
+        "difference-reason-empty",
+        "receipt-unchecked",
+        "correction-confirm-unchecked",
+        "correction-reason-empty"
+      ],
+      "completion": "observed this click busy then specific terminal error, busy gone/button available, independent readonly IDB transaction complete; full previous event payloads unchanged",
+      "samples": [
+        {
+          "kind": "blank",
+          "sample": 1,
+          "ms": 146.79999999701977,
+          "error": "TM-FVUUO-YQ2AV-001：请明确填写非负整数实收片数，空白不能当作 0。",
+          "qty": [
+            "",
+            ""
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "blank",
+          "sample": 2,
+          "ms": 131.79999999701977,
+          "error": "TM-FVUUO-YQ2AV-001：请明确填写非负整数实收片数，空白不能当作 0。",
+          "qty": [
+            "",
+            ""
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "blank",
+          "sample": 3,
+          "ms": 117.5,
+          "error": "TM-FVUUO-YQ2AV-001：请明确填写非负整数实收片数，空白不能当作 0。",
+          "qty": [
+            "",
+            ""
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "blank",
+          "sample": 4,
+          "ms": 121.79999999701977,
+          "error": "TM-FVUUO-YQ2AV-001：请明确填写非负整数实收片数，空白不能当作 0。",
+          "qty": [
+            "",
+            ""
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "blank",
+          "sample": 5,
+          "ms": 119.60000000149012,
+          "error": "TM-FVUUO-YQ2AV-001：请明确填写非负整数实收片数，空白不能当作 0。",
+          "qty": [
+            "",
+            ""
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "over-expected",
+          "sample": 1,
+          "ms": 125.60000000149012,
+          "error": "TM-FVUUO-YQ2AV-001：实收不能超过本次应回 5 片，请先核对交出数量。",
+          "qty": [
+            "6",
+            "6"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "over-expected",
+          "sample": 2,
+          "ms": 117.10000000149012,
+          "error": "TM-FVUUO-YQ2AV-001：实收不能超过本次应回 5 片，请先核对交出数量。",
+          "qty": [
+            "6",
+            "6"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "over-expected",
+          "sample": 3,
+          "ms": 117.60000000149012,
+          "error": "TM-FVUUO-YQ2AV-001：实收不能超过本次应回 5 片，请先核对交出数量。",
+          "qty": [
+            "6",
+            "6"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "over-expected",
+          "sample": 4,
+          "ms": 120.10000000149012,
+          "error": "TM-FVUUO-YQ2AV-001：实收不能超过本次应回 5 片，请先核对交出数量。",
+          "qty": [
+            "6",
+            "6"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "over-expected",
+          "sample": 5,
+          "ms": 133.70000000298023,
+          "error": "TM-FVUUO-YQ2AV-001：实收不能超过本次应回 5 片，请先核对交出数量。",
+          "qty": [
+            "6",
+            "6"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "difference-reason-empty",
+          "sample": 1,
+          "ms": 148.5,
+          "error": "TM-FVUUO-YQ2AV-001：少回 2 片，请填写实际点收差异原因。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "difference-reason-empty",
+          "sample": 2,
+          "ms": 118,
+          "error": "TM-FVUUO-YQ2AV-001：少回 2 片，请填写实际点收差异原因。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "difference-reason-empty",
+          "sample": 3,
+          "ms": 121.20000000298023,
+          "error": "TM-FVUUO-YQ2AV-001：少回 2 片，请填写实际点收差异原因。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "difference-reason-empty",
+          "sample": 4,
+          "ms": 119.20000000298023,
+          "error": "TM-FVUUO-YQ2AV-001：少回 2 片，请填写实际点收差异原因。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "difference-reason-empty",
+          "sample": 5,
+          "ms": 120.20000000298023,
+          "error": "TM-FVUUO-YQ2AV-001：少回 2 片，请填写实际点收差异原因。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "receipt-unchecked",
+          "sample": 1,
+          "ms": 127.70000000298023,
+          "error": "请逐票确认 TM-FVUUO-YQ2AV-001 的实收数量。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "receipt-unchecked",
+          "sample": 2,
+          "ms": 118.39999999850988,
+          "error": "请逐票确认 TM-FVUUO-YQ2AV-001 的实收数量。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "receipt-unchecked",
+          "sample": 3,
+          "ms": 120.80000000447035,
+          "error": "请逐票确认 TM-FVUUO-YQ2AV-001 的实收数量。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "receipt-unchecked",
+          "sample": 4,
+          "ms": 119.80000000447035,
+          "error": "请逐票确认 TM-FVUUO-YQ2AV-001 的实收数量。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "receipt-unchecked",
+          "sample": 5,
+          "ms": 135.79999999701977,
+          "error": "请逐票确认 TM-FVUUO-YQ2AV-001 的实收数量。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-confirm-unchecked",
+          "sample": 1,
+          "ms": 155.89999999850988,
+          "error": "请再次确认本次逐票实收更正及对库存的影响。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-confirm-unchecked",
+          "sample": 2,
+          "ms": 123.69999999552965,
+          "error": "请再次确认本次逐票实收更正及对库存的影响。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-confirm-unchecked",
+          "sample": 3,
+          "ms": 119.29999999701977,
+          "error": "请再次确认本次逐票实收更正及对库存的影响。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-confirm-unchecked",
+          "sample": 4,
+          "ms": 119.79999999701977,
+          "error": "请再次确认本次逐票实收更正及对库存的影响。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-confirm-unchecked",
+          "sample": 5,
+          "ms": 120.19999999552965,
+          "error": "请再次确认本次逐票实收更正及对库存的影响。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-reason-empty",
+          "sample": 1,
+          "ms": 131.39999999850988,
+          "error": "更正原因必填。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-reason-empty",
+          "sample": 2,
+          "ms": 136.19999999552965,
+          "error": "更正原因必填。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-reason-empty",
+          "sample": 3,
+          "ms": 119.5,
+          "error": "更正原因必填。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-reason-empty",
+          "sample": 4,
+          "ms": 120.10000000149012,
+          "error": "更正原因必填。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        },
+        {
+          "kind": "correction-reason-empty",
+          "sample": 5,
+          "ms": 119.09999999403954,
+          "error": "更正原因必填。",
+          "qty": [
+            "3",
+            "0"
+          ],
+          "visual": {
+            "fontStatus": "loaded",
+            "fontFaceCount": 0,
+            "fontFaceRules": 0,
+            "images": [],
+            "pendingImages": 0
+          }
+        }
+      ]
+    },
+    "excludedRawActions": [
+      {
+        "action": "web-original-correction-guard-five-each",
+        "reason": "harness ended while busy; not final error or valid timing"
+      },
+      {
+        "action": "web-original-correction-guard-five-each-final",
+        "reason": "harness observed stale rose node before this action settled; not final error or valid timing"
+      },
+      {
+        "raw": "/tmp/receipt-v26-web-original-five-legitimate-corrections.log",
+        "reason": "genuine first correction saved but driver failed before matching next source option populated; no preserved valid timing"
+      },
+      {
+        "raw": "/tmp/receipt-v26-web-original-five-legitimate-corrections-valid.log",
+        "reason": "later genuine same-second lawful correction blocked by timestamp-only event ID collision; loop thrown, no final five positive samples"
+      }
+    ],
+    "newOpenFailure": {
+      "action": "web-correction-current-block-read",
+      "route": "/fcs/craft/cutting/warehouse-management/wait-handover",
+      "bag": "BAG-RECEIPT-FINAL-01",
+      "kind": "same-second distinct legitimate receipt corrections share generic event ID although idempotency differs",
+      "productInputsPreserved": true,
+      "sourceWritesPerformedByAgent": false,
+      "browserCpuWindow": "handed_to_root_for_minimal_fix"
+    },
+    "completionPoints": {
+      "chainSaves": "actual saved/workflow feedback, independent IDB readonly transaction oncomplete, then two requestAnimationFrame paints",
+      "print": "actual PRINTED durable tickets, readonly transaction oncomplete, real preview QR SVG present, two paints",
+      "preview": "real QR SVG plus complete images then two paints",
+      "fontsAndImages": "v26 actual visualComplete records FontFace count0 and CSSFontFaceRule count0, document.fonts loaded, images[]; affected controls and QR/barcode are text/SVG. Original chain timestamps remain original; no synthetic retiming",
+      "negativeGuardVisual": "await document.fonts.ready, decode every document image, then two paints; each sample images[] and no font-face workload"
+    },
+    "currentVersionCompleteClaim": false
+  }
+}

@@ -896,6 +896,7 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
 }
 
 let cachedRecords: GeneratedCutOrderSourceRecord[] | null = null
+let cachedFormalRecords: GeneratedCutOrderSourceRecord[] | null = null
 let cachedSourceKey = ''
 let readFrameDepth = 0
 let readFrameResolved = false
@@ -907,7 +908,7 @@ export function withGeneratedCutOrderReadFrame<T>(read: () => T): T {
   try { return read() } finally { readFrameDepth--; if (outer) readFrameResolved = false }
 }
 
-export function listGeneratedCutOrderSourceRecords(): GeneratedCutOrderSourceRecord[] {
+export function listGeneratedCutOrderSourceRecords(options?: { includeDimensionScenarios?: boolean }): GeneratedCutOrderSourceRecord[] {
   if (!readFrameDepth || !readFrameResolved || !cachedRecords) {
   const orders = listCuttingProductionOrdersWithFormalTechPack()
   // A new frozen order, breakdown or dispatch must invalidate this derived view.
@@ -921,11 +922,13 @@ export function listGeneratedCutOrderSourceRecords(): GeneratedCutOrderSourceRec
   if (!cachedRecords || cachedSourceKey !== sourceKey) {
     const baseRecords = orders.flatMap((order) => buildRecordsForOrder(order))
     cachedSourceKey = sourceKey
+    cachedFormalRecords = baseRecords
     cachedRecords = [...baseRecords, ...buildPrompt1DimensionScenarioRecords(baseRecords)]
   }
   if (readFrameDepth) readFrameResolved = true
   }
-  return cachedRecords!.map((record) => ({
+  const records = options?.includeDimensionScenarios === false ? cachedFormalRecords! : cachedRecords!
+  return records.map((record) => ({
     ...record,
     sourceBomItemIds: [...(record.sourceBomItemIds || [])],
     productionOrderNo: normalizeText(record.productionOrderNo) || normalizeText(record.productionOrderId),
@@ -947,5 +950,6 @@ export function getGeneratedCutOrderSourceRecordById(cutOrderId: string): Genera
 
 export function resetGeneratedCutOrderSourceCache(): void {
   cachedRecords = null
+  cachedFormalRecords = null
   readFrameResolved = false
 }

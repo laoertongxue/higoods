@@ -15,6 +15,7 @@ import { join } from 'node:path'
 // @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import { fileURLToPath } from 'node:url'
 import type { AppendCuttingRuntimeEventInput } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import type { ReleaseTicketDetail } from '../src/data/fcs/cut-piece-release-domain.ts'
 
 const lifecycleModuleUrl = new URL(
   '../src/data/fcs/cutting/transfer-bag-lifecycle.ts',
@@ -1871,6 +1872,33 @@ ordinaryActionStorage.setItem(
   runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   actionStorage.getItem(runtimeLedger.CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || '',
 )
+// 此独立普通交出场景明确无需工艺，不能依靠袋内快照冒充可交出来源。
+const releaseTicketFacts = await import('../src/data/fcs/cutting/cut-piece-release-facts.ts')
+releaseTicketFacts.setPublishedReleaseTicketDetails((): ReleaseTicketDetail[] => [{
+  ticketId: actionTicket.feiTicketId,
+  ticketNo: actionTicket.feiTicketNo,
+  sourceType: '中转袋三状态专项普通票',
+  sourceNo: actionTicket.spreadingOrderNo,
+  cutOrderNo: actionTicket.cutOrderNo,
+  spreadingOrderNo: actionTicket.spreadingOrderNo,
+  garmentColor: actionTicket.color,
+  size: actionTicket.size,
+  fabricColor: actionTicket.color,
+  materialId: 'THREE-STATUS-TEST-MATERIAL',
+  materialName: '专项面料',
+  partId: actionTicket.partCode,
+  partName: actionTicket.partName,
+  printedPieceQty: actionTicket.pieceQty,
+  physicalPieceQty: actionTicket.pieceQty,
+  eligiblePieceQty: actionTicket.pieceQty,
+  validity: '可用',
+  bagCode: 'BAG-ACTION-001',
+  bagUseId: actionCycleId,
+  locationLabel: 'A 区 / A-01-01',
+  requiresSpecialCraft: false,
+  craftRequirementKnown: true,
+  craftSteps: [],
+}])
 const firstHandoverAction =
   transferBagOperations.submitWholeBagHandover({
     bagCode: 'BAG-ACTION-001',
@@ -1991,6 +2019,7 @@ const specialReturnPayload = {
     partName: '前幅',
     size: 'M',
     expectedQty: 10,
+    processingCompleted: true,
     returnedQty: 10,
     unit: '片',
     returnStatus: '已回仓',
@@ -2159,6 +2188,7 @@ waitHandoverRuntime.appendWaitHandoverSpecialCraftReturnEvent({
       partName: item.partName,
       size: item.size,
       expectedQty: item.pieceQty,
+      processingCompleted: true,
       returnedQty: item.pieceQty,
       unit: '片' as const,
       returnStatus: '已回仓' as const,

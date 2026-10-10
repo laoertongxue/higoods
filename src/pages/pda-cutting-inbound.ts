@@ -56,6 +56,7 @@ import {
   ensureTransferBagAvailableForUse,
   resolveTransferBagCurrentUseByTicketId,
   submitSpecialCraftBagReturn,
+  listSpecialCraftReturnSourceCandidates,
   type RecoverTransferBagInput,
   type TransferBagCurrentUse,
 } from '../data/fcs/cutting/transfer-bag-operations.ts'
@@ -81,6 +82,7 @@ export interface InboundFormState {
   physicalBagReceived: boolean
   physicalBagEmpty: boolean
   forceRecoveryReason: string
+  specialCraftReceipts?: Record<string, { returnedQty: string; differenceReason: string; confirmed: boolean; processingCompleted?: boolean }>
 }
 
 export interface ScannedTicketInput {
@@ -116,6 +118,8 @@ interface PdaSpecialCraftBagReturnContext {
   sourceHandoverRecordId: string
   receiverFactoryName: string
   ticketIds: string[]
+  craftType: string
+  tickets: TransferBagTicketFactSnapshot[]
 }
 
 export type PdaCuttingInboundBagStatus =
@@ -444,23 +448,14 @@ function resolvePdaSpecialCraftBagReturnContext(
   bagCode: string,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PdaSpecialCraftBagReturnContext | null {
-  const current = buildPdaCuttingInboundBagProjection(bagCode, storage)
-  if (current.flowStage !== 'HANDED_OVER_WAITING_RETURN' || !current.latestHandoverEventId) return null
-  const event = listWaitHandoverRuntimeEvents(storage).find((item) =>
-    item.eventId === current.latestHandoverEventId && item.eventType === '特殊工艺交出')
-  if (!event) return null
-  const payload = runtimeRecord(event.payload)
-  const sourceHandoverRecordId = String(
-    event.refs.handoverRecordId || payload.handoverRecordId || '',
-  ).trim()
-  const ticketIds = (event.refs.feiTicketIds || [])
-    .map((ticketId) => String(ticketId).trim())
-    .filter(Boolean)
-  if (!sourceHandoverRecordId || !ticketIds.length) return null
+  const candidate = listSpecialCraftReturnSourceCandidates(listWaitHandoverRuntimeEvents(storage), storage).find(item => item.bagCode === bagCode && !item.correctionOfEventId)
+  if (!candidate) return null
   return {
-    sourceHandoverRecordId,
-    receiverFactoryName: String(payload.receiverFactoryName || '特殊工艺厂').trim(),
-    ticketIds,
+    sourceHandoverRecordId: candidate.sourceHandoverRecordId,
+    receiverFactoryName: candidate.receiverFactoryName,
+    ticketIds: candidate.ticketSnapshot.map(ticket => ticket.feiTicketId),
+    craftType: candidate.craftType,
+    tickets: candidate.ticketSnapshot,
   }
 }
 
@@ -619,6 +614,7 @@ export function createPdaCuttingInboundFormState(): InboundFormState {
     physicalBagReceived: false,
     physicalBagEmpty: false,
     forceRecoveryReason: '',
+    specialCraftReceipts: {},
   }
 }
 
@@ -765,6 +761,11 @@ export function appendPdaCuttingInboundRuntimeEvent(
       sourceHandoverRecordId: specialCraftReturn.sourceHandoverRecordId,
       bagCode,
       returnedTicketIds: specialCraftReturn.ticketIds,
+      ticketReceipts: specialCraftReturn.tickets.map(ticket => {
+        const receipt = state.specialCraftReceipts?.[ticket.feiTicketId]
+        if (!receipt?.confirmed) throw new Error(`请先点收并确认 ${ticket.feiTicketNo} 的实收片数。`)
+        return { feiTicketId: ticket.feiTicketId, returnedQty: receipt.returnedQty, differenceReason: receipt.differenceReason, processingCompleted: receipt.processingCompleted }
+      }),
       locationRef: {
         factoryId: specialCraftLocationRef.factoryId,
         warehouseId: specialCraftLocationRef.warehouseId,
@@ -781,7 +782,7 @@ export function appendPdaCuttingInboundRuntimeEvent(
         operatorRole: '特殊工艺回仓员',
       },
       source: 'PDA',
-      occurredAt: localDateTimeText().slice(0, 16),
+      occurredAt: new Date().toISOString(),
     }, storage)
     return
   }
@@ -1313,8 +1314,12 @@ function renderPdaSpecialCraftReturnContext(form: InboundFormState): string {
   return `
     <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
       <div class="font-semibold">特殊工艺带袋回仓</div>
-      <div class="mt-1">来源工厂：${escapeHtml(context.receiverFactoryName)}；袋内应回 ${context.ticketIds.length} 张菲票。请核对实物后选择库位入仓。</div>
+      <div class="mt-1">${escapeHtml(context.receiverFactoryName)} · ${escapeHtml(context.craftType)}；应回 ${context.ticketIds.length} 张菲票。点收后选择库位。</div>
     </div>
+    <div class="mt-3 space-y-3">${context.tickets.map(ticket => {
+      const receipt = form.specialCraftReceipts?.[ticket.feiTicketId]
+      return `<section class="rounded-xl border p-3 text-sm" data-pda-craft-receipt-ticket="${escapeHtml(ticket.feiTicketId)}"><div class="font-semibold">${escapeHtml(ticket.feiTicketNo)}</div><div class="mt-1 text-muted-foreground">${escapeHtml(ticket.color)} / ${escapeHtml(ticket.size)} · ${escapeHtml(ticket.partName)} · 应回 ${ticket.pieceQty} 片</div><label class="mt-2 block">实收（片）<input class="mt-1 h-12 w-full rounded-xl border px-3 text-base" type="number" min="0" max="${ticket.pieceQty}" step="1" data-pda-craft-receipt-qty data-pda-cut-inbound-field="specialCraftReceipt" data-skip-page-rerender="true" value="${escapeHtml(receipt?.returnedQty || '')}" placeholder="填写实收片数" /></label><label class="mt-2 block">差异说明<input class="mt-1 h-12 w-full rounded-xl border px-3" data-pda-craft-receipt-reason data-pda-cut-inbound-field="specialCraftReceipt" data-skip-page-rerender="true" value="${escapeHtml(receipt?.differenceReason || '')}" placeholder="少回或零量须说明" /></label><label class="mt-3 flex min-h-10 items-center gap-2"><input type="checkbox" data-pda-craft-receipt-confirmed data-pda-cut-inbound-field="specialCraftReceipt" data-skip-page-rerender="true" ${receipt?.confirmed ? 'checked' : ''} />已核对实收数量</label><label class="mt-2 flex min-h-10 items-center gap-2"><input type="checkbox" data-pda-craft-processing-completed data-pda-cut-inbound-field="specialCraftReceipt" data-skip-page-rerender="true" ${receipt?.processingCompleted ? 'checked' : ''} />已核对本阶段加工完成</label></section>`
+    }).join('')}</div>
   `
 }
 
@@ -1509,6 +1514,15 @@ export function syncPdaCuttingInboundFormFromControls(
   if (physicalBagReceived) form.physicalBagReceived = physicalBagReceived.checked
   if (physicalBagEmpty) form.physicalBagEmpty = physicalBagEmpty.checked
   if (forceRecoveryReason) form.forceRecoveryReason = forceRecoveryReason.value
+  for (const row of container.querySelectorAll<HTMLElement>('[data-pda-craft-receipt-ticket]')) {
+    form.specialCraftReceipts ||= {}
+    form.specialCraftReceipts[row.dataset.pdaCraftReceiptTicket || ''] = {
+      returnedQty: row.querySelector<HTMLInputElement>('[data-pda-craft-receipt-qty]')?.value.trim() || '',
+      differenceReason: row.querySelector<HTMLInputElement>('[data-pda-craft-receipt-reason]')?.value.trim() || '',
+      confirmed: Boolean(row.querySelector<HTMLInputElement>('[data-pda-craft-receipt-confirmed]')?.checked),
+      processingCompleted: Boolean(row.querySelector<HTMLInputElement>('[data-pda-craft-processing-completed]')?.checked),
+    }
+  }
 }
 
 export function handlePdaCuttingInboundEvent(
@@ -1565,8 +1579,10 @@ export function handlePdaCuttingInboundEvent(
     const eventState = resolveInboundEventState(taskId, mode, fieldNode)
     const field = fieldNode.dataset.pdaCutInboundField
     if (!field) return true
+    if (field === 'specialCraftReceipt') { syncPdaCuttingInboundFormFromControls(eventState.form, resolvePdaCuttingInboundFormContainer(fieldNode)); return PDA_PAGE_HANDLED_LOCALLY }
 
     if (field === 'carrierCode') {
+      if (normalizeInboundCode(eventState.form.carrierCode) !== normalizeInboundCode(fieldNode.value)) eventState.form.specialCraftReceipts = {}
       eventState.form.carrierCode = fieldNode.value
       eventState.form.physicalBagReceived = false
       eventState.form.physicalBagEmpty = false

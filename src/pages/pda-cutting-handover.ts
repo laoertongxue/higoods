@@ -15,6 +15,7 @@ import {
 import { validateFeiTicketNumberingBeforeBagging } from '../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
   type HandoverRecordSubmitPayload,
+  type CuttingRuntimeEvent,
   type SpecialCraftHandoverPayload,
   type SpecialCraftReturnPayload,
 } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -89,6 +90,8 @@ interface HandoverFormState {
   specialCraftReturnLocationScan: string
   specialCraftReturnLocationIds: string[]
   specialCraftReturnQty: string
+  specialCraftReturnReason: string
+  specialCraftProcessingCompleted: boolean
 }
 
 const handoverState = new Map<string, HandoverFormState>()
@@ -375,6 +378,8 @@ function getState(taskId: string, executionOrderId?: string | null, executionOrd
     specialCraftReturnLocationScan: '',
     specialCraftReturnLocationIds: [],
     specialCraftReturnQty: '',
+    specialCraftReturnReason: '',
+    specialCraftProcessingCompleted: false,
   }
   handoverState.set(stateKey, initial)
   return initial
@@ -454,6 +459,10 @@ function syncHandoverFormFromControls(form: HandoverFormState, container: Parent
   container.querySelectorAll<HTMLElement>('[data-pda-cut-handover-field]').forEach((fieldNode) => {
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field || !(field in form)) return
+    if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'checkbox') {
+      ;(form as unknown as Record<string, boolean>)[field] = fieldNode.checked
+      return
+    }
     if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement) {
       ;(form as unknown as Record<string, string>)[field] = fieldNode.value
     }
@@ -466,6 +475,13 @@ function runtimeEventHasTicket(eventType: string, feiTicketId: string, specialCr
 
 function findHandoverRecordForDraft(draft: PdaHandoverRecordDraftProjection): HandoverRecord | undefined {
   return listHandoverRecords().find((record) => record.handoverOrderId === draft.handoverOrderId)
+}
+
+function buildCurrentSpecialCraftDraft(form: HandoverFormState) {
+  const records = listHandoverRecords().filter(record => record.specialCraftItems?.length)
+  const source = records.find(record => matchesScannedValue(form.specialCraftOrderScan, [record.handoverOrderId, record.handoverOrderNo, record.handoverRecordId, record.handoverRecordNo]))
+    || (form.specialCraftOrderScan.trim() ? undefined : records.find(record => listWaitHandoverRuntimeEvents().some(event => event.eventType === '特殊工艺交出' && event.refs.handoverRecordId === record.handoverRecordId)))
+  return { draft: buildPdaUniversalHandoverRecordDraft(source?.handoverOrderId), source }
 }
 
 function validateSpecialCraftHandoverScans(
@@ -652,6 +668,24 @@ function appendPdaSpecialCraftReturnScannedLocation(form: HandoverFormState, sca
   return result.message
 }
 
+function resolveSpecialCraftReturnTicketStage(
+  sourceRecord: HandoverRecord,
+  feiTicketId: string,
+  events: CuttingRuntimeEvent[],
+): { ok: true; craftItems: NonNullable<HandoverRecord['specialCraftItems']> } | { ok: false; message: string } {
+  const sourceEvents = events.filter(event => event.eventType === '特殊工艺交出' && event.refs.handoverRecordId === sourceRecord.handoverRecordId && ['已记录', '已同步'].includes(event.eventStatus))
+  if (sourceEvents.length !== 1) return { ok: false, message: '本次加工的实际交出单未唯一识别，请核对交出记录。' }
+  const sourcePayload = sourceEvents[0].payload as SpecialCraftHandoverPayload & { ticketSnapshot?: Array<{ feiTicketId: string; pieceQty: number }> }
+  const stage = sourcePayload.feiTicketItems.find(item => item.feiTicketId === feiTicketId)?.specialCraftId
+  if (!stage) return { ok: false, message: '本次加工的工艺尚未明确，请核对交出记录。' }
+  const sourceTicket = sourcePayload.ticketSnapshot?.find(item => item.feiTicketId === feiTicketId)
+  if (!sourceTicket || !Number.isSafeInteger(sourceTicket.pieceQty) || sourceTicket.pieceQty <= 0) return { ok: false, message: '实际交出记录中没有这张菲票的应回数量，请核对交出单。' }
+  const craftItems = (sourceRecord.specialCraftItems || []).filter(item => item.feiTicketId === feiTicketId && item.specialCraftId === stage).map(item => ({ ...item, pieceQty: sourceTicket.pieceQty }))
+  if (!craftItems.length) return { ok: false, message: '该菲票没有可回仓的特殊工艺明细。' }
+  if (craftItems.length !== 1) return { ok: false, message: '本次加工未唯一识别，请核对交出单上的当前工艺。' }
+  return { ok: true, craftItems }
+}
+
 function validateSpecialCraftReturnScans(
   draft: PdaHandoverRecordDraftProjection,
   sourceRecord: HandoverRecord,
@@ -681,9 +715,10 @@ function validateSpecialCraftReturnScans(
   if (bag?.containedFeiTicketIds.length && !bag.containedFeiTicketIds.includes(ticket.feiTicketId)) {
     return { ok: false, message: '该菲票不在已扫描的回仓中转袋中。' }
   }
-  const craftItems = (sourceRecord.specialCraftItems || []).filter((item) => item.feiTicketId === ticket.feiTicketId)
-  if (!craftItems.length) return { ok: false, message: '该菲票没有可回仓的特殊工艺明细。' }
-  const expectedQty = craftItems.reduce((total, item) => total + item.pieceQty, 0)
+  const stage = resolveSpecialCraftReturnTicketStage(sourceRecord, ticket.feiTicketId, listWaitHandoverRuntimeEvents())
+  if (!stage.ok) return stage
+  const craftItems = stage.craftItems
+  const expectedQty = craftItems[0].pieceQty
   if (expectedQty <= 0) return { ok: false, message: '该菲票没有可回仓数量。' }
   const alreadyReturned = craftItems.find((item) => runtimeEventHasTicket('特殊工艺回仓', ticket.feiTicketId, item.specialCraftId))
   if (alreadyReturned) return { ok: false, message: '该菲票的当前特殊工艺已回仓，不能重复回仓。' }
@@ -691,8 +726,11 @@ function validateSpecialCraftReturnScans(
   if (!locationSelection.ok) return { ok: false, message: locationSelection.message }
   const warehouseLocations = listSelectedSpecialCraftReturnLocations(locationSelection.selectedLocationIds)
   if (!warehouseLocations.length) return { ok: false, message: '请选择回仓库位。' }
+  if (!/^\d+$/.test(form.specialCraftReturnQty.trim())) return { ok: false, message: '请填写实收片数；零量也须填写。' }
   const returnedQty = Number(form.specialCraftReturnQty)
-  if (!Number.isFinite(returnedQty) || returnedQty <= 0) return { ok: false, message: '请填写大于 0 的实回数量。' }
+  if (!form.specialCraftProcessingCompleted) return { ok: false, message: '请核对这张菲票本阶段加工完成后再确认回仓。' }
+  if (!Number.isSafeInteger(returnedQty) || returnedQty < 0 || returnedQty > expectedQty) return { ok: false, message: `实收必须是 0 至 ${expectedQty} 的整数片数。` }
+  if (returnedQty !== expectedQty && !form.specialCraftReturnReason.trim()) return { ok: false, message: '少回或零量点收，请填写差异说明。' }
   return { ok: true, bag, craftItems, ticket, ticketNo: ticket.feiTicketNo, warehouseLocations, returnedQty }
 }
 
@@ -708,15 +746,10 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
 
   const now = new Date().toISOString()
   const returnRecordId = `PDA-SCR-${sourceRecord.handoverRecordId}-${now.replace(/\D/g, '')}`
-  const expectedTotalQty = craftItems.reduce((total, item) => total + item.pieceQty, 0)
-  let remainingReturnQty = validation.returnedQty
-  const returnedFeiTicketItems = craftItems.map((item, index) => {
-    const isLast = index === craftItems.length - 1
-    const proportionalQty = expectedTotalQty > 0 ? (validation.returnedQty * item.pieceQty) / expectedTotalQty : validation.returnedQty
-    const returnedQty = isLast ? Math.max(0, Number(remainingReturnQty.toFixed(2))) : Math.max(0, Number(proportionalQty.toFixed(2)))
-    remainingReturnQty -= returnedQty
+  const returnedFeiTicketItems = craftItems.map((item) => {
+    const returnedQty = validation.returnedQty
     const returnStatus: SpecialCraftReturnPayload['returnedFeiTicketItems'][number]['returnStatus'] =
-      returnedQty === item.pieceQty ? '已回仓' : returnedQty < item.pieceQty ? '部分回仓' : '回仓差异'
+      returnedQty === item.pieceQty ? '已回仓' : '回仓差异'
     return {
       feiTicketId: item.feiTicketId,
       feiTicketNo: sourceRecord.feiTicketItems.find((ticket) => ticket.feiTicketId === item.feiTicketId)?.feiTicketNo || item.feiTicketId,
@@ -726,6 +759,8 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
       size: item.size,
       expectedQty: item.pieceQty,
       returnedQty,
+      differenceReason: form.specialCraftReturnReason.trim(),
+      processingCompleted: form.specialCraftProcessingCompleted,
       unit: '片' as const,
       returnStatus,
     }
@@ -756,6 +791,7 @@ function appendRuntimeSpecialCraftReturnEvent(draft: PdaHandoverRecordDraftProje
       locationId: location.locationId,
       locationNo: location.locationNo,
     })),
+    locationRef: { ...validation.warehouseLocations[0], warehouseKind: 'WAIT_HANDOVER' },
     returnedAt: now,
     returnedBy: operatorName,
   }
@@ -786,11 +822,12 @@ function renderPdaSpecialCraftReturnLocationMap(form: HandoverFormState): string
   })
 }
 
-function renderPdaSpecialCraftReturnFlow(
+export function renderPdaSpecialCraftReturnFlow(
   draft: PdaHandoverRecordDraftProjection,
   sourceRecord: HandoverRecord | undefined,
   taskId: string,
   form: HandoverFormState,
+  runtimeEvents = listWaitHandoverRuntimeEvents(),
 ): string {
   if (!sourceRecord || !sourceRecord.specialCraftItems?.length) {
     return renderPdaCuttingEmptyState('暂无可回仓特殊工艺菲票', '特殊工艺交出后，回仓扫码任务会出现在这里。')
@@ -801,15 +838,16 @@ function renderPdaSpecialCraftReturnFlow(
   const ticket = scannedTicket || sourceRecord.feiTicketItems.find((item) =>
     sourceRecord.specialCraftItems?.some((craft) => craft.feiTicketId === item.feiTicketId),
   )
-  const craftItems = ticket ? sourceRecord.specialCraftItems.filter((item) => item.feiTicketId === ticket.feiTicketId) : []
+  const stage = ticket ? resolveSpecialCraftReturnTicketStage(sourceRecord, ticket.feiTicketId, runtimeEvents) : null
+  const craftItems = stage?.ok ? stage.craftItems : []
   const firstCraft = craftItems[0]
   const sourceBag = sourceRecord.transferBagUses.find((item) =>
     form.specialCraftReturnBagScan
       ? matchesScannedValue(form.specialCraftReturnBagScan, [item.bagCode, item.bagUseId])
       : item.containedFeiTicketIds.includes(ticket?.feiTicketId || ''),
   ) || sourceRecord.transferBagUses[0]
-  const expectedQty = craftItems.reduce((total, item) => total + item.pieceQty, 0)
-  const returnStatus = firstCraft && ticket && runtimeEventHasTicket('特殊工艺回仓', ticket.feiTicketId, firstCraft.specialCraftId)
+  const expectedQty = craftItems.length === 1 ? craftItems[0].pieceQty : 0
+  const returnStatus = firstCraft && ticket && runtimeEvents.some(event => event.eventType === '特殊工艺回仓' && ['已记录', '已同步'].includes(event.eventStatus) && (event.payload as SpecialCraftReturnPayload).returnedFeiTicketItems?.some(item => item.feiTicketId === ticket.feiTicketId && item.specialCraftId === firstCraft.specialCraftId))
     ? '已回仓'
     : '待回仓'
 
@@ -821,7 +859,9 @@ function renderPdaSpecialCraftReturnFlow(
           ${renderPdaScanInput('回仓中转袋', 'specialCraftReturnBagScan', form.specialCraftReturnBagScan, sourceBag?.bagCode || '无中转袋则留空')}
           ${renderPdaScanInput('回仓菲票', 'specialCraftReturnFeiTicketScan', form.specialCraftReturnFeiTicketScan, ticket?.feiTicketNo || '扫回仓菲票')}
           ${renderPdaScanInput('扫码加库位', 'specialCraftReturnLocationScan', form.specialCraftReturnLocationScan, '扫描库位后按回车')}
-          ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, String(expectedQty || ticket?.pieceQty || '填写实回数量'))}
+          ${renderPdaScanInput('实回数量', 'specialCraftReturnQty', form.specialCraftReturnQty, expectedQty ? String(expectedQty) : '填写实回数量')}
+          ${renderPdaScanInput('差异说明', 'specialCraftReturnReason', form.specialCraftReturnReason, '少回或零量须说明')}
+          <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" data-pda-cut-handover-field="specialCraftProcessingCompleted" ${form.specialCraftProcessingCompleted ? 'checked' : ''} />已核对本阶段加工完成</label>
         </div>
         <div class="mt-2 text-xs text-muted-foreground" data-pda-special-craft-return-location-feedback>${escapeHtml(form.feedbackMessage)}</div>
       </div>
@@ -1026,8 +1066,9 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || (isSpecialCraftReturnAction ? specialCraftReturnBackHref : context.backHref)
   const universalDraft = buildPdaUniversalHandoverRecordDraft()
-  const specialCraftDraft = buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001')
-  const specialCraftSourceRecord = findHandoverRecordForDraft(specialCraftDraft)
+  const currentSpecialCraft = buildCurrentSpecialCraftDraft(form)
+  const specialCraftDraft = currentSpecialCraft.draft
+  const specialCraftSourceRecord = currentSpecialCraft.source
 
   if (isSpecialCraftReturnAction) {
     const body = `
@@ -1233,6 +1274,7 @@ export function handlePdaCuttingHandoverEvent(
     )
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field) return true
+    if (field === 'specialCraftProcessingCompleted' && fieldNode instanceof HTMLInputElement) { form.specialCraftProcessingCompleted = fieldNode.checked; return true }
 
     if (field === 'specialCraftReturnLocationScan' && fieldNode instanceof HTMLInputElement) {
       form.specialCraftReturnLocationScan = fieldNode.value
@@ -1370,8 +1412,8 @@ export function handlePdaCuttingHandoverEvent(
     }
     savePdaCuttingAction({ container, intent: JSON.stringify([action, taskId, form]), action: () => {
       const message = action === 'confirm-special-craft-handover'
-        ? appendRuntimeSpecialCraftHandoverEvent(buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'), form, form.operatorName.trim() || '特殊工艺交出员')
-        : appendRuntimeSpecialCraftReturnEvent(buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'), form, form.operatorName.trim() || '特殊工艺回仓员')
+        ? appendRuntimeSpecialCraftHandoverEvent(buildCurrentSpecialCraftDraft(form).draft, form, form.operatorName.trim() || '特殊工艺交出员')
+        : appendRuntimeSpecialCraftReturnEvent(buildCurrentSpecialCraftDraft(form).draft, form, form.operatorName.trim() || '特殊工艺回仓员')
       if (!/成功|已同步/.test(message)) throw new Error(message)
       return message
     }, success: show, failure: show })

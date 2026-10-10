@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "interrupted": {
+    "ok": false,
+    "message": "转换未完成：验收第二批中断。原资料已保留。请重试。"
+  },
+  "result": {
+    "ok": true,
+    "message": "原目标、放行及历史已转换并逐条核验；旧独占资料已清理。当前实物事实仍按装袋和最终实收读取。"
+  },
+  "revision": 2,
+  "recordCount": 56,
+  "manifestCommands": 2,
+  "version": "v36",
+  "rootVersionRef": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "runtime": "http://127.0.0.1:4191",
+  "notPerformanceEvidence": true,
+  "rawLog": "docs/product-design/evidence/2026-10-09-cut-piece-release/migration-native-v36.log",
+  "capturedAt": "2026-10-09T20:21:31.615388+00:00"
+}

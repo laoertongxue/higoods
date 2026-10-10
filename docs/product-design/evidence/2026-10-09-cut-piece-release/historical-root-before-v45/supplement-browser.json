@@ -1,0 +1,1834 @@
+{
+  "startedAt": "2026-10-09T20:23:50.800Z",
+  "scenarios": [
+    {
+      "name": "补料目标入口冷启动",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 382.8999999985099,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577431192.5,
+            "origin": 1791577430809.6,
+            "now": 382.8999999985099
+          },
+          "rawOriginalCollectorMs": 383.70000000298023
+        },
+        {
+          "index": 2,
+          "durationMs": 279.20000000298023,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577431474.5999,
+            "origin": 1791577431195.4,
+            "now": 279.20000000298023
+          },
+          "rawOriginalCollectorMs": 279.80000000447035
+        },
+        {
+          "index": 3,
+          "durationMs": 265.19999999552965,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577431742.4,
+            "origin": 1791577431477.2,
+            "now": 265.19999999552965
+          },
+          "rawOriginalCollectorMs": 271.3999999985099
+        },
+        {
+          "index": 4,
+          "durationMs": 270.3999999985099,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577432025.9,
+            "origin": 1791577431755.5,
+            "now": 270.3999999985099
+          },
+          "rawOriginalCollectorMs": 270.8999999985099
+        },
+        {
+          "index": 5,
+          "durationMs": 264.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577432292.6,
+            "origin": 1791577432028.1,
+            "now": 264.5
+          },
+          "rawOriginalCollectorMs": 265.3999999985099
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "补料目标入口整页刷新",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 262.3999999985099,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577432557.7998,
+            "origin": 1791577432295.4,
+            "now": 262.3999999985099
+          },
+          "rawOriginalCollectorMs": 263
+        },
+        {
+          "index": 2,
+          "durationMs": 265.69999999552965,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577432825.8,
+            "origin": 1791577432560.1,
+            "now": 265.69999999552965
+          },
+          "rawOriginalCollectorMs": 266.5
+        },
+        {
+          "index": 3,
+          "durationMs": 263.30000000447035,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577433091.6,
+            "origin": 1791577432828.3,
+            "now": 263.30000000447035
+          },
+          "rawOriginalCollectorMs": 263.90000000596046
+        },
+        {
+          "index": 4,
+          "durationMs": 263.6000000014901,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577433357.5,
+            "origin": 1791577433093.9,
+            "now": 263.6000000014901
+          },
+          "rawOriginalCollectorMs": 264.40000000596046
+        },
+        {
+          "index": 5,
+          "durationMs": 265.80000000447035,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577433625.7,
+            "origin": 1791577433359.9,
+            "now": 265.80000000447035
+          },
+          "rawOriginalCollectorMs": 266.3999999985099
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "放行去补料按钮及完整结果",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 300.60009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577434158.3,
+            "origin": 1791577433627.7,
+            "now": 530.5999999940395
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 151.099853515625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577434542.4,
+            "origin": 1791577434160.2,
+            "now": 382.19999999552965
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 148.400146484375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577434941.2002,
+            "origin": 1791577434544.1,
+            "now": 397.1000000014901
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 164.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577435390.6,
+            "origin": 1791577434943.1,
+            "now": 447.5
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 148.300048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577435824.4,
+            "origin": 1791577435392.4,
+            "now": 432
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "缺原因不提交且具体错误",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 98.199951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577435924.2,
+            "origin": 1791577435392.4,
+            "now": 531.8000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 67.300048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577435992.2,
+            "origin": 1791577435392.4,
+            "now": 599.8000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 65.39990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436058.9,
+            "origin": 1791577435392.4,
+            "now": 666.5
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 63.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436124.2998,
+            "origin": 1791577435392.4,
+            "now": 731.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 66.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436192.4,
+            "origin": 1791577435392.4,
+            "now": 800
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "原裁片单选择",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 29.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436224,
+            "origin": 1791577435392.4,
+            "now": 831.6000000014901
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 34,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436259,
+            "origin": 1791577435392.4,
+            "now": 866.6000000014901
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 32,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436292.4,
+            "origin": 1791577435392.4,
+            "now": 900
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 31.900146484375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436325.7,
+            "origin": 1791577435392.4,
+            "now": 933.3000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 31.7001953125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436359,
+            "origin": 1791577435392.4,
+            "now": 966.6000000014901
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "补料原因选择",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 31.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436392.2,
+            "origin": 1791577435392.4,
+            "now": 999.8000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 32.199951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436425.5999,
+            "origin": 1791577435392.4,
+            "now": 1033.2000000029802
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 30.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436459,
+            "origin": 1791577435392.4,
+            "now": 1066.6000000014901
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 31.2998046875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436491.2998,
+            "origin": 1791577435392.4,
+            "now": 1098.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 33.300048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436525.4,
+            "origin": 1791577435392.4,
+            "now": 1133
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "补料原因填写",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 32.60009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436558.9,
+            "origin": 1791577435392.4,
+            "now": 1166.5
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 32.400146484375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436592.2,
+            "origin": 1791577435392.4,
+            "now": 1199.8000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 30.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436623.7,
+            "origin": 1791577435392.4,
+            "now": 1231.3000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 32.599853515625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436657.2998,
+            "origin": 1791577435392.4,
+            "now": 1264.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 33.900146484375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436692.2,
+            "origin": 1791577435392.4,
+            "now": 1299.8000000044703
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "人工提交到确认页再返回保留来源",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 97.699951171875,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436791.2,
+            "origin": 1791577435392.4,
+            "now": 1398.8000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 99.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577436975.5,
+            "origin": 1791577435392.4,
+            "now": 1583.1000000014901
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 98.800048828125,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577437158.7,
+            "origin": 1791577435392.4,
+            "now": 1766.3000000044703
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 99.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577437342.2998,
+            "origin": 1791577435392.4,
+            "now": 1949.8999999985099
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 99,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577437525.5,
+            "origin": 1791577435392.4,
+            "now": 2133.10000000149
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "从确认页返回草稿",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 81.5,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577437607.7998,
+            "origin": 1791577435392.4,
+            "now": 2215.39999999851
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 2,
+          "durationMs": 82.10009765625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577437791,
+            "origin": 1791577435392.4,
+            "now": 2398.60000000149
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 3,
+          "durationMs": 83.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577437975.5999,
+            "origin": 1791577435392.4,
+            "now": 2583.2000000029802
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 4,
+          "durationMs": 82.599853515625,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577438142.0999,
+            "origin": 1791577435392.4,
+            "now": 2749.7000000029802
+          },
+          "rawOriginalCollectorMs": null
+        },
+        {
+          "index": 5,
+          "durationMs": 83.89990234375,
+          "complete": true,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V10\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577438308.5999,
+            "origin": 1791577435392.4,
+            "now": 2916.2000000029802
+          },
+          "rawOriginalCollectorMs": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "整票变化后补料用最新实物且目标保持208件",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 466.6000000014901,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V11\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577439316.9001,
+            "origin": 1791577438850.3,
+            "now": 466.6000000014901
+          },
+          "complete": true
+        },
+        {
+          "index": 2,
+          "durationMs": 466.6000000014901,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V12\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577440199.9001,
+            "origin": 1791577439733.3,
+            "now": 466.6000000014901
+          },
+          "complete": true
+        },
+        {
+          "index": 3,
+          "durationMs": 466,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V13\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577441153.2,
+            "origin": 1791577440687.2,
+            "now": 466
+          },
+          "complete": true
+        },
+        {
+          "index": 4,
+          "durationMs": 486.3999999985099,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V14\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577442041,
+            "origin": 1791577441554.6,
+            "now": 486.3999999985099
+          },
+          "complete": true
+        },
+        {
+          "index": 5,
+          "durationMs": 488.29999999701977,
+          "actualPaintEndpoint": {
+            "shortageRows": [
+              "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+              "\n      Black\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 208 件\n      实际缺片 16 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 208 件\n      实际缺片 8 片\n      建议补料 8 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 520 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Black\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 520 件\n      实际缺片 20 片\n      建议补料 20 件\n    ",
+              "\n      White\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 185 件\n      实际缺片 10 片\n      建议补料 5 件\n    ",
+              "\n      White\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 185 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 280 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 280 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      White\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 340 件\n      实际缺片 20 片\n      建议补料 10 件\n    ",
+              "\n      White\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 340 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 165 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      M\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 165 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      M\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 165 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 250 件\n      实际缺片 10 片\n      建议补料 10 件\n    ",
+              "\n      Red\n      L\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 250 件\n      实际缺片 30 片\n      建议补料 15 件\n    ",
+              "\n      Red\n      L\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 250 件\n      实际缺片 12 片\n      建议补料 12 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 320 件\n      实际缺片 5 片\n      建议补料 5 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-B\n      面料 B · 白色条\n      前片\n      目标 320 件\n      实际缺片 40 片\n      建议补料 20 件\n    ",
+              "\n      Red\n      XL\n      CUT14671-A\n      面料 D · 灰色条\n      袖口\n      目标 320 件\n      实际缺片 15 片\n      建议补料 15 件\n    "
+            ],
+            "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V15\n        确认时间 2026-06-03 17:00:00\n      \n    ",
+            "at": 1791577442947,
+            "origin": 1791577442458.7,
+            "now": 488.29999999701977
+          },
+          "complete": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "assertions": [
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原目标与当前实物版本分别标明",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "原因必填",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "单一原裁片单及最新数量来源保留",
+      "passed": true
+    },
+    {
+      "name": "整票登记已持久完成 0",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:5a2799a62a8fc53558e00a8242640b697b824af8c18eeb7109ac4ee2302315ae",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": false,
+        "reason": "补料最新实物复演 0",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:23:58.789Z",
+        "version": 1
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 0",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 0",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "part": "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+        "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V11\n        确认时间 2026-06-03 17:00:00\n      \n    "
+      }
+    },
+    {
+      "name": "整票登记已持久完成 1",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:808a0690a2fe81383542ab7d261e4031aec2c9a03161481c47e25fc20fc162f7",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": true,
+        "reason": "补料最新实物复演 1",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:23:59.675Z",
+        "version": 2
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 1",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 1",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V12\n        确认时间 2026-06-03 17:00:00\n      \n    "
+      }
+    },
+    {
+      "name": "整票登记已持久完成 2",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:91c38702cc12a992adf63882358d5c21746df7da305dbd954bfdde51a4392c4c",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": false,
+        "reason": "补料最新实物复演 2",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:24:00.612Z",
+        "version": 3
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 2",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 2",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "part": "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+        "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V13\n        确认时间 2026-06-03 17:00:00\n      \n    "
+      }
+    },
+    {
+      "name": "整票登记已持久完成 3",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:da407eb90fdaf0d5ca02b291b2a3e6ce117e89a1ddd81dc87e8f8e4cfcb7be69",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": true,
+        "reason": "补料最新实物复演 3",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:24:01.494Z",
+        "version": 4
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 3",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 3",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V14\n        确认时间 2026-06-03 17:00:00\n      \n    "
+      }
+    },
+    {
+      "name": "整票登记已持久完成 4",
+      "passed": true,
+      "detail": {
+        "id": "TICKET-VALIDITY:1aa75f905d0997eb0fd41d7b176210b5db3e29e4c6011046eee048421a653553",
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "valid": false,
+        "reason": "补料最新实物复演 4",
+        "operator": "裁床仓管 Siti",
+        "at": "2026-10-09T20:24:02.395Z",
+        "version": 5
+      }
+    },
+    {
+      "name": "已确认目标不被整票变化改写 4",
+      "passed": true
+    },
+    {
+      "name": "最新实物缺口而非旧快照 4",
+      "passed": true,
+      "detail": {
+        "ticketId": "DEMO-TICKET:spread-14671-black-01-A-M",
+        "part": "\n      Black\n      M\n      CUT14671-A\n      面料 A · 净色\n      前片\n      目标 208 件\n      实际缺片 108 片\n      建议补料 108 件\n    ",
+        "trace": "\n      裁片放行目标\n      \n        目标数量 V9\n        当前实物 V15\n        确认时间 2026-06-03 17:00:00\n      \n    "
+      }
+    },
+    {
+      "name": "可用目标入口尺寸 1366",
+      "passed": true
+    },
+    {
+      "name": "可用目标入口尺寸 1280",
+      "passed": true
+    },
+    {
+      "name": "可用目标入口尺寸 1024",
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    "output/playwright/cut-release-supplement/latest-physical-1366x768.png",
+    "output/playwright/cut-release-supplement/latest-physical-1280x720.png",
+    "output/playwright/cut-release-supplement/latest-physical-1024x768.png"
+  ],
+  "scope": "放行目标/最新实物补料读取，保留既有人工创建规则",
+  "traceBefore": "裁片放行目标\n目标数量 V9\n当前实物 V10\n确认时间 2026-06-03 17:00:00",
+  "traceAfter": "裁片放行目标\n目标数量 V9\n当前实物 V15\n确认时间 2026-06-03 17:00:00",
+  "completedAt": "2026-10-09T20:24:03.214Z",
+  "passed": true,
+  "script": "/Users/laoer/.codex/worktrees/9ec5/higoods/output/playwright/cut-release-supplement/verify-supplement-endpoint-v36.py",
+  "log": "output/playwright/cut-release-supplement/supplement-browser.log",
+  "runtime": "http://127.0.0.1:4190",
+  "browserSession": "release-supplement-exact-endpoint-final-v36",
+  "priorFailure": "output/playwright/cut-release-supplement/supplement-before-readonly-bootstrap.json",
+  "version": "v36",
+  "versionRef": "version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "assetManifestSHA256": "4b87a963b268ed5dc1dc0bc8e491022e22d99f1832bb2ed7bdea756c5fa382c2"
+}

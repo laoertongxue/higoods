@@ -1,0 +1,7 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {validateCutPieceReleaseStoredRecords} from '../../src/data/fcs/cutting/cutting-record-repository.ts'
+const row=(value:any)=>({id:'cut-piece-release:decision:D1',collection:'cut-piece-release-decision',value})
+const decision={productionOrderId:'PO',releaseVersionId:'D1',releaseVersionNo:1,releaseQtyByColorSize:{'红::M':100},riskReleaseQtyByColorSize:{'红::M':10},totalReleaseConfirmQty:100,totalRiskReleaseQty:10}
+test('放行备份/读回安全整数与逐格合计，正常零不变成未确认',()=>{assert.doesNotThrow(()=>validateCutPieceReleaseStoredRecords([row(decision)]));assert.doesNotThrow(()=>validateCutPieceReleaseStoredRecords([row({...decision,releaseQtyByColorSize:{'红::M':0},riskReleaseQtyByColorSize:{'红::M':0},totalReleaseConfirmQty:0,totalRiskReleaseQty:0})]));for(const qty of [-1,0.5,NaN,'100'])assert.throws(()=>validateCutPieceReleaseStoredRecords([row({...decision,releaseQtyByColorSize:{'红::M':qty}})]));assert.throws(()=>validateCutPieceReleaseStoredRecords([row({...decision,totalRiskReleaseQty:0})]))})
+test('无效整票追溯与未知collection不能借备份写入',()=>{assert.throws(()=>validateCutPieceReleaseStoredRecords([{id:'V',collection:'cut-piece-ticket-validity',value:{id:'V',ticketId:'FT',valid:false,version:1}}]));assert.throws(()=>validateCutPieceReleaseStoredRecords([{id:'cut-piece-release:unknown:X',collection:'cut-piece-release-unknown',value:{}}]))})

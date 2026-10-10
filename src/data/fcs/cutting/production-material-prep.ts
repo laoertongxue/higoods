@@ -1916,6 +1916,11 @@ function buildAutoPrepRecordsForCompletedOrders(explicitRecords: MaterialPrepRec
       const recordId = `prep-rec-${order.productionOrderNo.toLowerCase()}-auto-complete-001`
       const items = lines.map((line, index) => {
         const item = buildRecordItemFromLine(recordId, line, index + 1)
+        // Static prototype scene S13: accessory preparation remains its own fact.
+        // This quantity is deliberately independent of cut-piece kit/release quantities.
+        if (line.prepLineId === 'prep-line-po-0002-accessory-zipper') {
+          return { ...item, preparedQty: 2200, remark: '原型演示：前中拉链已配2200条，仍待配300条，由PPIC继续跟进。' }
+        }
         if (order.productionOrderId !== 'PO-202603-1103') return item
         const locationCode = `${item.locationCode}-1103`
         return {
@@ -2635,6 +2640,9 @@ function buildAutoPickupRecordsForCompletedOrders(
           if (!prepRecord) return []
           const rollCount = buildLineRollCount(line)
           const prepItem = getMaterialPrepRecordItems(prepRecord).find((item) => item.prepLineId === line.prepLineId)
+          const pickedQty = line.prepLineId === 'prep-line-po-0002-accessory-zipper'
+            ? Math.min(line.requiredQty, Number(prepItem?.preparedQty || 0))
+            : line.requiredQty
           const pickedAt = order.prepOrderId === 'prep-order-po-202603-0002'
             ? '2026-03-17 09:00'
             : '2026-03-15 16:25'
@@ -2644,7 +2652,7 @@ function buildAutoPickupRecordsForCompletedOrders(
             prepOrderId: order.prepOrderId,
             prepLineId: line.prepLineId,
             productionOrderId: order.productionOrderId,
-            pickedQty: line.requiredQty,
+            pickedQty,
             rollCount,
             receiverName: '裁床 李明',
             pickedAt,
@@ -2659,7 +2667,7 @@ function buildAutoPickupRecordsForCompletedOrders(
             sourceAllocations: [{
               prepRecordId: prepRecord.prepRecordId,
               prepLineId: line.prepLineId,
-              pickedQty: line.requiredQty,
+              pickedQty,
               rollCount,
               unit: line.unit,
               sourceWarehouseName: prepItem?.stockWarehouseName || line.stockWarehouseName || '中转仓',
@@ -4144,7 +4152,19 @@ export function getMaterialPrepDispatchReadinessForTask(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): MaterialPrepDispatchReadiness {
   const taskType = resolveMaterialPrepTaskTypeForRuntimeTask(task)
-  const projections = listMaterialPrepOrderProjections(storage).filter((projection) =>
+  // Dispatch follows this order's preparation facts. Resolve either identifier
+  // before projection so unrelated frozen BOMs are not rebuilt for every task;
+  // listMaterialPrepOrderProjections still includes every saved reservation.
+  const productionOrderIds = new Set([
+    task.productionOrderId,
+    ...materialPrepSeedOrders
+      .filter((order) => order.productionOrderId === task.productionOrderId || order.productionOrderNo === task.productionOrderId)
+      .map((order) => order.productionOrderId),
+    ...productionOrders
+      .filter((order) => order.productionOrderId === task.productionOrderId || order.productionOrderNo === task.productionOrderId)
+      .map((order) => order.productionOrderId),
+  ])
+  const projections = listMaterialPrepOrderProjections(storage, { productionOrderIds }).filter((projection) =>
     projection.order.productionOrderId === task.productionOrderId ||
     projection.order.productionOrderNo === task.productionOrderId,
   )

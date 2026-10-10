@@ -1,0 +1,411 @@
+{
+  "source": "产品调整方案第14节，S01～S24均为原型验证场景",
+  "version": "v36",
+  "status": "待当前最终证据",
+  "scenarios": [
+    {
+      "id": "S01",
+      "requirements": [
+        "QTY-002",
+        "QTY-003"
+      ],
+      "automationSource": [
+        "scripts/check-release-physical-final-quantity.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json",
+        "dispatch-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S02",
+      "requirements": [
+        "SOURCE-001"
+      ],
+      "automationSource": [
+        "scripts/check-generated-cut-release.ts",
+        "tests/unit/cut-piece-release-facts.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S03",
+      "requirements": [
+        "VALID-001",
+        "VALID-002",
+        "VALID-003"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-release-facts.test.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json",
+        "storage-browser.json",
+        "supplement-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S04",
+      "requirements": [
+        "CRAFT-004",
+        "QTY-001",
+        "RELEASE-001"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-release-facts.test.ts",
+        "scripts/check-release-physical-final-quantity.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S05",
+      "requirements": [
+        "CRAFT-002",
+        "CRAFT-003",
+        "CRAFT-007"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "tests/unit/cut-piece-release-facts.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json",
+        "receipt-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S06",
+      "requirements": [
+        "CRAFT-005",
+        "RECEIPT-005"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "pageEvidence": [
+        "receipt-browser.json",
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S07",
+      "requirements": [
+        "RECEIPT-001",
+        "RECEIPT-002"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "pageEvidence": [
+        "receipt-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S08",
+      "requirements": [
+        "QTY-002",
+        "QTY-004",
+        "SOURCE-003"
+      ],
+      "automationSource": [
+        "scripts/check-release-physical-final-quantity.ts",
+        "scripts/check-generated-cut-release.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S09",
+      "requirements": [
+        "SOURCE-003",
+        "QTY-003"
+      ],
+      "automationSource": [
+        "scripts/check-generated-cut-release.ts",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S10",
+      "requirements": [
+        "TARGET-002",
+        "DOWNSTREAM-005"
+      ],
+      "automationSource": [
+        "scripts/check-cut-piece-release-matrix.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json",
+        "supplement-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S11",
+      "requirements": [
+        "RELEASE-005",
+        "CHANGE-001",
+        "CHANGE-003",
+        "CHANGE-005"
+      ],
+      "automationSource": [
+        "scripts/check-cut-piece-release-available-qty.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json",
+        "dispatch-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S12",
+      "requirements": [
+        "RELEASE-003"
+      ],
+      "automationSource": [
+        "scripts/check-cut-piece-release-available-qty.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S13",
+      "requirements": [
+        "DISPATCH-004",
+        "ACCESSORY-001",
+        "ACCESSORY-002"
+      ],
+      "automationSource": [
+        "scripts/check-release-dispatch-preparation.ts"
+      ],
+      "pageEvidence": [
+        "dispatch-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S14",
+      "requirements": [
+        "DISPATCH-002",
+        "DISPATCH-003",
+        "DISPATCH-005"
+      ],
+      "automationSource": [
+        "scripts/check-sewing-outsourcing-release-gate.ts",
+        "tests/unit/cut-piece-release-dispatch-identity.test.ts"
+      ],
+      "pageEvidence": [
+        "dispatch-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S15",
+      "requirements": [
+        "CHANGE-001",
+        "CHANGE-002"
+      ],
+      "automationSource": [
+        "scripts/check-cut-piece-release-available-qty.ts",
+        "tests/unit/cut-piece-release-facts.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json",
+        "receipt-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S16",
+      "requirements": [
+        "BAG-003",
+        "RECEIPT-006",
+        "SOURCE-004"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "scripts/check-transfer-bag-repack-recovery.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts"
+      ],
+      "pageEvidence": [
+        "receipt-browser.json",
+        "dispatch-browser.json",
+        "storage-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S17",
+      "requirements": [
+        "SOURCE-002",
+        "DOWNSTREAM-004"
+      ],
+      "automationSource": [
+        "tests/unit/manual-fei-ticket-source-identity.test.ts",
+        "scripts/check-generated-cut-release.ts"
+      ],
+      "pageEvidence": [
+        "receipt-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S18",
+      "requirements": [
+        "CRAFT-006",
+        "QTY-005"
+      ],
+      "automationSource": [
+        "scripts/check-release-physical-final-quantity.ts",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/unit/cut-piece-release-facts.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S19",
+      "requirements": [
+        "STORE-002",
+        "STORE-003",
+        "STORE-008"
+      ],
+      "automationSource": [
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "storage-browser.json",
+        "ui-browser.json",
+        "receipt-browser.json",
+        "idb-open-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S20",
+      "requirements": [
+        "PAGE-009"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/unit/cut-piece-release-persisted-validation.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S21",
+      "requirements": [
+        "SOURCE-004",
+        "DOWNSTREAM-002",
+        "DOWNSTREAM-003"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "scripts/check-simple-cut-piece-receipt-projections.ts"
+      ],
+      "pageEvidence": [
+        "receipt-browser.json",
+        "dispatch-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S22",
+      "requirements": [
+        "DOWNSTREAM-006",
+        "DOWNSTREAM-007"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-release-frozen-warehouse.test.ts",
+        "scripts/check-generated-cut-release.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S23",
+      "requirements": [
+        "BAG-001",
+        "BAG-002",
+        "RECEIPT-003"
+      ],
+      "automationSource": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "pageEvidence": [
+        "receipt-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    },
+    {
+      "id": "S24",
+      "requirements": [
+        "DISPATCH-001"
+      ],
+      "automationSource": [
+        "scripts/check-sewing-outsourcing-release-gate.ts"
+      ],
+      "pageEvidence": [
+        "dispatch-browser.json"
+      ],
+      "status": "待最终证据",
+      "explanation": "数量/状态契约与对应实际页面分别核对；自动化不替代页面、事务或性能"
+    }
+  ],
+  "versionEvidence": "version-v36.json",
+  "versionRef": "version-v36.json",
+  "verificationVersion": "v36当前源及ROOT630操作通过；receipt/dispatch及S01～24最后语义与双审待闭环"
+}

@@ -1,0 +1,6 @@
+### Result
+"中转袋入仓\n\nWeb 端手工填写为主；失败会保留当前输入。\n\n关闭\n中转袋二维码 / 袋码\n输入或扫描袋码后，系统在这里显示当前状态和改法。\n库区\n库位\n操作人\n备注\n入仓成功，可直接交出或拆袋重装。 如需处理下一笔，请关闭后重新打开。\n重复双击不会新增第二条业务事实。\n取消\n已保存"
+### Ran Playwright code
+```js
+await (async (page) => { await page.locator("[data-wait-handover-field=bagCode]").fill("BAG-RECEIPT-FINAL-01"); await page.locator("[data-wait-handover-field=warehouseArea]").fill("A区"); await page.locator("[data-wait-handover-field=locationCode]").fill("A-R01-L01-P03"); await page.getByRole("button",{name:"确认中转袋入仓",exact:true}).click(); await page.getByRole("button",{name:"已保存",exact:true}).waitFor({state:"visible"}); return (await page.locator("#cutting-wait-handover-web-action-modal").innerText()); })(page);
+```

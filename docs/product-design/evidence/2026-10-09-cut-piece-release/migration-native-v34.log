@@ -1,0 +1,9 @@
+### Result
+{"passed":true,"interrupted":{"ok":false,"message":"转换未完成：验收第二批中断。原资料已保留。请重试。"},"result":{"ok":true,"message":"原目标、放行及历史已转换并逐条核验；旧独占资料已清理。当前实物事实仍按装袋和最终实收读取。"},"revision":2,"recordCount":56,"manifestCommands":2}
+### Ran Playwright code
+```js
+await (async page=>{await page.goto('http://127.0.0.1:4191/fcs/craft/cutting/cut-piece-release',{waitUntil:'domcontentloaded'});await page.locator('[data-cut-piece-release-page]').waitFor({state:'visible'});await page.addScriptTag({type:'module',url:'http://127.0.0.1:4191/tests/browser/cut-piece-release-storage-harness.ts'});await page.waitForFunction(()=>window.__releaseHarness);return await page.evaluate(()=>window.__releaseHarness.migration())})(page);
+```
+### Page
+- Page URL: http://127.0.0.1:4191/fcs/craft/cutting/cut-piece-release
+- Page Title: HiGood - Vanilla TypeScript Clone

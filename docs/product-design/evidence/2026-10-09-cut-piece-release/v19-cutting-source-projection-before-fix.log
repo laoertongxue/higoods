@@ -1,0 +1,44 @@
+✔ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (229.878667ms)
+✖ 裁床工艺来源读取不初始化未迁移的全厂接收需求，原工艺厂读取仍保护旧源 (483.541125ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 873.04675
+
+✖ failing tests:
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:14:197
+✖ 裁床工艺来源读取不初始化未迁移的全厂接收需求，原工艺厂读取仍保护旧源 (483.541125ms)
+  AssertionError [ERR_ASSERTION]: Error: 原接收需求不可读取
+      at Object.getItem (file:///Users/laoer/.codex/worktrees/9ec5/higoods/[eval1]:4:101)
+      at readFormalMaterialRequests (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/material-request-drafts.ts:932:73)
+      at ensureMaterialRequestDraftSeedData (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/material-request-drafts.ts:1043:9)
+      at listMaterialRequests (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/material-request-drafts.ts:1552:3)
+      at buildWarehouseExecutionDocumentSnapshot (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/warehouse-material-execution.ts:669:20)
+      at listWarehouseIssueOrders (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/warehouse-material-execution.ts:770:14)
+      at seedFactoryWarehouseStore (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/factory-internal-warehouse.ts:1654:3)
+      at ensureFactoryInternalWarehouseStore (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/factory-internal-warehouse.ts:2522:30)
+      at upsertFactoryWarehouseInboundRecord (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/factory-internal-warehouse.ts:2793:17)
+      at buildInboundArtifacts (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/special-craft-task-orders.ts:1210:25)
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:45:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

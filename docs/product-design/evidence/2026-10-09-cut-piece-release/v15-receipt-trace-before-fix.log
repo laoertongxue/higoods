@@ -1,0 +1,46 @@
+(node:12631) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N 道只按最终逐票实收，不累计道数或非最终回仓 (0.629417ms)
+✔ 末道独有回仓、错票、错工厂、逆序回仓均不得计齐套 (0.116833ms)
+✔ 真实厂间完成事实只证明前道，末道仍以实际裁床回仓为准 (0.140125ms)
+✔ 前道非法实收不能被加工完成标记绕过 (0.073958ms)
+✔ 实际已分配厂取代票上默认厂，多家未确认不猜厂，打印票保持原样 (0.401667ms)
+✔ 直转前道须有明确工艺身份完成，最终回仓受前道实物上限约束 (0.070916ms)
+✔ 零量点收保留凭据；整票不可用和未知资料不贡献 (0.09ms)
+✔ 普通未装袋票不进放行，但既有简易交出可保持；正常换袋去重 (0.110041ms)
+✔ 装袋同ID错票号、超原票或无效票面不提供可交实物 (0.067209ms)
+✖ 逐票工艺实收保留真实业务回仓号、来源交出号及仓区库位 (1.179792ms)
+✔ 旧实收缺加工完成依据保留实物，但不计最终齐套且明确待核对 (0.095917ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 537.902583
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-release-facts.test.ts:1:8626
+✖ 逐票工艺实收保留真实业务回仓号、来源交出号及仓区库位 (1.179792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'RC-3'
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-facts.test.ts:70:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'RC-3',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,112 @@
+{
+  "version": {
+    "version": "v16",
+    "baseHead": "155144308f6b2931a8acb229a579e04ec99af41d",
+    "branch": "codex/sidebar-menu-group-ui",
+    "service": "http://127.0.0.1:4190",
+    "assetManifestSHA256": "4ba05a4d36d4027f9174d962ef4192d9156ce6cef4ab4fdf5fce458ead456c5c",
+    "sourceManifestSHA256": "8842f08951a470833b7fbe05552d44bab11e519ab88370527d08e7c892e133c2",
+    "worktree": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+    "generatedAt": "2026-10-09T11:05:56.241128+00:00"
+  },
+  "bindings": {
+    "root7": [
+      "check-cut-piece-release-matrix.ts",
+      "check-cut-piece-release-available-qty.ts",
+      "check-cut-piece-release-mock-records.ts",
+      "check-generated-cut-release.ts",
+      "check-release-physical-final-quantity.ts",
+      "check-release-dispatch-preparation.ts",
+      "check-sewing-outsourcing-release-gate.ts"
+    ],
+    "own7": [
+      "check-simple-cut-piece-final-receipt.ts",
+      "check-simple-cut-piece-handover.ts",
+      "check-cutting-sewing-dispatch.ts",
+      "check-release-physical-final-quantity.ts",
+      "check-release-dispatch-preparation.ts",
+      "check-sewing-outsourcing-release-gate.ts",
+      "check-simple-cut-piece-handover-fixtures.ts"
+    ]
+  },
+  "distinctCheckCount": 11,
+  "results": [
+    {
+      "check": "check-cut-piece-release-matrix.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 1.1,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-cut-piece-release-matrix.log"
+    },
+    {
+      "check": "check-cut-piece-release-available-qty.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.29,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-cut-piece-release-available-qty.log"
+    },
+    {
+      "check": "check-cut-piece-release-mock-records.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.42,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-cut-piece-release-mock-records.log"
+    },
+    {
+      "check": "check-generated-cut-release.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.88,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-generated-cut-release.log"
+    },
+    {
+      "check": "check-release-physical-final-quantity.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.26,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-release-physical-final-quantity.log"
+    },
+    {
+      "check": "check-release-dispatch-preparation.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.7,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-release-dispatch-preparation.log"
+    },
+    {
+      "check": "check-sewing-outsourcing-release-gate.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.51,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-sewing-outsourcing-release-gate.log"
+    },
+    {
+      "check": "check-simple-cut-piece-final-receipt.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.59,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-simple-cut-piece-final-receipt.log"
+    },
+    {
+      "check": "check-simple-cut-piece-handover.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.53,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-simple-cut-piece-handover.log"
+    },
+    {
+      "check": "check-cutting-sewing-dispatch.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 0.78,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-cutting-sewing-dispatch-canonical.log",
+      "initialFailure": {
+        "check": "check-cutting-sewing-dispatch.ts",
+        "exitCode": 1,
+        "elapsedSeconds": 0.78,
+        "log": "output/playwright/cut-release-dispatch/v16-final-check-cutting-sewing-dispatch.log"
+      },
+      "testFixtureCorrection": "旧12张内存普通票未登记明确事实；保留unknown来源阻断反例后，仅专项用existing pure reader登记明确普通10片且valid、工艺known空数组的fixture；全原占用/数量/厂/阶段负例保留，生产代码未改。",
+      "currentTestSHA256": "ae84d6904c6d37cde49328fbade412f1aab42c59eabf79248a5ec44f48203641"
+    },
+    {
+      "check": "check-simple-cut-piece-handover-fixtures.ts",
+      "exitCode": 0,
+      "elapsedSeconds": 1.16,
+      "log": "output/playwright/cut-release-dispatch/v16-final-check-simple-cut-piece-handover-fixtures.log"
+    }
+  ],
+  "passed": true,
+  "versionManifest": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v16.json",
+  "bindingCount": 14
+}

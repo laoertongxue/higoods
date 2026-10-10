@@ -1,4 +1,6 @@
+import type { ReleaseTicketDetail } from '../../../data/fcs/cut-piece-release-domain.ts'
 import { isFeiTicketSimplyHandedOver } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { isCutPieceTicketUsable } from '../../../data/fcs/cutting/cut-piece-ticket-validity.ts'
 import { mixedBagTicketFields } from '../../../data/fcs/cutting/mixed-transfer-bag-ticket.ts'
 import { runRuntimeTaskAction } from '../../../data/fcs/runtime-process-tasks.ts'
 import { localDateTimeText } from '../../../utils.ts'
@@ -24,7 +26,7 @@ import {
   type TransferBagRepackPayload,
   type TransferBagTicketFactSnapshot,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
-import { compareCuttingRuntimeChronologyAscending } from '../../../data/fcs/cutting/cutting-runtime-chronology.ts'
+import { createCuttingRuntimeChronologyComparator } from '../../../data/fcs/cutting/cutting-runtime-chronology.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -48,19 +50,28 @@ import {
   parseTransferBagAuthoritativeLocationFact,
   resolveTransferBagAuthoritativeCurrentLocation,
   resolveTransferBagCurrentUse,
+  resolveTransferBagCurrentUsesFromEvents,
   recoverTransferBag,
   submitWholeBagHandover,
   submitTransferBagRepack,
   submitSpecialCraftBagReturn,
   submitSpecialCraftTicketOnlyReturn,
+  listSpecialCraftTicketReturnFacts,
+  listSpecialCraftHandoverFacts,
+  listSpecialCraftProcessingCompletionFacts,
+  assertSpecialCraftBagCompatibility,
+  buildSpecialCraftBagChainKey,
   submitTransferBagScrap,
   type SubmitTransferBagRepackInput,
   type TransferBagHandoverTaskContext,
 } from '../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
+  getFeiTicketById,
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import { listManualFeiTicketSources } from '../../../data/fcs/cutting/manual-fei-tickets.ts'
+import { listCuttingSpecialCraftFeiTicketBindingsForProjection, type CuttingSpecialCraftFeiTicketBinding } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
   buildInboundTempBagInventoryRecords,
   type InboundTempBag,
@@ -100,6 +111,7 @@ export interface WaitHandoverRuntimeTicketInput {
   pieceQty: number
   pieceSequenceLabel: string
   hasSpecialCraft: boolean
+  specialCraftChainKey?: string
   specialCraftDisplay: string
   receiverFactoryDisplay: string
   printStatus: string
@@ -479,13 +491,14 @@ function assertWholeBagSpecialCraftHandoverPayload(input: {
     return result
   }, {})
   if (
-    input.snapshot.tickets.some(
+    !input.payload.feiTicketItems.some(item => item.specialCraftId === input.specialCraftId)
+    || input.snapshot.tickets.some(
       (ticket) =>
         payloadQtyByTicket[ticket.feiTicketId] !== Number(ticket.pieceQty || 0)
         || !input.payload.feiTicketItems.some((item) =>
           item.feiTicketId === ticket.feiTicketId
           && item.feiTicketNo === ticket.feiTicketNo
-          && item.specialCraftId === input.specialCraftId
+          && Boolean(item.specialCraftId?.trim())
           && item.partName === ticket.partName
           && item.size === ticket.size),
     )
@@ -546,13 +559,17 @@ function getWaitHandoverBagEventUsageCycleId(
   return getWaitHandoverEventUsageCycleId(event)
 }
 
+function sortWaitHandoverEvents(events: readonly CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
+  return [...events].sort(createCuttingRuntimeChronologyComparator(events))
+}
+
 function inferWaitHandoverEventCycleIds(
   events: CuttingRuntimeEvent[],
   bagCode: string,
 ): Map<string, string> {
   const result = new Map<string, string>()
   let currentCycleId = ''
-  for (const event of [...events].sort(compareCuttingRuntimeChronologyAscending)) {
+  for (const event of events) {
     if (!isWaitHandoverBagEventForCode(event, bagCode)) continue
     const declaredCycleId = getWaitHandoverBagEventUsageCycleId(event, bagCode)
     if (event.eventType === '菲票装袋') {
@@ -647,9 +664,8 @@ export function listWaitHandoverLifecycleFacts(
   bagCode: string,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): TransferBagLifecycleFact[] {
-  const events = listCuttingRuntimeEvents(storage)
+  const events = sortWaitHandoverEvents(listCuttingRuntimeEvents(storage).filter(event => event.eventStatus !== '已取消'))
     .filter((event) => isWaitHandoverBagEventForCode(event, bagCode))
-    .sort(compareCuttingRuntimeChronologyAscending)
   const inferredCycleIds = inferWaitHandoverEventCycleIds(events, bagCode)
   return events
     .flatMap((event) => {
@@ -662,7 +678,6 @@ export function listWaitHandoverLifecycleFacts(
         : null
     })
     .filter((fact): fact is TransferBagLifecycleFact => Boolean(fact))
-    .sort(compareCuttingRuntimeChronologyAscending)
 }
 
 function listWaitHandoverLifecycleCycles(
@@ -670,6 +685,7 @@ function listWaitHandoverLifecycleCycles(
   facts: TransferBagLifecycleFact[],
   events: CuttingRuntimeEvent[],
 ): TransferBagLifecycleCycle[] {
+  const compare = createCuttingRuntimeChronologyComparator(events)
   const startFacts = facts.filter((fact) =>
     fact.factType === 'BAGGING_CONFIRMED'
     || fact.factType === 'REPACK_RESULT_CONFIRMED')
@@ -696,7 +712,7 @@ function listWaitHandoverLifecycleCycles(
         && getWaitHandoverRepackBag(event, 'sourceBags', bagCode)?.outcome !== 'RETURN_INBOUND'
         && runtimeString(getWaitHandoverRepackBag(event, 'sourceBags', bagCode)?.usageCycleId) === fact.usageCycleId
         && runtimeString(getWaitHandoverRepackBag(event, 'resultBags', bagCode)?.usageCycleId) !== fact.usageCycleId)
-      .sort(compareCuttingRuntimeChronologyAscending)
+      .sort(compare)
       .at(-1)
     const closedAt = closeFact?.occurredAt || replacedByRepack?.occurredAt
     const closedChronology = closeFact
@@ -792,7 +808,7 @@ export function buildWaitHandoverLifecycleByBagCode(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): TransferBagLifecycleView {
   const facts = listWaitHandoverLifecycleFacts(bagCode, storage)
-  const events = listCuttingRuntimeEvents(storage)
+  const events = sortWaitHandoverEvents(listCuttingRuntimeEvents(storage).filter(event => event.eventStatus !== '已取消'))
     .filter((event) => eventTouchesTransferBag(event, bagCode))
   return deriveTransferBagLifecycle({
     carrierId: bagCode,
@@ -975,6 +991,7 @@ function buildWaitHandoverRuntimeTicketFromTransferBagFact(
     pieceQty: ticket.pieceQty,
     pieceSequenceLabel: runtimeString(compatibility.pieceSequenceLabel) || '按菲票追踪',
     hasSpecialCraft: Boolean(compatibility.hasSpecialCraft),
+    specialCraftChainKey: runtimeString(compatibility.specialCraftChainKey),
     specialCraftDisplay: runtimeString(compatibility.specialCraftDisplay) || '无',
     receiverFactoryDisplay:
       ticket.receiverFactoryName
@@ -996,13 +1013,14 @@ export function buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket: Genera
     spreadingOrderId: ticket.spreadingOrderId || ticket.sourceSpreadingSessionId,
     spreadingOrderNo: ticket.spreadingOrderNo || ticket.sourceSpreadingSessionNo,
     spuCode: ticket.sourceTechPackSpuCode || ticket.skuCode,
-    color: ticket.skuColor || ticket.fabricColor,
+    color: ticket.garmentColor || ticket.skuColor || ticket.fabricColor,
     size: ticket.skuSize,
     partCode: ticket.partCode,
     partName: ticket.partName,
     pieceQty: ticket.actualCutPieceQty || ticket.qty || 0,
     pieceSequenceLabel: ticket.pieceSequenceLabel || ticket.pieceSetNoRange || '按菲票追踪',
     hasSpecialCraft: Boolean(ticket.hasSpecialCraft),
+    specialCraftChainKey: buildSpecialCraftBagChainKey(ticket),
     specialCraftDisplay: getSpecialCraftDisplay(ticket),
     receiverFactoryDisplay: getReceiverFactoryDisplay(ticket),
     printStatus: getRuntimeTicketPrintStatus(ticket),
@@ -1029,6 +1047,7 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
     pieceQty: Number(ticket.actualCutPieceQty || ticket.qty || 0),
     pieceSequenceLabel: ticket.pieceSequenceLabel || '按菲票追踪',
     hasSpecialCraft: Boolean(ticket.hasSpecialCraft),
+    specialCraftChainKey: runtimeString(runtimeRecord(ticket).specialCraftChainKey),
     specialCraftDisplay: ticket.hasSpecialCraft ? ticket.specialCraftDisplayLabel || '特殊工艺待维护' : '无',
     receiverFactoryDisplay: ticket.hasSpecialCraft ? ticket.receiverFactoryDisplay || '承接工厂待补充' : '无',
     printStatus: ticket.printStatus === 'WAIT_PRINT' ? '待打印' : ticket.printStatus === 'VOIDED' ? '已作废' : '已打印',
@@ -1039,20 +1058,10 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
 export function listWaitHandoverRuntimeEvents(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent[] {
-  const events = [
-    ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓', storage),
-    ...listCuttingRuntimeEventsByType('菲票装袋', storage),
-    ...listCuttingRuntimeEventsByType('中转袋入仓', storage),
-    ...listCuttingRuntimeEventsByType('中转袋拆袋重装', storage),
-    ...listCuttingRuntimeEventsByType('交出装袋确认', storage),
-    ...listCuttingRuntimeEventsByType('新增交出记录', storage),
-    ...listCuttingRuntimeEventsByType('特殊工艺交出', storage),
-    ...listCuttingRuntimeEventsByType('特殊工艺回仓', storage),
-    ...listCuttingRuntimeEventsByType('中转袋回收', storage),
-    ...listCuttingRuntimeEventsByType('中转袋报废', storage),
-  ]
+  const types = new Set(['菲票装袋', '中转袋入仓', '中转袋拆袋重装', '交出装袋确认', '新增交出记录', '特殊工艺交出', '特殊工艺回仓', '中转袋回收', '中转袋报废'])
+  const events = listCuttingRuntimeEvents(storage).filter(event => event.inventoryEffect?.inventoryScope === '裁床待交出仓' || types.has(event.eventType))
   const seen = new Set<string>()
-  return events
+  const uniqueEvents = events
     .filter((event) => {
       if (!event.eventId || seen.has(event.eventId)) return false
       if (event.eventType === '中转袋拆袋重装' && !parseCompleteTransferBagRepackPayload(event)) {
@@ -1061,7 +1070,7 @@ export function listWaitHandoverRuntimeEvents(
       seen.add(event.eventId)
       return true
     })
-    .sort((left, right) => compareCuttingRuntimeChronologyAscending(right, left))
+  return sortWaitHandoverEvents(uniqueEvents).reverse()
 }
 
 export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
@@ -1137,9 +1146,9 @@ export function buildWaitHandoverLocationOccupancyStates(
   runtimeEvents: CuttingRuntimeEvent[],
 ): WaitHandoverLocationOccupancyState[] {
   const states = new Map<string, WaitHandoverLocationOccupancyState>()
-  const events = [...runtimeEvents]
-    .filter((event) => event.eventStatus !== '已取消')
-    .sort(compareCuttingRuntimeChronologyAscending)
+  const events = sortWaitHandoverEvents(runtimeEvents.filter((event) => event.eventStatus !== '已取消'))
+  const eventById = new Map(events.map(event => [event.eventId, event]))
+  const compareEvents = createCuttingRuntimeChronologyComparator(events)
 
   for (const event of events) {
     const payload = runtimeRecord(event.payload)
@@ -1189,7 +1198,8 @@ export function buildWaitHandoverLocationOccupancyStates(
           .filter((stateKey) => {
             const source = states.get(stateKey)
             return source
-              && source.inboundAt <= event.occurredAt
+              && Boolean(eventById.get(source.sourceEventId))
+              && compareEvents(eventById.get(source.sourceEventId)!, event) <= 0
               && sameStringSet(source.feiTicketIds, confirmedTicketIds)
               && (!declaredSourceCycleId || source.usageCycleId === declaredSourceCycleId)
           })
@@ -1198,7 +1208,7 @@ export function buildWaitHandoverLocationOccupancyStates(
         .map((stateKey) => states.get(stateKey))
         .filter((state): state is WaitHandoverLocationOccupancyState => Boolean(state))
         .sort((left, right) =>
-          right.inboundAt.localeCompare(left.inboundAt)
+          compareEvents(eventById.get(right.sourceEventId)!, eventById.get(left.sourceEventId)!)
           || right.sourceEventId.localeCompare(left.sourceEventId))[0]
       const sourceKeys = latestSource
         ? matchingSourceKeys.filter((stateKey) => states.get(stateKey)?.usageCycleId === latestSource.usageCycleId)
@@ -1261,6 +1271,7 @@ export function buildWaitHandoverLocationOccupancyStates(
     }
       if (event.eventType === '特殊工艺回仓') {
       if (!isCompleteSuccessfulSpecialCraftBagReturnEvent(event)) continue
+      if (payload.correctionOfEventId && payload.inventoryAdjusted === false) continue
         const returnRecordId = runtimeString(payload.returnRecordId) || event.eventId
       const bagCode = runtimeString(payload.transferBagCode) || event.refs.transferBagCode || ''
       if (!bagCode) continue
@@ -1288,7 +1299,9 @@ export function buildWaitHandoverLocationOccupancyStates(
       const returnedQty = Number(event.inventoryEffect?.qty || 0)
       const returnedTicketQtyById = runtimeTicketQtyById(payload.returnedFeiTicketItems, 'returnedQty')
       const currentTicketQtyById = current?.feiTicketQtyById || {}
-      const nextTicketQtyById = adjustRuntimeTicketQtys(currentTicketQtyById, returnedTicketQtyById, 'IN')
+      const nextTicketQtyById = payload.correctionOfEventId
+        ? { ...currentTicketQtyById, ...Object.fromEntries((payload.returnedFeiTicketItems as SpecialCraftReturnPayload['returnedFeiTicketItems']).map(item => [item.feiTicketId, item.returnedQty])) }
+        : adjustRuntimeTicketQtys(currentTicketQtyById, returnedTicketQtyById, 'IN')
       const explicitNextQty = Object.values(nextTicketQtyById).reduce((sum, qty) => sum + qty, 0)
       const nextQty = Object.keys(returnedTicketQtyById).length
         ? explicitNextQty
@@ -1299,13 +1312,19 @@ export function buildWaitHandoverLocationOccupancyStates(
         ...currentStates.flatMap((state) => state.feiTicketIds),
         ...appendedTicketIds,
       ]).filter((ticketId) => Number(nextTicketQtyById[ticketId] || 0) > 0)
+      const ticketSnapshot = Array.isArray(payload.ticketSnapshot) ? payload.ticketSnapshot.map(runtimeRecord) : []
+      const productionOrderByTicketId = new Map(ticketSnapshot.map(ticket => [runtimeString(ticket.feiTicketId), runtimeString(ticket.productionOrderNo)]))
+      const currentProductionOrders = nextTicketIds.map(ticketId => productionOrderByTicketId.get(ticketId) || '')
+      const productionOrderNo = ticketSnapshot.length
+        ? currentProductionOrders.every(Boolean) ? uniqueStrings(currentProductionOrders).join(' / ') : ''
+        : event.refs.productionOrderNo || current?.productionOrderNo || ''
       const usageCycleId = event.refs.usageCycleId || current?.usageCycleId
       stateKeys.forEach((stateKey) => states.delete(stateKey))
       warehouseLocations.forEach((locationRef) => {
         states.set(waitHandoverStateKey(bagCode, locationRef, usageCycleId), {
           sourceEventId: event.eventId,
           bagCode,
-          productionOrderNo: event.refs.productionOrderNo || current?.productionOrderNo || '',
+          productionOrderNo,
           feiTicketIds: nextTicketIds,
           feiTicketQtyById: nextTicketQtyById,
           totalPieceQty: nextQty,
@@ -1399,8 +1418,8 @@ export function buildWaitHandoverRuntimeProjection(
     runtimeString(runtimeRecord(event.payload).targetTransferBagCode),
   ]))
   const currentTicketIds = new Set(
-    bagCodes.flatMap((bagCode) =>
-      resolveTransferBagCurrentUse(bagCode, storage).tickets.map((ticket) => ticket.feiTicketId)),
+    [...resolveTransferBagCurrentUsesFromEvents(bagCodes, runtimeEvents).values()]
+      .flatMap(current => current.tickets.map(ticket => ticket.feiTicketId)),
   )
   return {
     runtimeEvents,
@@ -1413,11 +1432,123 @@ export function buildWaitHandoverRuntimeProjection(
   }
 }
 
+/** 原票和回仓都是历史事实；库存只取当前在用袋，逐票实收不会追加成第二份库存。 */
+export function buildCurrentWaitHandoverInventoryRecords(
+  sourceRecords: readonly InboundTempBagInventoryRecord[],
+  events: readonly CuttingRuntimeEvent[],
+  details: readonly ReleaseTicketDetail[],
+  currentUses = resolveTransferBagCurrentUsesFromEvents(uniqueStrings(events.flatMap(event => [
+    event.refs.transferBagCode, ...(event.refs.transferBagCodes || []),
+  ])), events),
+): InboundTempBagInventoryRecord[] {
+  const sourcesByTicket = new Map<string, InboundTempBagInventoryRecord>()
+  for (const row of sourceRecords) if (!sourcesByTicket.has(row.feiTicketId)) sourcesByTicket.set(row.feiTicketId, row)
+  const detailsByTicket = new Map(details.map(detail => [detail.ticketId, detail]))
+  const handoversByEvent = new Map(listSpecialCraftHandoverFacts(events).map(fact => [fact.event.eventId, fact]))
+  const locations = buildWaitHandoverLocationOccupancyStates([...events])
+  const seen = new Set<string>(), rows: InboundTempBagInventoryRecord[] = []
+  const eventById = new Map(events.map(event => [event.eventId, event]))
+  const compare = createCuttingRuntimeChronologyComparator(events)
+  const consumedByTicket = new Map<string, CuttingRuntimeEvent>()
+  const consume = (id: string, event: CuttingRuntimeEvent) => {
+    const previous = consumedByTicket.get(id)
+    if (id && (!previous || compare(event, previous) > 0)) consumedByTicket.set(id, event)
+  }
+  // 独立实收一旦重新装袋或实际交出，就不再占用原回仓库位。
+  for (const event of events) {
+    if (!['已记录', '已同步'].includes(event.eventStatus)) continue
+    const payload = runtimeRecord(event.payload)
+    if (handoversByEvent.has(event.eventId) || isCompleteSuccessfulWholeBagHandoverEvent(event)) {
+      for (const ticket of Array.isArray(payload.ticketSnapshot) ? payload.ticketSnapshot.map(runtimeRecord) : []) consume(runtimeString(ticket.feiTicketId), event)
+    } else if (['菲票装袋', '中转袋入仓'].includes(event.eventType)
+      && (event.refs.transferBagCode || runtimeString(payload.bagCode)) && (event.refs.usageCycleId || runtimeString(payload.usageCycleId))) {
+      for (const ticket of Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems.map(runtimeRecord) : []) consume(runtimeString(ticket.feiTicketId), event)
+    } else if (event.eventType === '中转袋拆袋重装') {
+      const repack = parseCompleteTransferBagRepackPayload(event)
+      for (const bag of repack?.sourceBags || []) for (const ticket of bag.beforeTickets) consume(ticket.feiTicketId, event)
+    } else if (event.eventType === '简易裁片交出' && payload.schemaVersion === 1 && payload.receiptStatus === 'RECEIVED'
+      && runtimeString(payload.assignmentId) && runtimeString(payload.handoverRecordId)) {
+      for (const ticket of Array.isArray(payload.tickets) ? payload.tickets.map(runtimeRecord) : []) consume(runtimeString(ticket.feiTicketId), event)
+    }
+  }
+  const latestReceiptByTicket = new Map<string, ReturnType<typeof listSpecialCraftTicketReturnFacts>[number]>()
+  for (const receipt of listSpecialCraftTicketReturnFacts(events)) {
+    // 已被消费的旧阶段更正只更新历史依据，不遮蔽后道当前实收。
+    if (runtimeRecord(eventById.get(receipt.eventId)!.payload).inventoryAdjusted === false) continue
+    const previous = latestReceiptByTicket.get(receipt.feiTicketId)
+    if (!previous || compare(eventById.get(receipt.eventId)!, eventById.get(previous.eventId)!) > 0) latestReceiptByTicket.set(receipt.feiTicketId, receipt)
+  }
+  const completed = (detail: ReleaseTicketDetail | undefined) => Boolean(detail?.craftRequirementKnown && detail.completionEvidenceKnown
+    && detail.craftSteps.length && detail.craftSteps.at(-1)?.returnedQty !== null
+    && detail.craftSteps.every(step => ['已实际回仓', '已交下一工艺', '加工完成待回仓'].includes(step.status)))
+  const usable = (id: string, original: InboundTempBagInventoryRecord, detail: ReleaseTicketDetail | undefined) =>
+    isCutPieceTicketUsable(id) && detail?.validity !== '不可用' && original.voidStatus !== '已作废'
+  const currentOwnerByTicket = new Map<string, string>()
+  for (const current of currentUses.values()) if (current.mainStatus === 'IN_USE') for (const ticket of current.tickets) currentOwnerByTicket.set(ticket.feiTicketId, current.bagCode)
+  for (const [id, receipt] of latestReceiptByTicket) {
+    const event = eventById.get(receipt.eventId)!, payload = runtimeRecord(event.payload)
+    if (event.refs.transferBagCode || runtimeString(payload.transferBagCode)) continue
+    const consumed = consumedByTicket.get(id)
+    const sourceEvent = eventById.get(receipt.sourceHandoverEventId)!
+    // 更正时间可能晚于实交时间；是否被消费仍以原来源交出后的动作判断。
+    if (currentOwnerByTicket.has(id) || consumed && compare(consumed, sourceEvent) > 0 || payload.inventoryAdjusted === false) continue
+    const original = sourcesByTicket.get(id), detail = detailsByTicket.get(id)
+    if (!original || original.feiTicketNo !== receipt.feiTicketNo) continue
+    const valid = usable(id, original, detail)
+    seen.add(id)
+    rows.push({ ...original, inventoryRecordId: `INV-${receipt.eventId}-${id}`, pieceQty: valid ? receipt.returnedQty : 0,
+      tempBagCode: '—', warehouseArea: receipt.locationRef.areaName, locationCode: receipt.locationRef.locationNo,
+      inboundAt: receipt.returnedAt, hasSpecialCraft: true, specialCraftDisplay: completed(detail) ? '已回仓' : '未做特殊工艺',
+      receiverFactoryDisplay: handoversByEvent.get(receipt.sourceHandoverEventId)?.payload.receiverFactoryName || original.receiverFactoryDisplay,
+      inventoryStatus: !valid ? '已作废或不可用' : !detail?.craftRequirementKnown || detail.physicalPieceQty !== receipt.returnedQty ? '待核对' : '待分配',
+    })
+  }
+  for (const current of currentUses.values()) {
+    if (current.mainStatus !== 'IN_USE' || !current.usageCycleId || current.flowStage === 'PACKED') continue
+    const source = handoversByEvent.get(current.latestHandoverEventId)
+    const inWarehouse = ['INBOUND_STORED', 'READY_HANDOVER'].includes(current.flowStage || '')
+    const stock = new Map(current.tickets.map(ticket => [ticket.feiTicketId, ticket]))
+    // 零量点收保留该票的一行，但不借用原票数量。
+    const tickets = source?.usageCycleId === current.usageCycleId ? source.payload.ticketSnapshot : current.tickets
+    const location = inWarehouse ? locations.find(row => row.bagCode === current.bagCode && row.usageCycleId === current.usageCycleId) : undefined
+    for (const ticket of tickets) {
+      if (seen.has(ticket.feiTicketId) || ['REPLACEMENT_FABRIC', 'BINDING_STRIP'].includes(ticket.ticketKind || '')) continue
+      const owner = currentOwnerByTicket.get(ticket.feiTicketId)
+      if (owner && owner !== current.bagCode) continue
+      const receipt = latestReceiptByTicket.get(ticket.feiTicketId), receiptEvent = receipt && eventById.get(receipt.eventId)
+      if (!owner && receiptEvent && !receiptEvent.refs.transferBagCode && !runtimeString(runtimeRecord(receiptEvent.payload).transferBagCode) && source && compare(receiptEvent, source.event) > 0) continue
+      const original = sourcesByTicket.get(ticket.feiTicketId)
+      if (!original || original.feiTicketNo !== ticket.feiTicketNo) continue
+      seen.add(ticket.feiTicketId)
+      const detail = detailsByTicket.get(ticket.feiTicketId)
+      const valid = usable(ticket.feiTicketId, original, detail)
+      const actualQty = stock.get(ticket.feiTicketId)?.pieceQty ?? 0
+      const pieceQty = valid && inWarehouse && location && Number.isSafeInteger(actualQty) && actualQty >= 0 ? actualQty : 0
+      const requiresCraft = Boolean(detail?.requiresSpecialCraft || original.hasSpecialCraft || source)
+      // 尚未分配车缝任务是下游待办；原共用交出校验允许分配后补齐，不是裁片来源冲突。
+      const assignmentPending = current.compatibilityBlockedReason === '历史袋内快照缺少接收工厂事实，当前关系仅供核查，不能拆袋重装。'
+        || current.compatibilityBlockedReason === '历史袋内快照缺少车缝任务事实，当前关系仅供核查，不能拆袋重装。'
+      const blocked = Boolean(current.compatibilityBlockedReason && !assignmentPending || !detail?.craftRequirementKnown || detail.physicalPieceQty !== pieceQty)
+      rows.push({ ...original,
+        inventoryRecordId: original.tempBagCode === current.bagCode ? original.inventoryRecordId : `INV-${current.usageCycleId}-${ticket.feiTicketId}`,
+        pieceQty, tempBagCode: current.bagCode,
+        warehouseArea: location?.locationRef.areaName || '—', locationCode: location?.locationRef.locationNo || '—',
+        inboundAt: location?.inboundAt || original.inboundAt,
+        hasSpecialCraft: requiresCraft,
+        specialCraftDisplay: requiresCraft ? !inWarehouse ? '特殊工艺加工中' : completed(detail) ? '已回仓' : '未做特殊工艺' : '无特殊工艺',
+        receiverFactoryDisplay: source?.payload.receiverFactoryName || original.receiverFactoryDisplay,
+        inventoryStatus: !valid ? '已作废或不可用' : !inWarehouse ? '已交出' : blocked ? '待核对' : '待分配',
+      })
+    }
+  }
+  return rows
+}
+
 export function runtimeEventHasWaitHandoverTicket(eventType: string, feiTicketId: string, specialCraftId?: string): boolean {
   return listCuttingRuntimeEvents().some((event) => {
     if (event.eventType !== eventType || event.eventStatus === '已取消') return false
     if (!event.refs.feiTicketIds?.includes(feiTicketId)) return false
-    if (specialCraftId && event.refs.specialCraftId !== specialCraftId) return false
+    if (specialCraftId && ![runtimeRecord(event.payload).feiTicketItems, runtimeRecord(event.payload).returnedFeiTicketItems].flatMap(items => Array.isArray(items) ? items.map(runtimeRecord) : []).some(item => item.feiTicketId === feiTicketId && item.specialCraftId === specialCraftId)) return false
     return true
   })
 }
@@ -1427,7 +1558,7 @@ export function appendWaitHandoverBaggingEvent(input: WaitHandoverBaggingEventIn
   if (!input.bagCode.trim()) {
     throw new Error('请扫描或输入中转袋编号。')
   }
-  const occurredAt = input.occurredAt || localDateTimeText().slice(0, 16)
+  const occurredAt = input.occurredAt || new Date().toISOString()
   const usageCycleId =
     input.usageCycleId
     || buildWaitHandoverUsageCycleId(input.bagCode, occurredAt)
@@ -1435,6 +1566,8 @@ export function appendWaitHandoverBaggingEvent(input: WaitHandoverBaggingEventIn
   if (!tickets.length) {
     throw new Error('请至少选择或扫描一张有效菲票。')
   }
+  const unusable = tickets.find(ticket => !isCutPieceTicketUsable(ticket.feiTicketId))
+  if (unusable) throw new Error(`${unusable.feiTicketNo} 已登记整票不可用，不能装袋或继续交出。`)
   const voidedTicketNos = tickets
     .filter((ticket) => runtimeString(ticket.voidStatus).includes('作废') || runtimeString(ticket.printStatus).includes('作废'))
     .map((ticket) => ticket.feiTicketNo || ticket.feiTicketId)
@@ -1447,6 +1580,11 @@ export function appendWaitHandoverBaggingEvent(input: WaitHandoverBaggingEventIn
   if (productionOrderNos.length !== 1) {
     throw new Error('同一中转袋只能装入同一生产单的菲票')
   }
+  assertSpecialCraftBagCompatibility(tickets.map(ticket => {
+    const generated = getFeiTicketById(ticket.feiTicketId) || listManualFeiTicketSources().find(source => source.feiTicketId === ticket.feiTicketId)
+    const specialCraftChainKey = ticket.specialCraftChainKey || (generated ? buildSpecialCraftBagChainKey(generated) : '')
+    return { ...ticket, specialCraftChainKey }
+  }))
   const idempotencyKey =
     input.idempotencyKey
     || `${usageCycleId}:BAGGING_CONFIRMED`
@@ -1552,7 +1690,7 @@ export function appendWaitHandoverInboundEvent(input: {
   if (!warehouseArea.trim() || !locationCode.trim()) {
     throw new Error('请填写入仓库区和库位。')
   }
-  const occurredAt = input.occurredAt || localDateTimeText().slice(0, 16)
+  const occurredAt = input.occurredAt || new Date().toISOString()
   const snapshot = resolveWaitHandoverBaggingSnapshot(
     input.bagCode,
     storage,
@@ -1987,6 +2125,11 @@ export function appendWaitHandoverHandoverRecordEvent(input: {
   }, storage).event
 }
 
+interface SpecialCraftHandoverProjection {
+  sources: readonly GeneratedFeiTicketSourceRecord[]
+  bindings: readonly CuttingSpecialCraftFeiTicketBinding[]
+}
+
 export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   source: CuttingRuntimeEventSource
   operator: WaitHandoverRuntimeOperator
@@ -2002,9 +2145,10 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   handoverLegId?: string
   idempotencyKey?: string
   storage?: BrowserStorageLike | null
-}) {
+}, projection?: SpecialCraftHandoverProjection) {
+  if (input.payload.directTransfer) return appendSpecialCraftDirectTransfer(input, projection)
   const storage = resolveWaitHandoverStorage(input.storage)
-  const events = [...listCuttingRuntimeEvents(storage)].sort(compareCuttingRuntimeChronologyAscending)
+  const events = sortWaitHandoverEvents(listCuttingRuntimeEvents(storage))
   const occurredAt = input.occurredAt || input.payload.handedOverAt || new Date().toISOString()
   if (!input.transferBagCode.trim()) {
     throw new Error('特殊工艺带袋交出必须明确物理中转袋。')
@@ -2128,6 +2272,31 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
     occurredAt,
     operatorName: input.operator.operatorName,
   })
+  const receipts = listSpecialCraftTicketReturnFacts(listCuttingRuntimeEvents(storage), storage)
+  const completedBindings = projection?.bindings || listCuttingSpecialCraftFeiTicketBindingsForProjection()
+  for (const ticket of snapshot.tickets) {
+    if (!isCutPieceTicketUsable(ticket.feiTicketId)) throw new Error(`${ticket.feiTicketNo} 已登记整票不可用，不能继续加工交出。`)
+    const sourceTicket = projection?.sources.find(item => item.feiTicketId === ticket.feiTicketId) || getFeiTicketById(ticket.feiTicketId) || listManualFeiTicketSources().find(source => source.feiTicketId === ticket.feiTicketId)
+    if (!sourceTicket) continue // 旧来源保持可核查，不由演示名称补造新工艺链。
+    const chain = sourceTicket.specialCrafts
+    if (!sourceTicket.hasSpecialCraft || !chain.length) throw new Error(`${ticket.feiTicketNo} 没有明确的部位工艺要求，不能交给特殊工艺工厂。`)
+    const ticketStageId = input.payload.feiTicketItems.find(item => item.feiTicketId === ticket.feiTicketId)?.specialCraftId
+    const index = chain.findIndex(craft => craft.specialCraftId === ticketStageId)
+    if (index < 0) throw new Error(`${ticket.feiTicketNo} 的本次工艺与部位要求不一致，请重新选择加工。`)
+    const stageBindings = completedBindings.filter(binding => binding.feiTicketId === ticket.feiTicketId && binding.specialCraftId === ticketStageId && binding.taskOrderId === input.handoverOrderId && binding.targetFactoryId === input.payload.receiverFactoryId && binding.assignedFactoryConfirmed === true)
+    if (stageBindings.length !== 1) throw new Error(`${ticket.feiTicketNo} 的当前工艺缺少唯一已分配承接任务，请重新核对。`)
+    const previous = chain.slice(0, index).map(craft => {
+      const receipt = receipts.find(item => item.feiTicketId === ticket.feiTicketId && item.specialCraftId === craft.specialCraftId)
+      if (receipt) return receipt.processingCompleted === true && receipt.returnedQty > 0 ? receipt.returnedQty : null
+      const bindings = completedBindings.filter(item => item.feiTicketId === ticket.feiTicketId && item.specialCraftId === craft.specialCraftId)
+      const binding = bindings.length === 1 ? bindings[0] : undefined
+      return binding && ['已完成', '待回仓', '已回仓'].includes(binding.specialCraftFlowStatus) && Number.isSafeInteger(binding.closingQty) && binding.closingQty > 0 ? binding.closingQty : null
+    })
+    if (previous.some(qty => qty === null)) throw new Error(`${ticket.feiTicketNo} 尚未有明确前道加工完成事实，不能跳到下一道加工。`)
+    const currentStageReceipt = receipts.find(receipt => receipt.feiTicketId === ticket.feiTicketId && receipt.specialCraftId === ticketStageId)
+    if (currentStageReceipt) throw new Error(`${ticket.feiTicketNo} 的本次工艺已经回仓，请核对下一道加工。`)
+    if (index > 0 && ticket.pieceQty !== previous[previous.length - 1]) throw new Error(`${ticket.feiTicketNo} 的本次交出数量必须按前道有效实收更新，请重新读取袋内实物。`)
+  }
   const handoverLegId = buildNextWaitHandoverHandoverLeg({
     bagCode: input.transferBagCode,
     usageCycleId,
@@ -2254,6 +2423,65 @@ export function appendWaitHandoverSpecialCraftHandoverEvent(input: {
   return appendResult.event
 }
 
+function appendSpecialCraftDirectTransfer(input: Parameters<typeof appendWaitHandoverSpecialCraftHandoverEvent>[0], projection?: SpecialCraftHandoverProjection): CuttingRuntimeEvent<'特殊工艺交出'> {
+  const storage = resolveWaitHandoverStorage(input.storage)
+  const events = sortWaitHandoverEvents(listCuttingRuntimeEvents(storage))
+  const direct = input.payload.directTransfer!
+  const facts = listSpecialCraftHandoverFacts(events)
+  const source = facts.find(fact => fact.event.eventId === direct.sourceHandoverEventId && fact.handoverRecordId === direct.sourceHandoverRecordId)
+  if (!source) throw new Error('未找到上一道实际交出记录，请重新读取。')
+  if (source.payload.receiverFactoryId !== direct.sourceFactoryId || source.payload.receiverFactoryName !== direct.sourceFactoryName) throw new Error('当前持有工厂与上一交出记录不一致，请核对。')
+  if (source.bagCode !== input.transferBagCode || source.usageCycleId !== input.usageCycleId) throw new Error('中转袋或使用周期已变化，请重新读取。')
+  if (source.specialCraftId === input.specialCraftId) throw new Error('请选择下一道加工任务，不能重复同一道工艺。')
+  const items = direct.completedTicketItems
+  if (items.length !== source.payload.ticketSnapshot.length || new Set(items.map(item => item.feiTicketId)).size !== items.length) throw new Error('请逐票填写全部裁片的加工完成数量。')
+  const ticketSnapshot = source.payload.ticketSnapshot.map(ticket => {
+    if (!isCutPieceTicketUsable(ticket.feiTicketId)) throw new Error(`${ticket.feiTicketNo} 已不可用，不能转交。`)
+    const item = items.find(item => item.feiTicketId === ticket.feiTicketId)
+    if (!item || item.specialCraftId !== source.payload.feiTicketItems.find(sourceItem => sourceItem.feiTicketId === ticket.feiTicketId)?.specialCraftId || item.processingCompleted !== true) throw new Error(`${ticket.feiTicketNo}：请核对前道加工完成。`)
+    if (!Number.isSafeInteger(item.completedQty) || item.completedQty <= 0 || item.completedQty > ticket.pieceQty) throw new Error(`${ticket.feiTicketNo}：转交数量须为有效整数，且不超过前道实交。`)
+    if (item.completedQty !== ticket.pieceQty && !item.differenceReason?.trim()) throw new Error(`${ticket.feiTicketNo}：数量有差异，请填写原因。`)
+    return { ...ticket, pieceQty: item.completedQty }
+  })
+  const occurredAt = input.occurredAt || input.payload.handedOverAt
+  if (!occurredAt || input.payload.handedOverAt !== occurredAt || input.payload.handedOverBy !== input.operator.operatorName || new Date(occurredAt.replace(' ', 'T')).getTime() <= new Date(source.event.occurredAt.replace(' ', 'T')).getTime()) throw new Error('转交时间或交出人待核对，请重新填写。')
+  const completedFacts = listSpecialCraftProcessingCompletionFacts(events, storage)
+  const receipts = listSpecialCraftTicketReturnFacts(events, storage)
+  const bindings = projection?.bindings || listCuttingSpecialCraftFeiTicketBindingsForProjection()
+  for (const ticket of ticketSnapshot) {
+    const original = projection?.sources.find(item => item.feiTicketId === ticket.feiTicketId) || getFeiTicketById(ticket.feiTicketId) || listManualFeiTicketSources().find(item => item.feiTicketId === ticket.feiTicketId)
+    if (!original?.hasSpecialCraft) throw new Error(`${ticket.feiTicketNo}：原票工艺要求待补齐，不能直接转交。`)
+    const chain = original.specialCrafts
+    const previousStageId = source.payload.feiTicketItems.find(item => item.feiTicketId === ticket.feiTicketId)?.specialCraftId
+    const nextStageId = input.payload.feiTicketItems.find(item => item.feiTicketId === ticket.feiTicketId)?.specialCraftId
+    const sourceIndex = chain.findIndex(craft => craft.specialCraftId === previousStageId)
+    if (sourceIndex < 0 || chain[sourceIndex + 1]?.specialCraftId !== nextStageId || !input.payload.feiTicketItems.some(item => item.specialCraftId === input.specialCraftId)) throw new Error(`${ticket.feiTicketNo}：只能转交下一道必要工艺。`)
+    const next = chain[sourceIndex + 1]
+    if (bindings.filter(binding => binding.feiTicketId === ticket.feiTicketId && binding.specialCraftId === next.specialCraftId && binding.taskOrderId === input.handoverOrderId && binding.assignedFactoryConfirmed === true && binding.targetFactoryId === input.payload.receiverFactoryId).length !== 1) throw new Error(`${ticket.feiTicketNo}：下一道加工任务或承接厂待补齐。`)
+    if (chain.slice(0, sourceIndex).some(craft => !completedFacts.some(fact => fact.feiTicketId === ticket.feiTicketId && fact.specialCraftId === craft.specialCraftId) && !receipts.some(fact => fact.feiTicketId === ticket.feiTicketId && fact.specialCraftId === craft.specialCraftId && fact.processingCompleted === true))) throw new Error(`${ticket.feiTicketNo}：前道加工完成记录待核对。`)
+  }
+  const existing = events.find(event => event.eventType === '特殊工艺交出' && event.refs.handoverRecordId === input.handoverRecordId)
+  const handoverLegId = existing?.refs.handoverLegId || buildNextWaitHandoverHandoverLeg({ bagCode: source.bagCode, usageCycleId: source.usageCycleId, events }).handoverLegId
+  const idempotencyKey = input.idempotencyKey || `${source.usageCycleId}:DIRECT_HANDOVER:${input.handoverRecordId}`
+  const operatorRole = input.operator.operatorRole || '特殊工艺交出员'
+  const payload: CompleteSpecialCraftHandoverPayload = { ...input.payload, bagCode: source.bagCode, usageCycleId: source.usageCycleId, handoverLegId, ticketSnapshot,
+    sourceInventoryEventId: source.payload.sourceInventoryEventId, sourceWarehouseArea: source.payload.sourceWarehouseArea, sourceLocationCode: source.payload.sourceLocationCode, locationRef: source.payload.locationRef, idempotencyKey, canonicalIntent: '' }
+  payload.canonicalIntent = buildSpecialCraftWholeBagHandoverCanonicalIntent({ ...payload, specialCraftId: input.specialCraftId, sourceLocationRef: payload.locationRef, source: input.source, operator: { ...input.operator, operatorRole } })
+  if (existing) {
+    const prior = facts.find(fact => fact.event.eventId === existing.eventId)
+    if (prior?.canonicalIntent === payload.canonicalIntent) return existing as CuttingRuntimeEvent<'特殊工艺交出'>
+    throw new Error('转交记录已存在，本次数量或对象不同，请重新读取。')
+  }
+  const current = resolveTransferBagCurrentUse(source.bagCode, storage)
+  if (current.usageCycleId !== source.usageCycleId || current.flowStage !== 'HANDED_OVER_WAITING_RETURN' || current.latestHandoverEventId !== source.event.eventId) throw new Error('该袋已回仓、换袋或转交，当前持有记录已变化。')
+  const appendInput: AppendCuttingRuntimeEventInput<'特殊工艺交出'> & { idempotencyKey: string } = { eventType: '特殊工艺交出', eventSource: input.source, eventStatus: '已同步', occurredAt, operatorId: input.operator.operatorId, operatorName: input.operator.operatorName, operatorRole, idempotencyKey,
+    refs: { transferBagCode: source.bagCode, usageCycleId: source.usageCycleId, handoverLegId, handoverOrderId: input.handoverOrderId, handoverRecordId: input.handoverRecordId, specialCraftId: input.specialCraftId, feiTicketIds: ticketSnapshot.map(ticket => ticket.feiTicketId), feiTicketNos: ticketSnapshot.map(ticket => ticket.feiTicketNo) },
+    inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'ADJUST', qty: 0, unit: '片', fromWarehouseArea: payload.sourceWarehouseArea, fromLocationCode: payload.sourceLocationCode }, payload }
+  const candidate = { ...appendInput, eventId: 'candidate:direct-transfer', eventNo: 'candidate:direct-transfer', createdAt: occurredAt, operatorId: input.operator.operatorId || '' } as CuttingRuntimeEvent<'特殊工艺交出'>
+  if (!listSpecialCraftHandoverFacts([...events, candidate]).some(fact => fact.event.eventId === candidate.eventId)) throw new Error('转交的前道完成、逐票数量或来源不一致，未保存。')
+  return appendCuttingRuntimeEventIdempotent(appendInput, storage).event
+}
+
 export function appendWaitHandoverSpecialCraftReturnEvent(input: {
   source: CuttingRuntimeEventSource
   operator: WaitHandoverRuntimeOperator
@@ -2267,9 +2495,6 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
 }) {
   const storage = resolveWaitHandoverStorage(input.storage)
   const occurredAt = input.occurredAt || input.payload.returnedAt || new Date().toISOString()
-  const operationOccurredAt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(occurredAt)
-    ? occurredAt.slice(0, 16).replace('T', ' ')
-    : occurredAt
   const bagCode = input.payload.transferBagCode?.trim() || ''
   const returnedTicketIds = input.payload.returnedFeiTicketItems
     .map((item) => item.feiTicketId.trim())
@@ -2279,10 +2504,11 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       sourceHandoverRecordId: input.payload.sourceHandoverRecordId,
       bagCode,
       returnedTicketIds,
+      ticketReceipts: input.payload.returnedFeiTicketItems.map(item => ({ feiTicketId: item.feiTicketId, returnedQty: item.returnedQty, differenceReason: item.differenceReason, processingCompleted: item.processingCompleted })),
       locationRef: input.payload.locationRef as RuntimeWarehouseLocationRef,
       operator: input.operator,
       source: input.source,
-      occurredAt: operationOccurredAt,
+      occurredAt,
     }, storage)
   }
   if (bagCode && returnedTicketIds.length === 0) {
@@ -2299,7 +2525,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
       reason: `特殊工艺空袋回仓：${input.payload.sourceHandoverRecordId}`,
       operator: input.operator,
       source: input.source,
-      occurredAt: operationOccurredAt,
+      occurredAt,
     }, storage)
   }
   if (!returnedTicketIds.length) throw new Error('无袋回仓必须包含回仓菲票。')
@@ -2308,7 +2534,7 @@ export function appendWaitHandoverSpecialCraftReturnEvent(input: {
     specialCraftId: input.specialCraftId,
     operator: input.operator,
     source: input.source,
-    occurredAt: operationOccurredAt,
+    occurredAt,
     idempotencyKey: input.idempotencyKey,
   }, storage)
 }

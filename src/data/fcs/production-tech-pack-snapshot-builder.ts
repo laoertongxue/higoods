@@ -1110,7 +1110,7 @@ export function applyGreyHoodieConfirmationFixture(snapshot: ProductionOrderTech
   snapshot.imageSnapshot.materialImages = [bom.materialImageUrl!]
   snapshot.imageSnapshot.accessoryImages = accessories.map(item=>item.materialImageUrl!)
   const parts = [['FRONT-L', '左前片', 1], ['FRONT-R', '右前片', 1], ['BACK', '后片', 1], ['SLEEVE', '袖片', 2], ['HOOD', '帽片', 2], ['POCKET', '口袋片', 2]] as const
-  snapshot.cutPieceParts = parts.map(([partCode, partNameCn, count]) => ({partCode, partNameCn, pieceCountPerGarment:count, materialSku:bom.id, materialName:bom.name, fabricColor:'雾霾灰', applicableColorList:['雾霾灰'], applicableSizeList:['S','M','L','XL'], manualConfirmRequired:false}))
+  snapshot.cutPieceParts = parts.map(([partCode, partNameCn, count]) => ({partCode, partNameCn, pieceCountPerGarment:count, materialSku:bom.id, materialName:bom.name, fabricColor:'雾霾灰', applicableColorList:['雾霾灰'], applicableSizeList:['S','M','L','XL'], specialCrafts:[], manualConfirmRequired:false}))
   snapshot.patternFiles.forEach(pattern => {
     pattern.patternName = '雾霾灰拉链连帽卫衣演示纸样'
     pattern.imageUrl = base + '-pattern.svg'

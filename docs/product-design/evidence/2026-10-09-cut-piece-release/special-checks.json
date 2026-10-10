@@ -1,0 +1,86 @@
+[
+  {
+    "check": "check-cut-piece-release-matrix.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-cut-piece-release-matrix.ts.log",
+    "tail": "cut piece release matrix check passed\n(node:46681) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-cut-piece-release-available-qty.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-cut-piece-release-available-qty.ts.log",
+    "tail": "[check-cut-piece-release-available-qty] 裁床放行确认版本检查通过\n(node:46687) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-cut-piece-release-mock-records.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-cut-piece-release-mock-records.ts.log",
+    "tail": "[check-cut-piece-release-mock-records] 裁片放行管理 mock 数据检查通过\n(node:52396) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-generated-cut-release.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-generated-cut-release.ts.log",
+    "tail": "PASS 有效装袋40片→S6 XL4；未装袋排除；去重/外单/BOM隔离/左右实例；手动来源与缺资料/已知零\n(node:46695) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-release-physical-final-quantity.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-release-physical-final-quantity.ts.log",
+    "tail": "物理候选/最终齐套/整数/尺码/已知零/缺资料契约通过\n"
+  },
+  {
+    "check": "check-release-dispatch-preparation.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-release-dispatch-preparation.ts.log",
+    "tail": "裁片放行车缝分配：配料独立、完成度非门禁、SKU 候选与提交边界专项通过\n(node:46709) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-sewing-outsourcing-release-gate.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-sewing-outsourcing-release-gate.ts.log",
+    "tail": "车缝外发裁片放行占用、调低下限与派单硬门禁专项检查通过\n(node:46717) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-cutting-sewing-dispatch.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-cutting-sewing-dispatch.ts.log",
+    "tail": "check:cutting-sewing-dispatch passed\n(node:46721) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-simple-cut-piece-handover.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-simple-cut-piece-handover.ts.log",
+    "tail": "simple cut-piece selection: normal, second batch, quantities, provenance, identity, occupancy and actor checks passed\n(node:46838) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-simple-cut-piece-handover-integration.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-simple-cut-piece-handover-integration.ts.log",
+    "tail": "简易裁片完整事务通过：存储失败、重复确认、两批领取、即时接收、冷读责任、袋互斥、旧码失效和历史责任。\n(node:46839) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-simple-cut-piece-handover-fixtures.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-simple-cut-piece-handover-fixtures.ts.log",
+    "tail": "TicketNo\": \"FT-CUT-260916-916-01-060\",\n    \"eventId\": \"cutting-event:BAGGING:SPREAD-PO-DEMO-SIMPLE-BAG-0916-1-SPREAD-PO-DEMO-SIMPLE-BAG-0916-1-cut-order:po-demo-simple-bag-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm-CUT-260916-916-01-TB-SIMPLE-MOCK005-0916-cycle:TB-SIMPLE-MOCK005-0916:20260916090000-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-BAG-0916-1-M-BACK:20260916090000\",\n    \"taskSheetNo\": \"RW-1V3G1AJ-0RMOAK2\",\n    \"automaticCuttingTaskSheetNo\": \"RW-00HNF9T-0YVL0XT\",\n    \"warehousePath\": \"/fcs/craft/cutting/warehouse-management/wait-handover\"\n  },\n  \"craft\": {\n    \"bindingId\": \"SCB-AUX-TASK-PO2026030002-DERY-08-0dc38d76-AUX-TASK-PO2026030002-DERY-08-0dc38d76-LINE-01-AUX-OP-EMBROIDERY-FT-202603-0002-38eb43f9\",\n    \"productionOrderId\": \"PO-202603-0002\",\n    \"feiTicketNo\": \"FT-202603-0002-38eb43f9\",\n    \"outside\": \"已发料\",\n    \"returned\": \"已回仓\",\n    \"limitation\": \"既有测试裁床特殊工艺场景，仅验证真实在外/回仓命令；不代表专用裁床简易交出可用\"\n  }\n}\n专用裁床动态工艺菲票：实际完裁→在外阻断→真实回仓可交；重复刷新不覆写旧状态。\n"
+  },
+  {
+    "check": "check-simple-cut-piece-receipt-projections.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-simple-cut-piece-receipt-projections.ts.log",
+    "tail": "simple cut-piece receipt projections: 43 assertions passed\n(node:46843) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-transfer-bag-repack-recovery.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-transfer-bag-repack-recovery.ts.log",
+    "tail": "[performance] 2,000 事件特殊工艺带袋回仓 23.0ms\nPASS check-transfer-bag-repack-recovery\n(node:46845) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  },
+  {
+    "check": "check-cutting-special-craft-dispatch-return.ts",
+    "exitCode": 0,
+    "log": "/tmp/release-check-cutting-special-craft-dispatch-return.ts.log",
+    "tail": "check:cutting-special-craft-dispatch-return passed\n(node:46846) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+  }
+]

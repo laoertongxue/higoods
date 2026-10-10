@@ -7,6 +7,7 @@ export type MatrixTargetStatus = '待确认' | '已确认' | '目标后数据已
 export interface CutPieceRequirement {
   materialId: string
   materialName: string
+  materialImageUrl?: string
   partId: string
   partName: string
   piecesPerGarment?: number
@@ -26,9 +27,63 @@ export interface CutPieceFact {
   materialId: string
   partId: string
   actualPieceQty: number
+  physicalPieceQty?: number
+  identityKnown?: boolean
+  ticketDetail?: ReleaseTicketDetail
   direction: '正向' | '反向'
   sourceStatus: ReleaseSourceStatus
   occurredAt: string
+}
+
+export interface ReleaseTicketCraftStep {
+  sequence: number
+  craftId: string
+  craftName: string
+  craftType: string
+  factoryName: string
+  expectedQty: number
+  processedQty: number
+  handedOverQty: number
+  returnedQty: number | null
+  status: string
+  returnedAt?: string
+  returnedBy?: string
+  receiptId?: string
+  receiptNo?: string
+  sourceHandoverNo?: string
+  returnLocationLabel?: string
+}
+
+export interface ReleaseTicketDetail {
+  ticketId: string
+  ticketNo: string
+  sourceType: string
+  sourceNo: string
+  cutOrderNo: string
+  spreadingOrderNo?: string
+  garmentColor: string
+  size: string
+  fabricColor: string
+  materialId: string
+  materialName: string
+  partId: string
+  partName: string
+  printedPieceQty: number
+  physicalPieceQty: number
+  eligiblePieceQty: number
+  validity: '可用' | '不可用'
+  bagCode: string
+  bagUseId?: string
+  locationLabel: string
+  requiresSpecialCraft: boolean
+  craftRequirementKnown: boolean
+  /** 旧回仓仍保留实收，缺少明确加工完成依据时齐套待核对。 */
+  completionEvidenceKnown?: boolean
+  craftSteps: ReleaseTicketCraftStep[]
+  returnedAt?: string
+  returnedBy?: string
+  receiptId?: string
+  differenceReason?: string
 }
 
 export interface ReleasePartCalculation {
@@ -37,12 +92,21 @@ export interface ReleasePartCalculation {
   sourceFactIds: string[]
   piecesPerGarment: number
   actualPieceQty: number
+  physicalPieceQty: number
+  physicalGarmentQty: number | null
+  ticketDetails: ReleaseTicketDetail[]
   availableGarmentQty: number | null
   calculationStatus: MatrixCalculationStatus
 }
 
 export interface ReleaseMatrixCell {
   size: string
+  physicalGarmentQty: number | null
+  specialCraftRequiredPieceQty: number
+  specialCraftCompletedPieceQty: number
+  specialCraftPendingPieceQty: number
+  specialCraftAwaitingReturnPieceQty: number
+  specialCraftDifferencePieceQty: number
   availableGarmentQty: number | null
   calculationStatus: MatrixCalculationStatus
   partCalculations: ReleasePartCalculation[]
@@ -52,6 +116,7 @@ export interface ReleaseMatrixCell {
 export interface ReleaseMaterialRow {
   materialId: string
   materialName: string
+  materialImageUrl?: string
   cells: ReleaseMatrixCell[]
 }
 
@@ -79,6 +144,8 @@ export interface BuildReleaseMatrixInput {
   planQtyByColorSize: Record<string, Record<string, number>>
   requirements: CutPieceRequirement[]
   facts: CutPieceFact[]
+  /** 来源完成读取后无有效票为已知零；读取失败不能冒充零。 */
+  factsComplete?: boolean
 }
 
 export type TargetDifferenceStatus = '需补' | '刚好' | '多余'
@@ -132,7 +199,7 @@ export interface MatrixEventState {
 }
 
 function isUsablePiecesPerGarment(value: number | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
 function isSameRequirementScope(requirement: CutPieceRequirement, garmentColor: string, size: string): boolean {
@@ -193,7 +260,16 @@ function createStableColorSizes(input: BuildReleaseMatrixInput, facts: CutPieceF
     const additionalFactOnlySizes = Array.from(factOnlySizesByColor.get(garmentColor) ?? []).filter((size) => !knownSizes.includes(size)).sort(compareText)
     additionalFactOnlySizes.forEach((size) => append(garmentColor, size))
   })
-  return [...colors.entries()].map(([garmentColor, sizes]) => ({ garmentColor, sizes }))
+  return [...colors.entries()].map(([garmentColor, sizes]) => ({ garmentColor, sizes: sizes.sort(compareReleaseSizes) }))
+}
+
+export function compareReleaseSizes(left: string, right: string): number {
+  const ordered = ['XXXS', 'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '4XL', '5XL', '6XL', '7XL', '8XL']
+  const normalize = (value: string) => value.trim().toUpperCase().replace(/^2XL$/, 'XXL').replace(/^3XL$/, 'XXXL')
+  const a = ordered.indexOf(normalize(left)), b = ordered.indexOf(normalize(right))
+  if (a >= 0 && b >= 0) return a - b
+  if (/^\d+(?:\.\d+)?$/.test(left) && /^\d+(?:\.\d+)?$/.test(right)) return Number(left) - Number(right)
+  return 0 // 自定义尺码没有可确认的业务顺序，保留来源配置顺序，由页面提示核对。
 }
 
 function colorSizeKey(garmentColor: string, size: string): string {
@@ -205,7 +281,7 @@ function isRequirementStructureValid(requirements: CutPieceRequirement[]): boole
 }
 
 function toSafeNonNegativeQuantity(value: number): number {
-  return Number.isFinite(value) && value >= 0 ? value : 0
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0
 }
 
 function targetKey(garmentColor: string, size: string): string {
@@ -213,38 +289,31 @@ function targetKey(garmentColor: string, size: string): string {
 }
 
 function isSafeTargetQuantity(value: number): boolean {
-  return Number.isFinite(value) && value >= 0
+  return Number.isSafeInteger(value) && value >= 0
 }
 
 function resolveSourceStatus(facts: CutPieceFact[]): ReleaseSourceStatus {
   return facts.length > 0 && facts.every((fact) => fact.sourceStatus === '已冻结') ? '已冻结' : '持续更新'
 }
 
-function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[]): ReleasePartCalculation {
-  const partFacts = facts.filter((fact) => fact.materialId === requirement.materialId && fact.partId === requirement.partId)
-  const rawPieceQty = partFacts.reduce((total, fact) => {
-    const qty = toSafeNonNegativeQuantity(fact.actualPieceQty)
-    return total + (fact.direction === '反向' ? -qty : qty)
-  }, 0)
-  const actualPieceQty = Number.isFinite(rawPieceQty) ? Math.max(0, rawPieceQty) : 0
+function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], factsComplete = false): ReleasePartCalculation {
+  const partFacts = facts.filter(fact => fact.materialId === requirement.materialId && fact.partId === requirement.partId)
+  const sum = (physical: boolean) => partFacts.reduce((total, fact) => total + (fact.direction === '反向' ? -1 : 1) * (physical ? (fact.physicalPieceQty ?? fact.actualPieceQty) : fact.actualPieceQty), 0)
+  const rawPieceQty = sum(false), rawPhysicalQty = sum(true)
+  const actualPieceQty = Math.max(0, rawPieceQty), physicalPieceQty = Math.max(0, rawPhysicalQty)
   const piecesPerGarment = isUsablePiecesPerGarment(requirement.piecesPerGarment) ? requirement.piecesPerGarment : undefined
-  const availableGarmentQty = piecesPerGarment ? Math.floor(actualPieceQty / piecesPerGarment) : null
-  const hasInvalidQuantity = partFacts.some((fact) => !Number.isFinite(fact.actualPieceQty)) || !Number.isFinite(rawPieceQty) || (availableGarmentQty !== null && !Number.isFinite(availableGarmentQty))
-  const calculationStatus = !requirement.partId || !piecesPerGarment || hasInvalidQuantity
-    ? '数据不完整'
-    : partFacts.length === 0
-      ? '暂无有效裁片'
-      : '可计算'
+  const ticketDetails = partFacts.flatMap(fact => fact.ticketDetail ? [fact.ticketDetail] : [])
+  const invalid = partFacts.some(fact => fact.identityKnown === false || !Number.isSafeInteger(fact.actualPieceQty) || fact.actualPieceQty < 0 || !Number.isSafeInteger(fact.physicalPieceQty ?? fact.actualPieceQty) || (fact.physicalPieceQty ?? fact.actualPieceQty) < 0)
+    || !Number.isSafeInteger(rawPieceQty) || !Number.isSafeInteger(rawPhysicalQty)
 
-  return {
-    partId: requirement.partId,
-    partName: requirement.partName,
-    sourceFactIds: partFacts.map((fact) => fact.factId),
-    piecesPerGarment: piecesPerGarment ?? 0,
-    actualPieceQty,
-    availableGarmentQty: calculationStatus === '可计算' ? availableGarmentQty : null,
-    calculationStatus,
-  }
+  const physicalKnown=Boolean(requirement.partId && piecesPerGarment && !invalid && (partFacts.length>0 || factsComplete))
+  const calculationStatus: MatrixCalculationStatus = !requirement.partId || !piecesPerGarment || invalid || ticketDetails.some(ticket=>!ticket.craftRequirementKnown || ticket.completionEvidenceKnown===false) ? '数据不完整'
+    : partFacts.length === 0 && !factsComplete ? '暂无有效裁片' : '可计算'
+  return {partId: requirement.partId, partName: requirement.partName, sourceFactIds: partFacts.map(fact => fact.factId),
+    piecesPerGarment: piecesPerGarment ?? 0, actualPieceQty: Number.isSafeInteger(actualPieceQty) ? actualPieceQty : 0,
+    physicalPieceQty: Number.isSafeInteger(physicalPieceQty) ? physicalPieceQty : 0, ticketDetails,
+    availableGarmentQty: calculationStatus === '可计算' ? Math.floor(actualPieceQty / piecesPerGarment!) : null,
+    physicalGarmentQty: physicalKnown ? Math.floor(physicalPieceQty / piecesPerGarment!) : null, calculationStatus}
 }
 
 export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceReleaseMatrix {
@@ -269,10 +338,11 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
       .map(([materialId, materialRequirementsForId]) => ({
       materialId,
       materialName: materialRequirementsForId[0].materialName,
+      materialImageUrl: materialRequirementsForId[0].materialImageUrl,
       cells: sizes.map((size): ReleaseMatrixCell => {
         const scopedRequirements = materialRequirementsForId.filter((requirement) => isSameRequirementScope(requirement, garmentColor, size))
         const cellFacts = effectiveFacts.filter((fact) => fact.garmentColor === garmentColor && fact.size === size && fact.materialId === materialId)
-        const partCalculations = scopedRequirements.map((requirement) => calculatePart(requirement, cellFacts))
+        const partCalculations = scopedRequirements.map((requirement) => calculatePart(requirement, cellFacts, input.factsComplete))
         const calculationStatus: MatrixCalculationStatus = scopedRequirements.length === 0 || unmappedColorSizeKeys.has(colorSizeKey(garmentColor, size))
           ? '数据不完整'
           : partCalculations.some((part) => part.calculationStatus === '数据不完整')
@@ -280,8 +350,19 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
           : partCalculations.some((part) => part.calculationStatus === '暂无有效裁片')
             ? '暂无有效裁片'
             : '可计算'
+        const tickets = [...new Map(partCalculations.flatMap(part => part.ticketDetails).map(ticket => [ticket.ticketId, ticket])).values()].filter(ticket => ticket.validity === '可用')
+        const specialTickets = tickets.filter(ticket => ticket.requiresSpecialCraft)
+        const required = specialTickets.reduce((sum, ticket) => sum + ticket.printedPieceQty, 0)
+        const completed = specialTickets.reduce((sum, ticket) => sum + ticket.eligiblePieceQty, 0)
+        const difference = specialTickets.reduce((sum, ticket) => sum + Math.max(ticket.printedPieceQty - ticket.physicalPieceQty, 0), 0)
         return {
           size,
+          physicalGarmentQty: partCalculations.length > 0 && partCalculations.every(part=>part.physicalGarmentQty!==null) ? Math.min(...partCalculations.map(part => part.physicalGarmentQty ?? 0)) : null,
+          specialCraftRequiredPieceQty: required,
+          specialCraftCompletedPieceQty: completed,
+          specialCraftPendingPieceQty: Math.max(required - completed - difference, 0),
+          specialCraftAwaitingReturnPieceQty: specialTickets.filter(ticket => ticket.eligiblePieceQty === 0 && ticket.craftSteps.length > 0 && ticket.craftSteps.every(step => step.processedQty >= ticket.physicalPieceQty)).reduce((sum, ticket) => sum + ticket.physicalPieceQty, 0),
+          specialCraftDifferencePieceQty: difference,
           availableGarmentQty: calculationStatus === '可计算' && partCalculations.length > 0
             ? Math.min(...partCalculations.map((part) => part.availableGarmentQty ?? 0))
             : null,
@@ -320,7 +401,7 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
   ))
   const calculationStatus: MatrixCalculationStatus = !structureValid || colorGroups.length === 0 || unmappedColorSizeKeys.size > 0 || hasIncompleteMatrix
     ? '数据不完整'
-    : noEffectiveFacts
+    : noEffectiveFacts && !input.factsComplete
       ? '暂无有效裁片'
       : '可计算'
 
@@ -348,18 +429,17 @@ export function buildTargetPreview(matrix: CutPieceReleaseMatrix, targets: Recor
       const cell = row.cells.find((item) => item.size === size)
       if (
         cell
-        && cell.calculationStatus === '可计算'
-        && typeof cell.availableGarmentQty === 'number'
-        && Number.isFinite(cell.availableGarmentQty)
-        && cell.availableGarmentQty >= 0
+        && typeof cell.physicalGarmentQty === 'number'
+        && Number.isSafeInteger(cell.physicalGarmentQty)
+        && cell.physicalGarmentQty >= 0
       ) candidateCells.push({ row, cell })
     })
-    if (!candidateCells.some((item) => item.cell.availableGarmentQty === targetQty)) {
-      throw new Error(`目标数量不是同色同码物料的候选齐套值：${key}`)
+    if (!candidateCells.some((item) => item.cell.physicalGarmentQty === targetQty)) {
+      throw new Error(`目标数量不是同色同码物料的候选实物支持值：${key}`)
     }
     colorSizeTargets[targetKey(garmentColor, size)] = targetQty
     candidateCells.forEach(({ row, cell }) => {
-      const availableGarmentQty = cell.availableGarmentQty!
+      const availableGarmentQty = cell.physicalGarmentQty!
       const differenceQty = availableGarmentQty - targetQty
       differences.push({
         garmentColor,
@@ -377,6 +457,23 @@ export function buildTargetPreview(matrix: CutPieceReleaseMatrix, targets: Recor
   return { colorSizeTargets, differences }
 }
 
+export function buildTargetDifferences(matrix: CutPieceReleaseMatrix, targets: Record<string, number>): ReleaseTargetPreview {
+  const differences: ReleaseTargetDifference[] = []
+  for (const group of matrix.colorGroups) for (const size of group.sizes) {
+    const targetQty = targets[targetKey(group.garmentColor, size)]
+    if (!Number.isSafeInteger(targetQty) || targetQty < 0) continue
+    for (const row of group.materialRows) {
+      const cell = row.cells.find(item => item.size === size)
+      if (cell?.physicalGarmentQty == null) continue
+      const differenceQty = cell.physicalGarmentQty - targetQty
+      differences.push({garmentColor: group.garmentColor, size, materialId: row.materialId, materialName: row.materialName,
+        availableGarmentQty: cell.physicalGarmentQty, targetQty, differenceQty,
+        status: differenceQty < 0 ? '需补' : differenceQty > 0 ? '多余' : '刚好'})
+    }
+  }
+  return {colorSizeTargets: {...targets}, differences}
+}
+
 export function buildSupplementPartShortages(matrix: CutPieceReleaseMatrix, preview: ReleaseTargetPreview): SupplementPartShortage[] {
   return preview.differences.flatMap((difference) => {
     if (difference.status !== '需补') return []
@@ -386,7 +483,7 @@ export function buildSupplementPartShortages(matrix: CutPieceReleaseMatrix, prev
     if (!row || !cell) return []
     return cell.partCalculations.flatMap((part): SupplementPartShortage[] => {
       const requiredPieceQty = difference.targetQty * part.piecesPerGarment
-      const actualMissingPieceQty = Math.max(requiredPieceQty - part.actualPieceQty, 0)
+      const actualMissingPieceQty = Math.max(requiredPieceQty - part.physicalPieceQty, 0)
       if (!Number.isFinite(actualMissingPieceQty) || actualMissingPieceQty <= 0 || !isUsablePiecesPerGarment(part.piecesPerGarment)) return []
       return [{
         garmentColor: difference.garmentColor,
@@ -396,7 +493,7 @@ export function buildSupplementPartShortages(matrix: CutPieceReleaseMatrix, prev
         partId: part.partId,
         partName: part.partName,
         targetQty: difference.targetQty,
-        actualPieceQty: part.actualPieceQty,
+        actualPieceQty: part.physicalPieceQty,
         piecesPerGarment: part.piecesPerGarment,
         actualMissingPieceQty,
         supplementGarmentQty: Math.ceil(actualMissingPieceQty / part.piecesPerGarment),

@@ -1,0 +1,833 @@
+{
+  "status": "已验证",
+  "passed": true,
+  "scope": "额外原界面新建普通白票实际链：复用receipt原创建记录和同批六原票，打印/普通装袋/实际库位入仓/当前普通C-E资格及合法未选任务阻断；没有制造车缝派单、A、T、O或其他物料。",
+  "version": {
+    "version": "v48",
+    "manifest": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v48.json",
+    "sourceManifestSHA256": "b920550433917165a99e43e01fb38224a16390d67c0a4c4b8e67b5c5041969f0",
+    "assetManifestSHA256": "71eaba8436c05630b2a9eb0844dfd06c880b9d536dbe4a4d149d1288122360d1",
+    "servedEntry": "/assets/index-DKOfp6fb.js",
+    "actualEntryBinding": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/actual-v48-entry-binding.json",
+    "sourceDeltaFromV47": [
+      "src/data/fcs/cutting/cut-piece-release-facts.ts",
+      "tests/unit/cut-piece-release-facts.test.ts"
+    ],
+    "actualLoadedAssetsVerified": [
+      {
+        "url": "http://127.0.0.1:4190/assets/app-shared-Ce0GdlNc.js",
+        "sha256": "4baa733ad680ac222b3ca3778325b75a188f9c63054213e90a8409f1175c9b50"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/badge-DbUQOZoe.js",
+        "sha256": "f000eb527a94d6dce22ae19f56fc9b36e97581549f2d20e163f8bf094745dde4"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/commands-BmMy1QrF.js",
+        "sha256": "b8bd277d07193f0b9fff3f2ce3e460b9f2cf8e55fc82632c0890a9a2526aba59"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cut-piece-release-CiO2gCwd.js",
+        "sha256": "b69b0292a0498330800b5869fd77f3d67af6ecc6906b47a7361ed6c4cd43e19b"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cut-piece-release-D-F6Sag_.js",
+        "sha256": "3ba034b56aecb4568af74496f0b12e3622b7c05196300bbf86bc7c497f27ecf3"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cutting-event-repository-BkvTX1vY.js",
+        "sha256": "512e3e991c2da7fb8806bcd521eecc927f959f025a6ba981e7706e3db3d42023"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cutting-record-identity-CtTd0WGy.js",
+        "sha256": "84690cf2676fb5beb306fbe97426d108fcfb04c371cb3dbcb13e6c284847f7a8"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cutting-record-repository-Dy1wt5an.js",
+        "sha256": "5b7fde82804df72d5d83b4a1ea6c3b967e69e8f1be0222358ced45166ce9ea87"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cutting-runtime-event-ledger-DopcaVJV.js",
+        "sha256": "607078062918c98d355f73f0931ec3b4a41f99f510b55d01608cf9fef801c343"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/cutting-task-routing-UR-rEeSK.js",
+        "sha256": "ddbb31947e77875909c815b7475cd9b97f37dc8c4ad09205369e147181517672"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/design-revision-pcs-command-C_2hxccR.js",
+        "sha256": "50247b63aadb049c909547a31caca561ae6abe6538a053da3292ad4023738632"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/design-revision-pcs-storage-D2ozVRMd.js",
+        "sha256": "73fff65125d4a52787853d707de657353cba68183e382597493cacae9472b531"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/dispatch-CA8DIjUo.js",
+        "sha256": "5c4e9dcbbada826748895a3a154b8bc1a28c847c679501da43ce29357588e5ef"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/dispatch-acceptance-sla-Beaf93ZK.js",
+        "sha256": "076fa002a8e6a4da4c9b145b040f5f4627a2cf8e802070016d3be59105022376"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/dye-work-order-times-w7U4XCtx.js",
+        "sha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/effective-task-assignments-BSLhTnej.js",
+        "sha256": "dd164656287a36acc78f01d1a523c3bc376bed92b7338fc54ff0edaf5b27798d"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+        "sha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/factory-receiving-P13Y8fLg.js",
+        "sha256": "06422729bea2c601bfd26bf0ca93e64f059f230e304acdc8525d5b225f229708"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/factory-receiving-links-DMLqe4AD.js",
+        "sha256": "755cd9cb820be429afd080a8d67c52775120b803213ac8b1bbcd7e772339458c"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/factory-types-DbcizYGx.js",
+        "sha256": "ce4a793a4db35a9dee205ba882de044d4af3d7bf3ac826ea7ff467541a7adaaa"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/fcs-route-links-CdIu8Xoq.js",
+        "sha256": "4939e250907fe9d7142c27415d1b1c21e0032dd2fa571121a4d9f5088cbf0ab4"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/fei-tickets-storage-7KaIHPKx.js",
+        "sha256": "4e702ff32485d0fd6081ff7ca2f91ed6762a1ba72a01bcb7f0db52d729647e50"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/generated-cut-orders-DRgLEtWe.js",
+        "sha256": "dead85d7bf7694b6a35c7fda9e947d3d628d020d3e2ed75e4d4aca8fa54af5c6"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/generated-cut-release-C-gI5xS2.js",
+        "sha256": "7bc4829abd0275b4e87c54ac604be1d4587afd93a9a51d6a0ca063d46a60b8b8"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/generated-fei-tickets-DjlZ3aRG.js",
+        "sha256": "fbd8527b927766d1993cd9cb7318b356541ab987b0cc8c2ca92fa49ef1f30bd5"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/idb-storage-DYscBY_v.js",
+        "sha256": "8bfe4d27d71863a93ad31932a3c4a7adf6b0c2a38258f75553b65aafa32535f1"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/images-Q79qfJD0.js",
+        "sha256": "1f73134f94c33f19809cfc806f411b787c02f468a6be1ed0685387b76b86ff28"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/index-DKOfp6fb.js",
+        "sha256": "da796b9c6f0e929ce22350d288198eed551ed6a0b00e1decc8d84a1ba088b7b2"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/lace-factory-domain-E69dJw3K.js",
+        "sha256": "5bc64c80d0420b358e9ca782c15182a2028226efd10761bbadf362369bae0754"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/los-live-room-master-C916cFah.js",
+        "sha256": "d2ab34f7b485d9cd1edbcb270d4ef0e99178c007c16a308090f4028e15864c84"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/machine-associations-DEGoDLC1.js",
+        "sha256": "173cdc80952ba3ef4ada63d5ac882e531bdcd35652869d97446efaee1d2dc0ae"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/manual-fei-tickets-CtKbLsq1.js",
+        "sha256": "ea99c378d42da6c341a35780d462a83f9e0aaef75d771fe934fa5ff69d539ad4"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/material-ledger-BtnH3R1V.js",
+        "sha256": "01019ed63bef0988eff363ce18c7a7a3075fa0298b89b28bb31d0546c1f0fb0b"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/materials-DQo18LQz.js",
+        "sha256": "edb1ab69a5408eb18e6c3c1548e4f24953d0a28ba015b5b9255340a3ccfe9fd6"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/mixed-transfer-bag-ticket-DETTPWFm.js",
+        "sha256": "72a43d76f4aea97776dc69957e3c0a12f3290ae77acbcee989535d10c5a56fb7"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/mobile-uvot262b.js",
+        "sha256": "f6be47007561485023dc6e43f5812331f463bdf8cd978bb50e9443f5de2d8b56"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/order-list-columns-CfKjDNyw.js",
+        "sha256": "683d94676391b3e2c19a6e3133b272d801911d871601ea55f9594ee5ce02625e"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/part-ticket-records-CKu1vlfW.js",
+        "sha256": "1f63cddd5549b3e4578c05ef42efe4f5f2f71c7afd584b2fc4f23f399df85764"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-config-workspace-repository-BBXExLdp.js",
+        "sha256": "46f5532579c1281ab77c578e63188ef00c95da68c2d20509690dc96e122d78fb"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-engineering-bom-snapshot-source-DlXUWD87.js",
+        "sha256": "23994f15e1220ebc7d1876b06ee1d225d2854a8a93c5dc9a2694e5bdc6f1bb48"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-part-template-library-ClIjCUS6.js",
+        "sha256": "ae59c48505bf93714dd111800dc081978f3692bde93252f85473d90f080cdbe7"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-pattern-library-CFT7vdwe.js",
+        "sha256": "5d8f886127df7bd3c1476ae9dee3c5566e3e798ef27854d3333afc6ae7c8e802"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-record-core--IU594hA.js",
+        "sha256": "d9fe73f678c8bc8ff8e49c8a737b5cbf8c7643bcdc701ec93838c228d8ca97ed"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-tech-pack-bootstrap--swD3eGH.js",
+        "sha256": "abf620c580fd65dacb203ccaea081c7a73c4077b0e2056605667d5940802a207"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-tech-pack-review-7P6yJRrn.js",
+        "sha256": "a7729679597516e024eef2c559ddbeb011fdec1c3176838f3c9f0b8af8a57e37"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-tech-pack-review-notification-repository-C3DUqI8u.js",
+        "sha256": "2347dacc4358aeb912cb8fb81ae221aa807f068c25b727bab4fddfc7caaf2c15"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pcs-tech-pack-version-log-repository-NYrArB7T.js",
+        "sha256": "73a4ecd119cc8f9c0fc50b747d459d7ec63016f27617d32707218e442ae58b45"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pending-receipts-Bv77IbBK.js",
+        "sha256": "264bb8bbde44c375ede87909891ba6d291f4c4e7ee2d2fa86ba9c2b8cd2fd3ba"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/pending-receipts-CSy-UyfK.js",
+        "sha256": "34eea761e4b25427d028e6c493e714b618329a1b12f53b19238969198ced8c8a"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/post-finishing-current-read-model-DPdGNjmF.js",
+        "sha256": "24461dcb3c93cf7172ea9c7412187e90a633e718d1f2221f45ff1eb825d02698"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/post-finishing-full-flow-DCbkFddC.js",
+        "sha256": "06cd24616dd80bba07fe01734a2df517353a1f1971efef2f717d6cc2f9b84eaa"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/preparation-material-receipt-sources-B3F0kPzH.js",
+        "sha256": "9859b1f9fc7fbd3b4606da046ad78be51996ffaf849a2d7afdb6f291b518750e"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/presentation-BUSTQXPe.js",
+        "sha256": "fbadf87392c3bc1f459286f0462ffec6d7f14f7b8574c9ca6e40477f65360157"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/print-service-CyrwQfQw.js",
+        "sha256": "2e31cebee2a6008b546807a59c1df3da600ee42338d58525b75e2a1ab6810489"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/process-order-list-controller-B-XjFVqE.js",
+        "sha256": "9d133b7e00dd68fbe373014a23a7a069676ee2cb634ea6ccca5651d1063dd7b1"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/process-order-list-presentation-uk1TIisc.js",
+        "sha256": "0f3852d7c83bd739e28ebe7303dd592de756a397b2c033ecf41f3be03258020d"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/process-order-task-links-BmsfIPO2.js",
+        "sha256": "4d3b1372dad62ca8e9ffb36cf979a7c927082af82664b2899f1b7769d4421ac9"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/process-tasks-CVF_BFUF.js",
+        "sha256": "87379e14506690d6fb025f0dfed81d3253a902ae762f7877a550f4d03417b85e"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/process-work-order-generation-service-DgMp80nP.js",
+        "sha256": "b96d7f996f81c07126d20555d507d0bb4199766ad6738e29279a5749b7c3491d"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-context-actions-DNMaeero.js",
+        "sha256": "76d7dc90313f7ad0303e3a6f81114bd20511b10c07c2786c7b70853fa78b818c"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-context-records-Dne2U_1x.js",
+        "sha256": "f6508292bf70b457d1dd46f145cf921d34af5bb09fe436e1be9a4d975f34842c"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-contracts-BwK5BEQw.js",
+        "sha256": "004ba9448a7f26cc27810fcf94292317a7acc72d0ccb15b4b4e67125e0b20bb8"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-demand-early-process-work-orders-l4lGx7qE.js",
+        "sha256": "19672367a4b78b423933a5822c52d7329373abb3b7540eea2836e858914d447e"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-order-identity-BR2NjpQH.js",
+        "sha256": "7494f0a3a964944a6ddff45af36679e5fd5bcc2132872d143f8f3c2ef96d4d18"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-order-tech-pack-runtime-CXsAt6-f.js",
+        "sha256": "aafd2b0e1c1410cebefb20ae62bdea9b407d08581cf24251ac7dc9a8f5a3ec89"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-orders-Dl2b3GdD.js",
+        "sha256": "a9fa7c27a0e7ae08d2f176d8cc7ff92e01a1c752e71ff1fb8d46d7648b211f80"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-return-fulfillment-B9x2ncYq.js",
+        "sha256": "b4d7c4ed79df65bcc418fe9ce52742642621353e947c9acd4b71bda1d193bba6"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-source-shared-Bj4b3XYm.js",
+        "sha256": "5bb87a741a8f18a0bbf30f2dac060524e510f6a724b98553cbf084d16667cde7"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/production-tech-pack-change-domain-VjIYkU9o.js",
+        "sha256": "5fd4be9f5e19111ab2aaee04cca9d81c103d57058fba4c3c2d18d7f2531c7b34"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/quality-chain-adapter-DCC661Xc.js",
+        "sha256": "8f0aaad6e286523810e64e9b55ce0bb5819f31a8e3aed14d3c43dfddd3bac474"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/quality-deduction-repository-DiSTOHR2.js",
+        "sha256": "fefdd457c68067ef7ba93a6bbf1cdb4af039ac23b63f6f4bbfe2e42e086f01f6"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/quality-deduction-selectors-CluaZorN.js",
+        "sha256": "77074272deb7c4c2e70bc44e5f90be6713b903f2ae5622e189b3149f935c7f72"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/real-barcode-BHpCtURR.js",
+        "sha256": "94aff0e20b6694b2a0010640bced897f361e6c45e12b7bb7becd8dc4b37ad056"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/relations-Bv1N9T5W.js",
+        "sha256": "14714f60b67a8a494dcd8258e75868ac807bb625fbef8fa8dd285a4f35e219f9"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/replacement-fabric-fei-tickets-DtBUNgLC.js",
+        "sha256": "b84229f9e20c2ba2ab2a280b228298c93b4275725424b6e9177db2978bd83bc2"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/replacement-fabric-repository-BY1YnRFx.js",
+        "sha256": "944c6eaf8b2d1172d6a86484dab91c55cd40c2281f0a23036232dea75e3dac9d"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/retired-cut-piece-pickup-history-CTpfBkBI.js",
+        "sha256": "4da0d669c0a54c8d8017d33b2e750707c76d94ce7296b439c8f7b0cb6509a30b"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/routes-fcs-CcJvVXHo.js",
+        "sha256": "4e777d89ecd2679c97a95c768209f5886d72a91dde39e0b1de30b1ae717e4b0a"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/runtime-task-tenders-YGz6fHpq.js",
+        "sha256": "c797da1ac5479391aca0ef7305967ffdc368011e52e323b84278639ff88e73a9"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/settlement-linked-mock-factory-Bu6dnn_U.js",
+        "sha256": "be2deb321824c0e584bfa5c5426b11f7dacd6f215b0c235661d480f73b0b8fc8"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/sewing-outsourcing-responsibility-DJYfA3XJ.js",
+        "sha256": "bd4b651c7715e5f82be3eb5d13275b06d834d1efaa6e826ef19da6444e786fa4"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/special-craft-task-orders-CT0sUss6.js",
+        "sha256": "9c20c3ec86fdb3e9ea51ae119e557aa22890a531a2faee69e8ea4233f3295f93"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/stage-display-CWv3njoT.js",
+        "sha256": "4237789892dcf67429a86bef546ff29ce52992ed0ada890e8f426cf9bffcfe2e"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/store-domain-pda-Bl4jkAiC.js",
+        "sha256": "94fad4cc05d804ac1d89dc4569cbfbc3be54e59a060f38a4b22f6dca124fd1e8"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/store-domain-quality-bootstrap-B_pjo7qM.js",
+        "sha256": "23c8cce41fd4529aaaf23fd4a936c9f76b251ce7dfe16f11dc0670cd6609fde4"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/suppliers-DOxcttzm.js",
+        "sha256": "d995650f7ae45b7eb38307c58a7eefc0dce4eaf9e94f364b5a4fcd2b12da0c8f"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/task-handover-domain-CyPQJ1A8.js",
+        "sha256": "e9df92ee289b9b0347c2f5da2acb50cf2eaf7687afad5bcf14841d93b7280556"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/tmf-domain-shared-CsnEeaO8.js",
+        "sha256": "244726ed87d721f953e81f1fc443cb87853f782359d69f9ac0253daea36807e2"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/tmf-material-purchases-DgDO1f4m.js",
+        "sha256": "52e4d66d963b795d71338fe9ec98b15fc296ba3e840d84d0bed7b07cefd94e64"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/tmf-process-continuation-B3hoPFRr.js",
+        "sha256": "113faba4c2c69e239cce4d2df80b3c2682eb9c1e1d703852b72064d17e713f1d"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/tmf-reference-images-6geKcU1B.js",
+        "sha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/tmf-upstream-receiving-ypVc5ruL.js",
+        "sha256": "0b439f44dac948c98269de5ab7706528d089debe42bcfac4bf511c4cb340ee66"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/transfer-bag-operations-CY_pt4uH.js",
+        "sha256": "8b6278bafc7e937c09c7a7779822a71ef4b1087389b384a341c5caec6d8f8ed8"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/warehouse-runtime-DZ9bRXmM.js",
+        "sha256": "2c312a34fdbf31066f030930e58562f57a2b6a80474e36bc7052ee5fd00756b2"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/warehouses-CSFYi5tN.js",
+        "sha256": "9da91f2dcf218f94bc64e75703c1e71e69a9d21e5a05b0fe2269249fd64d43a6"
+      },
+      {
+        "url": "http://127.0.0.1:4190/assets/yarn-shipments-HfjpLiJT.js",
+        "sha256": "000c5a75ffa26b132fee9bf7b7cf51ba38bcf440eaa77045683647a008ffabab"
+      }
+    ]
+  },
+  "preservedBaseEvidence": {
+    "version": "v47",
+    "originalTimedSamples": 390,
+    "printButtonSupplementSamples": 30,
+    "originalFamilies": 78,
+    "printSupplementFamilies": 6,
+    "notRetaggedAsV48": true,
+    "basePrimary": "docs/product-design/evidence/2026-10-09-cut-piece-release/dispatch-browser.json",
+    "ordinaryCreateRawFile": "/Users/laoer/.codex/worktrees/9ec5/higoods/output/playwright/cut-release-receipt/v47/raw/20261009T230738750988Z-407782a0e8/strict-paint-final-normal-two-stage-sample5.log",
+    "ordinaryCreateRawSHA256": "d38cb0596e149cafd338f47c54e581a7e06517de1f302e82b98f36267a985e06",
+    "savedActionsVersion": "v47",
+    "savedActions": [
+      {
+        "action": "原白色菲票打印",
+        "result": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/02b-original-six-white-print-dom-json.json",
+        "actualTrustedEventToDurablePaintMs": 345.8999999985099,
+        "passed": true
+      },
+      {
+        "action": "原六票普通装袋30片",
+        "result": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/03-original-six-white-bag.json",
+        "actualTrustedEventToDurablePaintMs": 851.1999999955297,
+        "passed": true
+      },
+      {
+        "action": "原配置空闲库位入仓30片",
+        "result": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/04-original-six-white-inbound.json",
+        "actualTrustedEventToDurablePaintMs": 714.2000000029802,
+        "passed": true
+      }
+    ],
+    "previousPreFixSummary": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/ordinary-white-pre-fix-summary-v47.json",
+      "sha256": "6ffb78aee1f74c26f5da18a1cee3b8375589f1175f9137bb7274f26ad70f3998"
+    }
+  },
+  "session": "release-receipt",
+  "profile": "/Users/laoer/.codex/worktrees/9ec5/higoods/output/playwright/cut-release-receipt/profile-final",
+  "originalTickets": [
+    {
+      "feiTicketId": "manual-fei-2NQMK2",
+      "feiTicketNo": "TM-FVUUO-LMIWH-001",
+      "skuSize": "M",
+      "partName": "前片",
+      "qty": 5,
+      "printStatus": "WAIT_PRINT",
+      "hasSpecialCraft": false,
+      "manualBatchId": "manual-batch-2H1JY6"
+    },
+    {
+      "feiTicketId": "manual-fei-46QY5H",
+      "feiTicketNo": "TM-FVUUO-LMIWH-003",
+      "skuSize": "M",
+      "partName": "袖片",
+      "qty": 5,
+      "printStatus": "WAIT_PRINT",
+      "hasSpecialCraft": false,
+      "manualBatchId": "manual-batch-2H1JY6"
+    },
+    {
+      "feiTicketId": "manual-fei-46QY5I",
+      "feiTicketNo": "TM-FVUUO-LMIWH-004",
+      "skuSize": "M",
+      "partName": "袖片",
+      "qty": 5,
+      "printStatus": "WAIT_PRINT",
+      "hasSpecialCraft": false,
+      "manualBatchId": "manual-batch-2H1JY6"
+    },
+    {
+      "feiTicketId": "manual-fei-NAB7YZ",
+      "feiTicketNo": "TM-FVUUO-LMIWH-005",
+      "skuSize": "XL",
+      "partName": "前片",
+      "qty": 5,
+      "printStatus": "WAIT_PRINT",
+      "hasSpecialCraft": false,
+      "manualBatchId": "manual-batch-2H1JY6"
+    },
+    {
+      "feiTicketId": "manual-fei-U4SSOI",
+      "feiTicketNo": "TM-FVUUO-LMIWH-007",
+      "skuSize": "XL",
+      "partName": "袖片",
+      "qty": 5,
+      "printStatus": "WAIT_PRINT",
+      "hasSpecialCraft": false,
+      "manualBatchId": "manual-batch-2H1JY6"
+    },
+    {
+      "feiTicketId": "manual-fei-U4SSOJ",
+      "feiTicketNo": "TM-FVUUO-LMIWH-008",
+      "skuSize": "XL",
+      "partName": "袖片",
+      "qty": 5,
+      "printStatus": "WAIT_PRINT",
+      "hasSpecialCraft": false,
+      "manualBatchId": "manual-batch-2H1JY6"
+    }
+  ],
+  "bag": "BAG-ORDINARY-V47-6WHITE-01",
+  "location": "B-R01-L01-P03",
+  "quantityPieces": 30,
+  "ordinaryCurrent": {
+    "sixTickets": [
+      {
+        "ticket": {
+          "id": "manual-fei-2NQMK2",
+          "no": "TM-FVUUO-LMIWH-001",
+          "qty": 5,
+          "size": "M",
+          "part": "前片"
+        },
+        "text": "TM-FVUUO-LMIWH-001\n无需特殊工艺\n成衣 Grey / M · 面料色 Grey\n原票 5 片 · 当前有效实物 5 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-ORDINARY-V47-6WHITE-01\n查看装袋依据\n当前位置 B区 / R01 / B-R01-L01-P03\n\n无需特殊工艺，按有效装袋量计算。\n\n当前可计入 5 片依据：有效已装袋菲票\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalTicketNo": true,
+          "originalQty5": true,
+          "physical5": true,
+          "eligible5": true,
+          "knownCurrentRequirement": true,
+          "sameOriginalBag": true,
+          "sameLocation": true
+        }
+      },
+      {
+        "ticket": {
+          "id": "manual-fei-46QY5H",
+          "no": "TM-FVUUO-LMIWH-003",
+          "qty": 5,
+          "size": "M",
+          "part": "袖片"
+        },
+        "text": "TM-FVUUO-LMIWH-003\n无需特殊工艺\n成衣 Grey / M · 面料色 Grey\n原票 5 片 · 当前有效实物 5 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-ORDINARY-V47-6WHITE-01\n查看装袋依据\n当前位置 B区 / R01 / B-R01-L01-P03\n\n无需特殊工艺，按有效装袋量计算。\n\n当前可计入 5 片依据：有效已装袋菲票\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalTicketNo": true,
+          "originalQty5": true,
+          "physical5": true,
+          "eligible5": true,
+          "knownCurrentRequirement": true,
+          "sameOriginalBag": true,
+          "sameLocation": true
+        }
+      },
+      {
+        "ticket": {
+          "id": "manual-fei-46QY5I",
+          "no": "TM-FVUUO-LMIWH-004",
+          "qty": 5,
+          "size": "M",
+          "part": "袖片"
+        },
+        "text": "TM-FVUUO-LMIWH-004\n无需特殊工艺\n成衣 Grey / M · 面料色 Grey\n原票 5 片 · 当前有效实物 5 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-ORDINARY-V47-6WHITE-01\n查看装袋依据\n当前位置 B区 / R01 / B-R01-L01-P03\n\n无需特殊工艺，按有效装袋量计算。\n\n当前可计入 5 片依据：有效已装袋菲票\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalTicketNo": true,
+          "originalQty5": true,
+          "physical5": true,
+          "eligible5": true,
+          "knownCurrentRequirement": true,
+          "sameOriginalBag": true,
+          "sameLocation": true
+        }
+      },
+      {
+        "ticket": {
+          "id": "manual-fei-NAB7YZ",
+          "no": "TM-FVUUO-LMIWH-005",
+          "qty": 5,
+          "size": "XL",
+          "part": "前片"
+        },
+        "text": "TM-FVUUO-LMIWH-005\n无需特殊工艺\n成衣 Grey / XL · 面料色 Grey\n原票 5 片 · 当前有效实物 5 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-ORDINARY-V47-6WHITE-01\n查看装袋依据\n当前位置 B区 / R01 / B-R01-L01-P03\n\n无需特殊工艺，按有效装袋量计算。\n\n当前可计入 5 片依据：有效已装袋菲票\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalTicketNo": true,
+          "originalQty5": true,
+          "physical5": true,
+          "eligible5": true,
+          "knownCurrentRequirement": true,
+          "sameOriginalBag": true,
+          "sameLocation": true
+        }
+      },
+      {
+        "ticket": {
+          "id": "manual-fei-U4SSOI",
+          "no": "TM-FVUUO-LMIWH-007",
+          "qty": 5,
+          "size": "XL",
+          "part": "袖片"
+        },
+        "text": "TM-FVUUO-LMIWH-007\n无需特殊工艺\n成衣 Grey / XL · 面料色 Grey\n原票 5 片 · 当前有效实物 5 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-ORDINARY-V47-6WHITE-01\n查看装袋依据\n当前位置 B区 / R01 / B-R01-L01-P03\n\n无需特殊工艺，按有效装袋量计算。\n\n当前可计入 5 片依据：有效已装袋菲票\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalTicketNo": true,
+          "originalQty5": true,
+          "physical5": true,
+          "eligible5": true,
+          "knownCurrentRequirement": true,
+          "sameOriginalBag": true,
+          "sameLocation": true
+        }
+      },
+      {
+        "ticket": {
+          "id": "manual-fei-U4SSOJ",
+          "no": "TM-FVUUO-LMIWH-008",
+          "qty": 5,
+          "size": "XL",
+          "part": "袖片"
+        },
+        "text": "TM-FVUUO-LMIWH-008\n无需特殊工艺\n成衣 Grey / XL · 面料色 Grey\n原票 5 片 · 当前有效实物 5 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-ORDINARY-V47-6WHITE-01\n查看装袋依据\n当前位置 B区 / R01 / B-R01-L01-P03\n\n无需特殊工艺，按有效装袋量计算。\n\n当前可计入 5 片依据：有效已装袋菲票\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalTicketNo": true,
+          "originalQty5": true,
+          "physical5": true,
+          "eligible5": true,
+          "knownCurrentRequirement": true,
+          "sameOriginalBag": true,
+          "sameLocation": true
+        }
+      }
+    ],
+    "eachPhysicalPieces": 5,
+    "eachEligiblePieces": 5,
+    "knownRequirement": true,
+    "sameOriginalSourceAndEventsUnchanged": true
+  },
+  "specialCurrent": {
+    "originalTwoTickets": [
+      {
+        "id": "manual-fei-2FRXG3",
+        "no": "TM-FVUUO-LMIWH-002",
+        "size": "M",
+        "expectedFinalQty": 3,
+        "text": "TM-FVUUO-LMIWH-002\n已最终回仓\n成衣 Grey / M · 面料色 Grey\n原票 5 片 · 当前有效实物 3 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-DIRECT-V47-STRICT-PAINT-FINAL-05\n查看装袋依据\n当前位置 B区 / R05 / B-R05-L03-P02\n第 1 / 2 道 · 打条 · 辅助工艺\n承接厂 APF - 辅助工艺 · 已交下一工艺\n应回 5 片 · 加工 4 片 · 交出 5 片\n实际实收 尚未回仓\n第 2 / 2 道 · 压褶 · 辅助工艺 · 最终工艺\n承接厂 SPF - 特种工艺 · 已实际回仓\n应回 4 片 · 加工 3 片 · 交出 4 片\n实际实收 3 片\n回仓记录 已登记 · 回仓位置 B区 / R05 / B-R05-L03-P02\n查看记录编号\n申请人35 · 2026-10-09T23:09\n当前可计入 3 片依据：最终工艺实际实收\n\n差异原因：M压褶损耗1片\n\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalNo": true,
+          "originalQty5": true,
+          "sameFinalActualQty": true,
+          "sameOriginalSpecialBag": true,
+          "bothOrderedStages": true,
+          "sameFinalLocation": true
+        }
+      },
+      {
+        "id": "manual-fei-NI9X2Y",
+        "no": "TM-FVUUO-LMIWH-006",
+        "size": "XL",
+        "expectedFinalQty": 0,
+        "text": "TM-FVUUO-LMIWH-006\n已最终回仓\n成衣 Grey / XL · 面料色 Grey\n原票 5 片 · 当前有效实物 0 片 · 整票可用\n来源 手动唛架：无铺布单\n裁片单 CUT-260303-002-01 · 铺布单 无铺布单\n袋号 BAG-DIRECT-V47-STRICT-PAINT-FINAL-05\n查看装袋依据\n当前位置 裁床待交出仓 / B区 / R05 / B-R05-L03-P02\n第 1 / 2 道 · 打条 · 辅助工艺\n承接厂 APF - 辅助工艺 · 已交下一工艺\n应回 5 片 · 加工 4 片 · 交出 5 片\n实际实收 尚未回仓\n第 2 / 2 道 · 压褶 · 辅助工艺 · 最终工艺\n承接厂 SPF - 特种工艺 · 已实际回仓\n应回 4 片 · 加工 0 片 · 交出 4 片\n实际实收 0 片\n回仓记录 已登记 · 回仓位置 B区 / R05 / B-R05-L03-P02\n查看记录编号\n申请人35 · 2026-10-09T23:09\n当前可计入 0 片依据：最终工艺实际实收\n\n差异原因：XL压褶4片全部不可用\n\n整票不可用原因\n登记整票不可用",
+        "assertions": {
+          "sameOriginalNo": true,
+          "originalQty5": true,
+          "sameFinalActualQty": true,
+          "sameOriginalSpecialBag": true,
+          "bothOrderedStages": true,
+          "sameFinalLocation": true
+        }
+      }
+    ],
+    "MFinalActual": 3,
+    "XLFinalActual": 0,
+    "originalTicketQuantitiesRemain5": true,
+    "bothOrderedStagesAndFinalLocationUnchanged": true
+  },
+  "matrixCurrent": {
+    "rawCells": [
+      {
+        "size": "S",
+        "materialId": "tdv_demand_SPU_2024_005-bom-main::tdv_demand_SPU_2024_005-bom-main",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 500 件"
+      },
+      {
+        "size": "M",
+        "materialId": "tdv_demand_SPU_2024_005-bom-main::tdv_demand_SPU_2024_005-bom-main",
+        "text": "最终可齐套 5 件\n实物支持 5 件\n特殊工艺：需 285 片\n已完成并回仓 138 片\n未完成 48 片\n工艺实收差异 99 片\n需补 695 件"
+      },
+      {
+        "size": "L",
+        "materialId": "tdv_demand_SPU_2024_005-bom-main::tdv_demand_SPU_2024_005-bom-main",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 800 件"
+      },
+      {
+        "size": "XL",
+        "materialId": "tdv_demand_SPU_2024_005-bom-main::tdv_demand_SPU_2024_005-bom-main",
+        "text": "最终可齐套 0 件\n实物支持 5 件\n特殊工艺：需 285 片\n已完成并回仓 0 片\n未完成 48 片\n工艺实收差异 237 片\n需补 495 件"
+      },
+      {
+        "size": "S",
+        "materialId": "tdv_demand_SPU_2024_005-bom-splice::tdv_demand_SPU_2024_005-bom-splice",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 500 件"
+      },
+      {
+        "size": "M",
+        "materialId": "tdv_demand_SPU_2024_005-bom-splice::tdv_demand_SPU_2024_005-bom-splice",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 700 件"
+      },
+      {
+        "size": "L",
+        "materialId": "tdv_demand_SPU_2024_005-bom-splice::tdv_demand_SPU_2024_005-bom-splice",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 800 件"
+      },
+      {
+        "size": "XL",
+        "materialId": "tdv_demand_SPU_2024_005-bom-splice::tdv_demand_SPU_2024_005-bom-splice",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 500 件"
+      },
+      {
+        "size": "S",
+        "materialId": "tdv_demand_SPU_2024_005-bom-pocket::tdv_demand_SPU_2024_005-bom-pocket",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 500 件"
+      },
+      {
+        "size": "M",
+        "materialId": "tdv_demand_SPU_2024_005-bom-pocket::tdv_demand_SPU_2024_005-bom-pocket",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 700 件"
+      },
+      {
+        "size": "L",
+        "materialId": "tdv_demand_SPU_2024_005-bom-pocket::tdv_demand_SPU_2024_005-bom-pocket",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 800 件"
+      },
+      {
+        "size": "XL",
+        "materialId": "tdv_demand_SPU_2024_005-bom-pocket::tdv_demand_SPU_2024_005-bom-pocket",
+        "text": "最终可齐套 0 件\n实物支持 0 件\n无需特殊工艺\n需补 500 件"
+      }
+    ],
+    "main": {
+      "M": {
+        "physicalGarments": 5,
+        "finalEligibleGarments": 5
+      },
+      "XL": {
+        "physicalGarments": 5,
+        "finalEligibleGarments": 0
+      }
+    },
+    "otherMandatoryMaterialsRemain0": true,
+    "noFullGarmentKitInvented": true
+  },
+  "downstreamGate": {
+    "actualAvailableSewTask": false,
+    "actualStep": 1,
+    "actualError": "一次只能处理一个生产单的一个车缝任务和一个接收车缝工厂。",
+    "missingAClaim": false,
+    "noNewHandoverFact": true,
+    "timedSampleCount": 5,
+    "family": "original ordinary no-selected-valid-sew-task step-one rejection",
+    "physicalElapsedMs": [
+      394.6000000014901,
+      392.29999999701977,
+      385,
+      378.79999999701977,
+      382.70000000298023
+    ],
+    "physicalMaxMs": 394.6000000014901,
+    "auditElapsedMs": [
+      170.09999999403954,
+      153.20000000298023,
+      152.29999999701977,
+      155.80000000447035,
+      161.69999999552965
+    ],
+    "allMandatoryAuditsPassed": true,
+    "allStoreKeysValuesAndBlobUnchanged": true,
+    "writeTransactions": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "allPhysicalAssertionsPassed": true,
+    "readyEndpoint": "同browser原trusted事件→准确当前错误、原PO输入保留、第1步原按钮可用且无busy→必要图decode/fontready→严格不同帧和稳定DOM；独立全部IndexedDB keys/values/Blob readonlycomplete审计后置另记。",
+    "legacy1291_5RawPreserved": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/05-original-ordinary-handover-gate.json",
+      "sha256": "066d7cc2a37b716b04793e67d5ee1c9ec25edc6170de0552d4c4b4323c895f3f"
+    },
+    "legacy1291_5NotRetagged": true
+  },
+  "artifacts": {
+    "matrixResult": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/01-ordinary-current-matrix-v48.json",
+      "sha256": "35be1954b1f1630f22494303de3f096269fc7c8202adda5def479db119d396c0"
+    },
+    "matrixRaw": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/01-ordinary-current-matrix-v48.log",
+      "sha256": "034b2e72c510289a54d2665c94aa8fc0bf3cb367c3bb551ae80713b591db147d"
+    },
+    "gateResult": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/02-negative-gate-physical-audit-v48.json",
+      "sha256": "2c698a37a8394552e9765a98c421346ff45e95db79ca3b26fda68aa4c82abf1e"
+    },
+    "gateRaw": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/02-negative-gate-physical-audit-v48.log",
+      "sha256": "13e1ee3108c05712e3647849c2ed7f6c96941deee62e4851e650bb991be554b3"
+    },
+    "approvedGateCollector": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/07-negative-gate-physical-audit-prepared.js",
+      "sha256": "e225155778ec2b41f1499d92935fb4258b1af7026d20cdf6c75372dd1a559d57"
+    },
+    "executedGateCollector": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/02-negative-gate-physical-audit-v48.js",
+      "sha256": "5559bcecdc19cb6bcd6669e8c5684135e6744915fceca2c1c6d8423d4cf23343"
+    },
+    "ordinaryOriginalSixLabelPdf": {
+      "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/ordinary-six-original-labels.pdf",
+      "sha256": "9b8d30999d1ee4977e71e5017cd3a04cd9b0e15fe5e76466b45f5d68c9449d68"
+    },
+    "runtimePNG": [
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/ordinary-current-v48-drawer-M.png",
+        "sha256": "a45325567bc3cc5e18b256c1c0c3c254f7a020e3eb12c83c16fdd6a72f7b4fcf"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/ordinary-current-v48-drawer-XL.png",
+        "sha256": "df06e1a1168f191559eee1ee1b202183204c05b8725cbe91c4371277c164a69a"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/ordinary-current-v48-matrix.png",
+        "sha256": "75e18c806d47fe3004731d2369a250d892b7fd5f8e55bd5bd2cf5ff1901dc559"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-ordinary-white-20261009T233852009000Z/v48-delta/ordinary-gate-physical-and-audit-current-v48.png",
+        "sha256": "e4c41fb673989eb46d70e3b52fb15561c41128806425876e78a13d91073b64e1"
+      }
+    ]
+  },
+  "applicationSourceEditedByThisAgent": false,
+  "wholeProductAcceptanceClaim": false,
+  "completedAt": "2026-10-10T00:48:35.803796+00:00"
+}

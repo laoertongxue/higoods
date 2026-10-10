@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "records": 35,
+  "commands": 9,
+  "files": 0,
+  "latestReleaseVersion": 6,
+  "scope": "无新增附件，完整实体与命令读回一致",
+  "version": "v18",
+  "rootVersionRef": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v18.json",
+  "sourceManifestSHA256": "a41806b307c68640a56cb227f7b9c0d269e8d108ddfa4e9cfb563c36e16f9bc8",
+  "runtime": "http://127.0.0.1:4191",
+  "notPerformanceEvidence": true,
+  "rawLog": "docs/product-design/evidence/2026-10-09-cut-piece-release/backup-native-v18.log",
+  "capturedAt": "2026-10-09T12:39:43.902718+00:00"
+}

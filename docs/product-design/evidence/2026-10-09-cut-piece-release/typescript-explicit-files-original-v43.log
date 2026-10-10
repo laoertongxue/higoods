@@ -1,0 +1,12 @@
+scripts/check-transfer-bag-three-status.ts(919,14): error TS1003: Identifier expected.
+scripts/check-transfer-bag-three-status.ts(919,23): error TS1005: ':' expected.
+scripts/check-transfer-bag-three-status.ts(920,16): error TS1003: Identifier expected.
+scripts/check-transfer-bag-three-status.ts(920,21): error TS1005: ':' expected.
+scripts/check-transfer-bag-three-status.ts(921,16): error TS1003: Identifier expected.
+scripts/check-transfer-bag-three-status.ts(921,21): error TS1005: ':' expected.
+scripts/check-transfer-bag-three-status.ts(922,15): error TS1003: Identifier expected.
+scripts/check-transfer-bag-three-status.ts(922,33): error TS1005: ':' expected.
+scripts/check-transfer-bag-three-status.ts(923,17): error TS1003: Identifier expected.
+scripts/check-transfer-bag-three-status.ts(923,26): error TS1005: ':' expected.
+scripts/check-transfer-bag-three-status.ts(925,19): error TS1005: ',' expected.
+scripts/check-transfer-bag-three-status.ts(930,1): error TS1005: '=>' expected.

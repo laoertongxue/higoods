@@ -23,6 +23,7 @@ import {
   resolveTransferBagCurrentUse,
   submitTransferBagScrap,
   submitSpecialCraftBagReturn,
+  listSpecialCraftTicketReturnFacts,
   submitWholeBagHandover,
   submitTransferBagRepack,
 } from '../src/data/fcs/cutting/transfer-bag-operations.ts'
@@ -66,6 +67,28 @@ import {
   submitWaitHandoverRepackWithSourceReturns,
 } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import * as pdaRepack from '../src/pages/pda-cutting-transfer-bag-repack.ts'
+import { setPublishedReleaseTicketDetails } from '../src/data/fcs/cutting/cut-piece-release-facts.ts'
+import type { ReleaseTicketDetail } from '../src/data/fcs/cut-piece-release-domain.ts'
+
+// 原拆袋契约的普通测试票显式声明无需工艺；工艺测试票由其真实回仓事实决定资格。
+const releaseFixtureReaders = new Map<string, () => ReleaseTicketDetail>()
+setPublishedReleaseTicketDetails(() => [...releaseFixtureReaders.values()].map(read => read()))
+function registerBaggedReleaseFixture(item: TransferBagTicketFactSnapshot, bagCode: string, storage: BrowserStorageLike, specialCraftId?: string): void {
+  item = structuredClone(item)
+  releaseFixtureReaders.set(item.feiTicketId, () => {
+    const receipt = specialCraftId ? listSpecialCraftTicketReturnFacts(undefined, storage).find(row => row.feiTicketId === item.feiTicketId && row.specialCraftId === specialCraftId) : undefined
+    const eligible = specialCraftId ? receipt?.processingCompleted === true ? receipt.returnedQty : 0 : item.pieceQty
+    return { ticketId: item.feiTicketId, ticketNo: item.feiTicketNo, sourceType: '拆袋契约明确来源', sourceNo: item.cutOrderNo,
+      cutOrderNo: item.cutOrderNo, garmentColor: item.color, size: item.size, fabricColor: item.color, materialId: 'REPACK-TEST-MATERIAL', materialName: '契约面料',
+      partId: item.partCode, partName: item.partName, printedPieceQty: item.pieceQty, physicalPieceQty: specialCraftId ? receipt?.returnedQty ?? item.pieceQty : item.pieceQty,
+      eligiblePieceQty: eligible, validity: '可用', bagCode, requiresSpecialCraft: Boolean(specialCraftId), craftRequirementKnown: true, craftSteps: specialCraftId ? [{
+        sequence: 1, craftId: specialCraftId, craftName: '绣花', craftType: '特种工艺', factoryName: item.receiverFactoryName,
+        expectedQty: item.pieceQty, processedQty: receipt?.processingCompleted === true ? receipt.returnedQty : 0, handedOverQty: item.pieceQty,
+        returnedQty: receipt?.returnedQty ?? null, status: receipt ? '已回仓' : '待回仓',
+      }] : [], ...(receipt ? { returnedAt: receipt.returnedAt, receiptId: receipt.eventId, completionEvidenceKnown: receipt.processingCompleted === true } : {}) }
+  })
+}
+
 
 function createMemoryStorage(): BrowserStorageLike {
   const records = new Map<string, string>()
@@ -79,6 +102,7 @@ function createMemoryStorage(): BrowserStorageLike {
 {
   const storage = createMemoryStorage()
   ensureTransferBagRepackMockEvents(storage)
+  for (const bagCode of TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES) for (const item of resolveTransferBagCurrentUse(bagCode, storage).tickets) registerBaggedReleaseFixture(item, bagCode, storage)
   assert.equal(
     listCuttingRuntimeEvents(storage).length,
     6,
@@ -190,6 +214,7 @@ function seedSpecialCraftBagHandover(input: {
     usageCycleId,
     storage: input.storage,
   })
+  for (const item of tickets) registerBaggedReleaseFixture(item, bagCode, input.storage, specialCraftId)
   return {
     bagCode,
     usageCycleId,
@@ -224,6 +249,7 @@ function specialCraftBagReturnInput(
     sourceHandoverRecordId: seeded.sourceHandoverRecordId,
     bagCode: seeded.bagCode,
     returnedTicketIds: seeded.tickets.map((item) => item.feiTicketId),
+    ticketReceipts: seeded.tickets.map(item => ({ feiTicketId: item.feiTicketId, processingCompleted: true, returnedQty: item.pieceQty })),
     locationRef: specialCraftReturnLocation(suffix),
     operator: { operatorId: 'OP-SPECIAL-IN', operatorName: '特殊工艺回仓员' },
     source: 'WEB',
@@ -263,7 +289,7 @@ function specialCraftTicketOnlyReturnInput(
         partName: item.partName,
         size: item.size,
         expectedQty: item.pieceQty,
-        returnedQty: item.pieceQty,
+        processingCompleted: true, returnedQty: item.pieceQty,
         unit: '片' as const,
         returnStatus: '已回仓' as const,
       })),
@@ -445,7 +471,7 @@ function appendBagging(input: {
   occurredAt?: string
 }) {
   const first = input.tickets[0]
-  return appendCuttingRuntimeEvent({
+  const event = appendCuttingRuntimeEvent({
     eventType: '菲票装袋',
     eventSource: 'WEB',
     eventStatus: '已同步',
@@ -469,6 +495,8 @@ function appendBagging(input: {
       baggingAt: input.occurredAt || '2026-08-01 08:00',
     },
   } as Parameters<typeof appendCuttingRuntimeEvent>[0], input.storage)
+  for (const item of input.tickets) registerBaggedReleaseFixture(item, input.bagCode, input.storage)
+  return event
 }
 
 function appendInbound(input: {
@@ -531,7 +559,7 @@ function appendReadyForHandover(input: {
   tickets: TransferBagTicketFactSnapshot[]
   occurredAt?: string
 }) {
-  return appendCuttingRuntimeEvent({
+  const event = appendCuttingRuntimeEvent({
     eventType: '中转袋拆袋重装',
     eventSource: 'WEB',
     eventStatus: '已同步',
@@ -562,6 +590,8 @@ function appendReadyForHandover(input: {
       confirmedBy: '重装员',
     },
   }, input.storage)
+  for (const item of input.tickets) registerBaggedReleaseFixture(item, input.bagCode, input.storage)
+  return event
 }
 
 function seedTwoSourceBags(storage: BrowserStorageLike) {
@@ -2718,7 +2748,7 @@ function appendLegacyBaggingConfirm(input: {
         partName: item.partName,
         size: item.size,
         expectedQty: item.pieceQty,
-        returnedQty: item.pieceQty,
+        processingCompleted: true, returnedQty: item.pieceQty,
         unit: '片' as const,
         returnStatus: '已回仓' as const,
       })),
@@ -3124,7 +3154,7 @@ for (const withLocationRef of [true]) {
         partName: item.partName,
         size: item.size,
         expectedQty: item.pieceQty,
-        returnedQty: item.pieceQty,
+        processingCompleted: true, returnedQty: item.pieceQty,
         unit: '片' as const,
         returnStatus: '已回仓' as const,
       })),
@@ -3241,7 +3271,7 @@ for (const withLocationRef of [true]) {
           partName: item.partName,
           size: item.size,
           expectedQty: item.pieceQty,
-          returnedQty: item.pieceQty,
+          processingCompleted: true, returnedQty: item.pieceQty,
           unit: '片' as const,
           returnStatus: '已回仓' as const,
         })),
@@ -4608,14 +4638,16 @@ function scrapInput(
     const recovered = recoverTransferBag(recoveryInput(recoveryBagCode, {
       occurredAt: undefined,
     }), recoveryStorage)
-    assert.match(recovered.occurredAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+    assert.match(recovered.occurredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    assert.ok(Number.isFinite(Date.parse(recovered.occurredAt)))
     assert.equal((recovered.payload as Record<string, unknown>).recoveredAt, recovered.occurredAt)
 
     const scrapStorage = createMemoryStorage()
     const scrapped = submitTransferBagScrap(scrapInput('BAG-QUALITY-DEFAULT-TIME-SCRAP', {
       occurredAt: undefined,
     }), scrapStorage)
-    assert.match(scrapped.occurredAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+    assert.match(scrapped.occurredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    assert.ok(Number.isFinite(Date.parse(scrapped.occurredAt)))
     assert.equal((scrapped.payload as Record<string, unknown>).scrappedAt, scrapped.occurredAt)
   })
 
@@ -4634,6 +4666,7 @@ function scrapInput(
     sourceHandoverRecordId: seeded.sourceHandoverRecordId,
     bagCode: seeded.bagCode,
     returnedTicketIds: seeded.tickets.map((item) => item.feiTicketId),
+    ticketReceipts: seeded.tickets.map(item => ({ feiTicketId: item.feiTicketId, processingCompleted: true, returnedQty: item.pieceQty })),
     locationRef: specialCraftReturnLocation('COMPLETE'),
     operator: { operatorId: 'OP-SPECIAL-IN', operatorName: '特殊工艺回仓员' },
     source: 'WEB',
@@ -4672,6 +4705,7 @@ function scrapInput(
       sourceHandoverRecordId: seeded.sourceHandoverRecordId,
       bagCode: seeded.bagCode,
       returnedTicketIds: seeded.tickets.map((item) => item.feiTicketId),
+    ticketReceipts: seeded.tickets.map(item => ({ feiTicketId: item.feiTicketId, processingCompleted: true, returnedQty: item.pieceQty })),
       locationRef: specialCraftReturnLocation('OCCUPIED'),
       operator: { operatorName: '特殊工艺回仓员' },
       source: 'WEB',
@@ -4691,6 +4725,7 @@ function scrapInput(
       sourceHandoverRecordId: seeded.sourceHandoverRecordId,
       bagCode: seeded.bagCode,
       returnedTicketIds: [seeded.tickets[0].feiTicketId],
+      ticketReceipts: seeded.tickets.map(item => ({ feiTicketId: item.feiTicketId, processingCompleted: true, returnedQty: item.pieceQty })),
       locationRef: specialCraftReturnLocation('MISMATCH'),
       operator: { operatorName: '特殊工艺回仓员' },
       source: 'WEB',
@@ -4797,7 +4832,7 @@ function scrapInput(
         partName: item.partName,
         size: item.size,
         expectedQty: item.pieceQty,
-        returnedQty: item.pieceQty,
+        processingCompleted: true, returnedQty: item.pieceQty,
         unit: '片' as const,
         returnStatus: '已回仓' as const,
       })),
@@ -4919,10 +4954,10 @@ for (const sourceStatus of ['已取消', '同步失败'] as const) {
       returnedFeiTicketItems: base.payload.returnedFeiTicketItems.map((item, index) =>
         index ? item : { ...item, feiTicketId: 'UNKNOWN-FEI-TICKET' }),
     }],
-    ['数量差异', {
+    ['数量差异未说明', {
       ...base.payload,
       returnedFeiTicketItems: base.payload.returnedFeiTicketItems.map((item, index) =>
-        index ? item : { ...item, returnedQty: item.returnedQty - 1 }),
+        index ? item : { ...item, processingCompleted: true, returnedQty: item.returnedQty - 1 }),
     }],
     ['重复菲票', {
       ...base.payload,
@@ -4932,7 +4967,7 @@ for (const sourceStatus of ['已取消', '同步失败'] as const) {
     assertRejectedWithoutWriting(
       storage,
       () => appendWaitHandoverSpecialCraftReturnEvent({ ...base, payload }),
-      /重复|不可变快照|不一致/,
+      /重复|不可变快照|不一致|差异原因/,
       `无袋回仓${label}必须零写入`,
     )
   }

@@ -1,0 +1,35 @@
+✖ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (206.342541ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 474.87375
+
+✖ failing tests:
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:1:110
+✖ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (206.342541ms)
+  AssertionError [ERR_ASSERTION]: TypeError: window.addEventListener is not a function
+      at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/pcs-record-runtime.ts:773:12)
+      at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+      at async node:internal/modules/esm/loader:650:26
+      at async file:///Users/laoer/.codex/worktrees/9ec5/higoods/[eval1]:6:7
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:22:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

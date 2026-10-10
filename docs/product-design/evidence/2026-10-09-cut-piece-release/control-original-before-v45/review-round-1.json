@@ -1,0 +1,3885 @@
+{
+  "round": 1,
+  "direction": "逐项正向需求追踪和主动反例",
+  "reviewer": "主代理",
+  "phase": "v43源级候选；单位缺漏待最小修正，最终全部浏览器/检查/双审待闭环",
+  "verdict": "未通过",
+  "requirements": [
+    {
+      "id": "SCOPE-001",
+      "source": "1.2",
+      "requirement": "仅本轮范围内调整，不新增真实后端、云存储或无关流程",
+      "counterexample": "把原型扩展为真实云端多用户库存或改无关模块",
+      "expected": "仅本轮范围内调整，不新增真实后端、云存储或无关流程",
+      "status": "待最终证据",
+      "implementation": [
+        "src/main.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "1.2",
+        "3.1",
+        "19.18"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "MENU-001",
+      "source": "9.1 / U01",
+      "requirement": "菜单仅移到裁床仓库管理且无重复入口",
+      "counterexample": "遍历树同时在裁后处理和仓库出现放行菜单",
+      "expected": "菜单仅移到裁床仓库管理且无重复入口",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/app-shell-config.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/list direct route complete"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "9.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382034+00:00",
+      "semanticReviewNote": "实际活动入口位于裁床仓库；菜单树契约仅出现一次；旧裁后组无重复。"
+    },
+    {
+      "id": "MENU-002",
+      "source": "9.1",
+      "requirement": "保留现有对象、页面地址及直达能力",
+      "counterexample": "直接输入旧放行URL，不先访问任何上游",
+      "expected": "保留现有对象、页面地址及直达能力",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/HTTP cache disabled direct route complete"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382042+00:00",
+      "semanticReviewNote": "未访问上游独立直达详情及列表，保留原路径。"
+    },
+    {
+      "id": "SOURCE-001",
+      "source": "5.1 / U04",
+      "requirement": "只有有效已装袋票贡献放行计算，不直接用未装袋产出",
+      "counterexample": "已裁100但票未装袋，不能直接得C/K100",
+      "expected": "只有有效已装袋票贡献放行计算，不直接用未装袋产出",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-36",
+        "R1-44"
+      ],
+      "sourceSections": [
+        "1.1",
+        "19.19",
+        "19.9",
+        "5.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "SOURCE-002",
+      "source": "5.1、13.2 / 19.1（手动来源细化）",
+      "requirement": "有效手动唛架票装袋后进入同一计算且不伪造铺布",
+      "counterexample": "手动唛架票无铺布但有效装袋，不能漏入或造铺布号",
+      "expected": "有效手动唛架票装袋后进入同一计算且不伪造铺布",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/manual-fei-tickets.ts",
+        "src/data/fcs/cutting/fei-ticket-numbering.ts",
+        "src/pages/process-factory/cutting/marker-plan-model.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-16",
+        "R1-19",
+        "R1-07",
+        "R1-10",
+        "R1-44",
+        "R1-45"
+      ],
+      "sourceSections": [
+        "5.1",
+        "13.2",
+        "19.1",
+        "19.9",
+        "19.10"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "SOURCE-003",
+      "source": "3.2、5.1 / 19.6",
+      "requirement": "成衣色码、材料 BOM 行和部位身份准确对应",
+      "counterexample": "同票ID错票号、错成衣色码、不同BOM、错左右实例",
+      "expected": "成衣色码、材料 BOM 行和部位身份准确对应",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-19",
+        "R1-39",
+        "R1-07",
+        "R1-10",
+        "R1-44"
+      ],
+      "sourceSections": [
+        "3.2",
+        "5.1",
+        "19.6",
+        "19.9"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "SOURCE-004",
+      "source": "5.1、7.1 / 19.4 / 19.5 / 19.7",
+      "requirement": "换袋、正常移库 / 交出不重复增产或扣减累计齐套",
+      "counterexample": "同票连续换袋、交出后再读，不能多计或使累计K减去交出",
+      "expected": "换袋、正常移库 / 交出不重复增产或扣减累计齐套",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-41",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "13.1",
+        "13.4",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.19",
+        "19.4",
+        "19.5",
+        "19.7",
+        "5.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "VALID-001",
+      "source": "5.2 / U05",
+      "requirement": "不提供同票部分可用、部分剔除或拆票输入",
+      "counterexample": "给单票剔除3片，检查是否错误暴露局部数量入口",
+      "expected": "不提供同票部分可用、部分剔除或拆票输入",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-ticket-validity.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "5.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382046+00:00"
+    },
+    {
+      "id": "VALID-002",
+      "source": "5.2 / 19.3",
+      "requirement": "整票不可用排除当前数量和后续流转且保留追溯",
+      "counterexample": "整票不可用后原袋及后续交出不能借旧状态通过",
+      "expected": "整票不可用排除当前数量和后续流转且保留追溯",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-22"
+      ],
+      "sourceSections": [
+        "5.2",
+        "19.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "VALID-003",
+      "source": "5.2、11.1",
+      "requirement": "整票更正不改原票、确认决定和历史交接责任",
+      "counterexample": "不可用后恢复，原打印100/旧A100/旧交出80不能被重写",
+      "expected": "整票更正不改原票、确认决定和历史交接责任",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion",
+        "ui-browser.json#/scenarios/validity-conflict-browser.json/old tab validity version conflict rejects overwrite and retains reason"
+      ],
+      "findings": [
+        "R1-02",
+        "R1-14"
+      ],
+      "sourceSections": [
+        "5.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382049+00:00"
+    },
+    {
+      "id": "BAG-001",
+      "source": "5.3 / 用户流程图",
+      "requirement": "普通票与工艺票不能同袋",
+      "counterexample": "普通票和绣花票同袋，扫描和提交都拒绝",
+      "expected": "普通票与工艺票不能同袋",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-45",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "5.3",
+        "19.10",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "BAG-002",
+      "source": "5.3 / 用户流程图",
+      "requirement": "不同必要工艺链与顺序不能同袋",
+      "counterexample": "烫画→绣花与绣花→烫画同袋，不能仅比工艺名集合",
+      "expected": "不同必要工艺链与顺序不能同袋",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-13",
+        "R1-45",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "5.3",
+        "19.10",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "BAG-003",
+      "source": "5.3",
+      "requirement": "同票有效占用、袋周期与重复扫描不会重复累计",
+      "counterexample": "同票第二袋、重试、旧cycle实物占用不能再累加",
+      "expected": "同票有效占用、袋周期与重复扫描不会重复累计",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-34",
+        "R1-45",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "19.10",
+        "19.13",
+        "19.19",
+        "5.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-001",
+      "source": "6.1 / U06 / 19.2（具名示例来源） / 19.3",
+      "requirement": "工艺要求来自具体部位与版本，覆盖辅助和特种",
+      "counterexample": "前片需工艺而后片无需，不能成衣级无差别套用",
+      "expected": "工艺要求来自具体部位与版本，覆盖辅助和特种",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-15",
+        "R1-27",
+        "R1-31",
+        "R1-34",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "6.1",
+        "19.2",
+        "19.3",
+        "19.12",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-002",
+      "source": "6.1 / U06 / 19.2（具名示例来源）",
+      "requirement": "工艺链支持一至 N 道有序必要工艺",
+      "counterexample": "3道顺序100→95→90→80，不能截成2道",
+      "expected": "工艺链支持一至 N 道有序必要工艺",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-34",
+        "R1-12",
+        "R1-13",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "1.1",
+        "4.1",
+        "6.2",
+        "6.3",
+        "19.2",
+        "19.12",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-003",
+      "source": "6.2 / U07 / 19.2（具名示例来源）",
+      "requirement": "非最终回仓不计入齐套",
+      "counterexample": "第一回仓95后尚需绣花，K不能95",
+      "expected": "非最终回仓不计入齐套",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-12",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "6.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-004",
+      "source": "6.2 / U07 / 19.2（具名示例来源）",
+      "requirement": "最终加工完成但未回裁床仓不计入齐套",
+      "counterexample": "最后加工68但未回裁床仓，P68/E0",
+      "expected": "最终加工完成但未回裁床仓不计入齐套",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "6.2",
+        "19.2",
+        "19.12",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-005",
+      "source": "6.2 / U07 / 19.2（具名示例来源）",
+      "requirement": "全链满足后以最终有效实收片数计入",
+      "counterexample": "未加工退回或旧实收缺完成依据，P保留而E不得计入",
+      "expected": "全链满足后以最终有效实收片数计入",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-22",
+        "R1-12",
+        "R1-44",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "1.1",
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "19.9",
+        "6.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-006",
+      "source": "6.1、7.2 / 19.2（具名示例来源）",
+      "requirement": "缺工艺绑定或要求不全不默认无需工艺",
+      "counterexample": "部位要求缺失，不能当普通票或默认单耗1",
+      "expected": "缺工艺绑定或要求不全不默认无需工艺",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-27",
+        "R1-12",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "6.1",
+        "19.2",
+        "19.12",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-007",
+      "source": "6.4 / 19.2（具名示例来源）",
+      "requirement": "多道工艺统计按唯一裁片计数，不按道数倍增",
+      "counterexample": "100片3道不能展示需300/已240片",
+      "expected": "多道工艺统计按唯一裁片计数，不按道数倍增",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "6.4",
+        "19.2",
+        "19.12",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CRAFT-008",
+      "source": "6.4 / 19.2（具名示例来源） / 19.3",
+      "requirement": "未加工、加工完成待回仓、最终已回仓与差异明确区分",
+      "counterexample": "区分待加工、待回仓、已最终回仓和数量差异",
+      "expected": "未加工、加工完成待回仓、最终已回仓与差异明确区分",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "19.3",
+        "6.3",
+        "9.5"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-001",
+      "source": "8.1、8.2 / U08 / 19.2（具名示例来源） / 19.7",
+      "requirement": "多票回仓逐票保存各自实际实收",
+      "counterexample": "60/40两票实际58/35，逐票记录不能60/40",
+      "expected": "多票回仓逐票保存各自实际实收",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-42"
+      ],
+      "sourceSections": [
+        "1.1",
+        "19.19",
+        "19.7",
+        "4.1",
+        "8.1",
+        "8.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-002",
+      "source": "8.2 / U08 / 19.2（具名示例来源）",
+      "requirement": "不按总量、预计量比例或多个阶段自动分摊实收",
+      "counterexample": "输入总93或比例分摊，拒绝把缺明细当完整实收",
+      "expected": "不按总量、预计量比例或多个阶段自动分摊实收",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/pda-cutting-handover.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "8.1",
+        "8.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-003",
+      "source": "8.2、8.3 / 19.2（具名示例来源） / 19.3 / 19.4 / 19.5 / 19.6 / 19.7",
+      "requirement": "绑定真实当前来源单、票、工艺阶段、厂和库位",
+      "counterexample": "烫画来源被选成绣花、错承接厂、错票或cycle",
+      "expected": "绑定真实当前来源单、票、工艺阶段、厂和库位",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-15",
+        "R1-20",
+        "R1-37",
+        "R1-38",
+        "R1-39",
+        "R1-40",
+        "R1-41",
+        "R1-42",
+        "R1-13",
+        "R1-47",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "19.1",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.2",
+        "19.3",
+        "19.4",
+        "19.5",
+        "19.6",
+        "19.7",
+        "3.1",
+        "3.2",
+        "8.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-004",
+      "source": "8.3 / 19.2（具名示例来源） / 19.7",
+      "requirement": "实收必须非负安全整数，空白不当零，零量明确点收",
+      "counterexample": "空白、负数、NaN、小数、超安全整数和显式零",
+      "expected": "实收必须非负安全整数，空白不当零，零量明确点收",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-42",
+        "R1-12"
+      ],
+      "sourceSections": [
+        "8.2",
+        "8.3",
+        "19.7"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-005",
+      "source": "8.3 / 19.2（具名示例来源）",
+      "requirement": "实收不无依据超应回量，差异据实记录与说明",
+      "counterexample": "应回60实收61拒绝；58或0必须填写差异说明",
+      "expected": "实收不无依据超应回量，差异据实记录与说明",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-12"
+      ],
+      "sourceSections": [
+        "8.2",
+        "8.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-006",
+      "source": "8.3、15.2 / 19.2（具名示例来源） / 19.3 / 19.8",
+      "requirement": "原收货更正替代有效量，重复重试不新增数量",
+      "counterexample": "原90更正89再重试，不能相加179或多建版本",
+      "expected": "原收货更正替代有效量，重复重试不新增数量",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-22",
+        "R1-43",
+        "R1-47",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.19",
+        "19.3",
+        "19.8",
+        "6.2",
+        "8.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RECEIPT-007",
+      "source": "8.1、8.4 / 19.2（具名示例来源） / 19.5 / 19.6 / 19.8",
+      "requirement": "Web 与 PDA 回仓保存和读取同一事实",
+      "counterexample": "Web回仓后PDA直达及反向回读相同逐票实收",
+      "expected": "Web 与 PDA 回仓保存和读取同一事实",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/pda-cutting-inbound.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-handover.ts",
+        "src/pages/process-factory/cutting/wait-handover-actions.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-20",
+        "R1-38",
+        "R1-40",
+        "R1-43",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.19",
+        "19.5",
+        "19.6",
+        "19.8",
+        "8.1",
+        "8.3",
+        "8.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "QTY-001",
+      "source": "7.1、7.4 / U12",
+      "requirement": "目标实物候选 C 与最终齐套 K 分开",
+      "counterexample": "已装袋100等待工艺：C100/K0不能混同",
+      "expected": "目标实物候选 C 与最终齐套 K 分开",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "19.19",
+        "4.2",
+        "7.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "QTY-002",
+      "source": "7.2",
+      "requirement": "按单耗向下取整，不把片数直接当件数",
+      "counterexample": "95片单耗2只得47件",
+      "expected": "按单耗向下取整，不把片数直接当件数",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "7.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "QTY-003",
+      "source": "7.2",
+      "requirement": "必需部位、材料分别取短板，不跨色码抵扣",
+      "counterexample": "前/后/袖与主辅材料按短板取min，不跨Black/White",
+      "expected": "必需部位、材料分别取短板，不跨色码抵扣",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/generated-cut-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-44"
+      ],
+      "sourceSections": [
+        "7.2",
+        "19.9"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "QTY-004",
+      "source": "3.2、7.2",
+      "requirement": "已知左右实例分别满足，缺部位不能被其他数量掩盖",
+      "counterexample": "左100右0不能拿左200补右",
+      "expected": "已知左右实例分别满足，缺部位不能被其他数量掩盖",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/generated-cut-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "7.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "QTY-005",
+      "source": "7.2",
+      "requirement": "无 SKU、已知零量和资料缺失是不同结果",
+      "counterexample": "无SKU、已知零、缺资料null不能全渲染0",
+      "expected": "无 SKU、已知零量和资料缺失是不同结果",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-09"
+      ],
+      "sourceSections": [
+        "7.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "QTY-006",
+      "source": "7.3",
+      "requirement": "工艺等待不作为物理补裁缺口",
+      "counterexample": "P100/E0等待工艺时不能自动开补裁100",
+      "expected": "工艺等待不作为物理补裁缺口",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release-domain.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-05"
+      ],
+      "sourceSections": [
+        "7.3",
+        "13.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "TARGET-001",
+      "source": "7.4、9.3 / U12",
+      "requirement": "同色码从原材料候选选择目标，不改成自由输入",
+      "counterexample": "同色码材料C100/C90只能选候选，禁止自由写95",
+      "expected": "同色码从原材料候选选择目标，不改成自由输入",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/physical target candidate selection and cancel",
+        "ui-browser.json#/scenarios/saved-browser.json/target physical candidate save"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "7.4",
+        "9.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382053+00:00"
+    },
+    {
+      "id": "TARGET-002",
+      "source": "7.4、11.1 / U13",
+      "requirement": "事实变化不自动改目标或使原目标快照不可读",
+      "counterexample": "保存T100后实物90刷新仍T100",
+      "expected": "事实变化不自动改目标或使原目标快照不可读",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion",
+        "ui-browser.json#/scenarios/ordinary-browser.json/historical matrix drawer and close"
+      ],
+      "findings": [
+        "R1-05",
+        "R1-44"
+      ],
+      "sourceSections": [
+        "3.2",
+        "7.4",
+        "9.3",
+        "11.1",
+        "19.9"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382057+00:00"
+    },
+    {
+      "id": "TARGET-003",
+      "source": "9.3",
+      "requirement": "主动重选确认才保存新目标，取消保留原快照",
+      "counterexample": "重选选90取消仍旧T，确认才新快照",
+      "expected": "主动重选确认才保存新目标，取消保留原快照",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/target confirmation back to editing preserves candidate and cancel restores saved target",
+        "ui-browser.json#/scenarios/saved-browser.json/target physical candidate save"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "7.4",
+        "9.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382061+00:00"
+    },
+    {
+      "id": "RELEASE-001",
+      "source": "7.5 / U10",
+      "requirement": "未齐套仍可在目标内人工风险放行",
+      "counterexample": "K90/T100人工A100并原因可风险放行",
+      "expected": "未齐套仍可在目标内人工风险放行",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/release save preserves directly typed risk reason through quantity blur"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "3.1",
+        "4.1",
+        "4.2",
+        "7.5",
+        "10.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382064+00:00"
+    },
+    {
+      "id": "RELEASE-002",
+      "source": "7.5",
+      "requirement": "已知当前风险大于零时放行原因必填",
+      "counterexample": "R10无原因拒绝，不能靠勾选风险豁免",
+      "expected": "已知当前风险大于零时放行原因必填",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/release save preserves directly typed risk reason through quantity blur",
+        "ui-browser.json#/scenarios/save-failure-browser.json/risk release save transaction abort preserves prior A and editable quantity/reason"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "7.5"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382067+00:00"
+    },
+    {
+      "id": "RELEASE-003",
+      "source": "7.5、11.3 / U14",
+      "requirement": "新放行不得低于有效已分配占用",
+      "counterexample": "O80时申请A79，拒绝并定位色码",
+      "expected": "新放行不得低于有效已分配占用",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "7.5",
+        "11.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "RELEASE-004",
+      "source": "7.5 / U14",
+      "requirement": "新放行不得高于目标，风险原因不豁免",
+      "counterexample": "T100申请A101，有风险原因仍拒绝",
+      "expected": "新放行不得高于目标，风险原因不豁免",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/release invalid quantity error and coordinate focus"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "7.5",
+        "9.4",
+        "11.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382070+00:00"
+    },
+    {
+      "id": "RELEASE-005",
+      "source": "7.5、9.4",
+      "requirement": "打开已有放行沿用保存值，不自动改成当前齐套",
+      "counterexample": "已有A100后K90重开沿用100，不自动改90",
+      "expected": "打开已有放行沿用保存值，不自动改成当前齐套",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/release save preserves directly typed risk reason through quantity blur"
+      ],
+      "findings": [
+        "R1-01"
+      ],
+      "sourceSections": [
+        "10.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382072+00:00"
+    },
+    {
+      "id": "CHANGE-001",
+      "source": "10.1、11.1 / U13",
+      "requirement": "当前有效事实实时更新，人工放行决定不自动失效",
+      "counterexample": "K变化不会让既有A失效或变成未确认",
+      "expected": "当前有效事实实时更新，人工放行决定不自动失效",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion"
+      ],
+      "findings": [
+        "R1-44"
+      ],
+      "sourceSections": [
+        "1.1",
+        "3.2",
+        "8.4",
+        "10.1",
+        "11.1",
+        "19.9"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382075+00:00"
+    },
+    {
+      "id": "CHANGE-002",
+      "source": "7.1、10.1",
+      "requirement": "当前风险与确认时风险分别保存 / 展示",
+      "counterexample": "确认时R0/currentR10；后来K恢复currentR0历史不变",
+      "expected": "当前风险与确认时风险分别保存 / 展示",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/whole ticket invalid then usable with actual transaction completion",
+        "ui-browser.json#/scenarios/saved-browser.json/saved version log pagination and per-SKU historical facts"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.7",
+        "10.1",
+        "11.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382078+00:00"
+    },
+    {
+      "id": "CHANGE-003",
+      "source": "11.1、11.3 / U13",
+      "requirement": "事实更正不自动取消或修改旧分配",
+      "counterexample": "已有O80下降K70不能改任务或自动取消",
+      "expected": "事实更正不自动取消或修改旧分配",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "11.1",
+        "11.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "CHANGE-004",
+      "source": "11.2 / 9.7（标准列表及独立数量变化筛选）",
+      "requirement": "有实际差异提示受影响色码，重复读取不造变化版本",
+      "counterexample": "同事实反复读不新增矩阵；只列真实差异色码",
+      "expected": "有实际差异提示受影响色码，重复读取不造变化版本",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/maintain effective release records reviewed live facts"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.7",
+        "11.2"
+      ],
+      "plannedFinalPageBindings": [
+        "ui-browser.json#/runs/list-browser.json/scenarios（标准查询、重置、分页、排序、列设置、拖拽）",
+        "ui-browser.json#/runs/craft-export-browser.json/scenarios/list effective release status and fact review filters",
+        "list-responsive-v28.json（1366/1280/1024）"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382081+00:00"
+    },
+    {
+      "id": "CHANGE-005",
+      "source": "9.4、11.2",
+      "requirement": "人工维持 / 调整以最新依据保存新版本并留历史",
+      "counterexample": "三次整票变更、刷新后维持A，必须保存最新basis的新版本",
+      "expected": "人工维持 / 调整以最新依据保存新版本并留历史",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/maintain effective release records reviewed live facts",
+        "ui-browser.json#/scenarios/saved-browser.json/saved version log pagination and per-SKU historical facts"
+      ],
+      "findings": [
+        "R1-01",
+        "R1-02"
+      ],
+      "sourceSections": [
+        "10.2",
+        "11.2",
+        "11.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382083+00:00"
+    },
+    {
+      "id": "PAGE-001",
+      "source": "9.2、9.3 / U02、U03",
+      "requirement": "目标确认矩阵为成衣颜色行、尺码升序列",
+      "counterexample": "两色多码目标矩阵有独立颜色行和升序列",
+      "expected": "目标确认矩阵为成衣颜色行、尺码升序列",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1366x768",
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1280x720",
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1024x768",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target XL material candidate selection and cancel"
+      ],
+      "findings": [
+        "R1-25"
+      ],
+      "sourceSections": [
+        "1.1",
+        "9.2",
+        "9.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382087+00:00",
+      "semanticReviewNote": "实际颜色行Black/White/Navy/Red、M/L/XL列；三种尺寸及1024 XL滚动后可点击。"
+    },
+    {
+      "id": "PAGE-002",
+      "source": "9.2、9.4 / U02、U03",
+      "requirement": "放行确认矩阵采用同一轴和坐标",
+      "counterexample": "确认放行矩阵轴与目标一致且编辑对应色码",
+      "expected": "放行确认矩阵采用同一轴和坐标",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/release matrix cell details and close",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual release XL quantity edit and cancel"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "9.2",
+        "9.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382090+00:00",
+      "semanticReviewNote": "目标与放行使用同一坐标；1024 XL499确为XL输入，未误改M/L。"
+    },
+    {
+      "id": "PAGE-003",
+      "source": "9.2",
+      "requirement": "使用业务尺码顺序，未知自定义顺序明确待核对",
+      "counterexample": "2XL/XXL/3XL、数码和自定义不能用字典排序猜大小",
+      "expected": "使用业务尺码顺序，未知自定义顺序明确待核对",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target M material candidate selection and cancel",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target L material candidate selection and cancel",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual target XL material candidate selection and cancel"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382093+00:00",
+      "semanticReviewNote": "标准数值/字母升序与自定义保原序的明确待核对实际渲染契约；标准M/L/XL真实操作。"
+    },
+    {
+      "id": "PAGE-004",
+      "source": "9.4",
+      "requirement": "数量编辑与开详情交互分开，错误定位具体色码",
+      "counterexample": "点数量不能误开抽屉；超量/空白错误定位格坐标",
+      "expected": "数量编辑与开详情交互分开，错误定位具体色码",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/release invalid quantity error and coordinate focus",
+        "ui-browser.json#/scenarios/viewport-controls-browser.json/1024 actual release M quantity edit and cancel"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.2",
+        "9.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382096+00:00",
+      "semanticReviewNote": "数量输入不触发抽屉，非法原值保留，实际Black/M焦点和具体错误，不夹取或取整。"
+    },
+    {
+      "id": "PAGE-005",
+      "source": "9.5 / U09",
+      "requirement": "单元格展示需工艺、最终已回仓和未完成片数",
+      "counterexample": "三道同票特殊量唯一、末道实收、待处理与差异分开",
+      "expected": "单元格展示需工艺、最终已回仓和未完成片数",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts M ticket trace",
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts L ticket trace"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "6.4",
+        "9.5"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382099+00:00",
+      "semanticReviewNote": "单票三道需90、最终87、未完成0与差异3分列，未计三次270；M末道未回仓明确显示。"
+    },
+    {
+      "id": "PAGE-006",
+      "source": "9.6 / U09",
+      "requirement": "单元格打开对应色码 / 材料的侧栏详情",
+      "counterexample": "Black/M点详情不能拿Red/L数据",
+      "expected": "单元格打开对应色码 / 材料的侧栏详情",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/target cell details 1366x768",
+        "ui-browser.json#/scenarios/ordinary-browser.json/material cell drawer and close",
+        "ui-browser.json#/scenarios/ordinary-browser.json/keyboard cell activation focus trap and Escape"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.6"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382102+00:00",
+      "semanticReviewNote": "颜色尺码及材料三个入口打开对应原对象，键盘/焦点/Esc正常，无跨格。"
+    },
+    {
+      "id": "PAGE-007",
+      "source": "9.6 / 19.3 / 19.6",
+      "requirement": "侧栏有部位、菲票、袋、逐道工艺和逐票实收来源",
+      "counterexample": "抽屉展示原票、袋cycle、部位、各阶段厂/实收/人时间",
+      "expected": "侧栏有部位、菲票、袋、逐道工艺和逐票实收来源",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts M ticket trace",
+        "ui-browser.json#/scenarios/craft-export-browser.json/three consecutive crafts L ticket trace",
+        "ui-browser.json#/scenarios/craft-export-browser.json/drawer material part and craft status filters"
+      ],
+      "findings": [
+        "R1-15",
+        "R1-35",
+        "R1-39",
+        "R1-44",
+        "R1-47",
+        "R1-48",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "9.6",
+        "19.3",
+        "19.6",
+        "19.9",
+        "19.11",
+        "19.12",
+        "19.13"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382105+00:00",
+      "semanticReviewNote": "逐票各道真实承接、交出/回仓业务号及实收、责任、时间保留；原内部记录仅展开。实际新票回仓链仍另验RECEIPT。"
+    },
+    {
+      "id": "PAGE-008",
+      "source": "9.6",
+      "requirement": "真实图片可看大图并处理关闭、Esc和失败状态",
+      "counterexample": "真实材料缩略图对应对象，大图/Esc/失败/焦点恢复",
+      "expected": "真实图片可看大图并处理关闭、Esc和失败状态",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/ordinary-browser.json/real image zoom decode and Escape close",
+        "ui-browser.json#/scenarios/ordinary-browser.json/image zoom explicit close button",
+        "ui-browser.json#/scenarios/ordinary-browser.json/image zoom outside mask close",
+        "ui-browser.json#/scenarios/craft-export-browser.json/thumbnail reload completes explicit failed-image state",
+        "ui-browser.json#/scenarios/craft-export-browser.json/failed image zoom open completes explicit failure",
+        "ui-browser.json#/scenarios/craft-export-browser.json/failed image zoom Escape closes and restores thumbnail focus",
+        "style-images-v36.json#/scenarios",
+        "material-images-v36.json#/scenarios",
+        "output/playwright/cut-release-ui/visual-inspection-v36.json"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "9.2",
+        "9.6",
+        "16.2",
+        "19.15",
+        "19.17"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382108+00:00",
+      "semanticReviewNote": "全部9款与必需材料实际解码，各自对应缩略图；大图关闭/遮罩/Esc焦点恢复，模拟失败可见。新增照片为明确静态原型示例。"
+    },
+    {
+      "id": "PAGE-009",
+      "source": "9.7",
+      "requirement": "未确认、暂不放行0和目标数量不混用",
+      "counterexample": "A未确认不同A0，T不能当A或V",
+      "expected": "未确认、暂不放行0和目标数量不混用",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/craft-export-browser.json/unknown material support K and current risk remain waiting on direct route"
+      ],
+      "findings": [
+        "R1-09"
+      ],
+      "sourceSections": [
+        "10.2",
+        "19.19",
+        "9.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382111+00:00",
+      "semanticReviewNote": "实际未知资料K和R显示待核对；未确认与A0不回退成目标281由实际渲染契约覆盖。"
+    },
+    {
+      "id": "PAGE-010",
+      "source": "9.7",
+      "requirement": "日志区分决定与事实，导出单位和当前版本不混入草稿",
+      "counterexample": "编辑草稿999未保存时导出仍已保存A和当前版本/件片单位",
+      "expected": "日志区分决定与事实，导出单位和当前版本不混入草稿",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/saved-browser.json/saved version log pagination and per-SKU historical facts",
+        "ui-browser.json#/scenarios/craft-export-browser.json/current filtered CSV saved values excludes other-tab unsaved draft",
+        "ui-browser.json#/scenarios/list-browser.json/matrix fact history expand collapse and pagination"
+      ],
+      "findings": [],
+      "sourceSections": [
+        "19.19",
+        "9.7"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382115+00:00",
+      "semanticReviewNote": "当前筛选导出只含已保存量、件/片及当前版本，兄弟标签页999草稿未混入；日志分页保留各SKU确认事实。"
+    },
+    {
+      "id": "DISPATCH-001",
+      "source": "12.1",
+      "requirement": "放行门禁适用从车缝开始任务，整包自裁保持原策略",
+      "counterexample": "SEW/SEW+IRONPACK走放行门禁；CUT整包原策略",
+      "expected": "放行门禁适用从车缝开始任务，整包自裁保持原策略",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/sewing-assignment-readiness.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "12.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DISPATCH-002",
+      "source": "12.2 / U11",
+      "requirement": "适用任务没有有效放行不得新增分配",
+      "counterexample": "无A只有T，候选/提交/共享保存不能派",
+      "expected": "适用任务没有有效放行不得新增分配",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "12.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DISPATCH-003",
+      "source": "7.1、12.2 / U14",
+      "requirement": "分配不得超过有效放行减有效占用，不提供超量豁免",
+      "counterexample": "V20派21或同SKU150+150借V200，全部拒绝",
+      "expected": "分配不得超过有效放行减有效占用，不提供超量豁免",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-09"
+      ],
+      "sourceSections": [
+        "12.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DISPATCH-004",
+      "source": "12.2 / U11",
+      "requirement": "未齐套和辅料未配齐本身不阻断适用车缝分配",
+      "counterexample": "合法V20/K不足/辅料未配齐仍派20，欠数警示保留",
+      "expected": "未齐套和辅料未配齐本身不阻断适用车缝分配",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/sewing-assignment-readiness.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "1.1",
+        "4.1",
+        "4.2",
+        "12.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DISPATCH-005",
+      "source": "12.2",
+      "requirement": "页面候选、提交与共享保存检查采用同一门禁",
+      "counterexample": "exact SKU错颜色尺码/PO身份、NaN等不能借他格余量",
+      "expected": "页面候选、提交与共享保存检查采用同一门禁",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "3.1",
+        "12.2",
+        "12.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "ACCESSORY-001",
+      "source": "12.3",
+      "requirement": "配料读取真实物料事实，不用裁片齐套赋值",
+      "counterexample": "辅料需求/已配/待配来自独立明细，不能用K赋已配",
+      "expected": "配料读取真实物料事实，不用裁片齐套赋值",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "12.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "ACCESSORY-002",
+      "source": "12.3",
+      "requirement": "配料与工艺欠数分别可见并交由PPIC继续跟进",
+      "counterexample": "PPIC本人任务显示工艺未回仓、辅料待配、原分配保持",
+      "expected": "配料与工艺欠数分别可见并交由PPIC继续跟进",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/sewing-outsourcing/tasks.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "3.1",
+        "4.1",
+        "12.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DOWNSTREAM-001",
+      "source": "13.1 / 19.3",
+      "requirement": "简易交出保留既有整票范围和接收边界，不强制装袋",
+      "counterexample": "普通票未装袋可按原简易整票交出，不新增第二接收",
+      "expected": "简易交出保留既有整票范围和接收边界，不强制装袋",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-27",
+        "R1-34",
+        "R1-45"
+      ],
+      "sourceSections": [
+        "1.2",
+        "4.2",
+        "13.1",
+        "19.1",
+        "19.3",
+        "19.10"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DOWNSTREAM-002",
+      "source": "13.1 / 19.3 / 19.5 / 19.6 / 19.7",
+      "requirement": "两类交出共享消耗、防重复并使用最终有效实物量",
+      "counterexample": "特殊最终实收90不能按票面100交；两入口防重复消耗",
+      "expected": "两类交出共享消耗、防重复并使用最终有效实物量",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-22",
+        "R1-36",
+        "R1-37",
+        "R1-40",
+        "R1-41",
+        "R1-42",
+        "R1-47",
+        "R1-49"
+      ],
+      "sourceSections": [
+        "13.1",
+        "19.11",
+        "19.13",
+        "19.19",
+        "19.3",
+        "19.5",
+        "19.6",
+        "19.7"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DOWNSTREAM-003",
+      "source": "13.1 / 19.3",
+      "requirement": "最低应回责任读实交 / 实收及退回，不读放行承诺替代",
+      "counterexample": "A100/O80实交70，应回责任不能直接100或80",
+      "expected": "最低应回责任读实交 / 实收及退回，不读放行承诺替代",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "13.1",
+        "19.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DOWNSTREAM-004",
+      "source": "13.2 / 19.1（手动来源细化）",
+      "requirement": "原票打印身份和分纸规则保留，手动来源不中断",
+      "counterexample": "手动票无铺布打印同一身份，分纸部位映射不变",
+      "expected": "原票打印身份和分纸规则保留，手动来源不中断",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/manual-fei-tickets.ts",
+        "src/data/fcs/cutting/fei-ticket-numbering.ts",
+        "src/pages/process-factory/cutting/marker-plan-model.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-16",
+        "R1-19",
+        "R1-26",
+        "R1-32",
+        "R1-07",
+        "R1-08",
+        "R1-10",
+        "R1-11"
+      ],
+      "sourceSections": [
+        "1.2",
+        "13.2",
+        "16.2"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DOWNSTREAM-005",
+      "source": "13.3",
+      "requirement": "补料读已确认目标和最新实物，保留原来源及人工发起规则",
+      "counterexample": "确认T100后P90可读补料缺10；等待工艺P100不补",
+      "expected": "补料读已确认目标和最新实物，保留原来源及人工发起规则",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/supplement-management.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "pageEvidence": [
+        "supplement-browser.json#/scenarios/整票变化后补料用最新实物且目标保持208件",
+        "supplement-browser.json#/scenarios/人工提交到确认页再返回保留来源"
+      ],
+      "findings": [
+        "R1-28",
+        "R1-05",
+        "R1-06"
+      ],
+      "sourceSections": [
+        "7.3",
+        "13.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382118+00:00"
+    },
+    {
+      "id": "DOWNSTREAM-006",
+      "source": "13.3",
+      "requirement": "退仓票 / 自由补料不直接叠加新增齐套",
+      "counterexample": "退仓大票、自由补料不能直接叠入新增K",
+      "expected": "退仓票 / 自由补料不直接叠加新增齐套",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "13.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "DOWNSTREAM-007",
+      "source": "13.4",
+      "requirement": "冻结裁剪依据保留但真实后续仓库工艺事实继续反映",
+      "counterexample": "冻结旧票仓库90继续反映，冻结后新票20进晚到队列",
+      "expected": "冻结裁剪依据保留但真实后续仓库工艺事实继续反映",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-03"
+      ],
+      "sourceSections": [
+        "13.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-001",
+      "source": "15.1、15.2",
+      "requirement": "本次业务按记录保存于现有IDB，不增业务localStorage回退",
+      "counterexample": "保存只改逐记录IDB，无业务LS后备或整包快照",
+      "expected": "本次业务按记录保存于现有IDB，不增业务localStorage回退",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-04"
+      ],
+      "sourceSections": [
+        "15.1"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-002",
+      "source": "8.4、15.2 / 19.3 / 19.8",
+      "requirement": "关联动作原子保存，事务完成后才成功和更新数量",
+      "counterexample": "在写完records前后中止tx，不能半套事实或先成功",
+      "expected": "关联动作原子保存，事务完成后才成功和更新数量",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cutting-event-repository.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-24",
+        "R1-43",
+        "R1-02",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "8.4",
+        "15.2",
+        "19.3",
+        "19.8",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-003",
+      "source": "15.2 / 19.7 / 19.8",
+      "requirement": "保存阶段核对来源 / 占用版本并识别多页冲突",
+      "counterexample": "两个页面同revision只有一个写入，另一冲突保留输入",
+      "expected": "保存阶段核对来源 / 占用版本并识别多页冲突",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/cut-piece-ticket-validity.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-18",
+        "R1-24",
+        "R1-42",
+        "R1-43",
+        "R1-14",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "11.4",
+        "12.4",
+        "15.2",
+        "19.7",
+        "19.8",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-004",
+      "source": "15.1、15.4 / 19.8",
+      "requirement": "刷新、关闭重开、直达下游独立读回同一保存结果",
+      "counterexample": "实际改量201后刷新/关闭直达读V2，不能错误读V1",
+      "expected": "刷新、关闭重开、直达下游独立读回同一保存结果",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-43",
+        "R1-01",
+        "R1-02",
+        "R1-08",
+        "R1-11",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "15.2",
+        "19.8",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.19"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-005",
+      "source": "15.3",
+      "requirement": "迁移保留历史、可中断恢复，验证后才清理旧源",
+      "counterexample": "第二迁移批中止旧源原样；恢复不重复，核验后才删独占旧键",
+      "expected": "迁移保留历史、可中断恢复，验证后才清理旧源",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/legacy-migration-browser.json/legacy migration real transaction abort retains original LS and closed-pages confirmation",
+        "ui-browser.json#/scenarios/legacy-migration-browser.json/legacy migration retry commits and verifies before removing old exclusive key",
+        "migration-browser.json"
+      ],
+      "findings": [
+        "R1-04",
+        "R1-29"
+      ],
+      "sourceSections": [
+        "15.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382122+00:00"
+    },
+    {
+      "id": "STORE-006",
+      "source": "15.3",
+      "requirement": "历史缺失证据标待核对，不伪造装袋或工艺实收",
+      "counterexample": "旧receipt缺完成/旧release缺装袋证据保历史，不补造真实事实",
+      "expected": "历史缺失证据标待核对，不伪造装袋或工艺实收",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "15.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-007",
+      "source": "15.1、15.3 / 19.3 / 19.7",
+      "requirement": "普通读取不种子落盘、不全量业务整包重写或长期双写",
+      "counterexample": "空库普通首次读cutDB零写；动作不复制整批演示事实",
+      "expected": "普通读取不种子落盘、不全量业务整包重写或长期双写",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts",
+        "src/data/fcs/post-finishing-full-flow.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts",
+        "src/data/fcs/special-craft-task-orders.ts::listCutPieceSpecialCraftTaskOrderSources",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/pages/print/print-preview.ts::loadPrintAdapter",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-30",
+        "R1-31",
+        "R1-32",
+        "R1-41",
+        "R1-04",
+        "R1-06",
+        "R1-44",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "15.1",
+        "19.3",
+        "19.4",
+        "19.7",
+        "19.9",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "STORE-008",
+      "source": "15.4 / 19.3",
+      "requirement": "读取 / 保存失败保留旧数据和输入，不虚假成功",
+      "counterexample": "容量/打开失败真实提示保留，恢复实际重读而非清站点",
+      "expected": "读取 / 保存失败保留旧数据和输入，不虚假成功",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/post-finishing-full-flow.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts",
+        "src/data/fcs/special-craft-task-orders.ts::listCutPieceSpecialCraftTaskOrderSources",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/pages/print/print-preview.ts::loadPrintAdapter"
+      ],
+      "automation": [
+        "build-v36.log（729项单元检查中的对应业务契约）",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts"
+      ],
+      "pageEvidence": [
+        "ui-browser.json#/scenarios/save-failure-browser.json/risk release save transaction abort preserves prior A and editable quantity/reason",
+        "ui-browser.json#/scenarios/validity-conflict-browser.json/old tab validity version conflict rejects overwrite and retains reason",
+        "idb-open-browser.json",
+        "storage-browser.json"
+      ],
+      "findings": [
+        "R1-17",
+        "R1-20",
+        "R1-21",
+        "R1-30",
+        "R1-31",
+        "R1-32",
+        "R1-04",
+        "R1-06",
+        "R1-28",
+        "R1-29",
+        "R1-49",
+        "R1-50"
+      ],
+      "sourceSections": [
+        "15.4",
+        "19.3",
+        "19.13",
+        "19.14",
+        "19.16"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环",
+      "actualPageEvidenceVersion": "v36",
+      "actualPageSourceSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+      "actualPageEvidenceCheckedAt": "2026-10-09T20:37:47.382125+00:00"
+    },
+    {
+      "id": "STORE-009",
+      "source": "15.1、15.4",
+      "requirement": "文件引用和现有备份覆盖新增事实，不自动清空用户数据",
+      "counterexample": "导出35记录/9动作恢复独立空库内容相同，坏备份不损旧库",
+      "expected": "文件引用和现有备份覆盖新增事实，不自动清空用户数据",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cutting/cutting-record-repository.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "15.1",
+        "15.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "VERIFY-001",
+      "source": "16.2 / 19.2（具名示例来源） / 9.7（标准列表及独立数量变化筛选）",
+      "requirement": "同代码工作树的命名页面按相应设备完成主要任务",
+      "counterexample": "1366/1280矩阵及1024主管、PDA小屏主要任务真实可用",
+      "expected": "同代码工作树的命名页面按相应设备完成主要任务",
+      "status": "待最终证据",
+      "implementation": [
+        "src/main.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-25",
+        "R1-55"
+      ],
+      "sourceSections": [
+        "16.1",
+        "16.2",
+        "19.15",
+        "19.16",
+        "19.17",
+        "19.18",
+        "19.19",
+        "19.2",
+        "9.7"
+      ],
+      "plannedFinalPageBindings": [
+        "ui-browser.json#/runs/list-browser.json/scenarios（标准查询、重置、分页、排序、列设置、拖拽）",
+        "ui-browser.json#/runs/craft-export-browser.json/scenarios/list effective release status and fact review filters",
+        "list-responsive-v28.json（1366/1280/1024）"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "VERIFY-002",
+      "source": "16.3 / 19.2（具名示例来源） / 19.4 / 19.5 / 19.6 / 19.7 / 19.8",
+      "requirement": "S01～S24逐项验证并更新冲突旧脚本 / Mock / 文案",
+      "counterexample": "S01–S24每个场景有规则/页面/储存下游对应证据",
+      "expected": "S01～S24逐项验证并更新冲突旧脚本 / Mock / 文案",
+      "status": "待最终证据",
+      "implementation": [
+        "scripts/check-cut-piece-release-matrix.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-36",
+        "R1-37",
+        "R1-38",
+        "R1-39",
+        "R1-40",
+        "R1-41",
+        "R1-42",
+        "R1-43",
+        "R1-44",
+        "R1-45",
+        "R1-46",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50",
+        "R1-55"
+      ],
+      "sourceSections": [
+        "14",
+        "16.1",
+        "16.3",
+        "17.1",
+        "17.2",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.15",
+        "19.16",
+        "19.17",
+        "19.18",
+        "19.19",
+        "19.2",
+        "19.4",
+        "19.5",
+        "19.6",
+        "19.7",
+        "19.8",
+        "19.9"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "PERF-001",
+      "source": "16.4",
+      "requirement": "适用加载与关键动作5样本均完整完成≤1000ms",
+      "counterexample": "冷、刷新、路由和关键动作每项5次完整结果≤1000，不仅loading",
+      "expected": "适用加载与关键动作5样本均完整完成≤1000ms",
+      "status": "待最终证据",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/cutting-event-repository.ts",
+        "src/data/fcs/cutting/cutting-runtime-event-ledger.ts",
+        "src/pages/process-factory/cutting/wait-handover-actions.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-18",
+        "R1-24",
+        "R1-25",
+        "R1-28",
+        "R1-30",
+        "R1-31",
+        "R1-32",
+        "R1-06",
+        "R1-45",
+        "R1-47",
+        "R1-48",
+        "R1-49",
+        "R1-50",
+        "R1-55"
+      ],
+      "sourceSections": [
+        "16.4",
+        "19.10",
+        "19.11",
+        "19.12",
+        "19.13",
+        "19.14",
+        "19.15",
+        "19.16",
+        "19.17",
+        "19.18",
+        "19.19"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "VERIFY-003",
+      "source": "16.5、17.3",
+      "requirement": "正反向需求追踪、证据SHA和接受回执齐备才称完整交付",
+      "counterexample": "源码/构建hash、两轮88条与交付/接受身份分清",
+      "expected": "正反向需求追踪、证据SHA和接受回执齐备才称完整交付",
+      "status": "待最终证据",
+      "implementation": [
+        "AGENTS.md"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [],
+      "sourceSections": [
+        "16.1",
+        "16.5",
+        "17.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "COPY-001",
+      "source": "19.1 / Huawei 界面用语 / 19.3",
+      "requirement": "仅保留当前决策和操作必要信息，删除重复说明",
+      "counterexample": "重复每颜色解释和多处同义提示",
+      "expected": "仅保留当前决策和操作必要信息，删除重复说明",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-17",
+        "R1-23",
+        "R1-26",
+        "R1-27",
+        "R1-29",
+        "R1-35",
+        "R1-46"
+      ],
+      "sourceSections": [
+        "19.1",
+        "19.10",
+        "19.19",
+        "19.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "COPY-002",
+      "source": "19.1 / Huawei 界面用语 / 19.3",
+      "requirement": "使用简短常用词、明确动作与统一当前/历史数量术语",
+      "counterexample": "把投影、事务、快照等实现术语直接放员工首屏",
+      "expected": "使用简短常用词、明确动作与统一当前/历史数量术语",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-23",
+        "R1-25",
+        "R1-26",
+        "R1-33",
+        "R1-35"
+      ],
+      "sourceSections": [
+        "19.1",
+        "19.19",
+        "19.3"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "COPY-003",
+      "source": "19.1 / Huawei 界面用语 / 19.3 / 19.4",
+      "requirement": "换片票列表、打印、混袋清单不显示内部路径，扫码与持久身份不变",
+      "counterexample": "在用户可见票号中出现HPB路径、%转义或tdv内部键",
+      "expected": "换片票列表、打印、混袋清单不显示内部路径，扫码与持久身份不变",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-23",
+        "R1-26",
+        "R1-27",
+        "R1-08",
+        "R1-11"
+      ],
+      "sourceSections": [
+        "13.2",
+        "19.1",
+        "19.19",
+        "19.3",
+        "19.4"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    },
+    {
+      "id": "COPY-004",
+      "source": "19.1 / Huawei 界面用语 / 19.3 / 19.4 / 19.6 / 19.7",
+      "requirement": "异常保留具体问题和处理动作，危险确认保留实际影响，必要门禁不被删掉",
+      "counterexample": "为了精简删掉数量上下限、逐票实收或危险影响",
+      "expected": "异常保留具体问题和处理动作，危险确认保留实际影响，必要门禁不被删掉",
+      "status": "待最终证据",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/pda-cutting-inbound.ts"
+      ],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": [
+        "R1-17",
+        "R1-21",
+        "R1-23",
+        "R1-24",
+        "R1-26",
+        "R1-28",
+        "R1-29",
+        "R1-30",
+        "R1-33",
+        "R1-35",
+        "R1-39",
+        "R1-42",
+        "R1-46"
+      ],
+      "sourceSections": [
+        "19.1",
+        "19.10",
+        "19.16",
+        "19.19",
+        "19.3",
+        "19.4",
+        "19.6",
+        "19.7"
+      ],
+      "verificationVersion": "v43候选；历史36实证仅保留为历史，完整当前实证待闭环"
+    }
+  ],
+  "findings": [
+    {
+      "id": "R1-01",
+      "issue": "已保存V2但旧V1 effective标记仍被引用，捕获记录共用对象导致旧标志修改不入diff",
+      "fix": "逐记录深拷贝before/after，最新有效版本统一读最高版本",
+      "state": "v6实际改量和刷新通过",
+      "requirements": [
+        "CHANGE-005",
+        "RELEASE-005",
+        "STORE-004"
+      ]
+    },
+    {
+      "id": "R1-02",
+      "issue": "连续validity变化只保存登记、没有保存相关矩阵历史，刷新basis变化维持失败",
+      "fix": "同事务保存登记和变化facts/order/matrix/event，pending回滚，complete后读回",
+      "state": "三次变化刷新basis13一致，维持V6通过",
+      "requirements": [
+        "CHANGE-005",
+        "STORE-002",
+        "STORE-004",
+        "VALID-003"
+      ]
+    },
+    {
+      "id": "R1-03",
+      "issue": "冻结来源只看ticketDetail，冻结后新票会错误直接合入",
+      "fix": "冻结时记录原票ID范围，原票后续仓库数量更新，新票晚到队列",
+      "state": "新增冻结专项1/1通过",
+      "requirements": [
+        "DOWNSTREAM-007"
+      ]
+    },
+    {
+      "id": "R1-04",
+      "issue": "首次放行动作未保存已核对的历史scope，随后禁用localStorage仍重读旧源并阻断",
+      "fix": "首次业务保存同时提交必要source scope元数据及事务内旧源核对",
+      "state": "v6真实localStorage访问禁用仍IDB保存通过",
+      "requirements": [
+        "STORE-001",
+        "STORE-005",
+        "STORE-007",
+        "STORE-008"
+      ]
+    },
+    {
+      "id": "R1-05",
+      "issue": "补料原读历史矩阵，目标确认后实物减少未得到最新缺片",
+      "fix": "新增仅补料使用的当前实物依据视图，保存T及历史快照保持；提交前核对当前实物版本",
+      "state": "新版页面复验中",
+      "requirements": [
+        "DOWNSTREAM-005",
+        "QTY-006",
+        "TARGET-002"
+      ]
+    },
+    {
+      "id": "R1-06",
+      "issue": "补料普通首次打开隐式生成印染演示加工事实，刷新触发来源不一致",
+      "fix": "普通bootstrap仅读取固定发布资料，动态生成旧演示动作收口为显式Testing",
+      "state": "新版页面复验中",
+      "requirements": [
+        "DOWNSTREAM-005",
+        "PERF-001",
+        "STORE-007",
+        "STORE-008"
+      ]
+    },
+    {
+      "id": "R1-07",
+      "issue": "手动建票使用identity-only唛架摘要，提交无真实部位明细",
+      "fix": "确认动作准备中读选定真实唛架完整部位，复核当前成员可用；列表保持轻量读取",
+      "state": "编号及分纸专项通过，实际创建复验中",
+      "requirements": [
+        "DOWNSTREAM-004",
+        "SOURCE-002",
+        "SOURCE-003"
+      ]
+    },
+    {
+      "id": "R1-08",
+      "issue": "简易交出所需换片布打印直达/新标签缺静态来源",
+      "fix": "原换片布列表及原打印标签独立读取同一已发布static-only来源",
+      "state": "实际打印/交出复验中",
+      "requirements": [
+        "COPY-003",
+        "DOWNSTREAM-004",
+        "STORE-004"
+      ]
+    },
+    {
+      "id": "R1-09",
+      "issue": "列表只读余量请求0被新严格保存数量校验判无效，全行风险未知",
+      "fix": "只读展示用正整数数量查询；真实共享提交仍拒绝0/负数/重复SKU；已知K/R展示契约",
+      "state": "14项UI契约通过，最终页复验中",
+      "requirements": [
+        "DISPATCH-003",
+        "PAGE-009",
+        "QTY-005"
+      ]
+    },
+    {
+      "id": "R1-10",
+      "issue": "同一唛架重复同ID部位、颜色代表SKU沿用各尺码、部位名称未对应技术包code",
+      "fix": "相同来源只保留一次；同ID不同内容阻断；本单颜色尺码及物料范围内唯一canonical部位，原关联不变",
+      "state": "3单测通过；v7实际同一唛架8票40片成功",
+      "requirements": [
+        "DOWNSTREAM-004",
+        "SOURCE-002",
+        "SOURCE-003"
+      ]
+    },
+    {
+      "id": "R1-11",
+      "issue": "简易仓库独立打开缺原任务纸号来源",
+      "fix": "准确Web/PDA命名route只读加载已发布任务来源",
+      "state": "v7全新页面复验中",
+      "requirements": [
+        "COPY-003",
+        "DOWNSTREAM-004",
+        "STORE-004"
+      ]
+    },
+    {
+      "id": "R1-12",
+      "issue": "前道实收非法量仍可能仅由processingCompleted标记跨越工艺链",
+      "fix": "加工完成须同时有有效实收或严格厂间完成；末道必须实际裁床回仓",
+      "state": "新增反例和真实厂间完成投影单测通过",
+      "requirements": [
+        "CRAFT-002",
+        "CRAFT-003",
+        "CRAFT-005",
+        "CRAFT-006",
+        "RECEIPT-004",
+        "RECEIPT-005"
+      ]
+    },
+    {
+      "id": "R1-13",
+      "issue": "不同票同一工艺链被每票specialCraftId误判为不同加工而不能混袋",
+      "fix": "稳定工艺要求及顺序/工厂作为链身份，不用逐票实例ID",
+      "state": "正在最小失败复现和修复",
+      "requirements": [
+        "BAG-002",
+        "CRAFT-002",
+        "RECEIPT-003"
+      ]
+    },
+    {
+      "id": "R1-14",
+      "issue": "旧页面整票登记没有带所读版本，顺序保存可能覆盖新登记",
+      "fix": "UI传所读expectedVersion，dataaction核对当前版本；事务revision继续保护并发",
+      "state": "数据action已修，UI及实际冲突复验中",
+      "requirements": [
+        "STORE-003",
+        "VALID-003"
+      ]
+    },
+    {
+      "id": "R1-15",
+      "requirements": [
+        "CRAFT-001",
+        "PAGE-007",
+        "RECEIPT-003"
+      ],
+      "issue": "实际任务承接厂不同于原打印默认厂时被错误拒绝或无法计入最终实收",
+      "state": "实际唯一分配/明确交出厂优先，多候选不猜厂，原打印不改；facts10与receipt14反例已通过，待完整页证"
+    },
+    {
+      "id": "R1-16",
+      "requirements": [
+        "DOWNSTREAM-004",
+        "SOURCE-002"
+      ],
+      "issue": "手动票原打印后，编号源遗漏且无铺布层序被装袋门禁挡住",
+      "state": "读取真实手动源，仅明确无层序的真实手动票免层序编号，不造完成记录；普通票原门禁保留；4单测通过，待当前页证"
+    },
+    {
+      "id": "R1-17",
+      "requirements": [
+        "COPY-001",
+        "COPY-004",
+        "STORE-008"
+      ],
+      "issue": "真实保存中止的错误层层重复未保存、保留输入及标点",
+      "state": "保留一次问题/下一动作/输入保留，修复后待真实错误页重验"
+    },
+    {
+      "id": "R1-18",
+      "requirements": [
+        "PERF-001",
+        "STORE-003"
+      ],
+      "issue": "旧页对抗积累记录后的单次整票保存超时",
+      "state": "定位真实单动作与重复读数，修后逐项重验，旧原始样本保留"
+    },
+    {
+      "id": "R1-19",
+      "requirements": [
+        "DOWNSTREAM-004",
+        "SOURCE-002",
+        "SOURCE-003"
+      ],
+      "issue": "主料唛架错误展开拼接片和口袋布为主料，真实手动建票被严格门禁拒绝",
+      "state": "按本单技术资料排除明确其他物料部位，保留其他料各自来源和未知待核对；5单测通过，待实际连续链建票"
+    },
+    {
+      "id": "R1-20",
+      "requirements": [
+        "RECEIPT-003",
+        "RECEIPT-007",
+        "STORE-008"
+      ],
+      "issue": "实际装袋保存后关闭按钮一并禁用，回仓又因ISO与本地文本字典排序及分钟截断误判早于交出",
+      "state": "恢复仅关闭按钮；时间按实际时刻比较，新操作完整时间保留，18项混合时间/strict回仓反例待最终复验"
+    },
+    {
+      "id": "R1-21",
+      "requirements": [
+        "COPY-004",
+        "STORE-008"
+      ],
+      "issue": "目标确认待保存及整票原因未覆盖全部离开入口，取消不能可靠保留输入",
+      "state": "现有离开提醒统一当前页面菜单/系统/页签/补料/浏览器返回，19项UI专项，待真实5样本"
+    },
+    {
+      "id": "R1-22",
+      "requirements": [
+        "CRAFT-005",
+        "DOWNSTREAM-002",
+        "RECEIPT-006",
+        "VALID-002"
+      ],
+      "issue": "简易交出仍读取原票面数量：原票5/最终有效实收4被误阻断，未使用整票有效性与最终实物共用依据",
+      "state": "修复中，最终有效实物共享入口反例及页面待重验"
+    },
+    {
+      "id": "R1-23",
+      "requirements": [
+        "COPY-001",
+        "COPY-002",
+        "COPY-003",
+        "COPY-004"
+      ],
+      "issue": "换片异常消息重复票种名，票头重复显示内部缩写HPB",
+      "state": "已修源码，扫码身份保持；最终文案专项/打印待验证"
+    },
+    {
+      "id": "R1-24",
+      "requirements": [
+        "COPY-004",
+        "PERF-001",
+        "STORE-002",
+        "STORE-003"
+      ],
+      "issue": "裁片放行首次整票保存跌入通用FCS事件集合，额外加载无关页面；前台真实保存1247.3ms、旧页冲突1117.1ms仍超时，冲突恢复文案重复",
+      "implementation": [
+        "src/main.ts::dispatchPageEvent",
+        "src/data/fcs/cutting/cut-piece-ticket-validity.ts::saveCutPieceReleaseTicketValidityAction"
+      ],
+      "priorEvidence": [
+        "output/playwright/cut-release-ui/v12/",
+        "output/playwright/cut-release-ui/validity-save-foreground-cpu-v12.json"
+      ],
+      "state": "直接路由及提示去重已修，v13实际确认与事务读回测时待验"
+    },
+    {
+      "id": "R1-25",
+      "requirements": [
+        "COPY-002",
+        "PAGE-001",
+        "PERF-001",
+        "VERIFY-001"
+      ],
+      "issue": "1280列表筛选栏固定7列挤压查询并将重置挤出可见区域",
+      "implementation": [
+        "src/pages/process-factory/cutting/cut-piece-release.ts::renderFilters"
+      ],
+      "priorEvidence": [
+        "output/playwright/cut-release-ui/v13/legacy-migration-failure-retained.png"
+      ],
+      "state": "1280/1366两行三列与按钮不换行已修，最终受影响设备/操作待重验"
+    },
+    {
+      "id": "R1-26",
+      "requirements": [
+        "COPY-001",
+        "COPY-002",
+        "COPY-003",
+        "COPY-004",
+        "DOWNSTREAM-004"
+      ],
+      "issue": "换片打印标签已精简，但预览实际出纸勾选行仍直接显示HPB/PO/tdv内部路径",
+      "implementation": [
+        "src/pages/print/replacement-fabric-preview.ts::renderReplacementFabricPrintTicketChoice"
+      ],
+      "priorEvidence": [
+        "output/playwright/cut-release-dispatch/v13-simple-print-identity-image-inspection.log"
+      ],
+      "state": "短业务票名+生产单/面料/颜色与原checkbox身份已修，原二维码保持，最终打印链待重验"
+    },
+    {
+      "id": "R1-27",
+      "requirements": [
+        "COPY-001",
+        "COPY-003",
+        "CRAFT-001",
+        "CRAFT-006",
+        "DOWNSTREAM-001"
+      ],
+      "issue": "已确认无特殊工艺的灰卫衣演示纸样与部位资料不一致，使普通完裁票被误拦；实际任务单及简易交接仍显示内部物料键",
+      "implementation": [
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts::applyGreyHoodieConfirmationFixture",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts"
+      ],
+      "priorEvidence": [
+        "output/playwright/cut-release-dispatch/simple-handover-v13-current-paper.json",
+        "docs/product-design/evidence/2026-10-09-cut-piece-release/v14-ordinary-fixture-before-fix.log"
+      ],
+      "state": "演示部位明确[]同纸样，未知工艺门禁保留；任务单/简易物料短名称已修，v14真实流程待重验"
+    },
+    {
+      "id": "R1-28",
+      "requirementIds": [
+        "DOWNSTREAM-005",
+        "COPY-004",
+        "PERF-001"
+      ],
+      "issue": "放行补料草稿原因/说明错误即时DOM提示被主页面重绘清掉",
+      "status": "已修复待最终实际复验",
+      "fix": "DOM-only校验不触发整页重绘，保留具体错误、表单和原保存数据；有效确认仍正常重绘",
+      "evidence": [
+        "output/playwright/cut-release-supplement/supplement-v15-required-cause-before-fix.json"
+      ],
+      "requirements": [
+        "COPY-004",
+        "DOWNSTREAM-005",
+        "PERF-001",
+        "STORE-008"
+      ]
+    },
+    {
+      "id": "R1-29",
+      "requirementIds": [
+        "COPY-001",
+        "COPY-004"
+      ],
+      "issue": "旧资料转换失败时同一错误在顶部与操作区重复显示",
+      "status": "已修复待最终实际复验",
+      "fix": "同一消息已由当前反馈显示时不重复显示操作区消息；转换进度、失败原因、原资料与重试入口保留",
+      "evidence": [
+        "output/playwright/cut-release-ui/v17/legacy-migration-failure-retained.png"
+      ],
+      "requirements": [
+        "COPY-001",
+        "COPY-004",
+        "STORE-005",
+        "STORE-008"
+      ]
+    },
+    {
+      "id": "R1-30",
+      "requirements": [
+        "COPY-004",
+        "PERF-001",
+        "STORE-007",
+        "STORE-008"
+      ],
+      "issue": "真实迁移并读回15条COMPLETE后，后道演示开关在try外访问旧存储getter，使裁床入口仍无法初始化",
+      "fix": "仅将演示开关getter访问纳入原try保护；不跳过旧来源核对、不伪造空业务数据",
+      "implementation": [
+        "src/data/fcs/post-finishing-full-flow.ts::shouldBootstrapPostFinishingDemo",
+        "tests/unit/cutting-migrated-storage-import.test.ts"
+      ],
+      "state": "准确最小反例失败→修复后通过；真实已迁移域5次保存及受影响页面待v19重放",
+      "priorEvidence": [
+        "output/playwright/cut-release-dispatch/v18-migrated-LS-getter-stack.json",
+        "v18-migrated-storage-import-root-cause-reproduced.log"
+      ],
+      "evidence": [
+        "v19-migrated-storage-import-after-fix.log"
+      ]
+    },
+    {
+      "id": "R1-31",
+      "requirements": [
+        "CRAFT-001",
+        "PERF-001",
+        "STORE-007",
+        "STORE-008"
+      ],
+      "issue": "已转换裁床资料后，裁床工艺来源仍提前初始化全厂接收需求，旧源不可读使入口阻断",
+      "fix": "裁床只读取同一组已裁部位工艺任务资料和关联编号；工艺厂原入口仍初始化仓库并核验其原接收来源。保留同一任务事实，不吞掉旧源读取错误。",
+      "implementation": [
+        "src/data/fcs/special-craft-task-orders.ts::listCutPieceSpecialCraftTaskOrderSources",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts"
+      ],
+      "state": "三项专项回归通过；最终实际已转换旧存储不可读保存与受影响入口待 v20 重放",
+      "priorEvidence": [
+        "output/playwright/cut-release-dispatch/v19-migrated-LS-getter-stack.json",
+        "v19-cutting-source-projection-before-fix.log"
+      ],
+      "evidence": [
+        "v20-cutting-source-projection-after-fix.log"
+      ]
+    },
+    {
+      "id": "R1-32",
+      "requirements": [
+        "DOWNSTREAM-004",
+        "PERF-001",
+        "STORE-007",
+        "STORE-008"
+      ],
+      "issue": "已转换裁床资料后，原任务单预览加载全部打印模板，再次触发无关工艺厂接收旧源；实际预览失败",
+      "fix": "任务单只加载原任务单模板并读取原有效分配；保留任务来源、数量、工厂及打印校验，不读取或吞掉无关工艺厂旧源错误",
+      "implementation": [
+        "src/pages/print/print-preview.ts::loadPrintAdapter",
+        "tests/unit/cutting-migrated-storage-import.test.ts"
+      ],
+      "state": "公开任务单预览专项反例失败→修复后4项全通过，实际命名路径待v21重放",
+      "priorEvidence": [
+        "output/playwright/cut-release-dispatch/v20-LS-task-paper-stacks.json",
+        "v20-task-paper-source-before-fix.log"
+      ],
+      "evidence": [
+        "v21-task-paper-source-after-fix.log"
+      ]
+    },
+    {
+      "id": "R1-33",
+      "requirements": [
+        "COPY-002",
+        "COPY-004"
+      ],
+      "issue": "改派缺来源提示仍显示“生效车缝分配快照”实现术语",
+      "fix": "仅把同一阻断结果改为“未找到有效车缝分配，无法改派。”；原条件及门禁保持",
+      "implementation": [
+        "src/pages/unified-dispatch-workbench.ts::renderReassignmentScope"
+      ],
+      "state": "源码已精简；最终构建和受影响正常页面待v22复验",
+      "priorEvidence": [
+        "version-v21.json"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "R1-34",
+      "issue": "当前真实UI正确主料唛架票完成打印、装袋与入仓，IDB事件存在，但特殊工艺交出候选未显示该袋，full reload同样缺失",
+      "requirements": [
+        "BAG-003",
+        "CRAFT-001",
+        "CRAFT-002",
+        "DOWNSTREAM-001"
+      ],
+      "state": "源码与50专项通过；当前真实两旧袋及连续工艺待v23重放",
+      "evidence": [
+        "v22-minute-inbound-and-internal-copy-before-fix.log",
+        "v23-minute-inbound-and-internal-copy-final.log",
+        "output/playwright/cut-release-receipt/v22-new-inbound-missing-handover.png",
+        "receipt-v22-actions.jsonl"
+      ],
+      "fix": "新增装袋/入仓默认完整ISO；同一分钟含旧低精度且整组唯一可靠ledgerSequence时统一按账本排序，完整秒/跨分钟/缺失重复序号沿用原时间；原记录不改写"
+    },
+    {
+      "id": "R1-35",
+      "issue": "真实生成工艺回仓号包含SPECIAL-HR/special-craft-handover及UUID，默认侧栏及确认存在内部编号",
+      "requirements": [
+        "COPY-001",
+        "COPY-002",
+        "COPY-004",
+        "PAGE-007"
+      ],
+      "state": "源码与专项通过，当前正常回仓侧栏待v23实际重放",
+      "fix": "只把已识别生成内部号收进查看记录编号；真实交出/回仓业务号及业务袋周期完整保留。危险确认保留票、袋、位置、工艺、数量、历史影响",
+      "evidence": [
+        "v22-minute-inbound-and-internal-copy-before-fix.log",
+        "v23-minute-inbound-and-internal-copy-final.log"
+      ]
+    },
+    {
+      "id": "R1-36",
+      "issue": "原拆袋专项普通测试票只有事件快照，未声明新共享门禁所需的票来源；默认时间旧断言要求截断分钟",
+      "requirements": [
+        "DOWNSTREAM-002",
+        "SOURCE-001",
+        "VERIFY-002"
+      ],
+      "state": "原完整拆袋专项已通过，等待最终workflow统一记录",
+      "fix": "仅专项脚本声明已装袋普通fixture来源，特殊工艺fixture读取本脚本实际阶段实收。保留未知票与业务代码的生产门禁；默认时间断言完整ISO且Date可解析，原数量/重复/阻断契约保留",
+      "evidence": [
+        "v23-transfer-bag-repack-original-command.log",
+        "v23-transfer-bag-repack-final.log",
+        "repack-head-baseline.log"
+      ]
+    },
+    {
+      "id": "R1-37",
+      "issue": "实际正常袋候选已经恢复，但提交生命周期再次用旧成对排序回退已装袋，拒绝合法第一道工艺交出",
+      "requirements": [
+        "DOWNSTREAM-002",
+        "RECEIPT-003",
+        "VERIFY-002"
+      ],
+      "state": "v24源码专项通过，等待实际原袋提交及全链最终证据",
+      "fix": "待交出全套事件读取和共享袋生命周期使用整个集合统一比较器；周期边界按事实ID去重，阶段/回收/报废在同一上下文内排序。原事件不重写，数量/身份/重复保护保留",
+      "evidence": [
+        "receipt-v23-actions.jsonl",
+        "v23-lifecycle-submit-before-fix.log",
+        "v24-lifecycle-wrapper-final.log"
+      ]
+    },
+    {
+      "id": "R1-38",
+      "issue": "实际Web回仓wrapper截断ISO秒和时区，将较晚回仓错误解释为早于来源交出",
+      "requirements": [
+        "RECEIPT-003",
+        "RECEIPT-007",
+        "VERIFY-002"
+      ],
+      "state": "v24源码专项通过，等待正常Web/PDA实际证据",
+      "fix": "带袋、无袋、空袋真实回仓入口均原文传递occurredAt，不猜时刻、不改历史。三分支最小失败和幂等/实际量回归保留",
+      "evidence": [
+        "v24-wrapper-iso-before-fix.log",
+        "v24-lifecycle-wrapper-final.log"
+      ]
+    },
+    {
+      "id": "R1-39",
+      "issue": "真实最终回仓库位卡显示未关联生产单，但原逐票回仓快照明确生产单",
+      "requirements": [
+        "COPY-004",
+        "PAGE-007",
+        "RECEIPT-003",
+        "SOURCE-003",
+        "VERIFY-002"
+      ],
+      "fix": "当前库位按严格原菲票快照及仍有实收库存的票读取真实生产单；零实收票不冒充库存，多生产单保留全部真实关联，不重写原事件",
+      "state": "v25真实入口最小契约通过，最终正常页面复验中",
+      "evidence": [
+        "receipt-v24-actions.jsonl",
+        "v25-location-pda-minimal-before-fix.log",
+        "v25-location-pda-after-fix.log"
+      ]
+    },
+    {
+      "id": "R1-40",
+      "issue": "PDA实际特殊工艺回仓入口仍把默认时间截为本地分钟，丢失实际秒和时区",
+      "requirements": [
+        "DOWNSTREAM-002",
+        "RECEIPT-003",
+        "RECEIPT-007",
+        "VERIFY-002"
+      ],
+      "fix": "仅本次实际PDA回仓默认值保存完整ISO时刻，保留原来源时刻、身份和数量校验，未改历史记录",
+      "state": "v25实际PDA保存入口最小契约通过，最终正常页面复验中",
+      "evidence": [
+        "v25-location-pda-minimal-before-fix.log",
+        "v25-location-pda-after-fix.log",
+        "build-v25.log"
+      ]
+    },
+    {
+      "id": "R1-41",
+      "issue": "仍适用的历史换袋库位投影把原文ISO与旧本地分钟作字符串比较，真实入仓在前却丢失来源",
+      "requirements": [
+        "DOWNSTREAM-002",
+        "RECEIPT-003",
+        "SOURCE-004",
+        "STORE-007",
+        "VERIFY-002"
+      ],
+      "fix": "来源先后和最新来源选择均使用整组原事件比较器及sourceEventId定位原事实；保留exact票集合、声明源周期及工厂仓库库位作用域，不恢复旧生产入口",
+      "state": "v26最小投影反例和原完整拆袋专项通过，最终实际页面证据待闭环",
+      "evidence": [
+        "v26-legacy-location-before-fix.log",
+        "v26-legacy-location-after-fix.log",
+        "v26-repack-final.log"
+      ]
+    },
+    {
+      "id": "R1-42",
+      "issue": "PDA逐票实收最后字段失焦触发整页重绘，替换确认按钮，正常点击未提交并可丢输入",
+      "requirements": [
+        "COPY-004",
+        "DOWNSTREAM-002",
+        "RECEIPT-001",
+        "RECEIPT-003",
+        "RECEIPT-004",
+        "STORE-003",
+        "VERIFY-002"
+      ],
+      "fix": "仅4种票内数量、原因、确认、加工完成控件使用现有局部处理标记，不在change整页重绘；input及实际确认继续逐票同步当前DOM，错误门禁和保存事实保持",
+      "state": "v26实际未提交blur回归通过，正常最后字段聚焦实际保存5次待闭环",
+      "evidence": [
+        "receipt-v25-actions.jsonl",
+        "v25-pda-blur-original.log",
+        "v25-pda-blur-changed-original.log",
+        "v26-pda-blur-after-fix.log",
+        "build-v26.log"
+      ]
+    },
+    {
+      "id": "R1-43",
+      "issue": "同一秒内两次合法逐票更正沿用时间型事件编号，第二次被幂等冲突错误拒绝",
+      "requirements": [
+        "RECEIPT-006",
+        "RECEIPT-007",
+        "STORE-002",
+        "STORE-003",
+        "STORE-004",
+        "VERIFY-002"
+      ],
+      "fix": "更正使用既有原来源事实与更正版本组成的稳定动作身份作为事件编号；连续版本独立，重复提交同一版本去重，原事实不改写，库存仅按差额",
+      "state": "带袋、无袋同秒连续五次更正与各次重复提交最小专项通过，最终实际按钮和两轮逐项证据待闭环",
+      "evidence": [
+        "v27-correction-second-minimal-before-fix.log",
+        "v27-correction-second-after-fix.log",
+        "receipt-v26-actions.jsonl",
+        "build-v27.log"
+      ]
+    },
+    {
+      "id": "R1-44",
+      "requirements": [
+        "SOURCE-001",
+        "SOURCE-002",
+        "SOURCE-003",
+        "CRAFT-005",
+        "QTY-003",
+        "PAGE-007",
+        "TARGET-002",
+        "CHANGE-001",
+        "STORE-007",
+        "VERIFY-002"
+      ],
+      "problem": "初始演示生产单正常新增的实际已装袋菲票被统一过滤，最终回仓数量未进入正式矩阵；PDA专项变体不能成为额外必需BOM",
+      "counterexample": "PO-202603-0002 新票TM-FVUUO-SNF9Q-002最终特殊工艺实收3/0后，放行仍为静态FAB700和示例票",
+      "fix": "正式来源可排除PDA专项变体；实际手动/已打印票按正确裁剪单与生产单激活整单正式BOM/部位，保留原目标与放行、分配和历史，已激活归零不回退演示",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/generated-cut-orders.ts",
+        "src/data/fcs/cutting/generated-cut-release.ts"
+      ],
+      "automation": [
+        "v28-initial-live-order-correct-before-fix.log",
+        "v28-initial-live-order-after-fix.log",
+        "scripts/check-generated-cut-release.ts"
+      ],
+      "status": "代码已修复，最终运行待验证",
+      "version": "v28"
+    },
+    {
+      "id": "R1-45",
+      "requirements": [
+        "PERF-001",
+        "SOURCE-002",
+        "BAG-001",
+        "BAG-002",
+        "BAG-003",
+        "DOWNSTREAM-001",
+        "STORE-002",
+        "STORE-004",
+        "STORE-007",
+        "VERIFY-002"
+      ],
+      "problem": "同一正常增长资料中装袋5个样本933.1/936.6/1073.8/1044.4/1139.6ms；普通装袋无关全量车缝候选投影耗295ms",
+      "status": "最小修复已实施，当前实际回归待验证",
+      "version": "v29",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-actions.ts"
+      ],
+      "evidence": [
+        "receipt-v28-actions.jsonl",
+        "v28-profile-bagging.json"
+      ]
+    },
+    {
+      "id": "R1-46",
+      "requirements": [
+        "COPY-001",
+        "COPY-004",
+        "VERIFY-002"
+      ],
+      "problem": "旧Web动作检查强制出现已删除的重复说明，和用户明确精简文案冲突",
+      "status": "最小修复已实施，当前实际回归待验证",
+      "version": "v29",
+      "implementation": [
+        "scripts/check-web-cutting-transfer-bag-actions.ts"
+      ],
+      "evidence": [
+        "v29-bagging-lookup-adjacent.log",
+        "v29-bagging-adjacent-after-alignment.log"
+      ]
+    },
+    {
+      "id": "R1-47",
+      "requirements": [
+        "PERF-001",
+        "SOURCE-004",
+        "RECEIPT-003",
+        "RECEIPT-006",
+        "RECEIPT-007",
+        "PAGE-007",
+        "DOWNSTREAM-002",
+        "STORE-002",
+        "STORE-003",
+        "STORE-004",
+        "STORE-007",
+        "VERIFY-002"
+      ],
+      "problem": "增长中的同一真实浏览器档案里，当前袋投影逐袋重读整份台账并重复校验全部工艺交接，装袋/首道/转下一道出现超过1000ms。",
+      "status": "最小修复已实施，同一档案当前实际性能待验证",
+      "version": "v30",
+      "implementation": [
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "receipt-v29-actions.jsonl",
+        "v29-profile-bagging.json",
+        "v30-batch-before-optimization.log",
+        "v30-batch-after-optimization.log",
+        "v30-batch-repack.log"
+      ]
+    },
+    {
+      "id": "R1-48",
+      "requirements": [
+        "PERF-001",
+        "CRAFT-001",
+        "CRAFT-002",
+        "CRAFT-003",
+        "CRAFT-004",
+        "CRAFT-005",
+        "CRAFT-006",
+        "CRAFT-007",
+        "CRAFT-008",
+        "RECEIPT-003",
+        "RECEIPT-006",
+        "RECEIPT-007",
+        "PAGE-007",
+        "SOURCE-004",
+        "STORE-002",
+        "STORE-003",
+        "STORE-004",
+        "STORE-007",
+        "VERIFY-002"
+      ],
+      "problem": "v30原档案装袋1093ms，详情逐票逐阶段重验全部交出，并重复投影实收。",
+      "status": "同次读取最小优化已实施，同档案当前实际5样本及全部最终证据待验证",
+      "version": "v31",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts"
+      ],
+      "evidence": [
+        "receipt-v30-actions.jsonl",
+        "v30-profile-bagging.json",
+        "v31-detail-before-optimization.log",
+        "v31-detail-after-optimization.log",
+        "v31-detail-repack.log"
+      ]
+    },
+    {
+      "id": "R1-49",
+      "requirements": [
+        "PERF-001",
+        "BAG-001",
+        "BAG-002",
+        "BAG-003",
+        "SOURCE-004",
+        "CRAFT-001",
+        "CRAFT-002",
+        "CRAFT-003",
+        "CRAFT-004",
+        "CRAFT-005",
+        "CRAFT-006",
+        "CRAFT-007",
+        "CRAFT-008",
+        "RECEIPT-003",
+        "RECEIPT-006",
+        "RECEIPT-007",
+        "PAGE-007",
+        "DOWNSTREAM-002",
+        "STORE-002",
+        "STORE-003",
+        "STORE-004",
+        "STORE-007",
+        "STORE-008",
+        "VERIFY-002"
+      ],
+      "problem": "v31原档案第4条首道交出1046ms，同步准备同一账本反复JSON转换和同一袋/实收反复读取。",
+      "status": "同步动作限定复用已实施，同档案当前5样本及最终证据待验证",
+      "version": "v32",
+      "implementation": [
+        "src/data/fcs/cutting/cutting-runtime-event-ledger.ts",
+        "src/data/fcs/cutting/cutting-event-repository.ts",
+        "src/pages/process-factory/cutting/wait-handover-actions.ts",
+        "tests/unit/cut-piece-release-chronology.test.ts"
+      ],
+      "evidence": [
+        "receipt-v31-actions.jsonl",
+        "v31-profile-direct.json",
+        "v32-read-frame-before-fix.log",
+        "v32-read-frame-same-time-fixture-order-diagnostic.log",
+        "v32-read-frame-after-fix.log",
+        "v32-atomic-after-fix.log",
+        "v32-atomic-repack.log"
+      ]
+    },
+    {
+      "id": "R1-50",
+      "requirements": [
+        "PERF-001",
+        "RECEIPT-007",
+        "SOURCE-004",
+        "STORE-002",
+        "STORE-003",
+        "STORE-004",
+        "STORE-007",
+        "STORE-008",
+        "VERIFY-002"
+      ],
+      "problem": "v32同档案直转1030.8ms，正常新提交前对同样记录重复完整读取和放行投影。",
+      "status": "单次提交开始读取已收口，当前完整性能与事务冲突回读待验证",
+      "version": "v33",
+      "implementation": [
+        "src/data/fcs/cutting/cutting-event-repository.ts"
+      ],
+      "evidence": [
+        "receipt-v32-actions.jsonl",
+        "v33-single-read-after-fix.log",
+        "build-v33.log"
+      ]
+    },
+    {
+      "id": "R1-51",
+      "requirements": [
+        "PERF-001",
+        "STORE-008",
+        "COPY-004",
+        "VERIFY-001",
+        "VERIFY-002"
+      ],
+      "problem": "原输出驱动把原生确认等待和取消导航的工具等待计入系统响应；保存测量也包含整份验收资料协议回传，需依7.2分段辨析而不能重标旧超时。",
+      "status": "实际诊断与驱动收口，当前正式真实事件/原确认两阶段/读回/两帧五次验证待闭环",
+      "version": "v33",
+      "implementation": [
+        "output/playwright/cut-release-ui/unsaved-browser.js",
+        "output/playwright/cut-release-ui/demo-copy-v33.js",
+        "output/playwright/cut-release-ui/diagnose-event-inbound-v33.js",
+        "output/playwright/cut-release-ui/diagnose-confirm-delivery-v33.js"
+      ],
+      "evidence": [
+        "receipt-v33-actions.jsonl",
+        "v33-event-inbound-diagnostic.log",
+        "v33-native-confirm-delivery-diagnostic.log",
+        "output/playwright/cut-release-ui/v33-native-confirmation-total-original",
+        "output/playwright/cut-release-ui/v33-initial-root-proof",
+        "output/playwright/cut-release-ui/v33-native-phase-before-frame-metadata"
+      ],
+      "note": "诊断不作门禁；旧原始样本不改。门禁包含真实事件排队、原生提示展示、确认返回后的原结果/输入恢复及独立持久读取、字体必要图与两帧实际绘制。"
+    },
+    {
+      "id": "R1-52",
+      "requirements": [
+        "PAGE-008",
+        "PERF-001",
+        "VERIFY-001",
+        "VERIFY-002"
+      ],
+      "problem": "v33 实际截图的款式卡显示图片未提供；styleImageUrl 未赋值且列表款式没有图片。",
+      "status": "当前v36款式源、列表及逐款60样本/亲看大图通过；第二轮已核当前证据SHA",
+      "version": "v34",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "public/materials/cut-piece-release/girl-ruffle-pink.jpg"
+      ],
+      "evidence": [
+        "v34-style-image-before-fix.log",
+        "v34-style-image-after-fix.log",
+        "output/playwright/cut-release-ui/stale-validity-conflict-visible.png",
+        "style-images-v36.json",
+        "output/playwright/cut-release-ui/visual-inspection-v36.json"
+      ],
+      "note": "静态图片为明确对应的原型示例，未借用图片伪造未知新款；用户保存的同生产单冻结图片优先。",
+      "verificationVersion": "v36"
+    },
+    {
+      "id": "R1-53",
+      "requirements": [
+        "PAGE-008",
+        "PERF-001",
+        "VERIFY-001",
+        "VERIFY-002"
+      ],
+      "problem": "实际逐图发现PO14677物料缺图；actual-data契约进一步发现PO2及全部静态通用示例必需物料缺图。",
+      "status": "当前v36所有必需物料实图55样本/亲看缩略图及大图通过，资料缺失规则保持",
+      "version": "v35",
+      "implementation": [
+        "src/data/fcs/cut-piece-release.ts",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "evidence": [
+        "material-images-before-v35.log",
+        "build-v35.log",
+        "material-images-v36.json",
+        "output/playwright/cut-release-ui/visual-inspection-v36.json"
+      ],
+      "note": "原失败原样保留，未知真实来源不套图，资料缺失单耗不补齐。",
+      "verificationVersion": "v36"
+    },
+    {
+      "id": "R1-54",
+      "requirements": [
+        "VERIFY-001",
+        "VERIFY-002",
+        "PERF-001",
+        "SCOPE-001"
+      ],
+      "problem": "真实点击维护库位图无响应；本轮仓库事件轻量分支绕过原库位图handler。",
+      "status": "恢复原委派，实际按钮和连续回仓待验证",
+      "version": "v36",
+      "implementation": [
+        "src/main.ts",
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "evidence": [
+        "receipt-v35-actions.jsonl"
+      ],
+      "note": "不改URL绕过按钮，不改既有库位配置源。"
+    },
+    {
+      "id": "R1-55",
+      "requirements": [
+        "PERF-001",
+        "VERIFY-001",
+        "VERIFY-002"
+      ],
+      "problem": "补料采集器在已完成绘制后另一次读取时钟，将协议等候混入最终端点；首版v36真实1176.4ms失败及首次修正仍遗漏最后5次，全部原样保留。",
+      "status": "当前v36实际50样本通过且第二轮独立核对同调用终态/原失败留存",
+      "version": "v36",
+      "implementation": [
+        "output/playwright/cut-release-supplement/verify-supplement-endpoint-v36.py"
+      ],
+      "evidence": [
+        "supplement-v36-1176-original.json",
+        "supplement-v36-first-endpoint-original.json",
+        "supplement-browser.json",
+        "output/playwright/cut-release-ui/supplement-exact-endpoint-v36-root.log"
+      ],
+      "note": "最终时钟与预期数量DOM校验、图片解码及两帧同一浏览器端点；超时立即停止后续写入。生产代码未变，不把旧失败改成通过。",
+      "verificationVersion": "v36"
+    },
+    {
+      "id": "R1-56",
+      "requirements": [
+        "RECEIPT-001",
+        "PERF-001",
+        "VERIFY-001",
+        "VERIFY-002"
+      ],
+      "problem": "当前正规连续工艺第二道交出已原子保存，但实际可信事件至持久读取、完整DOM和绘制1082.7ms，超过1000ms。保留原失败，须诊断重复源读取并重放当前版本5次全链。",
+      "status": "待修复和当前版本验证",
+      "version": "v36",
+      "evidence": [
+        "receipt-v36-one-warehouse-discrepancy.json",
+        "output/playwright/cut-release-receipt/root-profile-warehouse-v36.json"
+      ],
+      "implementation": [
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts"
+      ]
+    },
+    {
+      "id": "R1-57",
+      "requirements": [
+        "SOURCE-001",
+        "SOURCE-004",
+        "CRAFT-005",
+        "CRAFT-008",
+        "RECEIPT-003",
+        "RECEIPT-007",
+        "QTY-001",
+        "COPY-001",
+        "VERIFY-001",
+        "VERIFY-002"
+      ],
+      "problem": "仓库库存列表使用旧装袋量并追加独立回仓行：真实两票已实交4片给SPF，表仍5/可交5/APF；最终3和0也仍5。须从同一有效当前袋/逐票实际实收读取当前数量与保管位置，不更改票面或历史T/A/O。",
+      "status": "待修复和当前版本验证",
+      "version": "v36",
+      "implementation": [
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "receipt-v36-one-warehouse-discrepancy.json",
+        "output/playwright/cut-release-receipt/root-warehouse-current-v36.png"
+      ]
+    },
+    {
+      "id": "R1-58",
+      "requirements": [
+        "SOURCE-001",
+        "SOURCE-004",
+        "RECEIPT-003",
+        "RECEIPT-007",
+        "CRAFT-005",
+        "CRAFT-008"
+      ],
+      "problem": "合法无袋逐票实收3/0被仅按当前在用袋的库存列表遗漏；必须独立合并未消费最新实收与真实库位。",
+      "status": "源修复和专项反例通过，当前全门禁及双审待验证",
+      "version": "v38",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-ui/r1-58-60-red.log",
+        "output/playwright/cut-release-ui/r1-58-60-green.log"
+      ]
+    },
+    {
+      "id": "R1-59",
+      "requirements": [
+        "SOURCE-004",
+        "RECEIPT-006",
+        "RECEIPT-007",
+        "QTY-001",
+        "DOWNSTREAM-002"
+      ],
+      "problem": "原无袋实收更正发生在重新装袋后，min当前袋数/最新实收会悄悄篡改已装袋数；必须保留当前数并提示待核对，阻止可交。",
+      "status": "源修复和专项反例通过，当前全门禁及双审待验证",
+      "version": "v38",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-ui/r1-58-60-red.log",
+        "output/playwright/cut-release-ui/r1-58-60-green.log"
+      ]
+    },
+    {
+      "id": "R1-60",
+      "requirements": [
+        "SOURCE-004",
+        "BAG-003",
+        "DOWNSTREAM-002"
+      ],
+      "problem": "当前resolver已设置兼容阻断原因，新列表忽略该原因仍标待分配及可交。原5片、旧入仓快照6片真实反例必须待核对/可交0。",
+      "status": "源修复和专项反例通过，当前全门禁及双审待验证",
+      "version": "v38",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-ui/r1-58-60-red.log",
+        "output/playwright/cut-release-ui/r1-58-60-green.log"
+      ]
+    },
+    {
+      "id": "R1-61",
+      "requirements": [
+        "COPY-001",
+        "COPY-002",
+        "COPY-003",
+        "COPY-004",
+        "RECEIPT-003",
+        "RECEIPT-006"
+      ],
+      "problem": "实际活跃回仓流水展示UUID长串且把已点收3/0写成回仓差异处理中；须简洁显示当次实收/差异数量及历史更正版本，原身份不变。",
+      "status": "源修复和专项反例通过，当前全门禁及双审待验证",
+      "version": "v38",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/root-special-return-copy-v37.log"
+      ]
+    },
+    {
+      "id": "R1-62",
+      "requirements": [
+        "SOURCE-004",
+        "RECEIPT-006",
+        "RECEIPT-007",
+        "CRAFT-005",
+        "CRAFT-008"
+      ],
+      "problem": "已被消费前道的历史更正时间晚于末道实收，按最新票时间选源会丢失末道当前3片；不反冲旧更正不参与当前库存选源。",
+      "status": "strict原入口反例由失败到专项通过，当前全门禁及双审待验证",
+      "version": "v40",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-ui/r1-62-red-business.log",
+        "output/playwright/cut-release-ui/r1-62-second-physical-order-original-failure.log",
+        "output/playwright/cut-release-ui/r1-62-63-green.log"
+      ]
+    },
+    {
+      "id": "R1-63",
+      "requirements": [
+        "RECEIPT-006",
+        "CRAFT-003",
+        "CRAFT-005",
+        "CRAFT-008",
+        "QTY-001"
+      ],
+      "problem": "当前投影用前道更正时间作为原实物回仓时间，会错误拒绝更正前已合法完成的末道3片；必须用严格更正继承的原实物回仓时间核对工艺先后，保留当次更正时间与原历史。",
+      "status": "strict原入口反例由失败到专项通过，当前全门禁及双审待验证",
+      "version": "v40",
+      "implementation": [
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-ui/r1-62-red-business.log",
+        "output/playwright/cut-release-ui/r1-62-second-physical-order-original-failure.log",
+        "output/playwright/cut-release-ui/r1-62-63-green.log"
+      ]
+    },
+    {
+      "id": "R1-64",
+      "requirements": [
+        "SOURCE-004",
+        "DOWNSTREAM-002",
+        "CRAFT-005",
+        "QTY-001",
+        "COPY-004"
+      ],
+      "problem": "实际 v40 唯一M3/XL0最终实收显示待核对/可交0；当前票尚未分配车缝任务被误当来源冲突，应复用原任务分配后补齐规则，真实快照数量冲突仍阻断。",
+      "status": "正常未分配来源反例由红到绿，当前全门禁及双审待验证",
+      "version": "v41",
+      "implementation": [
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/root-warehouse-read-v40.log",
+        "output/playwright/cut-release-ui/r1-64-red.log",
+        "output/playwright/cut-release-ui/r1-64-green.log"
+      ]
+    },
+    {
+      "id": "R1-65",
+      "requirements": [
+        "COPY-001",
+        "COPY-002",
+        "PAGE-009",
+        "PAGE-010"
+      ],
+      "problem": "主代理亲看v41仓库1366图，5个统计含冗余hint导致实际数量省略、查看流水断字；需当前页面短标签/无重复说明并保证主要数量和按钮可读。",
+      "status": "限定视觉修复已写，当前1366/1024实际页面待验证",
+      "version": "v42",
+      "implementation": [
+        "src/pages/process-factory/cutting/warehouse-hub.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/root-warehouse-current-v41.png"
+      ]
+    },
+    {
+      "id": "R1-66",
+      "requirements": [
+        "SOURCE-004",
+        "COPY-001",
+        "COPY-002"
+      ],
+      "problem": "当前仓库差异汇总将截断交出数与所有历史更正差异相加，没有当前待处理事实口径；删掉汇总和无用计算，历史真实逐笔差异仍在回仓流水展示。",
+      "status": "已删除旧汇总，当前页面和双审待验证",
+      "version": "v43",
+      "implementation": [
+        "src/pages/process-factory/cutting/warehouse-hub.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/root-warehouse-current-1024-v42.png"
+      ]
+    },
+    {
+      "id": "R1-67",
+      "requirements": [
+        "COPY-002",
+        "COPY-004",
+        "VERIFY-002"
+      ],
+      "problem": "v43仓库待入仓缩短提示时丢失张单位，真实页面显示74而非74张；仅补必要单位，保留数量来源和其他简洁文案。",
+      "status": "仅单位源码修复，v44真实页面待验证",
+      "version": "v43",
+      "implementation": [
+        "src/pages/process-factory/cutting/warehouse-hub.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/root-warehouse-current-v43.png",
+        "output/playwright/cut-release-receipt/root-warehouse-current-1024-v43.png"
+      ],
+      "source": "AGENTS.md 4.2，产品方案19.1，COPY-002"
+    },
+    {
+      "id": "R1-68",
+      "requirements": [
+        "VERIFY-001",
+        "VERIFY-002",
+        "PERF-001",
+        "COPY-004"
+      ],
+      "problem": "原待交出仓GET筛选表单被根submit.preventDefault阻止，又没有命名委派；真实trusted筛选后仍20行/全表92条，而应为原袋2张票。仅按现有导航应用原表单条件，数量与门禁不改。",
+      "status": "具名筛选表单源码已接入，v44真实五次完整筛选待验证",
+      "version": "v44",
+      "implementation": [
+        "src/main.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/v43/raw/20261009T214701894651Z-3806ae8740/native-final-normal-two-stage-sample1.log"
+      ]
+    },
+    {
+      "id": "R1-69",
+      "requirements": [
+        "SOURCE-004",
+        "DOWNSTREAM-002",
+        "STORE-002",
+        "STORE-003",
+        "PERF-001",
+        "VERIFY-002"
+      ],
+      "problem": "v44同增长档案第二次正常装袋真实1230.9ms失败。单次真实CPU诊断显示原换片票批验证每只袋重复解析全账、顺序处理与严格工艺核对。复用已有严格批量读取，交出前仍过滤同一受管事件，最终占用仍从原暂存storage实际独立读取一次，未放宽身份/数量/任务/工艺条件。",
+      "status": "最小真实重复转换反例4次→最多1次通过；当前实际五次待重放",
+      "version": "v45",
+      "implementation": [
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "evidence": [
+        "output/playwright/cut-release-receipt/v44/raw/20261009T215604359642Z-772dfc2da4/native-final-normal-two-stage-sample2.log",
+        "output/playwright/cut-release-receipt/v44/raw/20261009T215812108278Z-edf7cd771b/root-one-normal-bagging-cpu-diagnostic.cpuprofile",
+        "output/playwright/cut-release-ui/r1-69-red.log",
+        "output/playwright/cut-release-ui/r1-69-green-final.log"
+      ]
+    }
+  ],
+  "version": "v43",
+  "versionRef": "version-v43.json",
+  "verificationVersion": "v36实际全部终验和双审待闭环",
+  "sourceManifestSHA256": "97a2b8acb9ba31e9f193d2eac88eaadebbbcc75434aaa397680df76cb38ecb48",
+  "assetManifestSHA256": "005258049809153f84101a50b5057eb925c28c19699959cbd877b48320c28a77"
+}

@@ -1,0 +1,29 @@
+(node:68010) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ PAGE-008 每个静态示例的必需物料均绑定对应实物图，资料缺失示例也保留图片 (6.853791ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1171.753667
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-release-ui.test.ts:1:28266
+✖ PAGE-008 每个静态示例的必需物料均绑定对应实物图，资料缺失示例也保留图片 (6.853791ms)
+  AssertionError [ERR_ASSERTION]: PO-202603-0002 / Hoodie 抓绒主面料 缺少实物图
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-ui.test.ts:439:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

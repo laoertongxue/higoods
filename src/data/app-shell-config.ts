@@ -520,7 +520,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-cutting-fei-ticket-numbering', title: '菲票打编号', icon: 'ScanLine', href: '/fcs/craft/cutting/fei-ticket-numbering' },
             { key: 'pfos-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
             { key: 'pfos-cutting-summary', title: '裁剪结果核查', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
-            { key: 'pfos-cutting-cut-piece-release', title: '裁片放行管理', icon: 'ClipboardCheck', href: '/fcs/craft/cutting/cut-piece-release' },
             { key: 'pfos-cutting-cut-piece-return-processing', title: '裁片退仓接收入仓', icon: 'ArchiveRestore', href: '/fcs/craft/cutting/cut-piece-return-processing' },
             { key: 'pfos-cutting-supplement-management', title: '补料管理', icon: 'RefreshCw', href: '/fcs/craft/cutting/supplement-management' },
           ],
@@ -532,6 +531,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-cutting-warehouse-wait-process', title: '待加工仓', icon: 'PackageSearch', href: '/fcs/craft/cutting/warehouse-management/wait-process' },
             { key: 'pfos-cutting-warehouse-wait-handover', title: '待交出仓', icon: 'Archive', href: '/fcs/craft/cutting/warehouse-management/wait-handover' },
+            { key: 'pfos-cutting-cut-piece-release', title: '裁片放行管理', icon: 'ClipboardCheck', href: '/fcs/craft/cutting/cut-piece-release' },
             { key: 'pfos-cutting-handover-orders', title: '交出单', icon: 'ArrowLeftRight', href: '/fcs/craft/cutting/handover-orders' },
             { key: 'pfos-cutting-warehouse-sample', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/warehouse-management/sample-warehouse' },
           ],

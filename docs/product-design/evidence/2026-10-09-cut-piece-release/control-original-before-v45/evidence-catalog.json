@@ -1,0 +1,157 @@
+{
+  "versionRef": "version-v36.json",
+  "groups": {
+    "E01": {
+      "meaning": "唯一菜单与既有路由，颜色×升序尺码两矩阵",
+      "automation": [
+        "tests/unit/cut-piece-release-ui.test.ts"
+      ],
+      "runtime": [
+        "ui-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E02": {
+      "meaning": "有效已装袋、手动唛架、部位身份、整票质量与装袋兼容",
+      "automation": [
+        "scripts/check-generated-cut-release.ts",
+        "tests/unit/manual-fei-ticket-source-identity.test.ts",
+        "tests/unit/cut-piece-release-facts.test.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts"
+      ],
+      "runtime": [
+        "receipt-browser.json",
+        "ui-browser.json",
+        "storage-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E03": {
+      "meaning": "有序一至N道工艺及最终逐票实收、零值、差异、身份、实际厂、回仓更正",
+      "automation": [
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "tests/unit/cut-piece-release-chronology.test.ts",
+        "scripts/check-cutting-special-craft-dispatch-return.ts"
+      ],
+      "runtime": [
+        "receipt-browser.json",
+        "ui-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E04": {
+      "meaning": "C/K独立、单耗短板、未知与零、物理补裁、冻结保留与真实后续事实",
+      "automation": [
+        "scripts/check-release-physical-final-quantity.ts",
+        "scripts/check-generated-cut-release.ts",
+        "tests/unit/cut-piece-release-frozen-warehouse.test.ts"
+      ],
+      "runtime": [
+        "ui-browser.json",
+        "supplement-browser.json",
+        "receipt-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E05": {
+      "meaning": "目标/放行/分配历史保留，当前风险、O≤A≤T、最新依据维持或调整",
+      "automation": [
+        "scripts/check-cut-piece-release-matrix.ts",
+        "scripts/check-cut-piece-release-available-qty.ts",
+        "scripts/check-sewing-outsourcing-release-gate.ts"
+      ],
+      "runtime": [
+        "ui-browser.json",
+        "dispatch-browser.json",
+        "storage-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E06": {
+      "meaning": "车缝剩余量与共享提交门禁、辅料独立、PPIC继续跟进、整包CUT范围",
+      "automation": [
+        "scripts/check-release-dispatch-preparation.ts",
+        "scripts/check-sewing-outsourcing-release-gate.ts",
+        "tests/unit/cut-piece-release-dispatch-identity.test.ts"
+      ],
+      "runtime": [
+        "dispatch-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E07": {
+      "meaning": "实际矩阵、输入定位、侧栏、工艺状态、历史、导出、真实图片、必要文案",
+      "automation": [
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/unit/replacement-fabric-copy.test.ts"
+      ],
+      "runtime": [
+        "ui-browser.json",
+        "dispatch-browser.json",
+        "list-responsive-v36.json",
+        "demo-copy-v36.json",
+        "style-images-v36.json",
+        "material-images-v36.json",
+        "output/playwright/cut-release-ui/visual-inspection-v36.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E08": {
+      "meaning": "正常手动打印/装袋/交出/实收Web与PDA、简易整票共享消耗、最新实物补料",
+      "automation": [
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "scripts/check-simple-cut-piece-handover-integration.ts",
+        "scripts/check-simple-cut-piece-receipt-projections.ts",
+        "scripts/check-transfer-bag-repack-recovery.ts"
+      ],
+      "runtime": [
+        "receipt-browser.json",
+        "dispatch-browser.json",
+        "supplement-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E09": {
+      "meaning": "真实IndexedDB事务complete、持久读回、失败冲突、备份恢复与独立中断迁移",
+      "automation": [
+        "tests/unit/cut-piece-release-persisted-validation.test.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts"
+      ],
+      "runtime": [
+        "storage-browser.json",
+        "migration-browser.json",
+        "backup-restore-browser.json",
+        "idb-open-browser.json",
+        "ui-browser.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    },
+    "E10": {
+      "meaning": "同工作树最终内容SHA、设备、原始性能5样本、治理与正反两轮88条审查",
+      "automation": [
+        "build-v36.log",
+        "version-v36.json",
+        "task-receipt.json",
+        "review-round-1.json",
+        "review-round-2.json"
+      ],
+      "runtime": [
+        "version-v36.json",
+        "ui-browser.json",
+        "dispatch-browser.json",
+        "receipt-browser.json",
+        "supplement-browser.json",
+        "idb-open-browser.json",
+        "review-round-1.json",
+        "review-round-2.json",
+        "scenario-coverage.json"
+      ],
+      "status": "等待最终运行结果，登记不代表验证通过"
+    }
+  },
+  "version": "v36",
+  "verificationVersion": "v36实际全部终验和双审待闭环",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "assetManifestSHA256": "4b87a963b268ed5dc1dc0bc8e491022e22d99f1832bb2ed7bdea756c5fa382c2"
+}

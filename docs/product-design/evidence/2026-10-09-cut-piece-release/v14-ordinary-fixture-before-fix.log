@@ -1,0 +1,18 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 当前普通完裁票必须有明确无特殊工艺依据，不能被错误拒绝
+
+0 !== 5
+
+    at <anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/scripts/check-simple-cut-piece-handover-fixtures.ts:48:10) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 0,
+  expected: 5,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

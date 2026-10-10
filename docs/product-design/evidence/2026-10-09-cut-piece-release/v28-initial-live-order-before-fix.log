@@ -1,0 +1,49 @@
+✖ 初始演示订单正常新增装袋手动票进入当前正式放行，保留原目标与放行且不混入PDA变体物料 (388.2415ms)
+✔ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (175.085291ms)
+✔ 裁床工艺来源读取不初始化未迁移的全厂接收需求，原工艺厂读取仍保护旧源 (400.602958ms)
+✔ 先读裁床来源再进入工艺厂，任务身份与需求数量一致且仓库记录可正常生成 (382.667ms)
+✔ 已准备任务来源后，任务单预览不加载无关工艺厂接收来源 (492.324583ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1997.521417
+
+✖ failing tests:
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:1:110
+✖ 初始演示订单正常新增装袋手动票进入当前正式放行，保留原目标与放行且不混入PDA变体物料 (388.2415ms)
+  AssertionError [ERR_ASSERTION]: node:internal/modules/run_main:107
+      triggerUncaughtException(
+      ^
+  
+  AssertionError [ERR_ASSERTION]: 测试必须使用该生产单的正式真实部位来源
+      at file:///Users/laoer/.codex/worktrees/9ec5/higoods/[eval1]:16:12 {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+  
+  Node.js v26.8.2
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:40:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

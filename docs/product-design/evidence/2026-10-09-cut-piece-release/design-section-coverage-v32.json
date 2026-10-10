@@ -1,0 +1,467 @@
+{
+  "version": "v32",
+  "checkedAt": "2026-10-09T18:48:43.079284+00:00",
+  "requirementCount": 88,
+  "normativeSectionCount": 69,
+  "sections": {
+    "1.1": [
+      "SCOPE-001",
+      "MENU-001",
+      "SOURCE-001",
+      "VALID-001",
+      "CRAFT-002",
+      "CRAFT-005",
+      "RECEIPT-001",
+      "PAGE-001",
+      "PAGE-002",
+      "TARGET-001",
+      "RELEASE-001",
+      "DISPATCH-004",
+      "CHANGE-001"
+    ],
+    "1.2": [
+      "SCOPE-001",
+      "DOWNSTREAM-001",
+      "DOWNSTREAM-004"
+    ],
+    "3.1": [
+      "SCOPE-001",
+      "RECEIPT-003",
+      "RELEASE-001",
+      "DISPATCH-005",
+      "ACCESSORY-002"
+    ],
+    "3.2": [
+      "SOURCE-003",
+      "RECEIPT-003",
+      "TARGET-002",
+      "CHANGE-001"
+    ],
+    "4.1": [
+      "CRAFT-002",
+      "RECEIPT-001",
+      "RELEASE-001",
+      "DISPATCH-004",
+      "ACCESSORY-002"
+    ],
+    "4.2": [
+      "QTY-001",
+      "RELEASE-001",
+      "DISPATCH-004",
+      "DOWNSTREAM-001"
+    ],
+    "5.1": [
+      "SOURCE-001",
+      "SOURCE-002",
+      "SOURCE-003"
+    ],
+    "5.2": [
+      "VALID-001",
+      "VALID-002",
+      "VALID-003"
+    ],
+    "5.3": [
+      "BAG-001",
+      "BAG-002",
+      "BAG-003",
+      "SOURCE-004"
+    ],
+    "6.1": [
+      "CRAFT-001",
+      "CRAFT-006"
+    ],
+    "6.2": [
+      "CRAFT-002",
+      "CRAFT-003",
+      "CRAFT-004",
+      "CRAFT-005",
+      "RECEIPT-006"
+    ],
+    "6.3": [
+      "CRAFT-002",
+      "CRAFT-008"
+    ],
+    "6.4": [
+      "CRAFT-007",
+      "PAGE-005"
+    ],
+    "7.1": [
+      "QTY-001"
+    ],
+    "7.2": [
+      "QTY-002",
+      "QTY-003",
+      "QTY-004",
+      "QTY-005"
+    ],
+    "7.3": [
+      "QTY-006",
+      "DOWNSTREAM-005"
+    ],
+    "7.4": [
+      "TARGET-001",
+      "TARGET-002",
+      "TARGET-003"
+    ],
+    "7.5": [
+      "RELEASE-001",
+      "RELEASE-002",
+      "RELEASE-003",
+      "RELEASE-004"
+    ],
+    "8.1": [
+      "RECEIPT-001",
+      "RECEIPT-002",
+      "RECEIPT-007"
+    ],
+    "8.2": [
+      "RECEIPT-001",
+      "RECEIPT-002",
+      "RECEIPT-004",
+      "RECEIPT-005"
+    ],
+    "8.3": [
+      "RECEIPT-003",
+      "RECEIPT-004",
+      "RECEIPT-005",
+      "RECEIPT-006",
+      "RECEIPT-007"
+    ],
+    "8.4": [
+      "RECEIPT-007",
+      "STORE-002",
+      "CHANGE-001"
+    ],
+    "9.1": [
+      "MENU-001",
+      "MENU-002"
+    ],
+    "9.2": [
+      "PAGE-001",
+      "PAGE-002",
+      "PAGE-003",
+      "PAGE-004",
+      "PAGE-008",
+      "PAGE-009"
+    ],
+    "9.3": [
+      "TARGET-001",
+      "TARGET-002",
+      "TARGET-003",
+      "PAGE-001"
+    ],
+    "9.4": [
+      "RELEASE-004",
+      "PAGE-002",
+      "PAGE-004"
+    ],
+    "9.5": [
+      "PAGE-005",
+      "CRAFT-008"
+    ],
+    "9.6": [
+      "PAGE-006",
+      "PAGE-007",
+      "PAGE-008"
+    ],
+    "9.7": [
+      "PAGE-010",
+      "CHANGE-002",
+      "CHANGE-004",
+      "VERIFY-001"
+    ],
+    "10.1": [
+      "CHANGE-001",
+      "CHANGE-002",
+      "RELEASE-005"
+    ],
+    "10.2": [
+      "RELEASE-001",
+      "CHANGE-005",
+      "PAGE-009"
+    ],
+    "11.1": [
+      "CHANGE-001",
+      "CHANGE-003",
+      "TARGET-002"
+    ],
+    "11.2": [
+      "CHANGE-002",
+      "CHANGE-004",
+      "CHANGE-005"
+    ],
+    "11.3": [
+      "RELEASE-003",
+      "RELEASE-004",
+      "CHANGE-003"
+    ],
+    "11.4": [
+      "CHANGE-005",
+      "STORE-003"
+    ],
+    "12.1": [
+      "DISPATCH-001"
+    ],
+    "12.2": [
+      "DISPATCH-002",
+      "DISPATCH-003",
+      "DISPATCH-004",
+      "DISPATCH-005"
+    ],
+    "12.3": [
+      "ACCESSORY-001",
+      "ACCESSORY-002"
+    ],
+    "12.4": [
+      "DISPATCH-005",
+      "STORE-003"
+    ],
+    "13.1": [
+      "DOWNSTREAM-001",
+      "DOWNSTREAM-002",
+      "DOWNSTREAM-003",
+      "SOURCE-004"
+    ],
+    "13.2": [
+      "DOWNSTREAM-004",
+      "SOURCE-002",
+      "COPY-003"
+    ],
+    "13.3": [
+      "DOWNSTREAM-005",
+      "DOWNSTREAM-006",
+      "QTY-006"
+    ],
+    "13.4": [
+      "DOWNSTREAM-007",
+      "SOURCE-004"
+    ],
+    "14": [
+      "VERIFY-002"
+    ],
+    "15.1": [
+      "STORE-001",
+      "STORE-007",
+      "STORE-009"
+    ],
+    "15.2": [
+      "STORE-002",
+      "STORE-003",
+      "STORE-004"
+    ],
+    "15.3": [
+      "STORE-005",
+      "STORE-006"
+    ],
+    "15.4": [
+      "STORE-008",
+      "STORE-009"
+    ],
+    "16.1": [
+      "VERIFY-001",
+      "VERIFY-002",
+      "VERIFY-003"
+    ],
+    "16.2": [
+      "VERIFY-001",
+      "PAGE-008",
+      "DOWNSTREAM-004"
+    ],
+    "16.3": [
+      "VERIFY-002"
+    ],
+    "16.4": [
+      "PERF-001"
+    ],
+    "16.5": [
+      "VERIFY-003"
+    ],
+    "17.1": [
+      "VERIFY-002"
+    ],
+    "17.2": [
+      "VERIFY-002"
+    ],
+    "17.3": [
+      "VERIFY-003"
+    ],
+    "19.1": [
+      "COPY-001",
+      "COPY-002",
+      "COPY-003",
+      "COPY-004",
+      "SOURCE-002",
+      "RECEIPT-003",
+      "DOWNSTREAM-001"
+    ],
+    "19.2": [
+      "CRAFT-001",
+      "CRAFT-002",
+      "CRAFT-003",
+      "CRAFT-004",
+      "CRAFT-005",
+      "CRAFT-006",
+      "CRAFT-007",
+      "CRAFT-008",
+      "RECEIPT-003",
+      "VERIFY-001",
+      "VERIFY-002"
+    ],
+    "19.3": [
+      "CRAFT-001",
+      "CRAFT-008",
+      "RECEIPT-003",
+      "RECEIPT-006",
+      "PAGE-007",
+      "DOWNSTREAM-001",
+      "DOWNSTREAM-002",
+      "DOWNSTREAM-003",
+      "VALID-002",
+      "STORE-002",
+      "STORE-007",
+      "STORE-008",
+      "COPY-001",
+      "COPY-002",
+      "COPY-003",
+      "COPY-004"
+    ],
+    "19.4": [
+      "SOURCE-004",
+      "RECEIPT-003",
+      "STORE-007",
+      "COPY-003",
+      "COPY-004",
+      "VERIFY-002"
+    ],
+    "19.5": [
+      "SOURCE-004",
+      "RECEIPT-003",
+      "RECEIPT-007",
+      "DOWNSTREAM-002",
+      "VERIFY-002"
+    ],
+    "19.6": [
+      "SOURCE-003",
+      "RECEIPT-003",
+      "RECEIPT-007",
+      "PAGE-007",
+      "DOWNSTREAM-002",
+      "COPY-004",
+      "VERIFY-002"
+    ],
+    "19.7": [
+      "SOURCE-004",
+      "RECEIPT-001",
+      "RECEIPT-003",
+      "RECEIPT-004",
+      "DOWNSTREAM-002",
+      "STORE-003",
+      "STORE-007",
+      "COPY-004",
+      "VERIFY-002"
+    ],
+    "19.8": [
+      "RECEIPT-006",
+      "RECEIPT-007",
+      "STORE-002",
+      "STORE-003",
+      "STORE-004",
+      "VERIFY-002"
+    ],
+    "19.9": [
+      "SOURCE-001",
+      "SOURCE-002",
+      "SOURCE-003",
+      "CRAFT-005",
+      "QTY-003",
+      "PAGE-007",
+      "TARGET-002",
+      "CHANGE-001",
+      "STORE-007",
+      "VERIFY-002"
+    ],
+    "19.10": [
+      "PERF-001",
+      "SOURCE-002",
+      "BAG-001",
+      "BAG-002",
+      "BAG-003",
+      "DOWNSTREAM-001",
+      "STORE-002",
+      "STORE-004",
+      "STORE-007",
+      "VERIFY-002",
+      "COPY-001",
+      "COPY-004"
+    ],
+    "19.11": [
+      "PERF-001",
+      "SOURCE-004",
+      "RECEIPT-003",
+      "RECEIPT-006",
+      "RECEIPT-007",
+      "PAGE-007",
+      "DOWNSTREAM-002",
+      "STORE-002",
+      "STORE-003",
+      "STORE-004",
+      "STORE-007",
+      "VERIFY-002"
+    ],
+    "19.12": [
+      "PERF-001",
+      "CRAFT-001",
+      "CRAFT-002",
+      "CRAFT-003",
+      "CRAFT-004",
+      "CRAFT-005",
+      "CRAFT-006",
+      "CRAFT-007",
+      "CRAFT-008",
+      "RECEIPT-003",
+      "RECEIPT-006",
+      "RECEIPT-007",
+      "PAGE-007",
+      "SOURCE-004",
+      "STORE-002",
+      "STORE-003",
+      "STORE-004",
+      "STORE-007",
+      "VERIFY-002"
+    ],
+    "19.13": [
+      "PERF-001",
+      "BAG-001",
+      "BAG-002",
+      "BAG-003",
+      "SOURCE-004",
+      "CRAFT-001",
+      "CRAFT-002",
+      "CRAFT-003",
+      "CRAFT-004",
+      "CRAFT-005",
+      "CRAFT-006",
+      "CRAFT-007",
+      "CRAFT-008",
+      "RECEIPT-003",
+      "RECEIPT-006",
+      "RECEIPT-007",
+      "PAGE-007",
+      "DOWNSTREAM-002",
+      "STORE-002",
+      "STORE-003",
+      "STORE-004",
+      "STORE-007",
+      "STORE-008",
+      "VERIFY-002"
+    ]
+  },
+  "allRequirementsHaveSources": true,
+  "allNormativeSectionsHaveRequirements": true,
+  "nonNormativeSections": {
+    "2": "实施前现状与历史缺口，当前状态以矩阵为准",
+    "18": "已读源码与旧检查索引，不定义新增业务能力"
+  },
+  "scope": "文档与原子编号双向覆盖检查；不是实现或运行完成证明",
+  "status": "编号覆盖通过，最终实证待闭环"
+}

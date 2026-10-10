@@ -1,0 +1,63 @@
+(node:53831) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 冻结原票的真实仓库实收继续更新；冻结后新票进晚到队列，不冒充原产出 (5.601625ms)
+✖ 初始演示订单正常新增装袋手动票进入当前正式放行，保留原目标与放行且不混入PDA变体物料 (430.949417ms)
+✔ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (165.996375ms)
+✔ 裁床工艺来源读取不初始化未迁移的全厂接收需求，原工艺厂读取仍保护旧源 (360.8535ms)
+✔ 先读裁床来源再进入工艺厂，任务身份与需求数量一致且仓库记录可正常生成 (557.793333ms)
+✔ 已准备任务来源后，任务单预览不加载无关工艺厂接收来源 (565.719792ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2155.051834
+
+✖ failing tests:
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:1:110
+✖ 初始演示订单正常新增装袋手动票进入当前正式放行，保留原目标与放行且不混入PDA变体物料 (430.949417ms)
+  AssertionError [ERR_ASSERTION]: node:internal/modules/run_main:107
+      triggerUncaughtException(
+      ^
+  
+  AssertionError [ERR_ASSERTION]: 普通重新读取不写种子或改原决定
+  + actual - expected
+  
+  + [
+  +   'higood-fcs-post-finishing-outbound-orders-v1',
+  +   'higood-fcs-post-finishing-outbound-migration-v2'
+  + ]
+  - []
+  
+      at file:///Users/laoer/.codex/worktrees/9ec5/higoods/[eval1]:35:12 {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [
+      'higood-fcs-post-finishing-outbound-orders-v1',
+      'higood-fcs-post-finishing-outbound-migration-v2'
+    ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+  
+  Node.js v26.8.2
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:44:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

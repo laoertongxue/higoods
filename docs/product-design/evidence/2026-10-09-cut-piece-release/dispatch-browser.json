@@ -1,0 +1,4064 @@
+{
+  "status": "已验证：v47原390+打印两按钮30保留原版，额外普通票链在v48差异复验通过；整体产品验收由ROOT审查。",
+  "recordedAt": "2026-10-09T22:59:10.497922+00:00",
+  "version": {
+    "version": "v47",
+    "baseHead": "155144308f6b2931a8acb229a579e04ec99af41d",
+    "branch": "codex/sidebar-menu-group-ui",
+    "service": "http://127.0.0.1:4190",
+    "worktree": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+    "sourceManifestSHA256": "aa1c2e9b60fafbf844146244c68ad25f8eb00a4c07f90a24e44aa7023afbaf1e",
+    "assetManifestSHA256": "4fbe0fb5e84cff9aca174790247707881d1da1c96d61d9b838158fe7cbd5328a",
+    "servedEntry": "/assets/index-DbEcBwRo.js",
+    "capturedAt": "2026-10-09T22:48:29.127210+00:00"
+  },
+  "versionManifest": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v47.json",
+  "runDirectory": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637",
+  "session": "release-dispatch-v47",
+  "profile": "Independent CLI browser; every measured sample uses a fresh isolated BrowserContext.",
+  "plannedSamples": 390,
+  "plannedFamilies": 78,
+  "sampleCount": 390,
+  "groups": [
+    {
+      "name": "simple-original-task-sheet/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        208,
+        183.8,
+        199.9,
+        193.8,
+        177.7
+      ],
+      "maxMs": 208,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-popup/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        499.5,
+        414.7,
+        416,
+        417.1,
+        412.3
+      ],
+      "maxMs": 499.5,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-pdf-export/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        382.5,
+        328,
+        291.9,
+        289.5,
+        302.5
+      ],
+      "maxMs": 382.5,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-confirm/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        82.6,
+        83.3,
+        81.4,
+        81.4,
+        83.5
+      ],
+      "maxMs": 83.5,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-direct/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        565.6,
+        533,
+        548,
+        548.7,
+        532.6
+      ],
+      "maxMs": 565.6,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-reload/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        549,
+        548.8,
+        532.6,
+        432.3,
+        532.6
+      ],
+      "maxMs": 549,
+      "passed": true
+    },
+    {
+      "name": "simple-task-read/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        116.7,
+        115.5,
+        116,
+        115.7,
+        115.5
+      ],
+      "maxMs": 116.7,
+      "passed": true
+    },
+    {
+      "name": "simple-add-required-fabric/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        80.7,
+        82.1,
+        67.5,
+        82.6,
+        81.2
+      ],
+      "maxMs": 82.6,
+      "passed": true
+    },
+    {
+      "name": "simple-handover-save/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        132.1,
+        130.4,
+        131.8,
+        198,
+        130.7
+      ],
+      "maxMs": 198,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-after-save-refresh/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        465.8,
+        532.7,
+        665,
+        532.5,
+        533.6
+      ],
+      "maxMs": 665,
+      "passed": true
+    },
+    {
+      "name": "simple-after-save-refresh-read/WEB_LS_DISABLED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        115,
+        115.3,
+        114,
+        119.7,
+        98.5
+      ],
+      "maxMs": 119.7,
+      "passed": true
+    },
+    {
+      "name": "dispatch",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        423.3,
+        433.7,
+        438.7,
+        434.8,
+        451.6
+      ],
+      "maxMs": 451.6,
+      "passed": true
+    },
+    {
+      "name": "ppic",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        402.2,
+        399.6,
+        401.2,
+        399.7,
+        393.2
+      ],
+      "maxMs": 402.2,
+      "passed": true
+    },
+    {
+      "name": "handover",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        272.5,
+        257.2,
+        257.5,
+        260.6,
+        257.8
+      ],
+      "maxMs": 272.5,
+      "passed": true
+    },
+    {
+      "name": "dispatch-refresh",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        332.7,
+        331.4,
+        347.3,
+        347.4,
+        331.6
+      ],
+      "maxMs": 347.4,
+      "passed": true
+    },
+    {
+      "name": "dispatch-menu-route",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        115,
+        113.5,
+        132.2,
+        116.2,
+        114.9
+      ],
+      "maxMs": 132.2,
+      "passed": true
+    },
+    {
+      "name": "dispatch-type-ALL",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        38.8,
+        36.5,
+        36.8,
+        36,
+        34.6
+      ],
+      "maxMs": 38.8,
+      "passed": true
+    },
+    {
+      "name": "dispatch-type-NON_SEWING",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        33,
+        33.7,
+        34.1,
+        33.2,
+        33.6
+      ],
+      "maxMs": 34.1,
+      "passed": true
+    },
+    {
+      "name": "dispatch-type-MERGED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        31.3,
+        33.1,
+        33.4,
+        34,
+        31.4
+      ],
+      "maxMs": 34,
+      "passed": true
+    },
+    {
+      "name": "dispatch-type-SEWING",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        56.5,
+        57.5,
+        55.3,
+        56.7,
+        57.1
+      ],
+      "maxMs": 57.5,
+      "passed": true
+    },
+    {
+      "name": "dispatch-situation-READY",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        48.2,
+        52.8,
+        52.7,
+        47.1,
+        51.6
+      ],
+      "maxMs": 52.8,
+      "passed": true
+    },
+    {
+      "name": "dispatch-situation-ASSIGNED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        69.7,
+        68.2,
+        69.8,
+        69.9,
+        66.5
+      ],
+      "maxMs": 69.9,
+      "passed": true
+    },
+    {
+      "name": "dispatch-situation-BLOCKED",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        51.4,
+        51.4,
+        50.4,
+        50.9,
+        52.1
+      ],
+      "maxMs": 52.1,
+      "passed": true
+    },
+    {
+      "name": "dispatch-keyword",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        89.4,
+        94.6,
+        95.1,
+        94.2,
+        93.8
+      ],
+      "maxMs": 95.1,
+      "passed": true
+    },
+    {
+      "name": "dispatch-reset",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        50,
+        54.5,
+        52.4,
+        53.7,
+        53.2
+      ],
+      "maxMs": 54.5,
+      "passed": true
+    },
+    {
+      "name": "dispatch-detail-open",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        81.9,
+        82.2,
+        82.5,
+        82.3,
+        82.8
+      ],
+      "maxMs": 82.8,
+      "passed": true
+    },
+    {
+      "name": "dispatch-detail-close",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        53.6,
+        53.6,
+        49.5,
+        52.7,
+        53.9
+      ],
+      "maxMs": 53.9,
+      "passed": true
+    },
+    {
+      "name": "ppic-refresh",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        315.4,
+        297.4,
+        298.4,
+        298.1,
+        298
+      ],
+      "maxMs": 315.4,
+      "passed": true
+    },
+    {
+      "name": "ppic-menu-route",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        108.4,
+        115.3,
+        113.9,
+        115.8,
+        112.4
+      ],
+      "maxMs": 115.8,
+      "passed": true
+    },
+    {
+      "name": "ppic-detail-open",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        115.6,
+        99.4,
+        99.1,
+        99,
+        99.5
+      ],
+      "maxMs": 115.6,
+      "passed": true
+    },
+    {
+      "name": "ppic-detail-close",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        58.5,
+        60.4,
+        61,
+        58.8,
+        59.8
+      ],
+      "maxMs": 61,
+      "passed": true
+    },
+    {
+      "name": "ppic-keyword",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        34.3,
+        34.4,
+        34.1,
+        20,
+        34.9
+      ],
+      "maxMs": 34.9,
+      "passed": true
+    },
+    {
+      "name": "ppic-查询",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        48.7,
+        51.4,
+        51.6,
+        47.3,
+        50.1
+      ],
+      "maxMs": 51.6,
+      "passed": true
+    },
+    {
+      "name": "ppic-重置",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        61.7,
+        61.1,
+        61.4,
+        59.7,
+        59.9
+      ],
+      "maxMs": 61.7,
+      "passed": true
+    },
+    {
+      "name": "handover-refresh",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        281.7,
+        233.3,
+        280,
+        232.7,
+        280.7
+      ],
+      "maxMs": 281.7,
+      "passed": true
+    },
+    {
+      "name": "handover-menu-route",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        48.5,
+        48.5,
+        47.5,
+        48.6,
+        65
+      ],
+      "maxMs": 65,
+      "passed": true
+    },
+    {
+      "name": "handover-keyword",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        29.9,
+        29.7,
+        28.6,
+        26.8,
+        28.6
+      ],
+      "maxMs": 29.9,
+      "passed": true
+    },
+    {
+      "name": "handover-apply",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        32.2,
+        31.5,
+        32.3,
+        31.4,
+        31
+      ],
+      "maxMs": 32.3,
+      "passed": true
+    },
+    {
+      "name": "handover-reset",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        32.6,
+        33.1,
+        32.1,
+        31.3,
+        32
+      ],
+      "maxMs": 33.1,
+      "passed": true
+    },
+    {
+      "name": "handover-sort",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        32.6,
+        33,
+        33.1,
+        32,
+        31.8
+      ],
+      "maxMs": 33.1,
+      "passed": true
+    },
+    {
+      "name": "handover-column-open",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        47.6,
+        46.9,
+        47.8,
+        49.5,
+        47.5
+      ],
+      "maxMs": 49.5,
+      "passed": true
+    },
+    {
+      "name": "handover-column-visible",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        81.6,
+        31,
+        33.1,
+        34.5,
+        32.7
+      ],
+      "maxMs": 81.6,
+      "passed": true
+    },
+    {
+      "name": "handover-column-close",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        40.8,
+        28.6,
+        30.6,
+        32.2,
+        32.3
+      ],
+      "maxMs": 40.8,
+      "passed": true
+    },
+    {
+      "name": "handover-export",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        65.1,
+        48.9,
+        49,
+        47.7,
+        48.9
+      ],
+      "maxMs": 65.1,
+      "passed": true
+    },
+    {
+      "name": "release-confirm",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        131.8,
+        116.8,
+        115.8,
+        114.4,
+        116.6
+      ],
+      "maxMs": 131.8,
+      "passed": true
+    },
+    {
+      "name": "over-release-blocked",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        85,
+        84.5,
+        83.7,
+        82.7,
+        83.5
+      ],
+      "maxMs": 85,
+      "passed": true
+    },
+    {
+      "name": "accessory-real-photo-open",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        52.4,
+        50.9,
+        52.1,
+        52,
+        51.4
+      ],
+      "maxMs": 52.4,
+      "passed": true
+    },
+    {
+      "name": "accessory-real-photo-close",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        49.9,
+        49.9,
+        48.2,
+        48.6,
+        49.8
+      ],
+      "maxMs": 49.9,
+      "passed": true
+    },
+    {
+      "name": "formal-direct-dispatch",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        221.6,
+        234.2,
+        216.3,
+        216.8,
+        216.4
+      ],
+      "maxMs": 234.2,
+      "passed": true
+    },
+    {
+      "name": "ppic-after-direct-refresh",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        390.7,
+        414.2,
+        398.9,
+        399.3,
+        398.2
+      ],
+      "maxMs": 414.2,
+      "passed": true
+    },
+    {
+      "name": "dispatch-minimum-1280",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        439.4,
+        421.7,
+        433,
+        435.8,
+        419.6
+      ],
+      "maxMs": 439.4,
+      "passed": true
+    },
+    {
+      "name": "dispatch-detail-minimum-1280",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        113.1,
+        115.2,
+        114.4,
+        115.3,
+        116.1
+      ],
+      "maxMs": 116.1,
+      "passed": true
+    },
+    {
+      "name": "ppic-minimum-1280",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        404.1,
+        403.2,
+        404.2,
+        403.4,
+        404.6
+      ],
+      "maxMs": 404.6,
+      "passed": true
+    },
+    {
+      "name": "ppic-detail-minimum-1280",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        147.5,
+        149.8,
+        148.6,
+        148.9,
+        148.4
+      ],
+      "maxMs": 149.8,
+      "passed": true
+    },
+    {
+      "name": "handover-minimum-1280",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        275.3,
+        257.3,
+        255.3,
+        256,
+        259.3
+      ],
+      "maxMs": 275.3,
+      "passed": true
+    },
+    {
+      "name": "simple-original-task-sheet/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        179.1,
+        247.3,
+        176.9,
+        184.6,
+        192.6
+      ],
+      "maxMs": 247.3,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-popup/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        428.8,
+        499.4,
+        429.8,
+        447.3,
+        433.3
+      ],
+      "maxMs": 499.4,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-pdf-export/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        296.5,
+        355,
+        310.5,
+        286.6,
+        307.1
+      ],
+      "maxMs": 355,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-confirm/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        131.9,
+        82.6,
+        83.8,
+        82.5,
+        82.5
+      ],
+      "maxMs": 131.9,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-direct/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        427.4,
+        328.7,
+        360.2,
+        409.9,
+        361.8
+      ],
+      "maxMs": 427.4,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-reload/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        947.9,
+        330.9,
+        364.4,
+        350,
+        364.1
+      ],
+      "maxMs": 947.9,
+      "passed": true
+    },
+    {
+      "name": "simple-task-read/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        114.9,
+        116.1,
+        116.6,
+        117.3,
+        120.5
+      ],
+      "maxMs": 120.5,
+      "passed": true
+    },
+    {
+      "name": "simple-add-required-fabric/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        80.6,
+        82.1,
+        83.5,
+        80.2,
+        81.7
+      ],
+      "maxMs": 83.5,
+      "passed": true
+    },
+    {
+      "name": "simple-handover-save/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        199,
+        132.5,
+        199.3,
+        129.9,
+        130.8
+      ],
+      "maxMs": 199.3,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-other-after-save/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        356.4,
+        340.8,
+        337.3,
+        354.3,
+        306.3
+      ],
+      "maxMs": 356.4,
+      "passed": true
+    },
+    {
+      "name": "simple-other-route-reopen/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        132.4,
+        116.8,
+        114.3,
+        115.3,
+        115.4
+      ],
+      "maxMs": 132.4,
+      "passed": true
+    },
+    {
+      "name": "simple-original-task-sheet/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        180.8,
+        181.1,
+        176.2,
+        176.7,
+        180
+      ],
+      "maxMs": 181.1,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-popup/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        431.9,
+        516.6,
+        499.7,
+        449.6,
+        431.2
+      ],
+      "maxMs": 516.6,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-pdf-export/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        302.5,
+        316.9,
+        297.5,
+        297.4,
+        292.5
+      ],
+      "maxMs": 316.9,
+      "passed": true
+    },
+    {
+      "name": "simple-original-print-confirm/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        83.2,
+        84.3,
+        81.8,
+        82.3,
+        83.4
+      ],
+      "maxMs": 84.3,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-direct/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        326.2,
+        293.8,
+        292.8,
+        326.1,
+        309.1
+      ],
+      "maxMs": 326.2,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-reload/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        331.6,
+        299,
+        331.7,
+        298.7,
+        347.2
+      ],
+      "maxMs": 347.2,
+      "passed": true
+    },
+    {
+      "name": "simple-task-read/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        115.4,
+        116.3,
+        115.3,
+        115.6,
+        115.8
+      ],
+      "maxMs": 116.3,
+      "passed": true
+    },
+    {
+      "name": "simple-add-required-fabric/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        66.2,
+        80.8,
+        65.3,
+        65.3,
+        65.5
+      ],
+      "maxMs": 80.8,
+      "passed": true
+    },
+    {
+      "name": "simple-handover-save/PDA",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        215.2,
+        214.4,
+        215.5,
+        215.3,
+        215.3
+      ],
+      "maxMs": 215.5,
+      "passed": true
+    },
+    {
+      "name": "simple-entry-other-after-save/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        381.9,
+        346,
+        344.9,
+        382.3,
+        381.6
+      ],
+      "maxMs": 382.3,
+      "passed": true
+    },
+    {
+      "name": "simple-other-route-reopen/WEB",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        116.3,
+        115.6,
+        115.4,
+        115.1,
+        115.5
+      ],
+      "maxMs": 116.3,
+      "passed": true
+    },
+    {
+      "name": "fresh-unmigrated-LS-protection",
+      "count": 5,
+      "samples": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "elapsedMs": [
+        108.1,
+        113.1,
+        106,
+        110.3,
+        113
+      ],
+      "maxMs": 113.1,
+      "passed": true
+    }
+  ],
+  "summaries": {
+    "migratedLS": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/migrated-explicit-simple-LS-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/migrated-explicit-simple-LS-v47-final.json",
+      "executedDriverSHA256": "36f65ea28a1e8a401fc33ae91b5120cb9cd4960068ad529806249f795adea630",
+      "sampleCount": 55,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "simple-original-task-sheet/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            208,
+            183.8,
+            199.9,
+            193.8,
+            177.7
+          ],
+          "maxMs": 208,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-popup/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            499.5,
+            414.7,
+            416,
+            417.1,
+            412.3
+          ],
+          "maxMs": 499.5,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-pdf-export/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            382.5,
+            328,
+            291.9,
+            289.5,
+            302.5
+          ],
+          "maxMs": 382.5,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-confirm/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            82.6,
+            83.3,
+            81.4,
+            81.4,
+            83.5
+          ],
+          "maxMs": 83.5,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-direct/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            565.6,
+            533,
+            548,
+            548.7,
+            532.6
+          ],
+          "maxMs": 565.6,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-reload/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            549,
+            548.8,
+            532.6,
+            432.3,
+            532.6
+          ],
+          "maxMs": 549,
+          "passed": true
+        },
+        {
+          "name": "simple-task-read/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            116.7,
+            115.5,
+            116,
+            115.7,
+            115.5
+          ],
+          "maxMs": 116.7,
+          "passed": true
+        },
+        {
+          "name": "simple-add-required-fabric/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            80.7,
+            82.1,
+            67.5,
+            82.6,
+            81.2
+          ],
+          "maxMs": 82.6,
+          "passed": true
+        },
+        {
+          "name": "simple-handover-save/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            132.1,
+            130.4,
+            131.8,
+            198,
+            130.7
+          ],
+          "maxMs": 198,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-after-save-refresh/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            465.8,
+            532.7,
+            665,
+            532.5,
+            533.6
+          ],
+          "maxMs": 665,
+          "passed": true
+        },
+        {
+          "name": "simple-after-save-refresh-read/WEB_LS_DISABLED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            115,
+            115.3,
+            114,
+            119.7,
+            98.5
+          ],
+          "maxMs": 119.7,
+          "passed": true
+        }
+      ]
+    },
+    "cold": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/load-samples-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/load-samples-v47-final.json",
+      "executedDriverSHA256": "7691349f1bd3113e55ed485a415247d1fcdc4ec77b598b04060d72edf891606b",
+      "sampleCount": 15,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "dispatch",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            423.3,
+            433.7,
+            438.7,
+            434.8,
+            451.6
+          ],
+          "maxMs": 451.6,
+          "passed": true
+        },
+        {
+          "name": "ppic",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            402.2,
+            399.6,
+            401.2,
+            399.7,
+            393.2
+          ],
+          "maxMs": 402.2,
+          "passed": true
+        },
+        {
+          "name": "handover",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            272.5,
+            257.2,
+            257.5,
+            260.6,
+            257.8
+          ],
+          "maxMs": 272.5,
+          "passed": true
+        }
+      ]
+    },
+    "actions": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/page-actions-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/page-actions-v47-final.json",
+      "executedDriverSHA256": "3d3dc8132884ff6a8a6bce39375427edbccf6d71a7a97e4260329d7ed178d92d",
+      "sampleCount": 150,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "dispatch-refresh",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            332.7,
+            331.4,
+            347.3,
+            347.4,
+            331.6
+          ],
+          "maxMs": 347.4,
+          "passed": true
+        },
+        {
+          "name": "dispatch-menu-route",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            115,
+            113.5,
+            132.2,
+            116.2,
+            114.9
+          ],
+          "maxMs": 132.2,
+          "passed": true
+        },
+        {
+          "name": "dispatch-type-ALL",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            38.8,
+            36.5,
+            36.8,
+            36,
+            34.6
+          ],
+          "maxMs": 38.8,
+          "passed": true
+        },
+        {
+          "name": "dispatch-type-NON_SEWING",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            33,
+            33.7,
+            34.1,
+            33.2,
+            33.6
+          ],
+          "maxMs": 34.1,
+          "passed": true
+        },
+        {
+          "name": "dispatch-type-MERGED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            31.3,
+            33.1,
+            33.4,
+            34,
+            31.4
+          ],
+          "maxMs": 34,
+          "passed": true
+        },
+        {
+          "name": "dispatch-type-SEWING",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            56.5,
+            57.5,
+            55.3,
+            56.7,
+            57.1
+          ],
+          "maxMs": 57.5,
+          "passed": true
+        },
+        {
+          "name": "dispatch-situation-READY",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            48.2,
+            52.8,
+            52.7,
+            47.1,
+            51.6
+          ],
+          "maxMs": 52.8,
+          "passed": true
+        },
+        {
+          "name": "dispatch-situation-ASSIGNED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            69.7,
+            68.2,
+            69.8,
+            69.9,
+            66.5
+          ],
+          "maxMs": 69.9,
+          "passed": true
+        },
+        {
+          "name": "dispatch-situation-BLOCKED",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            51.4,
+            51.4,
+            50.4,
+            50.9,
+            52.1
+          ],
+          "maxMs": 52.1,
+          "passed": true
+        },
+        {
+          "name": "dispatch-keyword",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            89.4,
+            94.6,
+            95.1,
+            94.2,
+            93.8
+          ],
+          "maxMs": 95.1,
+          "passed": true
+        },
+        {
+          "name": "dispatch-reset",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            50,
+            54.5,
+            52.4,
+            53.7,
+            53.2
+          ],
+          "maxMs": 54.5,
+          "passed": true
+        },
+        {
+          "name": "dispatch-detail-open",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            81.9,
+            82.2,
+            82.5,
+            82.3,
+            82.8
+          ],
+          "maxMs": 82.8,
+          "passed": true
+        },
+        {
+          "name": "dispatch-detail-close",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            53.6,
+            53.6,
+            49.5,
+            52.7,
+            53.9
+          ],
+          "maxMs": 53.9,
+          "passed": true
+        },
+        {
+          "name": "ppic-refresh",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            315.4,
+            297.4,
+            298.4,
+            298.1,
+            298
+          ],
+          "maxMs": 315.4,
+          "passed": true
+        },
+        {
+          "name": "ppic-menu-route",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            108.4,
+            115.3,
+            113.9,
+            115.8,
+            112.4
+          ],
+          "maxMs": 115.8,
+          "passed": true
+        },
+        {
+          "name": "ppic-detail-open",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            115.6,
+            99.4,
+            99.1,
+            99,
+            99.5
+          ],
+          "maxMs": 115.6,
+          "passed": true
+        },
+        {
+          "name": "ppic-detail-close",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            58.5,
+            60.4,
+            61,
+            58.8,
+            59.8
+          ],
+          "maxMs": 61,
+          "passed": true
+        },
+        {
+          "name": "ppic-keyword",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            34.3,
+            34.4,
+            34.1,
+            20,
+            34.9
+          ],
+          "maxMs": 34.9,
+          "passed": true
+        },
+        {
+          "name": "ppic-查询",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            48.7,
+            51.4,
+            51.6,
+            47.3,
+            50.1
+          ],
+          "maxMs": 51.6,
+          "passed": true
+        },
+        {
+          "name": "ppic-重置",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            61.7,
+            61.1,
+            61.4,
+            59.7,
+            59.9
+          ],
+          "maxMs": 61.7,
+          "passed": true
+        },
+        {
+          "name": "handover-refresh",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            281.7,
+            233.3,
+            280,
+            232.7,
+            280.7
+          ],
+          "maxMs": 281.7,
+          "passed": true
+        },
+        {
+          "name": "handover-menu-route",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            48.5,
+            48.5,
+            47.5,
+            48.6,
+            65
+          ],
+          "maxMs": 65,
+          "passed": true
+        },
+        {
+          "name": "handover-keyword",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            29.9,
+            29.7,
+            28.6,
+            26.8,
+            28.6
+          ],
+          "maxMs": 29.9,
+          "passed": true
+        },
+        {
+          "name": "handover-apply",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            32.2,
+            31.5,
+            32.3,
+            31.4,
+            31
+          ],
+          "maxMs": 32.3,
+          "passed": true
+        },
+        {
+          "name": "handover-reset",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            32.6,
+            33.1,
+            32.1,
+            31.3,
+            32
+          ],
+          "maxMs": 33.1,
+          "passed": true
+        },
+        {
+          "name": "handover-sort",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            32.6,
+            33,
+            33.1,
+            32,
+            31.8
+          ],
+          "maxMs": 33.1,
+          "passed": true
+        },
+        {
+          "name": "handover-column-open",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            47.6,
+            46.9,
+            47.8,
+            49.5,
+            47.5
+          ],
+          "maxMs": 49.5,
+          "passed": true
+        },
+        {
+          "name": "handover-column-visible",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            81.6,
+            31,
+            33.1,
+            34.5,
+            32.7
+          ],
+          "maxMs": 81.6,
+          "passed": true
+        },
+        {
+          "name": "handover-column-close",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            40.8,
+            28.6,
+            30.6,
+            32.2,
+            32.3
+          ],
+          "maxMs": 40.8,
+          "passed": true
+        },
+        {
+          "name": "handover-export",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            65.1,
+            48.9,
+            49,
+            47.7,
+            48.9
+          ],
+          "maxMs": 65.1,
+          "passed": true
+        }
+      ]
+    },
+    "S13": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/actual-saves-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/actual-saves-v47-final.json",
+      "executedDriverSHA256": "7f9bcff4bc5435a8d363e85db8c2236ea8ef57909bf2104c003bdedff4043960",
+      "sampleCount": 30,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "release-confirm",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            131.8,
+            116.8,
+            115.8,
+            114.4,
+            116.6
+          ],
+          "maxMs": 131.8,
+          "passed": true
+        },
+        {
+          "name": "over-release-blocked",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            85,
+            84.5,
+            83.7,
+            82.7,
+            83.5
+          ],
+          "maxMs": 85,
+          "passed": true
+        },
+        {
+          "name": "accessory-real-photo-open",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            52.4,
+            50.9,
+            52.1,
+            52,
+            51.4
+          ],
+          "maxMs": 52.4,
+          "passed": true
+        },
+        {
+          "name": "accessory-real-photo-close",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            49.9,
+            49.9,
+            48.2,
+            48.6,
+            49.8
+          ],
+          "maxMs": 49.9,
+          "passed": true
+        },
+        {
+          "name": "formal-direct-dispatch",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            221.6,
+            234.2,
+            216.3,
+            216.8,
+            216.4
+          ],
+          "maxMs": 234.2,
+          "passed": true
+        },
+        {
+          "name": "ppic-after-direct-refresh",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            390.7,
+            414.2,
+            398.9,
+            399.3,
+            398.2
+          ],
+          "maxMs": 414.2,
+          "passed": true
+        }
+      ]
+    },
+    "minimumManagementDevice": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/minimum-device-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/minimum-device-v47-final.json",
+      "executedDriverSHA256": "c501791edd6b41a3bc9a28381d8aa6ccf98b41ccbb03e86d24ba1034b15014ec",
+      "sampleCount": 25,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "dispatch-minimum-1280",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            439.4,
+            421.7,
+            433,
+            435.8,
+            419.6
+          ],
+          "maxMs": 439.4,
+          "passed": true
+        },
+        {
+          "name": "dispatch-detail-minimum-1280",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            113.1,
+            115.2,
+            114.4,
+            115.3,
+            116.1
+          ],
+          "maxMs": 116.1,
+          "passed": true
+        },
+        {
+          "name": "ppic-minimum-1280",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            404.1,
+            403.2,
+            404.2,
+            403.4,
+            404.6
+          ],
+          "maxMs": 404.6,
+          "passed": true
+        },
+        {
+          "name": "ppic-detail-minimum-1280",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            147.5,
+            149.8,
+            148.6,
+            148.9,
+            148.4
+          ],
+          "maxMs": 149.8,
+          "passed": true
+        },
+        {
+          "name": "handover-minimum-1280",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            275.3,
+            257.3,
+            255.3,
+            256,
+            259.3
+          ],
+          "maxMs": 275.3,
+          "passed": true
+        }
+      ]
+    },
+    "ordinarySimpleWebPda": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/simple-handover-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/simple-handover-v47-final.json",
+      "executedDriverSHA256": "4f5148a97b1cfacde90eec66128523e1373060432fe7dc8a79aa991a4ed1fcf1",
+      "sampleCount": 110,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "simple-original-task-sheet/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            179.1,
+            247.3,
+            176.9,
+            184.6,
+            192.6
+          ],
+          "maxMs": 247.3,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-popup/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            428.8,
+            499.4,
+            429.8,
+            447.3,
+            433.3
+          ],
+          "maxMs": 499.4,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-pdf-export/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            296.5,
+            355,
+            310.5,
+            286.6,
+            307.1
+          ],
+          "maxMs": 355,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-confirm/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            131.9,
+            82.6,
+            83.8,
+            82.5,
+            82.5
+          ],
+          "maxMs": 131.9,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-direct/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            427.4,
+            328.7,
+            360.2,
+            409.9,
+            361.8
+          ],
+          "maxMs": 427.4,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-reload/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            947.9,
+            330.9,
+            364.4,
+            350,
+            364.1
+          ],
+          "maxMs": 947.9,
+          "passed": true
+        },
+        {
+          "name": "simple-task-read/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            114.9,
+            116.1,
+            116.6,
+            117.3,
+            120.5
+          ],
+          "maxMs": 120.5,
+          "passed": true
+        },
+        {
+          "name": "simple-add-required-fabric/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            80.6,
+            82.1,
+            83.5,
+            80.2,
+            81.7
+          ],
+          "maxMs": 83.5,
+          "passed": true
+        },
+        {
+          "name": "simple-handover-save/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            199,
+            132.5,
+            199.3,
+            129.9,
+            130.8
+          ],
+          "maxMs": 199.3,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-other-after-save/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            356.4,
+            340.8,
+            337.3,
+            354.3,
+            306.3
+          ],
+          "maxMs": 356.4,
+          "passed": true
+        },
+        {
+          "name": "simple-other-route-reopen/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            132.4,
+            116.8,
+            114.3,
+            115.3,
+            115.4
+          ],
+          "maxMs": 132.4,
+          "passed": true
+        },
+        {
+          "name": "simple-original-task-sheet/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            180.8,
+            181.1,
+            176.2,
+            176.7,
+            180
+          ],
+          "maxMs": 181.1,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-popup/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            431.9,
+            516.6,
+            499.7,
+            449.6,
+            431.2
+          ],
+          "maxMs": 516.6,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-pdf-export/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            302.5,
+            316.9,
+            297.5,
+            297.4,
+            292.5
+          ],
+          "maxMs": 316.9,
+          "passed": true
+        },
+        {
+          "name": "simple-original-print-confirm/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            83.2,
+            84.3,
+            81.8,
+            82.3,
+            83.4
+          ],
+          "maxMs": 84.3,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-direct/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            326.2,
+            293.8,
+            292.8,
+            326.1,
+            309.1
+          ],
+          "maxMs": 326.2,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-reload/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            331.6,
+            299,
+            331.7,
+            298.7,
+            347.2
+          ],
+          "maxMs": 347.2,
+          "passed": true
+        },
+        {
+          "name": "simple-task-read/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            115.4,
+            116.3,
+            115.3,
+            115.6,
+            115.8
+          ],
+          "maxMs": 116.3,
+          "passed": true
+        },
+        {
+          "name": "simple-add-required-fabric/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            66.2,
+            80.8,
+            65.3,
+            65.3,
+            65.5
+          ],
+          "maxMs": 80.8,
+          "passed": true
+        },
+        {
+          "name": "simple-handover-save/PDA",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            215.2,
+            214.4,
+            215.5,
+            215.3,
+            215.3
+          ],
+          "maxMs": 215.5,
+          "passed": true
+        },
+        {
+          "name": "simple-entry-other-after-save/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            381.9,
+            346,
+            344.9,
+            382.3,
+            381.6
+          ],
+          "maxMs": 382.3,
+          "passed": true
+        },
+        {
+          "name": "simple-other-route-reopen/WEB",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            116.3,
+            115.6,
+            115.4,
+            115.1,
+            115.5
+          ],
+          "maxMs": 116.3,
+          "passed": true
+        }
+      ]
+    },
+    "unmigratedLSProtection": {
+      "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/unmigrated-LS-protection-v47-final.log",
+      "evidence": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/unmigrated-LS-protection-v47-final.json",
+      "executedDriverSHA256": "ad609e18b086ab4e9756841e68a1449b218753e3a811e3a4d1e20e3ec6939f49",
+      "sampleCount": 5,
+      "passed": true,
+      "error": null,
+      "issues": [],
+      "groups": [
+        {
+          "name": "fresh-unmigrated-LS-protection",
+          "count": 5,
+          "samples": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "elapsedMs": [
+            108.1,
+            113.1,
+            106,
+            110.3,
+            113
+          ],
+          "maxMs": 113.1,
+          "passed": true
+        }
+      ]
+    }
+  },
+  "scopeComplete": true,
+  "visualReview": {
+    "version": "v47",
+    "reviewedAt": "2026-10-09T23:07:50.222778+00:00",
+    "reviewer": "release_dispatch_implementation",
+    "status": "当前实际图已亲看",
+    "images": [
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-ppic-S500-partial-accessory-1.png",
+        "sha256": "32a704179bed2514a262c2b10f2a858bd3938718231589e23d732af886d70dca",
+        "finding": "PPIC 当前 K490/A500/O500/当前风险10件，独立拉链需求2500、已配2200、待配300条；原任务身份与责任显示。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-PDA-saved-1.png",
+        "sha256": "b6ef2a2addd38ee712bc7ba8b453af258fe4e6920447ab45a99e3156af22ba71",
+        "finding": "390×844 PDA 560片实际交出成功，5张裁片票/1张5Yard换片布，任务单号、工厂、PPIC与动作结果可见。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-before-1.png",
+        "sha256": "5ec6dbb39c33d3a92bbfba63ce7b91ee3ad0a797770e8ecfcb2db3277f872bc9",
+        "finding": "1024×768 普通整票候选80/80/80/160/160片，5Yard换片布加入框与560片确认主动作可达。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-1-rendered.png",
+        "sha256": "a0806b95270d0dfcb239d644144409d4e94ff60e5f502c051c588325a5457940",
+        "finding": "实际100mm PDF首张亲看：换片布菲票、原PO与面料照片、5Yard、二维码、短业务票号001完整。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-dispatch-minimum-device-1.png",
+        "sha256": "6df39ee3ece084274e7911b2de6aaa1e57370030f8db4ee3edc2e21b5a1d5d7b",
+        "finding": "1280×720任务详情五个真实SKU/颜色/尺码/数量与关闭按钮可达；原列表款式图可见。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-accessory-large-photo-1.png",
+        "sha256": "cf247c7c2f02d354c7e2c3b8a5e8339006bb6c290a9e8abb395c0798beded3e2",
+        "finding": "拉链真实物料大图完整可辨，关闭按钮可达，背后独立待配300条信息保留。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-explicit-migrated-simple-WEB_LS_DISABLED-task-sheet.png",
+        "sha256": "309d9acf1cd081666dd41e77afdd16266764a1f673a7751837987f8eb6ffeb78",
+        "finding": "禁用LS后的原任务打印预览：实际RW纸号、原任务/工厂/PPIC、款式图片、QR/条码、本厂SKU范围完整。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-fresh-unmigrated-LS-protection-1.png",
+        "sha256": "5bc86062eeb9865abf36536824b95ca875da1685f2944e61787abc0041f29944",
+        "finding": "旧来源不可读且未迁移时明确迁移门禁，无假空列表或虚假保存；原允许关闭旧窗口与迁移动作可见。"
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-ordinary-known-manual-create-blocked.png",
+        "sha256": "4223d7d2f9759370e433257eabe80836a4f0dc91df4c19779ca86fd0a08aef5d",
+        "finding": "额外静态合并唛架原确认被部位缺失保护阻断，原表单M5与其他尺码0、备注保留；不得当作合法普通新票已建立。"
+      }
+    ],
+    "parentIndependentReview": "output/playwright/cut-release-ui/dispatch-root-visual-v47.json",
+    "pdfBatch": {
+      "count": 15,
+      "allActualFilesRetained": true,
+      "all100mmValidationInPrimary": true,
+      "renderedRepresentative": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-1-rendered.png"
+    }
+  },
+  "manualNewTicketChain": {
+    "version": "v47",
+    "status": "待验证",
+    "completed": false,
+    "purpose": "新增普通手动票的原界面来源/实际打印/装袋后放行和普通下游候选，与receipt特殊工艺链不同；不重复390既有普通原票family。",
+    "protectedAttempts": [
+      {
+        "sourceVisible": "MKP-20260403-002 / PO14671 / Black / layer1 M5 L0 XL0",
+        "message": "未找到来源生产单，请重新选择唛架。",
+        "writeTransactions": 0,
+        "readTransactions": 2,
+        "sourceInjected": false,
+        "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/ordinary-manual-create-v47.log",
+        "detail": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/ordinary-manual-create-blocked-v47.json",
+        "screenshot": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-ordinary-manual-create-blocked.png"
+      },
+      {
+        "sourceVisible": "MKP-20260403-001 / PO-202603-0004、PO-202603-0102 / Black-Navy / layer1 M5 S0 L0 XL0",
+        "message": "该唛架成员没有可生成菲票的裁片部位明细。",
+        "writeTransactions": 0,
+        "readTransactions": 2,
+        "sourceInjected": false,
+        "rawLog": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/ordinary-manual-known-create-v47.log",
+        "detail": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/ordinary-known-manual-create-blocked-v47.json",
+        "screenshot": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-ordinary-known-manual-create-blocked.png"
+      }
+    ],
+    "nextStep": "ROOT批准复用receipt本轮原profile实际新建8票中6张未打印/未用白票：以其原创建raw和同票ID联查起点；receipt全部窗口结束后原白纸打印/普通袋/当前C-K/普通下游候选。无来源复制/注入、不重建已证据起点。",
+    "browserState": "CLI release-dispatch-v47 原表单仍保留，未业务写入；receipt独占期间暂停浏览器。"
+  },
+  "nativeChecks": "ROOT负责当前统一验证，本runner仅浏览器范围",
+  "previousPrimaryArchive": {
+    "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/primary-before-current-run.json",
+    "sha256": "85745e05d9c2b828c83a7e688009f2782f966787efc12208e06ed20667656a5c"
+  },
+  "actualEntryBytesVerified": true,
+  "pdfArtifacts": [
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-explicit-migrated-simple-WEB_LS_DISABLED-label-1.pdf",
+      "bytes": 3172373,
+      "sha256": "341d76cd389f22f76e06dcc6310ea64d536a89dd722900b368d4fb87f2ae3051",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-explicit-migrated-simple-WEB_LS_DISABLED-label-2.pdf",
+      "bytes": 3172373,
+      "sha256": "8f654c816c5b6eec3578116172d150dec88827598f43e74f9479b12dcd331fb6",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-explicit-migrated-simple-WEB_LS_DISABLED-label-3.pdf",
+      "bytes": 3172373,
+      "sha256": "3040e1e011fca29bc291bf5b7b9ab4bfc77d0ce9d94b01562001ebf4c184909d",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-explicit-migrated-simple-WEB_LS_DISABLED-label-4.pdf",
+      "bytes": 3172373,
+      "sha256": "a7269732249046475cd78635bccaca5fa5ba10208828a70cfe24266827ef21a0",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-explicit-migrated-simple-WEB_LS_DISABLED-label-5.pdf",
+      "bytes": 3172373,
+      "sha256": "bf009591714889f2e63e3f47336f8272a1add0181d1dccd5e28f225a48bd02af",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-PDA-label-1.pdf",
+      "bytes": 3172373,
+      "sha256": "d056a12aee59ba013607f116de3f52bdcd0aa9f1afbde4c92642cb2599561e1e",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-PDA-label-2.pdf",
+      "bytes": 3172373,
+      "sha256": "995f4ce66df87ada2a27dd2dddbc68aca878c9c0642950d8c580a56cdbf2fdcc",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-PDA-label-3.pdf",
+      "bytes": 3172373,
+      "sha256": "e3212a40c20d1309677ebf4cfcb8a582769c1616ca5761ee332c98aee6fc1cd6",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-PDA-label-4.pdf",
+      "bytes": 3172373,
+      "sha256": "6a0c5f59a692f2fb0f6730cd264116b9d67ad8458d0572d41297c5417a3c9f94",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-PDA-label-5.pdf",
+      "bytes": 3172373,
+      "sha256": "c27b623e74196f1ae0e8379bf76757b0441cf17f24215c0d2ecdf5e147f36e5a",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-1.pdf",
+      "bytes": 3172373,
+      "sha256": "12bde2662f559a68a6571189b4fd2bd30e8483ac3d7dd2e5769f6185eaaa26f1",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-2.pdf",
+      "bytes": 3172373,
+      "sha256": "2232957fa2be95edd5e0b2dc2ac220eb17489f9c57d129abe94f11e87498f133",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-3.pdf",
+      "bytes": 3172373,
+      "sha256": "eb0022846732582e8ad00a66d17134981924b7db90ea9ce98e9f683303f5622a",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-4.pdf",
+      "bytes": 3172373,
+      "sha256": "75d6c20083cf905ed069938a962eff3bb0cfdccc649756520f1fe15c8ec48131",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v47-run-20261009T225910497711Z-5637/v47-final-simple-WEB-label-5.pdf",
+      "bytes": 3172373,
+      "sha256": "923a840f097c79249be21861577ac793aa8386785fb73469abe3d59e4b6fdec6",
+      "mediaBoxPoints": [
+        0.0,
+        0.0,
+        282.95999,
+        282.95999
+      ],
+      "expectedMillimeters": [
+        100,
+        100
+      ]
+    }
+  ],
+  "currentMeasuredPassed": true,
+  "loadedAssetsVerified": [
+    "dist/assets/app-shared-Ce0GdlNc.js",
+    "dist/assets/badge-DbUQOZoe.js",
+    "dist/assets/commands-DrUs3t2n.js",
+    "dist/assets/cut-piece-release-AYEds1ER.js",
+    "dist/assets/cut-piece-return-domain-BjBSI_cy.js",
+    "dist/assets/cutting-event-migration-BbfA_7QZ.js",
+    "dist/assets/cutting-event-repository-B0M1Dw-Z.js",
+    "dist/assets/cutting-record-identity-CtTd0WGy.js",
+    "dist/assets/cutting-record-repository-BVY8C7hO.js",
+    "dist/assets/cutting-runtime-event-ledger-DopcaVJV.js",
+    "dist/assets/cutting-task-routing-Bsm_16R8.js",
+    "dist/assets/design-revision-pcs-command-DEx_LhN1.js",
+    "dist/assets/design-revision-pcs-storage-D2ozVRMd.js",
+    "dist/assets/dispatch-IeeGHzUT.js",
+    "dist/assets/dispatch-acceptance-sla-Beaf93ZK.js",
+    "dist/assets/dispatch-task-sheet-BM-zpX9Y.js",
+    "dist/assets/dye-work-order-times-w7U4XCtx.js",
+    "dist/assets/effective-task-assignments-VJ0o3EuS.js",
+    "dist/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+    "dist/assets/factory-receiving-P13Y8fLg.js",
+    "dist/assets/factory-receiving-links-DhQz4Q5O.js",
+    "dist/assets/factory-types-DbcizYGx.js",
+    "dist/assets/fcs-route-links-CdIu8Xoq.js",
+    "dist/assets/fei-tickets-storage-7KaIHPKx.js",
+    "dist/assets/generated-cut-orders-Q16vyRR8.js",
+    "dist/assets/generated-cut-release-Eth_cMb6.js",
+    "dist/assets/generated-fei-tickets--6C04bfS.js",
+    "dist/assets/handover-orders-DLrG7Atd.js",
+    "dist/assets/handover-orders-DsTOYU53.js",
+    "dist/assets/idb-storage-DYscBY_v.js",
+    "dist/assets/images-Q79qfJD0.js",
+    "dist/assets/index-DbEcBwRo.js",
+    "dist/assets/lace-factory-domain-E69dJw3K.js",
+    "dist/assets/layout.helpers-B2KW1-EU.js",
+    "dist/assets/los-live-room-master-DLy6Dhll.js",
+    "dist/assets/machine-associations-pgHZIUhu.js",
+    "dist/assets/manual-fei-tickets-BBRsDlxd.js",
+    "dist/assets/material-ledger-BgjVbLtC.js",
+    "dist/assets/materials-DQo18LQz.js",
+    "dist/assets/meta-DqPRPSX8.js",
+    "dist/assets/mixed-bag-contents-Bn1jMj5D.js",
+    "dist/assets/mixed-transfer-bag-ticket-DETTPWFm.js",
+    "dist/assets/mobile-BE9edMi0.js",
+    "dist/assets/order-list-columns-DM7TIJSI.js",
+    "dist/assets/part-ticket-records-B5GQJSCg.js",
+    "dist/assets/pcs-config-workspace-repository-00KyowiX.js",
+    "dist/assets/pcs-engineering-bom-snapshot-source-DlXUWD87.js",
+    "dist/assets/pcs-part-template-library-ClIjCUS6.js",
+    "dist/assets/pcs-pattern-library-cXjyp4of.js",
+    "dist/assets/pcs-record-core-o6DhMAtC.js",
+    "dist/assets/pcs-tech-pack-bootstrap-je-P2SO9.js",
+    "dist/assets/pcs-tech-pack-review-CJhzVW0N.js",
+    "dist/assets/pcs-tech-pack-review-notification-repository-B-oAnIn2.js",
+    "dist/assets/pcs-tech-pack-version-log-repository-QDJ9u6Ql.js",
+    "dist/assets/pending-receipts-3g43ECTl.js",
+    "dist/assets/pending-receipts-tOuFxCn2.js",
+    "dist/assets/post-finishing-current-read-model-BbJlILKs.js",
+    "dist/assets/post-finishing-full-flow-BeEsqsMk.js",
+    "dist/assets/preparation-material-receipt-sources-bckErar1.js",
+    "dist/assets/presentation-3RvBEMlH.js",
+    "dist/assets/print-service-CyrwQfQw.js",
+    "dist/assets/process-order-list-controller-BWIuHJ4N.js",
+    "dist/assets/process-order-list-presentation-uk1TIisc.js",
+    "dist/assets/process-order-task-links-BVyJxc_6.js",
+    "dist/assets/process-tasks-CLOt8RXI.js",
+    "dist/assets/process-work-order-generation-service-DiYgf5UT.js",
+    "dist/assets/production-context-actions-DE-MUlqX.js",
+    "dist/assets/production-context-records-B7265QfU.js",
+    "dist/assets/production-context-recovery-BGMmMbQe.js",
+    "dist/assets/production-contracts-sQJfJykk.js",
+    "dist/assets/production-demand-early-process-work-orders-BZmAxDFQ.js",
+    "dist/assets/production-order-identity-CuksH823.js",
+    "dist/assets/production-order-tech-pack-runtime-SR2B32X5.js",
+    "dist/assets/production-orders-jxODek9h.js",
+    "dist/assets/production-return-fulfillment-DRGg0USY.js",
+    "dist/assets/production-source-shared-Bj4b3XYm.js",
+    "dist/assets/production-tech-pack-change-domain-qeLCDIkj.js",
+    "dist/assets/quality-chain-adapter-DtnjYWNS.js",
+    "dist/assets/quality-deduction-repository-BaosC4ig.js",
+    "dist/assets/quality-deduction-selectors-ByNMAaTQ.js",
+    "dist/assets/real-barcode-BHpCtURR.js",
+    "dist/assets/relations-ChmjbnOU.js",
+    "dist/assets/replacement-fabric-fei-tickets-DtBUNgLC.js",
+    "dist/assets/replacement-fabric-repository-bI6jsBxw.js",
+    "dist/assets/retired-cut-piece-pickup-history-DQokQpuk.js",
+    "dist/assets/routes-fcs-DUfVcCdo.js",
+    "dist/assets/runtime-task-tenders-YGz6fHpq.js",
+    "dist/assets/settlement-linked-mock-factory-BpetIj2y.js",
+    "dist/assets/sewing-cut-piece-responsibility-BMPyEvGK.js",
+    "dist/assets/sewing-cut-piece-return-workflow-B-Yg2Z_R.js",
+    "dist/assets/sewing-outsourcing-demo-D38Jx7e5.js",
+    "dist/assets/sewing-outsourcing-responsibility-BoRkrEQW.js",
+    "dist/assets/sewing-outsourcing-return-tracking-piHCHG7p.js",
+    "dist/assets/sewing-outsourcing-supplement-tracking-CM6s8rQU.js",
+    "dist/assets/sewing-outsourcing-workbench-j5K67h68.js",
+    "dist/assets/sewing-pickup-slips-BUfJ4SKp.js",
+    "dist/assets/simple-cut-piece-handover-fixtures-CyuN8wV-.js",
+    "dist/assets/special-craft-task-orders-Bof1-Gw_.js",
+    "dist/assets/stage-display-MC8YBaFy.js",
+    "dist/assets/store-domain-pda-Bl4jkAiC.js",
+    "dist/assets/store-domain-quality-bootstrap-xazvQzZC.js",
+    "dist/assets/supplement-material-prep-demand-registry-DI-N3DvB.js",
+    "dist/assets/supplement-order-registry-CHnc7juB.js",
+    "dist/assets/suppliers-DOxcttzm.js",
+    "dist/assets/tabs--aCvt7MO.js",
+    "dist/assets/task-handover-domain-CU4fFZcx.js",
+    "dist/assets/tasks-IAoe_qBX.js",
+    "dist/assets/tmf-domain-shared-CsnEeaO8.js",
+    "dist/assets/tmf-material-purchases-BMf1vPD8.js",
+    "dist/assets/tmf-process-continuation-B3hoPFRr.js",
+    "dist/assets/tmf-reference-images-6geKcU1B.js",
+    "dist/assets/tmf-upstream-receiving-_mMU33Fu.js",
+    "dist/assets/transfer-bag-operations-DLUWYSeM.js",
+    "dist/assets/unified-dispatch-workbench-BdXvre_-.js",
+    "dist/assets/wait-handover-runtime-DSIJM34a.js",
+    "dist/assets/warehouse-runtime-BmQvgyFX.js",
+    "dist/assets/warehouses-CSFYi5tN.js",
+    "dist/assets/yarn-shipments-duP7qabb.js"
+  ],
+  "completedAt": "2026-10-09T23:01:43.678076+00:00",
+  "updatedAt": "2026-10-09T23:07:50.222778+00:00",
+  "printButtonSupplement": {
+    "status": "已验证",
+    "version": "v47",
+    "versionManifest": "docs/product-design/evidence/2026-10-09-cut-piece-release/version-v47.json",
+    "sourceManifestSHA256": "aa1c2e9b60fafbf844146244c68ad25f8eb00a4c07f90a24e44aa7023afbaf1e",
+    "assetManifestSHA256": "4fbe0fb5e84cff9aca174790247707881d1da1c96d61d9b838158fe7cbd5328a",
+    "servedEntry": "/assets/index-DbEcBwRo.js",
+    "startedAt": "2026-10-09T23:20:19.682545+00:00",
+    "runDirectory": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060",
+    "plannedTimedSamples": 30,
+    "plannedFamilies": 6,
+    "previousPrimaryArchive": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/primary-before-supplement.json",
+    "previousPrimarySHA256": "147efd1c241a1d4f9103c786d9c052329dbc7bf3acb0feeb743829abf44f79cb",
+    "passed": true,
+    "actualEntryBytesVerified": true,
+    "preparedDriverSHA256": "0abfd0addce684e7173401747e241c808360928556b7602094eb6a1b5746d1c6",
+    "executedDriverSHA256": "00825f4626535ca68250ebe54c8fb9d7fcb85476748014d7f04e2181cda9ddf6",
+    "session": "release-dispatch-print-v47",
+    "rawLog": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/print-buttons-original-raw.log",
+    "actualResult": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/print-buttons-original-result.json",
+    "sampleCount": 30,
+    "familyCount": 6,
+    "groups": [
+      {
+        "name": "HPB-original-print-button/WEB",
+        "count": 5,
+        "elapsedMs": [
+          67.40000000596046,
+          67.5,
+          66.20000000298023,
+          65.89999999850988,
+          66.79999999701977
+        ],
+        "maxMs": 67.5,
+        "passed": true
+      },
+      {
+        "name": "HPB-original-success-output-selection/WEB",
+        "count": 5,
+        "elapsedMs": [
+          66.69999999552965,
+          64.60000000149012,
+          66.19999999552965,
+          67.69999999552965,
+          66.09999999403954
+        ],
+        "maxMs": 67.69999999552965,
+        "passed": true
+      },
+      {
+        "name": "HPB-original-print-button/PDA",
+        "count": 5,
+        "elapsedMs": [
+          64,
+          66.20000000298023,
+          67.60000000149012,
+          66,
+          66.20000000298023
+        ],
+        "maxMs": 67.60000000149012,
+        "passed": true
+      },
+      {
+        "name": "HPB-original-success-output-selection/PDA",
+        "count": 5,
+        "elapsedMs": [
+          66.10000000149012,
+          65.79999999701977,
+          64.70000000298023,
+          66.5,
+          66.90000000596046
+        ],
+        "maxMs": 66.90000000596046,
+        "passed": true
+      },
+      {
+        "name": "HPB-original-print-button/WEB_LS_DISABLED",
+        "count": 5,
+        "elapsedMs": [
+          65.89999999850988,
+          64.5,
+          64.79999999701977,
+          66.20000000298023,
+          66.60000000149012
+        ],
+        "maxMs": 66.60000000149012,
+        "passed": true
+      },
+      {
+        "name": "HPB-original-success-output-selection/WEB_LS_DISABLED",
+        "count": 5,
+        "elapsedMs": [
+          66.5,
+          64.79999999701977,
+          68.29999999701977,
+          66.20000000298023,
+          66.5
+        ],
+        "maxMs": 68.29999999701977,
+        "passed": true
+      }
+    ],
+    "loadedAssetsVerified": [
+      "http://127.0.0.1:4190/assets/app-shared-Ce0GdlNc.js",
+      "http://127.0.0.1:4190/assets/commands-DrUs3t2n.js",
+      "http://127.0.0.1:4190/assets/cut-piece-release-AYEds1ER.js",
+      "http://127.0.0.1:4190/assets/cutting-event-repository-B0M1Dw-Z.js",
+      "http://127.0.0.1:4190/assets/cutting-record-identity-CtTd0WGy.js",
+      "http://127.0.0.1:4190/assets/cutting-record-repository-BVY8C7hO.js",
+      "http://127.0.0.1:4190/assets/cutting-runtime-event-ledger-DopcaVJV.js",
+      "http://127.0.0.1:4190/assets/cutting-task-routing-Bsm_16R8.js",
+      "http://127.0.0.1:4190/assets/design-revision-pcs-storage-D2ozVRMd.js",
+      "http://127.0.0.1:4190/assets/dispatch-acceptance-sla-Beaf93ZK.js",
+      "http://127.0.0.1:4190/assets/dispatch-task-sheet-BM-zpX9Y.js",
+      "http://127.0.0.1:4190/assets/domain-snapshot-BXOlnG2g.js",
+      "http://127.0.0.1:4190/assets/effective-task-assignments-VJ0o3EuS.js",
+      "http://127.0.0.1:4190/assets/execution-prep-projection-helpers-BXrGCnRD.js",
+      "http://127.0.0.1:4190/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "http://127.0.0.1:4190/assets/factory-receiving-P13Y8fLg.js",
+      "http://127.0.0.1:4190/assets/factory-types-DbcizYGx.js",
+      "http://127.0.0.1:4190/assets/fcs-route-links-CdIu8Xoq.js",
+      "http://127.0.0.1:4190/assets/fei-ticket-numbering-BMP5QetN.js",
+      "http://127.0.0.1:4190/assets/fei-tickets-BiPFa2Z-.js",
+      "http://127.0.0.1:4190/assets/fei-tickets-storage-7KaIHPKx.js",
+      "http://127.0.0.1:4190/assets/generated-cut-orders-Q16vyRR8.js",
+      "http://127.0.0.1:4190/assets/generated-cut-release-Eth_cMb6.js",
+      "http://127.0.0.1:4190/assets/generated-fei-tickets--6C04bfS.js",
+      "http://127.0.0.1:4190/assets/idb-storage-DYscBY_v.js",
+      "http://127.0.0.1:4190/assets/index--GzcKvNw.js",
+      "http://127.0.0.1:4190/assets/index-BUgaq6D2.js",
+      "http://127.0.0.1:4190/assets/index-DbEcBwRo.js",
+      "http://127.0.0.1:4190/assets/layout.helpers-B2KW1-EU.js",
+      "http://127.0.0.1:4190/assets/los-live-room-master-DLy6Dhll.js",
+      "http://127.0.0.1:4190/assets/machine-associations-pgHZIUhu.js",
+      "http://127.0.0.1:4190/assets/manual-fei-tickets-BBRsDlxd.js",
+      "http://127.0.0.1:4190/assets/marker-plan-model-BajhK75C.js",
+      "http://127.0.0.1:4190/assets/marker-plan-occupancy-1pP7qYWB.js",
+      "http://127.0.0.1:4190/assets/marker-plan-projection-BWKaDwXl.js",
+      "http://127.0.0.1:4190/assets/marker-plan-source-model-B6gt5o2Q.js",
+      "http://127.0.0.1:4190/assets/marker-spreading-projection-CWBq5cP6.js",
+      "http://127.0.0.1:4190/assets/marker-spreading-utils-bLY0gelM.js",
+      "http://127.0.0.1:4190/assets/material-identity-xTXrZ7OI.js",
+      "http://127.0.0.1:4190/assets/material-ledger-BgjVbLtC.js",
+      "http://127.0.0.1:4190/assets/meta-DqPRPSX8.js",
+      "http://127.0.0.1:4190/assets/mixed-transfer-bag-ticket-DETTPWFm.js",
+      "http://127.0.0.1:4190/assets/mobile-BE9edMi0.js",
+      "http://127.0.0.1:4190/assets/navigation-context-5GcHOdSg.js",
+      "http://127.0.0.1:4190/assets/part-ticket-records-B5GQJSCg.js",
+      "http://127.0.0.1:4190/assets/pcs-config-workspace-repository-00KyowiX.js",
+      "http://127.0.0.1:4190/assets/pcs-engineering-bom-snapshot-source-DlXUWD87.js",
+      "http://127.0.0.1:4190/assets/pcs-part-template-library-ClIjCUS6.js",
+      "http://127.0.0.1:4190/assets/pcs-pattern-library-cXjyp4of.js",
+      "http://127.0.0.1:4190/assets/pcs-record-core-o6DhMAtC.js",
+      "http://127.0.0.1:4190/assets/pcs-tech-pack-bootstrap-je-P2SO9.js",
+      "http://127.0.0.1:4190/assets/pcs-tech-pack-review-CJhzVW0N.js",
+      "http://127.0.0.1:4190/assets/pcs-tech-pack-review-notification-repository-B-oAnIn2.js",
+      "http://127.0.0.1:4190/assets/pcs-tech-pack-version-log-repository-QDJ9u6Ql.js",
+      "http://127.0.0.1:4190/assets/post-finishing-current-read-model-BbJlILKs.js",
+      "http://127.0.0.1:4190/assets/post-finishing-full-flow-BeEsqsMk.js",
+      "http://127.0.0.1:4190/assets/print-preview-WIixUPEu.js",
+      "http://127.0.0.1:4190/assets/print-service-CyrwQfQw.js",
+      "http://127.0.0.1:4190/assets/print-styles-BjQBw8jj.js",
+      "http://127.0.0.1:4190/assets/process-order-list-controller-BWIuHJ4N.js",
+      "http://127.0.0.1:4190/assets/process-tasks-CLOt8RXI.js",
+      "http://127.0.0.1:4190/assets/production-context-actions-DE-MUlqX.js",
+      "http://127.0.0.1:4190/assets/production-context-records-B7265QfU.js",
+      "http://127.0.0.1:4190/assets/production-contracts-sQJfJykk.js",
+      "http://127.0.0.1:4190/assets/production-order-identity-CuksH823.js",
+      "http://127.0.0.1:4190/assets/production-order-tech-pack-runtime-SR2B32X5.js",
+      "http://127.0.0.1:4190/assets/production-orders-jxODek9h.js",
+      "http://127.0.0.1:4190/assets/production-return-fulfillment-DRGg0USY.js",
+      "http://127.0.0.1:4190/assets/production-source-shared-Bj4b3XYm.js",
+      "http://127.0.0.1:4190/assets/production-tech-pack-change-domain-qeLCDIkj.js",
+      "http://127.0.0.1:4190/assets/real-qr-CPyuFUed.js",
+      "http://127.0.0.1:4190/assets/real-qr-placeholder-CKA4YXlP.js",
+      "http://127.0.0.1:4190/assets/replacement-fabric-fei-tickets-DtBUNgLC.js",
+      "http://127.0.0.1:4190/assets/replacement-fabric-label-template-BTUC0gmt.js",
+      "http://127.0.0.1:4190/assets/replacement-fabric-preview-BJt2ebsI.js",
+      "http://127.0.0.1:4190/assets/replacement-fabric-repository-bI6jsBxw.js",
+      "http://127.0.0.1:4190/assets/retired-cut-piece-pickup-history-DQokQpuk.js",
+      "http://127.0.0.1:4190/assets/runtime-inputs-CgRDB1BI.js",
+      "http://127.0.0.1:4190/assets/runtime-projections-DVRP2Yj6.js",
+      "http://127.0.0.1:4190/assets/runtime-task-tenders-YGz6fHpq.js",
+      "http://127.0.0.1:4190/assets/sewing-cut-piece-responsibility-BMPyEvGK.js",
+      "http://127.0.0.1:4190/assets/sewing-dispatch-BZAYo7Sj.js",
+      "http://127.0.0.1:4190/assets/sewing-outsourcing-responsibility-BoRkrEQW.js",
+      "http://127.0.0.1:4190/assets/simple-cut-piece-handover-fixtures-CyuN8wV-.js",
+      "http://127.0.0.1:4190/assets/special-craft-task-orders-Bof1-Gw_.js",
+      "http://127.0.0.1:4190/assets/store-domain-pda-Bl4jkAiC.js",
+      "http://127.0.0.1:4190/assets/store-domain-progress-CzM0w-AZ.js",
+      "http://127.0.0.1:4190/assets/supplement-order-registry-CHnc7juB.js",
+      "http://127.0.0.1:4190/assets/task-handover-domain-CU4fFZcx.js",
+      "http://127.0.0.1:4190/assets/tmf-domain-shared-CsnEeaO8.js",
+      "http://127.0.0.1:4190/assets/tmf-process-continuation-B3hoPFRr.js",
+      "http://127.0.0.1:4190/assets/tmf-reference-images-6geKcU1B.js",
+      "http://127.0.0.1:4190/assets/transfer-bag-operations-DLUWYSeM.js",
+      "http://127.0.0.1:4190/assets/transfer-bag-return-model-yJW3Mwgt.js",
+      "http://127.0.0.1:4190/assets/wait-handover-runtime-DSIJM34a.js",
+      "http://127.0.0.1:4190/assets/warehouse-runtime-BmQvgyFX.js",
+      "http://127.0.0.1:4190/assets/warehouse-shared-DiZpv1z5.js"
+    ],
+    "pdfPreconditions": [
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-PDA-1.pdf",
+        "sha256": "6ffbb741ebf9a09c0c193e2980c271c0cb40e390fa662c98a696b2907f7328b3",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-PDA-2.pdf",
+        "sha256": "ea6c652916bd706f86483fb22a6168f785472b2b210a4de9cc1e8cc9238fce96",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-PDA-3.pdf",
+        "sha256": "25f8f066f19de0fee0c653ed28de22e646cfcc6d089465a625bd5226c52908e1",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-PDA-4.pdf",
+        "sha256": "cd9e18d1d7cc727b727d30e8bd77b441cfa4c0fe0e88c6484db0b36e1a42d21c",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-PDA-5.pdf",
+        "sha256": "6d0c6d5390da270af9c29456cff4cc0d7e38e5b2887eac276d6dc18d39b94c63",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB-1.pdf",
+        "sha256": "583f527d1fe74f36092126a4e8b8fd4e19176deb312cbcf1d25f35ec017f7e7e",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB-2.pdf",
+        "sha256": "3778701fd29a5d289f03875d84fba4bbd577340e674dbf65ec5202c987c902c3",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB-3.pdf",
+        "sha256": "f69a398e7c5663e1ba88a48df4798a7a9394659d43c6f8fad41c236ff8d230fc",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB-4.pdf",
+        "sha256": "b25fc0bcdc0cad70ee1d80324647f34cb8211e38f990ad87d2b3fc8c03c635dc",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB-5.pdf",
+        "sha256": "286f40a39ec02d71a3e09d85a00c6ff4468156360f58e24c93b0098fb7be7125",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB_LS_DISABLED-1.pdf",
+        "sha256": "af0a468ccbc90cf89ad16178856e5f9eb24fad9030cd77434534392bbe203b7d",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB_LS_DISABLED-2.pdf",
+        "sha256": "67cba99dbe940ca4ec41e5f5545ff1f2917aa2491038f6c63fc73bba68db3594",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB_LS_DISABLED-3.pdf",
+        "sha256": "a8ac1085d3dcad7700f3bbfd1cc845ebbeb6a7f4144c6d8e5592bf243b92a014",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB_LS_DISABLED-4.pdf",
+        "sha256": "62f3842c2c0fdf620140a03fdc8f1ab8323b98c074a01f117562034403a339ae",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      },
+      {
+        "path": "output/playwright/cut-release-dispatch/v47-print-buttons-20261009T232019682157Z-10060/v47-r2-print-buttons-WEB_LS_DISABLED-5.pdf",
+        "sha256": "d7b0a9177e285f1e3bce6567a54535612a61b33b8cedf917f349911d43712728",
+        "size": 3172373,
+        "mediaBoxPoints": [
+          0.0,
+          0.0,
+          282.95999,
+          282.95999
+        ]
+      }
+    ],
+    "completedAt": "2026-10-09T23:20:46.877354+00:00"
+  },
+  "currentTotalTimedSamplesWithSupplement": 420,
+  "ordinaryManualSupplement": {
+    "status": "已验证",
+    "passed": true,
+    "version": "v48",
+    "evidence": "docs/product-design/evidence/2026-10-09-cut-piece-release/ordinary-final-v48.json",
+    "sha256": "46b6eed55431960ba1c389654686be1a9053efd5f984519e4cbbaf2bd4b48946",
+    "currentDeltaTimedSamples": 5,
+    "originalSavedActionsVersion": "v47",
+    "originalSavedActionsNotRetagged": true,
+    "physicalMaxMs": 394.6000000014901,
+    "noHandoverWithoutValidTask": true,
+    "knownOrdinarySixEligible5": true
+  },
+  "scopeVerifiedWithVersionDelta": {
+    "baseVersion": "v47",
+    "deltaVersion": "v48",
+    "base390AndPrint30NotRetagged": true,
+    "deltaEvidence": "docs/product-design/evidence/2026-10-09-cut-piece-release/ordinary-final-v48.json",
+    "affectedSourcePaths": [
+      "src/data/fcs/cutting/cut-piece-release-facts.ts",
+      "tests/unit/cut-piece-release-facts.test.ts"
+    ]
+  }
+}

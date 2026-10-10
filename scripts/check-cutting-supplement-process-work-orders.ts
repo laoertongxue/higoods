@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import {
-  bootstrapSupplementManagementMockData,
+  bootstrapSupplementManagementGeneratedFixturesForTesting as bootstrapSupplementManagementMockData,
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
   listSupplementDraftsForTesting,

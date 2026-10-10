@@ -1,0 +1,102 @@
+{
+  "version": "v36",
+  "status": "confirmed display discrepancy; downstream submit not exercised",
+  "bagCode": "BAG-DIRECT-V36-NATIVE-FINAL-01",
+  "usageCycleId": "cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125",
+  "directEventId": "cutting-event:CRAFT-OUT:SPECIAL-HR-special-craft-handover:d7c604eb-34fb-45e9-9f84-5c693829cfd1-BAG-DIRECT-V36-NATIVE-FINAL-01-cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125-cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125:handover:2-manual-fei-6105XC-manual-fei-GQPBSP:20261009205131",
+  "directSourceHandoverRecordId": "SPECIAL-HR-special-craft-handover:b10ab07c-e100-40f2-8fd8-e6ec2e86984c",
+  "currentActualHandoverRecordId": "SPECIAL-HR-special-craft-handover:d7c604eb-34fb-45e9-9f84-5c693829cfd1",
+  "currentReceiverFactoryId": "FAC-SPF",
+  "currentReceiverFactoryName": "SPF - 特种工艺",
+  "occurredAt": "2026-10-09T20:51:31.426Z",
+  "ledgerSequence": 650,
+  "sourceLocation": "B-R02-L01-P01",
+  "rows": [
+    {
+      "feiTicketId": "manual-fei-6105XC",
+      "feiTicketNo": "TM-FVUUO-OORM2-002",
+      "size": "M",
+      "originalQty": 5,
+      "strictDirectQty": 4,
+      "actualDomLines": [
+        "TM-FVUUO-OORM2-002",
+        "生产单：PO-202603-0002",
+        "裁片单：CUT-260303-002-01",
+        "\t",
+        "SPU-2024-005",
+        "Grey / M / 后片",
+        "件序：手动建票（无铺布层序）",
+        "\t",
+        "当前库存：5 片",
+        "已占用：0 片",
+        "可交出：5 片",
+        "\t",
+        "BAG-DIRECT-V36-NATIVE-FINAL-01",
+        "B区 / B-R02-L01-P01",
+        "入仓：2026-10-09T20:51:26.423Z",
+        "\t",
+        "未做特殊工艺",
+        "接收对象：APF - 辅助工艺",
+        "在库可分配\t",
+        "查看流水",
+        "调整库位",
+        "",
+        "",
+        "TM-FVUUO-OORM2-006"
+      ]
+    },
+    {
+      "feiTicketId": "manual-fei-GQPBSP",
+      "feiTicketNo": "TM-FVUUO-OORM2-006",
+      "size": "XL",
+      "originalQty": 5,
+      "strictDirectQty": 4,
+      "actualDomLines": [
+        "TM-FVUUO-OORM2-006",
+        "生产单：PO-202603-0002",
+        "裁片单：CUT-260303-002-01",
+        "\t",
+        "SPU-2024-005",
+        "Grey / XL / 后片",
+        "件序：手动建票（无铺布层序）",
+        "\t",
+        "当前库存：5 片",
+        "已占用：0 片",
+        "可交出：5 片",
+        "\t",
+        "BAG-DIRECT-V36-NATIVE-FINAL-01",
+        "B区 / B-R02-L01-P01",
+        "入仓：2026-10-09T20:51:26.423Z",
+        "\t",
+        "未做特殊工艺",
+        "接收对象：APF - 辅助工艺",
+        "在库可分配\t",
+        "查看流水",
+        "调整库位",
+        "",
+        "",
+        "TM-FVUUO-VOTN1-006"
+      ]
+    }
+  ],
+  "sameCycleSourceEvents": {
+    "bagging": "cutting-event:BAGGING:无铺布单-cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm-CUT-260303-002-01-BAG-DIRECT-V36-NATIVE-FINAL-01-cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125-manual-fei-6105XC-manual-fei-GQPBSP:20261009205125",
+    "inbound": "cutting-event:TICKET-IN:无铺布单-cut-order:po-202603-0002:tdv-demand-spu-2024-005-bom-main:grey:tdv-demand-spu-2024-005-pattern-main:v2-1:150cm-CUT-260303-002-01-BAG-DIRECT-V36-NATIVE-FINAL-01-cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125-manual-fei-6105XC-manual-fei-GQPBSP:20261009205126",
+    "firstHandover": "cutting-event:CRAFT-OUT:SPECIAL-HR-special-craft-handover:b10ab07c-e100-40f2-8fd8-e6ec2e86984c-BAG-DIRECT-V36-NATIVE-FINAL-01-cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125-cycle:BAG-DIRECT-V36-NATIVE-FINAL-01:20261009205125:handover:1-manual-fei-6105XC-manual-fei-GQPBSP:20261009205128"
+  },
+  "readonlyProof": {
+    "newSingleEvent": true,
+    "oldEventsUnchanged": true,
+    "sourceStageByTicket": true,
+    "ownNextStage": true,
+    "counts": {
+      "beforeRecords": 1100,
+      "afterRecords": 1101,
+      "beforeEvents": 185,
+      "afterEvents": 186
+    }
+  },
+  "rawFile": "/Users/laoer/.codex/worktrees/9ec5/higoods/output/playwright/cut-release-receipt/v36/raw/20261009T205113488544Z-c2073d77f7/native-final-normal-two-stage-sample1.log",
+  "screenshotPath": null,
+  "screenshotNote": "No screenshot was captured at the performance guard; CPU/browser paused immediately. Exact original DOM text is preserved in raw result body. ROOT may capture same actual persistent session."
+}

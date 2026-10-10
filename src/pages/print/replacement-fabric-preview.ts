@@ -3,10 +3,13 @@ import { escapeHtml as e } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
 import { loadReplacementFabricState, saveReplacementFabricPrint } from '../../data/fcs/cutting/replacement-fabric-repository.ts'
 import { listReplacementFabricOrderRows } from '../../data/fcs/cutting/replacement-fabric-source.ts'
-import { assertReplacementTicketCurrent, type ReplacementFabricTicket } from '../../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
+import { assertReplacementTicketCurrent, replacementFabricTicketLabel, type ReplacementFabricTicket } from '../../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
 import { buildReplacementFabricPrintDocument as buildPrintDocument, renderReplacementFabricPrintDocument as renderPrintDocument } from './templates/replacement-fabric-label-template.ts'
 let currentTickets: ReplacementFabricTicket[] = []
 let commandId = ''; let printingRequested = false; let saving = false
+export function renderReplacementFabricPrintTicketChoice(ticket: ReplacementFabricTicket, reprinted: boolean): string {
+  return `<label class="flex items-start gap-2 text-sm"><input type="checkbox" data-hpb-print-success="${e(ticket.id)}"><span>${e(replacementFabricTicketLabel(ticket))} · ${e(ticket.productionOrderNo)} · ${e(ticket.material.name)} · ${e(ticket.material.color)} · ${reprinted ? '补打' : '首次打印'}</span></label>`
+}
 export async function renderReplacementFabricPrintPreview(): Promise<string> {
   try {
     const params = new URLSearchParams(appStore.getState().pathname.split('?')[1] || '')
@@ -22,7 +25,7 @@ export async function renderReplacementFabricPrintPreview(): Promise<string> {
     })
     const printDocument = buildPrintDocument({ documentType: 'REPLACEMENT_FABRIC_LABEL', sourceType: 'FEI_TICKET_RECORD', sourceId: ids.join(',') })
     commandId = cuttingRecordUuid(); printingRequested = false
-    return `<main class="hpb-print-root bg-slate-100 p-4" data-hpb-print><section class="hpb-print-controls mx-auto max-w-4xl space-y-3 rounded border bg-white p-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h1 class="text-xl font-semibold">换片布菲票打印预览</h1><p class="text-sm">${currentTickets.length} 张 · 每张 5 Yard · 100 × 100 mm 黑白标签</p></div><a class="text-blue-700" href="/fcs/craft/cutting/replacement-fabric-fei-tickets">返回打印列表</a></div><p class="text-sm">关闭打印设置中的页眉、页脚；按实际出纸勾选成功票，再确认打印结果。取消打印不会记为已打印。</p><div class="max-h-40 space-y-2 overflow-y-auto">${currentTickets.map(ticket => `<label class="flex items-start gap-2 text-sm"><input type="checkbox" data-hpb-print-success="${e(ticket.id)}"><span class="break-all">${e(ticket.ticketNo)} · ${state.prints.some(record => record.ticketId === ticket.id) ? '补打原票' : '首次打印'}</span></label>`).join('')}</div><div class="flex flex-wrap gap-2"><button class="rounded bg-blue-600 px-4 py-2 text-white" data-hpb-print-action="print">打印 / 保存 PDF</button><button class="rounded border px-4 py-2" data-hpb-print-action="all">全部已成功出纸</button><button class="rounded border px-4 py-2" data-hpb-print-action="confirm">确认所选票已打印</button></div><p class="text-sm text-red-700" role="status" data-hpb-print-feedback></p></section>${renderPrintDocument(printDocument)}</main>`
+    return `<main class="hpb-print-root bg-slate-100 p-4" data-hpb-print><section class="hpb-print-controls mx-auto max-w-4xl space-y-3 rounded border bg-white p-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h1 class="text-xl font-semibold">换片布菲票打印预览</h1><p class="text-sm">${currentTickets.length} 张 · 每张 5 Yard · 100 × 100 mm 黑白标签</p></div><a class="text-blue-700" href="/fcs/craft/cutting/replacement-fabric-fei-tickets">返回打印列表</a></div><p class="text-sm">打印时关闭页眉、页脚。按实际出纸勾选确认。</p><div class="max-h-40 space-y-2 overflow-y-auto">${currentTickets.map(ticket => renderReplacementFabricPrintTicketChoice(ticket, state.prints.some(record => record.ticketId === ticket.id))).join('')}</div><div class="flex flex-wrap gap-2"><button class="rounded bg-blue-600 px-4 py-2 text-white" data-hpb-print-action="print">打印 / 保存 PDF</button><button class="rounded border px-4 py-2" data-hpb-print-action="all">全部已成功出纸</button><button class="rounded border px-4 py-2" data-hpb-print-action="confirm">确认所选票已打印</button></div><p class="text-sm text-red-700" role="status" data-hpb-print-feedback></p></section>${renderPrintDocument(printDocument)}</main>`
   } catch (error) { return `<div class="p-5 text-red-700" role="alert">${e(error instanceof Error ? error.message : String(error))}</div>` }
 }
 export async function handleReplacementFabricPrintEvent(target: HTMLElement): Promise<boolean> {

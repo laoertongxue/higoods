@@ -1,0 +1,12 @@
+{
+  "version": "v47",
+  "checkedAt": "2026-10-09T22:49:22.867739+00:00",
+  "declaredSourceCount": 83,
+  "allCurrentSourceHashesMatched": true,
+  "sourceDeltaFromV46": [
+    "src/data/fcs/cutting/cutting-runtime-chronology.ts",
+    "src/pages/process-factory/cutting/fei-tickets.ts",
+    "tests/unit/cut-piece-release-chronology.test.ts"
+  ],
+  "scope": "source boundary only; not runtime or complete review"
+}

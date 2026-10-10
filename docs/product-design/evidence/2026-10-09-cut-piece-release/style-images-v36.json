@@ -1,0 +1,4412 @@
+{
+  "version": "v36",
+  "startedAt": "2026-10-09T20:21:35.427Z",
+  "scenarios": [
+    {
+      "name": "list all nine mapped style thumbnails load",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 361.699951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577295792.5,
+            "frames": [
+              {
+                "t": 334.5,
+                "executedAt": 1791577295775.9001
+              },
+              {
+                "t": 351.2,
+                "executedAt": 1791577295792.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 288.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577296092,
+            "frames": [
+              {
+                "t": 268.1,
+                "executedAt": 1791577296075.9001
+              },
+              {
+                "t": 284.7,
+                "executedAt": 1791577296092
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 272.699951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577296375.1,
+            "frames": [
+              {
+                "t": 253.1,
+                "executedAt": 1791577296358.6
+              },
+              {
+                "t": 269.8,
+                "executedAt": 1791577296375.1
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 274.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577296659.0999,
+            "frames": [
+              {
+                "t": 254,
+                "executedAt": 1791577296644.5
+              },
+              {
+                "t": 270.7,
+                "executedAt": 1791577296659.0999
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 255.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577296924,
+            "frames": [
+              {
+                "t": 236.1,
+                "executedAt": 1791577296909.2
+              },
+              {
+                "t": 252.8,
+                "executedAt": 1791577296923.9001
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14671",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 258.2998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791577297225.7,
+            "frames": [
+              {
+                "t": 238,
+                "executedAt": 1791577297208
+              },
+              {
+                "t": 254.7,
+                "executedAt": 1791577297225.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.10009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791577297492.4,
+            "frames": [
+              {
+                "t": 235.7,
+                "executedAt": 1791577297473.7998
+              },
+              {
+                "t": 252.4,
+                "executedAt": 1791577297492.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 255.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791577297757.3,
+            "frames": [
+              {
+                "t": 236.6,
+                "executedAt": 1791577297740.6
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791577297757.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 256.999755859375,
+          "complete": true,
+          "visual": {
+            "at": 1791577298024.4,
+            "frames": [
+              {
+                "t": 238.1,
+                "executedAt": 1791577298010
+              },
+              {
+                "t": 254.7,
+                "executedAt": 1791577298024.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 258.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577298292.2,
+            "frames": [
+              {
+                "t": 237.9,
+                "executedAt": 1791577298275.5
+              },
+              {
+                "t": 254.6,
+                "executedAt": 1791577298292.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image PO-202603-0002",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 270.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577298575.7,
+            "frames": [
+              {
+                "t": 249,
+                "executedAt": 1791577298559
+              },
+              {
+                "t": 265.7,
+                "executedAt": 1791577298575.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fei-ticket/fog-grey-sweatshirt-fleece.png",
+                "width": 1448,
+                "alt": "Hoodie 抓绒主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "帽里布"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "罗纹"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 257.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577298842.3,
+            "frames": [
+              {
+                "t": 236.9,
+                "executedAt": 1791577298826.6
+              },
+              {
+                "t": 253.6,
+                "executedAt": 1791577298842.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fei-ticket/fog-grey-sweatshirt-fleece.png",
+                "width": 1448,
+                "alt": "Hoodie 抓绒主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "帽里布"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "罗纹"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 255.7998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791577299107.7,
+            "frames": [
+              {
+                "t": 236.9,
+                "executedAt": 1791577299092.2
+              },
+              {
+                "t": 253.6,
+                "executedAt": 1791577299107.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fei-ticket/fog-grey-sweatshirt-fleece.png",
+                "width": 1448,
+                "alt": "Hoodie 抓绒主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "帽里布"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "罗纹"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 241,
+          "complete": true,
+          "visual": {
+            "at": 1791577299358.9,
+            "frames": [
+              {
+                "t": 220.6,
+                "executedAt": 1791577299342.3
+              },
+              {
+                "t": 237.3,
+                "executedAt": 1791577299358.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fei-ticket/fog-grey-sweatshirt-fleece.png",
+                "width": 1448,
+                "alt": "Hoodie 抓绒主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "帽里布"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "罗纹"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 257.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577299625.7,
+            "frames": [
+              {
+                "t": 237.5,
+                "executedAt": 1791577299610.3
+              },
+              {
+                "t": 254.1,
+                "executedAt": 1791577299625.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fei-ticket/fog-grey-sweatshirt-fleece.png",
+                "width": 1448,
+                "alt": "Hoodie 抓绒主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "帽里布"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "罗纹"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14672",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 256.7998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791577299892.2,
+            "frames": [
+              {
+                "t": 236.6,
+                "executedAt": 1791577299875.5
+              },
+              {
+                "t": 253.2,
+                "executedAt": 1791577299892.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 240.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791577300142.2,
+            "frames": [
+              {
+                "t": 220.3,
+                "executedAt": 1791577300126.5
+              },
+              {
+                "t": 236.9,
+                "executedAt": 1791577300142.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 256.5,
+          "complete": true,
+          "visual": {
+            "at": 1791577300408.2,
+            "frames": [
+              {
+                "t": 236.9,
+                "executedAt": 1791577300394.5
+              },
+              {
+                "t": 253.6,
+                "executedAt": 1791577300408.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 241,
+          "complete": true,
+          "visual": {
+            "at": 1791577300658.9,
+            "frames": [
+              {
+                "t": 220.6,
+                "executedAt": 1791577300641.5
+              },
+              {
+                "t": 237.3,
+                "executedAt": 1791577300658.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 257.10009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791577300925.2002,
+            "frames": [
+              {
+                "t": 237.2,
+                "executedAt": 1791577300907.5
+              },
+              {
+                "t": 253.8,
+                "executedAt": 1791577300925.2002
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14673",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577301192.1,
+            "frames": [
+              {
+                "t": 237.2,
+                "executedAt": 1791577301178.9001
+              },
+              {
+                "t": 254,
+                "executedAt": 1791577301192.1
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.999755859375,
+          "complete": true,
+          "visual": {
+            "at": 1791577301458.7998,
+            "frames": [
+              {
+                "t": 236.7,
+                "executedAt": 1791577301442.2998
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791577301458.7998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 256.900146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791577301725.5,
+            "frames": [
+              {
+                "t": 236.7,
+                "executedAt": 1791577301707.1
+              },
+              {
+                "t": 253.4,
+                "executedAt": 1791577301725.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 257.099853515625,
+          "complete": true,
+          "visual": {
+            "at": 1791577301992.4,
+            "frames": [
+              {
+                "t": 236.5,
+                "executedAt": 1791577301978.8
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577301992.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 256.7001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791577302258.9001,
+            "frames": [
+              {
+                "t": 236.5,
+                "executedAt": 1791577302242.2002
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577302258.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14674",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577302525.6,
+            "frames": [
+              {
+                "t": 236.4,
+                "executedAt": 1791577302509
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577302525.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 269.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577302808.7,
+            "frames": [
+              {
+                "t": 249.6,
+                "executedAt": 1791577302791.9
+              },
+              {
+                "t": 266.3,
+                "executedAt": 1791577302808.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 257,
+          "complete": true,
+          "visual": {
+            "at": 1791577303074.9,
+            "frames": [
+              {
+                "t": 237.2,
+                "executedAt": 1791577303058.9
+              },
+              {
+                "t": 253.8,
+                "executedAt": 1791577303074.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 257.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577303342,
+            "frames": [
+              {
+                "t": 237.6,
+                "executedAt": 1791577303325.4
+              },
+              {
+                "t": 254.3,
+                "executedAt": 1791577303342
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 240.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791577303592.1,
+            "frames": [
+              {
+                "t": 220.3,
+                "executedAt": 1791577303575.4
+              },
+              {
+                "t": 236.9,
+                "executedAt": 1791577303592.1
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14675",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257.2998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791577303858.7998,
+            "frames": [
+              {
+                "t": 237.1,
+                "executedAt": 1791577303842.0999
+              },
+              {
+                "t": 253.7,
+                "executedAt": 1791577303858.7998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577304124.4,
+            "frames": [
+              {
+                "t": 237.2,
+                "executedAt": 1791577304112.4
+              },
+              {
+                "t": 253.8,
+                "executedAt": 1791577304124.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 240.10009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791577304374.3,
+            "frames": [
+              {
+                "t": 220.9,
+                "executedAt": 1791577304358.5999
+              },
+              {
+                "t": 237.6,
+                "executedAt": 1791577304374.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 240.7001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791577304624.3,
+            "frames": [
+              {
+                "t": 221.4,
+                "executedAt": 1791577304608.7
+              },
+              {
+                "t": 238.1,
+                "executedAt": 1791577304624.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 258.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577304891.8,
+            "frames": [
+              {
+                "t": 238.2,
+                "executedAt": 1791577304873.6
+              },
+              {
+                "t": 254.8,
+                "executedAt": 1791577304891.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14676",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 274,
+          "complete": true,
+          "visual": {
+            "at": 1791577305175.4001,
+            "frames": [
+              {
+                "t": 253.7,
+                "executedAt": 1791577305158.7
+              },
+              {
+                "t": 270.4,
+                "executedAt": 1791577305175.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.699951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577305442,
+            "frames": [
+              {
+                "t": 236.3,
+                "executedAt": 1791577305425.4
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577305442
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 256.699951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577305708.7,
+            "frames": [
+              {
+                "t": 236.5,
+                "executedAt": 1791577305691.7998
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577305708.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 256.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577305975.3,
+            "frames": [
+              {
+                "t": 236.4,
+                "executedAt": 1791577305958.6
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577305975.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 255.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577306240.3,
+            "frames": [
+              {
+                "t": 236.7,
+                "executedAt": 1791577306229.6
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791577306240.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14677",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 258.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577306508.7,
+            "frames": [
+              {
+                "t": 237.4,
+                "executedAt": 1791577306492.1
+              },
+              {
+                "t": 254.1,
+                "executedAt": 1791577306508.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.7998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791577306775.2998,
+            "frames": [
+              {
+                "t": 236.7,
+                "executedAt": 1791577306758.7
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791577306775.2998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 257,
+          "complete": true,
+          "visual": {
+            "at": 1791577307042,
+            "frames": [
+              {
+                "t": 236.8,
+                "executedAt": 1791577307025.4
+              },
+              {
+                "t": 253.5,
+                "executedAt": 1791577307042
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 256.400146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791577307308.2,
+            "frames": [
+              {
+                "t": 236.5,
+                "executedAt": 1791577307292.4001
+              },
+              {
+                "t": 253.2,
+                "executedAt": 1791577307308.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 257.099853515625,
+          "complete": true,
+          "visual": {
+            "at": 1791577307575.4,
+            "frames": [
+              {
+                "t": 236.7,
+                "executedAt": 1791577307558.7
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791577307575.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14678",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 256.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577307842.0999,
+            "frames": [
+              {
+                "t": 236.5,
+                "executedAt": 1791577307825.4
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577307842
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 254.7998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791577308106.7998,
+            "frames": [
+              {
+                "t": 236.4,
+                "executedAt": 1791577308091.9
+              },
+              {
+                "t": 253.1,
+                "executedAt": 1791577308106.7998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 258.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577308375.2,
+            "frames": [
+              {
+                "t": 238.5,
+                "executedAt": 1791577308358.5
+              },
+              {
+                "t": 255.2,
+                "executedAt": 1791577308375.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 257,
+          "complete": true,
+          "visual": {
+            "at": 1791577308642,
+            "frames": [
+              {
+                "t": 236.6,
+                "executedAt": 1791577308629.5
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791577308642
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 256.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791577308908.6,
+            "frames": [
+              {
+                "t": 236,
+                "executedAt": 1791577308890.4001
+              },
+              {
+                "t": 252.6,
+                "executedAt": 1791577308908.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "style real image zoom opens",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 214.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577309175.5,
+            "frames": [
+              {
+                "t": 236.766,
+                "executedAt": 1791577309158.7
+              },
+              {
+                "t": 253.5,
+                "executedAt": 1791577309175.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 52.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577309241.9,
+            "frames": [
+              {
+                "t": 303.4,
+                "executedAt": 1791577309224.5999
+              },
+              {
+                "t": 320.1,
+                "executedAt": 1791577309241.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 60,
+          "complete": true,
+          "visual": {
+            "at": 1791577309308.5,
+            "frames": [
+              {
+                "t": 370.066,
+                "executedAt": 1791577309291.9
+              },
+              {
+                "t": 386.7,
+                "executedAt": 1791577309308.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 59.900146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791577309375.3,
+            "frames": [
+              {
+                "t": 436.766,
+                "executedAt": 1791577309358.5999
+              },
+              {
+                "t": 453.4,
+                "executedAt": 1791577309375.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 59.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791577309441.8,
+            "frames": [
+              {
+                "t": 503.5,
+                "executedAt": 1791577309425.3
+              },
+              {
+                "t": 520.1,
+                "executedAt": 1791577309441.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "style zoom Escape restores original focus",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 32.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791577309541.9,
+            "frames": [
+              {
+                "t": 603.4,
+                "executedAt": 1791577309525.5
+              },
+              {
+                "t": 620,
+                "executedAt": 1791577309541.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 33.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791577309641.9,
+            "frames": [
+              {
+                "t": 703.4,
+                "executedAt": 1791577309625.5
+              },
+              {
+                "t": 720,
+                "executedAt": 1791577309641.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 29.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791577309740,
+            "frames": [
+              {
+                "t": 803.5,
+                "executedAt": 1791577309724
+              },
+              {
+                "t": 820.1,
+                "executedAt": 1791577309740
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 32,
+          "complete": true,
+          "visual": {
+            "at": 1791577309841.9,
+            "frames": [
+              {
+                "t": 903.4,
+                "executedAt": 1791577309824.9
+              },
+              {
+                "t": 920.1,
+                "executedAt": 1791577309841.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 32,
+          "complete": true,
+          "visual": {
+            "at": 1791577309941.9,
+            "frames": [
+              {
+                "t": 1003.4,
+                "executedAt": 1791577309924.0999
+              },
+              {
+                "t": 1020.1,
+                "executedAt": 1791577309941.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/white-cotton-jersey.jpg",
+                "width": 1200,
+                "alt": "主面料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/process-orders/pale-grey-50d-stretch-lining.jpg",
+                "width": 1200,
+                "alt": "里料"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/rib-blue.jpg",
+                "width": 779,
+                "alt": "袖口辅料"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "objects": [
+    {
+      "id": "list-style-image-cpr-po-14671",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+      "decoded": true,
+      "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+      "cellText": "ASYSA26060310\n女式基础圆领短袖"
+    },
+    {
+      "id": "list-style-image-cpr-PO-202603-0002",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+      "decoded": true,
+      "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+      "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+    },
+    {
+      "id": "list-style-image-cpr-po-14672",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+      "decoded": true,
+      "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+      "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+    },
+    {
+      "id": "list-style-image-cpr-po-14673",
+      "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+      "decoded": true,
+      "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+      "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+    },
+    {
+      "id": "list-style-image-cpr-po-14674",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+      "decoded": true,
+      "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+      "cellText": "ASYSA26060313\n户外束脚工装裤"
+    },
+    {
+      "id": "list-style-image-cpr-po-14675",
+      "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+      "decoded": true,
+      "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+      "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+    },
+    {
+      "id": "list-style-image-cpr-po-14676",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+      "decoded": true,
+      "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+      "cellText": "ASYSA26060315\n女式通勤短款外套"
+    },
+    {
+      "id": "list-style-image-cpr-po-14677",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+      "decoded": true,
+      "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+      "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+    },
+    {
+      "id": "list-style-image-cpr-po-14678",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+      "decoded": true,
+      "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+      "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "all9 actual style thumbnails 0",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 1",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 2",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 3",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 4",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "list all nine mapped style thumbnails load five <=1000ms",
+      "passed": true,
+      "data": [
+        361.699951171875,
+        288.199951171875,
+        272.699951171875,
+        274.39990234375,
+        255.199951171875
+      ]
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14671 five <=1000ms",
+      "passed": true,
+      "data": [
+        258.2998046875,
+        256.10009765625,
+        255.2001953125,
+        256.999755859375,
+        258.199951171875
+      ]
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail style image PO-202603-0002 five <=1000ms",
+      "passed": true,
+      "data": [
+        270.39990234375,
+        257.199951171875,
+        255.7998046875,
+        241,
+        257.89990234375
+      ]
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14672 five <=1000ms",
+      "passed": true,
+      "data": [
+        256.7998046875,
+        240.60009765625,
+        256.5,
+        241,
+        257.10009765625
+      ]
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14673 five <=1000ms",
+      "passed": true,
+      "data": [
+        257.39990234375,
+        256.999755859375,
+        256.900146484375,
+        257.099853515625,
+        256.7001953125
+      ]
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14674 five <=1000ms",
+      "passed": true,
+      "data": [
+        257.300048828125,
+        269.89990234375,
+        257,
+        257.800048828125,
+        240.60009765625
+      ]
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14675 five <=1000ms",
+      "passed": true,
+      "data": [
+        257.2998046875,
+        256.300048828125,
+        240.10009765625,
+        240.7001953125,
+        258.300048828125
+      ]
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14676 five <=1000ms",
+      "passed": true,
+      "data": [
+        274,
+        256.699951171875,
+        256.699951171875,
+        256.800048828125,
+        255.39990234375
+      ]
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14677 five <=1000ms",
+      "passed": true,
+      "data": [
+        258.39990234375,
+        256.7998046875,
+        257,
+        256.400146484375,
+        257.099853515625
+      ]
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14678 five <=1000ms",
+      "passed": true,
+      "data": [
+        256.800048828125,
+        254.7998046875,
+        258.800048828125,
+        257,
+        256.2001953125
+      ]
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "style real image zoom opens five <=1000ms",
+      "passed": true,
+      "data": [
+        214.800048828125,
+        52.300048828125,
+        60,
+        59.900146484375,
+        59.2001953125
+      ]
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style zoom Escape restores original focus five <=1000ms",
+      "passed": true,
+      "data": [
+        32.199951171875,
+        33.89990234375,
+        29.800048828125,
+        32,
+        32
+      ]
+    }
+  ],
+  "screenshots": [
+    "style-list-real-v36.png",
+    "style-girl-zoom-real-v36.png"
+  ],
+  "passed": true,
+  "completedAt": "2026-10-09T20:21:50.069Z",
+  "versionRef": "version-v36.json",
+  "sourceManifestSHA256": "98e50ff726e45ee27f44a9000fcd09a76f42d2ad509785ad138a245f4f0c84f3",
+  "assetManifestSHA256": "4b87a963b268ed5dc1dc0bc8e491022e22d99f1832bb2ed7bdea756c5fa382c2",
+  "rawLog": "output/playwright/cut-release-ui/style-images-v36.log"
+}

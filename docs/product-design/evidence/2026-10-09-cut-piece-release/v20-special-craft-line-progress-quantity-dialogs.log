@@ -1,0 +1,7 @@
+
+> higoods-vanilla-clone@1.0.0 check:special-craft-line-progress-quantity-dialogs
+> node --import tsx scripts/check-special-craft-line-progress-quantity-dialogs.ts
+
+[check-special-craft-line-progress-quantity-dialogs] 特殊工艺行级数量弹窗与 PDA 展示检查通过
+(node:36476) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

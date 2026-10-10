@@ -42,6 +42,13 @@ export function isReplacementFabricMaterial(name: string, type: string): boolean
 export function replacementTicketCode(ticket: Pick<ReplacementFabricTicket, 'id'>): string {
   return `HIG:HPB:1:${encodeURIComponent(ticket.id)}`
 }
+/** 票面使用现场票序；稳定身份和完整编码仍用于扫码、存储及关联。 */
+export function replacementFabricTicketLabel(ticket: Pick<ReplacementFabricTicket, 'sequence'>): string {
+  return Number.isSafeInteger(ticket.sequence) && ticket.sequence > 0 ? `换片布票 ${String(ticket.sequence).padStart(3, '0')}` : '换片布票'
+}
+export function replacementFabricMaterialDisplayCode(code: string): string {
+  return /^tdv[_-]|[/%]|::/.test(code) ? '' : code
+}
 export function parseReplacementTicketCode(raw: string): string | null {
   if (!raw.startsWith('HIG:HPB:1:')) return null
   try { return decodeURIComponent(raw.slice('HIG:HPB:1:'.length)) || null } catch { return null }
@@ -119,7 +126,7 @@ export function assertReplacementTicketCurrent(ticket: ReplacementFabricTicket, 
     && scope.factoryId === ticket.cuttingFactoryId && scope.assignmentKey === ticket.assignmentKey
     && scope.materials.some(material => material.key === ticket.material.key))
   if (ticket.invalidatedAt || !scope) {
-    throw new Error(`换片布票 ${ticket.ticketNo} 已失效，请按当前裁床分配重新出票。`)
+    throw new Error(`${replacementFabricTicketLabel(ticket)} 已失效，请按当前裁床分配重新出票。`)
   }
   if (scope.issues.length) throw new Error(scope.issues.join('；'))
 }
@@ -185,8 +192,8 @@ export function validateReplacementFabricHandover(input: {
     assertReplacementTicketCurrent(ticket, input.scopes)
     if (ticket.productionOrderId !== context.productionOrderId) throw new Error('换片布票不属于本生产单。')
     if (!context.requiredMaterials.some(material => material.key === ticket.material.key)) throw new Error(`本任务不使用面料 ${ticket.material.name}，请移出后重新确认。`)
-    if (!state.prints.some(record => record.ticketId === id)) throw new Error(`换片布票 ${ticket.ticketNo} 尚未确认打印。`)
-    if (state.receipts.some(receipt => receipt.ticket.id === id)) throw new Error(`换片布票 ${ticket.ticketNo} 已交出，不能再次使用。`)
+    if (!state.prints.some(record => record.ticketId === id)) throw new Error(`${replacementFabricTicketLabel(ticket)} 尚未确认打印。`)
+    if (state.receipts.some(receipt => receipt.ticket.id === id)) throw new Error(`${replacementFabricTicketLabel(ticket)} 已交出，不能再次使用。`)
     const bag = input.locations.get(id)
     if (bag && !input.selectedBagUseIds.includes(bag)) throw new Error(`换片布票已装入其他中转袋，请将该袋加入本次交出或先移出。`)
     return ticket

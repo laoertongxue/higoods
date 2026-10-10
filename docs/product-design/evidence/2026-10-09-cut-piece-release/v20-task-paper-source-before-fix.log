@@ -1,0 +1,37 @@
+✔ 旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模块导入 (202.161875ms)
+✔ 裁床工艺来源读取不初始化未迁移的全厂接收需求，原工艺厂读取仍保护旧源 (345.30375ms)
+✔ 先读裁床来源再进入工艺厂，任务身份与需求数量一致且仓库记录可正常生成 (369.081125ms)
+✖ 已准备任务来源后，任务单预览不加载无关工艺厂接收来源 (593.600458ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1646.890375
+
+✖ failing tests:
+
+test at tests/unit/cutting-migrated-storage-import.test.ts:43:197
+✖ 已准备任务来源后，任务单预览不加载无关工艺厂接收来源 (593.600458ms)
+  AssertionError [ERR_ASSERTION]: Error: 任务单预览未能按原来源生成：{"unrelatedReads":1,"hasSheet":false,"hasFactory":false,"failed":true}
+      at file:///Users/laoer/.codex/worktrees/9ec5/higoods/[eval1]:13:150
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cutting-migrated-storage-import.test.ts:90:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

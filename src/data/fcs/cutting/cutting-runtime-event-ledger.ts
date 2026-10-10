@@ -4,7 +4,7 @@ import {
   type BrowserStorageLike,
 } from '../../browser-storage.ts'
 import {
-  compareCuttingRuntimeChronologyAscending,
+  createCuttingRuntimeChronologyComparator,
   normalizeCuttingRuntimeLedgerSequence,
 } from './cutting-runtime-chronology.ts'
 
@@ -569,6 +569,14 @@ export interface SpecialCraftHandoverPayload {
   handedOverBy: string
   locationRef?: RuntimeWarehouseLocationRef
   idempotencyKey?: string
+  /** 前道工厂完成后直接交下道；不产生裁床入仓或再次出仓。 */
+  directTransfer?: {
+    sourceHandoverEventId: string
+    sourceHandoverRecordId: string
+    sourceFactoryId: string
+    sourceFactoryName: string
+    completedTicketItems: Array<{ feiTicketId: string; specialCraftId: string; completedQty: number; differenceReason?: string; processingCompleted: boolean }>
+  }
 }
 
 export interface CompleteSpecialCraftHandoverPayload
@@ -607,6 +615,10 @@ export interface SpecialCraftReturnPayload {
     returnedQty: number
     unit: '片'
     returnStatus: '已回仓' | '部分回仓' | '回仓差异'
+    /** 每票差异点收说明；不改写已打印票面。 */
+    differenceReason?: string
+    /** 点收时逐票核对本阶段加工完成；旧记录缺失时保持未知。 */
+    processingCompleted?: boolean
   }>
   warehouseArea: string
   locationCode: string
@@ -616,6 +628,13 @@ export interface SpecialCraftReturnPayload {
   returnedAt: string
   returnedBy: string
   idempotencyKey?: string
+  /** 更正替代此回仓事件的有效实收，库存仅计差额。 */
+  correctionOfEventId?: string
+  receiptVersion?: number
+  previousReturnedQty?: number
+  correctionReason?: string
+  /** 已离开原袋库存时只更正数量依据，不反冲其他周期库存。 */
+  inventoryAdjusted?: boolean
 }
 
 /** One persisted warehouse confirmation is also the PPIC and factory receipt. */
@@ -991,7 +1010,7 @@ function uniqueByEventId(events: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
 }
 
 function sortEvents(events: CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
-  return events.slice().sort((left, right) => compareCuttingRuntimeChronologyAscending(right, left))
+  return events.slice().sort(createCuttingRuntimeChronologyComparator(events)).reverse()
 }
 
 function compactDate(value: string): string {
@@ -1291,7 +1310,24 @@ export function appendCuttingRuntimeEventIdempotentValidated<
 export function listCuttingRuntimeEvents(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent[] {
+  if (runtimeEventReadFrame?.storage === storage && isBrowserBusinessStorageStaged()) {
+    const raw = storage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null
+    if (!runtimeEventReadFrame.events || runtimeEventReadFrame.raw !== raw) {
+      runtimeEventReadFrame.events = hydrateCuttingRuntimeEventLedgerStore(storage).events
+      runtimeEventReadFrame.raw = raw
+    }
+    // 调用方仍得到独立对象；改副本不能污染本动作之后的来源判断。
+    return structuredClone(runtimeEventReadFrame.events)
+  }
   return hydrateCuttingRuntimeEventLedgerStore(storage).events
+}
+
+let runtimeEventReadFrame: { storage: BrowserStorageLike; raw?: string | null; events?: CuttingRuntimeEvent[] } | null = null
+/** 仅同步暂存动作复用未变的原始文本；写入、退出和异常都不跨动作沿用。 */
+export function withCuttingRuntimeEventReadFrame<T>(storage: BrowserStorageLike, read: () => T): T {
+  const previous = runtimeEventReadFrame
+  runtimeEventReadFrame = { storage }
+  try { return read() } finally { runtimeEventReadFrame = previous }
 }
 
 export function listCuttingRuntimeEventsByType(

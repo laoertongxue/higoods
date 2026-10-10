@@ -1,0 +1,134 @@
+(node:41846) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 列表只读余量查询满足正整数身份门禁，K100/A205显示当前风险105、占用0及余量205 (35.544625ms)
+✔ 裁片放行保留唯一菜单键和地址，归属裁床仓库管理 (0.141542ms)
+✔ 字母与数值尺码升序，自定义尺码保留配置顺序 (0.426833ms)
+✔ 非法数量和空白保持非法，不夹取或四舍五入成另一个有效量 (0.083208ms)
+✔ 目标确认待保存及整票原因也受离开提醒保护，已保存目标和空白原因不误提醒 (0.108958ms)
+✔ 本页导航、补料、系统与当前页签退出统一提醒，关闭其他页签和折叠菜单不误提醒 (0.122542ms)
+✔ 未知自定义尺码在目标和放行矩阵明确提示待核对且保留原序，标准尺码不出现提示 (4.334291ms)
+✔ 未确认与确认零放行分开，零放行不回退成目标281件 (0.07425ms)
+✔ 尚未确认且齐套未知时，确认汇总中的K和R均显示待核对而非零 (1.895084ms)
+✔ 目标与放行渲染为相同颜色行、尺码升序列，缺失SKU格保持不可编辑 (2.059334ms)
+✔ 逐票详情保留最终回仓实收、完整顺序、袋周期、成衣色与面料色以及差异 (0.389417ms)
+✔ 侧栏逐道显示真实交出单、回仓业务号和库位，记录编号放在展开依据中 (0.194541ms)
+✔ 加工完成未回仓仍显示未最终回仓，未知工艺不展示普通免工艺依据 (0.1725ms)
+✔ 真实前道直转投影接入侧栏，末道实收80显示已最终回仓 (0.396958ms)
+✔ 跨工厂直转前道不必回裁床，最终实收80片显示已最终回仓 (0.218208ms)
+✔ 最终实际点收0片保留完成事实，不显示待加工或待回仓 (0.182292ms)
+✔ 历史实收有原始回仓数量但缺加工完成依据，明细保留实收且暂不计齐套 (0.142792ms)
+✔ 整票更正确认同时展示票袋工艺放行分配及保留历史责任 (3.68075ms)
+✔ 整票登记保存携带打开详情时的版本，旧页面不会改用后来读到的版本 (0.602666ms)
+✔ 文案采用短句，目标和放行保留操作边界，整票确认保留实际后果 (3.621334ms)
+✔ 具名静态演示材料使用既有真实图片，三道工艺仅按最终回仓计入 (0.662209ms)
+✔ 示例内部身份只在追溯展开中显示，真实票号完整保留且确认仍显示实际影响 (7.569917ms)
+✖ 真实生成的工艺记录内部UUID只在展开中显示，不替换真实业务号 (1.683ms)
+(node:41847) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (48.650125ms)
+✔ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (16.129542ms)
+✔ 明确单道无袋实收9合法实交后更正7保留旧9责任与真实接收厂 (11.899584ms)
+✔ 整袋候选与提交共享未知来源、未知必要工艺及整票不可用阻断，caller不能给空事件绕过 (20.054792ms)
+✔ 连续工艺具名示例仅提供真实技术包两条未分配任务，不写事实或覆盖旧任务 (3.88325ms)
+✔ 不同菲票的同一实际有序工艺链可同袋，链身份不使用每票阶段ID (0.302209ms)
+✔ 同链两张菲票保留各自阶段身份并分别实收，不把第二票当第一票工艺 (3.94375ms)
+✔ 连续工艺直接由实际持有厂转交下道，前道完成与最后回仓分开记账 (4.566584ms)
+✔ 同袋两票连续转交按每票前道和下道身份核对，最后分别回仓 (3.756125ms)
+✔ 实际任务绑定明确匹配技术包部位工艺、色码、目标对象和当前分配，不采用默认厂 (0.28975ms)
+✔ 特殊工艺交出只能读取原票当前阶段与唯一实际承接任务 (0.165917ms)
+✔ ISO来源交出后同一分钟实际回仓保留秒与时区，不被文本格式判为早于来源 (5.901375ms)
+✔ 逐票实收分别计数，更正库存仅按差额且保留原票 (5.131958ms)
+✔ 未核对加工完成不得保存；历史完成未知保留实收P而不能冒充齐套 (3.0185ms)
+✔ 缺逐票确认、空白、小数、超量与未说明差异都不写入 (3.191166ms)
+✔ 明确零量点收保留事实，但不生成库存或后道实物 (3.011875ms)
+✔ 按身份与顺序分袋，普通和不同工艺链被阻断 (0.09275ms)
+✔ 无袋按票独立点收，不能重复新增或回到其他裁床工厂 (3.82775ms)
+✔ 多道工艺分别保留同票阶段实收，末道不会累加前道数量 (8.040208ms)
+✔ 100片已经交出后更正为90片只改依据，保留原实交责任且不反冲库存 (11.376375ms)
+✖ 同一分钟旧入仓分钟时间晚于精确装袋账本，不退回已装袋状态 (2.135792ms)
+✖ 正常入仓默认保留完整时刻，同分钟装袋后入仓可继续交出 (0.677ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 42
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 829.408667
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-release-ui.test.ts:1:25931
+✖ 真实生成的工艺记录内部UUID只在展开中显示，不替换真实业务号 (1.683ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /SPECIAL-HR|special-craft-handover:|123e4567/. Input:
+  
+  '<article class="mt-3 rounded-md border bg-white p-3" data-release-ticket-id="TICKET-1">\n' +
+    '    <div class="flex flex-wrap items-center justify-between gap-2"><strong class="text-sm">TI-1</strong><span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-emerald-700">已最终回仓</span></div>\n' +
+    '    <div class="mt-2 grid gap-1 text-xs text-slate-600"><span>成衣 Black / M · 面料色 深蓝</span><span>原票 100 片 · 当前有效实物 90 片 · 整票可用</span><span>来源 手动唛架：MARKER-1</span><span>裁片单 CUT-1</span><span>袋号 BAG-1</span><span>当前位置 裁床待交出仓 A-1</span></div>\n' +
+    '    <ol class="mt-3 space-y-2 border-l-2 border-blue-100 pl-3"><li class="rounded border p-2 text-xs "><div class="font-medium">第 1 / 2 道 · 烫画 · 辅助工艺</div><div class="mt-1 text-slate-600">承接厂 工厂甲 · 已回仓</div><div class="mt-1 tabular-nums">应回 100 片 · 加工 100 片 · 交出 100 片</div><div class="mt-1 text-emerald-700">实际实收 100 片</div><div class="mt-1 text-slate-500">回仓记录 单号未记录 · 回仓位置 未记录</div></li><li class="rounded border p-2 text-xs border-blue-200 bg-blue-50/40"><div class="font-medium">第 2 / 2 道 · 绣花 · 特种工艺 · 最终工艺</div><div class="mt-1 text-slate-600">承接厂 工厂乙 · 已回仓</div><div class="mt-1 tabular-nums">应回 100 片 · 加工 100 片 · 交出 100 片</div><div class="mt-1 text-emerald-700">实际实收 90 片</div><div class="mt-1 text-slate-500">交出单 SPECIAL-HR-special-craft-handover:123e4567-e89b-12d3-a456-426614174001</div><div class="mt-1 text-slate-500">回仓记录 特殊工艺回仓-SPECIAL-HR-special-craft-handover:123e4567-e89b-12d3-a456-426614174000 · 回仓位置 A区 / A-R01-L01-P03</div></li></ol>\n' +
+    '    <div class="mt-3 rounded bg-slate-50 px-2 py-2 text-xs"><strong>当前可计入 90 片</strong><span class="ml-1">依据：最终工艺实际实收</span></div>\n' +
+    '    <p class="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-800">差异原因：最终工艺少回10片</p>\n' +
+    '    <div class="mt-3 border-t pt-2"><label class="block text-xs text-slate-600">整票不可用原因<input type="text" class="mt-1 h-8 w-full rounded border px-2 text-xs" value="" data-skip-page-rerender="true" data-cut-piece-release-field="ticketValidityReason" data-ticket-id="TICKET-1" ></label><button type="button" class="mt-2 rounded border px-3 py-1.5 text-xs disabled:opacity-50 border-rose-200 text-rose-700" data-skip-page-rerender="true" data-cut-piece-release-action="set-ticket-validity" data-ticket-id="TICKET-1" data-ticket-valid="false" data-ticket-no="TI-1" data-ticket-validity-version="0" >登记整票不可用</button></div>\n' +
+    '  </article>'
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-release-ui.test.ts:407:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<article class="mt-3 rounded-md border bg-white p-3" data-release-ticket-id="TICKET-1">\n    <div class="flex flex-wrap items-center justify-between gap-2"><strong class="text-sm">TI-1</strong><span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-emerald-700">已最终回仓</span></div>\n    <div class="mt-2 grid gap-1 text-xs text-slate-600"><span>成衣 Black / M · 面料色 深蓝</span><span>原票 100 片 · 当前有效实物 90 片 · 整票可用</span><span>来源 手动唛架：MARKER-1</span><span>裁片单 CUT-1</span><span>袋号 BAG-1</span><span>当前位置 裁床待交出仓 A-1</span></div>\n    <ol class="mt-3 space-y-2 border-l-2 border-blue-100 pl-3"><li class="rounded border p-2 text-xs "><div class="font-medium">第 1 / 2 道 · 烫画 · 辅助工艺</div><div class="mt-1 text-slate-600">承接厂 工厂甲 · 已回仓</div><div class="mt-1 tabular-nums">应回 100 片 · 加工 100 片 · 交出 100 片</div><div class="mt-1 text-emerald-700">实际实收 100 片</div><div class="mt-1 text-slate-500">回仓记录 单号未记录 · 回仓位置 未记录</div></li><li class="rounded border p-2 text-xs border-blue-200 bg-blue-50/40"><div class="font-medium">第 2 / 2 道 · 绣花 · 特种工艺 · 最终工艺</div><div class="mt-1 text-slate-600">承接厂 工厂乙 · 已回仓</div><div class="mt-1 tabular-nums">应回 100 片 · 加工 100 片 · 交出 100 片</div><div class="mt-1 text-emerald-700">实际实收 90 片</div><div class="mt-1 text-slate-500">交出单 SPECIAL-HR-special-craft-handover:123e4567-e89b-12d3-a456-426614174001</div><div class="mt-1 text-slate-500">回仓记录 特殊工艺回仓-SPECIAL-HR-special-craft-handover:123e4567-e89b-12d3-a456-426614174000 · 回仓位置 A区 / A-R01-L01-P03</div></li></ol>\n    <div class="mt-3 rounded bg-slate-50 px-2 py-2 text-xs"><strong>当前可计入 90 片</strong><span class="ml-1">依据：最终工艺实际实收</span></div>\n    <p class="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-800">差异原因：最终工艺少回10片</p>\n    <div class="mt-3 border-t pt-2"><label class="block text-xs text-slate-600">整票不可用原因<input type="text" class="mt-1 h-8 w-full rounded border px-2 text-xs" value="" data-skip-page-rerender="true" data-cut-piece-release-field="ticketValidityReason" data-ticket-id="TICKET-1" ></label><button type="button" class="mt-2 rounded border px-3 py-1.5 text-xs disabled:opacity-50 border-rose-200 text-rose-700" data-skip-page-rerender="true" data-cut-piece-release-action="set-ticket-validity" data-ticket-id="TICKET-1" data-ticket-valid="false" data-ticket-no="TI-1" data-ticket-validity-version="0" >登记整票不可用</button></div>\n  </article>',
+    expected: /SPECIAL-HR|special-craft-handover:|123e4567/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:65292
+✖ 同一分钟旧入仓分钟时间晚于精确装袋账本，不退回已装袋状态 (2.135792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'PACKED'
+  - 'INBOUND_STORED'
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:721:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'PACKED',
+    expected: 'INBOUND_STORED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:66421
+✖ 正常入仓默认保留完整时刻，同分钟装袋后入仓可继续交出 (0.677ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '2026-10-09 23:30'
+  - '2026-10-09T15:30:30.500Z'
+               ^
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:734:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '2026-10-09 23:30',
+    expected: '2026-10-09T15:30:30.500Z',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

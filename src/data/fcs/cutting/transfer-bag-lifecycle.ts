@@ -1,5 +1,6 @@
 import {
   compareCuttingRuntimeChronologyAscending,
+  createCuttingRuntimeChronologyComparator,
   type CuttingRuntimeChronologyItem,
 } from './cutting-runtime-chronology.ts'
 
@@ -109,14 +110,16 @@ const LIFECYCLE_STAGE_FACT_TYPES = new Set<TransferBagLifecycleFactType>([
 
 function sortByTimeAndId<T extends { occurredAt: string; factId: string }>(
   items: T[],
+  compare: typeof compareCuttingRuntimeChronologyAscending,
 ): T[] {
-  return [...items].sort(compareCuttingRuntimeChronologyAscending)
+  return [...items].sort(compare)
 }
 
 function sortCycles(
   cycles: TransferBagLifecycleCycle[],
+  compare: typeof compareCuttingRuntimeChronologyAscending,
 ): TransferBagLifecycleCycle[] {
-  return [...cycles].sort((left, right) => compareCuttingRuntimeChronologyAscending(
+  return [...cycles].sort((left, right) => compare(
     cycleBoundaryChronology(left, 'started'),
     cycleBoundaryChronology(right, 'started'),
   ))
@@ -140,19 +143,20 @@ function isUsageCycleOpenAt(
   cycle: TransferBagLifecycleCycle,
   facts: TransferBagLifecycleFact[],
   factAt: TransferBagLifecycleFact,
+  compare: typeof compareCuttingRuntimeChronologyAscending,
 ): boolean {
-  if (compareCuttingRuntimeChronologyAscending(
+  if (compare(
     cycleBoundaryChronology(cycle, 'started'),
     factAt,
   ) > 0) return false
-  if (cycle.closedAt && compareCuttingRuntimeChronologyAscending(
+  if (cycle.closedAt && compare(
     cycleBoundaryChronology(cycle, 'closed'),
     factAt,
   ) <= 0) return false
   return !facts.some((fact) =>
     fact.usageCycleId === cycle.usageCycleId
     && fact.factType === 'REPACK_SOURCE_EMPTIED'
-    && compareCuttingRuntimeChronologyAscending(fact, factAt) <= 0)
+    && compare(fact, factAt) <= 0)
 }
 
 function stageFromFact(
@@ -225,7 +229,18 @@ function buildView(input: {
 export function deriveTransferBagLifecycle(
   input: TransferBagLifecycleInput,
 ): TransferBagLifecycleView {
-  const sortedCycles = sortCycles(input.cycles)
+  // 周期边界通常引用同一条事实，去重后在整个生命周期集合内确定统一顺序。
+  const chronologyItems = new Map<string, CuttingRuntimeChronologyItem>()
+  for (const fact of input.facts) chronologyItems.set(fact.factId, fact)
+  for (const cycle of input.cycles) {
+    for (const boundary of cycle.closedAt ? ['started', 'closed'] as const : ['started'] as const) {
+      const item = cycleBoundaryChronology(cycle, boundary)
+      const key = item.eventId || item.factId || ''
+      if (!chronologyItems.has(key)) chronologyItems.set(key, item)
+    }
+  }
+  const compare = createCuttingRuntimeChronologyComparator([...chronologyItems.values()])
+  const sortedCycles = sortCycles(input.cycles, compare)
   const latestCycle = sortedCycles.at(-1)
   const sourceEmptiedCycleIds = new Set(
     input.facts
@@ -242,7 +257,8 @@ export function deriveTransferBagLifecycle(
     input.facts.filter((fact) =>
       fact.factType === 'BAG_SCRAPPED'
       && !sortedCycles.some((cycle) =>
-        isUsageCycleOpenAt(cycle, input.facts, fact))),
+        isUsageCycleOpenAt(cycle, input.facts, fact, compare))),
+    compare,
   ).at(-1)
 
   if (effectiveScrapFact || latestCycle?.closeResult === 'DISABLED') {
@@ -262,6 +278,7 @@ export function deriveTransferBagLifecycle(
       input.facts.filter((fact) =>
         fact.usageCycleId === openCycle.usageCycleId
         && LIFECYCLE_STAGE_FACT_TYPES.has(fact.factType)),
+      compare,
     )
     const latestStageFact = stageFacts.at(-1)
     const flowStage = stageFromFact(latestStageFact)

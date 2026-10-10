@@ -1,0 +1,12 @@
+{
+  "version": "v48",
+  "checkedAt": "2026-10-10T00:46:02.552249+00:00",
+  "declaredSourceCount": 83,
+  "allCurrentSourceHashesMatched": true,
+  "sourceDeltaFromV47": [
+    "src/data/fcs/cutting/cut-piece-release-facts.ts",
+    "tests/unit/cut-piece-release-facts.test.ts"
+  ],
+  "scope": "Only ordinary explicit formal no-craft requirement read fallback and its tests; no business writes, original ticket/target/release/allocation unchanged",
+  "priorRuntimeEvidencePolicy": "v47 originals remain v47; unchanged paths retain their original evidence, affected projection needs v48 delta verification"
+}

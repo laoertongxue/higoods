@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-10-09T22:58:30.226692+00:00",
+  "versionRef": "version-v47.json",
+  "phase": "ROOT current630 samples and actual18 inspected PNGs passed; final receipt/dispatch/16checks and double reviews remain separate gates",
+  "rows": [
+    {
+      "file": "ui-browser.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 395,
+      "maximumMs": 420.099853515625,
+      "sha256": "cc01aa3cb69a1997e4533adf993b4fa9135538e8d2bd1b0bb7c5c5d3b6b830e9",
+      "performanceEvidence": true
+    },
+    {
+      "file": "list-responsive-v47.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 45,
+      "maximumMs": 281,
+      "sha256": "cc8d6991f9610cf2349a513dbf1568dec6921d136df66ab9da8232d4d920a57d",
+      "performanceEvidence": true
+    },
+    {
+      "file": "demo-copy-v47.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 15,
+      "maximumMs": 101.60009765625,
+      "sha256": "5216b2af0c4e14baccedaf2ac83ba6a6546afd047f5097af209745efb381d2cb",
+      "performanceEvidence": true
+    },
+    {
+      "file": "supplement-browser.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 50,
+      "maximumMs": 473.6000000014901,
+      "sha256": "c62be9be90974be6fc926caeb1aeb4593c35c3490138c33a2da2364ac9b4fa3a",
+      "performanceEvidence": true
+    },
+    {
+      "file": "idb-open-browser.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 10,
+      "maximumMs": 331.599853515625,
+      "sha256": "034e89a53f7bccb29233179c54a871f6fa559e642fef1214ddfadff5dba7d183",
+      "performanceEvidence": true
+    },
+    {
+      "file": "storage-browser.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "909bc9dec5b7a73c10c631c33c7f758bfb165d7fede970fbdba3a0efca8f1d4a",
+      "performanceEvidence": false
+    },
+    {
+      "file": "migration-browser.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "6b4c310c40a3cbf8063e7bfa53bc9c89d52cf9ce09557e503a54dd0809b3c1e3",
+      "performanceEvidence": false
+    },
+    {
+      "file": "backup-restore-browser.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "47bd78206eb63275263ced8dd1fce43e62f8d171c05810d0126de7195c75b543",
+      "performanceEvidence": false
+    },
+    {
+      "file": "style-images-v47.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 60,
+      "maximumMs": 364.89990234375,
+      "sha256": "0ab6555f985fd6ec37740f1b4b6f95fbbcd2296b41a8696dd19130465601d83e",
+      "performanceEvidence": true
+    },
+    {
+      "file": "material-images-v47.json",
+      "passed": true,
+      "version": "v47",
+      "sampleCount": 55,
+      "maximumMs": 447.39990234375,
+      "sha256": "257e7459aa491e3c14d3036901a6d678ec2975cc8f48d6744632b5b4ed0004eb",
+      "performanceEvidence": true
+    }
+  ],
+  "rawSampleCount": 630,
+  "allPassed": true,
+  "scope": "Only ROOT-owned UI/copy/storage gates; not complete project or product acceptance",
+  "sourceManifestSHA256": "aa1c2e9b60fafbf844146244c68ad25f8eb00a4c07f90a24e44aa7023afbaf1e",
+  "assetManifestSHA256": "4fbe0fb5e84cff9aca174790247707881d1da1c96d61d9b838158fe7cbd5328a"
+}

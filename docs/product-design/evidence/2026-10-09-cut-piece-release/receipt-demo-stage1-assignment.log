@@ -1,0 +1,6 @@
+### Result
+"SPU-2024-005\n\nJaket Hoodie Unisex\n\n生产单：PO-202603-0002\n\n任务：SC-RELEASE-DEMO-0002-1\n\n\t非车缝独立生产任务\n\n工序：打条\n\n工艺：打条\n\n\t4 个SKU\n\n2,500件\n\n\t国内：林晓\n\n印尼：Ayu\n\n\t已直接派单\n\n人工直接派单\n\nAPF - 辅助工艺 · 待接单\n\n\t\n\n标准价：—\n\n派单价：1,200 IDR/件\n\n无标准价 · 已冻结\t\n详情\n打印任务单\n日志"
+### Ran Playwright code
+```js
+await (async (page) => { await page.locator("[data-unified-field=factoryId]").selectOption("FAC-APF"); await page.locator("[data-unified-field=price]").fill("1200"); await page.getByRole("button",{name:"下一步：二次确认价格",exact:true}).click(); await page.getByRole("button",{name:"确认提交并冻结价格",exact:true}).waitFor({state:"visible"}); await page.getByRole("button",{name:"确认提交并冻结价格",exact:true}).click(); await page.getByRole("button",{name:"确认提交并冻结价格",exact:true}).waitFor({state:"hidden"}); await page.reload(); await page.getByRole("row").filter({hasText:"SC-RELEASE-DEMO-0002-1"}).waitFor({state:"visible"}); return await page.getByRole("row").filter({hasText:"SC-RELEASE-DEMO-0002-1"}).innerText(); })(page);
+```

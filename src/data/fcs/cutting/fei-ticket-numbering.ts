@@ -7,6 +7,7 @@ import {
   listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
 } from './generated-fei-tickets.ts'
+import { listManualFeiTicketSources } from './manual-fei-tickets.ts'
 
 export const CUTTING_FEI_TICKET_NUMBERING_STORAGE_KEY = 'cuttingFeiTicketNumberingLedger'
 export const FEI_TICKET_NUMBERING_BLOCK_MESSAGE = '该菲票尚未完成打编号，请完成打编后再装袋。'
@@ -233,7 +234,7 @@ export function calculateFeiTicketNumberingCount(ticket: GeneratedFeiTicketSourc
 }
 
 export function listFeiTicketNumberingTickets(): GeneratedFeiTicketSourceRecord[] {
-  const tickets = listSpreadingResultGeneratedFeiTickets()
+  const tickets = [...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources()]
   const base = tickets.find((ticket) => ticket.printStatus !== 'VOIDED') || tickets[0]
   const missingRangeDemo = base
     ? [{
@@ -319,6 +320,8 @@ export function getFeiTicketNumberingRecord(feiTicketIdOrNo: string): FeiTicketN
 export function getFeiTicketNumberingStatus(ticket: GeneratedFeiTicketSourceRecord | Pick<GeneratedFeiTicketSourceRecord, 'feiTicketId' | 'feiTicketNo' | 'partName' | 'pieceSequenceRange'> | null | undefined): FeiTicketNumberingStatus {
   if (!ticket) return '缺少编号区间'
   if (isBindingStripFeiTicket(ticket)) return '免打编号'
+  // 手动来源明确不含铺布执行层序；仅真实来源免该层序门禁，不造编号完成。
+  if (listManualFeiTicketSources().some(source => source.feiTicketId === ticket.feiTicketId && source.feiTicketNo === ticket.feiTicketNo && source.sourceBasisType === 'MANUAL_MARKER_PLAN' && !source.pieceSequenceRange)) return '免打编号'
   if (!ticket.pieceSequenceRange) return '缺少编号区间'
   if (getFeiTicketNumberingRecord(ticket.feiTicketId) || getFeiTicketNumberingRecord(ticket.feiTicketNo)) return '已完成'
   return '未打编号'
@@ -347,6 +350,9 @@ export function resolveFeiTicketNumberingScan(input: string): FeiTicketNumbering
       numberCount: 0,
       pieceSequenceLabel: '',
     }
+  }
+  if (getFeiTicketNumberingStatus(ticket) === '免打编号') return {
+    ok: true, status: '免打编号', message: '手动菲票无需铺布层序编号。', ticket, record: null, numberCount: 0, pieceSequenceLabel: '无铺布层序',
   }
   if (!hasPieceSequenceRange(ticket)) {
     return {

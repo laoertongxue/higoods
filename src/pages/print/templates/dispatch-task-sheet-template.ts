@@ -6,10 +6,12 @@ import { getProcessTaskQtyDisplayUnit } from '../../../data/fcs/process-tasks.ts
 import { createPrintDocumentId, getPrintGeneratedAt, type PrintDocument, type PrintDocumentBuildInput, type PrintTable } from '../../../data/fcs/print-service.ts'
 import type { TechPackPatternFileSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { replacementFabricMaterialDisplayCode } from '../../../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
 
 const normalizeProcess = (value: string) => normalizeProductionExecutionProcessCode(value.replace(/^PROC_/, ''))
 const numberText = (value: number) => Number.isFinite(value) ? String(Number(value.toFixed(8))) : '未维护'
 const normalized = (value: string) => value.trim().toLowerCase()
+const materialDisplayCode = (material: {materialSkuId?: string; materialCode?: string}) => [material.materialSkuId, material.materialCode].map(code => replacementFabricMaterialDisplayCode(code || '')).find(Boolean) || ''
 const appliesTo = (values: string[] | undefined, selected: Set<string>) => !values?.length || values.some((value) => ['all', '全部', '通用', '*'].includes(normalized(value)) || selected.has(normalized(value)))
 
 /** Scope technical information using this assignment, never the whole PO quantity. */
@@ -77,7 +79,7 @@ export function buildDispatchTaskSheetPrintDocument(input: PrintDocumentBuildInp
       { label: '要求完成日期', value: data.runtime?.taskDeadline || '未维护' },
     ],
     imageBlocks: [{ title: '款式', imageUrl: data.styleImageUrl, imageLabel: `${data.styleCode} ${data.styleName}`, sourceLabel: '任务技术资料', fallbackLabel: '款式图片未维护' },
-      ...technical.materials.map((material) => ({ title: material.type, imageUrl: material.materialImageUrl, imageLabel: `${material.name} ${material.materialSkuId || material.materialCode || material.id}`, sourceLabel: '任务技术资料', fallbackLabel: `${material.name}图片未维护` }))],
+      ...technical.materials.map((material) => ({ title: material.type, imageUrl: material.materialImageUrl, imageLabel: [material.name, materialDisplayCode(material)].filter(Boolean).join(' '), sourceLabel: '任务技术资料', fallbackLabel: `${material.name}图片未维护` }))],
     qrCodes: [{ title: '任务二维码', value: data.qrValue, description: data.supportsCutPieceHandover ? '仓库扫码核对本任务裁片' : '扫码查看本任务单', sizeMm: 34 }],
     barcodes: [{ title: '任务单条码', value: data.taskSheetNo }],
     sections: [
@@ -125,9 +127,10 @@ export function renderDispatchTaskSheetTemplate(document: PrintDocument): string
     const usageUnit = material.unit || '单位未维护'
     const lossRate = material.lossRate > 1 ? material.lossRate / 100 : material.lossRate || 0
     const plannedQty = material.unitConsumption * scopedGarmentQty * (1 + lossRate)
-    const identity = `${material.name} ${material.materialSkuId || material.materialCode || material.id}`
+    const displayCode = materialDisplayCode(material)
+    const identity = [material.name, displayCode].filter(Boolean).join(' ')
     const materialNote = [material.spec, material.colorLabel, material.remark].filter(Boolean).join('；')
-    return [`<div class="task-sheet-object">${image(material.materialImageUrl, identity)}<div><b>${escapeHtml(material.name)}</b><p>${escapeHtml(material.materialSkuId || material.materialCode || material.id)}</p><p>${escapeHtml(material.type)}${materialNote ? ` · ${escapeHtml(materialNote)}` : ''}</p></div></div>`,
+    return [`<div class="task-sheet-object">${image(material.materialImageUrl, identity)}<div><b>${escapeHtml(material.name)}</b>${displayCode ? `<p>${escapeHtml(displayCode)}</p>` : ''}<p>${escapeHtml(material.type)}${materialNote ? ` · ${escapeHtml(materialNote)}` : ''}</p></div></div>`,
       `${numberText(material.unitConsumption)} ${escapeHtml(usageUnit)}/${escapeHtml(quantityUnit)}`,
       `${numberText(plannedQty)} ${escapeHtml(usageUnit)}${lossRate ? `<br><small>含损耗 ${numberText(lossRate * 100)}%</small>` : ''}`,
       escapeHtml(material.applicableSkuCodes?.length ? material.applicableSkuCodes.filter((code) => skuSet.has(normalized(code))).join('、') : '本次分配 SKU')]
@@ -185,6 +188,6 @@ export function renderDispatchTaskSheetTemplate(document: PrintDocument): string
     ${table('本任务工艺要求', ['工序', '工艺', '要求'], processRows, 'task-processes')}
     ${table('本任务成衣尺寸', ['尺码', '测量部位', '尺寸', '公差'], measurementRows, 'task-measurements')}
     ${data.runtime?.qcPoints?.length ? `<section class="task-sheet-note"><b>工艺注意事项</b><p>${data.runtime.qcPoints.map(escapeHtml).join('；')}</p></section>` : ''}
-    <footer class="task-sheet-note"><p>本单确认任务内容和分配范围。实际交出菲票及数量，以仓库识别本单后确认的交出记录为准。</p><p>改派或领取责任调整后，请使用当前有效任务单。打印时间：${escapeHtml(document.printMeta.generatedAt)}</p></footer>
+    <footer class="task-sheet-note"><p>改派后请重新打印。实交数量以仓库确认记录为准。</p><p>打印时间：${escapeHtml(document.printMeta.generatedAt)}</p></footer>
   </article>`
 }

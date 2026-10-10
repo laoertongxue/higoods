@@ -1,0 +1,32 @@
+{
+  "version": "v22",
+  "versionEvidence": "version-v22.json",
+  "reviewer": "root",
+  "reviewedAt": "2026-10-09T15:19:59.715075+00:00",
+  "method": "实际工具查看原始截图和PDF渲染图",
+  "passed": true,
+  "observations": [
+    "原预览和PDF可见短换片布票001、原生产单、面料及颜色、实物图、5 Yard和二维码；默认页面未出现HPB/tdv/百分号编码来源路径",
+    "PPIC可见颜色尺码、当前齐套490件、有效放行500件、已分配500件、可新增0件、当前风险10件、拉链待配300条；责任/处理动作与单位完整"
+  ],
+  "images": [
+    {
+      "path": "output/playwright/cut-release-dispatch/v22-final-simple-WEB-print-label.png",
+      "sha256": "de202f77b2f2d5981f9ec372276cb98948ac72d2f394b2b8442cae10971e63a3",
+      "passed": true
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v22-final-simple-WEB-label-1-render.png",
+      "sha256": "8e39804bad20bf50235dcaa1c681d63dc4aecfb1e3c6be23cb7534bf19094763",
+      "passed": true
+    },
+    {
+      "path": "output/playwright/cut-release-dispatch/v22-final-ppic-S500-partial-accessory-1.png",
+      "sha256": "bee4fc8cd5cf8f1e1826278c750d64e534a08cae754a3d26a545561968a3fcf6",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "此处仅主代理图像核查，不替代实际动作、持久读回、性能或两轮逐项审查"
+  ]
+}

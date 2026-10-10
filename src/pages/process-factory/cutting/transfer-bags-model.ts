@@ -886,7 +886,7 @@ export interface InboundTempBagInventoryRecord {
   warehouseArea: string
   locationCode: string
   inboundAt: string
-  inventoryStatus: '待分配' | '已分配待分拣' | '已分拣待装袋' | '已装袋待交出' | '已交出' | '已作废或不可用'
+  inventoryStatus: '待分配' | '待核对' | '已分配待分拣' | '已分拣待装袋' | '已装袋待交出' | '已交出' | '已作废或不可用'
 }
 
 export interface ActiveTicketPocketBinding {

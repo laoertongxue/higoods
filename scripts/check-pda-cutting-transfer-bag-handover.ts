@@ -8,6 +8,8 @@ import {
   type TransferBagTicketFactSnapshot,
 } from '../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { resolveTransferBagCurrentUse } from '../src/data/fcs/cutting/transfer-bag-operations.ts'
+import { setPublishedReleaseTicketDetails } from '../src/data/fcs/cutting/cut-piece-release-facts.ts'
+import type { ReleaseTicketDetail } from '../src/data/fcs/cut-piece-release-domain.ts'
 import { appendWaitHandoverInboundEvent } from '../src/pages/process-factory/cutting/wait-handover-runtime.ts'
 import {
   createPdaTransferBagHandoverFormState,
@@ -69,6 +71,10 @@ function ticket(
   }
 }
 
+// 本专项只测试无需工艺的普通票；逐票提供明确来源，不把未知票当作可交出。
+const releaseFixtures = new Map<string, ReleaseTicketDetail>()
+setPublishedReleaseTicketDetails(() => [...releaseFixtures.values()])
+
 function addBag(
   storage: BrowserStorageLike,
   bagCode: string,
@@ -99,6 +105,32 @@ function addBag(
       baggingAt: '2026-08-03 10:00',
     },
   }, storage)
+  for (const item of tickets) {
+    releaseFixtures.set(item.feiTicketId, {
+      ticketId: item.feiTicketId,
+      ticketNo: item.feiTicketNo,
+      sourceType: 'PDA 整袋交出专项普通票',
+      sourceNo: item.cutOrderNo,
+      cutOrderNo: item.cutOrderNo,
+      garmentColor: item.color,
+      size: item.size,
+      fabricColor: item.color,
+      materialId: 'PDA-HANDOVER-TEST-MATERIAL',
+      materialName: '专项面料',
+      partId: item.partCode,
+      partName: item.partName,
+      printedPieceQty: item.pieceQty,
+      physicalPieceQty: item.pieceQty,
+      eligiblePieceQty: item.pieceQty,
+      validity: '可用',
+      bagCode,
+      bagUseId: `usage:${bagCode}:1`,
+      locationLabel: inbound ? '裁床待交出仓 / CUT-A-01' : '待入仓',
+      requiresSpecialCraft: false,
+      craftRequirementKnown: true,
+      craftSteps: [],
+    })
+  }
   if (!inbound) return
   appendWaitHandoverInboundEvent({
     source: 'PDA',

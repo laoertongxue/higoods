@@ -24,10 +24,10 @@ import {
   listFactoryWarehouseNodeRows,
   listFactoryWarehouseOutboundRecords,
   listFactoryWarehouseStocktakeOrders,
-  upsertFactoryWaitHandoverStockItem,
-  upsertFactoryWaitProcessStockItem,
-  upsertFactoryWarehouseInboundRecord,
-  upsertFactoryWarehouseOutboundRecord,
+  upsertFactoryWaitHandoverStockItem as saveFactoryWaitHandoverStockItem,
+  upsertFactoryWaitProcessStockItem as saveFactoryWaitProcessStockItem,
+  upsertFactoryWarehouseInboundRecord as saveFactoryWarehouseInboundRecord,
+  upsertFactoryWarehouseOutboundRecord as saveFactoryWarehouseOutboundRecord,
   createFactoryInternalWarehouseMutationSnapshot,
   restoreFactoryInternalWarehouseMutationSnapshot,
 } from './factory-internal-warehouse.ts'
@@ -469,6 +469,22 @@ const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = [
   '无异常',
 ]
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
+let readingCuttingTaskSources = false
+let warehouseArtifactsStore: SpecialCraftTaskStore | null = null
+
+// 裁床来源只构造相同的任务资料和关联编号，不提前初始化工艺厂库存。
+function upsertFactoryWarehouseInboundRecord(record: FactoryWarehouseInboundRecord): FactoryWarehouseInboundRecord {
+  return readingCuttingTaskSources ? structuredClone(record) : saveFactoryWarehouseInboundRecord(record)
+}
+function upsertFactoryWarehouseOutboundRecord(record: FactoryWarehouseOutboundRecord): FactoryWarehouseOutboundRecord {
+  return readingCuttingTaskSources ? structuredClone(record) : saveFactoryWarehouseOutboundRecord(record)
+}
+function upsertFactoryWaitProcessStockItem(item: FactoryWaitProcessStockItem): FactoryWaitProcessStockItem {
+  return readingCuttingTaskSources ? structuredClone(item) : saveFactoryWaitProcessStockItem(item)
+}
+function upsertFactoryWaitHandoverStockItem(item: FactoryWaitHandoverStockItem): FactoryWaitHandoverStockItem {
+  return readingCuttingTaskSources ? structuredClone(item) : saveFactoryWaitHandoverStockItem(item)
+}
 const retiredWoolPieceTaskOrderIds = new Set<string>()
 let cleanRetiredProcessWarehouseFacts: ((ids: ReadonlySet<string>) => void) | undefined
 
@@ -2426,7 +2442,7 @@ function buildButtonLoopTaskOrdersForStore(): SpecialCraftTaskOrder[] {
 
 export { getSpecialCraftWorkOrderBusinessType } from './special-craft-operations.ts'
 
-function ensureStore(): SpecialCraftTaskStore {
+function ensureStore(includeWarehouseArtifacts = true): SpecialCraftTaskStore {
   if (!specialCraftTaskStore) {
     const generatedResults = generateSpecialCraftTaskOrdersForAllProductionOrders([])
     const rawGeneratedTaskOrders = generatedResults.flatMap((item) => item.taskOrders)
@@ -2475,7 +2491,6 @@ function ensureStore(): SpecialCraftTaskStore {
         ...taskOrder,
         lineProgress: normalizeSpecialCraftLineProgress(taskOrder),
       }))
-    ensureSpecialCraftUnifiedWarehouseArtifacts(taskOrders)
     specialCraftTaskStore = {
       taskOrders,
       generationBatches,
@@ -2491,6 +2506,10 @@ function ensureStore(): SpecialCraftTaskStore {
           .map((order) => ({ workOrderId: order.taskOrderId, status: order.status, updatedAt: order.updatedAt })),
       )
     })
+  }
+  if (includeWarehouseArtifacts && !readingCuttingTaskSources && warehouseArtifactsStore !== specialCraftTaskStore) {
+    ensureSpecialCraftUnifiedWarehouseArtifacts(specialCraftTaskStore.taskOrders)
+    warehouseArtifactsStore = specialCraftTaskStore
   }
   return specialCraftTaskStore
 }
@@ -2967,6 +2986,16 @@ export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
   return [...projectFinalWoolReceipts(), ...listWoolCraftTaskOrders()].filter((item) => !invalidatedIds.has(item.taskOrderId))
 }
 
+/** 裁床仅读取工艺任务来源；工艺厂仓库的库存投影在其原入口准备。 */
+export function listCutPieceSpecialCraftTaskOrderSources(): SpecialCraftTaskOrder[] {
+  const previous = readingCuttingTaskSources
+  readingCuttingTaskSources = true
+  try {
+    const invalidatedIds = new Set(invalidatedMergedTaskOrderLogs.filter((item) => !item.restoredAt).map((item) => item.taskOrderId))
+    return ensureStore(false).taskOrders.filter((item) => item.targetObject === '已裁部位' && !invalidatedIds.has(item.taskOrderId))
+  } finally { readingCuttingTaskSources = previous }
+}
+
 export type SpecialCraftTaskStoreSnapshot = SpecialCraftTaskStore
 
 export function captureSpecialCraftTaskStore(): SpecialCraftTaskStoreSnapshot {
@@ -2974,6 +3003,7 @@ export function captureSpecialCraftTaskStore(): SpecialCraftTaskStoreSnapshot {
 }
 
 export function restoreSpecialCraftTaskStore(snapshot: SpecialCraftTaskStoreSnapshot): void {
+  const warehouseArtifactsReady = warehouseArtifactsStore === specialCraftTaskStore
   const currentOrders = specialCraftTaskStore?.taskOrders ?? []
   const currentById = new Map(currentOrders.map((order) => [order.taskOrderId, order]))
   const restored = structuredClone(snapshot)
@@ -2990,6 +3020,7 @@ export function restoreSpecialCraftTaskStore(snapshot: SpecialCraftTaskStoreSnap
   // 状态快照通常只回退一张正在验收的加工单。只重建实际变化的仓库事实，
   // 避免每次回退都把全部加工单、库位与来源任务重复投影一遍。
   ensureSpecialCraftUnifiedWarehouseArtifacts(changedOrders)
+  if (warehouseArtifactsReady) warehouseArtifactsStore = restored
   const taskIds = new Set(
     [...changedOrders, ...removedOrders]
       .map((order) => order.sourceTaskId)

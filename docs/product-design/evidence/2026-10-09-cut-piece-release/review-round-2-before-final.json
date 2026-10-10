@@ -1,0 +1,1396 @@
+{
+  "round": 2,
+  "phase": "84条初审完整，等待修复后的最终差异与证据复审",
+  "verdict": "未通过",
+  "reviewer": "release_contract_audit",
+  "tree": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+  "baseHead": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "interimSourceContentHash": "622a4ed9c52efd85fdc599dfe176930f8814b9c6c720f63a51720049e4d8d4f8",
+  "reviewedRequirementCount": 84,
+  "actualRun": {
+    "command": "node --import tsx --test tests/unit/cut-piece-release-facts.test.ts tests/unit/cut-piece-special-craft-receipts.test.ts tests/unit/cut-piece-release-ui.test.ts",
+    "passed": 25,
+    "failed": 0,
+    "doesNotClear": "页面/性能门禁"
+  },
+  "findings": [
+    {
+      "id": "R2-01",
+      "requirements": [
+        "VALID-002",
+        "VALID-003",
+        "PAGE-007"
+      ],
+      "issue": "整票更正确认缺受影响事实与恢复核对",
+      "state": "源码与新增单测已修，待最终页证"
+    },
+    {
+      "id": "R2-02",
+      "requirements": [
+        "CRAFT-008",
+        "PAGE-007"
+      ],
+      "issue": "合法外厂直转最终80被标待加工",
+      "actualBeforeFix": {
+        "eligible": 80,
+        "physical": 80,
+        "receiptId": "RETURN-3",
+        "status": "待加工",
+        "mislabelWaiting": true
+      },
+      "state": "已修源码/单测，待最终页证"
+    },
+    {
+      "id": "R2-03",
+      "requirements": [
+        "SOURCE-003",
+        "DISPATCH-005"
+      ],
+      "issue": "exact SKU错误色码可借Black/M放行",
+      "actualBeforeFix": "canDispatch=true，错误色码借用A200/V200",
+      "state": "主代理已修，待重放"
+    },
+    {
+      "id": "R2-04",
+      "requirements": [
+        "DISPATCH-003",
+        "DISPATCH-005"
+      ],
+      "issue": "同格150+150合计300超过V200但共享assert接受",
+      "actualBeforeFix": "canDispatch=true,assertAccepted=true",
+      "state": "主代理已修，待重放"
+    },
+    {
+      "id": "R2-05",
+      "requirements": [
+        "CRAFT-005",
+        "CRAFT-006",
+        "RECEIPT-003",
+        "PAGE-007",
+        "STORE-006"
+      ],
+      "issue": "真实交出后原样未加工回仓仍被receipt推断完成",
+      "source": "src/data/fcs/cutting/cut-piece-release-facts.ts:37;transfer-bag-operations.ts:3778",
+      "state": "主代理确认有效，正在增加当前阶段加工完成核对事实，待全链复审"
+    },
+    {
+      "id": "R2-06",
+      "requirements": [
+        "STORE-008",
+        "STORE-009"
+      ],
+      "issue": "实际IDB打开失败恢复、正常备份导入空资料缺直接证据",
+      "state": "待证据"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "SCOPE-001",
+      "source": "1.2",
+      "requirement": "仅本轮范围内调整，不新增真实后端、云存储或无关流程",
+      "counterexample": "新增真实API/云库或无关报价流程",
+      "expected": "仅本轮范围内调整，不新增真实后端、云存储或无关流程",
+      "actual": "diff只覆盖命名原型链路，未新增真实后端。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/main.ts:816",
+      "check": "git diff",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "MENU-001",
+      "source": "9.1 / U01",
+      "requirement": "菜单仅移到裁床仓库管理且无重复入口",
+      "counterexample": "旧裁后与新仓库组同时出现放行项",
+      "expected": "菜单仅移到裁床仓库管理且无重复入口",
+      "actual": "runtime菜单遍历唯一，父组仓库；单测通过。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/app-shell-config.ts:1351",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:16",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "MENU-002",
+      "source": "9.1",
+      "requirement": "保留现有对象、页面地址及直达能力",
+      "counterexample": "旧收藏地址生成另一对象",
+      "expected": "保留现有对象、页面地址及直达能力",
+      "actual": "href/key保留；详情生产单直达。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:242",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:16",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "SOURCE-001",
+      "source": "5.1 / U04",
+      "requirement": "只有有效已装袋票贡献放行计算，不直接用未装袋产出",
+      "counterexample": "已裁100片未装袋直接C100",
+      "expected": "只有有效已装袋票贡献放行计算，不直接用未装袋产出",
+      "actual": "buildfacts要求detail.bagCode，普通无袋E0；source专项数量验证。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:90",
+      "check": "scripts/check-generated-cut-release.ts:11",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "SOURCE-002",
+      "source": "5.1、13.2",
+      "requirement": "有效手动唛架票装袋后进入同一计算且不伪造铺布",
+      "counterexample": "手动票无铺布号被剔除或补假铺布",
+      "expected": "有效手动唛架票装袋后进入同一计算且不伪造铺布",
+      "actual": "allTickets合并manual；无伪造铺布，manual40片专项。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:61",
+      "check": "scripts/check-generated-cut-release.ts:16",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "SOURCE-003",
+      "source": "3.2、5.1",
+      "requirement": "成衣色码、材料 BOM 行和部位身份准确对应",
+      "counterexample": "同票ID错票号/错颜色/错BOM借量",
+      "expected": "成衣色码、材料 BOM 行和部位身份准确对应",
+      "actual": "完整票号/色码/材料色/部位/裁单身份不一致变identityUnknown；另共享分配身份反例已交修。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:91",
+      "check": "scripts/check-generated-cut-release.ts:25",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "SOURCE-004",
+      "source": "5.1、7.1",
+      "requirement": "换袋、正常移库 / 交出不重复增产或扣减累计齐套",
+      "counterexample": "同票换袋/出库后重复产出或累计K下降",
+      "expected": "换袋、正常移库 / 交出不重复增产或扣减累计齐套",
+      "actual": "bag证据Map票ID去重，出库不扣累计P/E，现用库存独立。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:10",
+      "check": "tests/unit/cut-piece-release-facts.test.ts:32",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "VALID-001",
+      "source": "5.2 / U05",
+      "requirement": "不提供同票部分可用、部分剔除或拆票输入",
+      "counterexample": "登记票内剔除3片，剩余继续可用",
+      "expected": "不提供同票部分可用、部分剔除或拆票输入",
+      "actual": "bool有效性与整票原因，无部分剔除数量。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-ticket-validity.ts:18",
+      "check": "tests/unit/cut-piece-release-ui.test.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "VALID-002",
+      "source": "5.2",
+      "requirement": "整票不可用排除当前数量和后续流转且保留追溯",
+      "counterexample": "已袋票不可用仍可装袋/交出/K计量",
+      "expected": "整票不可用排除当前数量和后续流转且保留追溯",
+      "actual": "valid false P/E0；装袋、实收、交出可用检查。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:30",
+      "check": "tests/unit/cut-piece-release-facts.test.ts:28",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "VALID-003",
+      "source": "5.2、11.1",
+      "requirement": "整票更正不改原票、确认决定和历史交接责任",
+      "counterexample": "整票更正抹掉原票及历史责任或恢复未经核对",
+      "expected": "整票更正不改原票、确认决定和历史交接责任",
+      "actual": "已补impact确认袋/工艺/T/A/O与恢复核对；历史独立保存。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1318",
+      "check": "tests/unit/cut-piece-release-ui.test.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "BAG-001",
+      "source": "5.3 / 用户流程图",
+      "requirement": "普通票与工艺票不能同袋",
+      "counterexample": "普通与特殊工艺票同袋",
+      "expected": "普通票与工艺票不能同袋",
+      "actual": "NONE与工艺链不兼容立即拒绝。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:212",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:279",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "BAG-002",
+      "source": "5.3 / 用户流程图",
+      "requirement": "不同必要工艺链与顺序不能同袋",
+      "counterexample": "烫画>绣花与绣花>烫画同袋",
+      "expected": "不同必要工艺链与顺序不能同袋",
+      "actual": "有序链含版本/craftID/category/factory，非显示名称。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/wait-handover-runtime.ts:1459",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:279",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "BAG-003",
+      "source": "5.3",
+      "requirement": "同票有效占用、袋周期与重复扫描不会重复累计",
+      "counterexample": "重复扫码/两有效袋周期占同票",
+      "expected": "同票有效占用、袋周期与重复扫描不会重复累计",
+      "actual": "同袋扫描重复不增量；现用/旧交出共享占用防错。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/sewing-dispatch.ts:2571",
+      "check": "scripts/check-transfer-bag-repack-recovery.ts:917",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-001",
+      "source": "6.1 / U06",
+      "requirement": "工艺要求来自具体部位与版本，覆盖辅助和特种",
+      "counterexample": "一个部位有工艺却所有部位统一需做",
+      "expected": "工艺要求来自具体部位与版本，覆盖辅助和特种",
+      "actual": "部位已裁对象要求匹配，每票独立链。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:69",
+      "check": "tests/unit/cut-piece-release-facts.test.ts:9",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-002",
+      "source": "6.1 / U06",
+      "requirement": "工艺链支持一至 N 道有序必要工艺",
+      "counterexample": "只验一道或跳到末道",
+      "expected": "工艺链支持一至 N 道有序必要工艺",
+      "actual": "project逐道previousComplete；数量上限逐道继承，warehouse下一道来源校验。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:33",
+      "check": "tests/unit/cut-piece-release-facts.test.ts:15",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-003",
+      "source": "6.2 / U07",
+      "requirement": "非最终回仓不计入齐套",
+      "counterexample": "前道回仓95直接计入两道K",
+      "expected": "非最终回仓不计入齐套",
+      "actual": "非末道只P/stage更新，E0。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:45",
+      "check": "tests/unit/cut-piece-release-facts.test.ts:9",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-004",
+      "source": "6.2 / U07",
+      "requirement": "最终加工完成但未回裁床仓不计入齐套",
+      "counterexample": "末道完工100未回裁床就齐套",
+      "expected": "最终加工完成但未回裁床仓不计入齐套",
+      "actual": "binding已完成但无最终receipt，E0/待回仓。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:43",
+      "check": "tests/unit/cut-piece-release-ui.test.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-005",
+      "source": "6.2 / U07",
+      "requirement": "全链满足后以最终有效实收片数计入",
+      "counterexample": "工厂未加工把原交出袋点收回来就算完成",
+      "expected": "全链满足后以最终有效实收片数计入",
+      "actual": "严格receipt仅有真实原交出和点收，receipt被当hasCompletion；主代理确认缺口有效，正在补显式加工完成核对事实。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:37",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:230",
+      "codeVerdict": "未通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-006",
+      "source": "6.1、7.2",
+      "requirement": "缺工艺绑定或要求不全不默认无需工艺",
+      "counterexample": "缺工艺要求当无需工艺",
+      "expected": "缺工艺绑定或要求不全不默认无需工艺",
+      "actual": "unknown工艺不设E，矩阵Knull；加工完成更严格资格修复待复审。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release-domain.ts:305",
+      "check": "scripts/check-release-physical-final-quantity.ts:15",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-007",
+      "source": "6.4",
+      "requirement": "多道工艺统计按唯一裁片计数，不按道数倍增",
+      "counterexample": "100票两道累计195片需做/已做",
+      "expected": "多道工艺统计按唯一裁片计数，不按道数倍增",
+      "actual": "unique票统计printed/P/E，道数不乘片数。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release-domain.ts:347",
+      "check": "tests/unit/cut-piece-release-facts.test.ts:9",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CRAFT-008",
+      "source": "6.4",
+      "requirement": "未加工、加工完成待回仓、最终已回仓与差异明确区分",
+      "counterexample": "合法外厂直转final80被标待加工，0实收被标未完成",
+      "expected": "未加工、加工完成待回仓、最终已回仓与差异明确区分",
+      "actual": "已复现final80与UI待加工矛盾，修最终合法资格和完整链；新直转/0实收渲染检查通过。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1301",
+      "check": "tests/unit/cut-piece-release-ui.test.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-001",
+      "source": "8.1、8.2 / U08",
+      "requirement": "多票回仓逐票保存各自实际实收",
+      "counterexample": "两票60/40总实收93按比例摊数",
+      "expected": "多票回仓逐票保存各自实际实收",
+      "actual": "每票数量ID关联，不按总量摊。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:3669",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:230",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-002",
+      "source": "8.2 / U08",
+      "requirement": "不按总量、预计量比例或多个阶段自动分摊实收",
+      "counterexample": "一次95拆给同票两道或直接复制应回",
+      "expected": "不按总量、预计量比例或多个阶段自动分摊实收",
+      "actual": "Web逐票checkbox/PDA本次stage唯一；空白拒绝，无比例分摊。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/pda-cutting-handover.ts:693",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:257",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-003",
+      "source": "8.2、8.3",
+      "requirement": "绑定真实当前来源单、票、工艺阶段、厂和库位",
+      "counterexample": "错交出单/票/工厂/阶段/库位入库",
+      "expected": "绑定真实当前来源单、票、工艺阶段、厂和库位",
+      "actual": "strict源码验证source event/record/ticket/location/time；完成证明补充待复审。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:3115",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:287",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-004",
+      "source": "8.3",
+      "requirement": "实收必须非负安全整数，空白不当零，零量明确点收",
+      "counterexample": "空白转0/负数/小数/Infinity/超安全数",
+      "expected": "实收必须非负安全整数，空白不当零，零量明确点收",
+      "actual": "非负安全整数，0保留实际凭据且库存不增。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:235",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:257",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-005",
+      "source": "8.3",
+      "requirement": "实收不无依据超应回量，差异据实记录与说明",
+      "counterexample": "应回12实收13有原因就放过",
+      "expected": "实收不无依据超应回量，差异据实记录与说明",
+      "actual": "qty<=snapshot，差异原因不能豁免超量。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:239",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:257",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-006",
+      "source": "8.3、15.2",
+      "requirement": "原收货更正替代有效量，重复重试不新增数量",
+      "counterexample": "原收17再更正15累计32或重复更正",
+      "expected": "原收货更正替代有效量，重复重试不新增数量",
+      "actual": "指向最新receipt版本，Map替代，差额库存；已交出后更正不反冲其他库存。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:4062",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:327",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RECEIPT-007",
+      "source": "8.1、8.4",
+      "requirement": "Web 与 PDA 回仓保存和读取同一事实",
+      "counterexample": "Web实收11/6 PDA仍按12/8",
+      "expected": "Web 与 PDA 回仓保存和读取同一事实",
+      "actual": "Web/PDA同submit strictreturn与同事件库。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/pda-cutting-inbound.ts:761",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:287",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "QTY-001",
+      "source": "7.1、7.4 / U12",
+      "requirement": "目标实物候选 C 与最终齐套 K 分开",
+      "counterexample": "待工艺K0也把C100抹掉",
+      "expected": "目标实物候选 C 与最终齐套 K 分开",
+      "actual": "physicalKnown独立craftKnown；C待工艺仍100，K0/null。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release-domain.ts:304",
+      "check": "scripts/check-release-physical-final-quantity.ts:6",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "QTY-002",
+      "source": "7.2",
+      "requirement": "按单耗向下取整，不把片数直接当件数",
+      "counterexample": "95片单耗2当95件或取整48",
+      "expected": "按单耗向下取整，不把片数直接当件数",
+      "actual": "安全正整数单耗，Math.floor数量/单耗。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release-domain.ts:310",
+      "check": "scripts/check-cut-piece-release-matrix.ts:190",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "QTY-003",
+      "source": "7.2",
+      "requirement": "必需部位、材料分别取短板，不跨色码抵扣",
+      "counterexample": "其他色/不同BOM补缺",
+      "expected": "必需部位、材料分别取短板，不跨色码抵扣",
+      "actual": "materialKey含BOM；按色码/材料/部位scope各短板。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/generated-cut-release.ts:10",
+      "check": "scripts/check-generated-cut-release.ts:13",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "QTY-004",
+      "source": "3.2、7.2",
+      "requirement": "已知左右实例分别满足，缺部位不能被其他数量掩盖",
+      "counterexample": "左袖12片补右袖0",
+      "expected": "已知左右实例分别满足，缺部位不能被其他数量掩盖",
+      "actual": "左右/实例展开要求，各自短板。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/generated-cut-release.ts:33",
+      "check": "scripts/check-generated-cut-release.ts:21",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "QTY-005",
+      "source": "7.2",
+      "requirement": "无 SKU、已知零量和资料缺失是不同结果",
+      "counterexample": "无SKU/有效0/未知全显示0",
+      "expected": "无 SKU、已知零量和资料缺失是不同结果",
+      "actual": "无坐标不可编辑，完整空事实0，缺资料null。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release-domain.ts:305",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:98",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "QTY-006",
+      "source": "7.3",
+      "requirement": "工艺等待不作为物理补裁缺口",
+      "counterexample": "待工艺100提示補裁100",
+      "expected": "工艺等待不作为物理补裁缺口",
+      "actual": "补料用T*n-P，不把E等待当物理缺口。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release-domain.ts:480",
+      "check": "scripts/check-release-physical-final-quantity.ts:9",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "TARGET-001",
+      "source": "7.4、9.3 / U12",
+      "requirement": "同色码从原材料候选选择目标，不改成自由输入",
+      "counterexample": "无材料候选自由输入新目标",
+      "expected": "同色码从原材料候选选择目标，不改成自由输入",
+      "actual": "目标仅候选按钮，preview核同格physical候选。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:906",
+      "check": "scripts/check-cut-piece-release-matrix.ts:166",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "TARGET-002",
+      "source": "7.4、11.1 / U13",
+      "requirement": "事实变化不自动改目标或使原目标快照不可读",
+      "counterexample": "P100变90自动T90或快照失读",
+      "expected": "事实变化不自动改目标或使原目标快照不可读",
+      "actual": "requiresReview独立；旧T/快照不自动失效。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:535",
+      "check": "scripts/check-cut-piece-release-matrix.ts:714",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "TARGET-003",
+      "source": "9.3",
+      "requirement": "主动重选确认才保存新目标，取消保留原快照",
+      "counterexample": "重选未存/取消修改旧目标",
+      "expected": "主动重选确认才保存新目标，取消保留原快照",
+      "actual": "草稿、核对、保存分离；cancel恢复旧T。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1952",
+      "check": "scripts/check-cut-piece-release-matrix.ts:166",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RELEASE-001",
+      "source": "7.5 / U10",
+      "requirement": "未齐套仍可在目标内人工风险放行",
+      "counterexample": "K70而T100不允许风险A100",
+      "expected": "未齐套仍可在目标内人工风险放行",
+      "actual": "不要求A<=K；有原因可风险A<=T。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1882",
+      "check": "scripts/check-cut-piece-release-available-qty.ts:48",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RELEASE-002",
+      "source": "7.5",
+      "requirement": "已知当前风险大于零时放行原因必填",
+      "counterexample": "A100>K70无风险原因保存",
+      "expected": "已知当前风险大于零时放行原因必填",
+      "actual": "每色码R正数求和，风险原因必填。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1915",
+      "check": "scripts/check-cut-piece-release-available-qty.ts:78",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RELEASE-003",
+      "source": "7.5、11.3 / U14",
+      "requirement": "新放行不得低于有效已分配占用",
+      "counterexample": "O80把A调70",
+      "expected": "新放行不得低于有效已分配占用",
+      "actual": "有效O同色码合计为硬下限。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1892",
+      "check": "scripts/check-sewing-outsourcing-release-gate.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RELEASE-004",
+      "source": "7.5 / U14",
+      "requirement": "新放行不得高于目标，风险原因不豁免",
+      "counterexample": "A超过T通过原因豁免",
+      "expected": "新放行不得高于目标，风险原因不豁免",
+      "actual": "目标上限在原因前校验。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1886",
+      "check": "scripts/check-cut-piece-release-available-qty.ts:64",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "RELEASE-005",
+      "source": "7.5、9.4",
+      "requirement": "打开已有放行沿用保存值，不自动改成当前齐套",
+      "counterexample": "刷新旧A100变当前K90",
+      "expected": "打开已有放行沿用保存值，不自动改成当前齐套",
+      "actual": "savedA优先，hydrate最高有效版本；capture深拷修复后需最新browser。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1115",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:23",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CHANGE-001",
+      "source": "10.1、11.1 / U13",
+      "requirement": "当前有效事实实时更新，人工放行决定不自动失效",
+      "counterexample": "事实下降自动决定失效",
+      "expected": "当前有效事实实时更新，人工放行决定不自动失效",
+      "actual": "当前facts提示独立，decisions仍有效。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:609",
+      "check": "scripts/check-cut-piece-release-matrix.ts:714",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CHANGE-002",
+      "source": "7.1、10.1",
+      "requirement": "当前风险与确认时风险分别保存 / 展示",
+      "counterexample": "当前风险归零删历史风险与原因",
+      "expected": "当前风险与确认时风险分别保存 / 展示",
+      "actual": "当前A-K与历史risk快照独立，不覆写原因。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:591",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:327",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CHANGE-003",
+      "source": "11.1、11.3 / U13",
+      "requirement": "事实更正不自动取消或修改旧分配",
+      "counterexample": "事实更正自动取消旧任务",
+      "expected": "事实更正不自动取消或修改旧分配",
+      "actual": "validity/receipt动作不取消effective assignments。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/transfer-bag-operations.ts:4062",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:327",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CHANGE-004",
+      "source": "11.2",
+      "requirement": "有实际差异提示受影响色码，重复读取不造变化版本",
+      "counterexample": "重读/重排又新增数量版本",
+      "expected": "有实际差异提示受影响色码，重复读取不造变化版本",
+      "actual": "sync内容差异与事件幂等，不同读不增版本。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:421",
+      "check": "scripts/check-cut-piece-release-matrix.ts:886",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "CHANGE-005",
+      "source": "9.4、11.2",
+      "requirement": "人工维持 / 调整以最新依据保存新版本并留历史",
+      "counterexample": "maintain用旧K/旧原因不形成新版本",
+      "expected": "人工维持 / 调整以最新依据保存新版本并留历史",
+      "actual": "重新hydrate最新来源后basis/O/T核对；维持与调整同新版本保存。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2100",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:23",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-001",
+      "source": "9.2、9.3 / U02、U03",
+      "requirement": "目标确认矩阵为成衣颜色行、尺码升序列",
+      "counterexample": "目标仍卡片或材料为行",
+      "expected": "目标确认矩阵为成衣颜色行、尺码升序列",
+      "actual": "目标真实table颜色行/尺码列。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1044",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:98",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-002",
+      "source": "9.2、9.4 / U02、U03",
+      "requirement": "放行确认矩阵采用同一轴和坐标",
+      "counterexample": "放行轴与目标轴不同",
+      "expected": "放行确认矩阵采用同一轴和坐标",
+      "actual": "放行共用size列/group颜色行。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1079",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:98",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-003",
+      "source": "9.2",
+      "requirement": "使用业务尺码顺序，未知自定义顺序明确待核对",
+      "counterexample": "L/M/S字典排序或猜自定义顺序",
+      "expected": "使用业务尺码顺序，未知自定义顺序明确待核对",
+      "actual": "字母/数值业务排序，自定义源序和核对提示。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:438",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:33",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-004",
+      "source": "9.4",
+      "requirement": "数量编辑与开详情交互分开，错误定位具体色码",
+      "counterexample": "点击input弹drawer或非法数被夹取",
+      "expected": "数量编辑与开详情交互分开，错误定位具体色码",
+      "actual": "input非详情action，parse拒绝非法数且色码焦点错误。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1790",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:39",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-005",
+      "source": "9.5 / U09",
+      "requirement": "单元格展示需工艺、最终已回仓和未完成片数",
+      "counterexample": "需/已/未工艺按道数累计且无单位",
+      "expected": "单元格展示需工艺、最终已回仓和未完成片数",
+      "actual": "同cell需/完成/未完成/待回/差异单位片，K件。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:459",
+      "check": "tests/unit/cut-piece-release-ui.test.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-006",
+      "source": "9.6 / U09",
+      "requirement": "单元格打开对应色码 / 材料的侧栏详情",
+      "counterexample": "Black/M点击却跳White或首个材料",
+      "expected": "单元格打开对应色码 / 材料的侧栏详情",
+      "actual": "activeCell固定色码，确认矩阵打开全部材料；材料格限定该材料。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1325",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:98",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-007",
+      "source": "9.6",
+      "requirement": "侧栏有部位、菲票、袋、逐道工艺和逐票实收来源",
+      "counterexample": "只给总数无票/袋/阶段/实收凭据",
+      "expected": "侧栏有部位、菲票、袋、逐道工艺和逐票实收来源",
+      "actual": "逐票链/袋周期/最终实收/人员时间差异；新完成资格待最终复审。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1336",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:130",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-008",
+      "source": "9.6",
+      "requirement": "真实图片可看大图并处理关闭、Esc和失败状态",
+      "counterexample": "无图/图片失败空白/Esc不能关大图",
+      "expected": "真实图片可看大图并处理关闭、Esc和失败状态",
+      "actual": "真实既有图片，有大图/失败反馈/Esc和焦点恢复源码；待真页面证据。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1361",
+      "check": "tests/unit/cut-piece-release-ui.test.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-009",
+      "source": "9.7",
+      "requirement": "未确认、暂不放行0和目标数量不混用",
+      "counterexample": "A0回退T281或未确认显示0",
+      "expected": "未确认、暂不放行0和目标数量不混用",
+      "actual": "latestVersion区分未确认与0，不逻辑或目标回退。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:475",
+      "check": "tests/unit/cut-piece-release-ui.test.ts:73",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PAGE-010",
+      "source": "9.7",
+      "requirement": "日志区分决定与事实，导出单位和当前版本不混入草稿",
+      "counterexample": "草稿被导出/日志混事实与决定",
+      "expected": "日志区分决定与事实，导出单位和当前版本不混入草稿",
+      "actual": "CSV读取snapshot/effective/current量，历史日志原快照不读草稿。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/process-factory/cutting/cut-piece-release.ts:1871",
+      "check": "scripts/check-cut-piece-release-matrix.ts:134",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DISPATCH-001",
+      "source": "12.1",
+      "requirement": "放行门禁适用从车缝开始任务，整包自裁保持原策略",
+      "counterexample": "CUT+SEW整体任务统一强制A",
+      "expected": "放行门禁适用从车缝开始任务，整包自裁保持原策略",
+      "actual": "classify startsWithSewing适用，CUT整体策略保留。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/sewing-assignment-readiness.ts:37",
+      "check": "scripts/check-release-dispatch-preparation.ts:107",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DISPATCH-002",
+      "source": "12.2 / U11",
+      "requirement": "适用任务没有有效放行不得新增分配",
+      "counterexample": "未确认或暂不放行新增分配",
+      "expected": "适用任务没有有效放行不得新增分配",
+      "actual": "按齐套/风险有效A且T确认才可新分配。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1784",
+      "check": "scripts/check-release-dispatch-preparation.ts:80",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DISPATCH-003",
+      "source": "7.1、12.2 / U14",
+      "requirement": "分配不得超过有效放行减有效占用，不提供超量豁免",
+      "counterexample": "同格两行150各低于V200却合计300",
+      "expected": "分配不得超过有效放行减有效占用，不提供超量豁免",
+      "actual": "已复现300>V200仍被共享assert接受；主代理已修重复SKU/同格拒绝，最终反例重放待做。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1765",
+      "check": "最小stdin重复150+150反例",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DISPATCH-004",
+      "source": "12.2 / U11",
+      "requirement": "未齐套和辅料未配齐本身不阻断适用车缝分配",
+      "counterexample": "辅料未配或工艺K0阻断已A范围分配",
+      "expected": "未齐套和辅料未配齐本身不阻断适用车缝分配",
+      "actual": "完成度变warning，资料身份/单位错误仍阻断；当前K未知既有A保留。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/sewing-assignment-readiness.ts:45",
+      "check": "scripts/check-release-dispatch-preparation.ts:28",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DISPATCH-005",
+      "source": "12.2",
+      "requirement": "页面候选、提交与共享保存检查采用同一门禁",
+      "counterexample": "共享assert错色码/NaN/重复SKU仍接受",
+      "expected": "页面候选、提交与共享保存检查采用同一门禁",
+      "actual": "已复现exact SKU借错色码与NaN/重复行；主代理已补身份/正安全整数/重复/PO矛盾检查，最终重放待做。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1766",
+      "check": "最小stdin同SKU错色码反例",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "ACCESSORY-001",
+      "source": "12.3",
+      "requirement": "配料读取真实物料事实，不用裁片齐套赋值",
+      "counterexample": "把裁片K100写成已配辅料100",
+      "expected": "配料读取真实物料事实，不用裁片齐套赋值",
+      "actual": "release accessoryReady null，实际preplines独立来源与单位。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:588",
+      "check": "scripts/check-release-dispatch-preparation.ts:38",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "ACCESSORY-002",
+      "source": "12.3",
+      "requirement": "配料与工艺欠数分别可见并交由PPIC继续跟进",
+      "counterexample": "欠辅料与待工艺混成单一缺件总数",
+      "expected": "配料与工艺欠数分别可见并交由PPIC继续跟进",
+      "actual": "PPIC裁片/辅料分表，工艺等待/缺资料分别显示，不改分配。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/pages/sewing-outsourcing/tasks.ts:172",
+      "check": "scripts/check-release-dispatch-preparation.ts:86",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-001",
+      "source": "13.1",
+      "requirement": "简易交出保留既有整票范围和接收边界，不强制装袋",
+      "counterexample": "简易整票交出被强制先装袋/二次接收",
+      "expected": "简易交出保留既有整票范围和接收边界，不强制装袋",
+      "actual": "普通未袋可简易交出，工艺须最终实际量；不新增第二次接收。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:79",
+      "check": "scripts/check-simple-cut-piece-handover-integration.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-002",
+      "source": "13.1",
+      "requirement": "两类交出共享消耗、防重复并使用最终有效实物量",
+      "counterexample": "有袋/简易双消耗或按原票100交final90",
+      "expected": "两类交出共享消耗、防重复并使用最终有效实物量",
+      "actual": "现用/已交出消耗共享，actual eligibility用于最终可交量。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/sewing-dispatch.ts:1013",
+      "check": "tests/unit/cut-piece-special-craft-receipts.test.ts:327",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-003",
+      "source": "13.1",
+      "requirement": "最低应回责任读实交 / 实收及退回，不读放行承诺替代",
+      "counterexample": "最低应回按A100而实际交80",
+      "expected": "最低应回责任读实交 / 实收及退回，不读放行承诺替代",
+      "actual": "既有责任投影继续真实实交/实收/退回量；更正保留已交责任。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/sewing-dispatch.ts:1260",
+      "check": "scripts/check-simple-cut-piece-receipt-projections.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-004",
+      "source": "13.2",
+      "requirement": "原票打印身份和分纸规则保留，手动来源不中断",
+      "counterexample": "实收更正回写原打印qty/QR/纸色",
+      "expected": "原票打印身份和分纸规则保留，手动来源不中断",
+      "actual": "原ticket打印身份保留，合成回仓票不覆盖原票；manual来源纳入。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/sewing-dispatch.ts:1148",
+      "check": "scripts/check-simple-cut-piece-handover-fixtures.ts",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-005",
+      "source": "13.3",
+      "requirement": "补料读已确认目标和最新实物，保留原来源及人工发起规则",
+      "counterexample": "矩阵变后旧T失读或工艺等待当補裁",
+      "expected": "补料读已确认目标和最新实物，保留原来源及人工发起规则",
+      "actual": "current target持续可读；calculateMissing用当前P和已T。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:1996",
+      "check": "scripts/check-release-physical-final-quantity.ts:9",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-006",
+      "source": "13.3",
+      "requirement": "退仓票 / 自由补料不直接叠加新增齐套",
+      "counterexample": "退仓大票/自由补料直接加入K",
+      "expected": "退仓票 / 自由补料不直接叠加新增齐套",
+      "actual": "source只actual/manual，不将退仓大票加入产出。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cut-piece-release-facts.ts:90",
+      "check": "scripts/check-generated-cut-release.ts:14",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "DOWNSTREAM-007",
+      "source": "13.4",
+      "requirement": "冻结裁剪依据保留但真实后续仓库工艺事实继续反映",
+      "counterexample": "上游冻结导致合法工艺实收不更新",
+      "expected": "冻结裁剪依据保留但真实后续仓库工艺事实继续反映",
+      "actual": "ticketDetail facts后续可更新，冻结原裁剪依据保留。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:451",
+      "check": "scripts/check-cut-piece-release-matrix.ts:886",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-001",
+      "source": "15.1、15.2",
+      "requirement": "本次业务按记录保存于现有IDB，不增业务localStorage回退",
+      "counterexample": "失败用业务LS兜底或普通读写快照",
+      "expected": "本次业务按记录保存于现有IDB，不增业务localStorage回退",
+      "actual": "saveAction/eventAction共cut-records；无新业务LS兜底。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2096",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:30",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-002",
+      "source": "8.4、15.2",
+      "requirement": "关联动作原子保存，事务完成后才成功和更新数量",
+      "counterexample": "request success即成功但tx随后abort",
+      "expected": "关联动作原子保存，事务完成后才成功和更新数量",
+      "actual": "完整commit事务后发布；capture before恢复，commands同事务。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cutting-event-repository.ts:119",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:18",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-003",
+      "source": "15.2",
+      "requirement": "保存阶段核对来源 / 占用版本并识别多页冲突",
+      "counterexample": "双页旧revision静默覆盖",
+      "expected": "保存阶段核对来源 / 占用版本并识别多页冲突",
+      "actual": "真实harness同revision仅1commit另冲突，非静默覆盖。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2100",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:29",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-004",
+      "source": "15.1、15.4",
+      "requirement": "刷新、关闭重开、直达下游独立读回同一保存结果",
+      "counterexample": "刷新直达选旧V1或依赖先打开页面",
+      "expected": "刷新、关闭重开、直达下游独立读回同一保存结果",
+      "actual": "已修baseline值引用导致旧effective未存；最高版本选择与hydrate归一，需重证。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2030",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:23",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-005",
+      "source": "15.3",
+      "requirement": "迁移保留历史、可中断恢复，验证后才清理旧源",
+      "counterexample": "第二PO迁移失败先删旧源/重试重复",
+      "expected": "迁移保留历史、可中断恢复，验证后才清理旧源",
+      "actual": "逐POmanifest指纹，中断保源，重试核验后删，仅独占键。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2125",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:35",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-006",
+      "source": "15.3",
+      "requirement": "历史缺失证据标待核对，不伪造装袋或工艺实收",
+      "counterexample": "旧资料无证据补造装袋/完成/实收",
+      "expected": "历史缺失证据标待核对，不伪造装袋或工艺实收",
+      "actual": "迁移旧facts identityfalse/P-E0，不造用户回仓；具名static fixture分开。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2150",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:45",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-007",
+      "source": "15.1、15.3",
+      "requirement": "普通读取不种子落盘、不全量业务整包重写或长期双写",
+      "counterexample": "首次访问全包种子写库或长期双写",
+      "expected": "普通读取不种子落盘、不全量业务整包重写或长期双写",
+      "actual": "普通projection before/after相等，cutrecords0；已知其他PMS库11write不属本范围。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:378",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:14",
+      "codeVerdict": "源码语义通过",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-008",
+      "source": "15.4",
+      "requirement": "读取 / 保存失败保留旧数据和输入，不虚假成功",
+      "counterexample": "IDB打开/容量/abort失败仍假成功清输入",
+      "expected": "读取 / 保存失败保留旧数据和输入，不虚假成功",
+      "actual": "quota/abort真实harness通过；IDB打开失败恢复页面仍缺证据。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:2111",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:24",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "STORE-009",
+      "source": "15.1、15.4",
+      "requirement": "文件引用和现有备份覆盖新增事实，不自动清空用户数据",
+      "counterexample": "备份缺新事实/正常恢复失真/冲突清库",
+      "expected": "文件引用和现有备份覆盖新增事实，不自动清空用户数据",
+      "actual": "当前export/validate/冲突撤回通过；正常完整backup导入空资料仍缺证据。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cutting/cutting-record-repository.ts:1",
+      "check": "tests/browser/cut-piece-release-storage-harness.ts:32",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "VERIFY-001",
+      "source": "16.2",
+      "requirement": "同代码工作树的命名页面按相应设备完成主要任务",
+      "counterexample": "另一工作树页面验收或漏设备",
+      "expected": "同代码工作树的命名页面按相应设备完成主要任务",
+      "actual": "4191同tree真实IDB注入，不是全命名页面/设备验收。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/main.ts:1",
+      "check": "storage-browser.json",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "VERIFY-002",
+      "source": "16.3",
+      "requirement": "S01～S24逐项验证并更新冲突旧脚本 / Mock / 文案",
+      "counterexample": "仅源码regex/绿灯代替S01..S24",
+      "expected": "S01～S24逐项验证并更新冲突旧脚本 / Mock / 文案",
+      "actual": "25新单测通过+14专项logs；S01..S24页面和持久闭环待最终映射。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/scripts/check-cut-piece-release-matrix.ts:1",
+      "check": "special-checks.json",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "PERF-001",
+      "source": "16.4",
+      "requirement": "适用加载与关键动作5样本均完整完成≤1000ms",
+      "counterexample": "5样本只计Loading缺图片/事务完成",
+      "expected": "适用加载与关键动作5样本均完整完成≤1000ms",
+      "actual": "尚无最终性能文件，不能以源码缓存改动宣称门禁通过。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/src/data/fcs/cut-piece-release.ts:408",
+      "check": "待最终性能证据",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "VERIFY-003",
+      "source": "16.5、17.3",
+      "requirement": "正反向需求追踪、证据SHA和接受回执齐备才称完整交付",
+      "counterexample": "未最终hash/双轮/接受即宣布完整",
+      "expected": "正反向需求追踪、证据SHA和接受回执齐备才称完整交付",
+      "actual": "第二轮进行中，最终版本和适用证据未齐，不能全部通过。",
+      "implementation": "/Users/laoer/.codex/worktrees/9ec5/higoods/AGENTS.md:1",
+      "check": "本84条第二轮审查",
+      "codeVerdict": "修复待复审",
+      "status": "未通过",
+      "missingEvidence": [
+        "最后实质修改后的语义复审及命名页面/性能适用证据待齐"
+      ]
+    },
+    {
+      "id": "COPY-001",
+      "source": "19.1 / 用户新增文案要求",
+      "requirement": "仅保留当前决策和操作必要信息，删除重复说明",
+      "counterexample": "重复每颜色解释和多处同义提示",
+      "expected": "仅保留当前决策和操作必要信息，删除重复说明",
+      "status": "待最终证据",
+      "implementation": [],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": []
+    },
+    {
+      "id": "COPY-002",
+      "source": "19.1 / 用户新增文案要求",
+      "requirement": "使用简短常用词、明确动作与统一当前/历史数量术语",
+      "counterexample": "把投影、事务、快照等实现术语直接放员工首屏",
+      "expected": "使用简短常用词、明确动作与统一当前/历史数量术语",
+      "status": "待最终证据",
+      "implementation": [],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": []
+    },
+    {
+      "id": "COPY-003",
+      "source": "19.1 / 用户新增文案要求",
+      "requirement": "换片票列表、打印、混袋清单不显示内部路径，扫码与持久身份不变",
+      "counterexample": "在用户可见票号中出现HPB路径、%转义或tdv内部键",
+      "expected": "换片票列表、打印、混袋清单不显示内部路径，扫码与持久身份不变",
+      "status": "待最终证据",
+      "implementation": [],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": []
+    },
+    {
+      "id": "COPY-004",
+      "source": "19.1 / 用户新增文案要求",
+      "requirement": "异常保留具体问题和处理动作，危险确认保留实际影响，必要门禁不被删掉",
+      "counterexample": "为了精简删掉数量上下限、逐票实收或危险影响",
+      "expected": "异常保留具体问题和处理动作，危险确认保留实际影响，必要门禁不被删掉",
+      "status": "待最终证据",
+      "implementation": [],
+      "automation": [],
+      "pageEvidence": [],
+      "findings": []
+    }
+  ]
+}

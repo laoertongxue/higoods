@@ -86,6 +86,7 @@ import {
 import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
 import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { withGeneratedCutOrderReadFrame } from '../../../data/fcs/cutting/generated-cut-orders.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import type { BindingProcessOrder, BindingStripWorkOrderDetail } from './binding-strip-order-types.ts'
 import type { CutOrderRow } from './cut-orders-model.ts'
@@ -2434,7 +2435,7 @@ function renderManualFeiTicketCreateDialog(): string {
     <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 p-4 md:p-8" role="dialog" aria-modal="true" aria-label="手动增加打印菲票">
       <div class="w-full max-w-5xl rounded-xl bg-white shadow-2xl">
         <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
-          <div><h2 class="text-lg font-semibold text-slate-900">手动增加打印菲票</h2><p class="mt-1 text-sm text-slate-500">无铺布单时按现有唛架和唛架成员生成部位菲票；不会伪造铺布单。</p></div>
+          <div><h2 class="text-lg font-semibold text-slate-900">手动增加打印菲票</h2><p class="mt-1 text-sm text-slate-500">选择唛架，生成部位菲票。</p></div>
           <button type="button" data-cutting-fei-action="close-manual-create" class="rounded-md border px-3 py-1.5 text-sm">关闭</button>
         </div>
         <div class="space-y-5 p-5">
@@ -4502,16 +4503,22 @@ async function handleCraftCuttingFeiTicketsEventInternal(target: Element): Promi
       return true
     }
     try {
-      const result = await saveFeiTicketAction({ intent: feiSaveIntent('createManualFeiTicketBatch'), action: () => createManualFeiTicketBatch({
-        markerPlan: plan,
-        markerMember: member,
+      const result = await saveFeiTicketAction({ intent: feiSaveIntent('createManualFeiTicketBatch'), action: () => {
+        // The list intentionally reads identities only. A confirmed creation
+        // needs the current selected plan's actual part rows, not that summary.
+        const fullPlan = withGeneratedCutOrderReadFrame(() => buildMarkerPlanProjection().viewModel.plans.find(item => item.id === plan.id))
+        const fullMember = fullPlan ? getAvailableMarkerMembers(fullPlan).find(item => item.bedId === member.bedId) : null
+        if (!fullPlan || fullPlan.status === 'CANCELED' || !fullMember) throw new Error('所选唛架或成员已变化，请重新读取后选择。')
+        return createManualFeiTicketBatch({
+        markerPlan: fullPlan,
+        markerMember: fullMember,
         layerCount: state.manualCreate.layerCount,
         sizePiecePerLayer: state.manualCreate.sizePiecePerLayer,
         createdBy: state.operationDraft.operator || '裁床打票员',
         remark: state.manualCreate.remark,
-      }) })
+      }) } })
       state.manualCreate = { ...state.manualCreate, open: false }
-      state.feedback = { tone: 'success', message: `已按唛架 ${plan.markerNo} 生成 ${result.records.length} 张待打印部位菲票；来源明确标记为“手动唛架建票 / 无铺布单”。` }
+      state.feedback = { tone: 'success', message: `已生成 ${result.records.length} 张待打印菲票。` }
     } catch (error) {
       state.feedback = { tone: 'error', message: error instanceof Error ? error.message : String(error) }
     }

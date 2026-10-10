@@ -1,0 +1,6 @@
+### Result
+"特殊工艺交出\n\n按当前袋内菲票核对工艺、承接厂与实交数量。\n\n关闭\n中转袋\n请选择中转袋\nBAG-RECEIPT-FINAL-01\nBAG-REPACK-DEMO-03\nBAG-REPACK-DEMO-02\nBAG-REPACK-DEMO-01\n加工任务\n请选择加工任务\nTASKGEN-202603-0004-003 · 模板工序 · APF - 辅助工艺\nTASK-SC-PO2026030004-COPTEMPLATEPROCESS-a14d3d11 · 模板工序 · SPF - 特种工艺\n\n模板工序 → APF - 辅助工艺\n\n加工任务 TASKGEN-202603-0004-003 · 2 张菲票 · 10 片\n\nTM-FVUUO-YQ2AV-001 · 前片 · Black / M · 5 片\nTM-FVUUO-YQ2AV-005 · 前片 · Black / XL · 5 片\n实际交出人\n已核对该袋菲票、加工工艺、接收工厂和实交数量\n特殊工艺交出成功：2 张菲票已交给 APF - 辅助工艺，实交 10 片。 如需处理下一笔，请关闭后重新打开。\n取消\n已保存"
+### Ran Playwright code
+```js
+await (async (page) => { await page.locator("[data-wait-handover-field=specialCraftTaskSelection]").selectOption("TASKGEN-202603-0004-003__ORDER"); await page.locator("[data-wait-handover-field=operatorName]").fill("实际交出核验员"); await page.locator("[data-wait-handover-field=secondConfirm]").check(); await page.getByRole("button",{name:"确认特殊工艺交出",exact:true}).click(); await page.getByRole("button",{name:"已保存",exact:true}).waitFor({state:"visible"}); return await page.locator("#cutting-wait-handover-web-action-modal").innerText(); })(page);
+```

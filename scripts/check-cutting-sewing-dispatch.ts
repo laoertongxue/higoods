@@ -33,6 +33,8 @@ import {
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import { listFactoryWarehouseInboundRecords } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { projectReleaseTicket, setPublishedReleaseTicketDetails } from '../src/data/fcs/cutting/cut-piece-release-facts.ts'
+import type { GeneratedFeiTicketSourceRecord } from '../src/data/fcs/cutting/generated-fei-tickets.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -270,6 +272,24 @@ const wholeBagCurrentUse: TransferBagCurrentUse = {
 const sameFactoryAssignments = wholeBagTickets.map((ticket, index) =>
   assignmentFor(ticket, index < 7 ? 'SEW-01' : 'SEW-02'))
 const sameFactorySubmittedSnapshot = submittedSnapshotFor(wholeBagTickets, sameFactoryAssignments)
+
+assert.equal(resolveWholeBagHandoverEligibility({
+  currentUse: wholeBagCurrentUse,
+  assignments: sameFactoryAssignments,
+  submittedTicketSnapshot: sameFactorySubmittedSnapshot,
+}).ok, false, '未注册实际菲票来源时，即使任务/工厂齐全也不得猜为普通可交票')
+// 契约 fixture 明确本袋的普通实际裁剪来源；不为生产读取增加 unknown fallback。
+setPublishedReleaseTicketDetails(() => wholeBagTickets.map((ticket) => projectReleaseTicket({
+  ticket: { ...ticket, actualCutPieceQty: ticket.pieceQty, qty: ticket.pieceQty,
+    skuSize: ticket.size, garmentColor: ticket.color, fabricColor: ticket.color,
+    printStatus: 'PRINTED', sourceBasisType: 'ACTUAL_CUTTING_OUTPUT',
+    sourceOutputLineId: `OUTPUT-${ticket.feiTicketId}`, hasSpecialCraft: false, specialCrafts: [],
+  } as unknown as GeneratedFeiTicketSourceRecord,
+  materialId: 'MAT-WHOLE-BAG-FIXTURE', materialName: '本袋主料',
+  bag: { bagCode: wholeBagCurrentUse.bagCode, bagUseId: wholeBagCurrentUse.usageCycleId,
+    ticketNo: ticket.feiTicketNo, baggedPieceQty: ticket.pieceQty, locationLabel: '待交出仓 A 区' },
+  receipts: [], craftRequirementKnown: true, valid: true,
+})))
 
 const sameFactoryEligibility = resolveWholeBagHandoverEligibility({
   currentUse: wholeBagCurrentUse,

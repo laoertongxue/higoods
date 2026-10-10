@@ -1,0 +1,3037 @@
+{
+  "version": "v34",
+  "startedAt": "2026-10-09T19:46:08.675Z",
+  "scenarios": [
+    {
+      "name": "list all nine mapped style thumbnails load",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 340.499755859375,
+          "complete": true,
+          "visual": {
+            "at": 1791575169018.7998,
+            "frames": [
+              {
+                "t": 314.6,
+                "executedAt": 1791575169002.0999
+              },
+              {
+                "t": 331.2,
+                "executedAt": 1791575169018.7998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 287.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575169317.2,
+            "frames": [
+              {
+                "t": 267.9,
+                "executedAt": 1791575169302.1
+              },
+              {
+                "t": 284.6,
+                "executedAt": 1791575169317.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 274.499755859375,
+          "complete": true,
+          "visual": {
+            "at": 1791575169602.0999,
+            "frames": [
+              {
+                "t": 254,
+                "executedAt": 1791575169585.0999
+              },
+              {
+                "t": 270.8,
+                "executedAt": 1791575169602.0999
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 260.900146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791575169873.3,
+            "frames": [
+              {
+                "t": 235.7,
+                "executedAt": 1791575169852.2
+              },
+              {
+                "t": 252.4,
+                "executedAt": 1791575169873.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 265.599853515625,
+          "complete": true,
+          "visual": {
+            "at": 1791575170151.2,
+            "frames": [
+              {
+                "t": 246.2,
+                "executedAt": 1791575170135.1
+              },
+              {
+                "t": 262.9,
+                "executedAt": 1791575170151.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14671",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 261.5,
+          "complete": true,
+          "visual": {
+            "at": 1791575170452.2,
+            "frames": [
+              {
+                "t": 241,
+                "executedAt": 1791575170435.5
+              },
+              {
+                "t": 257.7,
+                "executedAt": 1791575170452.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 254.699951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575170717.4,
+            "frames": [
+              {
+                "t": 235.7,
+                "executedAt": 1791575170702.0999
+              },
+              {
+                "t": 252.4,
+                "executedAt": 1791575170717.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 271.10009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575171018.8,
+            "frames": [
+              {
+                "t": 250.7,
+                "executedAt": 1791575171002.0999
+              },
+              {
+                "t": 267.4,
+                "executedAt": 1791575171018.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 256.500244140625,
+          "complete": true,
+          "visual": {
+            "at": 1791575171285.4001,
+            "frames": [
+              {
+                "t": 236.2,
+                "executedAt": 1791575171268.7
+              },
+              {
+                "t": 252.9,
+                "executedAt": 1791575171285.4001
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 257.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575171552.1,
+            "frames": [
+              {
+                "t": 236.8,
+                "executedAt": 1791575171534.1
+              },
+              {
+                "t": 253.5,
+                "executedAt": 1791575171552.1
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+                "width": 765,
+                "alt": "女式基础圆领短袖（ASYSA26060310）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+                "width": 960,
+                "alt": "面料 A"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-contrast.jpg",
+                "width": 960,
+                "alt": "里料 B"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/fabric-lining.jpg",
+                "width": 960,
+                "alt": "辅料 C"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/accessory-label.jpg",
+                "width": 960,
+                "alt": "辅料 D"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image PO-202603-0002",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 260.10009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575171822,
+            "frames": [
+              {
+                "t": 236.1,
+                "executedAt": 1791575171802
+              },
+              {
+                "t": 252.8,
+                "executedAt": 1791575171822
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 248.099853515625,
+          "complete": true,
+          "visual": {
+            "at": 1791575172084.9,
+            "frames": [
+              {
+                "t": 228.1,
+                "executedAt": 1791575172068.7
+              },
+              {
+                "t": 244.8,
+                "executedAt": 1791575172084.7998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 240.7001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791575172335.3,
+            "frames": [
+              {
+                "t": 220.5,
+                "executedAt": 1791575172318.7
+              },
+              {
+                "t": 237.2,
+                "executedAt": 1791575172335.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 241.2998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791575172585.4,
+            "frames": [
+              {
+                "t": 220.8,
+                "executedAt": 1791575172568.5999
+              },
+              {
+                "t": 237.5,
+                "executedAt": 1791575172585.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 255.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575172850.1,
+            "frames": [
+              {
+                "t": 237.4,
+                "executedAt": 1791575172835.3
+              },
+              {
+                "t": 254,
+                "executedAt": 1791575172850
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14672",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 240.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575173100.5,
+            "frames": [
+              {
+                "t": 222,
+                "executedAt": 1791575173083.9
+              },
+              {
+                "t": 238.6,
+                "executedAt": 1791575173100.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 241.5,
+          "complete": true,
+          "visual": {
+            "at": 1791575173351.3,
+            "frames": [
+              {
+                "t": 221.9,
+                "executedAt": 1791575173335.4001
+              },
+              {
+                "t": 238.5,
+                "executedAt": 1791575173351.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 289.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575173650.9,
+            "frames": [
+              {
+                "t": 270.064,
+                "executedAt": 1791575173646.2
+              },
+              {
+                "t": 286.7,
+                "executedAt": 1791575173650.9
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 258.000244140625,
+          "complete": true,
+          "visual": {
+            "at": 1791575173918.6,
+            "frames": [
+              {
+                "t": 237.7,
+                "executedAt": 1791575173901.9001
+              },
+              {
+                "t": 254.3,
+                "executedAt": 1791575173918.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 255.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575174185.3,
+            "frames": [
+              {
+                "t": 235.3,
+                "executedAt": 1791575174168.5999
+              },
+              {
+                "t": 252,
+                "executedAt": 1791575174185.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+                "width": 387,
+                "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14673",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575174452,
+            "frames": [
+              {
+                "t": 237,
+                "executedAt": 1791575174434.4001
+              },
+              {
+                "t": 253.7,
+                "executedAt": 1791575174452
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 254.7998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791575174718.5999,
+            "frames": [
+              {
+                "t": 234.5,
+                "executedAt": 1791575174701.8
+              },
+              {
+                "t": 251.2,
+                "executedAt": 1791575174718.5999
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 243.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575174971.4,
+            "frames": [
+              {
+                "t": 220.3,
+                "executedAt": 1791575174951.7998
+              },
+              {
+                "t": 237,
+                "executedAt": 1791575174971.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 250.7001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791575175235.1,
+            "frames": [
+              {
+                "t": 230.5,
+                "executedAt": 1791575175218.5
+              },
+              {
+                "t": 247.1,
+                "executedAt": 1791575175235.1
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 241.10009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575175485.3,
+            "frames": [
+              {
+                "t": 220.7,
+                "executedAt": 1791575175468.5999
+              },
+              {
+                "t": 237.4,
+                "executedAt": 1791575175485.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+                "width": 1024,
+                "alt": "女式罗纹针织开衫（ASYSA26060312）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14674",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791575175751.8,
+            "frames": [
+              {
+                "t": 236.8,
+                "executedAt": 1791575175735.7
+              },
+              {
+                "t": 253.5,
+                "executedAt": 1791575175751.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.900146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791575176018.4001,
+            "frames": [
+              {
+                "t": 236.6,
+                "executedAt": 1791575176000.1
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791575176018.4001
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 256.999755859375,
+          "complete": true,
+          "visual": {
+            "at": 1791575176285.2,
+            "frames": [
+              {
+                "t": 236.6,
+                "executedAt": 1791575176268.6
+              },
+              {
+                "t": 253.3,
+                "executedAt": 1791575176285.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 257.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791575176551.9001,
+            "frames": [
+              {
+                "t": 236.9,
+                "executedAt": 1791575176535.3
+              },
+              {
+                "t": 253.6,
+                "executedAt": 1791575176551.9001
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 255.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575176818.2,
+            "frames": [
+              {
+                "t": 235.2,
+                "executedAt": 1791575176801.8
+              },
+              {
+                "t": 251.9,
+                "executedAt": 1791575176818.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+                "width": 580,
+                "alt": "户外束脚工装裤（ASYSA26060313）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14675",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 255.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575177083.5999,
+            "frames": [
+              {
+                "t": 237.1,
+                "executedAt": 1791575177068.4
+              },
+              {
+                "t": 253.8,
+                "executedAt": 1791575177083.5999
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 241.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575177335.2,
+            "frames": [
+              {
+                "t": 221.5,
+                "executedAt": 1791575177318.5
+              },
+              {
+                "t": 238.1,
+                "executedAt": 1791575177335.2
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 257.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575177601.7,
+            "frames": [
+              {
+                "t": 237.2,
+                "executedAt": 1791575177584.9001
+              },
+              {
+                "t": 253.9,
+                "executedAt": 1791575177601.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 240.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575177851.8,
+            "frames": [
+              {
+                "t": 220.3,
+                "executedAt": 1791575177835.2
+              },
+              {
+                "t": 237,
+                "executedAt": 1791575177851.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 240.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575178101.6,
+            "frames": [
+              {
+                "t": 220.2,
+                "executedAt": 1791575178084.8
+              },
+              {
+                "t": 236.9,
+                "executedAt": 1791575178101.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14676",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 241.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575178352.3,
+            "frames": [
+              {
+                "t": 220.5,
+                "executedAt": 1791575178333.6
+              },
+              {
+                "t": 237.2,
+                "executedAt": 1791575178352.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 240.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575178601.8,
+            "frames": [
+              {
+                "t": 219.866,
+                "executedAt": 1791575178585.1
+              },
+              {
+                "t": 236.6,
+                "executedAt": 1791575178601.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 257.2998046875,
+          "complete": true,
+          "visual": {
+            "at": 1791575178868.4,
+            "frames": [
+              {
+                "t": 237.2,
+                "executedAt": 1791575178851.8
+              },
+              {
+                "t": 253.8,
+                "executedAt": 1791575178868.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 238.5,
+          "complete": true,
+          "visual": {
+            "at": 1791575179116.7,
+            "frames": [
+              {
+                "t": 219.9,
+                "executedAt": 1791575179101.9001
+              },
+              {
+                "t": 236.6,
+                "executedAt": 1791575179116.7
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 242.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575179368.4,
+            "frames": [
+              {
+                "t": 222.1,
+                "executedAt": 1791575179351.0999
+              },
+              {
+                "t": 238.8,
+                "executedAt": 1791575179368.4
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+                "width": 625,
+                "alt": "女式通勤短款外套（ASYSA26060315）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14677",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 256.900146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791575179635,
+            "frames": [
+              {
+                "t": 236.3,
+                "executedAt": 1791575179616.4
+              },
+              {
+                "t": 253,
+                "executedAt": 1791575179635
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 256.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575179901.5,
+            "frames": [
+              {
+                "t": 236.6,
+                "executedAt": 1791575179884.2
+              },
+              {
+                "t": 253.2,
+                "executedAt": 1791575179901.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 256.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791575180167.2002,
+            "frames": [
+              {
+                "t": 237,
+                "executedAt": 1791575180150.4001
+              },
+              {
+                "t": 253.7,
+                "executedAt": 1791575180167.2002
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 241.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575180418.3,
+            "frames": [
+              {
+                "t": 221,
+                "executedAt": 1791575180401.8
+              },
+              {
+                "t": 237.7,
+                "executedAt": 1791575180418.3
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 240,
+          "complete": true,
+          "visual": {
+            "at": 1791575180667.8,
+            "frames": [
+              {
+                "t": 220.2,
+                "executedAt": 1791575180651.6
+              },
+              {
+                "t": 236.9,
+                "executedAt": 1791575180667.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+                "width": 1280,
+                "alt": "男式运动连帽卫衣（ASYSA26060316）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14678",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 257.5,
+          "complete": true,
+          "visual": {
+            "at": 1791575180935,
+            "frames": [
+              {
+                "t": 237.1,
+                "executedAt": 1791575180916.6
+              },
+              {
+                "t": 253.8,
+                "executedAt": 1791575180935
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 239.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575181184.9001,
+            "frames": [
+              {
+                "t": 219.5,
+                "executedAt": 1791575181168.4001
+              },
+              {
+                "t": 236.2,
+                "executedAt": 1791575181184.9001
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 256.400146484375,
+          "complete": true,
+          "visual": {
+            "at": 1791575181451.2002,
+            "frames": [
+              {
+                "t": 236.2,
+                "executedAt": 1791575181433.2002
+              },
+              {
+                "t": 252.9,
+                "executedAt": 1791575181451.2002
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 273.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575181736.5,
+            "frames": [
+              {
+                "t": 250.8,
+                "executedAt": 1791575181717.3
+              },
+              {
+                "t": 267.4,
+                "executedAt": 1791575181736.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 284.899658203125,
+          "complete": true,
+          "visual": {
+            "at": 1791575182050.7998,
+            "frames": [
+              {
+                "t": 264.4,
+                "executedAt": 1791575182034.4
+              },
+              {
+                "t": 281.1,
+                "executedAt": 1791575182050.7998
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+                "width": 533,
+                "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "style real image zoom opens",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 241.199951171875,
+          "complete": true,
+          "visual": {
+            "at": 1791575182367.3,
+            "frames": [
+              {
+                "t": 285.4,
+                "executedAt": 1791575182351.7002
+              },
+              {
+                "t": 302,
+                "executedAt": 1791575182367.2002
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 68.60009765625,
+          "complete": true,
+          "visual": {
+            "at": 1791575182451.6,
+            "frames": [
+              {
+                "t": 368.7,
+                "executedAt": 1791575182434.6
+              },
+              {
+                "t": 385.4,
+                "executedAt": 1791575182451.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 56.800048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575182517.2002,
+            "frames": [
+              {
+                "t": 435.4,
+                "executedAt": 1791575182501.7002
+              },
+              {
+                "t": 452,
+                "executedAt": 1791575182517.2002
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 60.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575182583.8,
+            "frames": [
+              {
+                "t": 502,
+                "executedAt": 1791575182567.4001
+              },
+              {
+                "t": 518.7,
+                "executedAt": 1791575182583.8
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 61.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575182651.5,
+            "frames": [
+              {
+                "t": 568.766,
+                "executedAt": 1791575182633.2002
+              },
+              {
+                "t": 585.3,
+                "executedAt": 1791575182651.5
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              },
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "style zoom Escape restores original focus",
+      "samples": [
+        {
+          "index": 1,
+          "durationMs": 34,
+          "complete": true,
+          "visual": {
+            "at": 1791575182751.6,
+            "frames": [
+              {
+                "t": 668.666,
+                "executedAt": 1791575182733.9001
+              },
+              {
+                "t": 685.4,
+                "executedAt": 1791575182751.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 2,
+          "durationMs": 32.39990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575182851.6,
+            "frames": [
+              {
+                "t": 768.766,
+                "executedAt": 1791575182833.2002
+              },
+              {
+                "t": 785.4,
+                "executedAt": 1791575182851.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 3,
+          "durationMs": 32.300048828125,
+          "complete": true,
+          "visual": {
+            "at": 1791575182951.6,
+            "frames": [
+              {
+                "t": 868.7,
+                "executedAt": 1791575182935.2002
+              },
+              {
+                "t": 885.3,
+                "executedAt": 1791575182951.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 4,
+          "durationMs": 31.89990234375,
+          "complete": true,
+          "visual": {
+            "at": 1791575183049.6,
+            "frames": [
+              {
+                "t": 968.6,
+                "executedAt": 1791575183035
+              },
+              {
+                "t": 985.4,
+                "executedAt": 1791575183049.6
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        },
+        {
+          "index": 5,
+          "durationMs": 32.2001953125,
+          "complete": true,
+          "visual": {
+            "at": 1791575183150.2002,
+            "frames": [
+              {
+                "t": 1068.666,
+                "executedAt": 1791575183135.1
+              },
+              {
+                "t": 1085.4,
+                "executedAt": 1791575183150.2002
+              }
+            ],
+            "images": [
+              {
+                "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+                "width": 820,
+                "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图"
+              }
+            ],
+            "fontStatus": "loaded"
+          }
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "objects": [
+    {
+      "id": "list-style-image-cpr-po-14671",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+      "decoded": true,
+      "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+      "cellText": "ASYSA26060310\n女式基础圆领短袖"
+    },
+    {
+      "id": "list-style-image-cpr-PO-202603-0002",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+      "decoded": true,
+      "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+      "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+    },
+    {
+      "id": "list-style-image-cpr-po-14672",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+      "decoded": true,
+      "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+      "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+    },
+    {
+      "id": "list-style-image-cpr-po-14673",
+      "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+      "decoded": true,
+      "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+      "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+    },
+    {
+      "id": "list-style-image-cpr-po-14674",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+      "decoded": true,
+      "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+      "cellText": "ASYSA26060313\n户外束脚工装裤"
+    },
+    {
+      "id": "list-style-image-cpr-po-14675",
+      "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+      "decoded": true,
+      "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+      "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+    },
+    {
+      "id": "list-style-image-cpr-po-14676",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+      "decoded": true,
+      "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+      "cellText": "ASYSA26060315\n女式通勤短款外套"
+    },
+    {
+      "id": "list-style-image-cpr-po-14677",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+      "decoded": true,
+      "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+      "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+    },
+    {
+      "id": "list-style-image-cpr-po-14678",
+      "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+      "decoded": true,
+      "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+      "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "all9 actual style thumbnails 0",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 1",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 2",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 3",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "all9 actual style thumbnails 4",
+      "passed": true,
+      "data": [
+        {
+          "id": "list-style-image-cpr-po-14671",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/tee-black.jpg",
+          "decoded": true,
+          "alt": "女式基础圆领短袖（ASYSA26060310）款式图",
+          "cellText": "ASYSA26060310\n女式基础圆领短袖"
+        },
+        {
+          "id": "list-style-image-cpr-PO-202603-0002",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "Jaket Hoodie Unisex（SPU-2024-005）款式图",
+          "cellText": "SPU-2024-005\nJaket Hoodie Unisex"
+        },
+        {
+          "id": "list-style-image-cpr-po-14672",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/shirt-blue.jpg",
+          "decoded": true,
+          "alt": "男式轻薄防晒衬衫（ASYSA26060311）款式图",
+          "cellText": "ASYSA26060311\n男式轻薄防晒衬衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14673",
+          "src": "http://127.0.0.1:4190/cardigan-sample.jpg",
+          "decoded": true,
+          "alt": "女式罗纹针织开衫（ASYSA26060312）款式图",
+          "cellText": "ASYSA26060312\n女式罗纹针织开衫"
+        },
+        {
+          "id": "list-style-image-cpr-po-14674",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/cargo-black.jpg",
+          "decoded": true,
+          "alt": "户外束脚工装裤（ASYSA26060313）款式图",
+          "cellText": "ASYSA26060313\n户外束脚工装裤"
+        },
+        {
+          "id": "list-style-image-cpr-po-14675",
+          "src": "http://127.0.0.1:4190/materials/cut-piece-release/girl-ruffle-pink.jpg",
+          "decoded": true,
+          "alt": "女童荷叶边连衣裙（ASYSA26060314）款式图",
+          "cellText": "ASYSA26060314\n女童荷叶边连衣裙"
+        },
+        {
+          "id": "list-style-image-cpr-po-14676",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/blazer-white.png",
+          "decoded": true,
+          "alt": "女式通勤短款外套（ASYSA26060315）款式图",
+          "cellText": "ASYSA26060315\n女式通勤短款外套"
+        },
+        {
+          "id": "list-style-image-cpr-po-14677",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/hood-grey.jpg",
+          "decoded": true,
+          "alt": "男式运动连帽卫衣（ASYSA26060316）款式图",
+          "cellText": "ASYSA26060316\n男式运动连帽卫衣"
+        },
+        {
+          "id": "list-style-image-cpr-po-14678",
+          "src": "http://127.0.0.1:4190/materials/pcs-reviewed/linen-dress-white.jpg",
+          "decoded": true,
+          "alt": "女式休闲束腰衬衫裙（ASYSA26060317）款式图",
+          "cellText": "ASYSA26060317\n女式休闲束腰衬衫裙"
+        }
+      ]
+    },
+    {
+      "name": "list all nine mapped style thumbnails load five <=1000ms",
+      "passed": true,
+      "data": [
+        340.499755859375,
+        287.60009765625,
+        274.499755859375,
+        260.900146484375,
+        265.599853515625
+      ]
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14671",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14671 five <=1000ms",
+      "passed": true,
+      "data": [
+        261.5,
+        254.699951171875,
+        271.10009765625,
+        256.500244140625,
+        257.199951171875
+      ]
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail real image PO-202603-0002",
+      "passed": true
+    },
+    {
+      "name": "detail style image PO-202603-0002 five <=1000ms",
+      "passed": true,
+      "data": [
+        260.10009765625,
+        248.099853515625,
+        240.7001953125,
+        241.2998046875,
+        255.60009765625
+      ]
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14672",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14672 five <=1000ms",
+      "passed": true,
+      "data": [
+        240.89990234375,
+        241.5,
+        289.199951171875,
+        258.000244140625,
+        255.800048828125
+      ]
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14673",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14673 five <=1000ms",
+      "passed": true,
+      "data": [
+        257.300048828125,
+        254.7998046875,
+        243.39990234375,
+        250.7001953125,
+        241.10009765625
+      ]
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14674",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14674 five <=1000ms",
+      "passed": true,
+      "data": [
+        257.2001953125,
+        256.900146484375,
+        256.999755859375,
+        257.2001953125,
+        255.199951171875
+      ]
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14675",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14675 five <=1000ms",
+      "passed": true,
+      "data": [
+        255.89990234375,
+        241.89990234375,
+        257.300048828125,
+        240.60009765625,
+        240.300048828125
+      ]
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14676",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14676 five <=1000ms",
+      "passed": true,
+      "data": [
+        241.300048828125,
+        240.199951171875,
+        257.2998046875,
+        238.5,
+        242.39990234375
+      ]
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14677",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14677 five <=1000ms",
+      "passed": true,
+      "data": [
+        256.900146484375,
+        256.60009765625,
+        256.2001953125,
+        241.199951171875,
+        240
+      ]
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail real image po-14678",
+      "passed": true
+    },
+    {
+      "name": "detail style image po-14678 five <=1000ms",
+      "passed": true,
+      "data": [
+        257.5,
+        239.800048828125,
+        256.400146484375,
+        273.39990234375,
+        284.899658203125
+      ]
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "actual girl style big image decoded",
+      "passed": true
+    },
+    {
+      "name": "style real image zoom opens five <=1000ms",
+      "passed": true,
+      "data": [
+        241.199951171875,
+        68.60009765625,
+        56.800048828125,
+        60.300048828125,
+        61.39990234375
+      ]
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style Esc focus",
+      "passed": true
+    },
+    {
+      "name": "style zoom Escape restores original focus five <=1000ms",
+      "passed": true,
+      "data": [
+        34,
+        32.39990234375,
+        32.300048828125,
+        31.89990234375,
+        32.2001953125
+      ]
+    }
+  ],
+  "screenshots": [
+    "style-list-real-v34.png",
+    "style-girl-zoom-real-v34.png"
+  ],
+  "passed": true,
+  "completedAt": "2026-10-09T19:46:23.280Z",
+  "versionRef": "version-v34.json",
+  "sourceManifestSHA256": "ed7cc28610320294ddb5569e0b1ae4514502c862f3141b4e1bb03b5d73ce2f1e",
+  "assetManifestSHA256": "f399db874b2678f4fd91ab4a5f539c34de0dc5cf17c176669d565e67f46a191a",
+  "rawLog": "output/playwright/cut-release-ui/style-images-v34.log"
+}

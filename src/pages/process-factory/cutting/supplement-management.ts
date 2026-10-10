@@ -34,7 +34,7 @@ import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-techni
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
 import {
-  getCurrentCutPieceReleaseTargetSnapshot,
+  getCutPieceReleaseSupplementBasis,
   listCutPieceReleaseRecords,
   type CutPieceReleaseRecord,
   type CutPieceReleaseSourceState,
@@ -182,6 +182,7 @@ export interface SupplementDraft {
   confirmationIdentity?: string
   releaseSnapshotId?: string
   releaseMatrixVersion?: number
+  releaseQuantityMatrixVersion?: number
   releaseTargetConfirmedAt?: string
 }
 
@@ -1102,7 +1103,7 @@ export function resolveReleaseSnapshotSourceStateForTest(
   return structuredClone(resolveReleaseSnapshotSourceState(materialId, materialSourceStates))
 }
 
-function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
+function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot & {quantityBasisMatrixVersion?:number}): SupplementDraft {
   const fixture = releaseSnapshotDraftFixtureForTest
   const releaseRecords = (fixture?.releaseRecords || listCutPieceReleaseRecords())
     .filter((record) => record.productionOrderId === snapshot.productionOrderId)
@@ -1224,6 +1225,7 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     materialDemands,
     releaseSnapshotId: snapshot.snapshotId,
     releaseMatrixVersion: snapshot.matrixVersion,
+    releaseQuantityMatrixVersion:snapshot.quantityBasisMatrixVersion,
     releaseTargetConfirmedAt: snapshot.confirmedAt,
   })
 }
@@ -1276,15 +1278,15 @@ function scopeReleaseSnapshotDraftToCutOrder(
   })
 }
 
-function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
-  const snapshot = getCurrentCutPieceReleaseTargetSnapshot(snapshotId)
+function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): (CutPieceReleaseTargetSnapshot & {quantityBasisMatrixVersion:number}) | null {
+  const snapshot = getCutPieceReleaseSupplementBasis(snapshotId)
   if (snapshot) return snapshot
   if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) state.releaseSnapshotDraft = null
   if (state.pendingConfirmDraft?.releaseSnapshotId === snapshotId) {
     state.pendingConfirmDraft = null
     state.confirmStepActive = false
   }
-  state.releaseSnapshotError = '目标依据已过期，请回裁片放行重新确认。'
+  state.releaseSnapshotError = '未找到放行目标，请回裁片放行核对。'
   return null
 }
 
@@ -1304,7 +1306,7 @@ function prepareReleaseSnapshotCreateState(): void {
   }
   const snapshot = getCurrentReleaseSnapshotOrInvalidate(snapshotId)
   if (!snapshot) return
-  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) {
+  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId && state.releaseSnapshotDraft.releaseQuantityMatrixVersion===snapshot.quantityBasisMatrixVersion) {
     state.releaseSnapshotError = ''
     return
   }
@@ -1634,11 +1636,11 @@ function renderReleaseSnapshotTrace(draft: SupplementDraft): string {
   if (!draft.releaseSnapshotId) return ''
   return `
     <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-release-snapshot-trace>
-      <div class="font-semibold text-blue-900">来源：裁片放行目标快照</div>
+      <div class="font-semibold text-blue-900">裁片放行目标</div>
       <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-blue-900">
-        <span>快照编号 ${escapeHtml(draft.releaseSnapshotId)}</span>
-        <span>目标依据矩阵版本 V${formatInteger(draft.releaseMatrixVersion || 0)}</span>
-        <span>目标确认时间 ${escapeHtml(draft.releaseTargetConfirmedAt || '未记录')}</span>
+        <span>目标数量 V${formatInteger(draft.releaseMatrixVersion || 0)}</span>
+        ${draft.releaseQuantityMatrixVersion!==undefined?`<span>当前实物 V${formatInteger(draft.releaseQuantityMatrixVersion)}</span>`:''}
+        <span>确认时间 ${escapeHtml(draft.releaseTargetConfirmedAt || '未记录')}</span>
       </div>
     </section>
   `
@@ -1666,20 +1668,20 @@ function renderReleaseSnapshotCreatePage(draft: SupplementDraft, editingDraft: S
       ${renderReleaseSnapshotTrace(draft)}
       <section class="rounded-lg border bg-card">
         <div class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">按放行目标快照新增补料</h2>
+          <h2 class="text-lg font-semibold">按放行目标补料</h2>
           <p class="mt-1 text-sm text-muted-foreground">生产单 ${escapeHtml(draft.productionOrderNo)} · ${escapeHtml(draft.spuCode)} · ${escapeHtml(draft.styleName)}</p>
         </div>
         <div class="space-y-4 p-5">
           ${draft.lines.length ? `
             <label class="block max-w-xl space-y-1 text-sm">
-              <span class="font-medium">本次补料对应的原裁片单</span>
+              <span class="font-medium">原裁片单</span>
               <select class="h-10 w-full rounded-md border bg-background px-3" data-release-original-cut-order>
                 ${originalCutOrders.map((item) => {
                   const identity = `${item.cutOrderId}::${item.cutOrderNo}`
                   return `<option value="${escapeHtml(identity)}"${identity === editingOriginalCutOrderIdentity ? ' selected' : ''}>${escapeHtml(item.cutOrderNo)}</option>`
                 }).join('')}
               </select>
-              <span class="block text-xs text-muted-foreground">一张补料单只对应一张原裁片单；快照涉及多张裁片单时，请分别提交。</span>
+              <span class="block text-xs text-muted-foreground">不同原裁片单请分别补料。</span>
             </label>
             <div class="overflow-auto rounded-lg border">
               <table class="min-w-[1080px] text-left text-sm">
@@ -1705,7 +1707,7 @@ function renderReleaseSnapshotCreatePage(draft: SupplementDraft, editingDraft: S
               </label>
             </section>
             <div class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-supplement-draft-error></div>
-          ` : '<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-5 text-sm text-emerald-800">该目标快照没有裁片缺口，无需补料。</div>'}
+          ` : '<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-5 text-sm text-emerald-800">裁片无缺口，无需补料。</div>'}
         </div>
         <div class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="return-independent-create">返回独立创建</button>
@@ -1719,7 +1721,7 @@ function renderReleaseSnapshotCreatePage(draft: SupplementDraft, editingDraft: S
 function renderReleaseSnapshotError(): string {
   return `
     <section class="rounded-lg border border-amber-200 bg-amber-50 p-5" data-release-snapshot-error>
-      <h2 class="font-semibold text-amber-900">无法读取放行目标快照</h2>
+      <h2 class="font-semibold text-amber-900">无法读取放行目标</h2>
       <p class="mt-2 text-sm text-amber-800">${escapeHtml(state.releaseSnapshotError)}</p>
       <button type="button" class="mt-4 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm" data-cutting-supplement-action="return-independent-create">返回独立创建</button>
     </section>
@@ -2526,6 +2528,7 @@ function renderSupplementDetailDialog(record: SupplementOrderLifecycle | undefin
   const snapshotTraceDraft = {
     releaseSnapshotId: record.draftMeta.releaseSnapshotId,
     releaseMatrixVersion: record.draftMeta.releaseMatrixVersion,
+    releaseQuantityMatrixVersion:record.draftMeta.releaseQuantityMatrixVersion,
     releaseTargetConfirmedAt: record.draftMeta.releaseTargetConfirmedAt,
   } as SupplementDraft
 
@@ -2929,6 +2932,7 @@ function saveConfirmedSupplementRecord(input: {
       styleImageAlt: normalizeText(input.draft.styleImageAlt) || `${input.draft.styleName}（${input.draft.spuCode}）款式图`,
       ...(input.draft.releaseSnapshotId ? { releaseSnapshotId: input.draft.releaseSnapshotId } : {}),
       ...(input.draft.releaseMatrixVersion != null ? { releaseMatrixVersion: input.draft.releaseMatrixVersion } : {}),
+      ...(input.draft.releaseQuantityMatrixVersion != null ? { releaseQuantityMatrixVersion: input.draft.releaseQuantityMatrixVersion } : {}),
       ...(input.draft.releaseTargetConfirmedAt ? { releaseTargetConfirmedAt: input.draft.releaseTargetConfirmedAt } : {}),
     },
     supplyDecisionSnapshots: input.supplyDecisionSnapshots,
@@ -3410,6 +3414,15 @@ function ensureMockSupplementOrders(): void {
 
 export function bootstrapSupplementManagementMockData(): SupplementOrderLifecycle[] {
   ensureFixedSupplementOrderFixturesRegistered()
+  // 普通列表、直达新增和刷新只读取已发布的固定演示记录。
+  // 生成加工单是人工业务动作，不能在读取补料依据时写入印染事实。
+  state.records = [...listSupplementOrders()]
+  return [...listSupplementOrders()]
+}
+
+/** Only explicit contract-fixture setup may generate the old varied demo actions. */
+export function bootstrapSupplementManagementGeneratedFixturesForTesting(): SupplementOrderLifecycle[] {
+  bootstrapSupplementManagementMockData()
   ensureMockSupplementOrders()
   return [...listSupplementOrders()]
 }
@@ -3847,22 +3860,24 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     const container = actionNode.closest<HTMLElement>('[data-supplement-draft-dialog]')
     const baseDraft = state.releaseSnapshotDraft
     if (!container || !baseDraft || !baseDraft.releaseSnapshotId) return false
-    if (!getCurrentReleaseSnapshotOrInvalidate(baseDraft.releaseSnapshotId)) return true
+    const currentBasis=getCurrentReleaseSnapshotOrInvalidate(baseDraft.releaseSnapshotId)
+    if (!currentBasis) return true
+    if(baseDraft.releaseQuantityMatrixVersion!==currentBasis.quantityBasisMatrixVersion){showDraftError(container,'实物数量已变化，请重新打开补料依据核对；已确认目标保持原样。');return false}
     const reason = normalizeText(container.querySelector<HTMLSelectElement>('[data-supplement-reason]')?.value)
     const reasonDetail = normalizeText(container.querySelector<HTMLInputElement>('[data-supplement-reason-detail]')?.value)
     if (!reason) {
       showDraftError(container, '补料原因必须选择。')
-      return true
+      return false
     }
     if (!reasonDetail) {
       showDraftError(container, '补料说明必须填写。')
-      return true
+      return false
     }
     const originalCutOrderIdentity = container.querySelector<HTMLSelectElement>('[data-release-original-cut-order]')?.value || ''
     const scopedDraft = scopeReleaseSnapshotDraftToCutOrder(baseDraft, originalCutOrderIdentity)
     if (!scopedDraft) {
       showDraftError(container, '请选择一张有补料明细的原裁片单。')
-      return true
+      return false
     }
     state.pendingConfirmDraft = structuredClone({ ...scopedDraft, reason, reasonDetail })
     state.confirmStepActive = true
@@ -3887,6 +3902,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       state.pendingConfirmDraft.releaseSnapshotId
       && !getCurrentReleaseSnapshotOrInvalidate(state.pendingConfirmDraft.releaseSnapshotId)
     ) return true
+    if(state.pendingConfirmDraft.releaseSnapshotId && state.pendingConfirmDraft.releaseQuantityMatrixVersion!==getCutPieceReleaseSupplementBasis(state.pendingConfirmDraft.releaseSnapshotId)?.quantityBasisMatrixVersion){state.feedback={tone:'warning',message:'当前实物依据已变化，请返回核对补料数量；原目标和当前输入保留。'};return true}
     actionNode.setAttribute('disabled', 'true')
     actionNode.setAttribute('aria-busy', 'true')
     const decisions = buildSupplementSupplyDecisions({

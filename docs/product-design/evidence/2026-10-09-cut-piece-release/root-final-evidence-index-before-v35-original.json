@@ -1,0 +1,82 @@
+{
+  "generatedAt": "2026-10-09T12:57:36.830756+00:00",
+  "versionRef": "version-v18.json",
+  "phase": "Root命名页面、Native存储与文案复验通过，dispatch/receipt及项目门禁和两轮审查待收口",
+  "rows": [
+    {
+      "file": "ui-browser.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 395,
+      "maximumMs": 411.39990234375,
+      "sha256": "7cafa839f984fddcc3ddfd3b5f83be21317ec545983f85aa5fc6dac41e0c88fe",
+      "performanceEvidence": true
+    },
+    {
+      "file": "list-responsive-v18.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 45,
+      "maximumMs": 306,
+      "sha256": "e679382cf287e457a50ec2da71834bf6f61447c8e8b7d9b836c19618a2b5b8c3",
+      "performanceEvidence": true
+    },
+    {
+      "file": "demo-copy-v18.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 15,
+      "maximumMs": 111,
+      "sha256": "9bb7c4a3bbfb3495059a169001bfe0deaac1d489f3ade946b0f2de748992c371",
+      "performanceEvidence": true
+    },
+    {
+      "file": "supplement-browser.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 50,
+      "maximumMs": 498.5,
+      "sha256": "9fc45688cd13fffd6077dc5d6bc1b936207e42aef17c9e435ad7dca27032cec3",
+      "performanceEvidence": true
+    },
+    {
+      "file": "idb-open-browser.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 10,
+      "maximumMs": 267.800048828125,
+      "sha256": "0f9f493953dc4edb31d3050bf5f79013caf8e5ba09005030d1dd50174e7edb48",
+      "performanceEvidence": true
+    },
+    {
+      "file": "storage-browser.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "4abacc9fdd01feb1fc2ea444f1b4722aa8d0b6c5b535c34999bbb8843dc5e055",
+      "performanceEvidence": false
+    },
+    {
+      "file": "migration-browser.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "d948501a0852f6f972b1d5ff8d0a0adbce0f1c3b86778c5ee68de8e75ea56835",
+      "performanceEvidence": false
+    },
+    {
+      "file": "backup-restore-browser.json",
+      "passed": true,
+      "version": "v18",
+      "sampleCount": 0,
+      "maximumMs": null,
+      "sha256": "be148fd06eeef09e9a4453a7f19f3388f9c740129382ef517cded301a5fdee74",
+      "performanceEvidence": false
+    }
+  ],
+  "rawSampleCount": 515,
+  "allPassed": true,
+  "scope": "当前本地原型；不构成全部88条已验收或远端交付"
+}

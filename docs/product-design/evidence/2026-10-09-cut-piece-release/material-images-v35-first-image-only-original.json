@@ -1,0 +1,35 @@
+{
+  "version": "v35",
+  "startedAt": "2026-10-09T19:57:34.376Z",
+  "scenarios": [
+    {
+      "name": "detail all material images po-14671",
+      "samples": [],
+      "passed": false
+    }
+  ],
+  "objects": [],
+  "assertions": [
+    {
+      "name": "every actual required material image po-14671",
+      "passed": false,
+      "data": [
+        {
+          "id": "material-image-Black-A",
+          "src": "http://127.0.0.1:4190/materials/fabric-main.jpg",
+          "decoded": true,
+          "alt": "面料 A",
+          "cell": "面料 A · 净色\nA"
+        }
+      ]
+    }
+  ],
+  "screenshots": [],
+  "passed": false,
+  "error": "Error: every actual required material image po-14671[{\"id\":\"material-image-Black-A\",\"src\":\"http://127.0.0.1:4190/materials/fabric-main.jpg\",\"decoded\":true,\"alt\":\"面料 A\",\"cell\":\"面料 A · 净色\\nA\"}]",
+  "completedAt": "2026-10-09T19:57:34.686Z",
+  "versionRef": "version-v35.json",
+  "sourceManifestSHA256": "1f9c55c6b9e947b64ec9c2e3aa303d2f022914f2a4b88afff7e43d0c0f34bb3f",
+  "assetManifestSHA256": "6231918f6be751a40cfca13ca93ee8558439836b2fa613fe215f1c08bf6f7796",
+  "rawLog": "output/playwright/cut-release-ui/material-images-v35.log"
+}

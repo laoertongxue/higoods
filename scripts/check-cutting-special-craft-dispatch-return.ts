@@ -287,7 +287,10 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
 
 ;[
   'markSpecialCraftFactoryReceivedFromHandover',
-  'receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse',
+  'submitSpecialCraftBagReturn',
+  'validateSpecialCraftTicketReceipts',
+  'runCuttingEventAction',
+  'listSpecialCraftTicketReturnFacts',
   '已回仓',
 ].forEach((token) => {
   assertContains(handoverDetailSource + handoverListSource, token, `工厂端交接未复用既有交接逻辑承接特殊工艺回仓：${token}`)

@@ -11,6 +11,7 @@ import {
   type CuttingTaskLink,
 } from '../../../data/fcs/cutting/cutting-task-routing.ts'
 import { findStyleArchiveByCode } from '../../../data/pcs-style-archive-repository.ts'
+import { getProductionOrderCutPieceParts } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContentById,
@@ -1263,6 +1264,11 @@ function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
   }
 }
 
+/** 已明确属于其他物料的部位不进入本物料唛架；未知映射仍保留原待核对行。 */
+export function isMarkerPartInSourceMaterial(productionOrderId:string,partName:string,materialSku:string):boolean {
+  const matches=getProductionOrderCutPieceParts(productionOrderId).filter(part=>part.partNameCn===partName || part.partCode===partName)
+  return matches.length!==1 || matches[0].materialSku===materialSku
+}
 function buildPieceExplosionRows(plan: MarkerPlan, context: MarkerPlanContextCandidate): MarkerPieceExplosionRow[] {
   const rowsById = Object.fromEntries(context.sourceMaterialPrepRows.map((row) => [row.cutOrderId, row]))
   const markerExplosionInput = adaptPlanToMarkerExplosionInput(plan)
@@ -1275,7 +1281,10 @@ function buildPieceExplosionRows(plan: MarkerPlan, context: MarkerPlanContextCan
       .map((row) => [row.id, row]),
   ) as Record<string, MarkerPieceExplosionRow>
 
-  return explosion.pieceDetailRows.map((row) => {
+  return explosion.pieceDetailRows.filter(row=>{
+    const orderId=sourceRowMap[row.sourceCutOrderNo]?.productionOrderId
+    return !orderId || isMarkerPartInSourceMaterial(orderId,row.pieceName,row.materialSku)
+  }).map((row) => {
     const sourceGeneratedRow = sourceRowMap[row.sourceCutOrderNo] || null
     const sourceCutOrderId = sourceGeneratedRow?.cutOrderId || row.sourceCutOrderNo
     const sourceCutOrderNo = sourceGeneratedRow?.cutOrderNo || row.sourceCutOrderNo

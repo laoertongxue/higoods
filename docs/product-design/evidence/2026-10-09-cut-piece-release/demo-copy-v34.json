@@ -1,0 +1,986 @@
+{
+  "startedAt": "2026-10-09T19:45:16.828Z",
+  "version": "v34",
+  "scenarios": [
+    {
+      "name": "original identity expand",
+      "samples": [
+        {
+          "index": 1,
+          "complete": true,
+          "durationMs": 103.89990234375,
+          "totalClickDurationMs": 103.89990234375,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 394.866,
+              "executedAt": 1791575117237.5
+            },
+            {
+              "rafTimestamp": 411.4,
+              "executedAt": 1791575117254.1
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "complete": true,
+          "durationMs": 100,
+          "totalClickDurationMs": 100,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 494.8,
+              "executedAt": 1791575117337.6
+            },
+            {
+              "rafTimestamp": 511.4,
+              "executedAt": 1791575117354.1
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "complete": true,
+          "durationMs": 97.800048828125,
+          "totalClickDurationMs": 97.800048828125,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 594.8,
+              "executedAt": 1791575117437.5
+            },
+            {
+              "rafTimestamp": 611.4,
+              "executedAt": 1791575117453.2002
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "complete": true,
+          "durationMs": 100.5,
+          "totalClickDurationMs": 100.5,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 694.8,
+              "executedAt": 1791575117537.5
+            },
+            {
+              "rafTimestamp": 711.4,
+              "executedAt": 1791575117554.1
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "complete": true,
+          "durationMs": 99.7001953125,
+          "totalClickDurationMs": 99.7001953125,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 794.8,
+              "executedAt": 1791575117637.6
+            },
+            {
+              "rafTimestamp": 811.4,
+              "executedAt": 1791575117654.2002
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "original identity collapse",
+      "samples": [
+        {
+          "index": 1,
+          "complete": true,
+          "durationMs": 98.60009765625,
+          "totalClickDurationMs": 98.60009765625,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 894.8,
+              "executedAt": 1791575117737.5
+            },
+            {
+              "rafTimestamp": 911.5,
+              "executedAt": 1791575117754
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "complete": true,
+          "durationMs": 98.60009765625,
+          "totalClickDurationMs": 98.60009765625,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 994.8,
+              "executedAt": 1791575117837.6
+            },
+            {
+              "rafTimestamp": 1011.4,
+              "executedAt": 1791575117852.7002
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "complete": true,
+          "durationMs": 99.10009765625,
+          "totalClickDurationMs": 99.10009765625,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 1094.8,
+              "executedAt": 1791575117935.6
+            },
+            {
+              "rafTimestamp": 1111.4,
+              "executedAt": 1791575117952.5
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "complete": true,
+          "durationMs": 101.300048828125,
+          "totalClickDurationMs": 101.300048828125,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 1194.8,
+              "executedAt": 1791575118037.4001
+            },
+            {
+              "rafTimestamp": 1211.4,
+              "executedAt": 1791575118054.1
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "complete": true,
+          "durationMs": 100,
+          "totalClickDurationMs": 100,
+          "confirmOpeningDurationMs": null,
+          "confirmationWaitExcludedMs": 0,
+          "nativeConfirmation": null,
+          "confirmationCount": 0,
+          "paintFrames": [
+            {
+              "rafTimestamp": 1294.8,
+              "executedAt": 1791575118136.7002
+            },
+            {
+              "rafTimestamp": 1311.4,
+              "executedAt": 1791575118154.1
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "native whole ticket confirmation cancel",
+      "samples": [
+        {
+          "index": 1,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm",
+          "durationMs": 20.400146484375,
+          "totalClickDurationMs": 279.60009765625,
+          "confirmOpeningDurationMs": 51.699951171875,
+          "confirmationWaitExcludedMs": 207.5,
+          "nativeConfirmation": {
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+            "openedAt": 1791575118211.5,
+            "returnedAt": 1791575118419,
+            "accepted": false
+          },
+          "confirmationCount": 1,
+          "paintFrames": [
+            {
+              "rafTimestamp": 1578.058,
+              "executedAt": 1791575118420.2002
+            },
+            {
+              "rafTimestamp": 1594.7,
+              "executedAt": 1791575118437.5
+            }
+          ],
+          "promptFirstVisibleDurationMs": 53.199951171875,
+          "promptObservedRawDifferenceMs": 52.199951171875,
+          "promptClockResolutionMs": 1,
+          "promptFirstVisibleIsConservativeUpperBound": true,
+          "nativeProtocolOpening": {
+            "observedAt": 1791575118212,
+            "hasBrowserHandler": true,
+            "type": "confirm",
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+          }
+        },
+        {
+          "index": 2,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm",
+          "durationMs": 23.199951171875,
+          "totalClickDurationMs": 816.699951171875,
+          "confirmOpeningDurationMs": 51.800048828125,
+          "confirmationWaitExcludedMs": 741.699951171875,
+          "nativeConfirmation": {
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+            "openedAt": 1791575118491.6,
+            "returnedAt": 1791575119233.3,
+            "accepted": false
+          },
+          "confirmationCount": 1,
+          "paintFrames": [
+            {
+              "rafTimestamp": 2378.104,
+              "executedAt": 1791575119234.7002
+            },
+            {
+              "rafTimestamp": 2394.7,
+              "executedAt": 1791575119235.5
+            }
+          ],
+          "promptFirstVisibleDurationMs": 53.199951171875,
+          "promptObservedRawDifferenceMs": 52.199951171875,
+          "promptClockResolutionMs": 1,
+          "promptFirstVisibleIsConservativeUpperBound": true,
+          "nativeProtocolOpening": {
+            "observedAt": 1791575118492,
+            "hasBrowserHandler": true,
+            "type": "confirm",
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+          }
+        },
+        {
+          "index": 3,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm",
+          "durationMs": 20.10009765625,
+          "totalClickDurationMs": 906.800048828125,
+          "confirmOpeningDurationMs": 32.89990234375,
+          "confirmationWaitExcludedMs": 853.800048828125,
+          "nativeConfirmation": {
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+            "openedAt": 1791575119290.3,
+            "returnedAt": 1791575120144.1,
+            "accepted": false
+          },
+          "confirmationCount": 1,
+          "paintFrames": [
+            {
+              "rafTimestamp": 3294.7,
+              "executedAt": 1791575120145.3
+            },
+            {
+              "rafTimestamp": 3311.4,
+              "executedAt": 1791575120152.8
+            }
+          ],
+          "promptFirstVisibleDurationMs": 33.599853515625,
+          "promptObservedRawDifferenceMs": 32.599853515625,
+          "promptClockResolutionMs": 1,
+          "promptFirstVisibleIsConservativeUpperBound": true,
+          "nativeProtocolOpening": {
+            "observedAt": 1791575119290,
+            "hasBrowserHandler": true,
+            "type": "confirm",
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+          }
+        },
+        {
+          "index": 4,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm",
+          "durationMs": 9.2998046875,
+          "totalClickDurationMs": 855.2998046875,
+          "confirmOpeningDurationMs": 42,
+          "confirmationWaitExcludedMs": 804,
+          "nativeConfirmation": {
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+            "openedAt": 1791575120206.7002,
+            "returnedAt": 1791575121010.7002,
+            "accepted": false
+          },
+          "confirmationCount": 1,
+          "paintFrames": [
+            {
+              "rafTimestamp": 4161.3,
+              "executedAt": 1791575121011.8
+            },
+            {
+              "rafTimestamp": 4178,
+              "executedAt": 1791575121019.3
+            }
+          ],
+          "promptFirstVisibleDurationMs": 43.2998046875,
+          "promptObservedRawDifferenceMs": 42.2998046875,
+          "promptClockResolutionMs": 1,
+          "promptFirstVisibleIsConservativeUpperBound": true,
+          "nativeProtocolOpening": {
+            "observedAt": 1791575120207,
+            "hasBrowserHandler": true,
+            "type": "confirm",
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+          }
+        },
+        {
+          "index": 5,
+          "complete": true,
+          "actualDialog": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "confirmation": "dismissed unchanged native confirm",
+          "durationMs": 16.099853515625,
+          "totalClickDurationMs": 849.7998046875,
+          "confirmOpeningDurationMs": 53.099853515625,
+          "confirmationWaitExcludedMs": 780.60009765625,
+          "nativeConfirmation": {
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+            "openedAt": 1791575121073.3,
+            "returnedAt": 1791575121853.9001,
+            "accepted": false
+          },
+          "confirmationCount": 1,
+          "paintFrames": [
+            {
+              "rafTimestamp": 5011.302,
+              "executedAt": 1791575121855.4001
+            },
+            {
+              "rafTimestamp": 5027.9,
+              "executedAt": 1791575121869.3
+            }
+          ],
+          "promptFirstVisibleDurationMs": 53.7998046875,
+          "promptObservedRawDifferenceMs": 52.7998046875,
+          "promptClockResolutionMs": 1,
+          "promptFirstVisibleIsConservativeUpperBound": true,
+          "nativeProtocolOpening": {
+            "observedAt": 1791575121073,
+            "hasBrowserHandler": true,
+            "type": "confirm",
+            "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+          }
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "assertions": [
+    {
+      "name": "default sample identity short and raw hidden",
+      "passed": true,
+      "detail": "示例菲票 001\n已最终回仓\n成衣 松石绿 / L · 面料色 主面料\n原票 90 片 · 当前有效实物 87 片 · 整票可用\n来源 静态演示已装袋菲票：PB-14677-01\n裁片单 CUT14677-A · 铺布单 PB-14677-01\n袋号 示例中转袋 001\n查看原始编号\n当前位置 裁床待交出仓（静态演示）\n第 1 / 3 道 · 烫画 · 辅助工艺\n承接厂 演示烫画厂 · 已回仓\n应回 90 片 · 加工 90 片 · 交出 90 片\n实际实收 88 片\n回仓记录 单号未记录 · 回仓位置 未记录\n查看记录编号\n演示裁床仓管 Siti · 2026-07-24 09:00\n第 2 / 3 道 · 绣花 · 特种工艺\n承接厂 演示绣花厂 · 已回仓\n应回 88 片 · 加工 88 片 · 交出 88 片\n实际实收 88 片\n回仓记录 单号未记录 · 回仓位置 未记录\n查看记录编号\n演示裁床仓管 Siti · 2026-07-24 14:00\n第 3 / 3 道 · 烫钻 · 辅助工艺 · 最终工艺\n承接厂 演示烫钻厂 · 已回仓\n应回 88 片 · 加工 88 片 · 交出 88 片\n实际实收 87 片\n回仓记录 单号未记录 · 回仓位置 未记录\n查看记录编号\n演示裁床仓管 Siti · 2026-07-25 15:00\n当前可计入 87 片依据：最终工艺实际实收\n\n差异原因：静态演示：第一道实收少2片，末道再少1片；最终实收87片。\n\n整票不可用原因\n登记整票不可用"
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "two real paint callbacks 0",
+      "passed": true,
+      "detail": {
+        "at": 1791575117254.1,
+        "frames": [
+          {
+            "rafTimestamp": 394.866,
+            "executedAt": 1791575117237.5
+          },
+          {
+            "rafTimestamp": 411.4,
+            "executedAt": 1791575117254.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "two real paint callbacks 1",
+      "passed": true,
+      "detail": {
+        "at": 1791575117354.1,
+        "frames": [
+          {
+            "rafTimestamp": 494.8,
+            "executedAt": 1791575117337.6
+          },
+          {
+            "rafTimestamp": 511.4,
+            "executedAt": 1791575117354.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "two real paint callbacks 2",
+      "passed": true,
+      "detail": {
+        "at": 1791575117453.2002,
+        "frames": [
+          {
+            "rafTimestamp": 594.8,
+            "executedAt": 1791575117437.5
+          },
+          {
+            "rafTimestamp": 611.4,
+            "executedAt": 1791575117453.2002
+          }
+        ]
+      }
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "two real paint callbacks 3",
+      "passed": true,
+      "detail": {
+        "at": 1791575117554.1,
+        "frames": [
+          {
+            "rafTimestamp": 694.8,
+            "executedAt": 1791575117537.5
+          },
+          {
+            "rafTimestamp": 711.4,
+            "executedAt": 1791575117554.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "expanded actual original identities preserved",
+      "passed": true,
+      "detail": "查看原始编号\n\n原菲票号 FT-DEMO:spread-14677-01-松石绿-FAB-L\n\n原袋号 BAG-DEMO:spread-14677-01-松石绿-FAB-L\n\n使用周期 USE-DEMO:spread-14677-01-松石绿-FAB-L"
+    },
+    {
+      "name": "two real paint callbacks 4",
+      "passed": true,
+      "detail": {
+        "at": 1791575117654.2002,
+        "frames": [
+          {
+            "rafTimestamp": 794.8,
+            "executedAt": 1791575117637.6
+          },
+          {
+            "rafTimestamp": 811.4,
+            "executedAt": 1791575117654.2002
+          }
+        ]
+      }
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "two real paint callbacks 0",
+      "passed": true,
+      "detail": {
+        "at": 1791575117754.1,
+        "frames": [
+          {
+            "rafTimestamp": 894.8,
+            "executedAt": 1791575117737.5
+          },
+          {
+            "rafTimestamp": 911.5,
+            "executedAt": 1791575117754
+          }
+        ]
+      }
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "two real paint callbacks 1",
+      "passed": true,
+      "detail": {
+        "at": 1791575117852.7002,
+        "frames": [
+          {
+            "rafTimestamp": 994.8,
+            "executedAt": 1791575117837.6
+          },
+          {
+            "rafTimestamp": 1011.4,
+            "executedAt": 1791575117852.7002
+          }
+        ]
+      }
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "two real paint callbacks 2",
+      "passed": true,
+      "detail": {
+        "at": 1791575117952.5,
+        "frames": [
+          {
+            "rafTimestamp": 1094.8,
+            "executedAt": 1791575117935.6
+          },
+          {
+            "rafTimestamp": 1111.4,
+            "executedAt": 1791575117952.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "two real paint callbacks 3",
+      "passed": true,
+      "detail": {
+        "at": 1791575118054.1,
+        "frames": [
+          {
+            "rafTimestamp": 1194.8,
+            "executedAt": 1791575118037.4001
+          },
+          {
+            "rafTimestamp": 1211.4,
+            "executedAt": 1791575118054.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "collapsed display again hides raw internal identities",
+      "passed": true
+    },
+    {
+      "name": "two real paint callbacks 4",
+      "passed": true,
+      "detail": {
+        "at": 1791575118154.1,
+        "frames": [
+          {
+            "rafTimestamp": 1294.8,
+            "executedAt": 1791575118136.7002
+          },
+          {
+            "rafTimestamp": 1311.4,
+            "executedAt": 1791575118154.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "original native confirm delegates unchanged 0",
+      "passed": true,
+      "detail": {
+        "durationMs": 20.400146484375,
+        "totalClickDurationMs": 279.60009765625,
+        "confirmOpeningDurationMs": 51.699951171875,
+        "confirmationWaitExcludedMs": 207.5,
+        "nativeConfirmation": {
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "openedAt": 1791575118211.5,
+          "returnedAt": 1791575118419,
+          "accepted": false
+        },
+        "confirmationCount": 1,
+        "paintFrames": [
+          {
+            "rafTimestamp": 1578.058,
+            "executedAt": 1791575118420.2002
+          },
+          {
+            "rafTimestamp": 1594.7,
+            "executedAt": 1791575118437.5
+          }
+        ],
+        "promptFirstVisibleDurationMs": 53.199951171875,
+        "promptObservedRawDifferenceMs": 52.199951171875,
+        "promptClockResolutionMs": 1,
+        "promptFirstVisibleIsConservativeUpperBound": true,
+        "nativeProtocolOpening": {
+          "observedAt": 1791575118212,
+          "hasBrowserHandler": true,
+          "type": "confirm",
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+        }
+      }
+    },
+    {
+      "name": "two real paint callbacks 0",
+      "passed": true,
+      "detail": {
+        "at": 1791575118437.5,
+        "frames": [
+          {
+            "rafTimestamp": 1578.058,
+            "executedAt": 1791575118420.2002
+          },
+          {
+            "rafTimestamp": 1594.7,
+            "executedAt": 1791575118437.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "actual browser prompt event 0",
+      "passed": true,
+      "detail": {
+        "observedAt": 1791575118212,
+        "hasBrowserHandler": true,
+        "type": "confirm",
+        "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+      }
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "original native confirm delegates unchanged 1",
+      "passed": true,
+      "detail": {
+        "durationMs": 23.199951171875,
+        "totalClickDurationMs": 816.699951171875,
+        "confirmOpeningDurationMs": 51.800048828125,
+        "confirmationWaitExcludedMs": 741.699951171875,
+        "nativeConfirmation": {
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "openedAt": 1791575118491.6,
+          "returnedAt": 1791575119233.3,
+          "accepted": false
+        },
+        "confirmationCount": 1,
+        "paintFrames": [
+          {
+            "rafTimestamp": 2378.104,
+            "executedAt": 1791575119234.7002
+          },
+          {
+            "rafTimestamp": 2394.7,
+            "executedAt": 1791575119235.5
+          }
+        ],
+        "promptFirstVisibleDurationMs": 53.199951171875,
+        "promptObservedRawDifferenceMs": 52.199951171875,
+        "promptClockResolutionMs": 1,
+        "promptFirstVisibleIsConservativeUpperBound": true,
+        "nativeProtocolOpening": {
+          "observedAt": 1791575118492,
+          "hasBrowserHandler": true,
+          "type": "confirm",
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+        }
+      }
+    },
+    {
+      "name": "two real paint callbacks 1",
+      "passed": true,
+      "detail": {
+        "at": 1791575119235.6,
+        "frames": [
+          {
+            "rafTimestamp": 2378.104,
+            "executedAt": 1791575119234.7002
+          },
+          {
+            "rafTimestamp": 2394.7,
+            "executedAt": 1791575119235.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "actual browser prompt event 1",
+      "passed": true,
+      "detail": {
+        "observedAt": 1791575118492,
+        "hasBrowserHandler": true,
+        "type": "confirm",
+        "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+      }
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "original native confirm delegates unchanged 2",
+      "passed": true,
+      "detail": {
+        "durationMs": 20.10009765625,
+        "totalClickDurationMs": 906.800048828125,
+        "confirmOpeningDurationMs": 32.89990234375,
+        "confirmationWaitExcludedMs": 853.800048828125,
+        "nativeConfirmation": {
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "openedAt": 1791575119290.3,
+          "returnedAt": 1791575120144.1,
+          "accepted": false
+        },
+        "confirmationCount": 1,
+        "paintFrames": [
+          {
+            "rafTimestamp": 3294.7,
+            "executedAt": 1791575120145.3
+          },
+          {
+            "rafTimestamp": 3311.4,
+            "executedAt": 1791575120152.8
+          }
+        ],
+        "promptFirstVisibleDurationMs": 33.599853515625,
+        "promptObservedRawDifferenceMs": 32.599853515625,
+        "promptClockResolutionMs": 1,
+        "promptFirstVisibleIsConservativeUpperBound": true,
+        "nativeProtocolOpening": {
+          "observedAt": 1791575119290,
+          "hasBrowserHandler": true,
+          "type": "confirm",
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+        }
+      }
+    },
+    {
+      "name": "two real paint callbacks 2",
+      "passed": true,
+      "detail": {
+        "at": 1791575120152.8,
+        "frames": [
+          {
+            "rafTimestamp": 3294.7,
+            "executedAt": 1791575120145.3
+          },
+          {
+            "rafTimestamp": 3311.4,
+            "executedAt": 1791575120152.8
+          }
+        ]
+      }
+    },
+    {
+      "name": "actual browser prompt event 2",
+      "passed": true,
+      "detail": {
+        "observedAt": 1791575119290,
+        "hasBrowserHandler": true,
+        "type": "confirm",
+        "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+      }
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "original native confirm delegates unchanged 3",
+      "passed": true,
+      "detail": {
+        "durationMs": 9.2998046875,
+        "totalClickDurationMs": 855.2998046875,
+        "confirmOpeningDurationMs": 42,
+        "confirmationWaitExcludedMs": 804,
+        "nativeConfirmation": {
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "openedAt": 1791575120206.7002,
+          "returnedAt": 1791575121010.7002,
+          "accepted": false
+        },
+        "confirmationCount": 1,
+        "paintFrames": [
+          {
+            "rafTimestamp": 4161.3,
+            "executedAt": 1791575121011.8
+          },
+          {
+            "rafTimestamp": 4178,
+            "executedAt": 1791575121019.3
+          }
+        ],
+        "promptFirstVisibleDurationMs": 43.2998046875,
+        "promptObservedRawDifferenceMs": 42.2998046875,
+        "promptClockResolutionMs": 1,
+        "promptFirstVisibleIsConservativeUpperBound": true,
+        "nativeProtocolOpening": {
+          "observedAt": 1791575120207,
+          "hasBrowserHandler": true,
+          "type": "confirm",
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+        }
+      }
+    },
+    {
+      "name": "two real paint callbacks 3",
+      "passed": true,
+      "detail": {
+        "at": 1791575121019.3,
+        "frames": [
+          {
+            "rafTimestamp": 4161.3,
+            "executedAt": 1791575121011.8
+          },
+          {
+            "rafTimestamp": 4178,
+            "executedAt": 1791575121019.3
+          }
+        ]
+      }
+    },
+    {
+      "name": "actual browser prompt event 3",
+      "passed": true,
+      "detail": {
+        "observedAt": 1791575120207,
+        "hasBrowserHandler": true,
+        "type": "confirm",
+        "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+      }
+    },
+    {
+      "name": "native confirmation short identity plus actual consequences",
+      "passed": true,
+      "detail": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+    },
+    {
+      "name": "original native confirm delegates unchanged 4",
+      "passed": true,
+      "detail": {
+        "durationMs": 16.099853515625,
+        "totalClickDurationMs": 849.7998046875,
+        "confirmOpeningDurationMs": 53.099853515625,
+        "confirmationWaitExcludedMs": 780.60009765625,
+        "nativeConfirmation": {
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。",
+          "openedAt": 1791575121073.3,
+          "returnedAt": 1791575121853.9001,
+          "accepted": false
+        },
+        "confirmationCount": 1,
+        "paintFrames": [
+          {
+            "rafTimestamp": 5011.302,
+            "executedAt": 1791575121855.4001
+          },
+          {
+            "rafTimestamp": 5027.9,
+            "executedAt": 1791575121869.3
+          }
+        ],
+        "promptFirstVisibleDurationMs": 53.7998046875,
+        "promptObservedRawDifferenceMs": 52.7998046875,
+        "promptClockResolutionMs": 1,
+        "promptFirstVisibleIsConservativeUpperBound": true,
+        "nativeProtocolOpening": {
+          "observedAt": 1791575121073,
+          "hasBrowserHandler": true,
+          "type": "confirm",
+          "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+        }
+      }
+    },
+    {
+      "name": "two real paint callbacks 4",
+      "passed": true,
+      "detail": {
+        "at": 1791575121869.3,
+        "frames": [
+          {
+            "rafTimestamp": 5011.302,
+            "executedAt": 1791575121855.4001
+          },
+          {
+            "rafTimestamp": 5027.9,
+            "executedAt": 1791575121869.3
+          }
+        ]
+      }
+    },
+    {
+      "name": "actual browser prompt event 4",
+      "passed": true,
+      "detail": {
+        "observedAt": 1791575121073,
+        "hasBrowserHandler": true,
+        "type": "confirm",
+        "message": "确认将 示例菲票 001 整票登记为不可用？\n\nPO14677 · 松石绿 / L · 前片；原票 90 片，当前可计入 87 片。\n\n受影响袋：示例中转袋 001；当前位置：裁床待交出仓（静态演示）。\n\n关联工艺交出 / 回仓：\n第 1 道 烫画 / 演示烫画厂：已交出 90 片，实际实收 88 片\n第 2 道 绣花 / 演示绣花厂：已交出 88 片，实际实收 88 片\n第 3 道 烫钻 / 演示烫钻厂：已交出 88 片，实际实收 87 片\n\n本色码：目标 85 件；有效放行 0 件；已分配 0 件。\n\n保存后更新齐套和当前风险。已交出的裁片如有差异，请联系 PPIC 跟进。\n\n原目标、放行量和已分配量不变。已有工艺任务不会自动取消，历史实交、实收记录保留。"
+      }
+    },
+    {
+      "name": "cancel retains original whole ticket valid status",
+      "passed": true
+    }
+  ],
+  "completedAt": "2026-10-09T19:45:22.024Z",
+  "passed": true,
+  "versionRef": "version-v34.json",
+  "sourceManifestSHA256": "ed7cc28610320294ddb5569e0b1ae4514502c862f3141b4e1bb03b5d73ce2f1e",
+  "assetManifestSHA256": "f399db874b2678f4fd91ab4a5f539c34de0dc5cf17c176669d565e67f46a191a",
+  "rawLog": "output/playwright/cut-release-ui/demo-copy-v34-root.log"
+}

@@ -1,0 +1,62 @@
+(node:47579) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ 保留历史换袋确认按真实来源入仓先后匹配，ISO与本地文本不丢来源库位 (3.703416ms)
+✔ 特殊工艺实回库位从原票快照读取生产单，零实收票不冒充当前库存关联 (54.340875ms)
+✔ PDA实际入仓入口保留默认时间秒与时区，同一分钟交出后可逐票回仓 (4.243625ms)
+✔ PDA实回页按第二张菲票自身当前阶段和实际交出数量显示应回数量 (3.736167ms)
+✔ 无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存 (16.569167ms)
+✔ 明确单道无袋实收9合法实交后更正7保留旧9责任与真实接收厂 (11.546209ms)
+✔ 整袋候选与提交共享未知来源、未知必要工艺及整票不可用阻断，caller不能给空事件绕过 (24.611333ms)
+✔ 连续工艺具名示例仅提供真实技术包两条未分配任务，不写事实或覆盖旧任务 (3.797083ms)
+✔ 不同菲票的同一实际有序工艺链可同袋，链身份不使用每票阶段ID (0.278958ms)
+✔ 同链两张菲票保留各自阶段身份并分别实收，不把第二票当第一票工艺 (3.462542ms)
+✔ 连续工艺直接由实际持有厂转交下道，前道完成与最后回仓分开记账 (4.717291ms)
+✔ 同袋两票连续转交按每票前道和下道身份核对，最后分别回仓 (3.556417ms)
+✔ 实际任务绑定明确匹配技术包部位工艺、色码、目标对象和当前分配，不采用默认厂 (0.197792ms)
+✔ 特殊工艺交出只能读取原票当前阶段与唯一实际承接任务 (0.14025ms)
+✔ ISO来源交出后同一分钟实际回仓保留秒与时区，不被文本格式判为早于来源 (6.613208ms)
+✔ 逐票实收分别计数，更正库存仅按差额且保留原票 (4.777625ms)
+✔ 未核对加工完成不得保存；历史完成未知保留实收P而不能冒充齐套 (3.13425ms)
+✔ 缺逐票确认、空白、小数、超量与未说明差异都不写入 (3.280375ms)
+✔ 明确零量点收保留事实，但不生成库存或后道实物 (2.787125ms)
+✔ 按身份与顺序分袋，普通和不同工艺链被阻断 (0.074834ms)
+✔ 无袋按票独立点收，不能重复新增或回到其他裁床工厂 (3.508208ms)
+✔ 多道工艺分别保留同票阶段实收，末道不会累加前道数量 (8.23175ms)
+✔ 100片已经交出后更正为90片只改依据，保留原实交责任且不反冲库存 (12.839042ms)
+✔ 同一分钟旧入仓分钟时间晚于精确装袋账本，不退回已装袋状态 (0.756667ms)
+✔ 正常入仓默认保留完整时刻，同分钟装袋后入仓可继续交出 (0.565583ms)
+✔ 实际带袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.791917ms)
+✔ 实际无袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.782ms)
+✔ 实际空袋回仓入口保留ISO秒和时区，不先截断成旧本地分钟 (2.7925ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 27
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 779.794542
+
+✖ failing tests:
+
+test at tests/unit/cut-piece-special-craft-receipts.test.ts:1:2281
+✖ 保留历史换袋确认按真实来源入仓先后匹配，ISO与本地文本不丢来源库位 (3.703416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'BAG-LEGACY-SOURCE'
+  - 'BAG-LEGACY-TARGET'
+                ^
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/unit/cut-piece-special-craft-receipts.test.ts:37:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'BAG-LEGACY-SOURCE',
+    expected: 'BAG-LEGACY-TARGET',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

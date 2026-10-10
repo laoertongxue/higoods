@@ -1,0 +1,314 @@
+{
+  "scope": "source final checks excluding workflow",
+  "version": "v47",
+  "startedAt": "2026-10-09T23:18:40.143173+00:00",
+  "commands": [
+    {
+      "name": "typescript-scope",
+      "argv": [
+        "node",
+        "scripts/check-typescript-scope.mjs",
+        "scripts/check-cut-piece-release-available-qty.ts",
+        "scripts/check-cut-piece-release-matrix.ts",
+        "scripts/check-cut-piece-release-mock-records.ts",
+        "scripts/check-cutting-pickup-three-list.ts",
+        "scripts/check-cutting-sewing-dispatch.ts",
+        "scripts/check-cutting-special-craft-dispatch-return.ts",
+        "scripts/check-cutting-supplement-process-work-orders.ts",
+        "scripts/check-generated-cut-release.ts",
+        "scripts/check-pda-cutting-inbound-workflow.ts",
+        "scripts/check-release-dispatch-preparation.ts",
+        "scripts/check-release-physical-final-quantity.ts",
+        "scripts/check-sewing-outsourcing-release-gate.ts",
+        "scripts/check-simple-cut-piece-final-receipt.ts",
+        "scripts/check-simple-cut-piece-handover-fixtures.ts",
+        "scripts/check-transfer-bag-repack-recovery.ts",
+        "scripts/check-transfer-bag-three-status.ts",
+        "scripts/check-web-cutting-transfer-bag-actions.ts",
+        "src/components/ui/mixed-bag-contents.ts",
+        "src/data/app-shell-config.ts",
+        "src/data/fcs/cut-piece-release-domain.ts",
+        "src/data/fcs/cut-piece-release.ts",
+        "src/data/fcs/cutting/cut-piece-release-facts.ts",
+        "src/data/fcs/cutting/cut-piece-ticket-validity.ts",
+        "src/data/fcs/cutting/cutting-event-repository.ts",
+        "src/data/fcs/cutting/cutting-record-repository.ts",
+        "src/data/fcs/cutting/cutting-runtime-chronology.ts",
+        "src/data/fcs/cutting/cutting-runtime-event-ledger.ts",
+        "src/data/fcs/cutting/fei-ticket-numbering.ts",
+        "src/data/fcs/cutting/generated-cut-orders.ts",
+        "src/data/fcs/cutting/generated-cut-release.ts",
+        "src/data/fcs/cutting/manual-fei-tickets.ts",
+        "src/data/fcs/cutting/production-material-prep.ts",
+        "src/data/fcs/cutting/replacement-fabric-event-validation.ts",
+        "src/data/fcs/cutting/replacement-fabric-fei-tickets.ts",
+        "src/data/fcs/cutting/sewing-dispatch.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts",
+        "src/data/fcs/cutting/simple-cut-piece-handover.ts",
+        "src/data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "src/data/fcs/cutting/special-craft-release-demo-tasks.ts",
+        "src/data/fcs/cutting/supplement-order-registry.ts",
+        "src/data/fcs/cutting/transfer-bag-lifecycle.ts",
+        "src/data/fcs/cutting/transfer-bag-operations.ts",
+        "src/data/fcs/post-finishing-full-flow.ts",
+        "src/data/fcs/process-tasks.ts",
+        "src/data/fcs/production-context-actions.ts",
+        "src/data/fcs/production-tech-pack-snapshot-builder.ts",
+        "src/data/fcs/sewing-assignment-readiness.ts",
+        "src/data/fcs/special-craft-task-orders.ts",
+        "src/main.ts",
+        "src/pages/pda-cutting-handover.ts",
+        "src/pages/pda-cutting-inbound.ts",
+        "src/pages/pda-handover-detail.ts",
+        "src/pages/print/print-preview.ts",
+        "src/pages/print/replacement-fabric-preview.ts",
+        "src/pages/print/templates/dispatch-task-sheet-template.ts",
+        "src/pages/print/templates/replacement-fabric-label-template.ts",
+        "src/pages/process-factory/cutting/cut-piece-release.ts",
+        "src/pages/process-factory/cutting/fei-tickets.ts",
+        "src/pages/process-factory/cutting/marker-plan-model.ts",
+        "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+        "src/pages/process-factory/cutting/supplement-management.ts",
+        "src/pages/process-factory/cutting/transfer-bags-model.ts",
+        "src/pages/process-factory/cutting/wait-handover-actions.ts",
+        "src/pages/process-factory/cutting/wait-handover-dialogs.ts",
+        "src/pages/process-factory/cutting/wait-handover-runtime.ts",
+        "src/pages/process-factory/cutting/warehouse-hub.ts",
+        "src/pages/sewing-outsourcing/tasks.ts",
+        "src/pages/simple-cut-piece-handover-ui.ts",
+        "src/pages/unified-dispatch-workbench.ts",
+        "tests/browser/cut-piece-release-storage-harness.ts",
+        "tests/unit/cut-piece-release-chronology.test.ts",
+        "tests/unit/cut-piece-release-dispatch-identity.test.ts",
+        "tests/unit/cut-piece-release-facts.test.ts",
+        "tests/unit/cut-piece-release-frozen-warehouse.test.ts",
+        "tests/unit/cut-piece-release-persisted-validation.test.ts",
+        "tests/unit/cut-piece-release-ui.test.ts",
+        "tests/unit/cut-piece-special-craft-receipts.test.ts",
+        "tests/unit/cutting-migrated-storage-import.test.ts",
+        "tests/unit/manual-fei-ticket-source-identity.test.ts",
+        "tests/unit/replacement-fabric-copy.test.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:40.143514+00:00",
+      "completedAt": "2026-10-09T23:18:52.000876+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/typescript-scope-final-v47.log",
+      "sha256": "559c902c83f643575d839e5b5412d5c72d9df1f54665a3bd98b87e0be4f1b4f3"
+    },
+    {
+      "name": "diff-check",
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "startedAt": "2026-10-09T23:18:52.001489+00:00",
+      "completedAt": "2026-10-09T23:18:52.078850+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/diff-check-final-v47.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "cut-piece-release-matrix",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-cut-piece-release-matrix.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:52.079199+00:00",
+      "completedAt": "2026-10-09T23:18:52.912828+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/cut-piece-release-matrix-final-v47.log",
+      "sha256": "6c968525f6df708f8aacda3f9f98c70c193c4813b2f9b8471082415b5630a5da"
+    },
+    {
+      "name": "cut-piece-release-available-qty",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-cut-piece-release-available-qty.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:52.913340+00:00",
+      "completedAt": "2026-10-09T23:18:53.152550+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/cut-piece-release-available-qty-final-v47.log",
+      "sha256": "1cdd2bb253b5ff8eac74ceaea819eaa5cc68b41e6df9b6f3ece6b6144541445b"
+    },
+    {
+      "name": "cut-piece-release-mock-records",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-cut-piece-release-mock-records.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:53.153226+00:00",
+      "completedAt": "2026-10-09T23:18:53.389043+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/cut-piece-release-mock-records-final-v47.log",
+      "sha256": "e366e6bf41a7afd810746c7c77e4dd4f21b9dc8cd4fdfaf1ce710a25232d6a27"
+    },
+    {
+      "name": "generated-cut-release",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-generated-cut-release.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:53.389548+00:00",
+      "completedAt": "2026-10-09T23:18:53.741901+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/generated-cut-release-final-v47.log",
+      "sha256": "ec653f5c0b1dc099ba091bfdec1498f5359a7f2c7907ce8e8f5fbf856120f086"
+    },
+    {
+      "name": "release-physical-final-quantity",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-release-physical-final-quantity.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:53.742393+00:00",
+      "completedAt": "2026-10-09T23:18:53.817251+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/release-physical-final-quantity-final-v47.log",
+      "sha256": "07de5d5c58bcb040fafd1f324d07ec330b6833fa375ea14ab7296d1e7cc0f174"
+    },
+    {
+      "name": "release-dispatch-preparation",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-release-dispatch-preparation.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:53.817837+00:00",
+      "completedAt": "2026-10-09T23:18:54.217618+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/release-dispatch-preparation-final-v47.log",
+      "sha256": "d2911c0d0f5acfd5d738d32e4c574c46994a2e2deb2b0751adc4b34a637a87a3"
+    },
+    {
+      "name": "sewing-outsourcing-release-gate",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-sewing-outsourcing-release-gate.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:54.218165+00:00",
+      "completedAt": "2026-10-09T23:18:54.615750+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/sewing-outsourcing-release-gate-final-v47.log",
+      "sha256": "2606e2c58c1edb04d480d9c5e6a3d53a423fa2985c5d26cdebb2e1a2375cbeee"
+    },
+    {
+      "name": "simple-cut-piece-handover",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-simple-cut-piece-handover.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:54.616356+00:00",
+      "completedAt": "2026-10-09T23:18:54.959094+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/simple-cut-piece-handover-final-v47.log",
+      "sha256": "9aa4e0e2d5582addaf005edafc77bd7e000fa2be863028d884858ac91954d6b5"
+    },
+    {
+      "name": "simple-cut-piece-handover-integration",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-simple-cut-piece-handover-integration.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:54.959608+00:00",
+      "completedAt": "2026-10-09T23:18:55.519520+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/simple-cut-piece-handover-integration-final-v47.log",
+      "sha256": "b5c990bdd4a2dcfbc208bbc5343a38ad9f9a47be642de3bdefff231623b8f87e"
+    },
+    {
+      "name": "simple-cut-piece-handover-fixtures",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-simple-cut-piece-handover-fixtures.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:55.519889+00:00",
+      "completedAt": "2026-10-09T23:18:56.247780+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/simple-cut-piece-handover-fixtures-final-v47.log",
+      "sha256": "91ff752d39fd7f9241138ce75606330b353ccb81a357a64e47a47e0dcd4f2947"
+    },
+    {
+      "name": "simple-cut-piece-receipt-projections",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-simple-cut-piece-receipt-projections.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:56.248388+00:00",
+      "completedAt": "2026-10-09T23:18:56.587070+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/simple-cut-piece-receipt-projections-final-v47.log",
+      "sha256": "eb6730177694b517489451d1aa9407570995aeb5ccfdb2015336ef9179123740"
+    },
+    {
+      "name": "cutting-special-craft-dispatch-return",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-cutting-special-craft-dispatch-return.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:56.587583+00:00",
+      "completedAt": "2026-10-09T23:18:57.206468+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/cutting-special-craft-dispatch-return-final-v47.log",
+      "sha256": "b415b8e49d1cc5fce1280b1509b9501bbcc99f2a635518c0dd59c9e84d8eae56"
+    },
+    {
+      "name": "simple-cut-piece-final-receipt",
+      "argv": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-simple-cut-piece-final-receipt.ts"
+      ],
+      "startedAt": "2026-10-09T23:18:57.207035+00:00",
+      "completedAt": "2026-10-09T23:18:57.556343+00:00",
+      "exitCode": 0,
+      "passed": true,
+      "log": "docs/product-design/evidence/2026-10-09-cut-piece-release/simple-cut-piece-final-receipt-final-v47.log",
+      "sha256": "0f58a7e7f4e3991b81102a555d539349e40df6256ce018554255a137093cfac4"
+    }
+  ],
+  "passed": true,
+  "completedAt": "2026-10-09T23:18:57.809450+00:00",
+  "sourceManifestSHA256": "aa1c2e9b60fafbf844146244c68ad25f8eb00a4c07f90a24e44aa7023afbaf1e",
+  "assetManifestSHA256": "4fbe0fb5e84cff9aca174790247707881d1da1c96d61d9b838158fe7cbd5328a",
+  "postChecksSourceAndAssetManifestMatched": true
+}

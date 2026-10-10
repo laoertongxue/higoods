@@ -5,6 +5,9 @@ import { replacementFabricCompanions } from '../../../data/fcs/cutting/replaceme
 import type { WaitHandoverRuntimeTicketInput } from './wait-handover-runtime.ts'
 import { handleSimpleCutPieceUiEvent } from '../../simple-cut-piece-handover-ui.ts'
 import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
+import { listManualFeiTicketSources } from '../../../data/fcs/cutting/manual-fei-tickets.ts'
+import { isCutPieceTicketUsable } from '../../../data/fcs/cutting/cut-piece-ticket-validity.ts'
+import { listCuttingSpecialCraftFeiTicketBindingsForProjection, type CuttingSpecialCraftFeiTicketBinding } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { listEffectiveTaskAssignments } from '../../../data/fcs/effective-task-assignments.ts'
 import { listAvailableFeiTicketsForSewingDispatch } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import {
@@ -14,6 +17,7 @@ import {
 import { validateFeiTicketNumberingBeforeBagging } from '../../../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
   listCuttingRuntimeEvents,
+  listManagedCuttingRuntimeEvents,
   type RuntimeWarehouseLocationRef,
   type TransferBagTicketFactSnapshot,
 } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -30,8 +34,16 @@ import {
   recoverTransferBag,
   resolveTransferBagAuthoritativeCurrentLocation,
   resolveTransferBagCurrentUse,
+  resolveTransferBagCurrentUsesFromEvents,
   resolveWholeBagHandoverEligibility,
   submitSpecialCraftBagReturn,
+  correctSpecialCraftTicketReturn,
+  listSpecialCraftReturnSourceCandidates,
+  listSpecialCraftTicketReturnFacts,
+  listSpecialCraftHandoverFacts,
+  type StrictSpecialCraftHandoverEventFact,
+  type SpecialCraftTicketReturnFact,
+  type SpecialCraftReturnSourceCandidate,
   submitTransferBagScrap,
   submitWholeBagHandover,
   type TransferBagCurrentUse,
@@ -40,13 +52,14 @@ import {
 import {
   appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
+  appendWaitHandoverSpecialCraftHandoverEvent,
   buildWaitHandoverRuntimeTicketFromGeneratedTicket,
   preflightWaitHandoverBaggingEvent,
   resolveWaitHandoverBaggingSnapshot,
   submitWaitHandoverTaskBatch,
 } from './wait-handover-runtime.ts'
 import {
-  renderWaitHandoverActionButtons,
+  renderWaitHandoverActionButtons as renderExistingWaitHandoverActionButtons,
   renderWaitHandoverActionDialog,
   isWaitHandoverRecoveryBlocked,
   isWaitHandoverScrapBlocked,
@@ -60,7 +73,153 @@ import {
 import { escapeHtml } from '../../../utils.ts'
 
 export type { WaitHandoverWebAction } from './wait-handover-dialogs.ts'
-export { renderWaitHandoverActionButtons }
+export function renderWaitHandoverActionButtons(): string {
+  const handoutButton = '<button type="button" class="h-10 shrink-0 rounded-md border border-violet-200 bg-violet-50 px-4 text-sm font-medium text-violet-700 hover:bg-violet-100" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-handover">特殊工艺交出</button>'
+  return renderExistingWaitHandoverActionButtons().replace(/(<button[^>]*data-wait-handover-action="open-special-craft-return")/, `${handoutButton}$1`)
+}
+
+type WaitHandoverOperationAction = WaitHandoverWebAction | 'special-craft-handover'
+
+/** 只用原票明确工艺身份及实际承接任务，缺失或多义时不生成交出来源。 */
+export function resolveSpecialCraftBagHandoverCandidate(input: {
+  current: TransferBagCurrentUse
+  sources: readonly GeneratedFeiTicketSourceRecord[]
+  bindings: readonly CuttingSpecialCraftFeiTicketBinding[]
+  receipts: readonly SpecialCraftTicketReturnFact[]
+  selectedTaskId?: string
+  directTransferFrom?: StrictSpecialCraftHandoverEventFact
+}): { specialCraftId: string; ticketStageIds: Record<string, string>; craftCategory: '辅助工艺' | '特种工艺'; craftType: string; factoryId: string; factoryName: string; taskOrderId: string; taskOrderNo: string } {
+  const { current } = input
+  if (!current.usageCycleId || !current.tickets.length || !['INBOUND_STORED', 'READY_HANDOVER', ...(input.directTransferFrom ? ['HANDED_OVER_WAITING_RETURN'] : [])].includes(current.flowStage || '')) throw new Error('请先完成该袋菲票装袋与入仓，再交出特殊工艺。')
+  const candidates = current.tickets.map(ticket => {
+    if (!isCutPieceTicketUsable(ticket.feiTicketId)) throw new Error(`${ticket.feiTicketNo} 已登记整票不可用，不能交出。`)
+    const source = input.sources.find(item => item.feiTicketId === ticket.feiTicketId)
+    if (!source?.hasSpecialCraft || !source.specialCrafts.length) throw new Error(`${ticket.feiTicketNo} 缺少明确特殊工艺要求，请先核对原票。`)
+    const stages = source.specialCrafts.map(craft => {
+      const receipt = input.receipts.find(item => item.feiTicketId === ticket.feiTicketId && item.specialCraftId === craft.specialCraftId)
+      const bindings = input.bindings.filter(item => item.feiTicketId === ticket.feiTicketId && item.specialCraftId === craft.specialCraftId)
+      const binding = bindings.length === 1 ? bindings[0] : undefined
+      const completed = receipt ? receipt.processingCompleted === true : Boolean(binding && ['已完成', '待回仓', '已回仓'].includes(binding.specialCraftFlowStatus) && Number.isSafeInteger(binding.closingQty) && binding.closingQty > 0)
+      return { craft, receipt, binding, completed }
+    })
+    const sourceStageId = input.directTransferFrom?.payload.feiTicketItems.find(item => item.feiTicketId === ticket.feiTicketId)?.specialCraftId
+    const sourceIndex = sourceStageId ? stages.findIndex(stage => stage.craft.specialCraftId === sourceStageId) : -1
+    if (input.directTransferFrom && (sourceIndex < 0 || sourceIndex + 1 >= stages.length)) throw new Error(`${ticket.feiTicketNo} 无可转交的下一道工艺，请核对原票。`)
+    const index = input.directTransferFrom ? sourceIndex + 1 : stages.findIndex(stage => !stage.completed)
+    if (index < 0) throw new Error(`${ticket.feiTicketNo} 全部工艺已完成，无需再次特殊工艺交出。`)
+    const stage = stages[index]
+    if (stage.receipt) throw new Error(`${ticket.feiTicketNo} 已有本阶段实收，加工完成事实待核对，不能重复交出。`)
+    const matching = input.bindings.filter(item => item.feiTicketId === ticket.feiTicketId && item.specialCraftId === stage.craft.specialCraftId && (!input.selectedTaskId || item.taskOrderId === input.selectedTaskId))
+    const binding = matching.length === 1 ? matching[0] : undefined
+    if (!binding?.taskOrderId || !binding.taskOrderNo || !binding.assignedFactoryConfirmed || !binding.targetFactoryId || !binding.targetFactoryName || binding.targetFactoryId.includes('PENDING')) throw new Error(`${ticket.feiTicketNo} 第 ${index + 1} 道 ${stage.craft.craftName} 缺少唯一已分配承接任务或工厂，请先补齐。`)
+    if (index > 0 && !input.directTransferFrom) {
+      const previous = stages[index - 1]
+      const actualQty = previous.receipt?.returnedQty ?? previous.binding?.closingQty
+      if (actualQty !== ticket.pieceQty) throw new Error(`${ticket.feiTicketNo} 袋内数量与前道有效实收不一致，请重新读取实物。`)
+    }
+    return { feiTicketId: ticket.feiTicketId, specialCraftId: stage.craft.specialCraftId, craftCategory: stage.craft.craftCategory, craftType: stage.craft.craftName, factoryId: binding.targetFactoryId, factoryName: binding.targetFactoryName, taskOrderId: binding.taskOrderId, taskOrderNo: binding.taskOrderNo }
+  })
+  const first = candidates[0]
+  const commonIdentity = (item: typeof first) => JSON.stringify([item.craftCategory, item.craftType, item.factoryId, item.factoryName, item.taskOrderId, item.taskOrderNo])
+  if (candidates.some(item => commonIdentity(item) !== commonIdentity(first))) throw new Error('袋内菲票对应的当前工艺、承接厂或加工任务不同，请分袋后交出。')
+  return { ...first, ticketStageIds: Object.fromEntries(candidates.map(item => [item.feiTicketId, item.specialCraftId])) }
+}
+
+function externalSpecialCraftSource(bagCode: string) {
+  const current = resolveTransferBagCurrentUse(bagCode)
+  if (current.flowStage !== 'HANDED_OVER_WAITING_RETURN') return undefined
+  return listSpecialCraftHandoverFacts(listCuttingRuntimeEvents()).find(fact => fact.event.eventId === current.latestHandoverEventId && fact.usageCycleId === current.usageCycleId)
+}
+
+function specialCraftHandoverCandidate(bagCode: string, selectedTaskId?: string) {
+  const source = externalSpecialCraftSource(bagCode)
+  const current = resolveTransferBagCurrentUse(bagCode)
+  return resolveSpecialCraftBagHandoverCandidate({ current: source ? { ...current, tickets: source.payload.ticketSnapshot } : current, directTransferFrom: source, sources: [...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources()], bindings: listCuttingSpecialCraftFeiTicketBindingsForProjection(), receipts: listSpecialCraftTicketReturnFacts(), selectedTaskId })
+}
+
+function refreshSpecialCraftHandoverEditor(dialog: HTMLElement): void {
+  const summary = dialog.querySelector<HTMLElement>('[data-special-craft-handover-summary]')
+  const submit = dialog.querySelector<HTMLButtonElement>('[data-wait-handover-action="submit-special-craft-handover"]')
+  const taskSelect = dialog.querySelector<HTMLSelectElement>('[data-wait-handover-field="specialCraftTaskSelection"]')
+  if (!summary || !submit || !taskSelect) return
+  try {
+    const bagCode = readField(dialog, 'bagCode')
+    const source = externalSpecialCraftSource(bagCode)
+    const rawCurrent = resolveTransferBagCurrentUse(bagCode)
+    const current = source ? { ...rawCurrent, tickets: source.payload.ticketSnapshot } : rawCurrent
+    const selected = dialog.dataset.selectedBagCode === bagCode ? taskSelect.value : ''
+    dialog.dataset.selectedBagCode = bagCode
+    const taskIds = unique(listCuttingSpecialCraftFeiTicketBindingsForProjection().filter(binding => current.tickets.some(ticket => ticket.feiTicketId === binding.feiTicketId) && binding.assignedFactoryConfirmed).map(binding => binding.taskOrderId))
+    const choices = taskIds.flatMap(taskId => { try { return [specialCraftHandoverCandidate(bagCode, taskId)] } catch { return [] } })
+    taskSelect.innerHTML = `<option value="">请选择加工任务</option>${choices.map(choice => `<option value="${escapeHtml(choice.taskOrderId)}">${escapeHtml(choice.taskOrderNo)} · ${escapeHtml(choice.craftType)} · ${escapeHtml(choice.factoryName)}</option>`).join('')}`
+    taskSelect.value = selected
+    if (!choices.length) { specialCraftHandoverCandidate(bagCode); throw new Error('当前袋没有可用的已分配加工任务。') }
+    if (!selected) throw new Error('请选择加工任务，核对裁片部位、当前工艺与承接工厂。')
+    const candidate = specialCraftHandoverCandidate(bagCode, selected)
+    summary.innerHTML = `<p class="font-medium">${source ? `${escapeHtml(source.payload.receiverFactoryName)} → ` : ''}${escapeHtml(candidate.craftType)} → ${escapeHtml(candidate.factoryName)}</p><p class="mt-1 text-sm">加工任务 ${escapeHtml(candidate.taskOrderNo)} · ${current.tickets.length} 张菲票 · ${current.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片</p><ul class="mt-2 space-y-1 text-sm">${current.tickets.map(ticket => `<li>${escapeHtml(ticket.feiTicketNo)} · ${escapeHtml(ticket.partName)} · ${escapeHtml(ticket.color)} / ${escapeHtml(ticket.size)} · ${ticket.pieceQty} 片</li>`).join('')}</ul>${source ? `<div class="mt-3 space-y-3">${current.tickets.map(ticket => `<section class="rounded border bg-white p-2" data-direct-transfer-ticket="${escapeHtml(ticket.feiTicketId)}"><div class="text-sm font-medium">${escapeHtml(ticket.feiTicketNo)} · ${escapeHtml(source.payload.craftType)}完工</div><label class="mt-2 block text-sm">实交（片）<input type="number" min="1" max="${ticket.pieceQty}" step="1" class="ml-2 h-10 w-24 rounded border px-2" data-direct-qty data-wait-handover-field="directQty-${escapeHtml(ticket.feiTicketId)}" /></label><input class="mt-2 h-10 w-full rounded border px-2" data-direct-reason data-wait-handover-field="directReason-${escapeHtml(ticket.feiTicketId)}" placeholder="少交须说明原因" /><label class="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" data-direct-completed data-wait-handover-field="directCompleted-${escapeHtml(ticket.feiTicketId)}" />已核对本阶段加工完成</label></section>`).join('')}</div>` : ''}`
+    submit.disabled = false
+  } catch (error) {
+    summary.textContent = error instanceof Error ? error.message : '当前工艺来源待核对。'
+    submit.disabled = true
+  }
+}
+
+function openSpecialCraftHandoverAction(): void {
+  modalRoot()?.remove()
+  const codes = collectCurrentBagCodes(), events = listManagedCuttingRuntimeEvents()
+  const currents = resolveTransferBagCurrentUsesFromEvents(codes, events)
+  const handovers = listSpecialCraftHandoverFacts(events)
+  const options = codes.filter(bagCode => {
+    const current = currents.get(bagCode)!
+    const external = current.flowStage === 'HANDED_OVER_WAITING_RETURN' && handovers.some(fact => fact.event.eventId === current.latestHandoverEventId && fact.usageCycleId === current.usageCycleId)
+    return (current.tickets.length && ['INBOUND_STORED', 'READY_HANDOVER'].includes(current.flowStage || '')) || external
+  }).map(bagCode => `<option value="${escapeHtml(bagCode)}">${escapeHtml(bagCode)}</option>`).join('')
+  const host = document.getElementById('app') || document.body
+  host.insertAdjacentHTML('beforeend', `<div id="cutting-wait-handover-web-action-modal" class="fixed inset-0 z-[130]" data-skip-page-rerender="true" data-wait-handover-modal="special-craft-handover"><button class="absolute inset-0 bg-black/45" data-wait-handover-action="close-dialog" aria-label="关闭"></button><section class="absolute left-1/2 top-1/2 flex max-h-[calc(100vh-24px)] w-[min(680px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-5 py-4"><div><h2 class="font-semibold">特殊工艺交出</h2><p class="mt-1 text-xs text-muted-foreground">按当前袋内菲票核对工艺、承接厂与实交数量。</p></div><button class="rounded border px-3 py-2" data-wait-handover-action="close-dialog">关闭</button></header><div class="min-h-0 space-y-4 overflow-y-auto p-5"><label class="block space-y-2"><span>中转袋</span><select class="h-10 w-full rounded border px-3" data-wait-handover-field="bagCode"><option value="">请选择中转袋</option>${options}</select></label><label class="block space-y-2"><span>加工任务</span><select class="h-10 w-full rounded border px-3" data-wait-handover-field="specialCraftTaskSelection"><option value="">请先选择中转袋</option></select></label><div class="rounded-lg border bg-violet-50 p-3" data-special-craft-handover-summary>选择中转袋后核对当前工艺。</div><label class="block space-y-2"><span>实际交出人</span><input class="h-10 w-full rounded border px-3" data-wait-handover-field="operatorName" placeholder="填写姓名" /></label><label class="flex items-start gap-2 text-sm"><input type="checkbox" class="mt-1" data-wait-handover-field="secondConfirm" /><span>已核对该袋菲票、加工工艺、接收工厂和实交数量</span></label><div role="status" data-wait-handover-feedback></div></div><footer class="flex justify-end gap-2 border-t p-4"><button class="h-10 rounded border px-4" data-wait-handover-action="close-dialog">取消</button><button class="h-10 rounded bg-violet-600 px-4 text-white disabled:bg-slate-300" disabled data-wait-handover-action="submit-special-craft-handover">确认特殊工艺交出</button></footer></section></div>`)
+  const modal = modalRoot()
+  if (modal) modal.dataset.operationKey = `special-craft-handover:${cuttingRecordUuid()}`
+}
+
+function submitSpecialCraftHandover(dialog: HTMLElement): string {
+  const bagCode = readField(dialog, 'bagCode')
+  const selectedTaskId = readField(dialog, 'specialCraftTaskSelection')
+  if (!selectedTaskId) throw new Error('请选择加工任务。')
+  const events = listManagedCuttingRuntimeEvents()
+  const rawCurrent = resolveTransferBagCurrentUsesFromEvents([bagCode], events).get(bagCode)!
+  const directSource = rawCurrent.flowStage === 'HANDED_OVER_WAITING_RETURN'
+    ? listSpecialCraftHandoverFacts(events).find(fact => fact.event.eventId === rawCurrent.latestHandoverEventId && fact.usageCycleId === rawCurrent.usageCycleId)
+    : undefined
+  const current = directSource ? { ...rawCurrent, tickets: directSource.payload.ticketSnapshot } : rawCurrent
+  const receipts = listSpecialCraftTicketReturnFacts(events)
+  const candidate = resolveSpecialCraftBagHandoverCandidate({ current, directTransferFrom: directSource, sources: [...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources()], bindings: listCuttingSpecialCraftFeiTicketBindingsForProjection(receipts), receipts, selectedTaskId })
+  const completedTicketItems = directSource ? Array.from(dialog.querySelectorAll<HTMLElement>('[data-direct-transfer-ticket]')).map(row => {
+    const raw = row.querySelector<HTMLInputElement>('[data-direct-qty]')?.value.trim() || ''
+    if (!/^\d+$/.test(raw)) throw new Error('请逐票填写实交数量。')
+    return { feiTicketId: row.dataset.directTransferTicket || '', specialCraftId: directSource.payload.feiTicketItems.find(item => item.feiTicketId === row.dataset.directTransferTicket)?.specialCraftId || '', completedQty: Number(raw), differenceReason: row.querySelector<HTMLInputElement>('[data-direct-reason]')?.value.trim() || '', processingCompleted: Boolean(row.querySelector<HTMLInputElement>('[data-direct-completed]')?.checked) }
+  }) : undefined
+  if (completedTicketItems) current.tickets = current.tickets.map(ticket => ({ ...ticket, pieceQty: completedTicketItems.find(item => item.feiTicketId === ticket.feiTicketId)?.completedQty ?? 0 }))
+  if (!current.usageCycleId) throw new Error('当前袋使用记录已变化，请重新读取。')
+  if (!readChecked(dialog, 'secondConfirm')) throw new Error('请核对菲票、工艺、工厂和实交数量，并勾选确认。')
+  const actualOperator = operator(dialog, '特殊工艺交出员')
+  const operationKey = dialog.dataset.operationKey!
+  const handoverRecordId = `SPECIAL-HR-${operationKey}`
+  const handedOverAt = dialog.dataset.handedOverAt || new Date().toISOString()
+  dialog.dataset.handedOverAt = handedOverAt
+  const location = directSource ? { warehouseArea: directSource.payload.sourceWarehouseArea, locationRef: directSource.payload.locationRef } : resolveTransferBagAuthoritativeCurrentLocation({ bagCode, usageCycleId: current.usageCycleId, events })
+  if (!location?.locationRef) throw new Error('当前袋的来源库位待核对，请重新读取后交出。')
+  const event = appendWaitHandoverSpecialCraftHandoverEvent({
+    source: 'WEB', operator: actualOperator, transferBagCode: bagCode, usageCycleId: current.usageCycleId,
+    handoverOrderId: candidate.taskOrderId, handoverRecordId, specialCraftId: candidate.specialCraftId,
+    fromWarehouseArea: location.warehouseArea, locationRef: location.locationRef,
+    occurredAt: handedOverAt, idempotencyKey: operationKey,
+    payload: { handoverOrderId: candidate.taskOrderId, handoverRecordId, craftCategory: candidate.craftCategory, craftType: candidate.craftType,
+      receiverFactoryId: candidate.factoryId, receiverFactoryName: candidate.factoryName,
+      handedOverAt, handedOverBy: actualOperator.operatorName,
+      ...(directSource && completedTicketItems ? { directTransfer: { sourceHandoverEventId: directSource.event.eventId, sourceHandoverRecordId: directSource.handoverRecordId, sourceFactoryId: directSource.payload.receiverFactoryId, sourceFactoryName: directSource.payload.receiverFactoryName, completedTicketItems } } : {}),
+      feiTicketItems: current.tickets.map(ticket => ({ feiTicketId: ticket.feiTicketId, feiTicketNo: ticket.feiTicketNo, specialCraftId: candidate.ticketStageIds[ticket.feiTicketId], partName: ticket.partName, size: ticket.size, pieceQty: ticket.pieceQty })) },
+  })
+  return `特殊工艺交出成功：${current.tickets.length} 张菲票已交给 ${candidate.factoryName}，实交 ${current.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片。`
+}
 
 export interface WaitHandoverHandoverCandidate {
   value: string
@@ -76,6 +235,10 @@ export interface WaitHandoverSpecialCraftReturnCandidate {
   sourceHandoverRecordId: string
   bagCode: string
   returnedTicketIds: string[]
+}
+
+function specialCraftReturnCandidates(): Array<SpecialCraftReturnSourceCandidate & { value: string }> {
+  return listSpecialCraftReturnSourceCandidates().map(candidate => ({ ...candidate, value: `${candidate.sourceHandoverRecordId}:${candidate.correctionOfEventId || 'RECEIVE'}` }))
 }
 
 export interface WaitHandoverActionAdapter {
@@ -134,9 +297,9 @@ function statusLabel(current: TransferBagCurrentUse): { main: string; stage: str
 function latestHandoverSummary(current: TransferBagCurrentUse): string {
   if (!current.latestHandoverEventId) return ''
   const event = listCuttingRuntimeEvents().find((item) => item.eventId === current.latestHandoverEventId)
-  if (!event) return current.latestHandoverEventId
+  if (!event) return '交出记录待核对'
   const payload = event.payload as unknown as Record<string, unknown>
-  return `${String(payload.handoverRecordNo || event.eventId)} / ${String(payload.receiverName || '接收方待核对')} / ${event.occurredAt}`
+  return `${String(payload.receiverFactoryName || payload.receiverName || '接收方待核对')} / ${String(payload.craftType || '裁片交出')} / ${event.occurredAt}`
 }
 
 function dialogCurrent(current: TransferBagCurrentUse | null): WaitHandoverDialogCurrent | null {
@@ -214,8 +377,9 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
   const current = bagCode ? resolveActionBagCurrent(bagCode) : null
   const currentUses = buildRepackSourceCurrents(bagCode)
   const activeTicketIds = new Set(currentUses.flatMap((item) => item.tickets.map((ticket) => ticket.feiTicketId)))
-  const ticketOptions = action === 'bagging' ? [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
+  const ticketOptions = action === 'bagging' ? [...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
     .filter((ticket) => ticket.printStatus !== 'VOIDED')
+    .filter((ticket) => isCutPieceTicketUsable(ticket.feiTicketId))
     .filter((ticket) => !activeTicketIds.has(ticket.feiTicketId))
     .filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' || validateFeiTicketNumberingBeforeBagging(ticket).ok)
     .map((ticket) => ({ value: ticket.feiTicketId, label: generatedTicketLabel(ticket) })) : []
@@ -227,7 +391,7 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
       label: `${item.bagCode} / ${item.productionOrderNo} / ${item.tickets.length} 张 / ${item.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片${item.compatibilityBlockedReason ? ' / 待主管核查' : ''}`,
       disabled: Boolean(item.compatibilityBlockedReason),
     }))
-  const specialReturns = action === 'special-craft-return' ? actionAdapter?.getSpecialCraftReturnCandidates() || [] : []
+  const specialReturns = action === 'special-craft-return' ? specialCraftReturnCandidates() : []
   const taskFacts = new Map<string, { taskId: string; taskNo: string; productionOrderNo: string; factoryId: string; factoryName: string }>()
   currentUses.flatMap((item) => item.tickets).forEach((ticket) => {
     if (!ticket.sewingTaskId || !ticket.sewingTaskNo || !ticket.receiverFactoryId || !ticket.receiverFactoryName) return
@@ -249,7 +413,7 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
     })),
     // 选择任务后由 refreshHandoverTaskContext 读取该任务的当前 PPIC。
     handoverPpicOptions: [],
-    specialCraftReturnOptions: specialReturns.map((item) => ({ value: item.value, label: `${item.bagCode} / ${item.sourceHandoverRecordId} / ${item.returnedTicketIds.length} 张菲票` })),
+    specialCraftReturnOptions: specialReturns.map((item) => ({ value: item.value, label: `${item.correctionOfEventId ? '更正实收 / ' : ''}${item.bagCode} / ${item.receiverFactoryName} / ${item.craftType} / ${item.ticketSnapshot.length} 张菲票` })),
     recoveryNodeOptions: ['裁床待交出仓', '后道工厂空袋回收区'],
     locationOptions: [],
     feedback: '',
@@ -312,6 +476,7 @@ export function openWaitHandoverAction(action: WaitHandoverWebAction, bagCode = 
   const modal = modalRoot()
   if (modal) {
     modal.dataset.operationKey = `${action}:${Date.now()}`
+    if (action === 'special-craft-return') refreshSpecialCraftReceiptEditor(modal)
     if (action === 'repack' || action === 'handover') {
       if (bagCode) {
         const firstTask = resolveActionBagCurrent(bagCode).tickets.find((ticket) => ticket.sewingTaskId && ticket.sewingTaskNo)
@@ -345,7 +510,7 @@ function readMulti(dialog: ParentNode, name: string): string[] {
 
 function operator(dialog: ParentNode, role: string) {
   const enteredName = readField(dialog, 'operatorName').trim()
-  if (!enteredName && ['handover', 'repack'].includes((dialog as HTMLElement).dataset?.waitHandoverModal || '')) {
+  if (!enteredName && ['handover', 'repack', 'special-craft-handover'].includes((dialog as HTMLElement).dataset?.waitHandoverModal || '')) {
     throw new Error('请填写实际交出人姓名，再确认本次交出。')
   }
   return { operatorName: enteredName || '裁片仓操作员', operatorRole: role }
@@ -377,13 +542,18 @@ function refreshWorkbenchData(): void {
 function findGeneratedTickets(dialog: ParentNode): WaitHandoverRuntimeTicketInput[] {
   const selected = readField(dialog, 'feiTicketId')
   const codes = readField(dialog, 'ticketScanInput').split(/[\s,，、;；\n\r]+/).map(item => item.trim()).filter(Boolean)
-  const all = [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter(ticket => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
+  const all = [...listSpreadingResultGeneratedFeiTickets(), ...listManualFeiTicketSources()]
+  let wool: GeneratedFeiTicketSourceRecord[] | undefined
   const fabric = listMixedFabricBagCandidates()
   const requested = codes.length ? codes : [selected].filter(Boolean)
   const seen = new Set<string>()
   return requested.map(code => {
     const material = fabric.find(ticket => [ticket.feiTicketId, ticket.ticketNo, ticket.scanValue].includes(code))
-    const generated = all.find(ticket => [ticket.feiTicketId, ticket.feiTicketNo].includes(code))
+    let generated = all.find(ticket => [ticket.feiTicketId, ticket.feiTicketNo].includes(code))
+    if (!material && !generated) {
+      wool ||= listAvailableFeiTicketsForSewingDispatch().filter(ticket => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')
+      generated = wool.find(ticket => [ticket.feiTicketId, ticket.feiTicketNo].includes(code))
+    }
     if (!material && !generated) throw new Error(`菲票 ${code} 未匹配或尚未打印，请核对原票。`)
     if (generated && generated.sourceBasisType !== 'WOOL_PANEL_RECEIPT') {
       const numbered = validateFeiTicketNumberingBeforeBagging(generated)
@@ -411,7 +581,7 @@ function submitBagging(dialog: HTMLElement): string {
     operator: operator(dialog, '裁片仓装袋员'),
     source: 'WEB' as const,
   } : undefined
-  const occurredAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const occurredAt = new Date().toISOString()
   const baggingInput = {
     source: 'WEB' as const,
     operator: operator(dialog, '裁片仓装袋员'),
@@ -458,22 +628,54 @@ function submitInbound(dialog: HTMLElement): string {
 
 function submitSpecialCraftReturn(dialog: HTMLElement): string {
   const specialValue = readField(dialog, 'specialCraftSource')
-  const candidate = actionAdapter?.getSpecialCraftReturnCandidates().find((item) => item.value === specialValue)
+  const candidate = specialCraftReturnCandidates().find((item) => item.value === specialValue)
   if (!candidate) throw new Error('请选择可回仓的特殊工艺交出记录。')
   const bagCode = readField(dialog, 'bagCode')
   if (!bagCode || candidate.bagCode !== bagCode) throw new Error('特殊工艺来源记录与中转袋不一致，请重新确认。')
+  const ticketReceipts = Array.from(dialog.querySelectorAll<HTMLElement>('[data-wait-handover-return-ticket]')).map(row => {
+    const feiTicketId = row.dataset.waitHandoverReturnTicket || ''
+    if (!row.querySelector<HTMLInputElement>('[data-return-confirmed]')?.checked) throw new Error(`请逐票确认 ${row.dataset.ticketNo || feiTicketId} 的实收数量。`)
+    return { feiTicketId, returnedQty: row.querySelector<HTMLInputElement>('[data-return-qty]')?.value.trim() || '', differenceReason: row.querySelector<HTMLInputElement>('[data-return-reason]')?.value.trim() || '', processingCompleted: Boolean(row.querySelector<HTMLInputElement>('[data-return-processing-completed]')?.checked) }
+  })
+  if (candidate.correctionOfEventId) {
+    if (!readChecked(dialog, 'receiptCorrectionConfirmed')) throw new Error('请再次确认本次逐票实收更正及对库存的影响。')
+    correctSpecialCraftTicketReturn({ sourceReturnEventId: candidate.correctionOfEventId, ticketReceipts,
+      reason: readField(dialog, 'receiptCorrectionReason'), operator: operator(dialog, '特殊工艺回仓员'), source: 'WEB' })
+    return '实收更正已保存。'
+  }
   const locationRef = actionAdapter?.resolveLocation(readField(dialog, 'warehouseArea'), readField(dialog, 'locationCode'))
   if (!locationRef) throw new Error('请确认有效的回仓库区和库位。')
-  const returnedTicketIds = splitCodes(readField(dialog, 'returnedTicketIds'))
   submitSpecialCraftBagReturn({
     sourceHandoverRecordId: candidate.sourceHandoverRecordId,
     bagCode,
-    returnedTicketIds: returnedTicketIds.length ? returnedTicketIds : candidate.returnedTicketIds,
+    returnedTicketIds: candidate.ticketSnapshot.map(ticket => ticket.feiTicketId),
+    ticketReceipts,
     locationRef,
     operator: operator(dialog, '特殊工艺回仓员'),
     source: 'WEB',
   })
-  return '特殊工艺回仓成功，已恢复袋票关系并完成入仓。'
+  return '回仓已保存。'
+}
+
+function refreshSpecialCraftReceiptEditor(dialog: HTMLElement): void {
+  const select = dialog.querySelector<HTMLSelectElement>('[data-wait-handover-field="specialCraftSource"]')
+  if (!select) return
+  let region = dialog.querySelector<HTMLElement>('[data-special-craft-receipt-editor]')
+  if (!region) {
+    region = document.createElement('section')
+    region.dataset.specialCraftReceiptEditor = ''
+    select.closest('label')?.insertAdjacentElement('afterend', region)
+    const oldTicketField = dialog.querySelector<HTMLElement>('[data-wait-handover-field="returnedTicketIds"]')
+    oldTicketField?.closest('label')?.remove()
+  }
+  const candidate = specialCraftReturnCandidates().find(item => item.value === select.value)
+  if (!candidate) { region.innerHTML = '<p class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">请选择交出记录，再逐票点收。</p>'; return }
+  const bagInput = dialog.querySelector<HTMLInputElement>('[data-wait-handover-field="bagCode"]')
+  if (bagInput) bagInput.value = candidate.bagCode
+  region.innerHTML = `<div class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">${escapeHtml(candidate.receiverFactoryName)} · ${escapeHtml(candidate.craftType)}<br />每票填写实收，并核对加工完成。</div><div class="mt-3 overflow-x-auto rounded-lg border"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="p-2 text-left">菲票 / 色码 / 部位</th><th class="p-2">应回</th><th class="p-2">实收（片）</th><th class="p-2">差异说明</th><th class="p-2">已点收</th><th class="p-2">加工完成</th></tr></thead><tbody>${candidate.ticketSnapshot.map(ticket => {
+    const prior = candidate.priorReceipts?.find(item => item.feiTicketId === ticket.feiTicketId)
+    return `<tr class="border-t" data-wait-handover-return-ticket="${escapeHtml(ticket.feiTicketId)}" data-ticket-no="${escapeHtml(ticket.feiTicketNo)}"><td class="p-2">${escapeHtml(ticket.feiTicketNo)}<div class="text-xs text-muted-foreground">${escapeHtml(ticket.color)} / ${escapeHtml(ticket.size)} · ${escapeHtml(ticket.partName)}</div></td><td class="p-2 text-center">${ticket.pieceQty} 片</td><td class="p-2"><input class="h-10 w-24 rounded border px-2" type="number" min="0" max="${ticket.pieceQty}" step="1" data-return-qty data-wait-handover-field="receiptQty-${escapeHtml(ticket.feiTicketId)}" value="${prior ? prior.returnedQty : ''}" placeholder="点收后填写" aria-label="${escapeHtml(ticket.feiTicketNo)} 实收片数" /></td><td class="p-2"><input class="h-10 min-w-36 rounded border px-2" data-return-reason data-wait-handover-field="receiptReason-${escapeHtml(ticket.feiTicketId)}" value="${escapeHtml(prior?.differenceReason || '')}" placeholder="少回或零量须说明" /></td><td class="p-2 text-center"><input type="checkbox" data-return-confirmed data-wait-handover-field="receiptConfirmed-${escapeHtml(ticket.feiTicketId)}" aria-label="已确认 ${escapeHtml(ticket.feiTicketNo)} 实收" /></td><td class="p-2 text-center">${prior ? `<span class="text-xs">${prior.processingCompleted===true?'原已核对':'旧记录待核对'}</span>` : `<label class="flex items-center gap-1 text-xs"><input type="checkbox" data-return-processing-completed data-wait-handover-field="receiptCompleted-${escapeHtml(ticket.feiTicketId)}" />已核对本阶段加工完成</label>`}</td></tr>`
+  }).join('')}</tbody></table></div>${candidate.correctionOfEventId ? '<label class="mt-3 block text-sm">更正原因<input class="mt-1 h-10 w-full rounded border px-3" data-wait-handover-field="receiptCorrectionReason" placeholder="说明此次更正原因" /></label><label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" data-wait-handover-field="receiptCorrectionConfirmed" />已核对原实收与本次数量，确认保存更正及库存差额</label>' : ''}`
 }
 
 function resolveHandoverTaskContext(dialog: HTMLElement): TransferBagHandoverTaskContext {
@@ -730,8 +932,9 @@ function submitScrap(dialog: HTMLElement): string {
   return `报废成功：${event.eventId}，中转袋已停用。`
 }
 
-function submitAction(action: WaitHandoverWebAction, dialog: HTMLElement): string {
-  return action === 'bagging' ? submitBagging(dialog)
+function submitAction(action: WaitHandoverOperationAction, dialog: HTMLElement): string {
+  return action === 'special-craft-handover' ? submitSpecialCraftHandover(dialog)
+    : action === 'bagging' ? submitBagging(dialog)
     : action === 'inbound' ? submitInbound(dialog)
       : action === 'repack' ? submitRepack(dialog)
         : action === 'handover' ? submitHandover(dialog)
@@ -1159,6 +1362,8 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   if (handleSimpleCutPieceUiEvent(target)) return true
   const fieldNode = target.closest<HTMLElement>('[data-wait-handover-field]')
   const bagDialog = fieldNode?.closest<HTMLElement>('[data-wait-handover-modal]')
+  if (bagDialog?.dataset.waitHandoverModal === 'special-craft-handover' && ['bagCode', 'specialCraftTaskSelection'].includes(fieldNode?.dataset.waitHandoverField || '')) { refreshSpecialCraftHandoverEditor(bagDialog); return true }
+  if (bagDialog?.dataset.waitHandoverModal === 'special-craft-return' && fieldNode?.dataset.waitHandoverField === 'specialCraftSource') { refreshSpecialCraftReceiptEditor(bagDialog); return true }
   const localEligibilityFields = [
     'bagCode', 'recoveryMode', 'physicalBagReceived', 'physicalBagEmpty', 'reason',
     'recoveryNode', 'recoveryLocation', 'secondConfirm', 'recoverFirst', 'authorizedBy', 'operatorName',
@@ -1256,6 +1461,7 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
     return true
   }
   if (actionName.startsWith('open-')) {
+    if (actionName === 'open-special-craft-handover') { openSpecialCraftHandoverAction(); return true }
     const action = actionName.slice(5) as WaitHandoverWebAction
     if (!['bagging', 'inbound', 'repack', 'handover', 'special-craft-return', 'recovery', 'scrap'].includes(action)) return false
     openWaitHandoverAction(action === 'repack' ? 'handover' : action, actionNode?.dataset.waitHandoverSelection || '')
@@ -1267,7 +1473,7 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   if (submitLocks.has(dialog) || dialog.dataset?.submitLock === 'true') return true
   submitLocks.add(dialog)
   if (dialog.dataset) dialog.dataset.submitLock = 'true'
-  const action = actionName.slice(7) as WaitHandoverWebAction
+  const action = actionName.slice(7) as WaitHandoverOperationAction
   const operationId = modalRoot()?.dataset?.operationKey || cuttingRecordUuid()
   if (modalRoot()?.dataset) modalRoot()!.dataset.operationKey = operationId
   const controls = Array.from(dialog.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('input,button,select,textarea'))
@@ -1281,8 +1487,9 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
     refreshWorkbenchData()
     // 成功后锁定本次对象，避免修改成下一袋却被防重复锁静默吞掉。
     dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((field) => { field.disabled = true })
+    dialog.querySelectorAll<HTMLButtonElement>('[data-wait-handover-action="close-dialog"]').forEach((button) => { button.disabled = false })
     if (actionNode instanceof HTMLButtonElement) { actionNode.disabled = true; actionNode.textContent = '已保存' }
-    showFeedback(dialog, `${feedback} 如需处理下一笔，请关闭后重新打开。`)
+    showFeedback(dialog, feedback)
   }).catch(error => {
     if (dialog.dataset) delete dialog.dataset.submitLock
     submitLocks.delete(dialog)
