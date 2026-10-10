@@ -22,15 +22,15 @@ export function addMaterialR1Demonstration(source: MaterialArchiveStoreSnapshot)
       specSummary:'原型演示规格', composition:kind === 'yarn' ? '100% 棉' : kind === 'fabric' ? '65% 涤纶 / 35% 棉' : '',
       compositionItems:kind === 'fabric' ? [{component:'涤纶',percentage:65},{component:'棉',percentage:35}] : kind === 'yarn' ? [{component:'棉',percentage:100}] : [],
       processTags:[], widthText:kind==='fabric'?'150cm':'', gramWeightText:kind==='fabric'?'180g/m²':'', widthValueCm:kind==='fabric'?150:null, gramWeightGsm:kind==='fabric'?180:null,
-      categoryAttributes:kind==='fabric'?{construction:'平纹',width:150,gramWeight:180}:kind==='yarn'?{countSystem:'Ne',countValue:40,plies:2}:kind==='parts'?{partType:'裁剪刀片',material:'钢',equipment:['裁床']}: {material:'按演示实物'},
+      categoryAttributes:kind==='fabric'?{construction:'平纹',width:150,gramWeight:180}:kind==='yarn'?{countSystem:'Ne',countValue:40,plies:2}:kind==='parts'||kind==='consumable'?{}:{material:'按演示实物'},
       pricingUnit:unit, mainUnit:unit, auxiliaryUnits:[], mainImageUrl:image,galleryImageUrls:[image], status:'ACTIVE',approvalStatus:'APPROVED',skuCount:kind==='fabric'?1:2,usedStyleCount:0,usedTechPackCount:0,
       barcodeTemplateCode:'material-label-r1',remark:'R1 静态演示；图片用于识别示例，不代表采购或加工已经发生。',createdAt:time,updatedAt:time,createdBy:'原型演示',updatedBy:'原型演示' }
     snapshot.records.push(root)
     for (let index=1;index<=(kind==='fabric'?1:2);index++) {
       const skuId=`${id}-B0${index}`
-      const identity: MaterialSpecValues = kind==='fabric'?{}:kind==='yarn'?{}:kind==='parts'?{model:`标准-${index}`,dimensions:index===1?'10 英寸':'12 英寸',interface:'对应设备规格'}:category==='包装袋'?{length:index===1?30:40,width:25,thickness:0.06}:{width:index===1?20:25,length:50}
+      const identity: MaterialSpecValues = kind==='fabric'?{}:kind==='yarn'?{}:kind==='parts'||kind==='consumable'?{}:{}
       const sku: MaterialSkuRecord = { materialSkuId:skuId,materialId:id,materialCode:code,materialSkuCode:`${code}-B0${index}`, materialName:name,
-        colorName:kind==='yarn'?(index===1?'白色':'黑色'):kind==='fabric'?'本白':'', colorCode:kind==='yarn'?(index===1?'white':'black'):kind==='fabric'?'greige':'', specName:kind==='yarn'?'40Ne/2':`规格 ${index}`,sizeName:'', skuImageUrl:kind==='yarn'&&index===2?'/materials/pcs-reviewed/thread-black.png':image,
+        colorName:kind==='yarn'?(index===1?'白色':'黑色'):kind==='fabric'?'本白':'', colorCode:kind==='yarn'?(index===1?'white':'black'):kind==='fabric'?'greige':'', specName:kind==='yarn'?'40Ne/2':kind==='parts'?(index===1?'10英寸':'12英寸'):kind==='consumable'?(category==='包装袋'?(index===1?'30×25cm':'40×25cm'):(index===1?'20mm×50m':'25mm×50m')):`规格 ${index}`,sizeName:'', skuImageUrl:kind==='yarn'&&index===2?'/materials/pcs-reviewed/thread-black.png':image,
         costPrice:5,freightCost:1,pricingUnit:unit,mainUnit:unit,weightKg:0,lengthCm:0,widthCm:0,heightCm:0,barcode:`${code}-B0${index}`,stage:'BASE',approvalStatus:'APPROVED',status:'ACTIVE',
         identityValues:identity,effectiveSpecValues:{...root.categoryAttributes,...identity},baseSpecSegment:`B0${index}`,barcodeAliases:[],mainUnitUsed:false,codeRuleVersionId:MATERIAL_CODE_RULE_VERSION,
         createdAt:time,updatedAt:time,createdBy:'原型演示',updatedBy:'原型演示' }

@@ -1,0 +1,4961 @@
+{
+  "base": "http://127.0.0.1:43220",
+  "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "browser": "149.0.7827.55",
+  "cache": "disabled",
+  "rounds": 5,
+  "samples": [
+    {
+      "name": "parts:cold",
+      "ms": 176.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:reload",
+      "ms": 130,
+      "round": 0
+    },
+    {
+      "name": "parts:search-input",
+      "ms": 37.70000000298023,
+      "round": 0
+    },
+    {
+      "name": "parts:query",
+      "ms": 50.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:reset",
+      "ms": 32.399999998509884,
+      "round": 0
+    },
+    {
+      "name": "parts:columns-open",
+      "ms": 88.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "parts:column-hide",
+      "ms": 32.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:column-show",
+      "ms": 32.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:column-freeze",
+      "ms": 65.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:column-unfreeze",
+      "ms": 32.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "parts:column-restore",
+      "ms": 47.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:columns-close",
+      "ms": 48.29999999701977,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-category",
+      "ms": 29.199999999254942,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-query-category",
+      "ms": 33.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-reset-category",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-approval",
+      "ms": 28.199999999254942,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-query-approval",
+      "ms": 32.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-reset-approval",
+      "ms": 34.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-status",
+      "ms": 27.799999997019768,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-query-status",
+      "ms": 32.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-reset-status",
+      "ms": 33.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-cost",
+      "ms": 29.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-query-cost",
+      "ms": 32.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:filter-reset-cost",
+      "ms": 33.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:page-size",
+      "ms": 62.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:empty-batch-block",
+      "ms": 81.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:sort",
+      "ms": 33.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "parts:new-SPA",
+      "ms": 64.59999999776483,
+      "round": 0
+    },
+    {
+      "name": "parts:name-input",
+      "ms": 30.5,
+      "round": 0
+    },
+    {
+      "name": "parts:field-remark",
+      "ms": 30.800000000745058,
+      "round": 0
+    },
+    {
+      "name": "parts:field-firstDescription",
+      "ms": 29.5,
+      "round": 0
+    },
+    {
+      "name": "parts:missing-spec-block",
+      "ms": 48.5,
+      "round": 0
+    },
+    {
+      "name": "parts:field-firstSpec",
+      "ms": 30.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:atomic-create-Blob",
+      "ms": 65.39999999850988,
+      "round": 0
+    },
+    {
+      "name": "parts:root-SKU-tab",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "parts:SKU-SPA",
+      "ms": 65.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:more",
+      "ms": 32.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:submit",
+      "ms": 82.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "parts:approve",
+      "ms": 32.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:enable-parent-and-SKU",
+      "ms": 81.5,
+      "round": 0
+    },
+    {
+      "name": "parts:units-tab",
+      "ms": 32.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:new-package",
+      "ms": 48.400000002235174,
+      "round": 0
+    },
+    {
+      "name": "parts:field-packageType",
+      "ms": 31.400000002235174,
+      "round": 0
+    },
+    {
+      "name": "parts:field-packageContent",
+      "ms": 31.299999997019768,
+      "round": 0
+    },
+    {
+      "name": "parts:field-packageContentUnit",
+      "ms": 31.699999999254942,
+      "round": 0
+    },
+    {
+      "name": "parts:field-packageBasis",
+      "ms": 31.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:package-save",
+      "ms": 65.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:edit-cost-tab",
+      "ms": 31.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "parts:field-purchaseStandardCny",
+      "ms": 29.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "parts:field-transportStandardCny",
+      "ms": 30.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "parts:field-pricingUnit",
+      "ms": 31.400000002235174,
+      "round": 0
+    },
+    {
+      "name": "parts:field-costReason",
+      "ms": 30.700000002980232,
+      "round": 0
+    },
+    {
+      "name": "parts:cost-preview",
+      "ms": 64.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:cost-save",
+      "ms": 65.39999999850988,
+      "round": 0
+    },
+    {
+      "name": "parts:persisted-SKU-reload",
+      "ms": 147.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:currency-IDR",
+      "ms": 32.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:currency-USD",
+      "ms": 32.79999999701977,
+      "round": 0
+    },
+    {
+      "name": "parts:currency-CNY",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "parts:cost-history",
+      "ms": 32.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:cost-history-close",
+      "ms": 31.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:package-revision-input",
+      "ms": 27.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "parts:package-revision-save",
+      "ms": 98.59999999776483,
+      "round": 0
+    },
+    {
+      "name": "parts:image-preview",
+      "ms": 32.70000000298023,
+      "round": 0
+    },
+    {
+      "name": "parts:image-close",
+      "ms": 33.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:field-assetName",
+      "ms": 28.800000000745058,
+      "round": 0
+    },
+    {
+      "name": "parts:field-assetRole",
+      "ms": 31.099999997764826,
+      "round": 0
+    },
+    {
+      "name": "parts:attachment-save",
+      "ms": 65.10000000149012,
+      "round": 0
+    },
+    {
+      "name": "parts:attachment-reload",
+      "ms": 149,
+      "round": 0
+    },
+    {
+      "name": "parts:usage-popup",
+      "ms": 60.5,
+      "round": 0
+    },
+    {
+      "name": "parts:usage-close",
+      "ms": 32.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:logs-popup",
+      "ms": 33.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "parts:logs-close",
+      "ms": 32.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "ms": 81.39999999850988,
+      "round": 0
+    },
+    {
+      "name": "parts:copy-missing-block",
+      "ms": 65.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "parts:field-specName",
+      "ms": 31.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "parts:copy-save",
+      "ms": 82.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:batch-selection",
+      "ms": 32.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:batch-submit",
+      "ms": 81.90000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:batch-close",
+      "ms": 33.5,
+      "round": 0
+    },
+    {
+      "name": "parts:batch-approve",
+      "ms": 82.5,
+      "round": 0
+    },
+    {
+      "name": "parts:batch-approve-close",
+      "ms": 33.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:print-preview",
+      "ms": 115.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "parts:print-complete",
+      "ms": 86,
+      "round": 0
+    },
+    {
+      "name": "parts:print-quantity-100",
+      "ms": 35.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:print-100-complete",
+      "ms": 66.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:root-basic-tab",
+      "ms": 32.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:copy-root-unsaved",
+      "ms": 48.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "parts:copy-root-explicit-cost-save",
+      "ms": 115.90000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:approved-wording-correction",
+      "ms": 115.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:direct-root-detail",
+      "ms": 146.79999999701977,
+      "round": 0
+    },
+    {
+      "name": "parts:reload-root-detail",
+      "ms": 150,
+      "round": 0
+    },
+    {
+      "name": "parts:direct-root-edit",
+      "ms": 148.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:reload-root-edit",
+      "ms": 149.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:direct-sku-detail",
+      "ms": 147.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "parts:reload-sku-detail",
+      "ms": 150.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:direct-sku-edit",
+      "ms": 149.39999999850988,
+      "round": 0
+    },
+    {
+      "name": "parts:reload-sku-edit",
+      "ms": 132.90000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:direct-new-sku",
+      "ms": 133.90000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:reload-new-sku",
+      "ms": 131.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:cold",
+      "ms": 127.70000000298023,
+      "round": 0
+    },
+    {
+      "name": "consumable:reload",
+      "ms": 133,
+      "round": 0
+    },
+    {
+      "name": "consumable:search-input",
+      "ms": 28.699999999254942,
+      "round": 0
+    },
+    {
+      "name": "consumable:query",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "consumable:reset",
+      "ms": 33.399999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:columns-open",
+      "ms": 33.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:column-hide",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:column-show",
+      "ms": 34.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:column-freeze",
+      "ms": 66.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:column-unfreeze",
+      "ms": 33.399999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:column-restore",
+      "ms": 49.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:columns-close",
+      "ms": 49.400000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-category",
+      "ms": 31.399999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-query-category",
+      "ms": 32.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-reset-category",
+      "ms": 33.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-approval",
+      "ms": 28.300000000745058,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-query-approval",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-reset-approval",
+      "ms": 33.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-status",
+      "ms": 27.699999999254942,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-query-status",
+      "ms": 32.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-reset-status",
+      "ms": 33.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-cost",
+      "ms": 27.800000000745058,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-query-cost",
+      "ms": 32.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:filter-reset-cost",
+      "ms": 33.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:page-size",
+      "ms": 58.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:empty-batch-block",
+      "ms": 81.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:sort",
+      "ms": 33.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:new-SPA",
+      "ms": 64.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:name-input",
+      "ms": 30.099999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-remark",
+      "ms": 31.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-firstDescription",
+      "ms": 29.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:missing-spec-block",
+      "ms": 98.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-firstSpec",
+      "ms": 30.699999999254942,
+      "round": 0
+    },
+    {
+      "name": "consumable:atomic-create-Blob",
+      "ms": 81.59999999776483,
+      "round": 0
+    },
+    {
+      "name": "consumable:root-SKU-tab",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "consumable:SKU-SPA",
+      "ms": 82.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:more",
+      "ms": 32.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:submit",
+      "ms": 82,
+      "round": 0
+    },
+    {
+      "name": "consumable:approve",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:enable-parent-and-SKU",
+      "ms": 65,
+      "round": 0
+    },
+    {
+      "name": "consumable:units-tab",
+      "ms": 32.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:new-package",
+      "ms": 48.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-packageType",
+      "ms": 30.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-packageContent",
+      "ms": 30.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-packageContentUnit",
+      "ms": 31,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-packageBasis",
+      "ms": 30.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:package-save",
+      "ms": 64.89999999850988,
+      "round": 0
+    },
+    {
+      "name": "consumable:edit-cost-tab",
+      "ms": 32.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-purchaseStandardCny",
+      "ms": 29.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-transportStandardCny",
+      "ms": 30.299999997019768,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-pricingUnit",
+      "ms": 31.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-costReason",
+      "ms": 30.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:cost-preview",
+      "ms": 63.400000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:cost-save",
+      "ms": 65.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:persisted-SKU-reload",
+      "ms": 164.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:currency-IDR",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:currency-USD",
+      "ms": 32.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:currency-CNY",
+      "ms": 32.899999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:cost-history",
+      "ms": 32.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:cost-history-close",
+      "ms": 33.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:package-revision-input",
+      "ms": 23.199999999254942,
+      "round": 0
+    },
+    {
+      "name": "consumable:package-revision-save",
+      "ms": 98.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:image-preview",
+      "ms": 32.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:image-close",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-assetName",
+      "ms": 27.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-assetRole",
+      "ms": 30.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:attachment-save",
+      "ms": 65.29999999701977,
+      "round": 0
+    },
+    {
+      "name": "consumable:attachment-reload",
+      "ms": 166.10000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:usage-popup",
+      "ms": 52.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:usage-close",
+      "ms": 32.399999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:logs-popup",
+      "ms": 33.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "consumable:logs-close",
+      "ms": 32.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "ms": 81.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:copy-missing-block",
+      "ms": 116.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:field-specName",
+      "ms": 31.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:copy-save",
+      "ms": 64.89999999850988,
+      "round": 0
+    },
+    {
+      "name": "consumable:batch-selection",
+      "ms": 32.399999998509884,
+      "round": 0
+    },
+    {
+      "name": "consumable:batch-submit",
+      "ms": 82.29999999701977,
+      "round": 0
+    },
+    {
+      "name": "consumable:batch-close",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "consumable:batch-approve",
+      "ms": 65.90000000223517,
+      "round": 0
+    },
+    {
+      "name": "consumable:batch-approve-close",
+      "ms": 33.100000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:print-preview",
+      "ms": 81.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:print-complete",
+      "ms": 34.099999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:print-quantity-100",
+      "ms": 36.600000001490116,
+      "round": 0
+    },
+    {
+      "name": "consumable:print-100-complete",
+      "ms": 49.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:root-basic-tab",
+      "ms": 32.900000002235174,
+      "round": 0
+    },
+    {
+      "name": "consumable:copy-root-unsaved",
+      "ms": 48.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:copy-root-explicit-cost-save",
+      "ms": 98.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "consumable:approved-wording-correction",
+      "ms": 115.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:direct-root-detail",
+      "ms": 147.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:reload-root-detail",
+      "ms": 149.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:direct-root-edit",
+      "ms": 132.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:reload-root-edit",
+      "ms": 133.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:direct-sku-detail",
+      "ms": 131.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:reload-sku-detail",
+      "ms": 149.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:direct-sku-edit",
+      "ms": 132.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:reload-sku-edit",
+      "ms": 133.10000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:direct-new-sku",
+      "ms": 183.10000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:reload-new-sku",
+      "ms": 133.70000000298023,
+      "round": 0
+    },
+    {
+      "name": "parts:cold",
+      "ms": 153,
+      "round": 1
+    },
+    {
+      "name": "parts:reload",
+      "ms": 132.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:search-input",
+      "ms": 28.199999999254942,
+      "round": 1
+    },
+    {
+      "name": "parts:query",
+      "ms": 54.599999997764826,
+      "round": 1
+    },
+    {
+      "name": "parts:reset",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "parts:columns-open",
+      "ms": 32.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:column-hide",
+      "ms": 33.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:column-show",
+      "ms": 32.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:column-freeze",
+      "ms": 65.40000000223517,
+      "round": 1
+    },
+    {
+      "name": "parts:column-unfreeze",
+      "ms": 33.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:column-restore",
+      "ms": 48.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:columns-close",
+      "ms": 50.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-category",
+      "ms": 29.199999999254942,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-query-category",
+      "ms": 33.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-reset-category",
+      "ms": 33.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-approval",
+      "ms": 28.700000002980232,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-query-approval",
+      "ms": 33.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-reset-approval",
+      "ms": 33.19999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-status",
+      "ms": 29.400000002235174,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-query-status",
+      "ms": 32.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-reset-status",
+      "ms": 33.70000000298023,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-cost",
+      "ms": 29.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-query-cost",
+      "ms": 32.100000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:filter-reset-cost",
+      "ms": 33.5,
+      "round": 1
+    },
+    {
+      "name": "parts:page-size",
+      "ms": 39.20000000298023,
+      "round": 1
+    },
+    {
+      "name": "parts:empty-batch-block",
+      "ms": 82.5,
+      "round": 1
+    },
+    {
+      "name": "parts:sort",
+      "ms": 33.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:new-SPA",
+      "ms": 49,
+      "round": 1
+    },
+    {
+      "name": "parts:name-input",
+      "ms": 30.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "parts:field-remark",
+      "ms": 31.200000002980232,
+      "round": 1
+    },
+    {
+      "name": "parts:field-firstDescription",
+      "ms": 30.900000002235174,
+      "round": 1
+    },
+    {
+      "name": "parts:missing-spec-block",
+      "ms": 49.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "parts:field-firstSpec",
+      "ms": 30.5,
+      "round": 1
+    },
+    {
+      "name": "parts:atomic-create-Blob",
+      "ms": 65.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "parts:root-SKU-tab",
+      "ms": 33.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "parts:SKU-SPA",
+      "ms": 82.29999999701977,
+      "round": 1
+    },
+    {
+      "name": "parts:more",
+      "ms": 32.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:submit",
+      "ms": 82.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:approve",
+      "ms": 32.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:enable-parent-and-SKU",
+      "ms": 82.5,
+      "round": 1
+    },
+    {
+      "name": "parts:units-tab",
+      "ms": 32.79999999701977,
+      "round": 1
+    },
+    {
+      "name": "parts:new-package",
+      "ms": 48.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:field-packageType",
+      "ms": 31.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:field-packageContent",
+      "ms": 29.100000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:field-packageContentUnit",
+      "ms": 30.5,
+      "round": 1
+    },
+    {
+      "name": "parts:field-packageBasis",
+      "ms": 29.900000002235174,
+      "round": 1
+    },
+    {
+      "name": "parts:package-save",
+      "ms": 65,
+      "round": 1
+    },
+    {
+      "name": "parts:edit-cost-tab",
+      "ms": 32.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:field-purchaseStandardCny",
+      "ms": 30,
+      "round": 1
+    },
+    {
+      "name": "parts:field-transportStandardCny",
+      "ms": 31.100000001490116,
+      "round": 1
+    },
+    {
+      "name": "parts:field-pricingUnit",
+      "ms": 31.799999997019768,
+      "round": 1
+    },
+    {
+      "name": "parts:field-costReason",
+      "ms": 30.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "parts:cost-preview",
+      "ms": 65.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:cost-save",
+      "ms": 65.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:persisted-SKU-reload",
+      "ms": 148.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "parts:currency-IDR",
+      "ms": 32,
+      "round": 1
+    },
+    {
+      "name": "parts:currency-USD",
+      "ms": 31.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:currency-CNY",
+      "ms": 32.5,
+      "round": 1
+    },
+    {
+      "name": "parts:cost-history",
+      "ms": 32.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:cost-history-close",
+      "ms": 32.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:package-revision-input",
+      "ms": 35.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:package-revision-save",
+      "ms": 98,
+      "round": 1
+    },
+    {
+      "name": "parts:image-preview",
+      "ms": 31.300000000745058,
+      "round": 1
+    },
+    {
+      "name": "parts:image-close",
+      "ms": 33.5,
+      "round": 1
+    },
+    {
+      "name": "parts:field-assetName",
+      "ms": 29.199999999254942,
+      "round": 1
+    },
+    {
+      "name": "parts:field-assetRole",
+      "ms": 31.199999999254942,
+      "round": 1
+    },
+    {
+      "name": "parts:attachment-save",
+      "ms": 65.5,
+      "round": 1
+    },
+    {
+      "name": "parts:attachment-reload",
+      "ms": 132.19999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:usage-popup",
+      "ms": 51.5,
+      "round": 1
+    },
+    {
+      "name": "parts:usage-close",
+      "ms": 32.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "parts:logs-popup",
+      "ms": 32.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "parts:logs-close",
+      "ms": 32.5,
+      "round": 1
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "ms": 65.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:copy-missing-block",
+      "ms": 66.19999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:field-specName",
+      "ms": 30.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "parts:copy-save",
+      "ms": 82.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:batch-selection",
+      "ms": 32.5,
+      "round": 1
+    },
+    {
+      "name": "parts:batch-submit",
+      "ms": 115.59999999776483,
+      "round": 1
+    },
+    {
+      "name": "parts:batch-close",
+      "ms": 33.29999999701977,
+      "round": 1
+    },
+    {
+      "name": "parts:batch-approve",
+      "ms": 82.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:batch-approve-close",
+      "ms": 33.400000002235174,
+      "round": 1
+    },
+    {
+      "name": "parts:print-preview",
+      "ms": 110.40000000223517,
+      "round": 1
+    },
+    {
+      "name": "parts:print-complete",
+      "ms": 68.90000000223517,
+      "round": 1
+    },
+    {
+      "name": "parts:print-quantity-100",
+      "ms": 36.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "parts:print-100-complete",
+      "ms": 68.09999999776483,
+      "round": 1
+    },
+    {
+      "name": "parts:root-basic-tab",
+      "ms": 31.599999997764826,
+      "round": 1
+    },
+    {
+      "name": "parts:copy-root-unsaved",
+      "ms": 49,
+      "round": 1
+    },
+    {
+      "name": "parts:copy-root-explicit-cost-save",
+      "ms": 98.40000000223517,
+      "round": 1
+    },
+    {
+      "name": "parts:approved-wording-correction",
+      "ms": 83.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "parts:direct-root-detail",
+      "ms": 148.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:reload-root-detail",
+      "ms": 133.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "parts:direct-root-edit",
+      "ms": 164.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "parts:reload-root-edit",
+      "ms": 150.5,
+      "round": 1
+    },
+    {
+      "name": "parts:direct-sku-detail",
+      "ms": 132.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "parts:reload-sku-detail",
+      "ms": 149.5,
+      "round": 1
+    },
+    {
+      "name": "parts:direct-sku-edit",
+      "ms": 149.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:reload-sku-edit",
+      "ms": 133.09999999776483,
+      "round": 1
+    },
+    {
+      "name": "parts:direct-new-sku",
+      "ms": 149.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:reload-new-sku",
+      "ms": 133,
+      "round": 1
+    },
+    {
+      "name": "consumable:cold",
+      "ms": 216.09999999776483,
+      "round": 1
+    },
+    {
+      "name": "consumable:reload",
+      "ms": 132.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:search-input",
+      "ms": 28.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:query",
+      "ms": 32.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "consumable:reset",
+      "ms": 33.29999999701977,
+      "round": 1
+    },
+    {
+      "name": "consumable:columns-open",
+      "ms": 32.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:column-hide",
+      "ms": 33.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "consumable:column-show",
+      "ms": 33.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:column-freeze",
+      "ms": 65.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "consumable:column-unfreeze",
+      "ms": 32.400000002235174,
+      "round": 1
+    },
+    {
+      "name": "consumable:column-restore",
+      "ms": 49.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:columns-close",
+      "ms": 49.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-category",
+      "ms": 29.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-query-category",
+      "ms": 33.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-reset-category",
+      "ms": 33.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-approval",
+      "ms": 27.300000000745058,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-query-approval",
+      "ms": 33.20000000298023,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-reset-approval",
+      "ms": 33.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-status",
+      "ms": 27.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-query-status",
+      "ms": 33.100000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-reset-status",
+      "ms": 33.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-cost",
+      "ms": 26.599999997764826,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-query-cost",
+      "ms": 32.79999999701977,
+      "round": 1
+    },
+    {
+      "name": "consumable:filter-reset-cost",
+      "ms": 33.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:page-size",
+      "ms": 60.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:empty-batch-block",
+      "ms": 82.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:sort",
+      "ms": 33.29999999701977,
+      "round": 1
+    },
+    {
+      "name": "consumable:new-SPA",
+      "ms": 48.70000000298023,
+      "round": 1
+    },
+    {
+      "name": "consumable:name-input",
+      "ms": 30.699999999254942,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-remark",
+      "ms": 30.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-firstDescription",
+      "ms": 30.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:missing-spec-block",
+      "ms": 98.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-firstSpec",
+      "ms": 30.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "consumable:atomic-create-Blob",
+      "ms": 81.09999999776483,
+      "round": 1
+    },
+    {
+      "name": "consumable:root-SKU-tab",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "consumable:SKU-SPA",
+      "ms": 82.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:more",
+      "ms": 32.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:submit",
+      "ms": 82.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:approve",
+      "ms": 33.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:enable-parent-and-SKU",
+      "ms": 65.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:units-tab",
+      "ms": 32.099999997764826,
+      "round": 1
+    },
+    {
+      "name": "consumable:new-package",
+      "ms": 49.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-packageType",
+      "ms": 30,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-packageContent",
+      "ms": 30.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-packageContentUnit",
+      "ms": 30.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-packageBasis",
+      "ms": 30.600000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:package-save",
+      "ms": 65.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:edit-cost-tab",
+      "ms": 32.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-purchaseStandardCny",
+      "ms": 28.300000000745058,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-transportStandardCny",
+      "ms": 29.800000000745058,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-pricingUnit",
+      "ms": 31.100000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-costReason",
+      "ms": 30.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:cost-preview",
+      "ms": 48.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:cost-save",
+      "ms": 65.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "consumable:persisted-SKU-reload",
+      "ms": 148.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:currency-IDR",
+      "ms": 32.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:currency-USD",
+      "ms": 33.100000001490116,
+      "round": 1
+    },
+    {
+      "name": "consumable:currency-CNY",
+      "ms": 32.19999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:cost-history",
+      "ms": 32.20000000298023,
+      "round": 1
+    },
+    {
+      "name": "consumable:cost-history-close",
+      "ms": 32.400000002235174,
+      "round": 1
+    },
+    {
+      "name": "consumable:package-revision-input",
+      "ms": 34.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:package-revision-save",
+      "ms": 99.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:image-preview",
+      "ms": 27.699999999254942,
+      "round": 1
+    },
+    {
+      "name": "consumable:image-close",
+      "ms": 33.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-assetName",
+      "ms": 28.199999999254942,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-assetRole",
+      "ms": 31.199999999254942,
+      "round": 1
+    },
+    {
+      "name": "consumable:attachment-save",
+      "ms": 65.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:attachment-reload",
+      "ms": 201.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:usage-popup",
+      "ms": 47.20000000298023,
+      "round": 1
+    },
+    {
+      "name": "consumable:usage-close",
+      "ms": 33.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:logs-popup",
+      "ms": 32.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:logs-close",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "ms": 81.79999999701977,
+      "round": 1
+    },
+    {
+      "name": "consumable:copy-missing-block",
+      "ms": 116.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:field-specName",
+      "ms": 29.399999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:copy-save",
+      "ms": 65.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:batch-selection",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "consumable:batch-submit",
+      "ms": 115.19999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:batch-close",
+      "ms": 32.19999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:batch-approve",
+      "ms": 65.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:batch-approve-close",
+      "ms": 32.900000002235174,
+      "round": 1
+    },
+    {
+      "name": "consumable:print-preview",
+      "ms": 81.39999999850988,
+      "round": 1
+    },
+    {
+      "name": "consumable:print-complete",
+      "ms": 32.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:print-quantity-100",
+      "ms": 65.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:print-100-complete",
+      "ms": 50.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:root-basic-tab",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "consumable:copy-root-unsaved",
+      "ms": 47.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "consumable:copy-root-explicit-cost-save",
+      "ms": 98.59999999776483,
+      "round": 1
+    },
+    {
+      "name": "consumable:approved-wording-correction",
+      "ms": 115.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:direct-root-detail",
+      "ms": 164.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:reload-root-detail",
+      "ms": 149.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:direct-root-edit",
+      "ms": 132.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "consumable:reload-root-edit",
+      "ms": 133,
+      "round": 1
+    },
+    {
+      "name": "consumable:direct-sku-detail",
+      "ms": 149.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:reload-sku-detail",
+      "ms": 149.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:direct-sku-edit",
+      "ms": 132.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "consumable:reload-sku-edit",
+      "ms": 132.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "consumable:direct-new-sku",
+      "ms": 184.09999999776483,
+      "round": 1
+    },
+    {
+      "name": "consumable:reload-new-sku",
+      "ms": 131.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:cold",
+      "ms": 159.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:reload",
+      "ms": 132.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:search-input",
+      "ms": 27.800000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:query",
+      "ms": 55.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:reset",
+      "ms": 32.900000002235174,
+      "round": 2
+    },
+    {
+      "name": "parts:columns-open",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:column-hide",
+      "ms": 32.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:column-show",
+      "ms": 32.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:column-freeze",
+      "ms": 65.40000000223517,
+      "round": 2
+    },
+    {
+      "name": "parts:column-unfreeze",
+      "ms": 33,
+      "round": 2
+    },
+    {
+      "name": "parts:column-restore",
+      "ms": 49.5,
+      "round": 2
+    },
+    {
+      "name": "parts:columns-close",
+      "ms": 49.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-category",
+      "ms": 29.599999997764826,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-query-category",
+      "ms": 33.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-reset-category",
+      "ms": 33.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-approval",
+      "ms": 28.900000002235174,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-query-approval",
+      "ms": 32.899999998509884,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-reset-approval",
+      "ms": 33,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-status",
+      "ms": 28.599999997764826,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-query-status",
+      "ms": 31.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-reset-status",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-cost",
+      "ms": 28.699999999254942,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-query-cost",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:filter-reset-cost",
+      "ms": 33.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:page-size",
+      "ms": 62,
+      "round": 2
+    },
+    {
+      "name": "parts:empty-batch-block",
+      "ms": 82.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:sort",
+      "ms": 34.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:new-SPA",
+      "ms": 48.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:name-input",
+      "ms": 30.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:field-remark",
+      "ms": 30.800000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:field-firstDescription",
+      "ms": 31.300000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:missing-spec-block",
+      "ms": 48.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:field-firstSpec",
+      "ms": 30.700000002980232,
+      "round": 2
+    },
+    {
+      "name": "parts:atomic-create-Blob",
+      "ms": 65.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "parts:root-SKU-tab",
+      "ms": 33,
+      "round": 2
+    },
+    {
+      "name": "parts:SKU-SPA",
+      "ms": 64.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:more",
+      "ms": 82.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:submit",
+      "ms": 83.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "parts:approve",
+      "ms": 32.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:enable-parent-and-SKU",
+      "ms": 82.40000000223517,
+      "round": 2
+    },
+    {
+      "name": "parts:units-tab",
+      "ms": 32.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:new-package",
+      "ms": 48.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:field-packageType",
+      "ms": 31.300000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:field-packageContent",
+      "ms": 30.099999997764826,
+      "round": 2
+    },
+    {
+      "name": "parts:field-packageContentUnit",
+      "ms": 31.300000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:field-packageBasis",
+      "ms": 30.800000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:package-save",
+      "ms": 64.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "parts:edit-cost-tab",
+      "ms": 31.699999999254942,
+      "round": 2
+    },
+    {
+      "name": "parts:field-purchaseStandardCny",
+      "ms": 29.299999997019768,
+      "round": 2
+    },
+    {
+      "name": "parts:field-transportStandardCny",
+      "ms": 30.400000002235174,
+      "round": 2
+    },
+    {
+      "name": "parts:field-pricingUnit",
+      "ms": 31.199999999254942,
+      "round": 2
+    },
+    {
+      "name": "parts:field-costReason",
+      "ms": 31.099999997764826,
+      "round": 2
+    },
+    {
+      "name": "parts:cost-preview",
+      "ms": 64.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "parts:cost-save",
+      "ms": 65.5,
+      "round": 2
+    },
+    {
+      "name": "parts:persisted-SKU-reload",
+      "ms": 164.10000000149012,
+      "round": 2
+    },
+    {
+      "name": "parts:currency-IDR",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "parts:currency-USD",
+      "ms": 32.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:currency-CNY",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "parts:cost-history",
+      "ms": 32.099999997764826,
+      "round": 2
+    },
+    {
+      "name": "parts:cost-history-close",
+      "ms": 32.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:package-revision-input",
+      "ms": 37.29999999701977,
+      "round": 2
+    },
+    {
+      "name": "parts:package-revision-save",
+      "ms": 98.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:image-preview",
+      "ms": 31.899999998509884,
+      "round": 2
+    },
+    {
+      "name": "parts:image-close",
+      "ms": 32.29999999701977,
+      "round": 2
+    },
+    {
+      "name": "parts:field-assetName",
+      "ms": 29.199999999254942,
+      "round": 2
+    },
+    {
+      "name": "parts:field-assetRole",
+      "ms": 31.300000000745058,
+      "round": 2
+    },
+    {
+      "name": "parts:attachment-save",
+      "ms": 64.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "parts:attachment-reload",
+      "ms": 133.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "parts:usage-popup",
+      "ms": 54,
+      "round": 2
+    },
+    {
+      "name": "parts:usage-close",
+      "ms": 32.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:logs-popup",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:logs-close",
+      "ms": 33.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "ms": 64.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:copy-missing-block",
+      "ms": 65.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "parts:field-specName",
+      "ms": 30.599999997764826,
+      "round": 2
+    },
+    {
+      "name": "parts:copy-save",
+      "ms": 64.5,
+      "round": 2
+    },
+    {
+      "name": "parts:batch-selection",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "parts:batch-submit",
+      "ms": 115.59999999776483,
+      "round": 2
+    },
+    {
+      "name": "parts:batch-close",
+      "ms": 33.20000000298023,
+      "round": 2
+    },
+    {
+      "name": "parts:batch-approve",
+      "ms": 82.10000000149012,
+      "round": 2
+    },
+    {
+      "name": "parts:batch-approve-close",
+      "ms": 34.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:print-preview",
+      "ms": 116.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "parts:print-complete",
+      "ms": 68.5,
+      "round": 2
+    },
+    {
+      "name": "parts:print-quantity-100",
+      "ms": 34.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:print-100-complete",
+      "ms": 68.89999999850988,
+      "round": 2
+    },
+    {
+      "name": "parts:root-basic-tab",
+      "ms": 33,
+      "round": 2
+    },
+    {
+      "name": "parts:copy-root-unsaved",
+      "ms": 65.5,
+      "round": 2
+    },
+    {
+      "name": "parts:copy-root-explicit-cost-save",
+      "ms": 82.5,
+      "round": 2
+    },
+    {
+      "name": "parts:approved-wording-correction",
+      "ms": 82.5,
+      "round": 2
+    },
+    {
+      "name": "parts:direct-root-detail",
+      "ms": 148.29999999701977,
+      "round": 2
+    },
+    {
+      "name": "parts:reload-root-detail",
+      "ms": 166.20000000298023,
+      "round": 2
+    },
+    {
+      "name": "parts:direct-root-edit",
+      "ms": 149.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "parts:reload-root-edit",
+      "ms": 133,
+      "round": 2
+    },
+    {
+      "name": "parts:direct-sku-detail",
+      "ms": 132.5,
+      "round": 2
+    },
+    {
+      "name": "parts:reload-sku-detail",
+      "ms": 149.5,
+      "round": 2
+    },
+    {
+      "name": "parts:direct-sku-edit",
+      "ms": 166.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:reload-sku-edit",
+      "ms": 149.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "parts:direct-new-sku",
+      "ms": 166.20000000298023,
+      "round": 2
+    },
+    {
+      "name": "parts:reload-new-sku",
+      "ms": 149.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:cold",
+      "ms": 195.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:reload",
+      "ms": 132.40000000223517,
+      "round": 2
+    },
+    {
+      "name": "consumable:search-input",
+      "ms": 28,
+      "round": 2
+    },
+    {
+      "name": "consumable:query",
+      "ms": 32.70000000298023,
+      "round": 2
+    },
+    {
+      "name": "consumable:reset",
+      "ms": 33.900000002235174,
+      "round": 2
+    },
+    {
+      "name": "consumable:columns-open",
+      "ms": 33.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:column-hide",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:column-show",
+      "ms": 33.20000000298023,
+      "round": 2
+    },
+    {
+      "name": "consumable:column-freeze",
+      "ms": 65.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "consumable:column-unfreeze",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:column-restore",
+      "ms": 49.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:columns-close",
+      "ms": 50.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-category",
+      "ms": 30.300000000745058,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-query-category",
+      "ms": 33.400000002235174,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-reset-category",
+      "ms": 33.400000002235174,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-approval",
+      "ms": 29.199999999254942,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-query-approval",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-reset-approval",
+      "ms": 33.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-status",
+      "ms": 29.400000002235174,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-query-status",
+      "ms": 32.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-reset-status",
+      "ms": 33.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-cost",
+      "ms": 28.800000000745058,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-query-cost",
+      "ms": 33.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:filter-reset-cost",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:page-size",
+      "ms": 62.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:empty-batch-block",
+      "ms": 82.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:sort",
+      "ms": 33.29999999701977,
+      "round": 2
+    },
+    {
+      "name": "consumable:new-SPA",
+      "ms": 49.899999998509884,
+      "round": 2
+    },
+    {
+      "name": "consumable:name-input",
+      "ms": 30.799999997019768,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-remark",
+      "ms": 31,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-firstDescription",
+      "ms": 31.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:missing-spec-block",
+      "ms": 49,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-firstSpec",
+      "ms": 31.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:atomic-create-Blob",
+      "ms": 65.10000000149012,
+      "round": 2
+    },
+    {
+      "name": "consumable:root-SKU-tab",
+      "ms": 32.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:SKU-SPA",
+      "ms": 82.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "consumable:more",
+      "ms": 32.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:submit",
+      "ms": 82.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:approve",
+      "ms": 32.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:enable-parent-and-SKU",
+      "ms": 82.89999999850988,
+      "round": 2
+    },
+    {
+      "name": "consumable:units-tab",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:new-package",
+      "ms": 44.70000000298023,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-packageType",
+      "ms": 31.699999999254942,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-packageContent",
+      "ms": 31.399999998509884,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-packageContentUnit",
+      "ms": 31.400000002235174,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-packageBasis",
+      "ms": 31.399999998509884,
+      "round": 2
+    },
+    {
+      "name": "consumable:package-save",
+      "ms": 66.09999999776483,
+      "round": 2
+    },
+    {
+      "name": "consumable:edit-cost-tab",
+      "ms": 32.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-purchaseStandardCny",
+      "ms": 30.599999997764826,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-transportStandardCny",
+      "ms": 31.300000000745058,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-pricingUnit",
+      "ms": 31.199999999254942,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-costReason",
+      "ms": 31.199999999254942,
+      "round": 2
+    },
+    {
+      "name": "consumable:cost-preview",
+      "ms": 49.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:cost-save",
+      "ms": 66.09999999776483,
+      "round": 2
+    },
+    {
+      "name": "consumable:persisted-SKU-reload",
+      "ms": 148.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:currency-IDR",
+      "ms": 32.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:currency-USD",
+      "ms": 34.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:currency-CNY",
+      "ms": 30.599999997764826,
+      "round": 2
+    },
+    {
+      "name": "consumable:cost-history",
+      "ms": 32.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:cost-history-close",
+      "ms": 32.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:package-revision-input",
+      "ms": 22.799999997019768,
+      "round": 2
+    },
+    {
+      "name": "consumable:package-revision-save",
+      "ms": 99.59999999776483,
+      "round": 2
+    },
+    {
+      "name": "consumable:image-preview",
+      "ms": 32.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:image-close",
+      "ms": 33.70000000298023,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-assetName",
+      "ms": 29.299999997019768,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-assetRole",
+      "ms": 31.699999999254942,
+      "round": 2
+    },
+    {
+      "name": "consumable:attachment-save",
+      "ms": 65.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "consumable:attachment-reload",
+      "ms": 149.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:usage-popup",
+      "ms": 47.099999997764826,
+      "round": 2
+    },
+    {
+      "name": "consumable:usage-close",
+      "ms": 32.900000002235174,
+      "round": 2
+    },
+    {
+      "name": "consumable:logs-popup",
+      "ms": 32.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:logs-close",
+      "ms": 32.899999998509884,
+      "round": 2
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "ms": 65.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "consumable:copy-missing-block",
+      "ms": 82.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:field-specName",
+      "ms": 31.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:copy-save",
+      "ms": 66.09999999776483,
+      "round": 2
+    },
+    {
+      "name": "consumable:batch-selection",
+      "ms": 32.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:batch-submit",
+      "ms": 82.39999999850988,
+      "round": 2
+    },
+    {
+      "name": "consumable:batch-close",
+      "ms": 33.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:batch-approve",
+      "ms": 82.59999999776483,
+      "round": 2
+    },
+    {
+      "name": "consumable:batch-approve-close",
+      "ms": 32.79999999701977,
+      "round": 2
+    },
+    {
+      "name": "consumable:print-preview",
+      "ms": 81.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "consumable:print-complete",
+      "ms": 33.099999997764826,
+      "round": 2
+    },
+    {
+      "name": "consumable:print-quantity-100",
+      "ms": 36.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:print-100-complete",
+      "ms": 34,
+      "round": 2
+    },
+    {
+      "name": "consumable:root-basic-tab",
+      "ms": 33.100000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:copy-root-unsaved",
+      "ms": 48.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:copy-root-explicit-cost-save",
+      "ms": 116.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:approved-wording-correction",
+      "ms": 82.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:direct-root-detail",
+      "ms": 164.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:reload-root-detail",
+      "ms": 132.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:direct-root-edit",
+      "ms": 132.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:reload-root-edit",
+      "ms": 132.79999999701977,
+      "round": 2
+    },
+    {
+      "name": "consumable:direct-sku-detail",
+      "ms": 132.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:reload-sku-detail",
+      "ms": 132.70000000298023,
+      "round": 2
+    },
+    {
+      "name": "consumable:direct-sku-edit",
+      "ms": 132.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:reload-sku-edit",
+      "ms": 132.89999999850988,
+      "round": 2
+    },
+    {
+      "name": "consumable:direct-new-sku",
+      "ms": 221,
+      "round": 2
+    },
+    {
+      "name": "consumable:reload-new-sku",
+      "ms": 127.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:cold",
+      "ms": 166.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:reload",
+      "ms": 132.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:search-input",
+      "ms": 27.599999997764826,
+      "round": 3
+    },
+    {
+      "name": "parts:query",
+      "ms": 55.599999997764826,
+      "round": 3
+    },
+    {
+      "name": "parts:reset",
+      "ms": 33.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:columns-open",
+      "ms": 33.29999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:column-hide",
+      "ms": 32.899999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:column-show",
+      "ms": 34.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "parts:column-freeze",
+      "ms": 66.5,
+      "round": 3
+    },
+    {
+      "name": "parts:column-unfreeze",
+      "ms": 32.899999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:column-restore",
+      "ms": 49.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:columns-close",
+      "ms": 49.5,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-category",
+      "ms": 30.600000001490116,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-query-category",
+      "ms": 33.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-reset-category",
+      "ms": 33.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-approval",
+      "ms": 29,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-query-approval",
+      "ms": 32.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-reset-approval",
+      "ms": 33.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-status",
+      "ms": 29.800000000745058,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-query-status",
+      "ms": 33.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-reset-status",
+      "ms": 37.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-cost",
+      "ms": 37.900000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-query-cost",
+      "ms": 31.800000000745058,
+      "round": 3
+    },
+    {
+      "name": "parts:filter-reset-cost",
+      "ms": 32.5,
+      "round": 3
+    },
+    {
+      "name": "parts:page-size",
+      "ms": 61.900000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:empty-batch-block",
+      "ms": 83.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:sort",
+      "ms": 33,
+      "round": 3
+    },
+    {
+      "name": "parts:new-SPA",
+      "ms": 67,
+      "round": 3
+    },
+    {
+      "name": "parts:name-input",
+      "ms": 28.900000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:field-remark",
+      "ms": 30.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:field-firstDescription",
+      "ms": 29.199999999254942,
+      "round": 3
+    },
+    {
+      "name": "parts:missing-spec-block",
+      "ms": 67.5,
+      "round": 3
+    },
+    {
+      "name": "parts:field-firstSpec",
+      "ms": 27.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:atomic-create-Blob",
+      "ms": 66.10000000149012,
+      "round": 3
+    },
+    {
+      "name": "parts:root-SKU-tab",
+      "ms": 81.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:SKU-SPA",
+      "ms": 61.600000001490116,
+      "round": 3
+    },
+    {
+      "name": "parts:more",
+      "ms": 86.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:submit",
+      "ms": 66.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:approve",
+      "ms": 75.09999999776483,
+      "round": 3
+    },
+    {
+      "name": "parts:enable-parent-and-SKU",
+      "ms": 67.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:units-tab",
+      "ms": 35.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:new-package",
+      "ms": 74.40000000223517,
+      "round": 3
+    },
+    {
+      "name": "parts:field-packageType",
+      "ms": 35.70000000298023,
+      "round": 3
+    },
+    {
+      "name": "parts:field-packageContent",
+      "ms": 30.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:field-packageContentUnit",
+      "ms": 29.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:field-packageBasis",
+      "ms": 30.600000001490116,
+      "round": 3
+    },
+    {
+      "name": "parts:package-save",
+      "ms": 70.70000000298023,
+      "round": 3
+    },
+    {
+      "name": "parts:edit-cost-tab",
+      "ms": 32.600000001490116,
+      "round": 3
+    },
+    {
+      "name": "parts:field-purchaseStandardCny",
+      "ms": 40.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:field-transportStandardCny",
+      "ms": 54.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:field-pricingUnit",
+      "ms": 40.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:field-costReason",
+      "ms": 33.900000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:cost-preview",
+      "ms": 67.90000000223517,
+      "round": 3
+    },
+    {
+      "name": "parts:cost-save",
+      "ms": 73.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:persisted-SKU-reload",
+      "ms": 147.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "parts:currency-IDR",
+      "ms": 35.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:currency-USD",
+      "ms": 50.5,
+      "round": 3
+    },
+    {
+      "name": "parts:currency-CNY",
+      "ms": 32.20000000298023,
+      "round": 3
+    },
+    {
+      "name": "parts:cost-history",
+      "ms": 32.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:cost-history-close",
+      "ms": 55.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:package-revision-input",
+      "ms": 38.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:package-revision-save",
+      "ms": 60.29999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:image-preview",
+      "ms": 34.599999997764826,
+      "round": 3
+    },
+    {
+      "name": "parts:image-close",
+      "ms": 31.900000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:field-assetName",
+      "ms": 45.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:field-assetRole",
+      "ms": 28.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "parts:attachment-save",
+      "ms": 66.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:attachment-reload",
+      "ms": 151.59999999776483,
+      "round": 3
+    },
+    {
+      "name": "parts:usage-popup",
+      "ms": 56.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:usage-close",
+      "ms": 81.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "parts:logs-popup",
+      "ms": 49.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "parts:logs-close",
+      "ms": 35.599999997764826,
+      "round": 3
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "ms": 83.39999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:copy-missing-block",
+      "ms": 66.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:field-specName",
+      "ms": 30.699999999254942,
+      "round": 3
+    },
+    {
+      "name": "parts:copy-save",
+      "ms": 82.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:batch-selection",
+      "ms": 35.20000000298023,
+      "round": 3
+    },
+    {
+      "name": "parts:batch-submit",
+      "ms": 65,
+      "round": 3
+    },
+    {
+      "name": "parts:batch-close",
+      "ms": 33,
+      "round": 3
+    },
+    {
+      "name": "parts:batch-approve",
+      "ms": 66.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:batch-approve-close",
+      "ms": 36.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:print-preview",
+      "ms": 115.90000000223517,
+      "round": 3
+    },
+    {
+      "name": "parts:print-complete",
+      "ms": 69.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:print-quantity-100",
+      "ms": 60.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:print-100-complete",
+      "ms": 70.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:root-basic-tab",
+      "ms": 26.800000000745058,
+      "round": 3
+    },
+    {
+      "name": "parts:copy-root-unsaved",
+      "ms": 82.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:copy-root-explicit-cost-save",
+      "ms": 97.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:approved-wording-correction",
+      "ms": 82.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:direct-root-detail",
+      "ms": 219.5,
+      "round": 3
+    },
+    {
+      "name": "parts:reload-root-detail",
+      "ms": 199,
+      "round": 3
+    },
+    {
+      "name": "parts:direct-root-edit",
+      "ms": 167.39999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:reload-root-edit",
+      "ms": 284,
+      "round": 3
+    },
+    {
+      "name": "parts:direct-sku-detail",
+      "ms": 181.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:reload-sku-detail",
+      "ms": 175,
+      "round": 3
+    },
+    {
+      "name": "parts:direct-sku-edit",
+      "ms": 275.8999999985099,
+      "round": 3
+    },
+    {
+      "name": "parts:reload-sku-edit",
+      "ms": 175.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "parts:direct-new-sku",
+      "ms": 262.5,
+      "round": 3
+    },
+    {
+      "name": "parts:reload-new-sku",
+      "ms": 247.40000000223517,
+      "round": 3
+    },
+    {
+      "name": "consumable:cold",
+      "ms": 231.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:reload",
+      "ms": 165.29999999701977,
+      "round": 3
+    },
+    {
+      "name": "consumable:search-input",
+      "ms": 24.800000000745058,
+      "round": 3
+    },
+    {
+      "name": "consumable:query",
+      "ms": 38.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:reset",
+      "ms": 84.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:columns-open",
+      "ms": 33.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:column-hide",
+      "ms": 85.70000000298023,
+      "round": 3
+    },
+    {
+      "name": "consumable:column-show",
+      "ms": 35.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:column-freeze",
+      "ms": 65.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:column-unfreeze",
+      "ms": 32.600000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:column-restore",
+      "ms": 48.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:columns-close",
+      "ms": 49.70000000298023,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-category",
+      "ms": 31.299999997019768,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-query-category",
+      "ms": 52.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-reset-category",
+      "ms": 30.099999997764826,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-approval",
+      "ms": 27.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-query-approval",
+      "ms": 33,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-reset-approval",
+      "ms": 31.300000000745058,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-status",
+      "ms": 42,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-query-status",
+      "ms": 35.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-reset-status",
+      "ms": 36.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-cost",
+      "ms": 36.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-query-cost",
+      "ms": 64.10000000149012,
+      "round": 3
+    },
+    {
+      "name": "consumable:filter-reset-cost",
+      "ms": 33.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:page-size",
+      "ms": 61.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:empty-batch-block",
+      "ms": 78.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:sort",
+      "ms": 33.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:new-SPA",
+      "ms": 63.29999999701977,
+      "round": 3
+    },
+    {
+      "name": "consumable:name-input",
+      "ms": 28.699999999254942,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-remark",
+      "ms": 29.299999997019768,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-firstDescription",
+      "ms": 30.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:missing-spec-block",
+      "ms": 67.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-firstSpec",
+      "ms": 27.300000000745058,
+      "round": 3
+    },
+    {
+      "name": "consumable:atomic-create-Blob",
+      "ms": 82.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:root-SKU-tab",
+      "ms": 32.899999998509884,
+      "round": 3
+    },
+    {
+      "name": "consumable:SKU-SPA",
+      "ms": 66.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "consumable:more",
+      "ms": 33.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:submit",
+      "ms": 67.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:approve",
+      "ms": 45.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "consumable:enable-parent-and-SKU",
+      "ms": 86.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:units-tab",
+      "ms": 33.20000000298023,
+      "round": 3
+    },
+    {
+      "name": "consumable:new-package",
+      "ms": 66.20000000298023,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-packageType",
+      "ms": 29.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-packageContent",
+      "ms": 30.099999997764826,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-packageContentUnit",
+      "ms": 31.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-packageBasis",
+      "ms": 43.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:package-save",
+      "ms": 93.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:edit-cost-tab",
+      "ms": 33.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-purchaseStandardCny",
+      "ms": 30.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-transportStandardCny",
+      "ms": 37.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-pricingUnit",
+      "ms": 34.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-costReason",
+      "ms": 49.599999997764826,
+      "round": 3
+    },
+    {
+      "name": "consumable:cost-preview",
+      "ms": 66,
+      "round": 3
+    },
+    {
+      "name": "consumable:cost-save",
+      "ms": 65.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:persisted-SKU-reload",
+      "ms": 199.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "consumable:currency-IDR",
+      "ms": 30.800000000745058,
+      "round": 3
+    },
+    {
+      "name": "consumable:currency-USD",
+      "ms": 32.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:currency-CNY",
+      "ms": 65.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "consumable:cost-history",
+      "ms": 46.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:cost-history-close",
+      "ms": 32.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:package-revision-input",
+      "ms": 41.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "consumable:package-revision-save",
+      "ms": 100.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:image-preview",
+      "ms": 32.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:image-close",
+      "ms": 73.39999999850988,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-assetName",
+      "ms": 46.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-assetRole",
+      "ms": 27.199999999254942,
+      "round": 3
+    },
+    {
+      "name": "consumable:attachment-save",
+      "ms": 82.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:attachment-reload",
+      "ms": 198.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "consumable:usage-popup",
+      "ms": 51.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:usage-close",
+      "ms": 33.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "consumable:logs-popup",
+      "ms": 71.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:logs-close",
+      "ms": 32,
+      "round": 3
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "ms": 82.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:copy-missing-block",
+      "ms": 82.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:field-specName",
+      "ms": 41.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "consumable:copy-save",
+      "ms": 65.59999999776483,
+      "round": 3
+    },
+    {
+      "name": "consumable:batch-selection",
+      "ms": 87,
+      "round": 3
+    },
+    {
+      "name": "consumable:batch-submit",
+      "ms": 65.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:batch-close",
+      "ms": 47.100000001490116,
+      "round": 3
+    },
+    {
+      "name": "consumable:batch-approve",
+      "ms": 65.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:batch-approve-close",
+      "ms": 66.59999999776483,
+      "round": 3
+    },
+    {
+      "name": "consumable:print-preview",
+      "ms": 82,
+      "round": 3
+    },
+    {
+      "name": "consumable:print-complete",
+      "ms": 37.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:print-quantity-100",
+      "ms": 38.400000002235174,
+      "round": 3
+    },
+    {
+      "name": "consumable:print-100-complete",
+      "ms": 55.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:root-basic-tab",
+      "ms": 46.399999998509884,
+      "round": 3
+    },
+    {
+      "name": "consumable:copy-root-unsaved",
+      "ms": 64.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:copy-root-explicit-cost-save",
+      "ms": 98.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:approved-wording-correction",
+      "ms": 115.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:direct-root-detail",
+      "ms": 147.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "consumable:reload-root-detail",
+      "ms": 149.39999999850988,
+      "round": 3
+    },
+    {
+      "name": "consumable:direct-root-edit",
+      "ms": 149.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:reload-root-edit",
+      "ms": 149.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:direct-sku-detail",
+      "ms": 148.89999999850988,
+      "round": 3
+    },
+    {
+      "name": "consumable:reload-sku-detail",
+      "ms": 166.19999999925494,
+      "round": 3
+    },
+    {
+      "name": "consumable:direct-sku-edit",
+      "ms": 150.29999999701977,
+      "round": 3
+    },
+    {
+      "name": "consumable:reload-sku-edit",
+      "ms": 148.09999999776483,
+      "round": 3
+    },
+    {
+      "name": "consumable:direct-new-sku",
+      "ms": 182.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:reload-new-sku",
+      "ms": 133.59999999776483,
+      "round": 3
+    },
+    {
+      "name": "parts:cold",
+      "ms": 153.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:reload",
+      "ms": 132.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:search-input",
+      "ms": 27.900000002235174,
+      "round": 4
+    },
+    {
+      "name": "parts:query",
+      "ms": 59.5,
+      "round": 4
+    },
+    {
+      "name": "parts:reset",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:columns-open",
+      "ms": 32.400000002235174,
+      "round": 4
+    },
+    {
+      "name": "parts:column-hide",
+      "ms": 32.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:column-show",
+      "ms": 33.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:column-freeze",
+      "ms": 65.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:column-unfreeze",
+      "ms": 31.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:column-restore",
+      "ms": 49.5,
+      "round": 4
+    },
+    {
+      "name": "parts:columns-close",
+      "ms": 49.5,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-category",
+      "ms": 31,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-query-category",
+      "ms": 33.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-reset-category",
+      "ms": 33.5,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-approval",
+      "ms": 28.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-query-approval",
+      "ms": 65.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-reset-approval",
+      "ms": 32.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-status",
+      "ms": 29.400000002235174,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-query-status",
+      "ms": 33.600000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-reset-status",
+      "ms": 32.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-cost",
+      "ms": 29.699999999254942,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-query-cost",
+      "ms": 31.300000000745058,
+      "round": 4
+    },
+    {
+      "name": "parts:filter-reset-cost",
+      "ms": 32.5,
+      "round": 4
+    },
+    {
+      "name": "parts:page-size",
+      "ms": 63.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:empty-batch-block",
+      "ms": 230.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:sort",
+      "ms": 33.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:new-SPA",
+      "ms": 49.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:name-input",
+      "ms": 31.200000002980232,
+      "round": 4
+    },
+    {
+      "name": "parts:field-remark",
+      "ms": 29.699999999254942,
+      "round": 4
+    },
+    {
+      "name": "parts:field-firstDescription",
+      "ms": 32.29999999701977,
+      "round": 4
+    },
+    {
+      "name": "parts:missing-spec-block",
+      "ms": 49,
+      "round": 4
+    },
+    {
+      "name": "parts:field-firstSpec",
+      "ms": 23.599999997764826,
+      "round": 4
+    },
+    {
+      "name": "parts:atomic-create-Blob",
+      "ms": 65.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:root-SKU-tab",
+      "ms": 34.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:SKU-SPA",
+      "ms": 82.5,
+      "round": 4
+    },
+    {
+      "name": "parts:more",
+      "ms": 32.70000000298023,
+      "round": 4
+    },
+    {
+      "name": "parts:submit",
+      "ms": 65.5,
+      "round": 4
+    },
+    {
+      "name": "parts:approve",
+      "ms": 31.5,
+      "round": 4
+    },
+    {
+      "name": "parts:enable-parent-and-SKU",
+      "ms": 66.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:units-tab",
+      "ms": 33.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:new-package",
+      "ms": 48.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:field-packageType",
+      "ms": 31,
+      "round": 4
+    },
+    {
+      "name": "parts:field-packageContent",
+      "ms": 30.199999999254942,
+      "round": 4
+    },
+    {
+      "name": "parts:field-packageContentUnit",
+      "ms": 45.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:field-packageBasis",
+      "ms": 28.200000002980232,
+      "round": 4
+    },
+    {
+      "name": "parts:package-save",
+      "ms": 65.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:edit-cost-tab",
+      "ms": 30.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:field-purchaseStandardCny",
+      "ms": 27.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:field-transportStandardCny",
+      "ms": 28.5,
+      "round": 4
+    },
+    {
+      "name": "parts:field-pricingUnit",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:field-costReason",
+      "ms": 30.5,
+      "round": 4
+    },
+    {
+      "name": "parts:cost-preview",
+      "ms": 48.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:cost-save",
+      "ms": 63.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:persisted-SKU-reload",
+      "ms": 181,
+      "round": 4
+    },
+    {
+      "name": "parts:currency-IDR",
+      "ms": 32.900000002235174,
+      "round": 4
+    },
+    {
+      "name": "parts:currency-USD",
+      "ms": 34.5,
+      "round": 4
+    },
+    {
+      "name": "parts:currency-CNY",
+      "ms": 31.599999997764826,
+      "round": 4
+    },
+    {
+      "name": "parts:cost-history",
+      "ms": 32.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:cost-history-close",
+      "ms": 32.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:package-revision-input",
+      "ms": 21.5,
+      "round": 4
+    },
+    {
+      "name": "parts:package-revision-save",
+      "ms": 100.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:image-preview",
+      "ms": 33.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:image-close",
+      "ms": 33.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:field-assetName",
+      "ms": 29.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:field-assetRole",
+      "ms": 31.5,
+      "round": 4
+    },
+    {
+      "name": "parts:attachment-save",
+      "ms": 82.5,
+      "round": 4
+    },
+    {
+      "name": "parts:attachment-reload",
+      "ms": 132.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:usage-popup",
+      "ms": 61.400000002235174,
+      "round": 4
+    },
+    {
+      "name": "parts:usage-close",
+      "ms": 32.79999999701977,
+      "round": 4
+    },
+    {
+      "name": "parts:logs-popup",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:logs-close",
+      "ms": 32.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "ms": 215.5,
+      "round": 4
+    },
+    {
+      "name": "parts:copy-missing-block",
+      "ms": 65.5,
+      "round": 4
+    },
+    {
+      "name": "parts:field-specName",
+      "ms": 31.199999999254942,
+      "round": 4
+    },
+    {
+      "name": "parts:copy-save",
+      "ms": 65.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:batch-selection",
+      "ms": 32.600000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:batch-submit",
+      "ms": 115.79999999701977,
+      "round": 4
+    },
+    {
+      "name": "parts:batch-close",
+      "ms": 33.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "parts:batch-approve",
+      "ms": 82.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:batch-approve-close",
+      "ms": 32,
+      "round": 4
+    },
+    {
+      "name": "parts:print-preview",
+      "ms": 82.39999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:print-complete",
+      "ms": 69,
+      "round": 4
+    },
+    {
+      "name": "parts:print-quantity-100",
+      "ms": 34.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:print-100-complete",
+      "ms": 67.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:root-basic-tab",
+      "ms": 32.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "parts:copy-root-unsaved",
+      "ms": 215.40000000223517,
+      "round": 4
+    },
+    {
+      "name": "parts:copy-root-explicit-cost-save",
+      "ms": 115.90000000223517,
+      "round": 4
+    },
+    {
+      "name": "parts:approved-wording-correction",
+      "ms": 82.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:direct-root-detail",
+      "ms": 148.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:reload-root-detail",
+      "ms": 132.5,
+      "round": 4
+    },
+    {
+      "name": "parts:direct-root-edit",
+      "ms": 184.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:reload-root-edit",
+      "ms": 165.09999999776483,
+      "round": 4
+    },
+    {
+      "name": "parts:direct-sku-detail",
+      "ms": 149.39999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:reload-sku-detail",
+      "ms": 132.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:direct-sku-edit",
+      "ms": 132.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:reload-sku-edit",
+      "ms": 149.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:direct-new-sku",
+      "ms": 149.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:reload-new-sku",
+      "ms": 207.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:cold",
+      "ms": 143.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:reload",
+      "ms": 149.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "consumable:search-input",
+      "ms": 27.600000001490116,
+      "round": 4
+    },
+    {
+      "name": "consumable:query",
+      "ms": 31.800000000745058,
+      "round": 4
+    },
+    {
+      "name": "consumable:reset",
+      "ms": 33.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "consumable:columns-open",
+      "ms": 33.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:column-hide",
+      "ms": 33.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:column-show",
+      "ms": 33.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:column-freeze",
+      "ms": 65.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:column-unfreeze",
+      "ms": 32.5,
+      "round": 4
+    },
+    {
+      "name": "consumable:column-restore",
+      "ms": 49.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:columns-close",
+      "ms": 49.20000000298023,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-category",
+      "ms": 31,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-query-category",
+      "ms": 32.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-reset-category",
+      "ms": 35.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-approval",
+      "ms": 26.300000000745058,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-query-approval",
+      "ms": 33.29999999701977,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-reset-approval",
+      "ms": 33.5,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-status",
+      "ms": 29.800000000745058,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-query-status",
+      "ms": 33.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-reset-status",
+      "ms": 33,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-cost",
+      "ms": 29.900000002235174,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-query-cost",
+      "ms": 33.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:filter-reset-cost",
+      "ms": 33.599999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:page-size",
+      "ms": 62.600000001490116,
+      "round": 4
+    },
+    {
+      "name": "consumable:empty-batch-block",
+      "ms": 82.39999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:sort",
+      "ms": 32.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:new-SPA",
+      "ms": 62.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:name-input",
+      "ms": 31.200000002980232,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-remark",
+      "ms": 31.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-firstDescription",
+      "ms": 31.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:missing-spec-block",
+      "ms": 49.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-firstSpec",
+      "ms": 31.699999999254942,
+      "round": 4
+    },
+    {
+      "name": "consumable:atomic-create-Blob",
+      "ms": 65.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "consumable:root-SKU-tab",
+      "ms": 32.79999999701977,
+      "round": 4
+    },
+    {
+      "name": "consumable:SKU-SPA",
+      "ms": 82.40000000223517,
+      "round": 4
+    },
+    {
+      "name": "consumable:more",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:submit",
+      "ms": 83,
+      "round": 4
+    },
+    {
+      "name": "consumable:approve",
+      "ms": 32.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:enable-parent-and-SKU",
+      "ms": 65.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:units-tab",
+      "ms": 44.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:new-package",
+      "ms": 65.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-packageType",
+      "ms": 31.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-packageContent",
+      "ms": 30.700000002980232,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-packageContentUnit",
+      "ms": 29.600000001490116,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-packageBasis",
+      "ms": 34.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:package-save",
+      "ms": 66.59999999776483,
+      "round": 4
+    },
+    {
+      "name": "consumable:edit-cost-tab",
+      "ms": 34.29999999701977,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-purchaseStandardCny",
+      "ms": 29.199999999254942,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-transportStandardCny",
+      "ms": 28.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-pricingUnit",
+      "ms": 30.599999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-costReason",
+      "ms": 31.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:cost-preview",
+      "ms": 48.79999999701977,
+      "round": 4
+    },
+    {
+      "name": "consumable:cost-save",
+      "ms": 66.09999999776483,
+      "round": 4
+    },
+    {
+      "name": "consumable:persisted-SKU-reload",
+      "ms": 165,
+      "round": 4
+    },
+    {
+      "name": "consumable:currency-IDR",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:currency-USD",
+      "ms": 32.599999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:currency-CNY",
+      "ms": 32.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:cost-history",
+      "ms": 34.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:cost-history-close",
+      "ms": 32.599999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:package-revision-input",
+      "ms": 38.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:package-revision-save",
+      "ms": 98.90000000223517,
+      "round": 4
+    },
+    {
+      "name": "consumable:image-preview",
+      "ms": 32.399999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:image-close",
+      "ms": 32.70000000298023,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-assetName",
+      "ms": 28.199999999254942,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-assetRole",
+      "ms": 30.799999997019768,
+      "round": 4
+    },
+    {
+      "name": "consumable:attachment-save",
+      "ms": 65.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "consumable:attachment-reload",
+      "ms": 149.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "consumable:usage-popup",
+      "ms": 48.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:usage-close",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:logs-popup",
+      "ms": 33.400000002235174,
+      "round": 4
+    },
+    {
+      "name": "consumable:logs-close",
+      "ms": 32.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "ms": 233,
+      "round": 4
+    },
+    {
+      "name": "consumable:copy-missing-block",
+      "ms": 61.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:field-specName",
+      "ms": 31.099999997764826,
+      "round": 4
+    },
+    {
+      "name": "consumable:copy-save",
+      "ms": 64.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:batch-selection",
+      "ms": 32.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:batch-submit",
+      "ms": 116.5,
+      "round": 4
+    },
+    {
+      "name": "consumable:batch-close",
+      "ms": 32,
+      "round": 4
+    },
+    {
+      "name": "consumable:batch-approve",
+      "ms": 82.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:batch-approve-close",
+      "ms": 33.29999999701977,
+      "round": 4
+    },
+    {
+      "name": "consumable:print-preview",
+      "ms": 81.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:print-complete",
+      "ms": 34.100000001490116,
+      "round": 4
+    },
+    {
+      "name": "consumable:print-quantity-100",
+      "ms": 64.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:print-100-complete",
+      "ms": 52,
+      "round": 4
+    },
+    {
+      "name": "consumable:root-basic-tab",
+      "ms": 34,
+      "round": 4
+    },
+    {
+      "name": "consumable:copy-root-unsaved",
+      "ms": 216,
+      "round": 4
+    },
+    {
+      "name": "consumable:copy-root-explicit-cost-save",
+      "ms": 98.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:approved-wording-correction",
+      "ms": 115.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:direct-root-detail",
+      "ms": 146.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:reload-root-detail",
+      "ms": 132.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:direct-root-edit",
+      "ms": 132.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "consumable:reload-root-edit",
+      "ms": 133,
+      "round": 4
+    },
+    {
+      "name": "consumable:direct-sku-detail",
+      "ms": 132.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:reload-sku-detail",
+      "ms": 132.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:direct-sku-edit",
+      "ms": 116.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:reload-sku-edit",
+      "ms": 149.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:direct-new-sku",
+      "ms": 182.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:reload-new-sku",
+      "ms": 132.89999999850988,
+      "round": 4
+    }
+  ],
+  "errors": [],
+  "gate": true
+}

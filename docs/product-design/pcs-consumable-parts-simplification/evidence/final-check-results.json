@@ -1,0 +1,37 @@
+[
+  {
+    "command": "npm run check:pms-purchase-chain",
+    "exitCode": 0,
+    "startedAt": "2026-10-09T19:13:56.647438+08:00",
+    "finishedAt": "2026-10-09T19:13:57.745157+08:00",
+    "log": "output/playwright/pcs-simple-materials/final-check-1.log"
+  },
+  {
+    "command": "npm run check:menu-routes",
+    "exitCode": 0,
+    "startedAt": "2026-10-09T19:13:57.745255+08:00",
+    "finishedAt": "2026-10-09T19:13:58.639605+08:00",
+    "log": "output/playwright/pcs-simple-materials/final-check-2.log"
+  },
+  {
+    "command": "npm run check:prototype-design-governance -- --all",
+    "exitCode": 0,
+    "startedAt": "2026-10-09T20:12:00.660289+08:00",
+    "finishedAt": "2026-10-09T20:12:01.134348+08:00",
+    "log": "output/playwright/pcs-simple-materials/final-check-3.log"
+  },
+  {
+    "command": "npm run check:list-page-governance",
+    "exitCode": 0,
+    "startedAt": "2026-10-09T20:12:01.134464+08:00",
+    "finishedAt": "2026-10-09T20:12:07.418286+08:00",
+    "log": "output/playwright/pcs-simple-materials/final-check-4.log"
+  },
+  {
+    "command": "npm run build",
+    "exitCode": 0,
+    "startedAt": "2026-10-09T20:12:07.418430+08:00",
+    "finishedAt": "2026-10-09T20:12:48.101609+08:00",
+    "log": "output/playwright/pcs-simple-materials/final-check-5.log"
+  }
+]

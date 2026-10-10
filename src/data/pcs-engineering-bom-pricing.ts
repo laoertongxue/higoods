@@ -28,6 +28,7 @@ import {
   captureEngineeringBomMaterialReference,
   resolveEngineeringBomConversion,
   resolveEngineeringBomMaterialLine,
+  assertEngineeringBomMaterialRules,
 } from './pcs-engineering-bom-material-resolver.ts'
 export { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 export { MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE } from './pcs-engineering-bom-material-resolver.ts'
@@ -225,11 +226,13 @@ function prepareEngineeringBomMaterialLine(
   input: EngineeringBomMaterialLineDraft,
   role: EngineeringBomOperatorRole,
   existingMaterialSkuId?: string,
+  previousLine?: EngineeringBomMaterialLineDraft,
 ): EngineeringBomMaterialLineDraft {
   requireBuyer(role)
   assertPositiveNumber(input.usage, '单位用量')
   assertPositiveNumber(input.sampleQuantity, '打样数量')
   assertLossRate(input.lossRate)
+  assertEngineeringBomMaterialRules(input, existingMaterialSkuId, previousLine)
   const sku = getMaterialSkuRecordById(input.materialSkuId)
   if (!sku || (sku.materialSkuId !== existingMaterialSkuId && !isMaterialSkuAvailableForNewUse(sku))) throw new Error('物料 SKU 及其主档须已审核并启用，才能新加入 BOM。')
   const resolved = resolveEngineeringBomMaterialLine({ ...input, costReferenceMode: 'CURRENT' })
@@ -380,6 +383,7 @@ export function saveTechnicalDataVersionBomMaterialLine(
     if (!item) throw new Error('未找到要维护的 BOM 物料行。')
     const materialSkuId = patch.materialSkuId ?? item.materialSkuId
     if (!materialSkuId) throw new Error('BOM 物料行未关联物料 SKU。')
+    const previousLine = technicalBomItemToEngineeringLine(item)
     const nextLine = prepareEngineeringBomMaterialLine({
       materialSkuId,
       bomItemId,
@@ -403,12 +407,12 @@ export function saveTechnicalDataVersionBomMaterialLine(
       purchaseRequirement: patch.purchaseRequirement,
       waterSolubleRequirementText: patch.waterSolubleRequirementText ?? item.waterSolubleRequirement,
       printSide: patch.printSide ?? technicalPrintSideToDraft(item.printSideMode),
-      frontPatternResultId: patch.frontPatternResultId ?? item.frontPatternDesignId,
-      liningPatternResultId: patch.liningPatternResultId ?? item.insidePatternDesignId,
-      linkedPatternResultIds: patch.linkedPatternResultIds ?? item.linkedPatternIds,
+      frontPatternResultId: patch.frontPatternResultId ?? previousLine.frontPatternResultId,
+      liningPatternResultId: patch.liningPatternResultId ?? previousLine.liningPatternResultId,
+      linkedPatternResultIds: patch.linkedPatternResultIds ?? previousLine.linkedPatternResultIds,
       processCode: patch.processCode ?? item.usageProcessCodes?.[0],
       remark: patch.remark ?? item.remark,
-    }, role, item.materialSkuId)
+    }, role, item.materialSkuId, previousLine)
     const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
     if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
     const nextItems = content.bomItems.map((candidate) => {

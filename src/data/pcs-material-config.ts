@@ -24,6 +24,9 @@ export interface MaterialTemplate {
 }
 export interface MaterialUnitDefinition { id: string; code: string; label: string; dimension: 'length' | 'mass' | 'area' | 'count' | 'package' | 'volume'; precision: number; enabled: boolean; aliases?: string[]; updatedAt?: string; updatedBy?: string; logs?: ConfigLog[] }
 export const PCS_MATERIAL_CONFIG_KEY = 'higood-pcs-material-config-v1'
+/** BOM packaging role is explicitly assigned to the existing stable category, never inferred from its name. */
+export const PACKAGING_CONSUMABLE_CATEGORY_IDS = ['material-category-consumable-20'] as const
+export function isPackagingConsumableCategory(categoryId: string): boolean { return PACKAGING_CONSUMABLE_CATEGORY_IDS.some(id => id === categoryId) }
 const field = (key: string, label: string, level: MaterialTemplateField['level'], type: MaterialTemplateField['type'] = 'text', unit = '', required = true, identity = true, options?: string[]): MaterialTemplateField => ({ key, label, level, type, unit, required, identity, options })
 const color = { ...field('color', '颜色', 'sku', 'select', '', true, true), dictionaryId: 'colors' as const }
 const composition = { ...field('composition', '成分与比例', 'root', 'composition', '%'), dictionaryId: 'compositions' as const }
@@ -221,6 +224,7 @@ export function listFixedMaterialConversions(): Array<{ fromUnit: string; toUnit
   return [{ fromUnit: 'Yard', toUnit: 'M', factor: 0.9144 }, { fromUnit: 'cm', toUnit: 'M', factor: 0.01 }, { fromUnit: 'mm', toUnit: 'M', factor: 0.001 }, { fromUnit: 'g', toUnit: 'KG', factor: 0.001 }]
 }
 export function saveMaterialTemplateVersion(template: MaterialTemplate, operator: string): MaterialTemplate {
+  if (template.kind === 'consumable' || template.kind === 'parts') throw new Error('耗材与配件只维护分类，请在对应分类列表保存，不新建技术属性模板。')
   const previous = snapshot().templates.filter(item => item.templateId === template.templateId)
   const current = previous.find(item => item.version === template.version)
   const currentView = current ? materialTemplateCategoryIdentity(current) : undefined
@@ -303,6 +307,7 @@ export function approveMaterialTemplate(templateId: string, version: number, ope
   const result = getMaterialConfigSnapshot()
   const target = result.templates.find(item => item.templateId === templateId && item.version === version)
   if (!target || target.status !== 'DRAFT') throw new Error('请选择待审核模板版本。')
+  if (target.kind === 'consumable' || target.kind === 'parts') throw new Error('耗材与配件分类不使用模板审核，请维护分类资料。')
   target.status = 'APPROVED'; target.updatedBy = operator; target.updatedAt = new Date().toISOString()
   target.logs = [...(target.logs || []), materialConfigLog('审核通过', `模板 v${version}供新建档案使用，旧档案保留引用版本。`, operator)]
   pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result

@@ -1,0 +1,3433 @@
+{
+  "passed": true,
+  "functionalFailure": "",
+  "dev": "http://127.0.0.1:43221",
+  "production": "http://127.0.0.1:43220",
+  "servedBundle": {
+    "path": "/assets/index-BPNAo-1Z.js",
+    "sha256": "727812ce3d4f022d739d884ae1023318e5e50ec61265ee1196964882f0595979",
+    "matchesLocalDist": true
+  },
+  "measurement": "Navigation start / before interaction through persisted result, visible images complete, fonts ready, finite UI animations finished and final double animation frame; cold+refresh cache disabled, SPA cache enabled; each item five samples; no performance exemptions",
+  "branch": "codex/consumable-parts-simplification",
+  "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "browser": "149.0.7827.55",
+  "fixture": "isolated Mock only; five fresh contexts; IndexedDB per-record fixture; no user storage cleanup",
+  "viewports": [
+    "1366x768",
+    "1280x720"
+  ],
+  "samples": [
+    {
+      "name": "sku:cold",
+      "ms": 269.0999999977648,
+      "repeat": 0
+    },
+    {
+      "name": "sku:refresh",
+      "ms": 346.4000000022352,
+      "repeat": 0
+    },
+    {
+      "name": "sku:SPA",
+      "ms": 82.19999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-new:cold",
+      "ms": 415.8999999985099,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-new:refresh",
+      "ms": 332.80000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-new:SPA",
+      "ms": 233.80000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "bom-draft:cold",
+      "ms": 381.19999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "bom-draft:refresh",
+      "ms": 366.5999999977648,
+      "repeat": 0
+    },
+    {
+      "name": "bom-draft:SPA",
+      "ms": 233.5,
+      "repeat": 0
+    },
+    {
+      "name": "bom-published:cold",
+      "ms": 382,
+      "repeat": 0
+    },
+    {
+      "name": "bom-published:refresh",
+      "ms": 333,
+      "repeat": 0
+    },
+    {
+      "name": "bom-published:SPA",
+      "ms": 150.19999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "bom-parts-history:cold",
+      "ms": 365.8999999985099,
+      "repeat": 0
+    },
+    {
+      "name": "bom-parts-history:refresh",
+      "ms": 332.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "bom-parts-history:SPA",
+      "ms": 149.90000000223517,
+      "repeat": 0
+    },
+    {
+      "name": "technical-pack:cold",
+      "ms": 316,
+      "repeat": 0
+    },
+    {
+      "name": "technical-pack:refresh",
+      "ms": 266.0999999977648,
+      "repeat": 0
+    },
+    {
+      "name": "technical-pack:SPA",
+      "ms": 133.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:PCS-handoff",
+      "ms": 345.1000000014901,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:unit-choice",
+      "ms": 183.09999999776483,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-quantity",
+      "ms": 64.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-unitPrice",
+      "ms": 64.89999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-purchaseRegion",
+      "ms": 67.30000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-warehouse",
+      "ms": 65.59999999776483,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-buyerName",
+      "ms": 66.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-expectedArrivalDate",
+      "ms": 66.20000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:field-remark",
+      "ms": 66.5,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:supplier",
+      "ms": 66.30000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:source-tab",
+      "ms": 99.80000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:purchase-tab",
+      "ms": 97.60000000149012,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:save",
+      "ms": 116.20000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:saved-refresh",
+      "ms": 332.6000000014901,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:saved-source-tab",
+      "ms": 97.09999999776483,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:usage",
+      "ms": 151.70000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-10:usage-close",
+      "ms": 115.10000000149012,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:PCS-handoff",
+      "ms": 396.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:unit-choice",
+      "ms": 199.89999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-quantity",
+      "ms": 65.30000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-unitPrice",
+      "ms": 66.19999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-purchaseRegion",
+      "ms": 67.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-warehouse",
+      "ms": 65.5,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-buyerName",
+      "ms": 65.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-expectedArrivalDate",
+      "ms": 84.19999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:field-remark",
+      "ms": 84,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:supplier",
+      "ms": 80.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:source-tab",
+      "ms": 82,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:purchase-tab",
+      "ms": 97.5,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:save",
+      "ms": 116.60000000149012,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:saved-refresh",
+      "ms": 415.9000000022352,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:saved-source-tab",
+      "ms": 97.40000000223517,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:usage",
+      "ms": 133.29999999701977,
+      "repeat": 0
+    },
+    {
+      "name": "purchase-20:usage-close",
+      "ms": 115.30000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:independent-direct",
+      "ms": 260.6000000014901,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:independent-usage",
+      "ms": 200,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:independent-usage-close",
+      "ms": 115.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:archive-more",
+      "ms": 107.79999999701977,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:archive-begin",
+      "ms": 99.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:archive-confirm",
+      "ms": 99.5,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:archive-reason",
+      "ms": 65.89999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:archive-blocked-save",
+      "ms": 132.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "consumable:archive-blocked-refresh",
+      "ms": 223.5,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:handoff",
+      "ms": 316.8999999985099,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-quantity",
+      "ms": 66.70000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-unitPrice",
+      "ms": 65.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-purchaseRegion",
+      "ms": 67.20000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-warehouse",
+      "ms": 66.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-buyerName",
+      "ms": 81,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-expectedArrivalDate",
+      "ms": 66,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:field-remark",
+      "ms": 66.40000000223517,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:supplier",
+      "ms": 66.20000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "parts-purchase:save",
+      "ms": 133.40000000223517,
+      "repeat": 0
+    },
+    {
+      "name": "parts:independent-direct",
+      "ms": 279.6000000014901,
+      "repeat": 0
+    },
+    {
+      "name": "parts:independent-usage",
+      "ms": 183.10000000149012,
+      "repeat": 0
+    },
+    {
+      "name": "parts:independent-usage-close",
+      "ms": 115,
+      "repeat": 0
+    },
+    {
+      "name": "parts:archive-more",
+      "ms": 109.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "parts:archive-begin",
+      "ms": 98.59999999776483,
+      "repeat": 0
+    },
+    {
+      "name": "parts:archive-confirm",
+      "ms": 99.80000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "parts:archive-reason",
+      "ms": 66.09999999776483,
+      "repeat": 0
+    },
+    {
+      "name": "parts:archive-blocked-save",
+      "ms": 133.69999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "parts:archive-blocked-refresh",
+      "ms": 237.09999999776483,
+      "repeat": 0
+    },
+    {
+      "name": "BOM:select-packaging",
+      "ms": 65.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "BOM:add-packaging",
+      "ms": 133.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "BOM:quantity",
+      "ms": 65.20000000298023,
+      "repeat": 0
+    },
+    {
+      "name": "BOM:save",
+      "ms": 129.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "BOM:saved-refresh",
+      "ms": 333.19999999925494,
+      "repeat": 0
+    },
+    {
+      "name": "tech-pack:BOM-tab",
+      "ms": 149.90000000223517,
+      "repeat": 0
+    },
+    {
+      "name": "tech-pack:BOM-add-dialog",
+      "ms": 266.5,
+      "repeat": 0
+    },
+    {
+      "name": "tech-pack:BOM-packaging-type",
+      "ms": 216.60000000149012,
+      "repeat": 0
+    },
+    {
+      "name": "tech-pack:BOM-packaging-sku",
+      "ms": 213.80000000074506,
+      "repeat": 0
+    },
+    {
+      "name": "tech-pack:BOM-close-dialog",
+      "ms": 110.39999999850988,
+      "repeat": 0
+    },
+    {
+      "name": "sku:cold",
+      "ms": 257.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "sku:refresh",
+      "ms": 232.59999999776483,
+      "repeat": 1
+    },
+    {
+      "name": "sku:SPA",
+      "ms": 83.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-new:cold",
+      "ms": 349.3999999985099,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-new:refresh",
+      "ms": 349.5999999977648,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-new:SPA",
+      "ms": 233.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "bom-draft:cold",
+      "ms": 381.5,
+      "repeat": 1
+    },
+    {
+      "name": "bom-draft:refresh",
+      "ms": 351.1000000014901,
+      "repeat": 1
+    },
+    {
+      "name": "bom-draft:SPA",
+      "ms": 249.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "bom-published:cold",
+      "ms": 332.5999999977648,
+      "repeat": 1
+    },
+    {
+      "name": "bom-published:refresh",
+      "ms": 332.6000000014901,
+      "repeat": 1
+    },
+    {
+      "name": "bom-published:SPA",
+      "ms": 150.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "bom-parts-history:cold",
+      "ms": 366.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "bom-parts-history:refresh",
+      "ms": 365.70000000298023,
+      "repeat": 1
+    },
+    {
+      "name": "bom-parts-history:SPA",
+      "ms": 150,
+      "repeat": 1
+    },
+    {
+      "name": "technical-pack:cold",
+      "ms": 283.9000000022352,
+      "repeat": 1
+    },
+    {
+      "name": "technical-pack:refresh",
+      "ms": 365.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "technical-pack:SPA",
+      "ms": 132.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:PCS-handoff",
+      "ms": 347.8999999985099,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:unit-choice",
+      "ms": 197,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-quantity",
+      "ms": 65.90000000223517,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-unitPrice",
+      "ms": 66.59999999776483,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-purchaseRegion",
+      "ms": 66.69999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-warehouse",
+      "ms": 65.5,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-buyerName",
+      "ms": 66.20000000298023,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-expectedArrivalDate",
+      "ms": 66.60000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:field-remark",
+      "ms": 66.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:supplier",
+      "ms": 66.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:source-tab",
+      "ms": 100.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:purchase-tab",
+      "ms": 95.89999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:save",
+      "ms": 132.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:saved-refresh",
+      "ms": 333.5,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:saved-source-tab",
+      "ms": 96.89999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:usage",
+      "ms": 150.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-10:usage-close",
+      "ms": 116.5,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:PCS-handoff",
+      "ms": 314,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:unit-choice",
+      "ms": 183.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-quantity",
+      "ms": 64.69999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-unitPrice",
+      "ms": 66.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-purchaseRegion",
+      "ms": 66.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-warehouse",
+      "ms": 75.60000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-buyerName",
+      "ms": 80.80000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-expectedArrivalDate",
+      "ms": 66.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:field-remark",
+      "ms": 83.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:supplier",
+      "ms": 82.40000000223517,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:source-tab",
+      "ms": 100.80000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:purchase-tab",
+      "ms": 92.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:save",
+      "ms": 133.5,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:saved-refresh",
+      "ms": 331.8999999985099,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:saved-source-tab",
+      "ms": 98.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:usage",
+      "ms": 131.40000000223517,
+      "repeat": 1
+    },
+    {
+      "name": "purchase-20:usage-close",
+      "ms": 130.70000000298023,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:independent-direct",
+      "ms": 274.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:independent-usage",
+      "ms": 149.20000000298023,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:independent-usage-close",
+      "ms": 115.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:archive-more",
+      "ms": 110.80000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:archive-begin",
+      "ms": 99.60000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:archive-confirm",
+      "ms": 99.69999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:archive-reason",
+      "ms": 66.5,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:archive-blocked-save",
+      "ms": 133.40000000223517,
+      "repeat": 1
+    },
+    {
+      "name": "consumable:archive-blocked-refresh",
+      "ms": 237,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:handoff",
+      "ms": 299.69999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-quantity",
+      "ms": 66,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-unitPrice",
+      "ms": 67,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-purchaseRegion",
+      "ms": 65.60000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-warehouse",
+      "ms": 65.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-buyerName",
+      "ms": 65.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-expectedArrivalDate",
+      "ms": 66.5,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:field-remark",
+      "ms": 65,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:supplier",
+      "ms": 64.40000000223517,
+      "repeat": 1
+    },
+    {
+      "name": "parts-purchase:save",
+      "ms": 130.89999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "parts:independent-direct",
+      "ms": 273.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "parts:independent-usage",
+      "ms": 149.30000000074506,
+      "repeat": 1
+    },
+    {
+      "name": "parts:independent-usage-close",
+      "ms": 115.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "parts:archive-more",
+      "ms": 109.5,
+      "repeat": 1
+    },
+    {
+      "name": "parts:archive-begin",
+      "ms": 99.5,
+      "repeat": 1
+    },
+    {
+      "name": "parts:archive-confirm",
+      "ms": 99.5,
+      "repeat": 1
+    },
+    {
+      "name": "parts:archive-reason",
+      "ms": 66.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "parts:archive-blocked-save",
+      "ms": 132.70000000298023,
+      "repeat": 1
+    },
+    {
+      "name": "parts:archive-blocked-refresh",
+      "ms": 234.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "BOM:select-packaging",
+      "ms": 66,
+      "repeat": 1
+    },
+    {
+      "name": "BOM:add-packaging",
+      "ms": 132.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "BOM:quantity",
+      "ms": 63.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "BOM:save",
+      "ms": 133,
+      "repeat": 1
+    },
+    {
+      "name": "BOM:saved-refresh",
+      "ms": 332.79999999701977,
+      "repeat": 1
+    },
+    {
+      "name": "tech-pack:BOM-tab",
+      "ms": 134.19999999925494,
+      "repeat": 1
+    },
+    {
+      "name": "tech-pack:BOM-add-dialog",
+      "ms": 266,
+      "repeat": 1
+    },
+    {
+      "name": "tech-pack:BOM-packaging-type",
+      "ms": 216.39999999850988,
+      "repeat": 1
+    },
+    {
+      "name": "tech-pack:BOM-packaging-sku",
+      "ms": 214.10000000149012,
+      "repeat": 1
+    },
+    {
+      "name": "tech-pack:BOM-close-dialog",
+      "ms": 114,
+      "repeat": 1
+    },
+    {
+      "name": "sku:cold",
+      "ms": 225.89999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "sku:refresh",
+      "ms": 233.5,
+      "repeat": 2
+    },
+    {
+      "name": "sku:SPA",
+      "ms": 83.20000000298023,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-new:cold",
+      "ms": 349.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-new:refresh",
+      "ms": 367.0999999977648,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-new:SPA",
+      "ms": 133.19999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "bom-draft:cold",
+      "ms": 349.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "bom-draft:refresh",
+      "ms": 332.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "bom-draft:SPA",
+      "ms": 148.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "bom-published:cold",
+      "ms": 332.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "bom-published:refresh",
+      "ms": 333.1000000014901,
+      "repeat": 2
+    },
+    {
+      "name": "bom-published:SPA",
+      "ms": 216.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "bom-parts-history:cold",
+      "ms": 332.6000000014901,
+      "repeat": 2
+    },
+    {
+      "name": "bom-parts-history:refresh",
+      "ms": 365.8999999985099,
+      "repeat": 2
+    },
+    {
+      "name": "bom-parts-history:SPA",
+      "ms": 133.5,
+      "repeat": 2
+    },
+    {
+      "name": "technical-pack:cold",
+      "ms": 282.19999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "technical-pack:refresh",
+      "ms": 266.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "technical-pack:SPA",
+      "ms": 133.20000000298023,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:PCS-handoff",
+      "ms": 329.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:unit-choice",
+      "ms": 184.29999999701977,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-quantity",
+      "ms": 76.60000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-unitPrice",
+      "ms": 83,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-purchaseRegion",
+      "ms": 81.40000000223517,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-warehouse",
+      "ms": 82.39999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-buyerName",
+      "ms": 81.19999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-expectedArrivalDate",
+      "ms": 80.70000000298023,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:field-remark",
+      "ms": 66.5,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:supplier",
+      "ms": 66,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:source-tab",
+      "ms": 99.39999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:purchase-tab",
+      "ms": 97.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:save",
+      "ms": 133.39999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:saved-refresh",
+      "ms": 347.9000000022352,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:saved-source-tab",
+      "ms": 97.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:usage",
+      "ms": 150.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-10:usage-close",
+      "ms": 114.59999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:PCS-handoff",
+      "ms": 399.4000000022352,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:unit-choice",
+      "ms": 214,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-quantity",
+      "ms": 63.899999998509884,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-unitPrice",
+      "ms": 81.10000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-purchaseRegion",
+      "ms": 66.09999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-warehouse",
+      "ms": 67.10000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-buyerName",
+      "ms": 65,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-expectedArrivalDate",
+      "ms": 66.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:field-remark",
+      "ms": 96.89999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:supplier",
+      "ms": 66.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:source-tab",
+      "ms": 99.39999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:purchase-tab",
+      "ms": 99.20000000298023,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:save",
+      "ms": 131.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:saved-refresh",
+      "ms": 332.3999999985099,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:saved-source-tab",
+      "ms": 96.60000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:usage",
+      "ms": 150.09999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "purchase-20:usage-close",
+      "ms": 121.60000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:independent-direct",
+      "ms": 309.4000000022352,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:independent-usage",
+      "ms": 199.40000000223517,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:independent-usage-close",
+      "ms": 115.09999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:archive-more",
+      "ms": 108.19999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:archive-begin",
+      "ms": 99.40000000223517,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:archive-confirm",
+      "ms": 99.89999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:archive-reason",
+      "ms": 66,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:archive-blocked-save",
+      "ms": 134.19999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "consumable:archive-blocked-refresh",
+      "ms": 230.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:handoff",
+      "ms": 402.19999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-quantity",
+      "ms": 63.600000001490116,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-unitPrice",
+      "ms": 66.90000000223517,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-purchaseRegion",
+      "ms": 66,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-warehouse",
+      "ms": 81.89999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-buyerName",
+      "ms": 66.5,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-expectedArrivalDate",
+      "ms": 65.59999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:field-remark",
+      "ms": 64.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:supplier",
+      "ms": 65.89999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "parts-purchase:save",
+      "ms": 130.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "parts:independent-direct",
+      "ms": 240.70000000298023,
+      "repeat": 2
+    },
+    {
+      "name": "parts:independent-usage",
+      "ms": 165.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "parts:independent-usage-close",
+      "ms": 116.60000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "parts:archive-more",
+      "ms": 123.60000000149012,
+      "repeat": 2
+    },
+    {
+      "name": "parts:archive-begin",
+      "ms": 116.5,
+      "repeat": 2
+    },
+    {
+      "name": "parts:archive-confirm",
+      "ms": 100,
+      "repeat": 2
+    },
+    {
+      "name": "parts:archive-reason",
+      "ms": 65.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "parts:archive-blocked-save",
+      "ms": 133.09999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "parts:archive-blocked-refresh",
+      "ms": 238.39999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "BOM:select-packaging",
+      "ms": 63.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "BOM:add-packaging",
+      "ms": 132.80000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "BOM:quantity",
+      "ms": 64.69999999925494,
+      "repeat": 2
+    },
+    {
+      "name": "BOM:save",
+      "ms": 133.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "BOM:saved-refresh",
+      "ms": 365.8999999985099,
+      "repeat": 2
+    },
+    {
+      "name": "tech-pack:BOM-tab",
+      "ms": 132.30000000074506,
+      "repeat": 2
+    },
+    {
+      "name": "tech-pack:BOM-add-dialog",
+      "ms": 266.5,
+      "repeat": 2
+    },
+    {
+      "name": "tech-pack:BOM-packaging-type",
+      "ms": 216.39999999850988,
+      "repeat": 2
+    },
+    {
+      "name": "tech-pack:BOM-packaging-sku",
+      "ms": 214,
+      "repeat": 2
+    },
+    {
+      "name": "tech-pack:BOM-close-dialog",
+      "ms": 114.09999999776483,
+      "repeat": 2
+    },
+    {
+      "name": "sku:cold",
+      "ms": 243,
+      "repeat": 3
+    },
+    {
+      "name": "sku:refresh",
+      "ms": 248.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "sku:SPA",
+      "ms": 83.5,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-new:cold",
+      "ms": 382.30000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-new:refresh",
+      "ms": 366,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-new:SPA",
+      "ms": 216.40000000223517,
+      "repeat": 3
+    },
+    {
+      "name": "bom-draft:cold",
+      "ms": 348.8999999985099,
+      "repeat": 3
+    },
+    {
+      "name": "bom-draft:refresh",
+      "ms": 466.5,
+      "repeat": 3
+    },
+    {
+      "name": "bom-draft:SPA",
+      "ms": 150.19999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "bom-published:cold",
+      "ms": 366.0999999977648,
+      "repeat": 3
+    },
+    {
+      "name": "bom-published:refresh",
+      "ms": 332.3999999985099,
+      "repeat": 3
+    },
+    {
+      "name": "bom-published:SPA",
+      "ms": 133.29999999701977,
+      "repeat": 3
+    },
+    {
+      "name": "bom-parts-history:cold",
+      "ms": 349.1000000014901,
+      "repeat": 3
+    },
+    {
+      "name": "bom-parts-history:refresh",
+      "ms": 332.6000000014901,
+      "repeat": 3
+    },
+    {
+      "name": "bom-parts-history:SPA",
+      "ms": 166.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "technical-pack:cold",
+      "ms": 282.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "technical-pack:refresh",
+      "ms": 266.3999999985099,
+      "repeat": 3
+    },
+    {
+      "name": "technical-pack:SPA",
+      "ms": 133.09999999776483,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:PCS-handoff",
+      "ms": 312.5999999977648,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:unit-choice",
+      "ms": 185.79999999701977,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-quantity",
+      "ms": 109.70000000298023,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-unitPrice",
+      "ms": 88.90000000223517,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-purchaseRegion",
+      "ms": 65.59999999776483,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-warehouse",
+      "ms": 67.59999999776483,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-buyerName",
+      "ms": 65.29999999701977,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-expectedArrivalDate",
+      "ms": 67.40000000223517,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:field-remark",
+      "ms": 65.5,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:supplier",
+      "ms": 67.29999999701977,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:source-tab",
+      "ms": 98.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:purchase-tab",
+      "ms": 97.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:save",
+      "ms": 116.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:saved-refresh",
+      "ms": 388,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:saved-source-tab",
+      "ms": 84.89999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:usage",
+      "ms": 153.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-10:usage-close",
+      "ms": 129.29999999701977,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:PCS-handoff",
+      "ms": 307.9000000022352,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:unit-choice",
+      "ms": 199.19999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-quantity",
+      "ms": 65.19999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-unitPrice",
+      "ms": 66.30000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-purchaseRegion",
+      "ms": 67.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-warehouse",
+      "ms": 66.5,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-buyerName",
+      "ms": 66.60000000149012,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-expectedArrivalDate",
+      "ms": 66.19999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:field-remark",
+      "ms": 80.5,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:supplier",
+      "ms": 82.70000000298023,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:source-tab",
+      "ms": 99.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:purchase-tab",
+      "ms": 98.30000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:save",
+      "ms": 116.30000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:saved-refresh",
+      "ms": 383.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:saved-source-tab",
+      "ms": 147.10000000149012,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:usage",
+      "ms": 149.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "purchase-20:usage-close",
+      "ms": 115.30000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:independent-direct",
+      "ms": 308.8999999985099,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:independent-usage",
+      "ms": 149.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:independent-usage-close",
+      "ms": 132,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:archive-more",
+      "ms": 109.19999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:archive-begin",
+      "ms": 99.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:archive-confirm",
+      "ms": 99.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:archive-reason",
+      "ms": 66.5,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:archive-blocked-save",
+      "ms": 132.5,
+      "repeat": 3
+    },
+    {
+      "name": "consumable:archive-blocked-refresh",
+      "ms": 272.8999999985099,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:handoff",
+      "ms": 434.30000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-quantity",
+      "ms": 65.5,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-unitPrice",
+      "ms": 82.19999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-purchaseRegion",
+      "ms": 67.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-warehouse",
+      "ms": 81.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-buyerName",
+      "ms": 104,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-expectedArrivalDate",
+      "ms": 61.399999998509884,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:field-remark",
+      "ms": 65.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:supplier",
+      "ms": 67.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "parts-purchase:save",
+      "ms": 116.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "parts:independent-direct",
+      "ms": 270.0999999977648,
+      "repeat": 3
+    },
+    {
+      "name": "parts:independent-usage",
+      "ms": 201.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "parts:independent-usage-close",
+      "ms": 108.59999999776483,
+      "repeat": 3
+    },
+    {
+      "name": "parts:archive-more",
+      "ms": 108.90000000223517,
+      "repeat": 3
+    },
+    {
+      "name": "parts:archive-begin",
+      "ms": 99.59999999776483,
+      "repeat": 3
+    },
+    {
+      "name": "parts:archive-confirm",
+      "ms": 100.70000000298023,
+      "repeat": 3
+    },
+    {
+      "name": "parts:archive-reason",
+      "ms": 81.5,
+      "repeat": 3
+    },
+    {
+      "name": "parts:archive-blocked-save",
+      "ms": 133.80000000074506,
+      "repeat": 3
+    },
+    {
+      "name": "parts:archive-blocked-refresh",
+      "ms": 399.9000000022352,
+      "repeat": 3
+    },
+    {
+      "name": "BOM:select-packaging",
+      "ms": 64.59999999776483,
+      "repeat": 3
+    },
+    {
+      "name": "BOM:add-packaging",
+      "ms": 133.40000000223517,
+      "repeat": 3
+    },
+    {
+      "name": "BOM:quantity",
+      "ms": 59.399999998509884,
+      "repeat": 3
+    },
+    {
+      "name": "BOM:save",
+      "ms": 131.39999999850988,
+      "repeat": 3
+    },
+    {
+      "name": "BOM:saved-refresh",
+      "ms": 449.6000000014901,
+      "repeat": 3
+    },
+    {
+      "name": "tech-pack:BOM-tab",
+      "ms": 256.5,
+      "repeat": 3
+    },
+    {
+      "name": "tech-pack:BOM-add-dialog",
+      "ms": 260,
+      "repeat": 3
+    },
+    {
+      "name": "tech-pack:BOM-packaging-type",
+      "ms": 221.60000000149012,
+      "repeat": 3
+    },
+    {
+      "name": "tech-pack:BOM-packaging-sku",
+      "ms": 222.60000000149012,
+      "repeat": 3
+    },
+    {
+      "name": "tech-pack:BOM-close-dialog",
+      "ms": 104.69999999925494,
+      "repeat": 3
+    },
+    {
+      "name": "sku:cold",
+      "ms": 253.09999999776483,
+      "repeat": 4
+    },
+    {
+      "name": "sku:refresh",
+      "ms": 233,
+      "repeat": 4
+    },
+    {
+      "name": "sku:SPA",
+      "ms": 83.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-new:cold",
+      "ms": 365.69999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-new:refresh",
+      "ms": 350.0999999977648,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-new:SPA",
+      "ms": 150,
+      "repeat": 4
+    },
+    {
+      "name": "bom-draft:cold",
+      "ms": 332.1000000014901,
+      "repeat": 4
+    },
+    {
+      "name": "bom-draft:refresh",
+      "ms": 332.8999999985099,
+      "repeat": 4
+    },
+    {
+      "name": "bom-draft:SPA",
+      "ms": 149.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "bom-published:cold",
+      "ms": 332.69999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "bom-published:refresh",
+      "ms": 332.9000000022352,
+      "repeat": 4
+    },
+    {
+      "name": "bom-published:SPA",
+      "ms": 232.79999999701977,
+      "repeat": 4
+    },
+    {
+      "name": "bom-parts-history:cold",
+      "ms": 366.4000000022352,
+      "repeat": 4
+    },
+    {
+      "name": "bom-parts-history:refresh",
+      "ms": 332.1000000014901,
+      "repeat": 4
+    },
+    {
+      "name": "bom-parts-history:SPA",
+      "ms": 149.69999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "technical-pack:cold",
+      "ms": 266.0999999977648,
+      "repeat": 4
+    },
+    {
+      "name": "technical-pack:refresh",
+      "ms": 249.5,
+      "repeat": 4
+    },
+    {
+      "name": "technical-pack:SPA",
+      "ms": 134.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:PCS-handoff",
+      "ms": 295.5,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:unit-choice",
+      "ms": 66.40000000223517,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-quantity",
+      "ms": 65,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-unitPrice",
+      "ms": 65.70000000298023,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-purchaseRegion",
+      "ms": 66.5,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-warehouse",
+      "ms": 67.10000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-buyerName",
+      "ms": 66,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-expectedArrivalDate",
+      "ms": 65.5,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:field-remark",
+      "ms": 65.20000000298023,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:supplier",
+      "ms": 66.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:source-tab",
+      "ms": 115.5,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:purchase-tab",
+      "ms": 98.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:save",
+      "ms": 132.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:saved-refresh",
+      "ms": 364.9000000022352,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:saved-source-tab",
+      "ms": 96.39999999850988,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:usage",
+      "ms": 150.09999999776483,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-10:usage-close",
+      "ms": 115.10000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:PCS-handoff",
+      "ms": 263.1000000014901,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:unit-choice",
+      "ms": 66.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-quantity",
+      "ms": 64.90000000223517,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-unitPrice",
+      "ms": 66,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-purchaseRegion",
+      "ms": 66.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-warehouse",
+      "ms": 66.09999999776483,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-buyerName",
+      "ms": 66.39999999850988,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-expectedArrivalDate",
+      "ms": 66.29999999701977,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:field-remark",
+      "ms": 66.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:supplier",
+      "ms": 66,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:source-tab",
+      "ms": 100.09999999776483,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:purchase-tab",
+      "ms": 96.29999999701977,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:save",
+      "ms": 132.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:saved-refresh",
+      "ms": 348.3999999985099,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:saved-source-tab",
+      "ms": 96.60000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:usage",
+      "ms": 133.89999999850988,
+      "repeat": 4
+    },
+    {
+      "name": "purchase-20:usage-close",
+      "ms": 114.10000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:independent-direct",
+      "ms": 254,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:independent-usage",
+      "ms": 182.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:independent-usage-close",
+      "ms": 115.60000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:archive-more",
+      "ms": 123.69999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:archive-begin",
+      "ms": 100,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:archive-confirm",
+      "ms": 99.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:archive-reason",
+      "ms": 65.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:archive-blocked-save",
+      "ms": 133.10000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "consumable:archive-blocked-refresh",
+      "ms": 223.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:handoff",
+      "ms": 265.29999999701977,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-quantity",
+      "ms": 66.69999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-unitPrice",
+      "ms": 66.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-purchaseRegion",
+      "ms": 66.89999999850988,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-warehouse",
+      "ms": 65.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-buyerName",
+      "ms": 64.79999999701977,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-expectedArrivalDate",
+      "ms": 65.59999999776483,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:field-remark",
+      "ms": 64.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:supplier",
+      "ms": 66.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "parts-purchase:save",
+      "ms": 131.20000000298023,
+      "repeat": 4
+    },
+    {
+      "name": "parts:independent-direct",
+      "ms": 255,
+      "repeat": 4
+    },
+    {
+      "name": "parts:independent-usage",
+      "ms": 182.60000000149012,
+      "repeat": 4
+    },
+    {
+      "name": "parts:independent-usage-close",
+      "ms": 115.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "parts:archive-more",
+      "ms": 108.30000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "parts:archive-begin",
+      "ms": 99.5,
+      "repeat": 4
+    },
+    {
+      "name": "parts:archive-confirm",
+      "ms": 99.40000000223517,
+      "repeat": 4
+    },
+    {
+      "name": "parts:archive-reason",
+      "ms": 66.69999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "parts:archive-blocked-save",
+      "ms": 132.40000000223517,
+      "repeat": 4
+    },
+    {
+      "name": "parts:archive-blocked-refresh",
+      "ms": 241.39999999850988,
+      "repeat": 4
+    },
+    {
+      "name": "BOM:select-packaging",
+      "ms": 65.5,
+      "repeat": 4
+    },
+    {
+      "name": "BOM:add-packaging",
+      "ms": 132.89999999850988,
+      "repeat": 4
+    },
+    {
+      "name": "BOM:quantity",
+      "ms": 63.29999999701977,
+      "repeat": 4
+    },
+    {
+      "name": "BOM:save",
+      "ms": 133,
+      "repeat": 4
+    },
+    {
+      "name": "BOM:saved-refresh",
+      "ms": 349.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "tech-pack:BOM-tab",
+      "ms": 133.5,
+      "repeat": 4
+    },
+    {
+      "name": "tech-pack:BOM-add-dialog",
+      "ms": 266.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "tech-pack:BOM-packaging-type",
+      "ms": 216.19999999925494,
+      "repeat": 4
+    },
+    {
+      "name": "tech-pack:BOM-packaging-sku",
+      "ms": 214.80000000074506,
+      "repeat": 4
+    },
+    {
+      "name": "tech-pack:BOM-close-dialog",
+      "ms": 113.79999999701977,
+      "repeat": 4
+    }
+  ],
+  "groups": [
+    {
+      "name": "sku:cold",
+      "values": [
+        269.0999999977648,
+        257.19999999925494,
+        225.89999999850988,
+        243,
+        253.09999999776483
+      ],
+      "max": 269.0999999977648,
+      "passed": true
+    },
+    {
+      "name": "sku:refresh",
+      "values": [
+        346.4000000022352,
+        232.59999999776483,
+        233.5,
+        248.69999999925494,
+        233
+      ],
+      "max": 346.4000000022352,
+      "passed": true
+    },
+    {
+      "name": "sku:SPA",
+      "values": [
+        82.19999999925494,
+        83.30000000074506,
+        83.20000000298023,
+        83.5,
+        83.30000000074506
+      ],
+      "max": 83.5,
+      "passed": true
+    },
+    {
+      "name": "purchase-new:cold",
+      "values": [
+        415.8999999985099,
+        349.3999999985099,
+        349.30000000074506,
+        382.30000000074506,
+        365.69999999925494
+      ],
+      "max": 415.8999999985099,
+      "passed": true
+    },
+    {
+      "name": "purchase-new:refresh",
+      "values": [
+        332.80000000074506,
+        349.5999999977648,
+        367.0999999977648,
+        366,
+        350.0999999977648
+      ],
+      "max": 367.0999999977648,
+      "passed": true
+    },
+    {
+      "name": "purchase-new:SPA",
+      "values": [
+        233.80000000074506,
+        233.19999999925494,
+        133.19999999925494,
+        216.40000000223517,
+        150
+      ],
+      "max": 233.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "bom-draft:cold",
+      "values": [
+        381.19999999925494,
+        381.5,
+        349.80000000074506,
+        348.8999999985099,
+        332.1000000014901
+      ],
+      "max": 381.5,
+      "passed": true
+    },
+    {
+      "name": "bom-draft:refresh",
+      "values": [
+        366.5999999977648,
+        351.1000000014901,
+        332.69999999925494,
+        466.5,
+        332.8999999985099
+      ],
+      "max": 466.5,
+      "passed": true
+    },
+    {
+      "name": "bom-draft:SPA",
+      "values": [
+        233.5,
+        249.10000000149012,
+        148.80000000074506,
+        150.19999999925494,
+        149.80000000074506
+      ],
+      "max": 249.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "bom-published:cold",
+      "values": [
+        382,
+        332.5999999977648,
+        332.69999999925494,
+        366.0999999977648,
+        332.69999999925494
+      ],
+      "max": 382,
+      "passed": true
+    },
+    {
+      "name": "bom-published:refresh",
+      "values": [
+        333,
+        332.6000000014901,
+        333.1000000014901,
+        332.3999999985099,
+        332.9000000022352
+      ],
+      "max": 333.1000000014901,
+      "passed": true
+    },
+    {
+      "name": "bom-published:SPA",
+      "values": [
+        150.19999999925494,
+        150.30000000074506,
+        216.30000000074506,
+        133.29999999701977,
+        232.79999999701977
+      ],
+      "max": 232.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "bom-parts-history:cold",
+      "values": [
+        365.8999999985099,
+        366.30000000074506,
+        332.6000000014901,
+        349.1000000014901,
+        366.4000000022352
+      ],
+      "max": 366.4000000022352,
+      "passed": true
+    },
+    {
+      "name": "bom-parts-history:refresh",
+      "values": [
+        332.69999999925494,
+        365.70000000298023,
+        365.8999999985099,
+        332.6000000014901,
+        332.1000000014901
+      ],
+      "max": 365.8999999985099,
+      "passed": true
+    },
+    {
+      "name": "bom-parts-history:SPA",
+      "values": [
+        149.90000000223517,
+        150,
+        133.5,
+        166.80000000074506,
+        149.69999999925494
+      ],
+      "max": 166.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "technical-pack:cold",
+      "values": [
+        316,
+        283.9000000022352,
+        282.19999999925494,
+        282.80000000074506,
+        266.0999999977648
+      ],
+      "max": 316,
+      "passed": true
+    },
+    {
+      "name": "technical-pack:refresh",
+      "values": [
+        266.0999999977648,
+        365.30000000074506,
+        266.69999999925494,
+        266.3999999985099,
+        249.5
+      ],
+      "max": 365.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "technical-pack:SPA",
+      "values": [
+        133.39999999850988,
+        132.30000000074506,
+        133.20000000298023,
+        133.09999999776483,
+        134.80000000074506
+      ],
+      "max": 134.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:PCS-handoff",
+      "values": [
+        345.1000000014901,
+        347.8999999985099,
+        329.80000000074506,
+        312.5999999977648,
+        295.5
+      ],
+      "max": 347.8999999985099,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:unit-choice",
+      "values": [
+        183.09999999776483,
+        197,
+        184.29999999701977,
+        185.79999999701977,
+        66.40000000223517
+      ],
+      "max": 197,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-quantity",
+      "values": [
+        64.69999999925494,
+        65.90000000223517,
+        76.60000000149012,
+        109.70000000298023,
+        65
+      ],
+      "max": 109.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-unitPrice",
+      "values": [
+        64.89999999850988,
+        66.59999999776483,
+        83,
+        88.90000000223517,
+        65.70000000298023
+      ],
+      "max": 88.90000000223517,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-purchaseRegion",
+      "values": [
+        67.30000000074506,
+        66.69999999925494,
+        81.40000000223517,
+        65.59999999776483,
+        66.5
+      ],
+      "max": 81.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-warehouse",
+      "values": [
+        65.59999999776483,
+        65.5,
+        82.39999999850988,
+        67.59999999776483,
+        67.10000000149012
+      ],
+      "max": 82.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-buyerName",
+      "values": [
+        66.39999999850988,
+        66.20000000298023,
+        81.19999999925494,
+        65.29999999701977,
+        66
+      ],
+      "max": 81.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-expectedArrivalDate",
+      "values": [
+        66.20000000298023,
+        66.60000000149012,
+        80.70000000298023,
+        67.40000000223517,
+        65.5
+      ],
+      "max": 80.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:field-remark",
+      "values": [
+        66.5,
+        66.10000000149012,
+        66.5,
+        65.5,
+        65.20000000298023
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:supplier",
+      "values": [
+        66.30000000074506,
+        66.39999999850988,
+        66,
+        67.29999999701977,
+        66.19999999925494
+      ],
+      "max": 67.29999999701977,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:source-tab",
+      "values": [
+        99.80000000074506,
+        100.30000000074506,
+        99.39999999850988,
+        98.39999999850988,
+        115.5
+      ],
+      "max": 115.5,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:purchase-tab",
+      "values": [
+        97.60000000149012,
+        95.89999999850988,
+        97.80000000074506,
+        97.69999999925494,
+        98.30000000074506
+      ],
+      "max": 98.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:save",
+      "values": [
+        116.20000000298023,
+        132.30000000074506,
+        133.39999999850988,
+        116.80000000074506,
+        132.19999999925494
+      ],
+      "max": 133.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:saved-refresh",
+      "values": [
+        332.6000000014901,
+        333.5,
+        347.9000000022352,
+        388,
+        364.9000000022352
+      ],
+      "max": 388,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:saved-source-tab",
+      "values": [
+        97.09999999776483,
+        96.89999999850988,
+        97.69999999925494,
+        84.89999999850988,
+        96.39999999850988
+      ],
+      "max": 97.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:usage",
+      "values": [
+        151.70000000298023,
+        150.10000000149012,
+        150.80000000074506,
+        153.39999999850988,
+        150.09999999776483
+      ],
+      "max": 153.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "purchase-10:usage-close",
+      "values": [
+        115.10000000149012,
+        116.5,
+        114.59999999776483,
+        129.29999999701977,
+        115.10000000149012
+      ],
+      "max": 129.29999999701977,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:PCS-handoff",
+      "values": [
+        396.69999999925494,
+        314,
+        399.4000000022352,
+        307.9000000022352,
+        263.1000000014901
+      ],
+      "max": 399.4000000022352,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:unit-choice",
+      "values": [
+        199.89999999850988,
+        183.10000000149012,
+        214,
+        199.19999999925494,
+        66.30000000074506
+      ],
+      "max": 214,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-quantity",
+      "values": [
+        65.30000000074506,
+        64.69999999925494,
+        63.899999998509884,
+        65.19999999925494,
+        64.90000000223517
+      ],
+      "max": 65.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-unitPrice",
+      "values": [
+        66.19999999925494,
+        66.39999999850988,
+        81.10000000149012,
+        66.30000000074506,
+        66
+      ],
+      "max": 81.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-purchaseRegion",
+      "values": [
+        67.39999999850988,
+        66.10000000149012,
+        66.09999999776483,
+        67.39999999850988,
+        66.19999999925494
+      ],
+      "max": 67.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-warehouse",
+      "values": [
+        65.5,
+        75.60000000149012,
+        67.10000000149012,
+        66.5,
+        66.09999999776483
+      ],
+      "max": 75.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-buyerName",
+      "values": [
+        65.69999999925494,
+        80.80000000074506,
+        65,
+        66.60000000149012,
+        66.39999999850988
+      ],
+      "max": 80.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-expectedArrivalDate",
+      "values": [
+        84.19999999925494,
+        66.30000000074506,
+        66.80000000074506,
+        66.19999999925494,
+        66.29999999701977
+      ],
+      "max": 84.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:field-remark",
+      "values": [
+        84,
+        83.39999999850988,
+        96.89999999850988,
+        80.5,
+        66.30000000074506
+      ],
+      "max": 96.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:supplier",
+      "values": [
+        80.39999999850988,
+        82.40000000223517,
+        66.30000000074506,
+        82.70000000298023,
+        66
+      ],
+      "max": 82.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:source-tab",
+      "values": [
+        82,
+        100.80000000074506,
+        99.39999999850988,
+        99.39999999850988,
+        100.09999999776483
+      ],
+      "max": 100.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:purchase-tab",
+      "values": [
+        97.5,
+        92.19999999925494,
+        99.20000000298023,
+        98.30000000074506,
+        96.29999999701977
+      ],
+      "max": 99.20000000298023,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:save",
+      "values": [
+        116.60000000149012,
+        133.5,
+        131.30000000074506,
+        116.30000000074506,
+        132.30000000074506
+      ],
+      "max": 133.5,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:saved-refresh",
+      "values": [
+        415.9000000022352,
+        331.8999999985099,
+        332.3999999985099,
+        383.80000000074506,
+        348.3999999985099
+      ],
+      "max": 415.9000000022352,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:saved-source-tab",
+      "values": [
+        97.40000000223517,
+        98.10000000149012,
+        96.60000000149012,
+        147.10000000149012,
+        96.60000000149012
+      ],
+      "max": 147.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:usage",
+      "values": [
+        133.29999999701977,
+        131.40000000223517,
+        150.09999999776483,
+        149.80000000074506,
+        133.89999999850988
+      ],
+      "max": 150.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "purchase-20:usage-close",
+      "values": [
+        115.30000000074506,
+        130.70000000298023,
+        121.60000000149012,
+        115.30000000074506,
+        114.10000000149012
+      ],
+      "max": 130.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "consumable:independent-direct",
+      "values": [
+        260.6000000014901,
+        274.30000000074506,
+        309.4000000022352,
+        308.8999999985099,
+        254
+      ],
+      "max": 309.4000000022352,
+      "passed": true
+    },
+    {
+      "name": "consumable:independent-usage",
+      "values": [
+        200,
+        149.20000000298023,
+        199.40000000223517,
+        149.69999999925494,
+        182.80000000074506
+      ],
+      "max": 200,
+      "passed": true
+    },
+    {
+      "name": "consumable:independent-usage-close",
+      "values": [
+        115.39999999850988,
+        115.10000000149012,
+        115.09999999776483,
+        132,
+        115.60000000149012
+      ],
+      "max": 132,
+      "passed": true
+    },
+    {
+      "name": "consumable:archive-more",
+      "values": [
+        107.79999999701977,
+        110.80000000074506,
+        108.19999999925494,
+        109.19999999925494,
+        123.69999999925494
+      ],
+      "max": 123.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:archive-begin",
+      "values": [
+        99.39999999850988,
+        99.60000000149012,
+        99.40000000223517,
+        99.69999999925494,
+        100
+      ],
+      "max": 100,
+      "passed": true
+    },
+    {
+      "name": "consumable:archive-confirm",
+      "values": [
+        99.5,
+        99.69999999925494,
+        99.89999999850988,
+        99.80000000074506,
+        99.30000000074506
+      ],
+      "max": 99.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:archive-reason",
+      "values": [
+        65.89999999850988,
+        66.5,
+        66,
+        66.5,
+        65.80000000074506
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "consumable:archive-blocked-save",
+      "values": [
+        132.69999999925494,
+        133.40000000223517,
+        134.19999999925494,
+        132.5,
+        133.10000000149012
+      ],
+      "max": 134.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:archive-blocked-refresh",
+      "values": [
+        223.5,
+        237,
+        230.80000000074506,
+        272.8999999985099,
+        223.19999999925494
+      ],
+      "max": 272.8999999985099,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:handoff",
+      "values": [
+        316.8999999985099,
+        299.69999999925494,
+        402.19999999925494,
+        434.30000000074506,
+        265.29999999701977
+      ],
+      "max": 434.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-quantity",
+      "values": [
+        66.70000000298023,
+        66,
+        63.600000001490116,
+        65.5,
+        66.69999999925494
+      ],
+      "max": 66.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-unitPrice",
+      "values": [
+        65.69999999925494,
+        67,
+        66.90000000223517,
+        82.19999999925494,
+        66.19999999925494
+      ],
+      "max": 82.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-purchaseRegion",
+      "values": [
+        67.20000000298023,
+        65.60000000149012,
+        66,
+        67.69999999925494,
+        66.89999999850988
+      ],
+      "max": 67.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-warehouse",
+      "values": [
+        66.39999999850988,
+        65.19999999925494,
+        81.89999999850988,
+        81.69999999925494,
+        65.80000000074506
+      ],
+      "max": 81.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-buyerName",
+      "values": [
+        81,
+        65.19999999925494,
+        66.5,
+        104,
+        64.79999999701977
+      ],
+      "max": 104,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-expectedArrivalDate",
+      "values": [
+        66,
+        66.5,
+        65.59999999776483,
+        61.399999998509884,
+        65.59999999776483
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:field-remark",
+      "values": [
+        66.40000000223517,
+        65,
+        64.69999999925494,
+        65.39999999850988,
+        64.19999999925494
+      ],
+      "max": 66.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:supplier",
+      "values": [
+        66.20000000298023,
+        64.40000000223517,
+        65.89999999850988,
+        67.39999999850988,
+        66.80000000074506
+      ],
+      "max": 67.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "parts-purchase:save",
+      "values": [
+        133.40000000223517,
+        130.89999999850988,
+        130.69999999925494,
+        116.80000000074506,
+        131.20000000298023
+      ],
+      "max": 133.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:independent-direct",
+      "values": [
+        279.6000000014901,
+        273.30000000074506,
+        240.70000000298023,
+        270.0999999977648,
+        255
+      ],
+      "max": 279.6000000014901,
+      "passed": true
+    },
+    {
+      "name": "parts:independent-usage",
+      "values": [
+        183.10000000149012,
+        149.30000000074506,
+        165.69999999925494,
+        201.69999999925494,
+        182.60000000149012
+      ],
+      "max": 201.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:independent-usage-close",
+      "values": [
+        115,
+        115.39999999850988,
+        116.60000000149012,
+        108.59999999776483,
+        115.19999999925494
+      ],
+      "max": 116.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:archive-more",
+      "values": [
+        109.39999999850988,
+        109.5,
+        123.60000000149012,
+        108.90000000223517,
+        108.30000000074506
+      ],
+      "max": 123.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:archive-begin",
+      "values": [
+        98.59999999776483,
+        99.5,
+        116.5,
+        99.59999999776483,
+        99.5
+      ],
+      "max": 116.5,
+      "passed": true
+    },
+    {
+      "name": "parts:archive-confirm",
+      "values": [
+        99.80000000074506,
+        99.5,
+        100,
+        100.70000000298023,
+        99.40000000223517
+      ],
+      "max": 100.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "parts:archive-reason",
+      "values": [
+        66.09999999776483,
+        66.10000000149012,
+        65.30000000074506,
+        81.5,
+        66.69999999925494
+      ],
+      "max": 81.5,
+      "passed": true
+    },
+    {
+      "name": "parts:archive-blocked-save",
+      "values": [
+        133.69999999925494,
+        132.70000000298023,
+        133.09999999776483,
+        133.80000000074506,
+        132.40000000223517
+      ],
+      "max": 133.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:archive-blocked-refresh",
+      "values": [
+        237.09999999776483,
+        234.39999999850988,
+        238.39999999850988,
+        399.9000000022352,
+        241.39999999850988
+      ],
+      "max": 399.9000000022352,
+      "passed": true
+    },
+    {
+      "name": "BOM:select-packaging",
+      "values": [
+        65.39999999850988,
+        66,
+        63.69999999925494,
+        64.59999999776483,
+        65.5
+      ],
+      "max": 66,
+      "passed": true
+    },
+    {
+      "name": "BOM:add-packaging",
+      "values": [
+        133.39999999850988,
+        132.39999999850988,
+        132.80000000074506,
+        133.40000000223517,
+        132.89999999850988
+      ],
+      "max": 133.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "BOM:quantity",
+      "values": [
+        65.20000000298023,
+        63.19999999925494,
+        64.69999999925494,
+        59.399999998509884,
+        63.29999999701977
+      ],
+      "max": 65.20000000298023,
+      "passed": true
+    },
+    {
+      "name": "BOM:save",
+      "values": [
+        129.39999999850988,
+        133,
+        133.30000000074506,
+        131.39999999850988,
+        133
+      ],
+      "max": 133.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "BOM:saved-refresh",
+      "values": [
+        333.19999999925494,
+        332.79999999701977,
+        365.8999999985099,
+        449.6000000014901,
+        349.19999999925494
+      ],
+      "max": 449.6000000014901,
+      "passed": true
+    },
+    {
+      "name": "tech-pack:BOM-tab",
+      "values": [
+        149.90000000223517,
+        134.19999999925494,
+        132.30000000074506,
+        256.5,
+        133.5
+      ],
+      "max": 256.5,
+      "passed": true
+    },
+    {
+      "name": "tech-pack:BOM-add-dialog",
+      "values": [
+        266.5,
+        266,
+        266.5,
+        260,
+        266.19999999925494
+      ],
+      "max": 266.5,
+      "passed": true
+    },
+    {
+      "name": "tech-pack:BOM-packaging-type",
+      "values": [
+        216.60000000149012,
+        216.39999999850988,
+        216.39999999850988,
+        221.60000000149012,
+        216.19999999925494
+      ],
+      "max": 221.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "tech-pack:BOM-packaging-sku",
+      "values": [
+        213.80000000074506,
+        214.10000000149012,
+        214,
+        222.60000000149012,
+        214.80000000074506
+      ],
+      "max": 222.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "tech-pack:BOM-close-dialog",
+      "values": [
+        110.39999999850988,
+        114,
+        114.09999999776483,
+        104.69999999925494,
+        113.79999999701977
+      ],
+      "max": 114.09999999776483,
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "results": [
+    {
+      "repeat": 0,
+      "checks": [
+        "PCS source → 10 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "PCS source → 20 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "both kinds: true purchase references from independent fresh page; archive confirm+reason blocked; every PCS row unchanged after failed save and refresh",
+        "packaging + ordinary candidates; parts excluded; no simple process controls; current standard 9 vs formal frozen initial standard; BOM save/refresh",
+        "historical published equipment BOM still visible; tech-pack packaging candidate with no process controls"
+      ],
+      "purchases": [
+        "CGF-2026-P00001",
+        "CGF-2026-P00002",
+        "CGF-2026-P00003"
+      ]
+    },
+    {
+      "repeat": 1,
+      "checks": [
+        "PCS source → 10 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "PCS source → 20 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "both kinds: true purchase references from independent fresh page; archive confirm+reason blocked; every PCS row unchanged after failed save and refresh",
+        "packaging + ordinary candidates; parts excluded; no simple process controls; current standard 9 vs formal frozen initial standard; BOM save/refresh",
+        "historical published equipment BOM still visible; tech-pack packaging candidate with no process controls"
+      ],
+      "purchases": [
+        "CGF-2026-P00001",
+        "CGF-2026-P00002",
+        "CGF-2026-P00003"
+      ]
+    },
+    {
+      "repeat": 2,
+      "checks": [
+        "PCS source → 10 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "PCS source → 20 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "both kinds: true purchase references from independent fresh page; archive confirm+reason blocked; every PCS row unchanged after failed save and refresh",
+        "packaging + ordinary candidates; parts excluded; no simple process controls; current standard 9 vs formal frozen initial standard; BOM save/refresh",
+        "historical published equipment BOM still visible; tech-pack packaging candidate with no process controls"
+      ],
+      "purchases": [
+        "CGF-2026-P00001",
+        "CGF-2026-P00002",
+        "CGF-2026-P00003"
+      ]
+    },
+    {
+      "repeat": 3,
+      "checks": [
+        "PCS source → 10 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "PCS source → 20 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "both kinds: true purchase references from independent fresh page; archive confirm+reason blocked; every PCS row unchanged after failed save and refresh",
+        "packaging + ordinary candidates; parts excluded; no simple process controls; current standard 9 vs formal frozen initial standard; BOM save/refresh",
+        "historical published equipment BOM still visible; tech-pack packaging candidate with no process controls"
+      ],
+      "purchases": [
+        "CGF-2026-P00001",
+        "CGF-2026-P00002",
+        "CGF-2026-P00003"
+      ]
+    },
+    {
+      "repeat": 4,
+      "checks": [
+        "PCS source → 10 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "PCS source → 20 PCS/package → actual price independent → save/refresh → relation+package versions → true usage",
+        "both kinds: true purchase references from independent fresh page; archive confirm+reason blocked; every PCS row unchanged after failed save and refresh",
+        "packaging + ordinary candidates; parts excluded; no simple process controls; current standard 9 vs formal frozen initial standard; BOM save/refresh",
+        "historical published equipment BOM still visible; tech-pack packaging candidate with no process controls"
+      ],
+      "purchases": [
+        "CGF-2026-P00001",
+        "CGF-2026-P00002",
+        "CGF-2026-P00003"
+      ]
+    }
+  ]
+}

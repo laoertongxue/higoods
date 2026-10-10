@@ -17,11 +17,13 @@ export async function initializePcsRecordBaseline(): Promise<void> {
     import('../src/data/pcs-channel-catalog.ts'), import('../src/data/pcs-channel-store-repository.ts'),
     import('../src/data/fcs/material-process-plans.ts'),
   ])
+  const simpleCategories = await import('../src/data/pcs-simple-material-categories.ts')
   withPcsDemoData(() => bom.withEngineeringBomDemoBatch(() => {
     const set = (key: string, value: unknown) => pcsRecordStore.setItem(key, JSON.stringify(value))
     set('higood-pcs-config-workspace-store-v1', config.getConfigWorkspaceSnapshot())
     set('higood-pcs-exchange-rate-config-v1', exchange.getPcsExchangeRateConfig())
     set('higood-pcs-material-config-v1', materialConfig.getMaterialConfigSnapshot())
+    set(simpleCategories.PCS_SIMPLE_MATERIAL_CATEGORY_KEY, { version: 1, categories: simpleCategories.listSimpleMaterialCategoryBaseline() })
     set('higood-pcs-material-archive-store-v2', material.getMaterialArchiveBaseline())
     set('higood-fcs-material-process-plans-v1', materialPlans.getFcsMaterialProcessPlanBaseline())
     set('higood-pcs-channel-store-v1', stores.getPcsChannelStoreSnapshot())

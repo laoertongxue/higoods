@@ -89,6 +89,7 @@ export function listFcsMaterialPlanFactoryOptions(type: MaterialProcessType): Ar
 function snapshotSku(sku: MaterialSkuRecord): FcsMaterialPlanSkuSnapshot {
   const root = getMaterialArchiveById(sku.materialId)
   if (!root) throw new Error('物料主档不存在，请重新选择目标料。')
+  if (root.kind === 'consumable' || root.kind === 'parts') throw new Error('耗材、设备配件不能新建加工计划；历史加工资料仅供查看。')
   if (!isMaterialSkuAvailableForNewUse(sku)) throw new Error('直接投入、目标物料及其主档须已审核并启用，才能新建加工计划。')
   return { materialSkuId: sku.materialSkuId, materialId: sku.materialId, materialSkuCode: sku.materialSkuCode,
     materialName: sku.materialName, colorName: sku.colorName, mainUnit: sku.mainUnit || sku.pricingUnit,
@@ -118,9 +119,16 @@ export function readFcsMaterialProcessPlanSource(input: Pick<FcsMaterialProcessP
   return { sourceType: 'MATERIAL_SKU', input: snapshotSku(source), output: snapshotSku(output), process: definition, executionAssets }
 }
 export function listFcsMaterialPlanTargets(type?: MaterialProcessType): MaterialSkuRecord[] {
-  return listAllMaterialSkuRecords().filter(sku => sku.processDefinitionId && isMaterialSkuAvailableForNewUse(sku))
+  return listAllMaterialSkuRecords().filter(sku => {
+    const kind = getMaterialArchiveById(sku.materialId)?.kind
+    return kind !== 'consumable' && kind !== 'parts' && sku.processDefinitionId && isMaterialSkuAvailableForNewUse(sku)
+  })
     .filter(sku => !type || getMaterialProcessDefinition(sku.materialSkuId)?.processType === type)
-    .filter(sku => isMaterialSkuAvailableForNewUse(getMaterialSkuRecordById(getMaterialProcessDefinition(sku.materialSkuId)?.inputSkuId || '')))
+    .filter(sku => {
+      const input = getMaterialSkuRecordById(getMaterialProcessDefinition(sku.materialSkuId)?.inputSkuId || '')
+      const kind = input && getMaterialArchiveById(input.materialId)?.kind
+      return kind !== 'consumable' && kind !== 'parts' && isMaterialSkuAvailableForNewUse(input)
+    })
 }
 function validateDraft(input: FcsMaterialProcessPlanDraft, source: FcsMaterialProcessPlanSource, status: FcsMaterialProcessPlanStatus): { factoryName: string } {
   for (const [label, value, unit] of [['计划产出数量', input.plannedOutputQty, source.output.mainUnit], ['计划投入数量', input.plannedInputQty, source.input.mainUnit]] as const) {
@@ -169,6 +177,10 @@ export function updateFcsMaterialProcessPlan(id: string, input: FcsMaterialProce
   if (!plan) throw new Error('加工计划不存在，请重新读取。')
   if (plan.version !== expectedVersion) throw new Error('加工计划已被其他页面修改，请重新读取后再保存。')
   if (plan.status !== 'DRAFT') throw new Error('已确认的加工计划保留原资料与数量，请查看计划详情。')
+  for (const skuId of [plan.source.input.materialSkuId, plan.source.output.materialSkuId]) {
+    const sku = getMaterialSkuRecordById(skuId), kind = sku && getMaterialArchiveById(sku.materialId)?.kind
+    if (kind === 'consumable' || kind === 'parts') throw new Error('耗材、设备配件的历史加工计划仅供查看，不能修改或确认。')
+  }
   if (input.inputSkuId !== plan.source.input.materialSkuId || input.outputSkuId !== plan.source.output.materialSkuId || input.processDefinitionId !== plan.source.process.processDefinitionId || input.processVersionId !== plan.source.process.processVersionId) throw new Error('编辑计划不能替换物料身份或加工资料版本，请另建计划。')
   const { factoryName } = validateDraft(input, plan.source, status), now = new Date().toISOString()
   Object.assign(plan, { status, plannedOutputQty: input.plannedOutputQty, plannedInputQty: input.plannedInputQty, factoryId: input.factoryId, factoryName,

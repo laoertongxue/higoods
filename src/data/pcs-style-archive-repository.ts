@@ -5,6 +5,7 @@ import { PRODUCT_CONFIG_FIELDS, createStyleProductInformationContext, resolveSty
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture, isLegacyProductFixtureImage, migrateProductFixtureImage } from './pcs-product-archive-fixtures.ts'
 import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
+import { defaultStyleSalesContent } from './pcs-style-size-chart.ts'
 import type {
   StyleArchivePendingItem,
   StyleArchiveShellRecord,
@@ -46,6 +47,9 @@ function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
     substitutionRelations: record.substitutionRelations?.map(item => ({ ...item })),
     salesContents: record.salesContents?.map(item => ({ ...item, imageUrls: [...item.imageUrls], videoUrls: [...item.videoUrls] })),
     productConfigRefs: record.productConfigRefs ? Object.fromEntries(Object.entries(record.productConfigRefs).map(([key, ids]) => [key, [...ids]])) : undefined,
+    salesCountrySettings: record.salesCountrySettings ? [...record.salesCountrySettings] : undefined,
+    salesCountryDescriptions: record.salesCountryDescriptions ? { ...record.salesCountryDescriptions } : undefined,
+    sizeChartDraft: record.sizeChartDraft ? structuredClone(record.sizeChartDraft) : undefined,
     categoryTags: [...(record.categoryTags || [])],
     popularElementTags: [...(record.popularElementTags || [])],
     fabricTags: [...(record.fabricTags || [])],
@@ -112,7 +116,7 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     archiveLogs: structuredClone(record.archiveLogs || []),
     sameStyleIds: [...(record.sameStyleIds || [])],
     substitutionRelations: record.substitutionRelations?.map(item => ({ ...item })),
-    salesContents: (record.salesContents || [{ language: 'id', title: record.styleNameEn || record.styleName, description: record.detailDescription || '', sellingPoints: record.sellingPointText || '', imageUrls: record.galleryImageUrls || [], videoUrls: [], sizeChartUrl: '', version: 1 }]).map(item => ({ ...item, imageUrls: [...item.imageUrls], videoUrls: [...item.videoUrls] })),
+    salesContents: (record.salesContents || [{ ...defaultStyleSalesContent({ ...record, detailDescription: record.detailDescription || (manual ? '' : fixture.detailDescription), sellingPointText: record.sellingPointText || (manual ? '' : fixture.sellingPointText) }, 'id'), version: 1 }]).map(item => ({ ...item, imageUrls: [...item.imageUrls], videoUrls: [...item.videoUrls] })),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
     styleNameEn: record.styleNameEn || (manual ? '' : fixture.styleNameEn),
     baseInfoStatus: normalizeBaseInfoStatus(record.baseInfoStatus),

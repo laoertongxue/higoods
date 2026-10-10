@@ -1,0 +1,14 @@
+
+> higoods-vanilla-clone@1.0.0 check:menu-routes
+> tsx scripts/check-menu-routes.mjs
+
+[check-menu-routes] 菜单路由一致性检查
+  systems: fcs, pfos, pcs, pms
+  menu href total: 219
+  menu href unique: 219
+  uncovered: 0
+  duplicates: 0
+
+[check-menu-routes] PASS
+(node:22246) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

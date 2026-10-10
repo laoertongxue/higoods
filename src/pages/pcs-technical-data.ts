@@ -1,3 +1,4 @@
+import { getGarmentBomMaterialType, isSimpleBomMaterialSku } from '../data/pcs-engineering-bom-material-resolver.ts'
 import { technicalListState as listState, technicalLogModal, technicalAssignmentFeedback, technicalImagePreview, renderTechnicalImagePreview, renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
 export { renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
 import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
@@ -53,7 +54,7 @@ export function renderPcsTechnicalDataBomPricingPage(): string {
 }
 
 function allMaterialSkuOptions() {
-  return listMaterialArchives().filter((item) => item.status === 'ACTIVE').flatMap((material) =>
+  return listMaterialArchives().filter((item) => item.status === 'ACTIVE' && item.kind !== 'parts').flatMap((material) =>
     listMaterialSkuRecordsByMaterialId(material.materialId)
       .filter(isMaterialSkuAvailableForNewUse)
       .map((sku) => ({ material, sku, standardCost: getMaterialStandardCost(sku.materialSkuId) })),
@@ -93,6 +94,7 @@ function renderBomMaterialRows(
   return record.materialLines.map((line) => {
     const resolvedLine = resolvedById.get(line.bomItemId || line.materialSkuId)
     const skuInfo = options.find((item) => item.sku.materialSkuId === line.materialSkuId)
+    const simpleMaterial = isSimpleBomMaterialSku(line.materialSkuId)
     const disabled = editable ? '' : 'disabled'
     const skuScope = new Set(line.applicableSkuIds?.length ? line.applicableSkuIds : record.applicableSkuIds)
     return `<tr class="border-t align-top" data-bom-line="${escapeHtml(line.bomItemId || '')}">
@@ -102,19 +104,21 @@ function renderBomMaterialRows(
       <td class="p-3"><input class="h-9 w-20 rounded border px-2" type="number" min="0" max="99.99" step="0.01" value="${line.lossRate * 100}" data-bom-line-field="lossRate" ${disabled}>%</td>
       <td class="p-3">${resolvedLine && resolvedLine.conversionToPricingUnit > 0 ? `${resolvedLine.totalRequirementQuantity.toFixed(4)} ${escapeHtml(resolvedLine.pricingUnit)}` : '待校验单位换算'}</td>
       <td class="p-3">${resolvedLine && resolvedLine.standardUnitPriceCny !== null ? `¥${resolvedLine.standardUnitPriceCny.toFixed(4)}` : '<span class="text-red-600">标准单价失效</span>'}<p class="mt-1 max-w-48 text-xs text-slate-500">${escapeHtml(resolvedLine?.standardCostMessage || '')}</p></td>
-      <td class="p-3"><input type="checkbox" data-bom-line-field="printRequirement" ${line.printRequirement === '是' ? 'checked' : ''} ${disabled}></td>
-      <td class="p-3"><input type="checkbox" data-bom-line-field="dyeRequirement" ${line.dyeRequirement === '是' ? 'checked' : ''} ${disabled}></td>
+      <td class="p-3">${simpleMaterial ? '—' : `<input type="checkbox" data-bom-line-field="printRequirement" ${line.printRequirement === '是' ? 'checked' : ''} ${disabled}>`}</td>
+      <td class="p-3">${simpleMaterial ? '—' : `<input type="checkbox" data-bom-line-field="dyeRequirement" ${line.dyeRequirement === '是' ? 'checked' : ''} ${disabled}>`}</td>
       <td class="p-3"><input type="checkbox" data-bom-line-field="purchaseRequirement" ${line.purchaseRequirement === '是' ? 'checked' : ''} ${disabled}></td>
       <td class="p-3 text-xs">${styleSkus.length ? `<div class="max-h-24 space-y-1 overflow-auto">${styleSkus.map((sku) => `<label class="flex gap-1"><input type="checkbox" data-bom-sku-scope value="${escapeHtml(sku.skuId)}" ${skuScope.has(sku.skuId) ? 'checked' : ''} ${disabled}><span>${escapeHtml(sku.skuCode)}</span></label>`).join('')}</div>` : '待确认 SKU'}</td>
       <td class="p-3">${editable ? '<button class="text-red-600" data-tech-data-action="bom-remove-material">删除</button>' : '已锁定'}</td>
     </tr>
     <tr class="bg-slate-50/70" data-bom-line-detail="${escapeHtml(line.bomItemId || '')}"><td colspan="11" class="p-3"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      ${simpleMaterial ? '' : `
       <label class="text-xs text-slate-500">印花要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.printRequirementText || '')}" data-bom-line-field="printRequirementText" ${disabled}></label>
       <label class="text-xs text-slate-500">染色要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.dyeRequirementText || '')}" data-bom-line-field="dyeRequirementText" ${disabled}></label>
       <label class="text-xs text-slate-500">水溶要求<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.waterSolubleRequirementText || '无')}" data-bom-line-field="waterSolubleRequirementText" ${disabled}></label>
       <label class="text-xs text-slate-500">印花面<select class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" data-bom-line-field="printSide" ${disabled}>${['无', '正面', '反面', '双面'].map((value) => `<option value="${value}" ${line.printSide === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
       <label class="text-xs text-slate-500">关联花型成果<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" placeholder="多个成果编号用逗号分隔" value="${escapeHtml((line.linkedPatternResultIds || []).join(','))}" data-bom-line-field="linkedPatternResultIds" ${disabled}></label>
       <label class="text-xs text-slate-500">工艺编码<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.processCode || '')}" data-bom-line-field="processCode" ${disabled}></label>
+      `}
       <label class="text-xs text-slate-500 xl:col-span-4">备注<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm text-slate-800" value="${escapeHtml(line.remark || '')}" data-bom-line-field="remark" ${disabled}></label>
     </div></td></tr>`
   }).join('')
@@ -151,7 +155,7 @@ export function renderPcsTechnicalDataBomPricingDetailPage(versionId: string): s
     <header class="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-white p-4"><div class="flex items-center gap-3"><button type="button" class="h-16 w-16 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(record.styleImageUrl)}" data-image-title="${escapeHtml(record.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(record.styleImageUrl)}" alt="${escapeHtml(record.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><h1 class="text-xl font-semibold">${escapeHtml(record.styleName)} · ${escapeHtml(record.productColor)}</h1><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.styleCode)} · ${escapeHtml(record.versionCode)} · ${ownerStageText(record.ownerStage)} ${escapeHtml(record.ownerCode)}</p><p class="mt-1 text-xs text-slate-500">颜色物料方案 · 买手：${escapeHtml(record.buyerName)}</p></div></div><a class="rounded border px-4 py-2 text-sm" href="${pricingPlanHref(record.ownerStage, record.ownerId)}">返回整款方案</a></header>
     <nav class="flex flex-wrap gap-2 rounded-lg border bg-white p-3" aria-label="同一整款方案的颜色物料">${siblingVersions.map((item) => `<a class="rounded-full border px-3 py-1 text-sm ${item.bomDraftVersionId === record.bomDraftVersionId ? 'border-blue-600 bg-blue-50 text-blue-700' : 'text-slate-600'}" href="/pcs/technical-data/bom-pricing/${escapeHtml(item.bomDraftVersionId)}">${escapeHtml(item.productColor)} · ${escapeHtml(item.versionCode)}</a>`).join('')}</nav>
     ${bomFeedback.message ? `<p class="rounded border px-3 py-2 text-sm ${bomFeedback.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(bomFeedback.message)}</p>` : ''}
-    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">${escapeHtml(record.productColor)} · 物料方案</h2><p class="mt-1 text-xs text-slate-500">本页只维护该颜色的物料、用量、打样数量、损耗及工艺要求；整款费用在上一级方案维护。</p></div>${editable ? `<div class="flex gap-2"><select class="h-9 min-w-72 rounded border px-3 text-sm" data-tech-data-field="bom-material-sku"><option value="">选择物料 SKU</option>${options.map(({ sku, standardCost }) => `<option value="${escapeHtml(sku.materialSkuId)}">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.materialSkuCode)} · ${standardCost.totalStandardCny === null ? '成本待维护' : `¥${standardCost.totalStandardCny.toFixed(4)}/${escapeHtml(standardCost.pricingUnit)}`}</option>`).join('')}</select><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-add-material">加入物料</button></div>` : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header>
+    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">${escapeHtml(record.productColor)} · 物料方案</h2><p class="mt-1 text-xs text-slate-500">本页只维护该颜色的物料、用量、打样数量、损耗及工艺要求；整款费用在上一级方案维护。</p></div>${editable ? `<div class="flex gap-2"><select class="h-9 min-w-72 rounded border px-3 text-sm" data-tech-data-field="bom-material-sku"><option value="">选择物料 SKU</option>${options.map(({ sku, standardCost }) => `<option value="${escapeHtml(sku.materialSkuId)}">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.specName)} · ${escapeHtml(sku.materialSkuCode)} · ${standardCost.totalStandardCny === null ? '成本待维护' : `¥${standardCost.totalStandardCny.toFixed(4)}/${escapeHtml(standardCost.pricingUnit)}`}</option>`).join('')}</select><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-add-material">加入物料</button></div>` : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header>
       <div class="overflow-x-auto"><table class="w-full min-w-[1500px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="p-3">物料</th><th class="p-3">单位用量</th><th class="p-3">打样数量</th><th class="p-3">损耗率</th><th class="p-3">总需求量</th><th class="p-3">标准单价</th><th class="p-3">印花</th><th class="p-3">染色</th><th class="p-3">需采购</th><th class="p-3">适用 SKU</th><th class="p-3">操作</th></tr></thead><tbody>${record.materialLines.length ? renderBomMaterialRows(record, resolvedById, options, editable) : '<tr><td colspan="11" class="p-10 text-center text-slate-500">暂无物料。买手可从物料档案选择有有效标准单价的 SKU。</td></tr>'}</tbody></table></div>
       ${editable ? '<footer class="flex justify-end border-t p-4"><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-save">保存该颜色物料</button></footer>' : ''}
     </section>
@@ -208,6 +212,12 @@ function collectBomLines(record: EngineeringBomVersionRecord): EngineeringBomMat
       linkedPatternResultIds: textValue('linkedPatternResultIds').split(',').map((item) => item.trim()).filter(Boolean),
       processCode: textValue('processCode'),
       remark: textValue('remark'),
+      ...(isSimpleBomMaterialSku(current.materialSkuId) ? {
+        printRequirement: current.printRequirement, dyeRequirement: current.dyeRequirement,
+        printRequirementText: current.printRequirementText, dyeRequirementText: current.dyeRequirementText,
+        waterSolubleRequirementText: current.waterSolubleRequirementText, printSide: current.printSide,
+        linkedPatternResultIds: current.linkedPatternResultIds, processCode: current.processCode,
+      } : {}),
     }
   })
 }
@@ -339,7 +349,7 @@ export async function handlePcsTechnicalDataEvent(target: HTMLElement, event?: E
       const selected = allMaterialSkuOptions().find((item) => item.sku.materialSkuId === select?.value)
       if (!selected) throw new Error('请先选择要加入的物料 SKU。')
       if (record.materialLines.some((line) => line.materialSkuId === selected.sku.materialSkuId)) throw new Error('该物料 SKU 已在当前 BOM 中。')
-      const kindText = ({ fabric: '面料', accessory: '辅料', yarn: '纱线', consumable: '耗材', parts: '配件' } as const)[selected.material.kind]
+      const kindText = getGarmentBomMaterialType(selected.sku.materialSkuId) || ''
       ;(await saveCurrentBom(record, [...record.materialLines, {
         bomItemId: `${record.bomDraftVersionId}-LINE-${record.materialLines.length + 1}`,
         materialSkuId: selected.sku.materialSkuId,
@@ -348,10 +358,10 @@ export async function handlePcsTechnicalDataEvent(target: HTMLElement, event?: E
         productColor: record.productColor,
         materialType: kindText,
         materialImageUrl: selected.sku.skuImageUrl,
-        specification: [selected.sku.colorName, selected.sku.specName, selected.sku.sizeName].filter(Boolean).join(' / '),
+        specification: isSimpleBomMaterialSku(selected.sku.materialSkuId) ? selected.sku.specName : [selected.sku.colorName, selected.sku.specName, selected.sku.sizeName].filter(Boolean).join(' / '),
         usage: 1,
         sampleQuantity: 1,
-        usageUnit: selected.sku.pricingUnit,
+        usageUnit: isSimpleBomMaterialSku(selected.sku.materialSkuId) ? selected.sku.mainUnit || selected.sku.pricingUnit : selected.sku.pricingUnit,
         lossRate: 0,
         applicableSkuIds: [...record.applicableSkuIds],
         printRequirement: '否', dyeRequirement: '否', purchaseRequirement: '否',

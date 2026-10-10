@@ -1,0 +1,14 @@
+[
+  {
+    "modelOccurrences": 100,
+    "textCharacters": 15999,
+    "file": "/Users/laoer/Documents/higoods/output/playwright/pcs-simple-materials/long-label/parts-100.pdf",
+    "pages": 13
+  },
+  {
+    "pages": 13,
+    "textCharacters": 15999,
+    "file": "/Users/laoer/Documents/higoods/output/playwright/pcs-simple-materials/long-label/consumable-100.pdf",
+    "modelOccurrences": 100
+  }
+]

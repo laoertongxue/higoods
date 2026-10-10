@@ -52,6 +52,7 @@ import {
   hasTechnicalPatternOriginals,
   getTechnicalDataVersionContent,
   runTechnicalDataVersionRepositoryTransaction,
+  assertTechnicalMaterialSelectionDelta,
 } from '../../data/pcs-technical-data-version-repository.ts'
 import {
   getProjectStoreSnapshot,
@@ -2755,6 +2756,7 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
 ) {
   const beforeContent = getTechnicalDataVersionContent(technicalVersionId)
   if (!beforeContent) throw new Error('未找到技术包版本内容。')
+  assertTechnicalMaterialSelectionDelta(beforeContent, { ...beforeContent, ...patch })
   const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
   const engineeringRows = master ? buildEngineeringBomTaskRows(bomItems) : []
   if (master) validateBomRequirementsForEngineeringTasks(master.masterOrderId, engineeringRows)

@@ -20,7 +20,9 @@ import {
   getMaterialSkuRecordById,
   listMaterialArchives,
   listMaterialSkuRecordsByMaterialId,
+  isMaterialSkuAvailableForNewUse,
 } from '../../data/pcs-material-archive-repository.ts'
+import { getGarmentBomMaterialType, isSimpleBomMaterialSku } from '../../data/pcs-engineering-bom-material-resolver.ts'
 import { listStyleArchives } from '../../data/pcs-style-archive-repository.ts'
 
 function renderTextValue(value: string): string {
@@ -268,6 +270,7 @@ export function renderBomTab(): string {
 
                         return group.rows
                           .map((item, rowIndex) => {
+                            const simpleMaterial = isSimpleBomMaterialSku(item.materialSkuId || '')
                             const boundCraftCode = getBomBoundCraftCode(item)
                             const boundCraftOptions = bomBoundCraftOptions.filter((option) => option.allowedTypes.includes(item.type))
                             const selectableUnits = dedupeStrings([item.unit, ...unitOptions].filter(Boolean))
@@ -312,8 +315,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="${cellClass} border-l-2 border-l-blue-100">
                                   ${
-                                    readonly || item.type === '成衣'
-                                      ? renderTextValue(item.type === '成衣' ? '' : item.printRequirement)
+                                    readonly || simpleMaterial || item.type === '成衣'
+                                      ? renderTextValue(simpleMaterial && !readonly || item.type === '成衣' ? '' : item.printRequirement)
                                       : `<select class="h-8 w-full rounded-md border px-2 text-xs" data-tech-field="bom-print" data-bom-id="${item.id}">
                                           ${printOptions
                                             .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -323,8 +326,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="${cellClass}">
                                   ${
-                                    readonly || item.type === '成衣'
-                                      ? renderTextValue(item.type === '成衣' ? '' : item.dyeRequirement)
+                                    readonly || simpleMaterial || item.type === '成衣'
+                                      ? renderTextValue(simpleMaterial && !readonly || item.type === '成衣' ? '' : item.dyeRequirement)
                                       : `<select class="h-8 w-full rounded-md border px-2 text-xs" data-tech-field="bom-dye" data-bom-id="${item.id}">
                                           ${dyeOptions
                                             .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -334,8 +337,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="${cellClass}">
                                   ${
-                                    readonly || item.type === '成衣'
-                                      ? renderTextValue(item.type === '成衣' ? '' : item.waterSolubleRequirement === '是' ? '有' : '无')
+                                    readonly || simpleMaterial || item.type === '成衣'
+                                      ? renderTextValue(simpleMaterial && !readonly || item.type === '成衣' ? '' : item.waterSolubleRequirement === '是' ? '有' : '无')
                                       : `<select class="h-8 w-full rounded-md border px-2 text-xs" data-tech-field="bom-water-soluble" data-bom-id="${item.id}" data-testid="bom-water-soluble-requirement-select">
                                           ${bomRequirementOptions
                                             .map((option) => `<option value="${option}" ${item.waterSolubleRequirement === option ? 'selected' : ''}>${option === '是' ? '有' : '无'}</option>`)
@@ -345,8 +348,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="${cellClass}">
                                   ${
-                                    readonly || item.type === '成衣'
-                                      ? renderTextValue(item.type === '成衣' ? '' : item.embroideryRequirement)
+                                    readonly || simpleMaterial || item.type === '成衣'
+                                      ? renderTextValue(simpleMaterial && !readonly || item.type === '成衣' ? '' : item.embroideryRequirement)
                                       : `<select class="h-8 w-full rounded-md border px-2 text-xs" data-tech-field="bom-embroidery" data-bom-id="${item.id}">
                                           ${['无', '有']
                                             .map((option) => `<option value="${option}" ${item.embroideryRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -356,7 +359,7 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="${cellClass} border-l-2 border-l-emerald-100">
                                   ${
-                                    readonly || item.type === '成衣'
+                                    readonly || simpleMaterial || item.type === '成衣'
                                       ? renderTextValue(bomBoundCraftOptions.find((option) => option.code === boundCraftCode)?.label || '')
                                       : `<select class="h-8 w-full rounded-md border px-2 text-xs" data-tech-field="bom-bound-craft" data-bom-id="${item.id}" ${boundCraftOptions.length <= 1 ? 'disabled' : ''}>
                                           ${boundCraftOptions
@@ -465,19 +468,12 @@ export function renderBomFormDialog(): string {
     ...skuOptions.map((item) => item.color),
   ]).filter((item) => item && !['全部SKU（当前未区分颜色）', '未识别颜色', '多颜色'].includes(item))
   const isGarment = state.newBomItem.type === '成衣'
-  const allowedKindsByType: Partial<Record<BomItemRow['type'], string[]>> = {
-    面料: ['fabric'],
-    纱线: ['yarn'],
-    辅料: ['accessory'],
-    包装材料: ['packaging'],
-    其他: ['consumable', 'parts'],
-  }
   const materialArchives = listMaterialArchives().filter((item) => (
-    item.status === 'ACTIVE' && (allowedKindsByType[state.newBomItem.type] ?? []).includes(item.kind)
+    item.status === 'ACTIVE' && item.kind !== 'parts'
   ))
   const materialSkuOptions = materialArchives.flatMap((archive) => (
     listMaterialSkuRecordsByMaterialId(archive.materialId)
-      .filter((sku) => sku.status === 'ACTIVE' && Boolean(sku.skuImageUrl || archive.mainImageUrl))
+      .filter((sku) => isMaterialSkuAvailableForNewUse(sku) && getGarmentBomMaterialType(sku.materialSkuId) === state.newBomItem.type && Boolean(sku.skuImageUrl || archive.mainImageUrl))
       .map((sku) => ({ archive, sku }))
   ))
   const selectedMaterialSku = state.newBomItem.materialSkuId
@@ -487,6 +483,10 @@ export function renderBomFormDialog(): string {
     ? getMaterialArchiveById(selectedMaterialSku.materialId)
     : materialArchives.find((item) => item.materialCode === state.newBomItem.materialCode) ?? null
   const selectedMaterialImageUrl = selectedMaterialSku?.skuImageUrl || selectedMaterialArchive?.mainImageUrl || ''
+  if (state.editBomItemId && selectedMaterialSku && selectedMaterialArchive && !materialSkuOptions.some(item => item.sku.materialSkuId === selectedMaterialSku.materialSkuId)) {
+    materialSkuOptions.push({ archive: selectedMaterialArchive, sku: selectedMaterialSku })
+  }
+  const simpleMaterial = selectedMaterialArchive?.kind === 'consumable' || selectedMaterialArchive?.kind === 'parts'
   const usageProcessOptions = bomUsageProcessOptions.filter((option) =>
     option.allowedTypes.includes(state.newBomItem.type)
   )
@@ -619,7 +619,7 @@ export function renderBomFormDialog(): string {
                       .join('')}
                   </div>
                 </div>`
-              : `<label class="space-y-1">
+              : simpleMaterial ? '' : `<label class="space-y-1">
                   <span class="text-sm">绑定工艺</span>
                   <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-bound-craft" ${boundCraftOptions.length <= 1 ? 'disabled' : ''}>
                     ${boundCraftOptions
@@ -665,6 +665,7 @@ export function renderBomFormDialog(): string {
               <span class="text-sm">损耗率(%)</span>
               <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-loss-rate" value="${escapeHtml(state.newBomItem.lossRate)}" placeholder="0" />
             </label>
+            ${simpleMaterial ? '<p class="rounded border bg-slate-50 p-3 text-sm text-slate-500">耗材仅维护规格、用量和计量单位。</p>' : `
             <label class="space-y-1">
               <span class="text-sm">印花需求</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-print-requirement">
@@ -714,6 +715,7 @@ export function renderBomFormDialog(): string {
                   .join('')}
               </select>
             </label>
+            `}
             `}
           </div>
         </div>

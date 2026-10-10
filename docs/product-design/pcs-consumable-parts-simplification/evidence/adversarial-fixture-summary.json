@@ -1,0 +1,380 @@
+{
+  "professional": [
+    {
+      "kind": "fabric",
+      "rootId": "material-r1-MAT-FB-00000002",
+      "skuId": "material-r1-MAT-FB-00000002-B01"
+    },
+    {
+      "kind": "accessory",
+      "rootId": "tmf-webbing-reference",
+      "skuId": "tmf-webbing-reference-white"
+    },
+    {
+      "kind": "yarn",
+      "rootId": "material-r1-MAT-YN-00000001",
+      "skuId": "material-r1-MAT-YN-00000001-B01"
+    }
+  ],
+  "continuousFabric": [
+    {
+      "rootId": "material-r1-MAT-FB-00000001",
+      "skuId": "material-r1-process-dye",
+      "inputId": "material-r1-MAT-FB-00000001-B01",
+      "stage": "DYEING",
+      "code": "MAT-FB-00000001-B01-black-19-4003PT",
+      "inputCode": "MAT-FB-00000001-B01"
+    },
+    {
+      "rootId": "material-r1-MAT-FB-00000001",
+      "skuId": "material-r1-process-print",
+      "inputId": "material-r1-process-dye",
+      "stage": "PRINTING",
+      "code": "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH",
+      "inputCode": "MAT-FB-00000001-B01-black-19-4003PT"
+    },
+    {
+      "rootId": "material-r1-MAT-FB-00000001",
+      "skuId": "material-r1-process-embroidery",
+      "inputId": "material-r1-process-dye",
+      "stage": "EMBROIDERY",
+      "code": "MAT-FB-00000001-B01-black-19-4003PT-pl001197XH",
+      "inputCode": "MAT-FB-00000001-B01-black-19-4003PT"
+    },
+    {
+      "rootId": "material-r1-MAT-FB-00000001",
+      "skuId": "material-r1-process-heat",
+      "inputId": "material-r1-MAT-FB-00000001-B01",
+      "stage": "HEAT_TRANSFER",
+      "code": "MAT-FB-00000001-B01-pl001198TH",
+      "inputCode": "MAT-FB-00000001-B01"
+    }
+  ],
+  "legacyCodes": [
+    {
+      "kind": "consumable",
+      "rootId": "material_consumable_001",
+      "skuId": "material_consumable_001_sku_001",
+      "barcode": "CONS-TAPE-001-WHT",
+      "code": "CONS-TAPE-001-WHT",
+      "aliases": []
+    },
+    {
+      "kind": "parts",
+      "rootId": "material_parts_001",
+      "skuId": "material_parts_001_sku_001",
+      "barcode": "PART-CUT-KNIFE-10IN-STD",
+      "code": "PART-CUT-KNIFE-10IN-STD",
+      "aliases": []
+    }
+  ],
+  "simple": [
+    {
+      "kind": "parts",
+      "rootId": "material-parts_cc42ed15-0fff-4ba2-b366-b9f3324e2029",
+      "skuId": "material-sku_69dcc951-b7a3-4315-9be6-e2df63ea9430",
+      "code": "MAT-EP-00000004-B01"
+    },
+    {
+      "kind": "consumable",
+      "rootId": "material-consumable_46d70592-e083-4c96-8ba0-2001c822ad62",
+      "skuId": "material-sku_3f411e09-2e61-42a5-a2f9-1e5812216d3e",
+      "code": "MAT-CS-00000004-B01"
+    }
+  ],
+  "legacy": [
+    {
+      "rootId": "adversarial-legacy-v1",
+      "skuId": "adversarial-legacy-v1-sku",
+      "version": 1,
+      "expected": [
+        "25 cm",
+        "20 cm",
+        "0.08 mm"
+      ]
+    },
+    {
+      "rootId": "adversarial-legacy-v2",
+      "skuId": "adversarial-legacy-v2-sku",
+      "version": 2,
+      "expected": [
+        "250 mm",
+        "200 mm",
+        "80 μm"
+      ]
+    }
+  ],
+  "statics": {
+    "bagRootId": "material-r1-MAT-CS-00000001",
+    "bagSkuId": "material-r1-MAT-CS-00000001-B01",
+    "bagImage": "/materials/packing-bag.jpg?user-overlay",
+    "deletedRootId": "material-r1-MAT-EP-00000002",
+    "deletedSkuIds": [
+      "material-r1-MAT-EP-00000002-B01",
+      "material-r1-MAT-EP-00000002-B02"
+    ]
+  },
+  "processed": {
+    "rootId": "material-parts_cc42ed15-0fff-4ba2-b366-b9f3324e2029",
+    "skuId": "adversarial-old-processed"
+  },
+  "records": [
+    {
+      "id": "higood-pcs-material-archive-store-v2/assets/material-asset_170b4637-8483-4d6d-99bf-8eb9b2524018",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/assets/material-asset_24813d86-f8fb-4ce9-a6bf-6e6e39c92b6b",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/assets/material-asset_be335636-214f-43b0-b190-fc3f2949539b",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/assets/material-asset_d8cbfc55-2511-4e33-abe4-7ba0826fe49a",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/costVersions/material-cost_56e58314-58aa-4595-a3bc-ede857a2ef38",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/costVersions/material-cost_7cf8c884-157d-4e53-af4c-7105aef7e1ad",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/costVersions/material-cost_aaf6e04e-6caa-4bd7-9ed9-0728192fca2f",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/costVersions/material-cost_e3baa2a0-c759-4d97-9bba-0b33af678bc5",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_1fa758a9-2b14-4707-a8c5-3caa269172a3",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_5a9af75e-058e-4e8c-bb77-386e5cbb8ab5",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_639aa60a-a570-42aa-b481-02831d880a5f",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_7d88a644-f57f-4155-8962-b08705c0dc41",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_940ca497-fb0d-42a3-9e82-39051c24bd58",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_b0b59b3e-f0d8-4047-be07-ef81af6a1e97",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_c5bcfeb7-8f35-47c5-9cf2-42591df484f0",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_ff6be0b6-8a93-474f-8c13-083b5138224c",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/meta",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/records/material-consumable_46d70592-e083-4c96-8ba0-2001c822ad62",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/records/material-parts_cc42ed15-0fff-4ba2-b366-b9f3324e2029",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/material-sku_3f411e09-2e61-42a5-a2f9-1e5812216d3e",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/material-sku_69dcc951-b7a3-4315-9be6-e2df63ea9430",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/records/adversarial-legacy-v1",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/records/adversarial-legacy-v2",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/adversarial-legacy-v1-sku",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/adversarial-legacy-v2-sku",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/adversarial-old-processed",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/processDefinitions/adversarial-old-process",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/costVersions/adversarial-old-fee",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/assets/adversarial-old-execution",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/records/material-r1-MAT-CS-00000001",
+      "version": 7
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/material-r1-MAT-CS-00000001-B01",
+      "version": 7
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/records/material-r1-MAT-EP-00000002",
+      "version": 5
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/material-r1-MAT-EP-00000002-B01",
+      "version": 5
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/material-r1-MAT-EP-00000002-B02",
+      "version": 5
+    }
+  ],
+  "files": [
+    {
+      "id": "adversarial-consumable-0",
+      "size": 27
+    },
+    {
+      "id": "adversarial-consumable-1",
+      "size": 37
+    },
+    {
+      "id": "adversarial-parts-0",
+      "size": 27
+    },
+    {
+      "id": "adversarial-parts-1",
+      "size": 37
+    }
+  ],
+  "historicalGuards": {
+    "repositoryCalls": [
+      {
+        "name": "历史执行资料版本维护",
+        "error": "耗材和配件历史加工资料仅供查阅，不再维护。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "历史加工费直接维护",
+        "error": "耗材和配件历史加工成本仅供查阅，不再维护。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "历史原币加工费派生维护",
+        "error": "耗材和配件历史加工成本仅供查阅，不再维护。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "历史加工 SKU 新增资料 PRINT_FILE",
+        "error": "耗材和配件历史加工资料仅供查阅，不再维护。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "历史加工 SKU 新增资料 SPECIFICATION",
+        "error": "耗材和配件历史加工资料仅供查阅，不再维护。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "普通 parts 主档 新增加工资料 PRINT_FILE",
+        "error": "耗材和配件只维护识别图片和普通规格资料，不新增加工资料。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "普通 parts SKU 新增加工资料 PRINT_FILE",
+        "error": "耗材和配件只维护识别图片和普通规格资料，不新增加工资料。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "普通 consumable 主档 新增加工资料 PRINT_FILE",
+        "error": "耗材和配件只维护识别图片和普通规格资料，不新增加工资料。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "普通 consumable SKU 新增加工资料 PRINT_FILE",
+        "error": "耗材和配件只维护识别图片和普通规格资料，不新增加工资料。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 parts → fabric",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 parts → accessory",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 parts → yarn",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 parts → consumable",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 consumable → fabric",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 consumable → accessory",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 consumable → yarn",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 consumable → parts",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 accessory → consumable",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      },
+      {
+        "name": "伪造物料类型 accessory → parts",
+        "error": "已保存的物料类型不能修改，请按正确类型新建档案。",
+        "memoryUnchanged": true
+      }
+    ],
+    "caseCount": 19,
+    "recordsUnchanged": true,
+    "attachmentBytesUnchanged": true,
+    "scope": "19 个实际仓库命令：历史配件加工 SKU 3 个维护旁路与 2 个新增资料旁路、两类普通主档/SKU 4 个加工资料旁路、两类主档 8 个跨类型旁路、专业辅料转两类 2 个反向旁路；拒绝后核对全部 IndexedDB 记录、版本及附件原始字节"
+  }
+}

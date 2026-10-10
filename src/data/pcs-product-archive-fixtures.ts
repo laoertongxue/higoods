@@ -1,3 +1,4 @@
+import { defaultStyleDescription } from './pcs-style-size-chart.ts'
 import { reviewedStyleGallery, reviewedStyleImage } from './pcs-reviewed-image-catalog.ts'
 
 const LEGACY_PRODUCT_IMAGES = [
@@ -142,7 +143,7 @@ export function buildStyleFixture(styleCode: string, styleName: string): Product
     mainImageUrl,
     galleryImageUrls,
     sellingPointText: '主图、标题、规格矩阵、技术资料与渠道映射统一收口到正式档案。',
-    detailDescription: `${styleName} 已转入正式款式档案，当前以技术包、规格档案和渠道店铺商品作为后续生产与经营链路的唯一主数据来源。`,
+    detailDescription: defaultStyleDescription(),
     packagingInfo: resolvePackaging(styleName),
   }
 }

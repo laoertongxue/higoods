@@ -19,6 +19,7 @@ import {
 } from '../../data/tech-pack-process-route.ts'
 import {
   getMaterialSkuRecordById,
+  getMaterialArchiveById,
   listMaterialSkuRecordsByMaterialId,
 } from '../../data/pcs-material-archive-repository.ts'
 import type { MaterialSkuRecord } from '../../data/pcs-material-archive-types.ts'
@@ -97,12 +98,16 @@ function renderRouteNode(
 function resolvePreparationSkuCandidates(item: TechniqueItem, bom: (typeof state.bomItems)[number]): MaterialSkuRecord[] {
   const inputSkuId = item.inputMaterialSkuId || bom.materialSkuId || ''
   const inputSku = inputSkuId ? getMaterialSkuRecordById(inputSkuId) : null
+  const kind = inputSku && getMaterialArchiveById(inputSku.materialId)?.kind
+  if (kind === 'consumable' || kind === 'parts') return []
   const outputSku = item.outputMaterialSkuId ? getMaterialSkuRecordById(item.outputMaterialSkuId) : null
   const candidates = inputSku ? listMaterialSkuRecordsByMaterialId(inputSku.materialId) : []
   const byId = new Map(candidates.map((sku) => [sku.materialSkuId, sku]))
   if (inputSku) byId.set(inputSku.materialSkuId, inputSku)
   if (outputSku) byId.set(outputSku.materialSkuId, outputSku)
   return [...byId.values()].filter((sku) => (
+    !['consumable', 'parts'].includes(getMaterialArchiveById(sku.materialId)?.kind || '')
+    &&
     (sku.status === 'ACTIVE' || sku.materialSkuId === item.outputMaterialSkuId)
     && (!(item.processCode === 'DYE' || item.processCode === 'PRINT') || sku.materialSkuId !== inputSkuId)
   ))

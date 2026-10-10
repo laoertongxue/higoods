@@ -100,6 +100,7 @@ export interface MaterialSkuRecord {
   /** 与该目标 SKU 对应的正式花型图片。 */
   patternImageUrl?: string
   specName: string
+  specDescription?: string
   sizeName: string
   skuImageUrl: string
   costPrice: number
@@ -151,6 +152,7 @@ export interface MaterialSkuDraftInput {
   pantoneCode?: string
   patternCode?: string
   specName: string
+  specDescription?: string
   sizeName: string
   skuImageUrl: string
   costPrice: number

@@ -1,0 +1,156 @@
+{
+  "base": "http://127.0.0.1:43220",
+  "samples": [
+    {
+      "name": "archives:transfer-template",
+      "round": 0,
+      "ms": 33.19999999925494
+    },
+    {
+      "name": "archives:transfer-export",
+      "round": 0,
+      "ms": 33.19999999925494
+    },
+    {
+      "name": "units:transfer-template",
+      "round": 0,
+      "ms": 33.399999998509884
+    },
+    {
+      "name": "units:transfer-export",
+      "round": 0,
+      "ms": 33.30000000074506
+    },
+    {
+      "name": "costs:transfer-template",
+      "round": 0,
+      "ms": 33.29999999701977
+    },
+    {
+      "name": "costs:transfer-export",
+      "round": 0,
+      "ms": 33.20000000298023
+    },
+    {
+      "name": "archives:transfer-template",
+      "round": 1,
+      "ms": 32.899999998509884
+    },
+    {
+      "name": "archives:transfer-export",
+      "round": 1,
+      "ms": 33.29999999701977
+    },
+    {
+      "name": "units:transfer-template",
+      "round": 1,
+      "ms": 33.400000002235174
+    },
+    {
+      "name": "units:transfer-export",
+      "round": 1,
+      "ms": 34.100000001490116
+    },
+    {
+      "name": "costs:transfer-template",
+      "round": 1,
+      "ms": 33.399999998509884
+    },
+    {
+      "name": "costs:transfer-export",
+      "round": 1,
+      "ms": 32.29999999701977
+    },
+    {
+      "name": "archives:transfer-template",
+      "round": 2,
+      "ms": 33
+    },
+    {
+      "name": "archives:transfer-export",
+      "round": 2,
+      "ms": 33.099999997764826
+    },
+    {
+      "name": "units:transfer-template",
+      "round": 2,
+      "ms": 33.399999998509884
+    },
+    {
+      "name": "units:transfer-export",
+      "round": 2,
+      "ms": 33.29999999701977
+    },
+    {
+      "name": "costs:transfer-template",
+      "round": 2,
+      "ms": 33.30000000074506
+    },
+    {
+      "name": "costs:transfer-export",
+      "round": 2,
+      "ms": 33.099999997764826
+    },
+    {
+      "name": "archives:transfer-template",
+      "round": 3,
+      "ms": 32.79999999701977
+    },
+    {
+      "name": "archives:transfer-export",
+      "round": 3,
+      "ms": 33.30000000074506
+    },
+    {
+      "name": "units:transfer-template",
+      "round": 3,
+      "ms": 32.599999997764826
+    },
+    {
+      "name": "units:transfer-export",
+      "round": 3,
+      "ms": 33
+    },
+    {
+      "name": "costs:transfer-template",
+      "round": 3,
+      "ms": 33.399999998509884
+    },
+    {
+      "name": "costs:transfer-export",
+      "round": 3,
+      "ms": 33.30000000074506
+    },
+    {
+      "name": "archives:transfer-template",
+      "round": 4,
+      "ms": 32.899999998509884
+    },
+    {
+      "name": "archives:transfer-export",
+      "round": 4,
+      "ms": 33.20000000298023
+    },
+    {
+      "name": "units:transfer-template",
+      "round": 4,
+      "ms": 33.399999998509884
+    },
+    {
+      "name": "units:transfer-export",
+      "round": 4,
+      "ms": 33.29999999701977
+    },
+    {
+      "name": "costs:transfer-template",
+      "round": 4,
+      "ms": 33.100000001490116
+    },
+    {
+      "name": "costs:transfer-export",
+      "round": 4,
+      "ms": 33.30000000074506
+    }
+  ],
+  "errors": []
+}

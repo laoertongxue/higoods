@@ -1,0 +1,42 @@
+✖ SIMPLE-049/057: direct historical simple process asset and source-money cost mutation are read-only (8.543375ms)
+✖ SIMPLE-049/053: simple archives accept ordinary identification and specification files but reject new process roles (5.615042ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 352.037583
+
+✖ failing tests:
+
+test at tests/unit/pcs-simple-material-archives.test.ts:1:12799
+✖ SIMPLE-049/057: direct historical simple process asset and source-money cost mutation are read-only (8.543375ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/unit/pcs-simple-material-archives.test.ts:80:67)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /历史加工资料仅供查阅/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/unit/pcs-simple-material-archives.test.ts:1:14805
+✖ SIMPLE-049/053: simple archives accept ordinary identification and specification files but reject new process roles (5.615042ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/unit/pcs-simple-material-archives.test.ts:93:713)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /只维护识别图片和普通规格资料/,
+    operator: 'throws',
+    diff: 'simple'
+  }

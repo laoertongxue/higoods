@@ -1,0 +1,385 @@
+[
+  {
+    "path": "tests/browser-contracts/pcs-simple-adversarial.test.ts",
+    "sha256": "de23351ee40c6aa0f25611ed7419be7bf04bee5497678132604024bd717c2e1a"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-category-usage.test.ts",
+    "sha256": "8aa1c87045c864af2c5868d6ff41dae65258c0df8e2b1029757a88e5e4bc764c"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-config.test.ts",
+    "sha256": "a1d5dc3852728b2a98d605eba923dd618efc5914c70c0d714e5b7a52921a50e5"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-copy-identity.test.ts",
+    "sha256": "592bc349efd2e6605ff2af3be94b4ece0422806dbd7aafb4e85008b14fc1d784"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-downstream.test.ts",
+    "sha256": "065c915d952758f4dbf05ed86591eea99dc5baf3172dcafabab17f821f162b3c"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-import.test.ts",
+    "sha256": "12aadadfd8b46acb85cedc625aa0fed89511af2463a0ed9206b699f7236658be"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-long-label.test.ts",
+    "sha256": "331c93ab0afbf429263cff34320c797092ad627e4ca6ed736d91b666fc90582f"
+  },
+  {
+    "path": "tests/browser-contracts/pcs-simple-materials.test.ts",
+    "sha256": "875bcccd347641aa62b9a780ebe5d695d86b7ca8fcd0b333e3411515f2e230bc"
+  },
+  {
+    "path": "tests/pcs-simple-material-downstream.test.ts",
+    "sha256": "33e64d23cb56a4c611d69e40dc886729d0988d32f347e535e6c3de4baa9e0352"
+  },
+  {
+    "path": "tests/unit/pcs-simple-material-archives.test.ts",
+    "sha256": "228358394b9c25bc833471ef7de8ee07aa58493ea72c0627a5f42851cfdd1e7d"
+  },
+  {
+    "path": "tests/unit/pcs-simple-material-categories.test.ts",
+    "sha256": "941f708edc6c4453dadb66a5a1d037a7b4b3709c0cbe22756f49a5aa296bd4da"
+  },
+  {
+    "path": "tests/unit/pcs-simple-static-preservation.test.ts",
+    "sha256": "d944a2747853d5c4600b14f77d8687f8465c62e731dc30650282a6b6fed54516"
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/consumable-copied-files-1280.png",
+    "sha256": "541f25676c203fdd7e8df9b4f17b1069b1483f448d6622be8f478546dc55047b",
+    "bytes": 132617
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/consumable-copied-files-1366.png",
+    "sha256": "c9cc574c7a941f926df4a8c7e4e2ea7eefa075c329aebb4b4ff1b100b8dd4f28",
+    "bytes": 137302
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/legacy-process-files-readonly-1280.png",
+    "sha256": "197a2b1d8726a7a1624471cbfddd590925490262229a63bb63757a146f3cabd0",
+    "bytes": 117130
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/legacy-process-files-readonly-1366.png",
+    "sha256": "39d7572058b5629a12bffbac3fd6574ba09f6fd6b623115f69c970b6ee95fc3b",
+    "bytes": 130894
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/legacy-process-readonly.png",
+    "sha256": "e3f80fe108bbe925995aa82103538732d3aca8adfb61a3328353c3542945c41a",
+    "bytes": 67911
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/legacy-v1.png",
+    "sha256": "3a4450b7be265998cb2d709130ca881a421501860555571c7bee062c4ad3956e",
+    "bytes": 136721
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/legacy-v2.png",
+    "sha256": "186a2727f9c95b351216582d5d8d99cd073c255f7c0451508b7705d68f3d16a2",
+    "bytes": 137033
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/parts-copied-files-1280.png",
+    "sha256": "cbcf9472a10d44e64293485a7f01b64f760827c82cc8be09f21c26d4aa47e513",
+    "bytes": 120632
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/adversarial/parts-copied-files-1366.png",
+    "sha256": "831a11f028b13b5657b82c74b6fdf0298ab27a7881e0b0fec66a4612e8e653eb",
+    "bytes": 125308
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/category-usage/consumable-classification-1280.png",
+    "sha256": "60d3d517655640e3f031b19e1f5d873699c07482058f9ab3bf6230de97275fe7",
+    "bytes": 98239
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/category-usage/consumable-classification-1366.png",
+    "sha256": "4c185b95e013e74746e9791fbfab820f7495f3f0fc2b888360b105b786a8be1e",
+    "bytes": 102688
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/category-usage/package-usage-1280.png",
+    "sha256": "32688875801430091697560a77086f19fda8bd2c1aa51543c47cbb38db1a477a",
+    "bytes": 109179
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/category-usage/package-usage-1366.png",
+    "sha256": "21e92dc5325915b8389b936f2730e955ba058911679594b56e2ce2741c64e5e4",
+    "bytes": 113526
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/category-usage/parts-classification-1280.png",
+    "sha256": "19830cae3065c0f360d4e3885c9711cc74a6443b3837e220bd0c4299df8763dc",
+    "bytes": 96075
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/category-usage/parts-classification-1366.png",
+    "sha256": "de49241f97fe037a2cd60465ed8b47462ef2284f8ba4bf40c198ca01678b1ecc",
+    "bytes": 100362
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/config/consumable-1280-list.png",
+    "sha256": "0cac9921f3b8732708f7e4a7eff6a810203a84e63ef8e973bbcfe262b461bc5a",
+    "bytes": 115550
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/config/consumable-1366-list.png",
+    "sha256": "03a2b31aacc1a8e3653055c9c2a093640dbf60494ab9b176726ce1d325fa3c2f",
+    "bytes": 118753
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/config/consumable-detail.png",
+    "sha256": "7208e5584e3dad8a97e99fccb15e15a26b286ce63a60cadce7f3ce768453475a",
+    "bytes": 118361
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/config/parts-1280-list.png",
+    "sha256": "d57908254c1238bf87562f428cf472febada8c95f114e9261576887f4d2dd59a",
+    "bytes": 115180
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/config/parts-1366-list.png",
+    "sha256": "bc6813dbaf2217030da87c6fd68224a2c95fd7b52137c129a864b19acd086a1d",
+    "bytes": 117742
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/config/parts-detail.png",
+    "sha256": "ab7c2a6f5fb026c494eac7015b114a2bb17c5217b3283ad6ea970c4dc80d8446",
+    "bytes": 116423
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-1280-list.png",
+    "sha256": "7859a85c4dbaba54cac45ec393baa32e48168c077f0f17185652eea2cd9fc956",
+    "bytes": 172612
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-1366-list.png",
+    "sha256": "19d055e83c7324db2da38659eb64c649a73f7743c3d63647bb5e2ce5e73ff333",
+    "bytes": 182566
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-print-100.pdf",
+    "sha256": "5989389522e63da24c6b226979f34cfbe2c661bb7e4d816a80237de5127f004e",
+    "bytes": 174279
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-print.html",
+    "sha256": "8fff837a49a508c0121e6a50c0f7ebfa5759b45819ff726185e8a93a831ba73a",
+    "bytes": 5183
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-print.pdf",
+    "sha256": "66682f751c3a75c8b8bd138ba791c02df94528384acd3aa29586ac88dc514f23",
+    "bytes": 111624
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-print.png",
+    "sha256": "7fd62d5dab025abc46a71aeae73af86854f3fa29504272bfecde48872d05e746",
+    "bytes": 26530
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-qr-expected.txt",
+    "sha256": "e38fb34bd16f8b0f95ac99f483d424d8a89a929bb1f2650562bb7992efc2fb13",
+    "bytes": 49
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/consumable-qr.png",
+    "sha256": "b3b9d35a7201e8309526261cd8d71025ed47061f9ed9389e49137b43ba78e516",
+    "bytes": 880
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/copy-identity/consumable-source-alias-resolved-1280.png",
+    "sha256": "00bc9de918f8b31b5485a03fd683dbe17cae6b0e9a63821926871907e0493c5f",
+    "bytes": 138534
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/copy-identity/consumable-source-alias-resolved-1366.png",
+    "sha256": "96ba8f0efdaf9fd0d0a047bc70c0aa6e966303d65028304c0a4bda65dd396840",
+    "bytes": 141654
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/copy-identity/parts-source-alias-resolved-1280.png",
+    "sha256": "ab5e8dd0b37625bd3e784491692b8988fa57c748869b5eb30b1b40796586de45",
+    "bytes": 132277
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/copy-identity/parts-source-alias-resolved-1366.png",
+    "sha256": "4bb65d8e3abe6ef0c91e67b4ef1be17c6882e559ddef63de63086ef1c2f20f35",
+    "bytes": 135272
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/bom-draft-1280.png",
+    "sha256": "0a170ec0353c8091d7c08ef841d03417e6dc2c0ab04d45e5d784a846a1b0a86c",
+    "bytes": 118027
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/bom-draft-1366.png",
+    "sha256": "0c5caeeb87a7647fb77b71e3e8585801696b7bb8caef4251dbc891d4fbf26aa2",
+    "bytes": 128344
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/bom-formal-frozen.png",
+    "sha256": "1cc3a78d19ac0826d08006cd20e37d3a9dcc5a162732e87e12a8da74ccdf4284",
+    "bytes": 132537
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/bom-parts-history.png",
+    "sha256": "f1668235ad026691cdc80afb61529a5fbc8a7c95373ff2e1c00210bc3706e290",
+    "bytes": 125492
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/consumable-archive-blocked-1280.png",
+    "sha256": "236d3dfd092368518fa2f81c354e7283c9652d702d661f1094b6df02bb08df98",
+    "bytes": 127624
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/consumable-archive-blocked-1366.png",
+    "sha256": "6136f06964d7f9839ce53ca391cbe87504ea0483721c24623f6399b0b06fd569",
+    "bytes": 135393
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/parts-archive-blocked-1280.png",
+    "sha256": "7c8166420d043b1147b89487125d2ae84a3e372447332525db9d5bed7c193360",
+    "bytes": 114458
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/parts-archive-blocked-1366.png",
+    "sha256": "5ac3e208a97ad25c479caa247b8aefdc0500283148a70d178ffd0320a9767bef",
+    "bytes": 121957
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/purchase-10-1280.png",
+    "sha256": "e15b0aa43241cd8b708af894b13c2bb83be5c30ee351c09097c6775de0e1bb5e",
+    "bytes": 133409
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/purchase-10-1366.png",
+    "sha256": "cd43a61f18930b28d21af8a22191c8bcf7ba04383fe3a1dba40f206f6a44cecf",
+    "bytes": 139625
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/purchase-20-1280.png",
+    "sha256": "2e5ff211335b7eec39b51f97bd0942d1bcc06622ef37f4726b440a422b518ac5",
+    "bytes": 133365
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/purchase-20-1366.png",
+    "sha256": "bf6b30a5738e9e1c0d621437b0e13f00bd037296b9c9917687d5a3951d507e59",
+    "bytes": 139583
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/tech-pack-BOM-1280.png",
+    "sha256": "33c860530779fb46cff693c80a79d452c0941e58f267219efcb93e468c2fcfb4",
+    "bytes": 110695
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/tech-pack-BOM-1366.png",
+    "sha256": "f5ab0b1b31d3dc88f9ef7c55d011dbaaca4cd21f7c56014ffa4ca5c371673450",
+    "bytes": 122086
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/downstream/techpack-dev-preflight.png",
+    "sha256": "d3d4f86b858e435d41530b5401ec70a9ac0a919175ffbadd0e097d6bf3aadbd8",
+    "bytes": 139024
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/import-failure.html",
+    "sha256": "8b0be36ed1c0ffcd3453ba1bba80ab52d9ce543d60cb8d21789e49cfba20396a",
+    "bytes": 80081
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/consumable-100.pdf",
+    "sha256": "72fc839e28d45a69814ddd7e8107b29b22f0bf81e36929e6c91b6c8dad80de01",
+    "bytes": 200757
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/consumable-model.txt",
+    "sha256": "baf941808521f4dc7bf49d6ab616cc69478b67ce299d8ae78964b32b99695e94",
+    "bytes": 360
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/consumable-page-1.png",
+    "sha256": "e86c52ab2de2cd63df1205c4b42f93d23f74f0774f5df4c161251d5f9e08911a",
+    "bytes": 508756
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/consumable-page-13.png",
+    "sha256": "59fddefd01167f05a5a4d425679b8d32654a64c7a7d1b858c5f20926f7d7b53e",
+    "bytes": 269046
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/consumable.png",
+    "sha256": "0646ab95d7e0ae0540fd48abbfb8a700149aba8bd2512ce3cae211dbd3a60242",
+    "bytes": 189698
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/parts-100.pdf",
+    "sha256": "a05093c4fcc5e25787a4a0a1882089f7e8ca23dfabca60e8e1ea0d63b500d2ad",
+    "bytes": 238815
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/parts-model.txt",
+    "sha256": "baf941808521f4dc7bf49d6ab616cc69478b67ce299d8ae78964b32b99695e94",
+    "bytes": 360
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/parts-page-1.png",
+    "sha256": "bf12254168abc405ef7cbb4f8dfd468bcbd33657434dca372c2c6eebc78ff968",
+    "bytes": 460035
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/parts-page-13.png",
+    "sha256": "71ef4763e479e3d65601f3f555796bab5062f843c1402a4bd77842c7df39e103",
+    "bytes": 244785
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/long-label/parts.png",
+    "sha256": "81de0be4a6612e14e80bdba931b03711cbd6286ddc56380623933e261a6f85d4",
+    "bytes": 159942
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-1280-list.png",
+    "sha256": "60c0d887b971a0de426a4906f8d13a49f3b0ca0c5ecd8f088e9122b446039329",
+    "bytes": 159772
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-1366-list.png",
+    "sha256": "d9a97efdd0ce740f9f9b9156fff4ce4b199e668b521bd626295e9164278c11a1",
+    "bytes": 175918
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-print-100.pdf",
+    "sha256": "e7f6edb3c2b2c2dc0590e89f42dc3732c1277f562d5386cf76db138466e26bf0",
+    "bytes": 222611
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-print.html",
+    "sha256": "620503525a539f53ec5155183e6988b732d07c13341fd5a3364e4614a678f22a",
+    "bytes": 5071
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-print.pdf",
+    "sha256": "e0010d7160162bc4fb040f4aa34ca44692ef5a4f347df36e54c808d4254dfcfe",
+    "bytes": 157956
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-print.png",
+    "sha256": "cada41ea2e7dc8777786bb6f910435504568e981d7b175b08866f3d150d060ee",
+    "bytes": 22433
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-qr-expected.txt",
+    "sha256": "039bf7d4dfeb64551c9845ced5f5c9f813c36f3394088cf47c953dae74f76a0e",
+    "bytes": 49
+  },
+  {
+    "path": "output/playwright/pcs-simple-materials/parts-qr.png",
+    "sha256": "b05935988e7f6d65d3c704081e474d943d8bcc110aa3d2f06ae79f03e0ea23e2",
+    "bytes": 868
+  }
+]

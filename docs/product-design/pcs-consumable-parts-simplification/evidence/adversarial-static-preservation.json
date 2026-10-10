@@ -1,0 +1,72 @@
+{
+  "passed": true,
+  "requirements": [
+    "SIMPLE-058"
+  ],
+  "evidence": [
+    {
+      "code": "MAT-CS-00000001",
+      "label": "透明包装袋",
+      "url": "/materials/packing-bag.jpg",
+      "specs": [
+        "30×25cm",
+        "40×25cm"
+      ],
+      "sha256": "abcee7ce9326ef91b29f1f89869c58ac12df00146998b26927d29c2dcf9f372f",
+      "visualObservation": "透明LDPE袋局部，未见尺寸刻度",
+      "scope": "识别图对应物料类型；图片共享仅作外观识别，不以照片证明不可辨尺寸"
+    },
+    {
+      "code": "MAT-CS-00000002",
+      "label": "白色辅助胶带",
+      "url": "/materials/pcs-reviewed/tape-white.jpg",
+      "specs": [
+        "20mm×50m",
+        "25mm×50m"
+      ],
+      "sha256": "b1e7ac293fac0a2d096bc71796becc39eafb851f91b086df4656684619a5494b",
+      "visualObservation": "白色胶带卷，未见宽度/长度刻度",
+      "scope": "识别图对应物料类型；图片共享仅作外观识别，不以照片证明不可辨尺寸"
+    },
+    {
+      "code": "MAT-EP-00000001",
+      "label": "裁剪刀片",
+      "url": "/materials/pcs-reviewed/knife.jpg",
+      "specs": [
+        "10英寸",
+        "12英寸"
+      ],
+      "sha256": "2eee76f090af08b1e9cb1b337fd1a570862613802d87354f0af1686501b76d93",
+      "visualObservation": "裁剪直刀片，未见10/12英寸刻度",
+      "scope": "识别图对应物料类型；图片共享仅作外观识别，不以照片证明不可辨尺寸"
+    },
+    {
+      "publication": [
+        1,
+        2
+      ],
+      "staticVersion": "pcs-r1-2026-10-06",
+      "rootOverlay": "higood-pcs-material-archive-store-v2/records/material-r1-MAT-CS-00000001",
+      "skuOverlay": "higood-pcs-material-archive-store-v2/skuRecords/material-r1-MAT-CS-00000001-B01",
+      "tombstones": [
+        "higood-pcs-material-archive-store-v2/records/material-r1-MAT-EP-00000002",
+        "higood-pcs-material-archive-store-v2/skuRecords/material-r1-MAT-EP-00000002-B01",
+        "higood-pcs-material-archive-store-v2/skuRecords/material-r1-MAT-EP-00000002-B02"
+      ],
+      "preserved": [
+        "user name",
+        "user explanation",
+        "durable image reference",
+        "user specification",
+        "root and both SKU deletions"
+      ],
+      "paths": [
+        "ordinary seed merge",
+        "registered newly introduced seed merge"
+      ],
+      "scope": "真实组装函数的发布前后契约；此专项不替代浏览器IndexedDB读取、刷新、性能证据"
+    }
+  ],
+  "visualCheckedBy": "simple_pages actual local images inspected 2026-10-09",
+  "limitations": "照片无可辨尺寸刻度，不能用照片证明10/12英寸或20/25mm实测尺寸；类型/颜色与档案一致，规格明确由文字提供。"
+}

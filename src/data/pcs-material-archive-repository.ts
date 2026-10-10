@@ -1,3 +1,6 @@
+import { consumeMaterialArchiveReferenceCheck } from './pcs-material-reference-check.ts'
+import { isSimpleMaterialKind, listSimpleMaterialCategories, getSimpleMaterialCategory } from './pcs-simple-material-categories.ts'
+import { listMaterialTechnicalUsages } from './pcs-material-technical-usage.ts'
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
 import { migrateMaterialMockGallery, migrateMaterialMockImage } from './pcs-reviewed-image-catalog.ts'
 import { tmfReferenceMaterials, tmfReferenceSkus, tmfReferenceMaterialLogs } from './pcs-tmf-material-reference-seeds.ts'
@@ -136,6 +139,18 @@ function resolveAuxiliaryUnits(record: MaterialArchiveRecord, mainUnit: string):
   return units.length > 0 ? units : fallbackUnits
 }
 
+/** Render old values using the schema actually adopted by that record; no writes on read. */
+function simpleLegacySpecification(root:MaterialArchiveRecord,values:MaterialSpecValues|undefined):string {
+  if(!values || !Object.values(values).some(value=>value!==undefined && value!==null && value!==''))return ''
+  let fields:ReturnType<typeof getMaterialTemplateByVersion>['fields']=[]
+  if(root.templateId)fields=getMaterialTemplateByVersion(root.templateId,root.templateVersion||1).fields
+  else fields=listMaterialTemplates().filter(item=>item.kind===root.kind&&item.category===root.categoryName).sort((a,b)=>a.version-b.version)[0]?.fields || []
+  return Object.entries(values).filter(([,value])=>value!==undefined && value!==null && value!=='').map(([key,value])=>{
+    const field=fields.find(item=>item.key===key)
+    const display=Array.isArray(value)?value.map(item=>item&&typeof item==='object'?Object.entries(item).map(([name,v])=>`${name} ${v}`).join(' '):String(item)).join('、'):String(value)
+    return `${field?.label || key}：${display}${field?.unit ? ' '+field.unit:''}`
+  }).join('；')
+}
 function normalizeRecord(record: MaterialArchiveRecord, templates = new Map<string, ReturnType<typeof getMaterialTemplateByVersion>>(), owned = false): MaterialArchiveRecord {
   // Older packaging archives are consumables in R1. Keep their code, category
   // label and attributes; this is a read projection, not a storage migration.
@@ -143,6 +158,15 @@ function normalizeRecord(record: MaterialArchiveRecord, templates = new Map<stri
   const kind = legacyPackaging ? 'consumable' : record.kind
   const templateCategory = legacyPackaging ? '辅助耗材' : record.categoryName
   const mainUnit = resolveMainUnit(record)
+  if (isSimpleMaterialKind(kind)) {
+    const result = owned ? record : cloneRecord(record)
+    const originalCategoryId=record.subcategoryId || listMaterialTemplates().find(item=>item.kind===kind&&(item.templateId===record.templateId||!record.templateId&&item.category===templateCategory))?.categoryId
+    const category = getSimpleMaterialCategory(record.subcategoryId || originalCategoryId || '') || listSimpleMaterialCategories(kind).find(item => item.name === templateCategory||item.logs.some(log=>log.changes?.some(change=>change.field==='名称'&&(change.before===templateCategory||change.after===templateCategory))))
+    const legacyFields=[simpleLegacySpecification(record,record.categoryAttributes),record.composition&&record.composition!=='-'?'成分：'+record.composition:'',record.compositionItems?.length?'成分比例：'+record.compositionItems.map(x=>`${x.component} ${x.percentage}%`).join('、'):'',record.equipmentCompatibility?.length?'适配设备：'+record.equipmentCompatibility.join('、'):'',record.equipmentCompatibilityDetails?.length?'适配机型：'+record.equipmentCompatibilityDetails.map(x=>Object.values(x).filter(Boolean).join(' ')).join('、'):'',record.widthText&&record.widthText!=='-'?'幅宽：'+record.widthText:'',record.gramWeightText&&record.gramWeightText!=='-'?'克重：'+record.gramWeightText:'',record.processTags?.length?'既有工艺：'+record.processTags.join('、'):''];
+    const history=legacyFields.filter(Boolean).join('；')
+    const remark=record.remark || ''
+    return Object.assign(result, {kind, subcategoryId: category?.id || record.subcategoryId, categoryName: category?.name || record.categoryName, mainUnit, approvalStatus: record.approvalStatus || 'APPROVED', status: normalizeStatus(record.status), mainImageUrl: migrateMaterialMockImage(record.materialCode,record.mainImageUrl,'material'), galleryImageUrls: migrateMaterialMockGallery(record.materialCode,record.galleryImageUrls || []), categoryAttributes: record.categoryAttributes || {}, remark: history && !remark.includes(history) ? [remark,'既有资料：'+history].filter(Boolean).join('\n') : remark, auxiliaryUnits: record.auxiliaryUnits || [], processTags: record.processTags || []})
+  }
   const templateKey = `${record.templateId || record.kind + ':' + record.categoryName}:${record.templateVersion || 1}`
   let template = templates.get(templateKey)
   if (!template) { template = record.templateId
@@ -1025,6 +1049,11 @@ function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot, owned = false):
   const skus = snapshot.skuRecords.map(raw => {
     const root = roots.get(raw.materialId)
     const record = owned ? raw : cloneSkuRecord(raw)
+    if(root && isSimpleMaterialKind(root.kind)){
+      const history=simpleLegacySpecification(root,{...raw.identityValues,...raw.effectiveSpecValues})
+      if(history && !record.specDescription?.includes(history))record.specDescription=[record.specDescription,'既有规格：'+history].filter(Boolean).join('\n')
+      if(!record.specName || /^规格\s*\d+$/.test(record.specName) || record.specName==='-')record.specName=[raw.sizeName && raw.sizeName!=='-' ? raw.sizeName:'',raw.colorName,history || root.specSummary].filter(Boolean).join(' / ') || root.materialName
+    }
     record.mainUnit ||= root?.mainUnit || record.pricingUnit
     record.effectiveSpecValues ||= { widthCm: root?.widthValueCm ?? null, gramWeightGsm: root?.gramWeightGsm ?? null }
     record.mainUnitUsed ??= usedRoots.has(record.materialId)
@@ -1179,6 +1208,7 @@ function materialReadIndex(snapshot = currentSnapshot()) {
   return readIndex
 }
 export function getMaterialArchiveCategoryOptions(kind: MaterialArchiveKind): Array<{ value: string; label: string }> {
+  if (isSimpleMaterialKind(kind)) return listSimpleMaterialCategories(kind).filter(item=>item.enabled).map(item=>({value:item.name,label:item.name}))
   const latest = new Map<string, ReturnType<typeof listMaterialTemplates>[number]>()
   for (const item of listMaterialTemplates().filter(item => item.kind === kind && item.status === 'APPROVED')) if (!latest.has(item.templateId) || latest.get(item.templateId)!.version < item.version) latest.set(item.templateId, item)
   return [...new Set([...latest.values()].filter(item => item.enabled !== false).map(item => item.category))].map(value => ({ value, label: value }))
@@ -1224,7 +1254,7 @@ export interface MaterialListFilter {
   color?: string; pantone?: string; pattern?: string; approval?: string; status?: string; cost?: string
 }
 export type MaterialRootListRow = Pick<MaterialArchiveRecord, 'materialId' | 'materialCode' | 'materialName' | 'categoryName' | 'specSummary' | 'mainImageUrl' | 'skuCount' | 'approvalStatus' | 'status' | 'updatedAt'>
-export type MaterialSkuListRow = Pick<MaterialSkuRecord, 'materialId' | 'materialCode' | 'materialName' | 'materialSkuId' | 'materialSkuCode' | 'skuImageUrl' | 'colorName' | 'pantoneCode' | 'pantoneSystem' | 'patternCode' | 'stage' | 'inputSkuId' | 'mainUnit' | 'approvalStatus' | 'status' | 'updatedAt'>
+export type MaterialSkuListRow = Pick<MaterialSkuRecord, 'materialId' | 'materialCode' | 'materialName' | 'materialSkuId' | 'materialSkuCode' | 'skuImageUrl' | 'colorName' | 'pantoneCode' | 'pantoneSystem' | 'patternCode' | 'stage' | 'inputSkuId' | 'mainUnit' | 'approvalStatus' | 'status' | 'updatedAt' | 'createdAt' | 'specName'> & { categoryName: string }
 /** List/export selection is computed from one snapshot. Return scalar list
  * projections, not whole dossiers, execution files and version histories. */
 export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialListFilter, options: { rows?: 'all' | 'current-view' } = {}) {
@@ -1250,7 +1280,7 @@ export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialL
     const children = index.skusByRoot.get(root.materialId) || []
     let matched = 0
     for (const sku of children) {
-      if (search && !matchesText([sku.materialSkuCode, sku.materialName, root.materialCode, ...(root.legacyCodes || []), ...(sku.barcodeAliases || [])])
+      if (search && !matchesText([sku.materialSkuCode, sku.materialName, sku.specName, sku.barcode, root.materialCode, ...(root.legacyCodes || []), ...(sku.barcodeAliases || [])])
         || f.stage && (sku.stage || 'BASE') !== f.stage || f.process && !hasProcess(sku)
         || color && !sku.colorName.toLowerCase().includes(color) || f.pantone && !sku.pantoneCode?.includes(f.pantone)
         || f.pattern && !sku.patternCode?.includes(f.pattern)
@@ -1260,7 +1290,7 @@ export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialL
       matched++; skuCount++; if (missingCost) incompleteCost++; if (sku.approvalStatus === 'PENDING') pending++
       if (projectSkus) {
         const { materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, pantoneSystem, patternCode, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt } = sku
-        skus.push({ materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, patternCode, pantoneSystem, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt })
+        skus.push({ materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, patternCode, pantoneSystem, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt, createdAt:sku.createdAt, specName:sku.specName, categoryName:root.categoryName })
       }
     }
     const emptyRootMatch = !children.length && f.view === 'root' && !f.stage && !f.process && !f.color && !f.pantone && !f.pattern && !f.cost && matchesText([root.materialCode, root.materialName, ...(root.legacyCodes || [])])
@@ -1289,6 +1319,12 @@ export interface MaterialArchiveDraft {
   templateId?: string; templateVersion?: number; firstSku?: MaterialSkuDraftInput;
 }
 function validateRoot(input: MaterialArchiveDraft, previous?: MaterialArchiveRecord): void {
+  if(isSimpleMaterialKind(input.kind)){
+    if(!input.materialName.trim() || input.materialName.length>80 || (input.remark||'').length>500)throw new Error('物料名称必填且不超过80字，说明最多500字。')
+    const category=getSimpleMaterialCategory(input.subcategoryId || '')
+    if(!category || category.kind!==input.kind || !category.enabled && category.id!==previous?.subcategoryId)throw new Error('请选择有效的物料分类。')
+    return
+  }
   if (!input.materialName.trim() || !input.categoryName.trim()) throw new Error('请填写物料名称并选择子类。')
   if (input.compositionItems?.length && Math.abs(input.compositionItems.reduce((a,b) => a+b.percentage, 0)-100) > .00001) throw new Error('成分比例合计必须为 100%。')
   if (input.compositionItems?.some(item => !item.component.trim() || !Number.isFinite(item.percentage) || item.percentage < 0 || item.percentage > 100)) throw new Error('成分和比例需有效，单项比例应在 0 至 100% 之间。')
@@ -1314,6 +1350,10 @@ function validateRoot(input: MaterialArchiveDraft, previous?: MaterialArchiveRec
   if (template.fields.some(item => item.valueShape === 'equipmentCompatibility')) validateMaterialEquipmentPairs(input.equipmentCompatibilityDetails || [], false, previous?.equipmentCompatibilityDetails)
 }
 function materialDraftReferences(input: MaterialArchiveDraft, previous?: MaterialArchiveRecord): MaterialArchiveDraft {
+  if(isSimpleMaterialKind(input.kind)){
+    const category=getSimpleMaterialCategory(input.subcategoryId || '') || listSimpleMaterialCategories(input.kind).find(item=>item.name===input.categoryName)
+    return {...input,categoryName:category?.name || input.categoryName,subcategoryId:category?.id,templateId:undefined,templateVersion:undefined,categoryAttributes:{},categoryAttributeReferences:{},composition:'',compositionItems:[],equipmentCompatibility:[],equipmentCompatibilityDetails:[],widthText:'',gramWeightText:'',processTags:[]}
+  }
   const template = input.templateId ? getMaterialTemplateByVersion(input.templateId, input.templateVersion || 1) : getMaterialTemplate(input.kind, input.categoryName)
   return { ...input, templateId: template.templateId, templateVersion: template.version, subcategoryId: previous?.subcategoryId || template.categoryId,
     materialNameTranslations: { ...previous?.materialNameTranslations, ...input.materialNameTranslations, zh: input.materialName, en: input.materialNameEn },
@@ -1325,6 +1365,7 @@ function requireEnabledUnit(unit: string, previousUnit?: string): void {
   if (!listMaterialUnitDefinitions().some(item => item.enabled && canonicalMaterialUnit(item.code) === canonicalMaterialUnit(unit))) throw new Error('请选择基础配置中已启用的计量单位。')
 }
 export function createMaterialArchive(input: MaterialArchiveDraft): MaterialArchiveRecord {
+  if(isSimpleMaterialKind(input.kind)&&!input.firstSku)throw new Error('保存耗材或配件主档时，请同时填写首个规格。')
   input = materialDraftReferences(input)
   validateRoot(input)
   const snapshot = loadSnapshot(), timestamp = nowText(), prefixes = { fabric: 'FB', accessory: 'AC', yarn: 'YN', consumable: 'CS', parts: 'EP' }
@@ -1346,11 +1387,13 @@ export function createMaterialArchive(input: MaterialArchiveDraft): MaterialArch
 export function updateMaterialArchive(materialId: string, input: MaterialArchiveDraft): MaterialArchiveRecord {
   const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === materialId)
   if (!root) throw new Error('物料主档不存在。')
+  if(input.kind!==root.kind&&(isSimpleMaterialKind(root.kind)||isSimpleMaterialKind(input.kind)))throw new Error('已保存的物料类型不能修改，请按正确类型新建档案。')
   input = materialDraftReferences(input, root)
   validateRoot(input, root)
-  if (root.approvalStatus === 'APPROVED' && (input.materialCode && input.materialCode !== root.materialCode || input.categoryName !== root.categoryName || JSON.stringify(input.categoryAttributes || {}) !== JSON.stringify(root.categoryAttributes || {}))) throw new Error('审核后的编码、分类和根技术身份不能直接改变，请新增规格。')
-  if (root.approvalStatus === 'APPROVED' && ['composition', 'widthText', 'gramWeightText', 'compositionItems', 'equipmentCompatibility', 'equipmentCompatibilityDetails', 'templateId', 'templateVersion'].some(key => JSON.stringify(input[key as keyof MaterialArchiveDraft] ?? root[key as keyof MaterialArchiveRecord]) !== JSON.stringify(root[key as keyof MaterialArchiveRecord]))) throw new Error('已审核的根技术规格与模板版本已固定，请新增档案承接身份变化。')
+  if (!isSimpleMaterialKind(root.kind) && root.approvalStatus === 'APPROVED' && (input.materialCode && input.materialCode !== root.materialCode || input.categoryName !== root.categoryName || JSON.stringify(input.categoryAttributes || {}) !== JSON.stringify(root.categoryAttributes || {}))) throw new Error('审核后的编码、分类和根技术身份不能直接改变，请新增规格。')
+  if (!isSimpleMaterialKind(root.kind) && root.approvalStatus === 'APPROVED' && ['composition', 'widthText', 'gramWeightText', 'compositionItems', 'equipmentCompatibility', 'equipmentCompatibilityDetails', 'templateId', 'templateVersion'].some(key => JSON.stringify(input[key as keyof MaterialArchiveDraft] ?? root[key as keyof MaterialArchiveRecord]) !== JSON.stringify(root[key as keyof MaterialArchiveRecord]))) throw new Error('已审核的根技术规格与模板版本已固定，请新增档案承接身份变化。')
   const nextCode = input.materialCode?.trim() ? materialCodeSegment(input.materialCode, '物料根码') : root.materialCode
+  if(isSimpleMaterialKind(root.kind) && nextCode!==root.materialCode)throw new Error('已保存的主档编码不能修改。')
   if (nextCode !== root.materialCode) {
     checkedMaterialCode(nextCode)
     if (snapshot.records.some(item => item.materialId !== materialId && item.materialCode === nextCode)) throw new Error('该物料根码已存在。')
@@ -1374,6 +1417,7 @@ export function updateMaterialArchive(materialId: string, input: MaterialArchive
 export function copyMaterialArchive(materialId: string): MaterialArchiveRecord {
   const root = getMaterialArchiveById(materialId)
   if (!root) throw new Error('物料主档不存在。')
+  if(isSimpleMaterialKind(root.kind))throw new Error('复制耗材或配件请先填写新规格，在未保存表单中确认后保存。')
   const copied = createMaterialArchive({ ...root, materialCode: undefined, materialName: `${root.materialName}（复制）`, firstSku: undefined })
   const snapshot = loadSnapshot()
   const assets = (snapshot.assets || []).filter(item => item.materialId === materialId)
@@ -1385,8 +1429,20 @@ export function copyMaterialArchive(materialId: string): MaterialArchiveRecord {
 export function materialSkuIdentityFingerprint(input: { colorName?: string; colorCode?: string; pantoneCode?: string; pantoneSystem?: string; patternCode?: string; specName?: string; sizeName?: string; identityValues?: MaterialSpecValues }): string {
   return JSON.stringify([input.colorCode || input.colorName || '', input.pantoneSystem || '', input.pantoneCode || '', input.patternCode || '', Object.entries(input.identityValues || {}).sort()])
 }
-const skuIdentity = materialSkuIdentityFingerprint
+export function validateSimpleMaterialSpecification(input: {specName:string;specDescription?:string}):void {
+  if(!input.specName?.trim() || input.specName.trim()==='-' || input.specName.length>120)throw new Error('请填写规格型号，最多120字。')
+  if((input.specDescription||'').length>500)throw new Error('规格补充说明最多500字。')
+}
+export const simpleMaterialSpecificationIdentity=(text:string)=>text.trim().replace(/\s+/g,' ').toLocaleLowerCase()
+function skuIdentity(input:Parameters<typeof materialSkuIdentityFingerprint>[0], kind?:MaterialArchiveKind):string {
+  return kind && isSimpleMaterialKind(kind)?simpleMaterialSpecificationIdentity(input.specName||''):materialSkuIdentityFingerprint(input)
+}
 function validateTemplateRequired(root: MaterialArchiveRecord, sku?: MaterialSkuRecord): void {
+  if(isSimpleMaterialKind(root.kind)){
+    validateRoot(root,root)
+    if(sku)validateSimpleMaterialSpecification(sku)
+    return
+  }
   const template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
   const values: MaterialSpecValues = sku ? { ...sku.identityValues, color: sku.colorName } : { ...root.categoryAttributes }
   validateMaterialTemplateValues(template, sku ? 'sku' : 'root', values, true, sku?.stage)
@@ -1399,6 +1455,10 @@ function validateTemplateRequired(root: MaterialArchiveRecord, sku?: MaterialSku
   if (!sku && template.fields.some(field => field.valueShape === 'equipmentCompatibility')) validateMaterialEquipmentPairs(root.equipmentCompatibilityDetails || [], true, root.equipmentCompatibilityDetails)
 }
 function materialSkuReferences(root: MaterialArchiveRecord, input: MaterialSkuDraftInput, previous?: MaterialSkuRecord): MaterialSkuDraftInput {
+  if(isSimpleMaterialKind(root.kind)){
+    validateSimpleMaterialSpecification(input)
+    return {...input,specName:input.specName.trim(),identityValues:{},identityReferences:{},effectiveSpecValues:{},colorName:'',colorCode:undefined,colorId:undefined,pantoneId:undefined,pantoneCode:undefined,pantoneSystem:undefined,patternCode:undefined}
+  }
   const template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
   validateMaterialTemplateValues(template, 'sku', { ...input.identityValues, color: input.colorName }, false)
   const sameColor = !!previous && input.colorName === previous.colorName && input.colorCode === previous.colorCode
@@ -1427,9 +1487,9 @@ function makeBaseSku(snapshot: MaterialArchiveStoreSnapshot, material: MaterialA
   if (!input.mainUnit?.trim() && !material.mainUnit?.trim()) throw new Error('每个物料 SKU 必须选择一个主计量单位。')
   requireEnabledUnit(input.mainUnit || material.mainUnit)
   const existing = snapshot.skuRecords.filter(item => item.materialId === material.materialId)
-  const duplicate = existing.find(item => (item.stage || 'BASE') === 'BASE' && skuIdentity(item) === skuIdentity(input))
+  const duplicate = existing.find(item => (item.stage || 'BASE') === 'BASE' && skuIdentity(item, material.kind) === skuIdentity(input, material.kind))
   if (duplicate) throw new Error(`该身份规格已存在：${duplicate.materialSkuCode}，请查看原 SKU。`)
-  const index = existing.filter(item => (item.stage || 'BASE') === 'BASE').length + 1
+  const index = Math.max(0,...existing.map(item=>Number(/^B(\d+)$/.exec(item.baseSpecSegment || item.materialSkuCode.split('-').at(-1) || '')?.[1])||0)) + 1
   const segment = `B${String(index).padStart(2,'0')}`, timestamp = nowText()
   const code = ['织带', '绳子'].includes(material.categoryName) ? buildTmfSemiFinishedSkuCode({ spuCode: material.materialCode, colorCode: input.colorCode || input.colorName, pantoneCode: input.pantoneCode, patternCode: input.patternCode }) : checkedMaterialCode(`${material.materialCode}-${segment}`)
   const sku = normalizeSkuRecord({ ...input, materialSkuId: nowId('material-sku'), materialId: material.materialId, materialCode: material.materialCode,
@@ -1441,8 +1501,8 @@ function makeBaseSku(snapshot: MaterialArchiveStoreSnapshot, material: MaterialA
     createdAt: timestamp, updatedAt: timestamp, createdBy: '商品中心管理员', updatedBy: '商品中心管理员' })
   snapshot.costVersions ||= []
   snapshot.costVersions.push({ costVersionId: nowId('material-cost'), materialSkuId: sku.materialSkuId,
-    purchaseStandardCny: input.purchaseStandardCny === undefined ? materialMoney(input.costPrice) : materialMoney(input.purchaseStandardCny),
-    transportStandardCny: input.transportStandardCny === undefined ? materialMoney(input.freightCost) : materialMoney(input.transportStandardCny),
+    purchaseStandardCny: input.purchaseStandardCny === undefined ? (isSimpleMaterialKind(material.kind) ? null : materialMoney(input.costPrice)) : materialMoney(input.purchaseStandardCny),
+    transportStandardCny: input.transportStandardCny === undefined ? (isSimpleMaterialKind(material.kind) ? null : materialMoney(input.freightCost)) : materialMoney(input.transportStandardCny),
     purchaseIncludesTransport: false, processStandardCny: null, pricingUnit: sku.pricingUnit, taxIncluded: true,
     effectiveAt: timestamp, changeReason: '初始标准', operatorName: '商品中心管理员' })
   return sku
@@ -1459,15 +1519,25 @@ export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSk
   const root = snapshot.records.find(item => item.materialId === sku.materialId)!
   input = materialSkuReferences(root, input, sku)
   if (JSON.stringify(input.barcodeAliases) !== JSON.stringify(sku.barcodeAliases)) validateSkuAliases(snapshot, input.barcodeAliases, sku.materialSkuId)
-  if (sku.approvalStatus === 'APPROVED' && skuIdentity(input) !== skuIdentity(sku)) throw new Error('审核后交付身份已锁定；改变颜色、色号或规格请新增 SKU。')
-  if (sku.inputSkuId && skuIdentity(input) !== skuIdentity(sku)) throw new Error('加工产出的交付身份由加工定义生成；请从直接投入重新生成不同目标 SKU。')
+  if (sku.approvalStatus === 'APPROVED' && skuIdentity(input,root.kind) !== skuIdentity(sku,root.kind)) throw new Error('审核后交付身份已锁定；改变颜色、色号或规格请新增 SKU。')
+  if (sku.inputSkuId && skuIdentity(input,root.kind) !== skuIdentity(sku,root.kind)) throw new Error('加工产出的交付身份由加工定义生成；请从直接投入重新生成不同目标 SKU。')
   if (input.mainUnit && canonicalMaterialUnit(input.mainUnit) !== canonicalMaterialUnit(sku.mainUnit || sku.pricingUnit) && (sku.mainUnitUsed || sku.approvalStatus === 'APPROVED')) throw new Error('该 SKU 已审核或已使用，主计量单位不能修改。')
   if (input.netWeightPerMainKg !== undefined && input.netWeightPerMainKg !== null && (!Number.isFinite(input.netWeightPerMainKg) || input.netWeightPerMainKg <= 0)) throw new Error('每主单位净重应为正值；未维护请留空。')
   if (input.mainUnit !== undefined) { if (!input.mainUnit.trim()) throw new Error('主计量单位不能为空。'); requireEnabledUnit(input.mainUnit, sku.mainUnit) }
-  if (!sku.inputSkuId && snapshot.skuRecords.some(item => item.materialSkuId !== materialSkuId && item.materialId === sku.materialId && !item.inputSkuId && skuIdentity(item) === skuIdentity(input))) throw new Error('该身份规格已存在，请使用已有 SKU。')
+  if (!sku.inputSkuId && snapshot.skuRecords.some(item => item.materialSkuId !== materialSkuId && item.materialId === sku.materialId && !item.inputSkuId && skuIdentity(item,root.kind) === skuIdentity(input,root.kind))) throw new Error('该身份规格已存在，请使用已有 SKU。')
   const keep = { materialSkuCode: sku.materialSkuCode, costPrice: sku.costPrice, freightCost: sku.freightCost, mainUnitUsed: sku.mainUnitUsed || input.mainUnitUsed }
   Object.assign(sku, input, keep, { updatedAt: nowText() })
   log(snapshot, sku.materialId, '修改 SKU 资料', sku.materialSkuCode); persistSnapshot(snapshot); return cloneSkuRecord(sku)
+}
+export function correctSimpleMaterialSpecification(skuId:string,specName:string,reason:string):void {
+  const snapshot=loadSnapshot(),sku=snapshot.skuRecords.find(item=>item.materialSkuId===skuId)
+  const root=sku && snapshot.records.find(item=>item.materialId===sku.materialId)
+  if(!sku || !root || !isSimpleMaterialKind(root.kind) || sku.approvalStatus!=='APPROVED')throw new Error('仅用于已审核耗材、配件规格文字更正。')
+  validateSimpleMaterialSpecification({specName})
+  if(!reason.trim())throw new Error('请确认实物未变化并填写文字更正原因。')
+  if(snapshot.skuRecords.some(item=>item.materialId===sku.materialId && item.materialSkuId!==skuId && simpleMaterialSpecificationIdentity(item.specName)===simpleMaterialSpecificationIdentity(specName)))throw new Error('同主档已有该规格，请勿重复。')
+  const before=sku.specName;sku.specName=specName.trim();sku.updatedAt=nowText()
+  log(snapshot,root.materialId,'更正规格文字',`${before} → ${sku.specName}；实物未变化：${reason}`);persistSnapshot(snapshot)
 }
 export function getMaterialProcessDefinition(skuId: string): MaterialProcessDefinition | null {
   const value = currentSnapshot().processDefinitions?.find(item => item.outputSkuId === skuId)
@@ -1495,7 +1565,9 @@ export function createProcessedMaterialSku(input: MaterialProcessDraft): Materia
   }
   const snapshot = loadSnapshot(), parent = snapshot.skuRecords.find(item => item.materialSkuId === input.inputSkuId)
   if (!parent) throw new Error('请选择存在的直接投入 SKU。')
-  const root = snapshot.records.find(item => item.materialId === parent.materialId)!, template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
+  const root = snapshot.records.find(item => item.materialId === parent.materialId)!
+  if(isSimpleMaterialKind(root.kind))throw new Error('耗材和配件不新增物料加工 SKU。')
+  const template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
   validateMaterialBoundFields(template, 'process', { ...input, processVersionId: input.processVersionId || '1' }, false, input.processType)
   validateMaterialTemplateValues(template, 'root', input.effectiveSpecValues || {}, false)
   validateMaterialTemplateValues(template, 'sku', input.effectiveSpecValues || {}, false)
@@ -1533,6 +1605,8 @@ export function isMaterialSkuAvailableForNewUse(sku: MaterialSkuRecord | null | 
   return root?.status === 'ACTIVE' && root.approvalStatus === 'APPROVED'
 }
 export function materialProcessOrderIntent(outputSkuId: string) {
+  const selected=getMaterialSkuRecordById(outputSkuId)
+  if(selected && isSimpleMaterialKind(getMaterialArchiveById(selected.materialId)!.kind))throw new Error('耗材和配件不创建物料加工计划。')
   const sku = getMaterialSkuRecordById(outputSkuId), process = getMaterialProcessDefinition(outputSkuId)
   if (!sku || !process) throw new Error('请先完成目标 SKU 的加工定义。')
   if (!isMaterialSkuAvailableForNewUse(sku) || !isMaterialSkuAvailableForNewUse(getMaterialSkuRecordById(process.inputSkuId))) throw new Error('直接投入、目标物料及其主档须已审核并启用，才能新建加工计划。')
@@ -1593,6 +1667,7 @@ export function setMaterialApproval(id: string, action: 'SUBMIT' | 'APPROVE' | '
     record.approvalStatus = 'DRAFT'
     if (root) snapshot.skuRecords.filter(item => item.materialId === id && item.approvalStatus === 'PENDING').forEach(item => item.approvalStatus = 'DRAFT')
   }
+  record.updatedAt=nowText()
   log(snapshot, root?.materialId || sku!.materialId, action === 'SUBMIT' ? '提交审核' : action === 'APPROVE' ? '审核通过' : '驳回', reason || '身份审核不以标准成本完整为条件。')
   persistSnapshot(snapshot, true)
 }
@@ -1615,12 +1690,17 @@ export async function runMaterialApprovalBatch(
   commit: MaterialApprovalCommit = runPcsRecordCommand,
 ): Promise<MaterialApprovalBatchResult[]> {
   const results: MaterialApprovalBatchResult[] = []
+  const handledParents=new Set<string>()
   for (const id of new Set(ids)) {
     let result: MaterialApprovalBatchResult = { id, materialId: '', code: id, name: '未能读取档案', objectType: '未知档案', ok: false, message: '' }
     try {
       const root = getMaterialArchiveById(id), sku = root ? null : getMaterialSkuRecordById(id)
       if (root || sku) result = { ...result, materialId: root?.materialId || sku!.materialId, code: root?.materialCode || sku!.materialSkuCode, name: root?.materialName || sku!.materialName, objectType: root ? '主档' : 'SKU' }
-      await commit(() => setMaterialApproval(id, action), `material-approval:${batchId}:${action}:${id}`)
+      const parent=sku?getMaterialArchiveById(sku.materialId):root
+      const target=sku&&parent&&isSimpleMaterialKind(parent.kind)&&parent.approvalStatus!=='APPROVED'?parent.materialId:id
+      if(handledParents.has(target)){result.ok=true;result.message='已随同一主档待审规格保存';results.push(result);continue}
+      await commit(() => setMaterialApproval(target, action), `material-approval:${batchId}:${action}:${id}`)
+      handledParents.add(target)
       result.ok = true
       result.message = action === 'SUBMIT' ? '已提交审核并保存' : '已审核通过并保存'
     } catch (error) {
@@ -1630,13 +1710,17 @@ export async function runMaterialApprovalBatch(
   }
   return results
 }
-export function setMaterialUseStatus(id: string, status: MaterialArchiveStatus): void {
+export function setMaterialUseStatus(id: string, status: MaterialArchiveStatus, reason=''): void {
   const snapshot = reviewSnapshot(id), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
   if (!record) throw new Error('档案不存在。')
+  const owner=root||snapshot.records.find(item=>item.materialId===sku!.materialId)
+  if(status==='ARCHIVED'&&owner&&isSimpleMaterialKind(owner.kind)&&!consumeMaterialArchiveReferenceCheck(id))throw new Error('请先核对采购引用，再通过归档入口操作；未归档。')
   if (status === 'ACTIVE' && record.approvalStatus !== 'APPROVED') throw new Error('审核通过后才能启用。')
   const materialId = root?.materialId || sku!.materialId
-  if (status === 'ARCHIVED' && (snapshot.usageRecords.some(item => item.materialId === materialId) || snapshot.skuRecords.some(item => item.inputSkuId && (root ? snapshot.skuRecords.some(s => s.materialId === materialId && s.materialSkuId === item.inputSkuId) : item.inputSkuId === id) && item.status !== 'ARCHIVED'))) throw new Error('尚有活动技术引用，不能归档。')
-  record.status = status; log(snapshot, materialId, '调整使用状态', status); persistSnapshot(snapshot, true)
+  if(status==='ARCHIVED' && listMaterialTechnicalUsages((root?snapshot.skuRecords.filter(item=>item.materialId===id):[sku!]).map(item=>item.materialSkuId)).length)throw new Error('已有技术资料或BOM引用，请停用并保留历史档案。')
+  if (!isSimpleMaterialKind(snapshot.records.find(item=>item.materialId===materialId)!.kind) && status === 'ARCHIVED' && (snapshot.usageRecords.some(item => item.materialId === materialId) || snapshot.skuRecords.some(item => item.inputSkuId && (root ? snapshot.skuRecords.some(s => s.materialId === materialId && s.materialSkuId === item.inputSkuId) : item.inputSkuId === id) && item.status !== 'ARCHIVED'))) throw new Error('尚有活动技术引用，不能归档。')
+  record.updatedAt=nowText()
+  record.status = status; log(snapshot, materialId, '调整使用状态', `${status==='ACTIVE'?'启用':status==='INACTIVE'?'停用':'归档'}${reason?`；原因：${reason}`:''}`); persistSnapshot(snapshot, true)
 }
 export function listMaterialUnitRelations(skuId: string, includeHistory = false): MaterialUnitRelation[] {
   return (currentSnapshot().unitRelations || []).filter(item => item.materialSkuId === skuId && (includeHistory || item.status === 'ACTIVE')).map(item => structuredClone(item))
@@ -1660,6 +1744,7 @@ export function saveMaterialUnitRelation(skuId: string, input: Omit<MaterialUnit
   for (const active of snapshot.unitRelations.filter(item => item.materialSkuId === skuId && item.status === 'ACTIVE')) active.isDefaultForUse = active.isDefaultForUse.filter(use => !relation.isDefaultForUse.includes(use))
   snapshot.unitRelations.push(relation)
   sku.unitConversions = snapshot.unitRelations.filter(item => item.materialSkuId === skuId && item.status === 'ACTIVE' && !item.packageSpecId).map(item => ({ fromUnit: item.auxUnitId, toUnit: sku.mainUnit!, factor: item.mainQtyPerAux }))
+  sku.updatedAt=nowText()
   log(snapshot, sku.materialId, '维护 SKU 单位关系', `1 ${relation.auxUnitId} = ${relation.mainQtyPerAux} ${sku.mainUnit}；版本 ${relation.version}`)
   persistSnapshot(snapshot); return structuredClone(relation)
 }
@@ -1720,7 +1805,8 @@ export function saveMaterialPackageSpec(skuId: string, input: Omit<MaterialPacka
   const snapshot = loadSnapshot(), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
   if (!sku) throw new Error('物料 SKU 不存在。')
   const root = snapshot.records.find(item => item.materialId === sku.materialId)!
-  validateMaterialBoundFields(getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1), 'package', { ...input, netWeightPerMainKg: sku.netWeightPerMainKg, volumeM3: materialPackageVolume(input) }, true)
+  if(isSimpleMaterialKind(root.kind)){requireEnabledUnit(input.packageTypeId);requireEnabledUnit(input.contentUnitId)}
+  if(!isSimpleMaterialKind(root.kind))validateMaterialBoundFields(getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1), 'package', { ...input, netWeightPerMainKg: sku.netWeightPerMainKg, volumeM3: materialPackageVolume(input) }, true)
   if (!Number.isFinite(input.contentQty) || input.contentQty <= 0 || !input.contentUnitId || !input.packageTypeId) throw new Error('请填写包装类型、正数含量及含量单位。')
   const precision=listMaterialUnitDefinitions().find(item=>item.code===canonicalMaterialUnit(input.contentUnitId))?.precision
   if(precision!==undefined && Math.abs(input.contentQty-Number(input.contentQty.toFixed(precision)))>1e-9)throw new Error('包装含量的小数位超过该单位允许的数量精度。')
@@ -1736,8 +1822,10 @@ export function saveMaterialPackageSpec(skuId: string, input: Omit<MaterialPacka
   snapshot.packages ||= []; snapshot.packages.push(pack)
   snapshot.unitRelations ||= []; snapshot.unitRelations.push({ relationId: nowId('material-unit'), materialSkuId: skuId, auxUnitId: pack.packageTypeId,
     mainQtyPerAux: materialDecimalMultiply(input.contentQty, factor), basisType: 'PACKAGE', basisReference: `${pack.contentQty} ${pack.contentUnitId}/包装`, packageSpecId: pack.packageSpecId,
-    uses: ['PURCHASE', 'ISSUE'], isDefaultForUse: [], status: 'ACTIVE', version: pack.version, changeReason: '包装标准含量', createdAt: nowText() })
-  if (previous) snapshot.unitRelations.filter(item => item.packageSpecId === previous.packageSpecId).forEach(item => item.status = 'INACTIVE')
+    uses: isSimpleMaterialKind(root.kind)?['PURCHASE', 'PRICING', 'ISSUE']:['PURCHASE', 'ISSUE'], isDefaultForUse: [], status: 'ACTIVE', version: pack.version, changeReason: '包装标准含量', createdAt: nowText() })
+  const adopted=snapshot.costVersions?.filter(item=>item.materialSkuId===skuId).at(-1)?.pricingUnitRelationId
+  if (previous) snapshot.unitRelations.filter(item => item.packageSpecId === previous.packageSpecId).forEach(item => { if(item.relationId!==adopted)item.status = 'INACTIVE';else item.isDefaultForUse=[] })
+  sku.updatedAt=nowText()
   log(snapshot, sku.materialId, '维护包装规格', `${pack.packageTypeId}（${pack.contentQty} ${pack.contentUnitId}）；未改变 SKU 身份`); persistSnapshot(snapshot)
   return structuredClone(pack)
 }
@@ -1805,6 +1893,9 @@ export function materialStandardCostDisplay(skuId: string, currency: 'CNY'|'IDR'
 function prepareMaterialStandardCost(snapshot: MaterialArchiveStoreSnapshot, sku: MaterialSkuRecord, input: Partial<MaterialStandardCostVersion>, costVersionId: string): MaterialStandardCostVersion {
   const skuId = sku.materialSkuId
   const previous = snapshot.costVersions?.filter(item => item.materialSkuId === skuId).at(-1)
+  const root=snapshot.records.find(item=>item.materialId===sku.materialId)!
+  if(isSimpleMaterialKind(root.kind) && sku.inputSkuId) throw new Error('耗材和配件历史加工成本仅供查阅，不再维护。')
+  if(isSimpleMaterialKind(root.kind) && input.processStandardCny!==undefined && input.processStandardCny!==null)throw new Error('耗材和配件只维护采购与基础运输标准，不维护加工费。')
   const next: MaterialStandardCostVersion = { costVersionId: costVersionId, materialSkuId: skuId,
     purchaseStandardCny: materialMoney(input.purchaseStandardCny === undefined ? previous?.purchaseStandardCny : input.purchaseStandardCny),
     transportStandardCny: materialMoney(input.transportStandardCny === undefined ? previous?.transportStandardCny : input.transportStandardCny),
@@ -1866,6 +1957,7 @@ export function saveMaterialStandardCost(skuId: string, input: Partial<MaterialS
   if (!sku) throw new Error('物料 SKU 不存在。')
   if (!input.changeReason.trim()) throw new Error('请填写标准成本调整原因。')
   const next = prepareMaterialStandardCost(snapshot, sku, input, nowId('material-cost'))
+  sku.updatedAt=nowText()
   snapshot.costVersions ||= []; snapshot.costVersions.push(next); sku.currentCostVersionId = next.costVersionId; sku.pricingUnit = next.pricingUnit
   log(snapshot, sku.materialId, '修改标准成本', `${sku.materialSkuCode}：${input.changeReason}；保存后当前下游标准自动采用。`)
   persistSnapshot(snapshot)
@@ -1886,12 +1978,19 @@ export function addMaterialAsset(input: Omit<MaterialAsset,'assetId'|'version'|'
   const snapshot = loadSnapshot()
   if (!snapshot.records.some(root => root.materialId === input.materialId)) throw new Error('物料主档不存在。')
   if (input.materialSkuId && !snapshot.skuRecords.some(sku => sku.materialSkuId === input.materialSkuId && sku.materialId === input.materialId)) throw new Error('资料所属 SKU 与主档不一致。')
+  const owner=snapshot.records.find(root=>root.materialId===input.materialId)!
+  if(isSimpleMaterialKind(owner.kind)){
+    if(input.materialSkuId && snapshot.skuRecords.some(sku=>sku.materialSkuId===input.materialSkuId&&sku.inputSkuId))throw new Error('耗材和配件历史加工资料仅供查阅，不再维护。')
+    if(!['IDENTIFICATION','SPECIFICATION'].includes(input.role))throw new Error('耗材和配件只维护识别图片和普通规格资料，不新增加工资料。')
+  }
   const asset: MaterialAsset = { ...input, assetId: nowId('material-asset'), version: 1, sortOrder: input.sortOrder ?? (snapshot.assets || []).filter(item=>item.materialId===input.materialId&&item.materialSkuId===input.materialSkuId).length, createdAt: nowText() }
   snapshot.assets ||= []; snapshot.assets.push(asset); log(snapshot,input.materialId,'新增资料',`${input.name}（${input.role}）`); persistSnapshot(snapshot); return asset
 }
 export function reviseMaterialProcessAssets(skuId: string, executionAssetIds: string[], processVersionId: string): void {
   const snapshot = loadSnapshot(), process = snapshot.processDefinitions?.find(item => item.outputSkuId === skuId), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
   if (!process || !sku) throw new Error('加工定义不存在。')
+  const root = snapshot.records.find(item => item.materialId === sku.materialId)
+  if (root && isSimpleMaterialKind(root.kind)) throw new Error('耗材和配件历史加工资料仅供查阅，不再维护。')
   if (!executionAssetIds.length || !processVersionId.trim()) throw new Error('请明确资料版本及执行资料。')
   const role = process.processType === 'PRINTING' ? 'PRINT_FILE' : process.processType === 'EMBROIDERY' ? 'EMBROIDERY_FILE' : process.processType === 'HEAT_TRANSFER' ? 'HEAT_TRANSFER_FILE' : 'SPECIFICATION'
   if (executionAssetIds.some(id => !snapshot.assets?.some(asset => asset.assetId === id && asset.materialId === sku.materialId && asset.role === role))) throw new Error('执行资料必须属于当前物料，并与该加工工艺的资料用途一致。')

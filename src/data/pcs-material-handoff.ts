@@ -15,8 +15,13 @@ export function materialPurchaseHandoffPath(skuId: string): string {
   return `/pms/material-purchase-orders?${new URLSearchParams({ pcsIntent: 'purchase', materialSkuId: skuId })}`
 }
 export function materialProcessHandoffPath(skuId: string): string {
+  assertProcessMaterial(skuId)
   const intent = materialProcessOrderIntent(skuId)
   return `/fcs/process/material-plans/new?${new URLSearchParams({ pcsIntent: 'process', inputSkuId: intent.inputSkuId, outputSkuId: intent.outputSkuId, processDefinitionId: intent.processDefinitionId, processVersionId: intent.processVersionId })}`
+}
+function assertProcessMaterial(skuId: string): void {
+  const sku = getMaterialSkuRecordById(skuId), kind = sku && getMaterialArchiveById(sku.materialId)?.kind
+  if (kind === 'consumable' || kind === 'parts') throw new Error('耗材、设备配件不能发起加工计划。')
 }
 export function readPcsMaterialHandoff(search = typeof window === 'undefined' ? '' : window.location.search): PcsMaterialHandoff | null {
   const params = new URLSearchParams(search), intent = params.get('pcsIntent')
@@ -29,10 +34,12 @@ export function readPcsMaterialHandoff(search = typeof window === 'undefined' ? 
     if (!isMaterialSkuAvailableForNewUse(sku)) throw new Error('物料 SKU 及其主档须已审核并启用，才能发起采购。')
     return { kind: 'PURCHASE', target: sku, returnPath }
   }
+  assertProcessMaterial(sku.materialSkuId)
   materialProcessOrderIntent(sku.materialSkuId)
   const process = getMaterialProcessDefinition(sku.materialSkuId)
   const input = process && getMaterialSkuRecordById(process.inputSkuId)
   if (!input || !process || process.processDefinitionId !== params.get('processDefinitionId') || input.materialSkuId !== params.get('inputSkuId')) throw new Error('投入料、目标料与加工定义不一致，请返回目标物料重新发起。')
+  assertProcessMaterial(input.materialSkuId)
   if (params.get('processVersionId') && process.processVersionId !== params.get('processVersionId')) throw new Error('加工资料版本已变化，请返回目标物料重新发起。')
   return { kind: 'PROCESS', target: sku, input, process, returnPath }
 }

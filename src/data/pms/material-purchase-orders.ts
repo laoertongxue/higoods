@@ -9,7 +9,7 @@ import { markPmsProductPurchaseOrderMaterialPushed } from './product-purchase-or
 import { appendPmsLog, listPmsLogs, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
 import { PMS_MATERIAL_IMAGES, PMS_STYLE_IMAGES } from './images.ts'
 import { PMS_STORES, getPmsDb, pmsAll, pmsDelete, pmsGet, pmsPut, pmsTx, broadcastPmsDataChanged } from './idb-storage.ts'
-import { getMaterialArchiveById, getMaterialSkuRecordById, listMaterialUnitRelations, isMaterialSkuAvailableForNewUse } from '../pcs-material-archive-repository.ts'
+import { getMaterialArchiveById, getMaterialSkuRecordById, listMaterialUnitRelations, listMaterialPackageSpecs, isMaterialSkuAvailableForNewUse } from '../pcs-material-archive-repository.ts'
 import { listPmsSuppliers } from './suppliers.ts'
 import {
   getTmfPurchaseState, listTmfSupplyPurchaseProjections, listTmfMaterialPurchases, getTmfMaterialPurchase, releaseTmfMaterialPurchase,
@@ -24,6 +24,8 @@ export interface PmsPcsMaterialPurchaseSource {
   materialId: string
   materialSkuId: string
   materialSkuCode: string
+  /** Frozen source description captured when this draft first adopts the SKU. */
+  specName?: string
   returnPath: string
   mainUnit: string
   mainUnitVersion: number
@@ -31,6 +33,7 @@ export interface PmsPcsMaterialPurchaseSource {
   mainQtyPerPurchaseUnit: number
   relationId: string | null
   relationVersion: number | null
+  packageSnapshot?: { packageSpecId: string; version: number; contentQty: number; contentUnitId: string; measurementBasis: string }
   basis: string
   capturedAt: string
 }
@@ -140,7 +143,7 @@ export function getPmsPcsPurchaseUnitOptions(materialSkuId: string): PmsPcsMater
   const mainUnit = sku.mainUnit || sku.pricingUnit
   const base: PmsPcsMaterialPurchaseSource = {
     source: 'PCS_MATERIAL_SKU', materialId: sku.materialId, materialSkuId,
-    materialSkuCode: sku.materialSkuCode,
+    materialSkuCode: sku.materialSkuCode, specName: sku.specName,
     returnPath: `/pcs/materials/${root.kind}/${sku.materialId}/skus/${materialSkuId}`,
     mainUnit, mainUnitVersion: sku.mainUnitVersion || 1, purchaseUnit: mainUnit,
     mainQtyPerPurchaseUnit: 1, relationId: null, relationVersion: null,
@@ -148,9 +151,13 @@ export function getPmsPcsPurchaseUnitOptions(materialSkuId: string): PmsPcsMater
   }
   return [base, ...listMaterialUnitRelations(materialSkuId)
     .filter(relation => relation.status === 'ACTIVE' && relation.uses.includes('PURCHASE'))
-    .map(relation => ({ ...base, purchaseUnit: relation.auxUnitId,
-      mainQtyPerPurchaseUnit: relation.mainQtyPerAux, relationId: relation.relationId,
-      relationVersion: relation.version, basis: relation.basisReference || relation.basisType }))]
+    .map(relation => {
+      const packaging = relation.packageSpecId ? listMaterialPackageSpecs(materialSkuId, true).find(item => item.packageSpecId === relation.packageSpecId) : undefined
+      return { ...base, purchaseUnit: relation.auxUnitId,
+        mainQtyPerPurchaseUnit: relation.mainQtyPerAux, relationId: relation.relationId,
+        relationVersion: relation.version, basis: relation.basisReference || relation.basisType,
+        ...(packaging ? { packageSnapshot: { packageSpecId: packaging.packageSpecId, version: packaging.version, contentQty: packaging.contentQty, contentUnitId: packaging.contentUnitId, measurementBasis: packaging.measurementBasis } } : {}) }
+    })]
 }
 
 /** Read-only hydration: no seed copies, no legacy source deletion, no fallback writes. */
