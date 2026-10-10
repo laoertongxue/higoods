@@ -24,6 +24,8 @@ import { hydrateCutPieceTicketValidity, isCutPieceTicketUsable } from '../../src
 import { appendPdaCuttingInboundRuntimeEvent, createPdaCuttingInboundFormState } from '../../src/pages/pda-cutting-inbound.ts'
 import { validateReplacementFabricEventBatch } from '../../src/data/fcs/cutting/replacement-fabric-event-validation.ts'
 
+// 固定业务场景使用明确时区，避免 CI 的 UTC 与开发机本地时区改变事件先后。
+// 历史无时区文本的专项场景单独使用同一本地时刻构造 ISO 对照。
 const receiptFixtureReaders = new Map<string, () => ReleaseTicketDetail>()
 
 test('逐票实收投影只核对一次完整交出集合，更正保留原量历史且不重复累计', () => {
@@ -119,7 +121,7 @@ for (const mode of ['带袋', '无袋'] as const) test(`${mode}同一秒连续�
 })
 
 test('保留历史换袋确认按真实来源入仓先后匹配，ISO与本地文本不丢来源库位', () => {
-  for (const [inboundAt, confirmAt] of [['2026-08-01T02:00:30.000Z', '2026-08-01 10:10'], ['2026-08-01T02:00:30.000Z', '2026-08-01 10:00']]) {
+  for (const [inboundAt, confirmAt] of [[new Date('2026-08-01T10:00:30').toISOString(), '2026-08-01 10:10'], [new Date('2026-08-01T10:00:30').toISOString(), '2026-08-01 10:00']]) {
     const storage = createMemoryStorage(), item = ticket('LEGACY-CHANGE-01', 'PO-LEGACY-CHANGE', 'SEW-LEGACY-CHANGE', 5)
     const bagCode = 'BAG-LEGACY-SOURCE', usageCycleId = 'cycle-legacy-source'
     appendInbound({ storage, bagCode, usageCycleId, tickets: [item], occurredAt: inboundAt })
@@ -144,7 +146,7 @@ test('特殊工艺实回库位从原票快照读取生产单，零实收票不�
   const current = buildWaitHandoverLocationOccupancyStates(original).find(state => state.bagCode === seeded.bagCode)!
   assert.equal(current.productionOrderNo, 'PO-LOCATION-A')
   assert.equal(current.totalPieceQty, 3)
-  const corrected = correctSpecialCraftTicketReturn({ sourceReturnEventId: receipt.eventId, ticketReceipts: seeded.tickets.map(item => ({ feiTicketId: item.feiTicketId, returnedQty: 3, differenceReason: '逐票复核损耗2片' })), operator: { operatorName: '复核员' }, source: 'WEB', reason: '逐票复核', occurredAt: '2026-08-01 09:30' }, storage)
+  const corrected = correctSpecialCraftTicketReturn({ sourceReturnEventId: receipt.eventId, ticketReceipts: seeded.tickets.map(item => ({ feiTicketId: item.feiTicketId, returnedQty: 3, differenceReason: '逐票复核损耗2片' })), operator: { operatorName: '复核员' }, source: 'WEB', reason: '逐票复核', occurredAt: '2026-08-01T09:30:00+08:00' }, storage)
   const revised = buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage)).find(state => state.bagCode === seeded.bagCode)!
   assert.equal(revised.productionOrderNo, 'PO-LOCATION-A / PO-LOCATION-B', '多生产单保留全部真实关联，不能借用第一票')
   assert.equal(revised.totalPieceQty, 6)
@@ -182,11 +184,11 @@ test('PDA实回页按第二张菲票自身当前阶段和实际交出数量显�
 test('无袋实收10更正9扣库存差额，重新装袋或实际交出后不反冲其他库存', () => {
   const storage = createMemoryStorage(), item = ticket('TICKET-ONLY-CORRECT-01', 'PO-TICKET-ONLY-CORRECT', 'CRAFT-FACTORY-RETURN', 10)
   const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'TICKET-ONLY-CORRECT', tickets: [item] }), locationRef = specialCraftReturnLocation('TICKET-ONLY-CORRECT')
-  const receipt = submitSpecialCraftTicketOnlyReturn({ specialCraftId: seeded.specialCraftId, source: 'PDA', operator: { operatorName: '逐票回仓员' }, occurredAt: '2026-08-01 09:20', payload: {
-    returnRecordId: 'ONLY-RETURN', returnRecordNo: '无袋实收单01', sourceHandoverOrderId: seeded.sourceHandoverOrderId, sourceHandoverOrderNo: '特殊工艺交出单01', sourceHandoverRecordId: seeded.sourceHandoverRecordId, sourceHandoverRecordNo: '特殊工艺交接记录01', receiverFactoryId: 'CRAFT-FACTORY-RETURN', receiverFactoryName: '特殊工艺回仓测试厂', warehouseName: '裁床待交出仓', craftType: '绣花', warehouseArea: locationRef.areaName, locationCode: locationRef.locationNo, locationRef, returnedAt: '2026-08-01 09:20', returnedBy: '逐票回仓员', returnedFeiTicketItems: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, specialCraftId: seeded.specialCraftId, craftType: '绣花', partName: item.partName, size: item.size, expectedQty: 10, returnedQty: 10, processingCompleted: true, unit: '片', returnStatus: '已回仓' }],
+  const receipt = submitSpecialCraftTicketOnlyReturn({ specialCraftId: seeded.specialCraftId, source: 'PDA', operator: { operatorName: '逐票回仓员' }, occurredAt: '2026-08-01T09:20:00+08:00', payload: {
+    returnRecordId: 'ONLY-RETURN', returnRecordNo: '无袋实收单01', sourceHandoverOrderId: seeded.sourceHandoverOrderId, sourceHandoverOrderNo: '特殊工艺交出单01', sourceHandoverRecordId: seeded.sourceHandoverRecordId, sourceHandoverRecordNo: '特殊工艺交接记录01', receiverFactoryId: 'CRAFT-FACTORY-RETURN', receiverFactoryName: '特殊工艺回仓测试厂', warehouseName: '裁床待交出仓', craftType: '绣花', warehouseArea: locationRef.areaName, locationCode: locationRef.locationNo, locationRef, returnedAt: '2026-08-01T09:20:00+08:00', returnedBy: '逐票回仓员', returnedFeiTicketItems: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, specialCraftId: seeded.specialCraftId, craftType: '绣花', partName: item.partName, size: item.size, expectedQty: 10, returnedQty: 10, processingCompleted: true, unit: '片', returnStatus: '已回仓' }],
   } }, storage)
   const original = structuredClone(listCuttingRuntimeEvents(storage).find(event => event.eventId === receipt.eventId))
-  const correctionInput = { sourceReturnEventId: receipt.eventId, ticketReceipts: [{ feiTicketId: item.feiTicketId, returnedQty: 9, differenceReason: '复核少1片' }], operator: { operatorName: '复核员' }, source: 'WEB' as const, reason: '复核实收', occurredAt: '2026-08-01 10:00' }
+  const correctionInput = { sourceReturnEventId: receipt.eventId, ticketReceipts: [{ feiTicketId: item.feiTicketId, returnedQty: 9, differenceReason: '复核少1片' }], operator: { operatorName: '复核员' }, source: 'WEB' as const, reason: '复核实收', occurredAt: '2026-08-01T10:00:00+08:00' }
   const corrected = correctSpecialCraftTicketReturn(correctionInput, storage)
   assert.equal(corrected.inventoryEffect?.qty, -1)
   assert.equal((corrected.payload as { inventoryAdjusted: boolean }).inventoryAdjusted, true)
@@ -199,13 +201,13 @@ test('无袋实收10更正9扣库存差额，重新装袋或实际交出后不�
   assert.equal(correctSpecialCraftTicketReturn(correctionInput, storage).eventId, corrected.eventId)
   assert.equal(listCuttingRuntimeEvents(storage).length, size)
   const newBag = 'BAG-AFTER-TICKET-ONLY', newCycle = 'BAG-AFTER-TICKET-ONLY:1', currentTicket = { ...item, pieceQty: 9 }
-  appendBagging({ storage, bagCode: newBag, usageCycleId: newCycle, tickets: [currentTicket], occurredAt: '2026-08-01 11:00' })
-  appendInbound({ storage, bagCode: newBag, usageCycleId: newCycle, tickets: [currentTicket], occurredAt: '2026-08-01 11:10' })
-  const inBag = correctSpecialCraftTicketReturn({ ...correctionInput, sourceReturnEventId: corrected.eventId, ticketReceipts: [{ feiTicketId: item.feiTicketId, returnedQty: 8, differenceReason: '再次复核' }], occurredAt: '2026-08-01 11:20' }, storage)
+  appendBagging({ storage, bagCode: newBag, usageCycleId: newCycle, tickets: [currentTicket], occurredAt: '2026-08-01T11:00:00+08:00' })
+  appendInbound({ storage, bagCode: newBag, usageCycleId: newCycle, tickets: [currentTicket], occurredAt: '2026-08-01T11:10:00+08:00' })
+  const inBag = correctSpecialCraftTicketReturn({ ...correctionInput, sourceReturnEventId: corrected.eventId, ticketReceipts: [{ feiTicketId: item.feiTicketId, returnedQty: 8, differenceReason: '再次复核' }], occurredAt: '2026-08-01T11:20:00+08:00' }, storage)
   assert.equal(inBag.inventoryEffect?.qty, 0, '原无袋记录更正不能改当前新袋库存')
   assert.equal(resolveTransferBagCurrentUse(newBag, storage).tickets[0].pieceQty, 9)
   assert.match(buildCutPieceReleaseCurrentTicketLocations(listCuttingRuntimeEvents(storage), listSpecialCraftTicketReturnFacts(undefined, storage), storage).get(item.feiTicketId)!, /待交出 A 区.*A-BAG-AFTER-TICKET-ONLY/)
-  const handoverInput = { bagCode: newBag, usageCycleId: newCycle, handoverOrderId: 'HO-ONLY-SEW', handoverOrderNo: '车缝交出单01', handoverRecordId: 'HR-ONLY-SEW', handoverRecordNo: '车缝交接记录01', assignments: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, sewingTaskId: item.sewingTaskId, sewingTaskNo: item.sewingTaskNo, receiverFactoryId: item.receiverFactoryId, receiverFactoryName: item.receiverFactoryName }], submittedTicketSnapshot: [currentTicket], operator: { operatorName: '交出员' }, source: 'WEB' as const, occurredAt: '2026-08-01 12:00' }
+  const handoverInput = { bagCode: newBag, usageCycleId: newCycle, handoverOrderId: 'HO-ONLY-SEW', handoverOrderNo: '车缝交出单01', handoverRecordId: 'HR-ONLY-SEW', handoverRecordNo: '车缝交接记录01', assignments: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, sewingTaskId: item.sewingTaskId, sewingTaskNo: item.sewingTaskNo, receiverFactoryId: item.receiverFactoryId, receiverFactoryName: item.receiverFactoryName }], submittedTicketSnapshot: [currentTicket], operator: { operatorName: '交出员' }, source: 'WEB' as const, occurredAt: '2026-08-01T12:00:00+08:00' }
   assert.equal(resolveWholeBagHandoverEligibility({ ...handoverInput, currentUse: resolveTransferBagCurrentUse(newBag, storage), storage } as Parameters<typeof resolveWholeBagHandoverEligibility>[0]).ok, false, '候选须阻断袋9与当前有效实收8的冲突')
   assert.throws(() => submitWholeBagHandover(handoverInput, storage), /数量|核对/, '共享submit不得绕过候选数量门禁')
   assert.equal(resolveTransferBagCurrentUse(newBag, storage).tickets[0].pieceQty, 9, '拒绝后原装袋事实仍9，必须现场核对')
@@ -217,12 +219,12 @@ test('明确单道无袋实收9合法实交后更正7保留旧9责任与真实�
   const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'NO-BAG-AFTER-OUT', tickets: [originalTicket] })
   const receipt = submitSpecialCraftTicketOnlyReturn(ticketOnlyReturnInput(seeded, 'NO-BAG-AFTER-OUT', 9), storage)
   const currentTicket = { ...originalTicket, pieceQty: 9 }, bagCode = 'BAG-NO-BAG-AFTER-OUT', usageCycleId = 'BAG-NO-BAG-AFTER-OUT:1'
-  appendBagging({ storage, bagCode, usageCycleId, tickets: [currentTicket], occurredAt: '2026-08-01 10:00' })
-  appendInbound({ storage, bagCode, usageCycleId, tickets: [currentTicket], occurredAt: '2026-08-01 10:10' })
-  const input = { bagCode, usageCycleId, handoverOrderId: 'NO-BAG-SEW-ORDER', handoverOrderNo: '无袋转袋车缝交出单', handoverRecordId: 'NO-BAG-SEW-RECORD', handoverRecordNo: '无袋转袋交接记录', assignments: [{ feiTicketId: currentTicket.feiTicketId, feiTicketNo: currentTicket.feiTicketNo, sewingTaskId: currentTicket.sewingTaskId, sewingTaskNo: currentTicket.sewingTaskNo, receiverFactoryId: currentTicket.receiverFactoryId, receiverFactoryName: currentTicket.receiverFactoryName }], submittedTicketSnapshot: [currentTicket], operator: { operatorName: '实际交出员' }, source: 'WEB' as const, occurredAt: '2026-08-01 11:00' }
+  appendBagging({ storage, bagCode, usageCycleId, tickets: [currentTicket], occurredAt: '2026-08-01T10:00:00+08:00' })
+  appendInbound({ storage, bagCode, usageCycleId, tickets: [currentTicket], occurredAt: '2026-08-01T10:10:00+08:00' })
+  const input = { bagCode, usageCycleId, handoverOrderId: 'NO-BAG-SEW-ORDER', handoverOrderNo: '无袋转袋车缝交出单', handoverRecordId: 'NO-BAG-SEW-RECORD', handoverRecordNo: '无袋转袋交接记录', assignments: [{ feiTicketId: currentTicket.feiTicketId, feiTicketNo: currentTicket.feiTicketNo, sewingTaskId: currentTicket.sewingTaskId, sewingTaskNo: currentTicket.sewingTaskNo, receiverFactoryId: currentTicket.receiverFactoryId, receiverFactoryName: currentTicket.receiverFactoryName }], submittedTicketSnapshot: [currentTicket], operator: { operatorName: '实际交出员' }, source: 'WEB' as const, occurredAt: '2026-08-01T11:00:00+08:00' }
   assert.equal(resolveWholeBagHandoverEligibility({ ...input, currentUse: resolveTransferBagCurrentUse(bagCode, storage), storage }).ok, true)
   const delivered = submitWholeBagHandover(input, storage), prior = structuredClone(listCuttingRuntimeEvents(storage).find(event => event.eventId === delivered.eventId))
-  const corrected = correctSpecialCraftTicketReturn({ sourceReturnEventId: receipt.eventId, ticketReceipts: [{ feiTicketId: currentTicket.feiTicketId, returnedQty: 7, differenceReason: '复核少2片' }], operator: { operatorName: '复核员' }, source: 'WEB', reason: '复核原实收', occurredAt: '2026-08-01 12:00' }, storage)
+  const corrected = correctSpecialCraftTicketReturn({ sourceReturnEventId: receipt.eventId, ticketReceipts: [{ feiTicketId: currentTicket.feiTicketId, returnedQty: 7, differenceReason: '复核少2片' }], operator: { operatorName: '复核员' }, source: 'WEB', reason: '复核原实收', occurredAt: '2026-08-01T12:00:00+08:00' }, storage)
   assert.equal(corrected.inventoryEffect?.qty, 0)
   assert.equal(listSpecialCraftTicketReturnFacts(undefined, storage)[0].returnedQty, 7)
   assert.equal(delivered.inventoryEffect?.qty, 9)
@@ -235,7 +237,7 @@ test('整袋候选与提交共享未知来源、未知必要工艺及整票不�
     const storage = createMemoryStorage(), item = { ...ticket(`UNKNOWN-BAG-${hasSpecialCraft}`, 'PO-UNKNOWN', 'SEW-UNKNOWN', 5), hasSpecialCraft }, bagCode = `BAG-UNKNOWN-${hasSpecialCraft}`, usageCycleId = `${bagCode}:1`
     appendBagging({ storage, bagCode, usageCycleId, tickets: [item] })
     appendInbound({ storage, bagCode, usageCycleId, tickets: [item] })
-    const input = { bagCode, usageCycleId, handoverOrderId: 'UNKNOWN-HO', handoverOrderNo: '未知来源单', handoverRecordId: `UNKNOWN-HR-${hasSpecialCraft}`, handoverRecordNo: '未知交接记录', assignments: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, sewingTaskId: item.sewingTaskId, sewingTaskNo: item.sewingTaskNo, receiverFactoryId: item.receiverFactoryId, receiverFactoryName: item.receiverFactoryName }], submittedTicketSnapshot: [item], operator: { operatorName: '仓管' }, source: 'WEB' as const, occurredAt: '2026-08-01 11:00' }
+    const input = { bagCode, usageCycleId, handoverOrderId: 'UNKNOWN-HO', handoverOrderNo: '未知来源单', handoverRecordId: `UNKNOWN-HR-${hasSpecialCraft}`, handoverRecordNo: '未知交接记录', assignments: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, sewingTaskId: item.sewingTaskId, sewingTaskNo: item.sewingTaskNo, receiverFactoryId: item.receiverFactoryId, receiverFactoryName: item.receiverFactoryName }], submittedTicketSnapshot: [item], operator: { operatorName: '仓管' }, source: 'WEB' as const, occurredAt: '2026-08-01T11:00:00+08:00' }
     const before = listCuttingRuntimeEvents(storage).length
     assert.equal(resolveWholeBagHandoverEligibility({ ...input, currentUse: resolveTransferBagCurrentUse(bagCode, storage), existingHandoverEvents: [], storage }).ok, false)
     assert.throws(() => submitWholeBagHandover(input, storage), /来源未找到|资料待核对/)
@@ -243,8 +245,8 @@ test('整袋候选与提交共享未知来源、未知必要工艺及整票不�
   }
   const storage = createMemoryStorage(), seeded = seedSpecialCraftBagHandover({ storage, suffix: 'BAG-INVALID', tickets: [ticket('BAG-INVALID-01', 'PO-BAG-INVALID', 'CRAFT-FACTORY-RETURN', 5)] })
   submitSpecialCraftBagReturn(specialCraftBagReturnInput(seeded, 'BAG-INVALID'), storage)
-  const item = seeded.tickets[0], input = { bagCode: seeded.bagCode, usageCycleId: seeded.usageCycleId, handoverOrderId: 'INVALID-HO', handoverOrderNo: '整票核对单', handoverRecordId: 'INVALID-HR', handoverRecordNo: '整票核对记录', assignments: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, sewingTaskId: item.sewingTaskId, sewingTaskNo: item.sewingTaskNo, receiverFactoryId: item.receiverFactoryId, receiverFactoryName: item.receiverFactoryName }], submittedTicketSnapshot: [item], operator: { operatorName: '仓管' }, source: 'WEB' as const, occurredAt: '2026-08-01 11:00' }
-  hydrateCutPieceTicketValidity({ revision: 0, records: [{ id: 'INVALID-TICKET-FACT', collection: 'cut-piece-ticket-validity', value: { id: 'INVALID-TICKET-FACT', ticketId: item.feiTicketId, valid: false, reason: '整票裁错', operator: '质检员', at: '2026-08-01 10:00', version: 1 } }] })
+  const item = seeded.tickets[0], input = { bagCode: seeded.bagCode, usageCycleId: seeded.usageCycleId, handoverOrderId: 'INVALID-HO', handoverOrderNo: '整票核对单', handoverRecordId: 'INVALID-HR', handoverRecordNo: '整票核对记录', assignments: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, sewingTaskId: item.sewingTaskId, sewingTaskNo: item.sewingTaskNo, receiverFactoryId: item.receiverFactoryId, receiverFactoryName: item.receiverFactoryName }], submittedTicketSnapshot: [item], operator: { operatorName: '仓管' }, source: 'WEB' as const, occurredAt: '2026-08-01T11:00:00+08:00' }
+  hydrateCutPieceTicketValidity({ revision: 0, records: [{ id: 'INVALID-TICKET-FACT', collection: 'cut-piece-ticket-validity', value: { id: 'INVALID-TICKET-FACT', ticketId: item.feiTicketId, valid: false, reason: '整票裁错', operator: '质检员', at: '2026-08-01T10:00:00+08:00', version: 1 } }] })
   try {
     assert.equal(resolveWholeBagHandoverEligibility({ ...input, currentUse: resolveTransferBagCurrentUse(seeded.bagCode, storage), storage }).ok, false)
     assert.throws(() => submitWholeBagHandover(input, storage), /整票不可用/)
@@ -328,8 +330,8 @@ test('同链两张菲票保留各自阶段身份并分别实收，不把第二�
 test('连续工艺直接由实际持有厂转交下道，前道完成与最后回仓分开记账', () => {
   const storage = createMemoryStorage()
   const seeded = seedSpecialCraftBagHandover({ storage, suffix: 'DIRECT-CHAIN', tickets: [ticket('DIRECT-CHAIN-01', 'PO-DIRECT-CHAIN', 'CRAFT-FACTORY-RETURN', 100)] })
-  const directInput = { source: 'WEB' as const, operator: { operatorId: 'OP-A', operatorName: '前道工厂交出员' }, transferBagCode: seeded.bagCode, usageCycleId: seeded.usageCycleId, handoverOrderId: 'REAL-NEXT-TASK', handoverRecordId: 'REAL-DIRECT-RECORD', specialCraftId: 'REAL-NEXT-STAGE', fromWarehouseArea: '前道工厂', occurredAt: '2026-08-01 10:00',
-    payload: { handoverOrderId: 'REAL-NEXT-TASK', handoverRecordId: 'REAL-DIRECT-RECORD', craftCategory: '特种工艺' as const, craftType: '烫画', receiverFactoryId: 'REAL-NEXT-FACTORY', receiverFactoryName: '下道烫画厂', handedOverAt: '2026-08-01 10:00', handedOverBy: '前道工厂交出员', feiTicketItems: [{ ...seeded.handover.payload.feiTicketItems[0], specialCraftId: 'REAL-NEXT-STAGE', pieceQty: 95 }],
+  const directInput = { source: 'WEB' as const, operator: { operatorId: 'OP-A', operatorName: '前道工厂交出员' }, transferBagCode: seeded.bagCode, usageCycleId: seeded.usageCycleId, handoverOrderId: 'REAL-NEXT-TASK', handoverRecordId: 'REAL-DIRECT-RECORD', specialCraftId: 'REAL-NEXT-STAGE', fromWarehouseArea: '前道工厂', occurredAt: '2026-08-01T10:00:00+08:00',
+    payload: { handoverOrderId: 'REAL-NEXT-TASK', handoverRecordId: 'REAL-DIRECT-RECORD', craftCategory: '特种工艺' as const, craftType: '烫画', receiverFactoryId: 'REAL-NEXT-FACTORY', receiverFactoryName: '下道烫画厂', handedOverAt: '2026-08-01T10:00:00+08:00', handedOverBy: '前道工厂交出员', feiTicketItems: [{ ...seeded.handover.payload.feiTicketItems[0], specialCraftId: 'REAL-NEXT-STAGE', pieceQty: 95 }],
       directTransfer: { sourceHandoverEventId: seeded.handover.eventId, sourceHandoverRecordId: seeded.sourceHandoverRecordId, sourceFactoryId: 'CRAFT-FACTORY-RETURN', sourceFactoryName: '特殊工艺回仓测试厂', completedTicketItems: [{ feiTicketId: 'DIRECT-CHAIN-01', specialCraftId: seeded.specialCraftId, completedQty: 95, differenceReason: '前道损耗5片', processingCompleted: true }] } }, storage }
   const projection = { sources: [{ ...seeded.tickets[0], hasSpecialCraft: true, specialCrafts: [{ specialCraftId: seeded.specialCraftId, receiverFactoryId: 'OLD-DEFAULT-A' }, { specialCraftId: 'REAL-NEXT-STAGE', receiverFactoryId: 'OLD-DEFAULT-B' }] } as unknown as GeneratedFeiTicketSourceRecord], bindings: [{ feiTicketId: 'DIRECT-CHAIN-01', specialCraftId: 'REAL-NEXT-STAGE', taskOrderId: 'REAL-NEXT-TASK', assignedFactoryConfirmed: true, targetFactoryId: 'REAL-NEXT-FACTORY' } as CuttingSpecialCraftFeiTicketBinding] }
   const before = listCuttingRuntimeEvents(storage).length
@@ -351,7 +353,7 @@ test('连续工艺直接由实际持有厂转交下道，前道完成与最后�
   assert.equal(completed[0].processingCompleted, true)
   assert.equal(completed[0].receiverFactoryId, 'CRAFT-FACTORY-RETURN')
   assert.equal(listSpecialCraftTicketReturnFacts(undefined, storage).length, 0, '厂间转交没有裁床实收')
-  const finalReceipt = submitSpecialCraftBagReturn({ ...specialCraftBagReturnInput(seeded, 'DIRECT-CHAIN'), sourceHandoverRecordId: 'REAL-DIRECT-RECORD', returnedTicketIds: ['DIRECT-CHAIN-01'], ticketReceipts: [{ feiTicketId: 'DIRECT-CHAIN-01', returnedQty: 90, differenceReason: '下道损耗5片', processingCompleted: true }], occurredAt: '2026-08-01 11:00' }, storage)
+  const finalReceipt = submitSpecialCraftBagReturn({ ...specialCraftBagReturnInput(seeded, 'DIRECT-CHAIN'), sourceHandoverRecordId: 'REAL-DIRECT-RECORD', returnedTicketIds: ['DIRECT-CHAIN-01'], ticketReceipts: [{ feiTicketId: 'DIRECT-CHAIN-01', returnedQty: 90, differenceReason: '下道损耗5片', processingCompleted: true }], occurredAt: '2026-08-01T11:00:00+08:00' }, storage)
   const facts = listSpecialCraftTicketReturnFacts(undefined, storage)
   assert.equal(facts.length, 1)
   assert.equal(facts[0].expectedQty, 95)
@@ -367,13 +369,13 @@ test('同袋两票连续转交按每票前道和下道身份核对，最后分�
   const stageIds = Object.fromEntries(tickets.map(item=>[item.feiTicketId,`${item.feiTicketId}:STAGE1`]))
   const seeded = seedSpecialCraftBagHandover({ storage,suffix:'MULTI-DIRECT',tickets,stageIds })
   const projection = { sources:tickets.map(item=>({ ...item,hasSpecialCraft:true,specialCrafts:[{specialCraftId:stageIds[item.feiTicketId],receiverFactoryId:'CRAFT-FACTORY-RETURN'},{specialCraftId:`${item.feiTicketId}:STAGE2`,receiverFactoryId:'NEXT-FACTORY'}]})) as unknown as GeneratedFeiTicketSourceRecord[], bindings:tickets.map(item=>({feiTicketId:item.feiTicketId,specialCraftId:`${item.feiTicketId}:STAGE2`,taskOrderId:'MD-NEXT-TASK',targetFactoryId:'NEXT-FACTORY',assignedFactoryConfirmed:true})) as CuttingSpecialCraftFeiTicketBinding[] }
-  const input = { source:'WEB',operator:{operatorName:'厂间交出员'},transferBagCode:seeded.bagCode,usageCycleId:seeded.usageCycleId,handoverOrderId:'MD-NEXT-TASK',handoverRecordId:'MD-NEXT-RECORD',specialCraftId:`${tickets[0].feiTicketId}:STAGE2`,occurredAt:'2026-08-01 10:00',fromWarehouseArea:'前道厂',storage,
-    payload:{handoverOrderId:'MD-NEXT-TASK',handoverRecordId:'MD-NEXT-RECORD',craftCategory:'特种工艺',craftType:'烫画',receiverFactoryId:'NEXT-FACTORY',receiverFactoryName:'下一工艺厂',handedOverAt:'2026-08-01 10:00',handedOverBy:'厂间交出员',feiTicketItems:tickets.map((item,index)=>({feiTicketId:item.feiTicketId,feiTicketNo:item.feiTicketNo,specialCraftId:`${item.feiTicketId}:STAGE2`,partName:item.partName,size:item.size,pieceQty:index?7:11})),directTransfer:{sourceHandoverEventId:seeded.handover.eventId,sourceHandoverRecordId:seeded.sourceHandoverRecordId,sourceFactoryId:'CRAFT-FACTORY-RETURN',sourceFactoryName:'特殊工艺回仓测试厂',completedTicketItems:tickets.map((item,index)=>({feiTicketId:item.feiTicketId,specialCraftId:stageIds[item.feiTicketId],completedQty:index?7:11,differenceReason:'损耗1片',processingCompleted:true}))}} }
+  const input = { source:'WEB',operator:{operatorName:'厂间交出员'},transferBagCode:seeded.bagCode,usageCycleId:seeded.usageCycleId,handoverOrderId:'MD-NEXT-TASK',handoverRecordId:'MD-NEXT-RECORD',specialCraftId:`${tickets[0].feiTicketId}:STAGE2`,occurredAt:'2026-08-01T10:00:00+08:00',fromWarehouseArea:'前道厂',storage,
+    payload:{handoverOrderId:'MD-NEXT-TASK',handoverRecordId:'MD-NEXT-RECORD',craftCategory:'特种工艺',craftType:'烫画',receiverFactoryId:'NEXT-FACTORY',receiverFactoryName:'下一工艺厂',handedOverAt:'2026-08-01T10:00:00+08:00',handedOverBy:'厂间交出员',feiTicketItems:tickets.map((item,index)=>({feiTicketId:item.feiTicketId,feiTicketNo:item.feiTicketNo,specialCraftId:`${item.feiTicketId}:STAGE2`,partName:item.partName,size:item.size,pieceQty:index?7:11})),directTransfer:{sourceHandoverEventId:seeded.handover.eventId,sourceHandoverRecordId:seeded.sourceHandoverRecordId,sourceFactoryId:'CRAFT-FACTORY-RETURN',sourceFactoryName:'特殊工艺回仓测试厂',completedTicketItems:tickets.map((item,index)=>({feiTicketId:item.feiTicketId,specialCraftId:stageIds[item.feiTicketId],completedQty:index?7:11,differenceReason:'损耗1片',processingCompleted:true}))}} }
   assert.throws(()=>appendWaitHandoverSpecialCraftHandoverEvent({...input,payload:{...input.payload,directTransfer:{...input.payload.directTransfer,completedTicketItems:input.payload.directTransfer.completedTicketItems.map(item=>({...item,specialCraftId:stageIds[tickets[0].feiTicketId]}))}}} as never,projection),/加工完成/)
   appendWaitHandoverSpecialCraftHandoverEvent(input as never,projection)
   assert.deepEqual(listSpecialCraftProcessingCompletionFacts(undefined,storage).map(fact=>[fact.feiTicketId,fact.specialCraftId,fact.returnedQty]),tickets.map((item,index)=>[item.feiTicketId,stageIds[item.feiTicketId],index?7:11]))
   assert.equal(listSpecialCraftTicketReturnFacts(undefined,storage).length,0)
-  submitSpecialCraftBagReturn({...specialCraftBagReturnInput(seeded,'MULTI-DIRECT'),sourceHandoverRecordId:'MD-NEXT-RECORD',occurredAt:'2026-08-01 11:00',ticketReceipts:tickets.map((item,index)=>({feiTicketId:item.feiTicketId,returnedQty:index?6:10,differenceReason:'损耗1片',processingCompleted:true}))},storage)
+  submitSpecialCraftBagReturn({...specialCraftBagReturnInput(seeded,'MULTI-DIRECT'),sourceHandoverRecordId:'MD-NEXT-RECORD',occurredAt:'2026-08-01T11:00:00+08:00',ticketReceipts:tickets.map((item,index)=>({feiTicketId:item.feiTicketId,returnedQty:index?6:10,differenceReason:'损耗1片',processingCompleted:true}))},storage)
   assert.deepEqual(listSpecialCraftTicketReturnFacts(undefined,storage).map(fact=>[fact.feiTicketId,fact.specialCraftId,fact.returnedQty]),tickets.map((item,index)=>[item.feiTicketId,`${item.feiTicketId}:STAGE2`,index?6:10]))
 })
 
@@ -453,14 +455,14 @@ function seedSpecialCraftBagHandover(input: {
     bagCode,
     usageCycleId,
     tickets,
-    occurredAt: '2026-08-01 08:00',
+    occurredAt: '2026-08-01T08:00:00+08:00',
   })
   appendInbound({
     storage: input.storage,
     bagCode,
     usageCycleId,
     tickets,
-    occurredAt: '2026-08-01 08:10',
+    occurredAt: '2026-08-01T08:10:00+08:00',
   })
   const handover = appendWaitHandoverSpecialCraftHandoverEvent({
     source: 'WEB',
@@ -480,7 +482,7 @@ function seedSpecialCraftBagHandover(input: {
         size: item.size,
         pieceQty: item.pieceQty,
       })),
-      handedOverAt: input.occurredAt || '2026-08-01 09:00',
+      handedOverAt: input.occurredAt || '2026-08-01T09:00:00+08:00',
       handedOverBy: '特殊工艺交出员',
     },
     handoverOrderId: sourceHandoverOrderId,
@@ -488,7 +490,7 @@ function seedSpecialCraftBagHandover(input: {
     specialCraftId,
     transferBagCode: bagCode,
     fromWarehouseArea: '待交出 A 区',
-    occurredAt: input.occurredAt || '2026-08-01 09:00',
+    occurredAt: input.occurredAt || '2026-08-01T09:00:00+08:00',
     usageCycleId,
     storage: input.storage,
   })
@@ -528,7 +530,7 @@ function specialCraftReturnLocation(suffix: string) {
 
 function ticketOnlyReturnInput(seeded: ReturnType<typeof seedSpecialCraftBagHandover>, suffix: string, qty: number): Parameters<typeof submitSpecialCraftTicketOnlyReturn>[0] {
   const item = seeded.tickets[0], locationRef = specialCraftReturnLocation(suffix)
-  return { specialCraftId: seeded.specialCraftId, source: 'PDA', operator: { operatorName: '逐票回仓员' }, occurredAt: '2026-08-01 09:20', payload: { returnRecordId: `NO-BAG-RECEIPT-${suffix}`, returnRecordNo: `无袋实收单-${suffix}`, sourceHandoverOrderId: seeded.sourceHandoverOrderId, sourceHandoverOrderNo: `特殊工艺交出单-${suffix}`, sourceHandoverRecordId: seeded.sourceHandoverRecordId, sourceHandoverRecordNo: `特殊工艺交接记录-${suffix}`, receiverFactoryId: 'CRAFT-FACTORY-RETURN', receiverFactoryName: '特殊工艺回仓测试厂', warehouseName: '裁床待交出仓', craftType: '绣花', warehouseArea: locationRef.areaName, locationCode: locationRef.locationNo, locationRef, returnedAt: '2026-08-01 09:20', returnedBy: '逐票回仓员', returnedFeiTicketItems: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, specialCraftId: seeded.specialCraftId, craftType: '绣花', partName: item.partName, size: item.size, expectedQty: item.pieceQty, returnedQty: qty, differenceReason: qty === item.pieceQty ? '' : '加工实际少回', processingCompleted: true, unit: '片', returnStatus: qty === item.pieceQty ? '已回仓' : '回仓差异' }] } }
+  return { specialCraftId: seeded.specialCraftId, source: 'PDA', operator: { operatorName: '逐票回仓员' }, occurredAt: '2026-08-01T09:20:00+08:00', payload: { returnRecordId: `NO-BAG-RECEIPT-${suffix}`, returnRecordNo: `无袋实收单-${suffix}`, sourceHandoverOrderId: seeded.sourceHandoverOrderId, sourceHandoverOrderNo: `特殊工艺交出单-${suffix}`, sourceHandoverRecordId: seeded.sourceHandoverRecordId, sourceHandoverRecordNo: `特殊工艺交接记录-${suffix}`, receiverFactoryId: 'CRAFT-FACTORY-RETURN', receiverFactoryName: '特殊工艺回仓测试厂', warehouseName: '裁床待交出仓', craftType: '绣花', warehouseArea: locationRef.areaName, locationCode: locationRef.locationNo, locationRef, returnedAt: '2026-08-01T09:20:00+08:00', returnedBy: '逐票回仓员', returnedFeiTicketItems: [{ feiTicketId: item.feiTicketId, feiTicketNo: item.feiTicketNo, specialCraftId: seeded.specialCraftId, craftType: '绣花', partName: item.partName, size: item.size, expectedQty: item.pieceQty, returnedQty: qty, differenceReason: qty === item.pieceQty ? '' : '加工实际少回', processingCompleted: true, unit: '片', returnStatus: qty === item.pieceQty ? '已回仓' : '回仓差异' }] } }
 }
 
 function specialCraftBagReturnInput(
@@ -544,7 +546,7 @@ function specialCraftBagReturnInput(
     locationRef: specialCraftReturnLocation(suffix),
     operator: { operatorId: 'OP-SPECIAL-IN', operatorName: '特殊工艺回仓员' },
     source: 'WEB',
-    occurredAt: '2026-08-01 09:20',
+    occurredAt: '2026-08-01T09:20:00+08:00',
     ...overrides,
   }
 }
@@ -588,7 +590,7 @@ function appendBagging(input: {
     eventType: '菲票装袋',
     eventSource: 'WEB',
     eventStatus: '已同步',
-    occurredAt: input.occurredAt || '2026-08-01 08:00',
+    occurredAt: input.occurredAt || '2026-08-01T08:00:00+08:00',
     operatorName: '装袋员',
     refs: {
       transferBagCode: input.bagCode,
@@ -605,7 +607,7 @@ function appendBagging(input: {
       totalPieceQty: input.tickets.reduce((sum, item) => sum + item.pieceQty, 0),
       mixedFlag: input.tickets.length > 1,
       baggingBy: '装袋员',
-      baggingAt: input.occurredAt || '2026-08-01 08:00',
+      baggingAt: input.occurredAt || '2026-08-01T08:00:00+08:00',
     },
   } as Parameters<typeof appendCuttingRuntimeEvent>[0], input.storage)
 }
@@ -622,7 +624,7 @@ function appendInbound(input: {
     eventType: '中转袋入仓',
     eventSource: 'WEB',
     eventStatus: '已同步',
-    occurredAt: input.occurredAt || '2026-08-01 08:10',
+    occurredAt: input.occurredAt || '2026-08-01T08:10:00+08:00',
     operatorName: '入仓员',
     refs: {
       transferBagCode: input.bagCode,
@@ -644,7 +646,7 @@ function appendInbound(input: {
       warehouseArea: '待交出 A 区',
       locationCode: `A-${input.bagCode}`,
       inboundBy: '入仓员',
-      inboundAt: input.occurredAt || '2026-08-01 08:10',
+      inboundAt: input.occurredAt || '2026-08-01T08:10:00+08:00',
       feiTicketItems: input.tickets,
       totalPieceQty: input.tickets.reduce((sum, item) => sum + item.pieceQty, 0),
       mixedFlag: input.tickets.length > 1,
@@ -677,7 +679,7 @@ test('逐票实收分别计数，更正库存仅按差额且保留原票', () =>
   const after = listCuttingRuntimeEvents(storage).length
   assert.equal(submitSpecialCraftBagReturn(structuredClone(request),storage).eventId,receipt.eventId)
   assert.equal(listCuttingRuntimeEvents(storage).length,after)
-  const correction = { sourceReturnEventId:receipt.eventId, ticketReceipts:seeded.tickets.map((ticket,index)=>({feiTicketId:ticket.feiTicketId,processingCompleted:true,returnedQty:index ? 5:10,differenceReason:'复点更正'})),operator:{operatorName:'复点员'},source:'WEB' as const,reason:'逐票复点',occurredAt:'2026-08-01 09:30' }
+  const correction = { sourceReturnEventId:receipt.eventId, ticketReceipts:seeded.tickets.map((ticket,index)=>({feiTicketId:ticket.feiTicketId,processingCompleted:true,returnedQty:index ? 5:10,differenceReason:'复点更正'})),operator:{operatorName:'复点员'},source:'WEB' as const,reason:'逐票复点',occurredAt:'2026-08-01T09:30:00+08:00' }
   const corrected = correctSpecialCraftTicketReturn(correction,storage)
   assert.equal(corrected.inventoryEffect?.direction,'ADJUST')
   assert.equal(corrected.inventoryEffect?.qty,-2)
@@ -755,12 +757,12 @@ test('无袋按票独立点收，不能重复新增或回到其他裁床工厂',
   const storage=createMemoryStorage(), seeded=seedSpecialCraftBagHandover({storage,suffix:'SINGLE'})
   const inputFor=(index:number,qty:number) => {
     const ticket=seeded.tickets[index],locationRef=specialCraftReturnLocation('SINGLE')
-    return { specialCraftId:seeded.specialCraftId,operator:{operatorName:'逐票回仓员'},source:'PDA' as const,occurredAt:'2026-08-01 09:20',payload:{
+    return { specialCraftId:seeded.specialCraftId,operator:{operatorName:'逐票回仓员'},source:'PDA' as const,occurredAt:'2026-08-01T09:20:00+08:00',payload:{
       returnRecordId:`SINGLE-${index}`,returnRecordNo:`回仓-${index}`,sourceHandoverOrderId:seeded.sourceHandoverOrderId,
       sourceHandoverOrderNo:seeded.sourceHandoverOrderId,sourceHandoverRecordId:seeded.sourceHandoverRecordId,
       sourceHandoverRecordNo:seeded.sourceHandoverRecordId,receiverFactoryId:'CRAFT-FACTORY-RETURN',receiverFactoryName:'特殊工艺回仓测试厂',
       warehouseName:'裁床待交出仓',craftType:'绣花',warehouseArea:locationRef.areaName,locationCode:locationRef.locationNo,locationRef,
-      returnedAt:'2026-08-01 09:20',returnedBy:'逐票回仓员',returnedFeiTicketItems:[{feiTicketId:ticket.feiTicketId,
+      returnedAt:'2026-08-01T09:20:00+08:00',returnedBy:'逐票回仓员',returnedFeiTicketItems:[{feiTicketId:ticket.feiTicketId,
       feiTicketNo:ticket.feiTicketNo,specialCraftId:seeded.specialCraftId,craftType:'绣花',partName:ticket.partName,size:ticket.size,
       expectedQty:ticket.pieceQty,processingCompleted:true,returnedQty:qty,differenceReason:qty===ticket.pieceQty?'':'少回说明',unit:'片' as const,
       returnStatus:qty===ticket.pieceQty?'已回仓' as const:'回仓差异' as const}]} }
@@ -798,7 +800,7 @@ test('100片已经交出后更正为90片只改依据，保留原实交责任且
   const handover=submitWholeBagHandover({bagCode:seeded.bagCode,usageCycleId:seeded.usageCycleId,
     handoverOrderId:'HO-AFTER-RETURN',handoverOrderNo:'HO-AFTER-RETURN',handoverRecordId:'HR-AFTER-RETURN',handoverRecordNo:'HR-AFTER-RETURN',
     assignments:originalTickets.map(ticket=>({feiTicketId:ticket.feiTicketId,feiTicketNo:ticket.feiTicketNo,sewingTaskId:ticket.sewingTaskId,sewingTaskNo:ticket.sewingTaskNo,receiverFactoryId:ticket.receiverFactoryId,receiverFactoryName:ticket.receiverFactoryName})),
-    submittedTicketSnapshot:originalTickets,operator:{operatorName:'车缝交出员'},source:'WEB',occurredAt:'2026-08-01 10:00'},storage)
+    submittedTicketSnapshot:originalTickets,operator:{operatorName:'车缝交出员'},source:'WEB',occurredAt:'2026-08-01T10:00:00+08:00'},storage)
   const before=buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
   const priorHandover=listCuttingRuntimeEvents(storage).find(event=>event.eventId===handover.eventId)
   const originalDecision=Object.freeze({confirmedQty:100,systemCompleteKitQty:100,riskQty:0})
@@ -824,7 +826,7 @@ test('100片已经交出后更正为90片只改依据，保留原实交责任且
     assert.equal(Math.max(originalDecision.confirmedQty-(matrix.colorGroups[0].completeKitBySize[sourceTicket.skuSize] ?? 0),0),currentRisk)
     assert.deepEqual(originalDecision,{confirmedQty:100,systemCompleteKitQty:100,riskQty:0},'历史放行A与历史R不能被当前风险改写')
   }
-  const corrected=correctSpecialCraftTicketReturn({sourceReturnEventId:receipt.eventId,ticketReceipts:[{feiTicketId:originalTickets[0].feiTicketId,processingCompleted:true,returnedQty:90,differenceReason:'复核发现十片误计'}],operator:{operatorName:'复核员'},source:'WEB',reason:'复核原点收记录',occurredAt:'2026-08-01 11:00'},storage)
+  const corrected=correctSpecialCraftTicketReturn({sourceReturnEventId:receipt.eventId,ticketReceipts:[{feiTicketId:originalTickets[0].feiTicketId,processingCompleted:true,returnedQty:90,differenceReason:'复核发现十片误计'}],operator:{operatorName:'复核员'},source:'WEB',reason:'复核原点收记录',occurredAt:'2026-08-01T11:00:00+08:00'},storage)
   assert.equal(listSpecialCraftTicketReturnFacts(listCuttingRuntimeEvents(storage))[0].returnedQty,90)
   assertReleaseQuantities(90,10)
   assert.equal((corrected.payload as {inventoryAdjusted:boolean}).inventoryAdjusted,false)
@@ -835,17 +837,17 @@ test('100片已经交出后更正为90片只改依据，保留原实交责任且
   assert.deepEqual(buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage)),before)
   assert.deepEqual(resolveTransferBagCurrentUse(seeded.bagCode,storage).tickets,[])
   const newTickets=[ticket('NEW-CYCLE-01','PO-NEW-CYCLE','CRAFT-FACTORY-RETURN',25)],newCycle=`usage:${seeded.bagCode}:2`
-  appendBagging({storage,bagCode:seeded.bagCode,usageCycleId:newCycle,tickets:newTickets,occurredAt:'2026-08-01 12:00'})
-  appendInbound({storage,bagCode:seeded.bagCode,usageCycleId:newCycle,tickets:newTickets,occurredAt:'2026-08-01 12:10'})
+  appendBagging({storage,bagCode:seeded.bagCode,usageCycleId:newCycle,tickets:newTickets,occurredAt:'2026-08-01T12:00:00+08:00'})
+  appendInbound({storage,bagCode:seeded.bagCode,usageCycleId:newCycle,tickets:newTickets,occurredAt:'2026-08-01T12:10:00+08:00'})
   const newBefore=buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage))
-  correctSpecialCraftTicketReturn({sourceReturnEventId:corrected.eventId,ticketReceipts:[{feiTicketId:originalTickets[0].feiTicketId,processingCompleted:true,returnedQty:89,differenceReason:'再次复核'}],operator:{operatorName:'复核员'},source:'WEB',reason:'再次复核原点收记录',occurredAt:'2026-08-01 13:00'},storage)
+  correctSpecialCraftTicketReturn({sourceReturnEventId:corrected.eventId,ticketReceipts:[{feiTicketId:originalTickets[0].feiTicketId,processingCompleted:true,returnedQty:89,differenceReason:'再次复核'}],operator:{operatorName:'复核员'},source:'WEB',reason:'再次复核原点收记录',occurredAt:'2026-08-01T13:00:00+08:00'},storage)
   assert.equal(listSpecialCraftTicketReturnFacts(listCuttingRuntimeEvents(storage))[0].returnedQty,89)
   assertReleaseQuantities(89,11)
   assert.deepEqual(listCuttingRuntimeEvents(storage).find(event=>event.eventId===handover.eventId),priorHandover)
   assert.equal(resolveTransferBagCurrentUse(seeded.bagCode,storage).tickets[0].pieceQty,25)
   assert.deepEqual(buildWaitHandoverLocationOccupancyStates(listCuttingRuntimeEvents(storage)),newBefore)
   const count=listCuttingRuntimeEvents(storage).length
-  assert.equal(correctSpecialCraftTicketReturn({sourceReturnEventId:receipt.eventId,ticketReceipts:[{feiTicketId:originalTickets[0].feiTicketId,processingCompleted:true,returnedQty:90,differenceReason:'复核发现十片误计'}],operator:{operatorName:'复核员'},source:'WEB',reason:'复核原点收记录',occurredAt:'2026-08-01 11:00'},storage).eventId,corrected.eventId)
+  assert.equal(correctSpecialCraftTicketReturn({sourceReturnEventId:receipt.eventId,ticketReceipts:[{feiTicketId:originalTickets[0].feiTicketId,processingCompleted:true,returnedQty:90,differenceReason:'复核发现十片误计'}],operator:{operatorName:'复核员'},source:'WEB',reason:'复核原点收记录',occurredAt:'2026-08-01T11:00:00+08:00'},storage).eventId,corrected.eventId)
   assert.equal(listCuttingRuntimeEvents(storage).length,count)
   assert.equal(listSpecialCraftTicketReturnFacts(listCuttingRuntimeEvents(storage))[0].returnedQty,89)
 })
@@ -958,11 +960,11 @@ test('仓库无袋逐票实收：先回一票3片，另票仍在厂；零量实�
 test('无袋回仓先更正2片再重装，后续更正1片不改当前2片，数量冲突待核对', () => {
   const storage=createMemoryStorage(),seeded=seedSpecialCraftBagHandover({storage,suffix:'CURRENT-NO-BAG-REPACK',tickets:[ticket('CURRENT-NO-BAG-REPACK-M','PO-CURRENT-NO-BAG-REPACK','CRAFT-FACTORY-RETURN',5)]})
   const sources=currentInventorySourceRows(seeded),receipt=submitSpecialCraftTicketOnlyReturn(ticketOnlyReturnInput(seeded,'CURRENT-NO-BAG-REPACK',3),storage)
-  const corrected=correctSpecialCraftTicketReturn({sourceReturnEventId:receipt.eventId,ticketReceipts:[{feiTicketId:seeded.tickets[0].feiTicketId,returnedQty:2,differenceReason:'复核少1片'}],operator:{operatorName:'复核员'},source:'WEB',reason:'逐票复核',occurredAt:'2026-08-01 10:00'},storage)
+  const corrected=correctSpecialCraftTicketReturn({sourceReturnEventId:receipt.eventId,ticketReceipts:[{feiTicketId:seeded.tickets[0].feiTicketId,returnedQty:2,differenceReason:'复核少1片'}],operator:{operatorName:'复核员'},source:'WEB',reason:'逐票复核',occurredAt:'2026-08-01T10:00:00+08:00'},storage)
   assert.equal(buildCurrentWaitHandoverInventoryRecords(sources,listCuttingRuntimeEvents(storage),currentInventoryDetails(seeded,[2]))[0].pieceQty,2)
   const fresh={...seeded.tickets[0],pieceQty:2},bagCode='BAG-CURRENT-NO-BAG-NEW',usageCycleId=bagCode+':1'
-  appendBagging({storage,bagCode,usageCycleId,tickets:[fresh],occurredAt:'2026-08-01 11:00'});appendInbound({storage,bagCode,usageCycleId,tickets:[fresh],occurredAt:'2026-08-01 11:10'})
-  const historyOnly=correctSpecialCraftTicketReturn({sourceReturnEventId:corrected.eventId,ticketReceipts:[{feiTicketId:fresh.feiTicketId,returnedQty:1,differenceReason:'装袋后复核'}],operator:{operatorName:'复核员'},source:'WEB',reason:'保留当前装袋事实',occurredAt:'2026-08-01 11:20'},storage)
+  appendBagging({storage,bagCode,usageCycleId,tickets:[fresh],occurredAt:'2026-08-01T11:00:00+08:00'});appendInbound({storage,bagCode,usageCycleId,tickets:[fresh],occurredAt:'2026-08-01T11:10:00+08:00'})
+  const historyOnly=correctSpecialCraftTicketReturn({sourceReturnEventId:corrected.eventId,ticketReceipts:[{feiTicketId:fresh.feiTicketId,returnedQty:1,differenceReason:'装袋后复核'}],operator:{operatorName:'复核员'},source:'WEB',reason:'保留当前装袋事实',occurredAt:'2026-08-01T11:20:00+08:00'},storage)
   assert.equal(historyOnly.inventoryEffect?.qty,0)
   const current=buildCurrentWaitHandoverInventoryRecords(sources,listCuttingRuntimeEvents(storage),currentInventoryDetails(seeded,[1]))
   assert.equal(current.length,1);assert.equal(current[0].tempBagCode,bagCode);assert.equal(current[0].pieceQty,2);assert.equal(current[0].inventoryStatus,'待核对')
@@ -982,13 +984,13 @@ test('末道无袋已实收3片后更正已被消费的前道，不遮蔽末道�
   const storage=createMemoryStorage(),seeded=seedSpecialCraftBagHandover({storage,suffix:'CURRENT-NO-BAG-STAGES',tickets:[ticket('CURRENT-NO-BAG-STAGES-M','PO-CURRENT-NO-BAG-STAGES','CRAFT-FACTORY-RETURN',5)]})
   const first=submitSpecialCraftTicketOnlyReturn(ticketOnlyReturnInput(seeded,'CURRENT-NO-BAG-STAGE1',5),storage)
   const bagCode='BAG-CURRENT-NO-BAG-STAGE2',usageCycleId=bagCode+':1',item=seeded.tickets[0],specialCraftId='CURRENT-NO-BAG-STAGE2',sourceHandoverOrderId='CURRENT-NO-BAG-STAGE2-ORDER',sourceHandoverRecordId='CURRENT-NO-BAG-STAGE2-RECORD'
-  appendBagging({storage,bagCode,usageCycleId,tickets:[item],occurredAt:'2026-08-01 10:00'});appendInbound({storage,bagCode,usageCycleId,tickets:[item],occurredAt:'2026-08-01 10:10'})
+  appendBagging({storage,bagCode,usageCycleId,tickets:[item],occurredAt:'2026-08-01T10:00:00+08:00'});appendInbound({storage,bagCode,usageCycleId,tickets:[item],occurredAt:'2026-08-01T10:10:00+08:00'})
   const source={...item,actualCutPieceQty:5,qty:5,skuSize:item.size,garmentColor:item.color,printStatus:'PRINTED',hasSpecialCraft:true,specialCrafts:[{specialCraftId:seeded.specialCraftId,craftType:'绣花',craftName:'绣花',receiverFactoryId:'CRAFT-FACTORY-RETURN',receiverFactoryName:'特殊工艺回仓测试厂'},{specialCraftId,craftType:'烫画',craftName:'烫画',receiverFactoryId:'CRAFT-FACTORY-RETURN',receiverFactoryName:'特殊工艺回仓测试厂'}]} as unknown as GeneratedFeiTicketSourceRecord
-  const handover=appendWaitHandoverSpecialCraftHandoverEvent({storage,source:'WEB',operator:{operatorName:'下一工艺交出员'},transferBagCode:bagCode,usageCycleId,specialCraftId,handoverOrderId:sourceHandoverOrderId,handoverRecordId:sourceHandoverRecordId,fromWarehouseArea:'待交出 A 区',occurredAt:'2026-08-01 10:20',payload:{handoverOrderId:sourceHandoverOrderId,handoverRecordId:sourceHandoverRecordId,craftCategory:'特种工艺',craftType:'烫画',receiverFactoryId:'CRAFT-FACTORY-RETURN',receiverFactoryName:'特殊工艺回仓测试厂',feiTicketItems:[{feiTicketId:item.feiTicketId,feiTicketNo:item.feiTicketNo,specialCraftId,partName:item.partName,size:item.size,pieceQty:5}],handedOverAt:'2026-08-01 10:20',handedOverBy:'下一工艺交出员'}},{sources:[source],bindings:[{feiTicketId:item.feiTicketId,specialCraftId,taskOrderId:sourceHandoverOrderId,targetFactoryId:'CRAFT-FACTORY-RETURN',assignedFactoryConfirmed:true}] as CuttingSpecialCraftFeiTicketBinding[]})
+  const handover=appendWaitHandoverSpecialCraftHandoverEvent({storage,source:'WEB',operator:{operatorName:'下一工艺交出员'},transferBagCode:bagCode,usageCycleId,specialCraftId,handoverOrderId:sourceHandoverOrderId,handoverRecordId:sourceHandoverRecordId,fromWarehouseArea:'待交出 A 区',occurredAt:'2026-08-01T10:20:00+08:00',payload:{handoverOrderId:sourceHandoverOrderId,handoverRecordId:sourceHandoverRecordId,craftCategory:'特种工艺',craftType:'烫画',receiverFactoryId:'CRAFT-FACTORY-RETURN',receiverFactoryName:'特殊工艺回仓测试厂',feiTicketItems:[{feiTicketId:item.feiTicketId,feiTicketNo:item.feiTicketNo,specialCraftId,partName:item.partName,size:item.size,pieceQty:5}],handedOverAt:'2026-08-01T10:20:00+08:00',handedOverBy:'下一工艺交出员'}},{sources:[source],bindings:[{feiTicketId:item.feiTicketId,specialCraftId,taskOrderId:sourceHandoverOrderId,targetFactoryId:'CRAFT-FACTORY-RETURN',assignedFactoryConfirmed:true}] as CuttingSpecialCraftFeiTicketBinding[]})
   const next={...seeded,bagCode,usageCycleId,specialCraftId,sourceHandoverOrderId,sourceHandoverRecordId,handover},input=ticketOnlyReturnInput(next,'CURRENT-NO-BAG-STAGE2',3)
-  input.occurredAt='2026-08-01 10:30';input.payload.returnedAt='2026-08-01 10:30';input.payload.craftType='烫画';input.payload.returnedFeiTicketItems.forEach(t=>t.craftType='烫画')
+  input.occurredAt='2026-08-01T10:30:00+08:00';input.payload.returnedAt='2026-08-01T10:30:00+08:00';input.payload.craftType='烫画';input.payload.returnedFeiTicketItems.forEach(t=>t.craftType='烫画')
   const final=submitSpecialCraftTicketOnlyReturn(input,storage),prior=structuredClone(listCuttingRuntimeEvents(storage).find(e=>e.eventId===final.eventId))
-  const oldCorrection=correctSpecialCraftTicketReturn({sourceReturnEventId:first.eventId,ticketReceipts:[{feiTicketId:item.feiTicketId,returnedQty:4,differenceReason:'前道记录复核'}],operator:{operatorName:'历史复核员'},source:'WEB',reason:'不得改末道实收',occurredAt:'2026-08-01 11:00'},storage)
+  const oldCorrection=correctSpecialCraftTicketReturn({sourceReturnEventId:first.eventId,ticketReceipts:[{feiTicketId:item.feiTicketId,returnedQty:4,differenceReason:'前道记录复核'}],operator:{operatorName:'历史复核员'},source:'WEB',reason:'不得改末道实收',occurredAt:'2026-08-01T11:00:00+08:00'},storage)
   assert.equal((oldCorrection.payload as {inventoryAdjusted:boolean}).inventoryAdjusted,false)
   const events=listCuttingRuntimeEvents(storage),detail=projectReleaseTicket({ticket:source,materialId:'MAT-STAGES',materialName:'主料',bag:buildReleaseBagEvidence(events).get(item.feiTicketId),receipts:listSpecialCraftTicketReturnFacts(events),events,craftRequirementKnown:true})
   assert.equal(detail.physicalPieceQty,3);assert.equal(detail.eligiblePieceQty,3);assert.equal(listSpecialCraftTicketReturnFacts(events).find(r=>r.specialCraftId===seeded.specialCraftId)?.originalReturnedAt,first.occurredAt)
