@@ -1353,7 +1353,7 @@ function renderMatrixDetailHeader(record: CutPieceReleaseRecord): string {
   return `
     <header data-cut-piece-release-detail-header>
       <a href="${backHref}" data-nav="${backHref}" class="text-sm text-blue-700 hover:underline">返回裁片放行管理</a>
-      <h1 class="mt-2 text-2xl font-semibold text-foreground">裁片放行矩阵详情</h1>
+      <h1 class="mt-2 text-xl font-semibold text-foreground">裁片放行矩阵详情</h1>
       <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.spuCode)} · ${escapeHtml(record.spuName)}</p>
     </header>
   `
@@ -1741,7 +1741,7 @@ function renderCutPieceReleasePageContent(): string {
   const detailRecord = isMatrixDetailWindow() ? getActiveRecord() : null
   if (detailRecord) {
     return `
-      <section class="mx-auto max-w-[1440px] space-y-4 p-6" data-cut-piece-release-page data-cut-piece-release-detail-page>
+      <section class="min-w-0 w-full space-y-4 p-4" data-cut-piece-release-page data-cut-piece-release-detail-page>
         ${renderMatrixDetailHeader(detailRecord)}
         <div data-cut-piece-release-region="feedback">${renderFeedback()}</div>
         <div data-cut-piece-release-region="migration">${renderMigrationPanel()}</div>
