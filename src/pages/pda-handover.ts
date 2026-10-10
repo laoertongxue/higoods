@@ -1,3 +1,5 @@
+import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
+import { handlePostFinishingStorageEvent } from './process-factory/post-finishing/storage-notice.ts'
 import { getSpecialCraftTaskOrderById } from '../data/fcs/special-craft-task-orders.ts'
 import { renderWoolObjectImage } from './process-factory/wool/stage-display.ts'
 import { appStore } from '../state/store'
@@ -1137,7 +1139,8 @@ export function renderPdaHandoverPage(): string {
   return renderPdaFrame(content, 'handover')
 }
 
-export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (await handlePostFinishingStorageEvent(target, event)) return true
   if (!ensurePdaSessionForAction()) return true
   if (handlePdaWoolExecutionEvent(target)) return true
 
@@ -1264,10 +1267,10 @@ export function handlePdaHandoverEvent(target: HTMLElement, event?: Event): bool
     }
     if (!window.confirm('确认已领回本单全部物料，并按调出方实配数量一次性入库？入库后不支持分批修改。')) return true
     try {
-      const result = receivePostFinishingMaterialTransfer({
+      const result = await runPostFinishingCommand(() => receivePostFinishingMaterialTransfer({
         transferOrderNo: actionNode.dataset.materialOrderNo || '',
         actor: { actorId: runtime.userId, actorName: runtime.userName, roleName: '后道仓管' },
-      })
+      }))
       materialInboundMessage = result.alreadyInbound ? '该调拨单已入库，无需重复提交。' : '整单入库成功，辅料库存已按调出方实配数量登记。'
       appStore.navigate(`/fcs/pda/handover?tab=pickup&materialOrderNo=${encodeURIComponent(result.transfer.transferOrderNo)}&refresh=${Date.now()}`)
     } catch (error) {

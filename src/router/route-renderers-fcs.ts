@@ -40,6 +40,11 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
+    if (postFinishingScope) {
+      await import('../data/fcs/post-finishing-full-flow.ts')
+      await (await import('../data/fcs/post-finishing-records.ts')).ensurePostFinishingRecordState()
+    }
     if (["renderUnifiedDispatchWorkbenchPage", "renderSewingOutsourcingTasksPage", "renderCraftCuttingWarehouseManagementWaitHandoverPage", "renderProductionConfirmationPrintPage"].includes(exportName)) {
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
@@ -50,6 +55,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       throw new Error(`页面渲染函数不存在: ${exportName}`)
     }
 
+    if (postFinishingScope) {
+      const { renderPostFinishingStorageNotice } = await import('../pages/process-factory/post-finishing/storage-notice.ts')
+      return renderPostFinishingStorageNotice() + await (renderer as AnyAsyncRenderer)(...args)
+    }
     return (renderer as AnyAsyncRenderer)(...args)
   }
 }

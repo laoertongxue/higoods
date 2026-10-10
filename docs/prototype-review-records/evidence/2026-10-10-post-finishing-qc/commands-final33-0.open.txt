@@ -1,0 +1,9 @@
+### Browser `pf33-commands-0` opened with pid 86287.
+### Ran Playwright code
+```js
+await page.goto('about:blank');
+```
+### Page
+- Page URL: about:blank
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-10-10T13-00-19-020Z.yml)

@@ -1,0 +1,216 @@
+{
+  "sourceSha256": "16c82cfb6ae7845873303952b17dcaf29f70d9faa2dac0e6a16bc2070f0fa37d",
+  "beforeRuntime": "build-final21",
+  "afterRuntime": "build-final26",
+  "before": {
+    "headings": [
+      "实际工序执行",
+      "当前可执行动作",
+      "收货、质检、后道、复检记录",
+      "操作记录"
+    ],
+    "controls": [
+      {
+        "tag": "BUTTON",
+        "text": "待办\n      16",
+        "attrs": {
+          "data-pda-shell-action": "open-todo-modal",
+          "data-pda-todo-trigger": "true"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "P\n      PT_P",
+        "attrs": {
+          "data-pda-shell-action": "open-account-modal"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "返回",
+        "attrs": {
+          "data-pda-execd-action": "back"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "PO-QC-202608-001",
+        "attrs": {
+          "data-production-object-action": "open",
+          "data-object-type": "PRODUCTION_ORDER",
+          "data-object-id": "PO-QC-202608-001",
+          "data-related-production-order-no": "PO-QC-202608-001",
+          "data-default-tab": "overview",
+          "data-highlight-key": "PRODUCTION_ORDER:PO-QC-202608-001",
+          "data-skip-page-rerender": "true"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "SEW-TASK-QC-001",
+        "attrs": {
+          "data-production-object-action": "open",
+          "data-object-type": "PROCESS_DOC",
+          "data-object-id": "SEW-TASK-QC-001",
+          "data-related-production-order-no": "PO-QC-202608-001",
+          "data-default-tab": "progress",
+          "data-highlight-key": "PROCESS_DOC:SEW-TASK-QC-001",
+          "data-skip-page-rerender": "true"
+        }
+      },
+      {
+        "tag": "A",
+        "text": "扫描并执行后道加工单",
+        "attrs": {
+          "href": "/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "接单",
+        "attrs": {
+          "data-nav": "/fcs/pda/task-receive",
+          "data-pda-tab": "task-receive"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "执行",
+        "attrs": {
+          "data-nav": "/fcs/pda/exec",
+          "data-pda-tab": "exec"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "交接",
+        "attrs": {
+          "data-nav": "/fcs/pda/handover",
+          "data-pda-tab": "handover"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "仓管",
+        "attrs": {
+          "data-nav": "/fcs/pda/warehouse",
+          "data-pda-tab": "warehouse"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "结算",
+        "attrs": {
+          "data-nav": "/fcs/pda/settlement",
+          "data-pda-tab": "settlement"
+        }
+      }
+    ]
+  },
+  "after": {
+    "headings": [
+      "实际工序执行",
+      "当前可执行动作",
+      "收货、质检、后道、复检记录",
+      "操作记录"
+    ],
+    "controls": [
+      {
+        "tag": "BUTTON",
+        "text": "待办\n      16",
+        "attrs": {
+          "data-pda-shell-action": "open-todo-modal",
+          "data-pda-todo-trigger": "true"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "P\n      PT_P",
+        "attrs": {
+          "data-pda-shell-action": "open-account-modal"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "返回",
+        "attrs": {
+          "data-pda-execd-action": "back"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "PO-QC-202608-001",
+        "attrs": {
+          "data-production-object-action": "open",
+          "data-object-type": "PRODUCTION_ORDER",
+          "data-object-id": "PO-QC-202608-001",
+          "data-related-production-order-no": "PO-QC-202608-001",
+          "data-default-tab": "overview",
+          "data-highlight-key": "PRODUCTION_ORDER:PO-QC-202608-001",
+          "data-skip-page-rerender": "true"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "SEW-TASK-QC-001",
+        "attrs": {
+          "data-production-object-action": "open",
+          "data-object-type": "PROCESS_DOC",
+          "data-object-id": "SEW-TASK-QC-001",
+          "data-related-production-order-no": "PO-QC-202608-001",
+          "data-default-tab": "progress",
+          "data-highlight-key": "PROCESS_DOC:SEW-TASK-QC-001",
+          "data-skip-page-rerender": "true"
+        }
+      },
+      {
+        "tag": "A",
+        "text": "扫描并执行后道加工单",
+        "attrs": {
+          "href": "/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "接单",
+        "attrs": {
+          "data-nav": "/fcs/pda/task-receive",
+          "data-pda-tab": "task-receive"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "执行",
+        "attrs": {
+          "data-nav": "/fcs/pda/exec",
+          "data-pda-tab": "exec"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "交接",
+        "attrs": {
+          "data-nav": "/fcs/pda/handover",
+          "data-pda-tab": "handover"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "仓管",
+        "attrs": {
+          "data-nav": "/fcs/pda/warehouse",
+          "data-pda-tab": "warehouse"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "结算",
+        "attrs": {
+          "data-nav": "/fcs/pda/settlement",
+          "data-pda-tab": "settlement"
+        }
+      }
+    ]
+  },
+  "same": true
+}

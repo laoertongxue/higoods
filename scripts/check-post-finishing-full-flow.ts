@@ -221,26 +221,27 @@ assert.equal(getPostFinishingMaterialReadiness(POST_FINISHING_ACCEPTANCE_PRODUCT
 assert.equal(getPostFinishingMaterialReadiness(POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[2].productionOrderNo).applicable, false, '裁剪＋车缝＋烫包不得误读主调拨单')
 
 const numberingFirst = issuePostFinishingDocumentNumber({
-  kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-1', idempotencyKey: 'NUM-1', sequence: 7,
+  kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-1', idempotencyKey: 'NUM-1', sequence: 7, sourceDocumentNo: 'PO-NUMBERING-CHECK-7',
 }, new Date(nextTime()))
 const numberingSecond = issuePostFinishingDocumentNumber({
-  kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-2', idempotencyKey: 'NUM-2', sequence: 99,
+  kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-2', idempotencyKey: 'NUM-2', sequence: 99, sourceDocumentNo: 'PO-NUMBERING-CHECK-99',
 }, new Date(nextTime()))
-assert.equal(numberingFirst.documentNo, 'PO-NUMBERING-CHECK-1', '质检任务序号必须从已有最大序号开始')
-assert.equal(numberingSecond.documentNo, 'PO-NUMBERING-CHECK-2', '质检任务请求序号不得绕过已有最大序号递增规则')
+assert.equal(numberingFirst.documentNo, 'PO-NUMBERING-CHECK-7-ZJ', '质检单从实际回货来源编号')
+assert.equal(numberingSecond.documentNo, 'PO-NUMBERING-CHECK-99-ZJ', '质检单不再使用独立递增序号')
 assert.equal(issuePostFinishingDocumentNumber({
-  kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-2', idempotencyKey: 'NUM-2', sequence: 100,
+  kind: 'QC', productionOrderNo: 'PO-NUMBERING-CHECK', sourceObjectId: 'NUM-2', idempotencyKey: 'NUM-2', sequence: 100, sourceDocumentNo: 'PO-NUMBERING-CHECK-100',
 }, new Date(nextTime())).documentNo, numberingSecond.documentNo, '同一质检来源重复请求必须返回原任务号')
 resetPostFinishingDocumentNumbering()
 const numberingAfterLedgerLoss = issuePostFinishingDocumentNumber({
   kind: 'QC',
   productionOrderNo: 'PO-NUMBERING-CHECK',
+  sourceDocumentNo: 'PO-NUMBERING-CHECK-5',
   sourceObjectId: 'NUM-5',
   idempotencyKey: 'NUM-5',
   sequence: 1,
   existingDocumentNos: ['PO-NUMBERING-CHECK-1', 'PO-NUMBERING-CHECK-4', 'PO-OTHER-99', 'PO-NUMBERING-CHECK-X'],
 }, new Date(nextTime()))
-assert.equal(numberingAfterLedgerLoss.documentNo, 'PO-NUMBERING-CHECK-5', '编号台账丢失时仍必须从当前生产单已有质检单最大序号递增')
+assert.equal(numberingAfterLedgerLoss.documentNo, 'PO-NUMBERING-CHECK-5-ZJ', '编号台账缺失仍从实际回货单生成质检编号')
 resetPostFinishingDocumentNumbering()
 
 const slotStart = Math.floor(clockMs / POST_FINISHING_AUTHORIZATION_WINDOW_MS) * POST_FINISHING_AUTHORIZATION_WINDOW_MS
@@ -400,7 +401,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     assert(autoCreatedQcTask, '回货确认结果必须立即关联自动生成的质检单')
     assert.equal(confirmed.qcTaskId, autoCreatedQcTask.qcTaskId, '送货单必须在回货确认时写入质检单主键')
     assert.equal(confirmed.qcTaskNo, autoCreatedQcTask.qcTaskNo, '送货单必须在回货确认时写入质检单号')
-    assert.equal(autoCreatedQcTask.qcTaskNo, `${order.productionOrderNo}-${returnIndex}`, '确认时生成的质检单号必须为生产单号-最大序号加一')
+    assert.equal(autoCreatedQcTask.qcTaskNo, `${order.productionOrderNo}-${returnIndex}-ZJ`, '确认时生成的质检单号必须为回货单号-ZJ')
     assert.equal(autoCreatedQcTask.status, '待送检', '确认时生成的质检单必须等待后道待加工仓完成送检交接')
     if (returnIndex === 1 && order === firstOrder) {
       expectCode('尚未从后道待加工仓送检的质检单不得领取', 'INVALID_STATUS', () => {
@@ -429,7 +430,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       nowMs: nextTime(),
     })
     assert.equal(duplicateQcTask.qcTaskId, qcTask.qcTaskId, '一张送货单只能生成一张质检任务')
-    assert.equal(qcTask.qcTaskNo, `${order.productionOrderNo}-${returnIndex}`, '质检任务号必须为生产单号-序号')
+    assert.equal(qcTask.qcTaskNo, `${order.productionOrderNo}-${returnIndex}-ZJ`, '质检任务号必须为回货单号-ZJ')
     assert.deepEqual(qcTask.lines.map((line) => line.expectedQty), confirmed.lines.map((line) => line.confirmedQty), '送检数必须取确认入库数')
 
     expectCode('质检任务必须精确匹配完整任务号', 'NOT_FOUND', () => {
@@ -447,8 +448,9 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       })
       const released = releasePostFinishingQcTask({
         qcTaskId: qcTask.qcTaskId,
-        actor: qcActor,
-        reason: '错误领取',
+        actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcSupervisor,
+        supervisor: true,
+        reason: '主管释放错误占用',
         nowMs: nextTime(),
       })
       assert.equal(released.status, '待质检', '退领后必须回到待质检')
@@ -631,7 +633,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
         nowMs: returnIndex === 4 ? barcodeGateAuthorization!.nowMs : nextTime(),
       })
       assert.equal(completedRecheck.status, '复检完成', '处理后数量与条码复核完成状态')
-      assert(completedRecheck.outboundOrderNo?.startsWith('FCK-'), '处理后复核完成必须生成 FCK 成衣仓交接单')
+      assert(completedRecheck.outboundOrderNo === `${completedRecheck.recheckOrderNo}-CH`, '处理后复核完成必须生成来源复检号-CH 成衣仓交接单')
       const outboundCountBeforeRepeat = listPostFinishingFullFlowOutboundOrders().length
       const repeatedRecheck = completePostFinishingRecheckOrderFullFlow({ recheckOrderId: recheck.recheckOrderId, actor: recheckActor, results: recheckResults, nowMs: nextTime() })
       assert.equal(repeatedRecheck.outboundOrderNo, completedRecheck.outboundOrderNo, '重复完成处理后复核必须返回同一交接单')
@@ -655,7 +657,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
       assert(readyWarehouseRecord, '处理后复核完成必须形成后道待交出仓记录')
       assert.equal(readyWarehouseRecord.status, '待交出', '仓库收货前必须为待交出')
       assert.deepEqual(readyWarehouseRecord.lines.map((line) => line.availableQty), outbound.lines.map((line) => line.outboundQty), '待交出仓可用量必须逐 SKU 等于实际交出量')
-      expectCode('仓库不能用处理后复核单号代替 FCK 交接单', 'NOT_FOUND', () => {
+      expectCode('仓库不能用处理后复核单号代替出货交接单', 'NOT_FOUND', () => {
         receivePostFinishingOutboundOrder({ outboundOrderNo: recheckNo!, actor: POST_FINISHING_ACCEPTANCE_ACTORS.warehouseReceiver, receivedQuantities: outbound.lines.map((line) => ({ skuId: line.sku.skuId, receivedQty: line.outboundQty })), nowMs: nextTime() })
       })
     } else {
@@ -743,7 +745,7 @@ for (const order of POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS) {
     .filter((item) => item.productionOrderNo === order.productionOrderNo)
     .sort((a, b) => a.returnIndex - b.returnIndex)
     .map((item) => item.qcTaskNo)
-  assert.deepEqual(orderQcNumbers, [1, 2, 3, 4, 5].map((sequence) => `${order.productionOrderNo}-${sequence}`), `${order.productionOrderNo} 的 5 次回货必须严格生成生产单号-1 至生产单号-5`)
+  assert.deepEqual(orderQcNumbers, [1, 2, 3, 4, 5].map((sequence) => `${order.productionOrderNo}-${sequence}-ZJ`), `${order.productionOrderNo} 的 5 次回货必须严格生成生产单号-1 至生产单号-5`)
 }
 assert.equal(new Set(listPostFinishingFullFlowRecheckOrders().map((item) => item.recheckOrderNo)).size, 10, '处理后复核单号不得重复')
 assert.equal(new Set(listPostFinishingFullFlowOutboundOrders().map((item) => item.outboundOrderNo)).size, 15, '出货单号不得重复')
@@ -856,10 +858,10 @@ const evidence = {
   },
   coveredScenarios: [
     '正常一致', '回货-5%边界', '回货+5%与-5%整单抵消', '回货超过5%二次点数与授权',
-    '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', 'SPU技术参数独立维护与质检使用', '仅车缝固定三项后道',
+    '回货后少1与多1整单抵消仍授权', '质检领取冲突与退领', '按颜色款式图片只读展示', '仅车缝固定三项后道',
     '车缝＋烫包无漏做直达成衣仓待接收', '裁剪＋车缝＋烫包漏做补加工', '回货-质检-后道或直达成衣仓-出货一次回货1:1', '后道领取冲突',
     '后道只记录已处理与未处理数量', 'QC唯一质量与返厂节点', '处理后复核领取冲突与释放', '条码错误阻断', '重贴未复扫阻断',
-    '重贴后复扫恢复', '一处理后复核一出货幂等', '仓库只接受FCK单号', '仓库差异授权', '重复收货幂等',
+    '重贴后复扫恢复', '一处理后复核一出货幂等', '仓库只接受真实出货单号', '仓库差异授权', '重复收货幂等',
     '后道待交出仓处理后复核入仓与出货交出', 'QC空项目跳过后道待交出仓', '后道辅料识别与纸样关联', '辅料整单一次入库与幂等',
     '辅料实配数量入库且不使用成衣授权', '辅料未入库只提示不阻断加工', '授权码30秒刷新', '过期/复用阻断', '操作日志全链回溯',
   ],

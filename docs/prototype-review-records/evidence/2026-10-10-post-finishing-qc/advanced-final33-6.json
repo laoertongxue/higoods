@@ -1,0 +1,3269 @@
+{
+  "segment": 6,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 356.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 147.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-冷开",
+      "ms": 330,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 113.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 91.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 90.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-送货人",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-联系方式",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-原始图片",
+      "ms": 104,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-保存失败",
+      "ms": 193.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 333.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 148.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-冷开",
+      "ms": 313,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 89.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-送货人",
+      "ms": 90.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-联系方式",
+      "ms": 89.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-原始图片",
+      "ms": 86.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 194.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 259.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 90.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-下游保存中止",
+      "ms": 110.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 349.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 147.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 90,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-送货人",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-联系方式",
+      "ms": 96.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 194.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 415.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 90.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 91.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-回货质检仓储同事务",
+      "ms": 111.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA确认-保存后刷新",
+      "ms": 286.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 350.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-冷开",
+      "ms": 298.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 129,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-送货人",
+      "ms": 89.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-联系方式",
+      "ms": 91.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-原始图片",
+      "ms": 91.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-保存失败",
+      "ms": 194.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 338.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 149.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-冷开",
+      "ms": 296.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 113.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 91.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 89.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-送货人",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-联系方式",
+      "ms": 91.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-原始图片",
+      "ms": 88.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 192.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 260.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 87.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-下游保存中止",
+      "ms": 116.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 353.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-冷开",
+      "ms": 297.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 88.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 94.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-送货人",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-联系方式",
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-原始图片",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 246.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 343.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 96.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-回货质检仓储同事务",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA确认-保存后刷新",
+      "ms": 275.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 353.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-送货人",
+      "ms": 87.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-联系方式",
+      "ms": 90.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-保存失败",
+      "ms": 194.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 347.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 94.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-送货人",
+      "ms": 100.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-联系方式",
+      "ms": 84.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 193.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 307.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 89.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-下游保存中止",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 363.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 147.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-冷开",
+      "ms": 312.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 114.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 92,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-送货人",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-联系方式",
+      "ms": 88.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 192.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 276.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 87.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-回货质检仓储同事务",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA确认-保存后刷新",
+      "ms": 286.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 354,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 149.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-冷开",
+      "ms": 324,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 88.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 127.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 97.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 84.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 85.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-送货人",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-联系方式",
+      "ms": 90.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-保存失败",
+      "ms": 193,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 361.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 129.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 110.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 84.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-送货人",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-联系方式",
+      "ms": 89.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-原始图片",
+      "ms": 87.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 193.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 277.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 89,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-下游保存中止",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 349,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 95,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 86.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 85.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-送货人",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-联系方式",
+      "ms": 89.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-原始图片",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 193.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 277.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 89.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 89.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 88.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-回货质检仓储同事务",
+      "ms": 111.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA确认-保存后刷新",
+      "ms": 285.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 348.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 131.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 128.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 96.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 93.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 84.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 90.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 85,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-送货人",
+      "ms": 88.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-联系方式",
+      "ms": 92.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-保存失败",
+      "ms": 193,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 362.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 147.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-冷开",
+      "ms": 326.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 86.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 95.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 90.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-送货人",
+      "ms": 87.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-联系方式",
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-原始图片",
+      "ms": 91.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 193.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 260.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 88.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-下游保存中止",
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA回货-待确认冷开",
+      "ms": 358.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA回货-废弃待确认示例",
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-冷开",
+      "ms": 313.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-来源扫码输入",
+      "ms": 87.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-识别第六次回货",
+      "ms": 128.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 96.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 84.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-逐SKU数量",
+      "ms": 88,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-送货人",
+      "ms": 94.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-联系方式",
+      "ms": 88.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-原始图片",
+      "ms": 89.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA登记-原子提交记录与图片",
+      "ms": 192.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-独立直达已保存回货",
+      "ms": 278,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-第一次点数",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-回货质检仓储同事务",
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA确认-保存后刷新",
+      "ms": 286.1000000089407,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：registration"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：confirmation"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：none"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：registration"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：confirmation"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：none"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：registration"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：confirmation"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：none"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：registration"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：confirmation"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：none"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：registration"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：confirmation"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "完整15条静态链保留，以业务废弃第一单后登记第六次：none"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "efa656252a2df74e6237e5b63e25b5bb5de06823c7c518bb1686b0f25ea1efcf",
+  "runtimeVersion": "build-final33",
+  "scriptSha256": "aba03f84caee4cc52347e231c37d21b0d23927fa54d4f92e0126f2e9bde4502e"
+}

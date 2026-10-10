@@ -1,0 +1,9 @@
+### Browser `pf33-interactions-0-1024` opened with pid 87891.
+### Ran Playwright code
+```js
+await page.goto('about:blank');
+```
+### Page
+- Page URL: about:blank
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-10-10T13-04-53-587Z.yml)

@@ -370,8 +370,22 @@ window.addEventListener('error', (event) => {
 
 async function dispatchPageEvent(target: Element, event?: Event): Promise<boolean> {
   const eventTarget = target as HTMLElement
+  if (target.closest('[data-post-finishing-action^="storage-"]') || target.closest('[data-post-finishing-field="storage-import"]')) {
+    const page = await import('./pages/process-factory/post-finishing/storage-notice.ts')
+    return page.handlePostFinishingStorageEvent(eventTarget, event)
+  }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/wls/finished-inbound') {
+    const page = await import('./pages/wls-finished-inbound.ts')
+    return page.handleWlsFinishedInboundEvent(eventTarget, event)
+  }
+  if (pagePath.startsWith('/fcs/craft/post-finishing/')) {
+    // These pages own their controls. The first inspection/image action must
+    // not initialize every unrelated FCS module through the aggregate handler.
+    const page = await import('./pages/process-factory/post-finishing/events.ts')
+    return page.handlePostFinishingEvent(eventTarget, event)
+  }
   if (pagePath === '/fcs/craft/cutting/cut-piece-release') {
     const page = await import('./pages/process-factory/cutting/cut-piece-release.ts')
     return page.handleCraftCuttingCutPieceReleaseEvent(eventTarget, event)
@@ -668,6 +682,20 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
 
 async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
   const pathname = appStore.getState().pathname
+  const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/craft/post-finishing/tasks' && form.matches('[data-post-finishing-task-filters]')) {
+    const page = await import('./pages/process-factory/post-finishing/tasks.ts')
+    page.handlePostFinishingTasksSubmit(form)
+    return false
+  }
+  if (pagePath.startsWith('/fcs/craft/post-finishing/') && form.method === 'get' && form.getAttribute('action') === pagePath) {
+    const filters = new URLSearchParams()
+    new FormData(form).forEach((value, name) => {
+      if (typeof value === 'string' && value.trim()) filters.append(name, value.trim())
+    })
+    appStore.navigate(`${pagePath}${filters.size ? `?${filters}` : ''}`)
+    return false
+  }
   if (
     pathname.split('?')[0] === '/fcs/craft/cutting/warehouse-management/wait-handover'
     && form.matches('[data-cutting-wait-handover-filters]')
@@ -723,6 +751,9 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/wls/finished-inbound') {
+    return (await import('./pages/wls-finished-inbound.ts')).closeWlsFinishedInboundOverlays()
+  }
   if (pagePath === '/fcs/process/dye-orders') {
     return (await import('./pages/process-dye-orders.ts')).closeProcessDyeOrdersOverlays()
   }
@@ -895,7 +926,42 @@ function includeTmfStorageWarning(pageContent: string): string {
 }
 
 let productionEntryHydration: Promise<void> | undefined
+let productionSourceEffectsHydration: Promise<void> | undefined
+let partTicketEntryHydration: Promise<void> | undefined
 let cuttingEntryHydration: Promise<void> | undefined
+async function hydratePartTicketsForEntry(normalizedPathname: string, snapshot?: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot, force = false): Promise<void> {
+  const context = await import('./data/fcs/production-context-records.ts')
+  const ownPostWarehouse = normalizedPathname === '/fcs/craft/post-finishing/wait-process-warehouse'
+    || normalizedPathname === '/fcs/craft/post-finishing/wait-handover-warehouse'
+    || normalizedPathname === '/fcs/craft/post-finishing/qc-workbench'
+  // 两个后道仓库读取自己的库存和交出事实。其他入口或已有分配覆盖
+  // 仍先恢复部位票，再恢复分配及裁片事件；不删除或改写部位票资料。
+  if (!force && ownPostWarehouse && context.productionContextStorage.getItem(context.PRODUCTION_CONTEXT_KEYS.effects) === null) return
+  partTicketEntryHydration ??= import('./data/fcs/cutting/part-ticket-records.ts')
+    .then(partTickets => partTickets.hydratePartTicketRecords(snapshot))
+    .catch(error => { partTicketEntryHydration = undefined; throw error })
+  await partTicketEntryHydration
+}
+async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string): Promise<void> {
+  // 后道仍读取生产单与裁片来源。没有保存过分配产物时，静态默认值已由
+  // 各自来源提供，无需首次进入就加载整套车缝、结算及分配保存模块。
+  // 有持久覆盖值或随后进入其他生产页面时，按原规则恢复全部分配产物。
+  const productionContext = await import('./data/fcs/production-context-records.ts')
+  const postFinishingEntry = normalizedPathname.startsWith('/fcs/craft/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-')
+    || normalizedPathname === '/fcs/pda/handover/sewing-self-return'
+    || normalizedPathname === '/fcs/pda/warehouse/wait-process'
+    || normalizedPathname === '/wls/finished-inbound'
+    || (normalizedPathname === '/fcs/print/preview'
+      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
+  if (!postFinishingEntry || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
+    productionSourceEffectsHydration ??= import('./data/fcs/production-context-actions.ts')
+      .then(sourceActions => sourceActions.hydrateProductionSourceEffects())
+      .catch(error => { productionSourceEffectsHydration = undefined; throw error })
+    await productionSourceEffectsHydration
+  }
+}
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
   // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
@@ -909,16 +975,16 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     const [productionContext,records] = await Promise.all([import('./data/fcs/production-context-records.ts'),import('./data/fcs/cutting/cutting-record-repository.ts')])
     const snapshot=await records.readCuttingRecords()
     await productionContext.hydrateProductionContextRecords(snapshot)
-    const partTickets = await import('./data/fcs/cutting/part-ticket-records.ts')
-    await partTickets.hydratePartTicketRecords(snapshot)
-    const sourceActions = await import('./data/fcs/production-context-actions.ts')
-    sourceActions.hydrateProductionSourceEffects()
+    await hydratePartTicketsForEntry(normalizedPathname, snapshot)
+    await hydrateProductionSourceEffectsForEntry(normalizedPathname)
     if(normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/') || normalizedPathname==='/fcs/print/preview') {
       cuttingEntryHydration=import('./data/fcs/cutting/cutting-event-repository.ts').then(events=>events.hydrateCuttingEventRecords(snapshot,true)).catch(error=>{cuttingEntryHydration=undefined;throw error})
       await cuttingEntryHydration
     }
   })().catch(error => { productionEntryHydration = undefined; throw error })
   await productionEntryHydration
+  await hydratePartTicketsForEntry(normalizedPathname)
+  await hydrateProductionSourceEffectsForEntry(normalizedPathname)
   if (normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/pda/transfer-bag')
     || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/tasks/')
     || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
@@ -998,9 +1064,17 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const cuttingPrintEntry = normalizedPathname === '/fcs/print/preview'
       && ['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'REPLACEMENT_FABRIC_LABEL'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || '')
     const cuttingReleaseChainEntry=cuttingPrintEntry || /^\/fcs\/(?:dispatch\/workbench|sewing-outsourcing(?:\/|$)|craft\/cutting\/(?:cut-piece-release|supplement-management|replacement-fabric-fei-tickets|warehouse-management\/wait-handover|handover-orders|transfer-bags|transfer-bag-detail)|pda\/cutting(?:\/|$))/.test(normalizedPathname)
+    const postFinishingEntry = normalizedPathname.startsWith('/fcs/craft/post-finishing/')
+      || normalizedPathname.startsWith('/fcs/pda/post-finishing/')
+      || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-')
+      || normalizedPathname === '/fcs/pda/handover/sewing-self-return'
+      || normalizedPathname === '/fcs/pda/warehouse/wait-process'
+      || normalizedPathname === '/wls/finished-inbound'
+      || (normalizedPathname === '/fcs/print/preview'
+        && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
-    if (!cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
+    if (!postFinishingEntry && !cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
     // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
     const pcsFirstScreenImages = normalizedPathname === '/pcs/production-preparation/design-revision'
       ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
@@ -2103,7 +2177,9 @@ root.addEventListener('click', async (event) => {
   if (target.closest('[data-pf-action],#production-timing') && handleProductionFulfillmentClick(target)) { event.preventDefault(); return }
   if (target.closest('#pf-app [data-pf-field], #pf-app .pf-form')) return
   const skipPageRerender = Boolean(
-    target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'),
+    // The post-finishing image handler appends its own overlay. Replacing the
+    // underlying page adds work and can discard the current inspection input.
+    target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action], [data-post-finishing-action="full-flow-zoom-image"]'),
   )
   const preserveNativeClick = Boolean(target.closest<HTMLInputElement>('input[data-preserve-native-click="true"]'))
   const focusSnapshot = captureFocusSnapshot()
@@ -2125,6 +2201,7 @@ root.addEventListener('click', async (event) => {
 
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
   if (productionObjectActionNode) {
+    if (previousPathname.startsWith('/fcs/craft/post-finishing/')) await hydratePartTicketsForEntry(previousPathname.split('?')[0], undefined, true)
     const productionObjectFloatingEntry = await getProductionObjectFloatingEntryModule()
     if (productionObjectFloatingEntry.handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) {
       event.preventDefault()
@@ -2208,7 +2285,7 @@ root.addEventListener('click', async (event) => {
     // Checkbox/radio actions read the browser's already-toggled state. Cancelling
     // that click would roll the native control back after the local handler ran.
     if (!preserveNativeClick) event.preventDefault()
-    if (skipPageRerender && appStore.getState().pathname === previousPathname) {
+    if ((skipPageRerender || target.closest('[data-post-finishing-preserve-input="true"]')) && appStore.getState().pathname === previousPathname) {
       return
     }
     const nextPathname = appStore.getState().pathname
@@ -2276,6 +2353,7 @@ root.addEventListener('input', async (event) => {
 
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
   if (productionObjectActionNode) {
+    if (previousPathname.startsWith('/fcs/craft/post-finishing/')) await hydratePartTicketsForEntry(previousPathname.split('?')[0], undefined, true)
     const productionObjectFloatingEntry = await getProductionObjectFloatingEntryModule()
     if (productionObjectFloatingEntry.handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) return
     const productionObjectOverview = await getProductionObjectOverviewModule()
@@ -2340,7 +2418,7 @@ root.addEventListener('change', async (event) => {
   }
 
   if (await dispatchPageEvent(target, event)) {
-    if (skipChangeRerender) return
+    if (skipChangeRerender || (target.closest('[data-post-finishing-preserve-input="true"]') && appStore.getState().pathname === previousPathname)) return
     await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
   }
 })
@@ -2382,6 +2460,13 @@ document.addEventListener('keydown', async (event) => {
     return
   }
   if (event.key !== 'Escape') return
+
+  if (document.querySelector('[data-post-finishing-image-preview]')) {
+    // Its local key listener closes the image. Do not load unrelated dialog
+    // handlers after that visible action has already been handled locally.
+    event.preventDefault()
+    return
+  }
 
   if (closePdaImagePreview()) {
     event.preventDefault()

@@ -38,6 +38,11 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
+    if (postFinishingScope) {
+      await import('../data/fcs/post-finishing-full-flow.ts')
+      await (await import('../data/fcs/post-finishing-records.ts')).ensurePostFinishingRecordState()
+    }
     if (["renderPdaCuttingSimpleCutPieceHandoverPage", "renderPdaWarehouseWaitHandoverPage"].includes(exportName)) {
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
@@ -48,6 +53,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       throw new Error(`页面渲染函数不存在: ${exportName}`)
     }
 
+    if (postFinishingScope) {
+      const { renderPostFinishingStorageNotice } = await import('../pages/process-factory/post-finishing/storage-notice.ts')
+      return renderPostFinishingStorageNotice() + await (renderer as AnyAsyncRenderer)(...args)
+    }
     return (renderer as AnyAsyncRenderer)(...args)
   }
 }
@@ -440,7 +449,9 @@ export const renderPdaTaskReceiveDetailPage = createAsyncRenderer(
   'renderPdaTaskReceiveDetailPage',
 )
 export const renderPdaExecPage = createAsyncRenderer(() => import('../pages/pda-exec'), 'renderPdaExecPage')
-export const renderPdaExecDetailPage = createAsyncRenderer(() => import('../pages/pda-exec-detail'), 'renderPdaExecDetailPage')
+const renderGenericPdaExecDetailPage = createAsyncRenderer(() => import('../pages/pda-exec-detail'), 'renderPdaExecDetailPage')
+const renderPostFinishingPdaExecDetailPage = createAsyncRenderer(() => import('../pages/pda-post-finishing-exec-detail'), 'renderPdaPostFinishingExecDetailPage')
+export const renderPdaExecDetailPage = (taskId: string) => taskId.startsWith('PF-POST-') ? renderPostFinishingPdaExecDetailPage(taskId) : renderGenericPdaExecDetailPage(taskId)
 export const renderPdaWorkOrderExecDetailPage = createAsyncRenderer(
   () => import('../pages/pda-exec-detail'),
   'renderPdaWorkOrderExecDetailPage',

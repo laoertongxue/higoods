@@ -1,0 +1,117 @@
+async(page)=>{
+ const verification={"sourceSha256": "d10d74dcd2da551c9c6d90639e5e91cfbcd3e6e6a4c9b6d31b0d694b267d715a", "runtimeVersion": "build-final32", "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods", "service": "http://127.0.0.1:43210"}
+
+  const samples=[],errors=[],checks=[]
+  const base='http://127.0.0.1:43210'
+  const pdaSession={userId:'ID-F002_operator',loginId:'ID-F002_operator',userName:'后道验收操作员',roleId:'ROLE_OPERATOR',factoryId:'ID-F002',factoryName:'PT Prima Printing Center',loggedAt:'2026-10-10 10:00:00'}
+  const create = async (device, route, actorId) => {
+    const c = await page.context().browser().newContext({ viewport:device })
+    await c.addInitScript(({session,route,actorId})=>{
+      localStorage.setItem('fcs_pda_session',JSON.stringify(session));if(actorId)localStorage.setItem('higood-fcs-post-finishing-current-actor-v1',actorId)
+      window.pfLastMutation=0;window.pfPendingHandlers=0;window.pfPendingTransactions=0;window.pfMeasurements=[];window.pfHandlerErrors=[]
+      const originalAdd=EventTarget.prototype.addEventListener
+      // Await the actual async app handler, including module loading and save.
+      // Browser timestamps end at the rendered result, before host-tool polling.
+      EventTarget.prototype.addEventListener=function(type,listener,options){
+        if(((this instanceof Element && this.id==='app') || this===document) && ['click','input','change','keydown','submit'].includes(type) && typeof listener==='function' && listener.constructor.name==='AsyncFunction'){
+          const wrapped=function(event){
+            const result=listener.call(this,event)
+            if(result&&typeof result.then==='function'){
+              window.pfPendingHandlers++
+              Promise.resolve(result).finally(()=>{window.pfPendingHandlers--;window.pfLastMutation=performance.now()}).catch(error=>window.pfHandlerErrors.push(String(error)))
+            }
+            return result
+          }
+          return originalAdd.call(this,type,wrapped,options)
+        }
+        return originalAdd.call(this,type,listener,options)
+      }
+      const originalTransaction=IDBDatabase.prototype.transaction
+      IDBDatabase.prototype.transaction=function(...args){
+        const tx=originalTransaction.apply(this,args);window.pfPendingTransactions++
+        const done=()=>{window.pfPendingTransactions--;window.pfLastMutation=performance.now()}
+        tx.addEventListener('complete',done,{once:true});tx.addEventListener('abort',done,{once:true});return tx
+      }
+      new MutationObserver(()=>{window.pfLastMutation=performance.now()}).observe(document,{childList:true,subtree:true,attributes:true,characterData:true})
+      const inView=e=>{const b=e.getBoundingClientRect();return b.top<innerHeight&&b.bottom>0&&b.width&&b.height&&getComputedStyle(e).visibility!=='hidden'}
+      const targetReady=r=>r.previousMain&&document.querySelector('main')===r.previousMain?false:r.selector?Boolean(document.querySelector(r.selector)):r.title?[...document.querySelectorAll('h1,h2')].some(e=>e.textContent.trim()===r.title):[...document.querySelectorAll('body *')].some(e=>e.children.length===0&&e.textContent.trim()===r.text)
+      let generation=0
+      window.pfBegin=(kind,expected,start=performance.now())=>{
+        const current=++generation;window.pfMeasurementGeneration=current
+        const check=()=>{
+          if(current!==generation)return
+          const images=[...document.querySelectorAll('main img,[data-testid] img,[role="dialog"] img')].filter(inView)
+          const qr=[...document.querySelectorAll('[data-real-qr]')].filter(inView)
+          if(targetReady(expected)&&window.pfPendingHandlers===0&&window.pfPendingTransactions===0&&performance.now()-window.pfLastMutation>=50&&images.every(i=>i.complete)&&qr.every(e=>e.querySelector('svg'))){
+            requestAnimationFrame(()=>requestAnimationFrame(()=>{
+              if(current!==generation)return
+              if(window.pfPendingHandlers||window.pfPendingTransactions||performance.now()-window.pfLastMutation<50){requestAnimationFrame(check);return}
+              window.pfMeasurements.push({generation:current,kind,ms:performance.now()-start})
+            }))
+          }else requestAnimationFrame(check)
+        }
+        requestAnimationFrame(check)
+      }
+      originalAdd.call(document,'input',()=>window.pfBegin('input',route),true);originalAdd.call(document,'change',()=>window.pfBegin('change',route),true)
+      originalAdd.call(document,'click',event=>{if(!event.isTrusted)return;const image=event.target.closest('[data-post-finishing-action="full-flow-zoom-image"]');const changesPage=event.target.closest('[data-nav], [data-action="open-tab"][data-tab-href]')||event.target.closest('button[type="submit"],button:not([type])')?.closest('form');window.pfBegin(image?'image':'action',image?{selector:'[role="dialog"] img'}:changesPage?{selector:'main h1',previousMain:document.querySelector('main')}:route)},true)
+      originalAdd.call(document,'keydown',event=>{if(event.key==='Escape')window.pfBegin('image-close-escape',route)},true)
+      window.pfBegin('load',route,0)
+    },{session:pdaSession,route,actorId})
+    const p=await c.newPage();p.setDefaultTimeout(4000);p.on('dialog',d=>d.accept());p.on('pageerror',e=>errors.push(e.message))
+    return {c,p}
+  }
+  const measured=async(p,kind)=>{
+    await p.waitForFunction(kind=>window.pfMeasurements?.some(s=>s.kind===kind&&s.generation===window.pfMeasurementGeneration),kind)
+    return p.evaluate(kind=>window.pfMeasurements.filter(s=>s.kind===kind).at(-1).ms,kind)
+  }
+
+  const devices=[{width:1366,height:768},{width:1280,height:720},{width:1024,height:768}]
+  const record=async(p,kind,device,trial,scenario)=>{const ms=await measured(p,kind);samples.push({kind,device,trial,scenario,ms,pass:ms<=1000})}
+  for(const device of devices)for(let trial=1;trial<=5;trial++){
+    const route={path:'/fcs/craft/post-finishing/qc-workbench',title:'执行质检'}
+    const scanner=await create(device,route,'PF-USER-QC-B')
+    try {
+      const {p}=scanner
+      await p.goto(base+route.path);await record(p,'load',device,trial,'未领取-冷开')
+      await p.reload();await record(p,'load',device,trial,'未领取-刷新')
+      for(const [no,fragment] of [['PO-QC-202608-001-2-ZJ','送检'],['PO-QC-202608-001-5-ZJ','完成'],['PO-QC-202608-001-4-ZJ','李质检员'],['PO-QC-202608-001-3','完整'],['UNKNOWN-ZJ','未找到']]){
+        await p.locator('[data-post-finishing-field="qc-task-input"]').fill(no);await record(p,'input',device,trial,'单号输入-'+no)
+        await p.locator('[data-post-finishing-action="full-flow-claim-qc"]').click();await record(p,'action',device,trial,'拒绝领取-'+no)
+        await p.waitForFunction(fragment=>document.querySelector('[data-qc-save-error]')?.textContent.includes(fragment),fragment)
+        if(await p.locator('[data-post-finishing-field="qc-task-input"]').inputValue()!==no)throw new Error('拒绝领取时输入丢失')
+      }
+      checks.push({device,trial,scenario:'领取状态边界及输入保留'})
+    }catch(e){errors.push({device,trial,scenario:'领取状态边界',error:e.message})}finally{await scanner.c.close()}
+    const managerRoute={path:'/fcs/craft/post-finishing/qc-orders?keyword=PO-QC-202608-001-4-ZJ',title:'质检清单'}
+    const manager=await create(device,managerRoute,'PF-USER-QC-MGR')
+    try {
+      const {p}=manager
+      await p.goto(base+managerRoute.path);await record(p,'load',device,trial,'主管清单-冷开')
+      p.removeAllListeners('dialog');p.on('dialog',d=>d.dismiss())
+      await p.getByRole('button',{name:'主管释放'}).click();await record(p,'action',device,trial,'主管取消释放')
+      if(await p.getByRole('button',{name:'主管释放'}).count()!==1)throw new Error('取消释放不保留领取')
+      p.removeAllListeners('dialog');p.on('dialog',d=>d.accept())
+      await p.getByRole('button',{name:'主管释放'}).click();await record(p,'action',device,trial,'主管确认释放')
+      await p.getByRole('status').filter({hasText:'已由主管释放并回到待质检'}).waitFor()
+      await p.reload();await record(p,'load',device,trial,'主管释放后刷新')
+      if(await p.getByRole('button',{name:'主管释放'}).count())throw new Error('刷新后占用未释放')
+      checks.push({device,trial,scenario:'主管确认与取消，释放后刷新'})
+    }catch(e){errors.push({device,trial,scenario:'主管释放',error:e.message})}finally{await manager.c.close()}
+    const imageRun=await create(device,route)
+    try {
+      const {p}=imageRun
+      await p.goto(base+route.path);await measured(p,'load')
+      const image=p.locator('[data-post-finishing-action="full-flow-zoom-image"]').first()
+      for(const close of ['button','mask','Escape']){
+        await image.click();await record(p,'image',device,trial,'打开颜色大图-'+close)
+        if(close==='button')await p.locator('[role="dialog"] button').click()
+        else if(close==='mask')await p.locator('[role="dialog"]').click({position:{x:8,y:8}})
+        else await p.keyboard.press('Escape')
+        await record(p,close==='Escape'?'image-close-escape':'action',device,trial,'关闭颜色大图-'+close)
+        if(await p.locator('[role="dialog"]').count())throw new Error('大图关闭失败')
+      }
+      checks.push({device,trial,scenario:'颜色大图三种关闭方式'})
+    }catch(e){errors.push({device,trial,scenario:'颜色大图',error:e.message})}finally{await imageRun.c.close()}
+  }
+  return {service:base,browser:page.context().browser().version(),samples,checks,errors,passed:errors.length===0&&samples.every(s=>s.pass)}
+}

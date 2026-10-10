@@ -1,3 +1,5 @@
+import { runPostFinishingCommand } from '../../../data/fcs/post-finishing-records.ts'
+import { showPostFinishingActionFailure } from './storage-notice.ts'
 // @page-pattern: list
 
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -180,7 +182,7 @@ export function renderPostFinishingRecheckOrdersPage(): string {
   })
 }
 
-export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const form = target.closest<HTMLElement>('[data-recheck-web-form]')
   if (form && ['input', 'change'].includes(event?.type || '') && target.closest('[data-recheck-result-field]')) {
     const lines = Array.from(form.querySelectorAll<HTMLElement>('[data-recheck-result-line]'))
@@ -221,7 +223,7 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
     }
     if (action === 'confirm-claim') {
       const taskNo = document.querySelector<HTMLInputElement>('[data-recheck-claim-task-no]')?.value.trim() || ''
-      const record = claimPostFinishingRecheckOrder({ recheckOrderNo: taskNo, actor: currentRechecker() })
+      const record = await runPostFinishingCommand(() => claimPostFinishingRecheckOrder({ recheckOrderNo: taskNo, actor: currentRechecker() }))
       removeRecheckClaimDialog()
       message = `领取成功：${record.recheckOrderNo}`
       messageTone = 'success'
@@ -231,23 +233,23 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
     if (action === 'release' || action === 'supervisor-release') {
       const supervisor = action === 'supervisor-release'
       if (!window.confirm(`确认${supervisor ? '由主管释放' : '退领'}该复检单？已录入数量、条码确认和未提交授权数据将全部清空。`)) return true
-      const record = releasePostFinishingRecheckOrder({
+      const record = await runPostFinishingCommand(() => releasePostFinishingRecheckOrder({
         recheckOrderId: actionNode?.dataset.recheckId || '',
         actor: supervisor ? POST_FINISHING_ACCEPTANCE_ACTORS.postSupervisor : currentRechecker(),
         reason: supervisor ? '主管释放错误领取' : '复检员退领：错误领取',
         supervisor,
-      })
+      }))
       message = `${record.recheckOrderNo} 已退回待复检，复检数据已清空。`
       messageTone = 'success'
       refresh()
       return true
     }
     if (action === 'relabeled') {
-      const record = markPostFinishingRecheckSkuRelabeled({
+      const record = await runPostFinishingCommand(() => markPostFinishingRecheckSkuRelabeled({
         recheckOrderId: actionNode?.dataset.recheckId || '',
         skuId: actionNode?.dataset.skuId || '',
         actor: currentRechecker(),
-      })
+      }))
       message = '已记录重新贴码，请将“SKU 条码是否正确”选为“是”后再提交。'
       messageTone = 'success'
       appStore.navigate(`/fcs/craft/post-finishing/recheck-orders?id=${encodeURIComponent(record.recheckOrderId)}&refresh=${Date.now()}`)
@@ -272,19 +274,23 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
         if (!currentLine || result.expectedQty <= 0) continue
         if (result.barcodeCorrect === 'no') {
           if (currentLine.barcodeStatus !== '错误待重贴') {
-            scanPostFinishingRecheckSkuBarcode({ recheckOrderId: record.recheckOrderId, skuId: result.skuId, scannedBarcode: 'WEB-确认条码错误', actor })
+            await runPostFinishingCommand(() => scanPostFinishingRecheckSkuBarcode({ recheckOrderId: record.recheckOrderId, skuId: result.skuId, scannedBarcode: 'WEB-确认条码错误', actor }))
           }
           message = `SKU ${currentLine.sku.skuCode} 条码错误，已阻断出货。请打印正确条码、重新贴码后再复核。`
           messageTone = 'error'
           appStore.navigate(`/fcs/craft/post-finishing/recheck-orders?id=${encodeURIComponent(record.recheckOrderId)}&refresh=${Date.now()}`)
           return true
         }
-        if (currentLine.barcodeStatus !== '正确') {
-          scanPostFinishingRecheckSkuBarcode({ recheckOrderId: record.recheckOrderId, skuId: result.skuId, scannedBarcode: currentLine.sku.barcode, actor })
-        }
       }
       const hasDifference = results.some((line) => line.handoverQty !== line.expectedQty)
-      const completed = completePostFinishingRecheckOrderFullFlow({
+      const completed = await runPostFinishingCommand(() => {
+        for (const result of results) {
+          const currentLine = record.lines.find((line) => line.sku.skuId === result.skuId)
+          if (currentLine && result.expectedQty > 0 && currentLine.barcodeStatus !== '正确') {
+            scanPostFinishingRecheckSkuBarcode({ recheckOrderId: record.recheckOrderId, skuId: result.skuId, scannedBarcode: currentLine.sku.barcode, actor })
+          }
+        }
+        return completePostFinishingRecheckOrderFullFlow({
         recheckOrderId: record.recheckOrderId,
         actor,
         results: results.map(({ skuId, handoverQty }) => ({ skuId, handoverQty })),
@@ -292,6 +298,7 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
           scanValue: root.querySelector<HTMLTextAreaElement>('[data-recheck-authorization-code]')?.value.trim() || '',
           differenceReason: root.querySelector<HTMLInputElement>('[data-recheck-difference-reason]')?.value.trim() || '',
         } : undefined,
+        })
       })
       message = `数量与条码复核完成，已自动生成后道出货单 ${completed.outboundOrderNo || ''}。`
       messageTone = 'success'
@@ -301,7 +308,8 @@ export function handlePostFinishingRecheckOrdersEvent(target: HTMLElement, event
   } catch (error) {
     message = error instanceof Error ? error.message : '复检单操作失败。'
     messageTone = 'error'
-    if (action === 'confirm-claim') removeRecheckClaimDialog()
+    showPostFinishingActionFailure(message, target)
+    return true
   }
   refresh()
   return true

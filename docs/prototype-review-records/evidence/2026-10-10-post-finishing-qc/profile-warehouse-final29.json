@@ -1,0 +1,181 @@
+{
+  "ms": 408.5,
+  "metrics": {
+    "navigation": [
+      {
+        "dom": 46.900000005960464,
+        "response": 7.200000002980232,
+        "load": 46.900000005960464
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 161.5,
+        "duration": 115,
+        "name": "self"
+      }
+    ],
+    "resources": [
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-deduction-selectors-BOc2ogMo.js",
+        "duration": 72.90000000596046,
+        "size": 6579
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-DJd2iVB-.js",
+        "duration": 70.20000000298023,
+        "size": 14265
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/store-domain-quality-bootstrap-DDLurdu0.js",
+        "duration": 69.79999999701977,
+        "size": 5694
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-chain-adapter-uuMAvkmV.js",
+        "duration": 69,
+        "size": 1960
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-deduction-repository-DeyTJ3r2.js",
+        "duration": 68.90000000596046,
+        "size": 24137
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/tmf-material-purchases-C1NdtuhP.js",
+        "duration": 68.5,
+        "size": 32789
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/warehouses-bLRTZZxS.js",
+        "duration": 67.79999999701977,
+        "size": 2409
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/preparation-material-receipt-sources-C1fmyLGP.js",
+        "duration": 66.29999999701977,
+        "size": 2176
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/suppliers-DW0-j-lW.js",
+        "duration": 64.90000000596046,
+        "size": 5565
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/materials-1exrBy1u.js",
+        "duration": 63.70000000298023,
+        "size": 5089
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/images-Q79qfJD0.js",
+        "duration": 62.6000000089407,
+        "size": 1099
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/tmf-upstream-receiving-BNDBm2v9.js",
+        "duration": 62.29999999701977,
+        "size": 1435
+      }
+    ],
+    "visibility": "visible",
+    "focus": true
+  },
+  "cpu": [
+    [
+      " (idle)",
+      186.53999999999996
+    ],
+    [
+      " (program)",
+      65.47500000000001
+    ],
+    [
+      " (garbage collector)",
+      17.405
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js ",
+      10.398
+    ],
+    [
+      " structuredClone",
+      9.471
+    ],
+    [
+      "http://127.0.0.1:43210/assets/pcs-config-workspace-repository-DK53FGZO.js Y",
+      9.201
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-CY_LmbLj.js ",
+      7.581
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-DDpM8kSV.js ",
+      5.170000000000001
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-DyrRXhEZ.js hm",
+      4.084
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-P5Dfgutd.js ",
+      3.864
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-full-flow-UybSpsOd.js ",
+      3.8150000000000004
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-source-shared-Bj4b3XYm.js ",
+      3.7669999999999995
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-records--fd8cvdv.js V",
+      3.569
+    ],
+    [
+      "http://127.0.0.1:43210/assets/index-Cr3RTNJG.js ",
+      2.8869999999999996
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-DyrRXhEZ.js ",
+      2.572
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-DyrRXhEZ.js iS",
+      2.5149999999999997
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-P5Dfgutd.js Ie",
+      2.509
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-CY_LmbLj.js A",
+      2.384
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-P5Dfgutd.js yo",
+      1.947
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-DDpM8kSV.js _e",
+      1.707
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-P5Dfgutd.js Ur",
+      1.539
+    ],
+    [
+      "http://127.0.0.1:43210/assets/index-Cr3RTNJG.js Ye",
+      1.328
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-CY_LmbLj.js Ae",
+      1.319
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-DDpM8kSV.js be",
+      1.318
+    ]
+  ]
+}

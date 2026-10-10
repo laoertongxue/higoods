@@ -51,7 +51,7 @@ for (const productionOrderNo of new Set(deliveries.map((item) => item.production
   const confirmedReturns = deliveries.filter((item) => item.productionOrderNo === productionOrderNo && item.confirmedAt)
   const orderQcTasks = qcTasks.filter((item) => item.productionOrderNo === productionOrderNo).sort((left, right) => left.createdAt.localeCompare(right.createdAt))
   assert.equal(orderQcTasks.length, confirmedReturns.length, `${productionOrderNo} 每次已确认回货必须各有一张质检单`)
-  assert.deepEqual(orderQcTasks.map((item) => item.qcTaskNo), [1, 2, 3, 4].map((sequence) => `${productionOrderNo}-${sequence}`), `${productionOrderNo} 质检单号必须按确认先后严格连续递增`)
+  assert.deepEqual(orderQcTasks.map((item) => item.qcTaskNo), orderQcTasks.map(item => `${item.deliveryOrderNo}-ZJ`), `${productionOrderNo} 质检单号必须对应实际回货次数`)
 }
 assert.equal(listPostFinishingFullFlowPostTasks().length, 3, '默认 Mock 必须覆盖待后道、后道完成与多批次状态')
 assert.equal(listPostFinishingFullFlowRecheckOrders().length, 2, '只有后道加工完成批次生成处理后复核，默认 Mock 覆盖待复核和复核完成')

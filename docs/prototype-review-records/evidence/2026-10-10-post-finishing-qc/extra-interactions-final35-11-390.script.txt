@@ -1,0 +1,133 @@
+async (page) => {
+ const verification={"sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a", "runtimeVersion": "build-final35", "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods", "service": "http://127.0.0.1:43210"}
+
+  const base = 'http://127.0.0.1:43210'
+  const prefix = '/fcs/craft/post-finishing/'
+  const routes = [prefix+'statistics',prefix+'authorization-code','/wls/finished-inbound','/fcs/pda/handover/sewing-self-return','/fcs/pda/post-finishing/return-confirm','/fcs/pda/post-finishing/execute','/fcs/pda/post-finishing/recheck',prefix+'print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ','/fcs/pda/quality','/fcs/pda/handover','/fcs/pda/warehouse/wait-process','/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5']
+  const segment = 11
+  const samples = [], errors = [], coverage = []
+  const checkpoint=async()=>{
+    const download=page.waitForEvent('download')
+    await page.evaluate(payload=>{const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='post-finishing-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)},{...verification,segment,samples,errors,coverage})
+    await (await download).saveAs("/tmp/post-finishing-extra-interactions-final35-11-390.checkpoint.json")
+  }
+  const browser = page.context().browser()
+  const pdaSession={userId:'ID-F002_operator',loginId:'ID-F002_operator',userName:'后道验收操作员',roleId:'ROLE_OPERATOR',factoryId:'ID-F002',factoryName:'PT Prima Printing Center',loggedAt:'2026-10-10 10:00:00'}
+  const device = {width:390,height:844}
+  const create = async () => {
+    const route={selector:'#app h1,[data-pda-scroll-container],[data-testid^="pda-"],[data-pda-quality-action],[data-pda-quality-field],[data-testid*="post-finishing"][data-testid*="print"]'}
+    const c = await browser.newContext({viewport:device})
+    await c.addInitScript(({session,route})=>{
+      localStorage.setItem('fcs_pda_session',JSON.stringify(session))
+      window.pfLastMutation=0;window.pfPendingHandlers=0;window.pfPendingTransactions=0;window.pfMeasurements=[];window.pfHandlerErrors=[]
+      const originalAdd=EventTarget.prototype.addEventListener
+      // Await the actual async app handler, including module loading and save.
+      // Browser timestamps end at the rendered result, before host-tool polling.
+      EventTarget.prototype.addEventListener=function(type,listener,options){
+        if(((this instanceof Element && this.id==='app') || this===document) && ['click','input','change','keydown','submit'].includes(type) && typeof listener==='function' && listener.constructor.name==='AsyncFunction'){
+          const wrapped=function(event){
+            const result=listener.call(this,event)
+            if(result&&typeof result.then==='function'){
+              window.pfPendingHandlers++
+              Promise.resolve(result).finally(()=>{window.pfPendingHandlers--;window.pfLastMutation=performance.now()}).catch(error=>window.pfHandlerErrors.push(String(error)))
+            }
+            return result
+          }
+          return originalAdd.call(this,type,wrapped,options)
+        }
+        return originalAdd.call(this,type,listener,options)
+      }
+      const originalTransaction=IDBDatabase.prototype.transaction
+      IDBDatabase.prototype.transaction=function(...args){
+        const tx=originalTransaction.apply(this,args);window.pfPendingTransactions++
+        const done=()=>{window.pfPendingTransactions--;window.pfLastMutation=performance.now()}
+        tx.addEventListener('complete',done,{once:true});tx.addEventListener('abort',done,{once:true});return tx
+      }
+      new MutationObserver(()=>{window.pfLastMutation=performance.now()}).observe(document,{childList:true,subtree:true,attributes:true,characterData:true})
+      const inView=e=>{const b=e.getBoundingClientRect();return b.top<innerHeight&&b.bottom>0&&b.width&&b.height&&getComputedStyle(e).visibility!=='hidden'}
+      const targetReady=r=>r.previousContent&&r.previousContent.isConnected?false:r.selector?Boolean(document.querySelector(r.selector)):r.title?[...document.querySelectorAll('h1,h2')].some(e=>e.textContent.trim()===r.title):[...document.querySelectorAll('body *')].some(e=>e.children.length===0&&e.textContent.trim()===r.text)
+      let generation=0
+      window.pfBegin=(kind,expected,start=performance.now())=>{
+        const current=++generation;window.pfMeasurementGeneration=current
+        const check=()=>{
+          if(current!==generation)return
+          const images=[...document.querySelectorAll('main img,[data-testid] img,[data-pda-scroll-container] img,[role="dialog"] img')].filter(inView)
+          const qr=[...document.querySelectorAll('[data-real-qr]')].filter(inView)
+          if(targetReady(expected)&&window.pfPendingHandlers===0&&window.pfPendingTransactions===0&&performance.now()-window.pfLastMutation>=50&&images.every(i=>i.complete)&&qr.every(e=>e.querySelector('svg'))){
+            requestAnimationFrame(()=>requestAnimationFrame(()=>{
+              if(current!==generation)return
+              if(window.pfPendingHandlers||window.pfPendingTransactions||performance.now()-window.pfLastMutation<50){requestAnimationFrame(check);return}
+              window.pfMeasurements.push({generation:current,kind,ms:performance.now()-start})
+            }))
+          }else requestAnimationFrame(check)
+        }
+        requestAnimationFrame(check)
+      }
+      originalAdd.call(document,'input',()=>window.pfBegin('action',route),true);originalAdd.call(document,'change',()=>window.pfBegin('action',route),true)
+      originalAdd.call(document,'click',event=>{if(!event.isTrusted)return;const image=event.target.closest('[data-post-finishing-action="full-flow-zoom-image"]');const nativeLink=event.target.closest('a[href^="/"]:not([data-nav])');if(nativeLink)window.name=JSON.stringify({pfClickAt:performance.timeOrigin+performance.now()});const nav=event.target.closest('[data-nav], [data-action="open-tab"][data-tab-href]');const form=event.target.closest('button[type="submit"],button:not([type])')?.closest('form[action]');let destination=nav?.getAttribute('data-nav')||nav?.getAttribute('data-tab-href');if(form&&form.method==='get'){const target=new URL(form.getAttribute('action'),location.href);const values=new URLSearchParams();new FormData(form).forEach((value,name)=>{if(typeof value==='string'&&value.trim())values.append(name,value.trim())});target.search=values.toString();destination=target.href}const next=destination?new URL(destination,location.href):null;const changesPage=Boolean(next&&next.pathname+next.search!==location.pathname+location.search);window.pfBegin(image?'image':'action',image?{selector:'[role="dialog"] img'}:changesPage?{selector:'#app h1,[data-pda-scroll-container],[data-testid^="pda-"],[data-pda-quality-action],[data-pda-quality-field],[data-testid*="post-finishing"][data-testid*="print"]',previousContent:document.querySelector('[data-page-content-root="true"]')?.firstElementChild||document.querySelector('main')?.firstElementChild||document.querySelector('#app')?.firstElementChild}:route)},true)
+      originalAdd.call(document,'keydown',event=>{if(event.key==='Escape')window.pfBegin('image-close-escape',route)},true)
+      let clickAt=0;try{clickAt=JSON.parse(window.name||'{}').pfClickAt||0}catch{}window.name='';window.pfBegin('load',route,clickAt?clickAt-performance.timeOrigin:0)
+    },{session:segment===10?{...pdaSession,userId:'PF-DEDICATED-001_admin',loginId:'PF-DEDICATED-001_admin',userName:'后道仓管',roleId:'ROLE_ADMIN',factoryId:'PF-DEDICATED-001',factoryName:'HiGood 后道工厂'}:pdaSession,route})
+    const p = await c.newPage(); p.setDefaultTimeout(2500)
+    p.on('dialog',d => d.accept(d.type()==='prompt'?'验收原因':undefined))
+    let pending = 0
+    p.on('request',()=>pending++); p.on('requestfinished',()=>pending--); p.on('requestfailed',()=>pending--)
+    p.on('pageerror',e => errors.push(e.message))
+    return {c,p,pending:()=>pending}
+  }
+  const settle = async run => {
+    await run.p.waitForFunction(()=>window.pfMeasurements?.some(s=>s.generation===window.pfMeasurementGeneration))
+    return run.p.evaluate(()=>window.pfMeasurements.at(-1).ms)
+  }
+  const controls = async p => p.evaluate(() => [...document.querySelectorAll('main summary,main button,main a[href],main a[data-nav],main input,main select,main textarea,[data-testid^="pda-"] summary,[data-testid^="pda-"] button,[data-testid^="pda-"] a[href],[data-testid^="pda-"] input,[data-testid^="pda-"] select,[data-testid^="pda-"] textarea,[role="dialog"] summary,[role="dialog"] button,[role="dialog"] input,[role="dialog"] select,[role="dialog"] textarea,[data-pda-scroll-container] summary,[data-pda-scroll-container] button,[data-pda-scroll-container] a[href],[data-pda-scroll-container] a[data-nav],[data-pda-scroll-container] input,[data-pda-scroll-container] select,[data-pda-scroll-container] textarea,[data-testid*="post-finishing"][data-testid*="print"] summary,[data-testid*="post-finishing"][data-testid*="print"] button,[data-testid*="post-finishing"][data-testid*="print"] a[href],[data-testid*="post-finishing"][data-testid*="print"] a[data-nav],[data-testid*="post-finishing"][data-testid*="print"] input,[data-testid*="post-finishing"][data-testid*="print"] select,[data-testid*="post-finishing"][data-testid*="print"] textarea')]
+    .filter(e=>{const closed=e.closest("details:not([open])");return (!closed||closed.querySelector("summary")?.contains(e))&&e.getBoundingClientRect().width&&e.getBoundingClientRect().height&&getComputedStyle(e).visibility!=="hidden"&&!e.disabled&&!e.readOnly})
+    .map(e=>{
+      const attrs=[...e.attributes].filter(a=>(a.name.startsWith('data-')&&!['data-post-finishing-preserve-input','data-skip-page-rerender'].includes(a.name))||a.name==='name'||a.name==='aria-label'||a.name==='href')
+      const selector=e.tagName.toLowerCase()+attrs.map(a=>'['+a.name+'='+JSON.stringify(a.value)+']').join('')
+      const dialog=e.closest('[role="dialog"]');const surface=dialog?([...dialog.attributes].filter(a=>a.name.startsWith('data-')).map(a=>a.name).sort().join(',')||dialog.getAttribute('aria-label')||'dialog'):'page';const state=location.pathname+location.search+'|'+surface
+      return {state,region:e.matches('button.absolute.inset-0,button.fixed.inset-0')?'backdrop':'content',selector,index:[...document.querySelectorAll(selector)].indexOf(e),text:e.textContent.trim().slice(0,60),tag:e.tagName,type:e.type,value:e.value}
+    }))
+  const action = async(p,control) => {
+    const node=p.locator(control.selector).nth(control.index)
+    if(control.tag==='SELECT') {
+      const count=await node.locator('option').count(); await node.selectOption({index:count>1?1:0})
+    } else if(['INPUT','TEXTAREA'].includes(control.tag)) {
+      if(control.type==='file') return '文件选择另由附件契约覆盖'
+      if(['checkbox','radio'].includes(control.type)) await node.click()
+      else if(control.type==='date') await node.fill('2026-10-10')
+      else await node.fill(control.type==='number'?String(Math.max(0,Number(control.value||0)-1)):'PO-QC-202608-001-3-ZJ')
+    } else if(control.region==='backdrop' || (control.selector.includes('data-pda-image-preview-close') && control.selector.includes('aria-label'))) await node.click({position:{x:5,y:5}})
+    else await node.click()
+    return ''
+  }
+  for(const route of routes.slice(segment,segment+1)) {
+    const initial=await create();await initial.p.goto(base+route,{waitUntil:'domcontentloaded'});await initial.p.locator('#app h1,[data-pda-scroll-container],[data-testid^="pda-"],[data-pda-quality-action],[data-pda-quality-field],[data-testid*="post-finishing"][data-testid*="print"]').first().waitFor();await settle(initial)
+    const queue=(await controls(initial.p)).map(control=>({control,prepare:[]}));await initial.c.close()
+    const seen=new Set()
+    for(let index=0;index<queue.length;index++) {
+      const item=queue[index],canonical=c=>c.selector.replace(/\[data-[^\]]*(?:column-key|stock-item-id|sku-id|task-id|order-id|image-url|image-label|delivery-id|source-id|object-id|recheck-id|task-no|order-no)=[^\]]*\]/g,'').replace(/([?&](?:taskNo|id|deliveryId|orderNo|keyword)=)[^\"&\]]*/g,'$1<record>').replace(/(post-finishing\/(?:work-orders|recheck-orders|outbound-orders)\/)[^\"\]]*/g,'$1<record>')+'|'+c.tag+'|'+c.type+'|'+(c.region||'content')+(c.tag==='SUMMARY'?'|'+c.text:''), key=JSON.stringify({control:canonical(item.control),state:canonical({...item.control,selector:item.control.state||route})})
+      if(seen.has(key)){coverage.find(c=>c.identity===key)?.instances.push(item.control);continue}seen.add(key)
+      coverage.push({route,identity:key,control:item.control,prepare:item.prepare,instances:[item.control]})
+      for(let trial=1;trial<=5;trial++) {
+        const run=await create()
+        try {
+          await run.p.goto(base+route,{waitUntil:'domcontentloaded'});await run.p.locator('#app h1,[data-pda-scroll-container],[data-testid^="pda-"],[data-pda-quality-action],[data-pda-quality-field],[data-testid*="post-finishing"][data-testid*="print"]').first().waitFor();await settle(run)
+          for(const prepare of item.prepare){await action(run.p,prepare);await settle(run)}
+          const before=new Set((await controls(run.p)).map(c=>c.selector+'@'+c.index))
+          const skipped=await action(run.p,item.control)
+          if(skipped){coverage.at(-1).separateEvidence=skipped;break}
+          const ms=await settle(run)
+          samples.push({route,control:item.control,prepare:item.prepare,trial,device,ms,pass:ms<=1000})
+          if(trial===1 && new URL(run.p.url()).pathname===new URL(base+route).pathname && item.prepare.length<3) {
+            // Discover controls exposed by tabs, expanded details and dialogs,
+            // including query-only route changes inside the same named page.
+            for(const control of await controls(run.p))if(!before.has(control.selector+'@'+control.index))queue.push({control,prepare:[...item.prepare,item.control]})
+          }
+          const handlerErrors=await run.p.evaluate(()=>window.pfHandlerErrors);errors.push(...handlerErrors.map(error=>({route,control:item.control,trial,error})))
+        } catch(e) { errors.push({route,control:item.control,prepare:item.prepare,trial,error:e.message}) }
+        finally {await run.c.close();if(trial===5)await checkpoint()}
+      }
+    }
+  }
+  return {segment,service:base,browser:browser.version(),coverage,samples,errors,passed:errors.length===0&&samples.every(s=>s.pass),note:'按实际页面地址、弹层种类和动作入口汇总同一状态的重复路径，instances与首条准备路径保留；未删减数据。实际点击/输入、模块请求、IndexedDB事务完成、图片与两次绘制；保存后刷新持久结果另见browser-contract.json。覆盖此脚本登记的入口，不据此宣称所有状态/跨端路径已经覆盖。'}
+}

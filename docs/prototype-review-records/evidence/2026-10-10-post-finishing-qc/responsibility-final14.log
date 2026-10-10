@@ -1,0 +1,9 @@
+
+Running 1 test using 1 worker
+
+
+(node:37337) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/post-finishing-full-flow.spec.ts:298:1 › 三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示
+  1 passed (12.9s)

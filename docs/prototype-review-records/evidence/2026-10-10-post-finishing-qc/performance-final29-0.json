@@ -1,0 +1,5967 @@
+{
+  "segment": 0,
+  "browser": "155.0.8059.39",
+  "service": "http://127.0.0.1:43210",
+  "data": "静态 3 个生产单 / 15 次回货 / 75 条 SKU",
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 402.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 328.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 110,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 351.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 307.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 111.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 99.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 408.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 314.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 493.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 312.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 463.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 378,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 112.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 112.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 510.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 329.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 109.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 367,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 279.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 97.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 339.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 262.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 99.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 400,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 280.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 346,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 280,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 99.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 446.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 312.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 99.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 372.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 330.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 416,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 313.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 440,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 329.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 454.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 312.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 358.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 378.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 357,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 294.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 352.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 279.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 363.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 296.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 416.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 297.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 773.4000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 347.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 396.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 329.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 397.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 313.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 96.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 595.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 474.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 469.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 407.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 404.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 306.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 351.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 280.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 372.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 281.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 337.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 280,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 361.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 263.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 523.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 362.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 116.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 503.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 379.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 115.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 485.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 429.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 625.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 445.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 99.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 528.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 363.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 467.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 346.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 97.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 439.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 363,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 499,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 379.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 97.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 505,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 363.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 115.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 850.2000000029802,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 429.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 903.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 530.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 112.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 97.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 624.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 394.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 115.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 466,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 347.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 112.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 471,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 347.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 473.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 347.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 515.9000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 380,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 424.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 346.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 457.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 420.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 121.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 89.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 621.8000000119209,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 406.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 461.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 313.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 366.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 263.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 372.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 281.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 362.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 279.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 382.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 279.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 413.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 280.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 392.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 293.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 97.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 392.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 328.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 469.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 327.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 445.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 297,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 368.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 280.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 373.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 263.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 359.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 264.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 99.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 1016,
+      "pass": false
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 447.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 97.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 453.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 395.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 106,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 111.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 494.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 427.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 129.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 487,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 376.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 658.9000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 480.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 377.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 263.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 97.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 342.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 263.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 346,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 263.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 112,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 518.7000000029802,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 345.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 112.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 499.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 378.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 466.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 379,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 127.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 96.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 527.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 482.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 109.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 111.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 528.5999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 378,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.09999999403954,
+      "pass": true
+    }
+  ],
+  "inventory": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "执行质检",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-execute"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-execute",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印质检单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印质检单详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "← 质检清单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-black.jpg",
+            "data-image-label": "SPU-QC-001-01 黑色 S"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "passedQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "returnQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "defectQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做工原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "脏污"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "抽纱"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做错"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "布料原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做毁"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "印花"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "色差"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "半套"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "破洞"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料不补"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/linen-white.jpg",
+            "data-image-label": "SPU-QC-001-02 白色 M"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "passedQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "returnQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "defectQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做工原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "脏污"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "抽纱"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做错"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "布料原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做毁"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "印花"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "色差"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "半套"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "破洞"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料不补"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "data-image-label": "SPU-QC-001-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "passedQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "returnQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "defectQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做工原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "脏污"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "抽纱"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做错"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "布料原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做毁"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "印花"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "色差"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "半套"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "破洞"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料不补"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "data-image-label": "SPU-QC-001-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "passedQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "returnQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "defectQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做工原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "脏污"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "抽纱"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做错"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "布料原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做毁"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "印花"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "色差"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "半套"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "破洞"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料不补"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "data-image-label": "SPU-QC-001-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "passedQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "returnQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-result-field": "defectQty"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做工原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "脏污"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "抽纱"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做错"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "布料原因"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "做毁"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "印花"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "色差"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "半套"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "破洞"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-qc-defect-reason": "缺辅料不补"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "完成质检并生成后道加工单",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-complete-qc",
+            "data-task-id": "PF-QC-PF-ACCEPT-PO-1-4",
+            "data-qc-complete-label": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-black.jpg",
+            "data-image-label": "后道验收衬衫 黑色",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/linen-white.jpg",
+            "data-image-label": "后道验收衬衫 白色",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "data-image-label": "后道验收衬衫 雾蓝",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "data-image-label": "后道验收衬衫 卡其",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "data-image-label": "后道验收衬衫 酒红",
+            "data-skip-page-rerender": "true"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-orders",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "执行质检",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-execute"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-execute",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "打印质检单",
+          "attrs": {
+            "data-post-finishing-action": "open-qc-print-dialog",
+            "data-qc-print-type": "QC_ORDER",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "打印质检单详情",
+          "attrs": {
+            "data-post-finishing-action": "open-qc-print-dialog",
+            "data-qc-print-type": "QC_DETAIL",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "执行质检",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/qc-workbench"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部待送检待质检质检中质检完成",
+          "attrs": {
+            "name": "status"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包",
+          "attrs": {
+            "name": "source"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部CV Micro Sewing Jakarta PusatCV Micro Sewing Bandung Utara",
+          "attrs": {
+            "name": "factory"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "重置",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {}
+        },
+        {
+          "tag": "BUTTON",
+          "text": "PO-QC-202608-001-4-ZJ",
+          "attrs": {
+            "data-production-object-action": "open",
+            "data-object-type": "QC_ORDER",
+            "data-object-id": "PO-QC-202608-001-4-ZJ",
+            "data-related-production-order-no": "PO-QC-202608-001",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "PO-QC-202608-001",
+          "attrs": {
+            "data-production-object-action": "open",
+            "data-object-type": "PRODUCTION_ORDER",
+            "data-object-id": "PO-QC-202608-001",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "完成质检",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-4-ZJ"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看质检单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/qc-workbench?view=detail&taskNo=PO-QC-202608-001-4-ZJ"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印质检单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印质检详情单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-qc-orders-field": "pageSize"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "后道生产任务",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-tasks"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-tasks",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部未出库待出库已出库",
+          "attrs": {
+            "name": "outboundStatus"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+          "attrs": {
+            "name": "source"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部已派单",
+          "attrs": {
+            "name": "assignment"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部HiGood 后道工厂",
+          "attrs": {
+            "name": "factory"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部预售备货虾皮样品未记录基础款JKT复购",
+          "attrs": {
+            "name": "saleType"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "重置",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/tasks"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {}
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-black.jpg",
+            "data-image-label": "HG-QC-001 后道验收衬衫"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "DB-PF-202608-001",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（5）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-QC-202608-001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（4）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-QC-202608-001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-QC-202608-001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/casual-dress-black.jpg",
+            "data-image-label": "HG-QC-002 后道验收连衣裙"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（5）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-QC-202608-002"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（4）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-QC-202608-002"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-QC-202608-002"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "HG-QC-003 后道验收外套"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-003&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（5）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-QC-202608-003"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（4）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-QC-202608-003"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-QC-202608-003"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/suit-navy.jpg",
+            "data-image-label": "SPU-2024-013 Jas Pria Formal"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TASKGEN-202603-0007-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-202603-0007"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-202603-0007"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-202603-0007"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/hood-grey.jpg",
+            "data-image-label": "SPU-2024-005 Jaket Hoodie Unisex"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TASKGEN-202610-9001-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-202610-9001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-202610-9001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-202610-9001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/hood-grey.jpg",
+            "data-image-label": "SPU-2024-005 Jaket Hoodie Unisex"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TASKGEN-202610-9002-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-202610-9002"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-202610-9002"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-202610-9002"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/hood-grey.jpg",
+            "data-image-label": "SPU-2024-005 Jaket Hoodie Unisex"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TASKGEN-202610-9003-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-202610-9003"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-202610-9003"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-202610-9003"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/hood-grey.jpg",
+            "data-image-label": "SPU-2024-005 Jaket Hoodie Unisex"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TASKGEN-202610-9004-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-202610-9004"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-202610-9004"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-202610-9004"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/cardigan-sample.jpg",
+            "data-image-label": "CARDIGAN-CREAM 奶油色针织开衫"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TK-MZ-011%2FWDEMO-HO%3AWOOL-STAGE-011%3ALINKING%3AM&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO-MZ-011"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO-MZ-011"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO-MZ-011"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/dress-red-print.jpg",
+            "data-image-label": "SPU-DRESS-083 春季定位印花连衣裙"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=PDA-SEW-AWARDED-DEMO-001&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO14672"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO14672"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO14672"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/tee-white.jpg",
+            "data-image-label": "SPU-2024-001 春季休闲T恤"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看来源任务",
+          "attrs": {
+            "data-nav": "/fcs/dispatch/workbench?search_field=task&keyword=TASKGEN-202603-0015-002&source=post-finishing"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货记录（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-return-records",
+            "data-production-order-no": "PO14673"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检单（0）",
+          "attrs": {
+            "data-skip-page-rerender": "true",
+            "data-post-finishing-tasks-action": "view-qc-orders",
+            "data-production-order-no": "PO14673"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "设置 SKU 重量",
+          "attrs": {
+            "data-post-finishing-tasks-action": "open-weight",
+            "data-production-order-no": "PO14673"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-tasks-field": "pageSize"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "后道待加工仓",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-wait-process-warehouse"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-wait-process-warehouse",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货确认",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-show-return-lookup"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "库存",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-process-warehouse?tab=inventory"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "流水记录",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-process-warehouse?tab=movements"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "库区库位",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-process-warehouse?tab=locations"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "车缝登记回货",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-process-warehouse?tab=returns"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "辅料库存",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-process-warehouse?tab=materials"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-post-finishing-field": "warehouse-keyword"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "重置",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-reset-filter"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-query"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-black.jpg",
+            "data-image-label": "SPU-QC-001-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-001-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-001-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/linen-white.jpg",
+            "data-image-label": "SPU-QC-001-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-001-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-001-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "data-image-label": "SPU-QC-001-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-001-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-001-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "data-image-label": "SPU-QC-001-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-001-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-001-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "data-image-label": "SPU-QC-001-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-001-2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-001-2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/casual-dress-black.jpg",
+            "data-image-label": "SPU-QC-002-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-002-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-002-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/casual-dress-white.jpg",
+            "data-image-label": "SPU-QC-002-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-002-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-002-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/dress-blue.jpg",
+            "data-image-label": "SPU-QC-002-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-002-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-002-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/dress-khaki.jpg",
+            "data-image-label": "SPU-QC-002-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-002-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-002-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/dress-wine.jpg",
+            "data-image-label": "SPU-QC-002-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-002-2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-002-2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-2XL"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-field": "pageSize"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "后道待交出仓",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-wait-handover-warehouse"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-wait-handover-warehouse",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "库存",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "流水记录",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-handover-warehouse?tab=movements"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "库区库位",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/wait-handover-warehouse?tab=locations"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-post-finishing-field": "warehouse-keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "可出库全部不可出库",
+          "attrs": {
+            "data-post-finishing-field": "warehouse-availability"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "重置",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-reset-filter"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-query"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "库存明细",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-stock",
+            "data-sku-id": "SPU-QC-003-2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看库存流水",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-open-movements",
+            "data-sku-id": "SPU-QC-003-2XL"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-field": "pageSize"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "passed": false,
+  "sourceSha256": "43936d7dc44a5c29fbc6c46542c33b05b149c40f761d5134a44c902ec4891b55",
+  "runtimeVersion": "build-final29",
+  "scriptSha256": "df9a53df91dec5c231d246380ea37a473e2706020b7c3779900b0d69089fa3e4"
+}

@@ -1,3 +1,4 @@
+import { handlePostFinishingStorageEvent } from './storage-notice.ts'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import { getPostFinishingFullFlowQcTask } from '../../../data/fcs/post-finishing-full-flow.ts'
@@ -35,22 +36,28 @@ function openPostFinishingQcPrintDialog(type: 'QC_ORDER' | 'QC_DETAIL'): void {
 function openImage(url: string, label: string): void {
   const overlay = document.createElement('div')
   overlay.className = 'fixed inset-0 z-[200] flex cursor-zoom-out items-center justify-center bg-black/70 p-4'
-  overlay.innerHTML = `<div class="max-h-[90vh] max-w-[90vw]"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="max-h-[85vh] max-w-[85vw] rounded-lg object-contain shadow-2xl" /><div class="mt-2 text-center text-xs text-white/60">${escapeHtml(label)}</div></div>`
-  overlay.addEventListener('click', () => overlay.remove())
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey) }
+  const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
+  document.addEventListener('keydown', onKey)
+  overlay.innerHTML = `<button type="button" aria-label="关闭图片" class="absolute right-4 top-4 rounded-md bg-white px-4 py-2">关闭</button><div class="max-h-[90vh] max-w-[90vw]"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="max-h-[85vh] max-w-[85vw] rounded-lg object-contain shadow-2xl" /><div class="mt-2 text-center text-xs text-white/60">${escapeHtml(label)}</div></div>`
+  overlay.addEventListener('click', close)
   document.body.appendChild(overlay)
 }
 
-export function handlePostFinishingEvent(target: HTMLElement, event?: Event): boolean {
-  if (handlePostFinishingMaterialTransfersEvent(target, event)) return true
-  if (handlePostFinishingAuditRecordsEvent(target, event)) return true
-  if (handlePostFinishingTasksEvent(target, event)) return true
-  if (handlePostFinishingWorkOrderDetailEvent(target)) return true
-  if (handlePostFinishingWorkOrdersEvent(target, event)) return true
-  if (handlePostFinishingQcWorkbenchEvent(target, event)) return true
-  if (handlePostFinishingQcOrdersEvent(target, event)) return true
-  if (handlePostFinishingRecheckOrdersEvent(target, event)) return true
-  if (handlePostFinishingReturnFlowEvent(target, event)) return true
-  if (handlePostFinishingOutboundOrderEvent(target, event)) return true
+export async function handlePostFinishingEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (await handlePostFinishingStorageEvent(target, event)) return true
+  if (await handlePostFinishingMaterialTransfersEvent(target, event)) return true
+  if (await handlePostFinishingAuditRecordsEvent(target, event)) return true
+  if (await handlePostFinishingTasksEvent(target, event)) return true
+  if (await handlePostFinishingWorkOrderDetailEvent(target)) return true
+  if (await handlePostFinishingWorkOrdersEvent(target, event)) return true
+  if (await handlePostFinishingQcWorkbenchEvent(target, event)) return true
+  if (await handlePostFinishingQcOrdersEvent(target, event)) return true
+  if (await handlePostFinishingRecheckOrdersEvent(target, event)) return true
+  if (await handlePostFinishingReturnFlowEvent(target, event)) return true
+  if (await handlePostFinishingOutboundOrderEvent(target, event)) return true
 
   const actionNode = target.closest<HTMLElement>('[data-post-finishing-action]')
   if (!actionNode) return false
@@ -74,9 +81,9 @@ export function handlePostFinishingEvent(target: HTMLElement, event?: Event): bo
     appStore.navigate(`/fcs/craft/post-finishing/print?type=${printType}&id=${encodeURIComponent(qcTaskNo)}`)
     return true
   }
-  if (action === 'zoom-image') {
-    const url = actionNode.dataset.zoomUrl
-    if (url) openImage(url, actionNode.dataset.zoomLabel || '')
+  if (action === 'zoom-image' || action === 'full-flow-zoom-image') {
+    const url = actionNode.dataset.zoomUrl || actionNode.dataset.imageUrl
+    if (url) openImage(url, actionNode.dataset.zoomLabel || actionNode.dataset.imageLabel || '')
     return true
   }
   return false

@@ -1,0 +1,1289 @@
+{
+  "segment": 8,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "五色图片失败-冷开",
+      "ms": 243,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-button",
+      "ms": 115.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-button",
+      "ms": 97.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-mask",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 109.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "五色图片失败-冷开",
+      "ms": 208.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-button",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-mask",
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 97.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "五色图片失败-冷开",
+      "ms": 231.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-button",
+      "ms": 115.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-button",
+      "ms": 97.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-mask",
+      "ms": 110.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 105.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "五色图片失败-冷开",
+      "ms": 206.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-button",
+      "ms": 99.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-mask",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 113.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 89.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "五色图片失败-冷开",
+      "ms": 207.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-mask",
+      "ms": 111.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 96.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 112.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 88.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "五色图片失败-冷开",
+      "ms": 207.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-mask",
+      "ms": 111.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 110.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "五色图片失败-冷开",
+      "ms": 235.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-button",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-mask",
+      "ms": 109.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 94.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 109.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "五色图片失败-冷开",
+      "ms": 250,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-button",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-mask",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "五色图片失败-冷开",
+      "ms": 211.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-mask",
+      "ms": 110,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 110.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "五色图片失败-冷开",
+      "ms": 235.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-button",
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-button",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-mask",
+      "ms": 110.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 111.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 88.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "五色图片失败-冷开",
+      "ms": 214.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-button",
+      "ms": 113.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-mask",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 92.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 111.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 87.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "五色图片失败-冷开",
+      "ms": 213.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-mask",
+      "ms": 109.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 109.5,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "五色图片失败-冷开",
+      "ms": 209.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-button",
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-mask",
+      "ms": 113.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 111.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 85,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "五色图片失败-冷开",
+      "ms": 211.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-button",
+      "ms": 115.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-mask",
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 110,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 87.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "五色图片失败-冷开",
+      "ms": 213.5,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-button",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-button",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-mask",
+      "ms": 109.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-mask",
+      "ms": 89.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "image",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-打开-Escape",
+      "ms": 110.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "image-close-escape",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "大图失败-关闭-Escape",
+      "ms": 90.20000000298023,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "五色图片及大图失败/三种关闭"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "五色图片及大图失败/三种关闭"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "runtimeVersion": "build-final35",
+  "scriptSha256": "386bd5f847e2f65c60ed8307aa63aa76a86f36fb12cc5bf6e9cc6d1e4ba14669"
+}

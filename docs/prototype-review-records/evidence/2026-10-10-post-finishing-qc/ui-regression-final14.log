@@ -1,0 +1,781 @@
+
+Running 15 tests using 1 worker
+
+
+(node:35958) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/15] tests/post-finishing-full-flow-cross-terminal.spec.ts:816:1 › 15条链按责任逐条跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接
+  1) tests/post-finishing-full-flow-cross-terminal.spec.ts:816:1 › 15条链按责任逐条跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '错误领取，退回待质检' })
+
+
+      463 |     await setCurrentWebActor(conflictPage, 'PF-USER-QC-A')
+      464 |     await conflictPage.close()
+    > 465 |     await page.getByRole('button', { name: '错误领取，退回待质检' }).click()
+          |                                                            ^
+      466 |     await page.locator('[data-qc-release-reason]').fill('全量跨端UI验收：验证退领后继续完成同一链')
+      467 |     await page.getByRole('button', { name: '确认退领' }).click()
+      468 |     await expect(page.getByRole('status')).toContainText('已退回待质检')
+        at completeQcThroughWeb (/Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:465:60)
+        at /Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:879:22
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-1.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:36216) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[2/15] tests/post-finishing-full-flow.spec.ts:249:1 › 默认演示数据在 Web 端真实展示 3 个生产单、15 次回货和分阶段库存
+[3/15] tests/post-finishing-full-flow.spec.ts:298:1 › 三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示
+  2) tests/post-finishing-full-flow.spec.ts:298:1 › 三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示 ──────────────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('tbody')
+    Timeout: 10000ms
+    - Expected substring  -   1
+    + Received string     + 331
+
+    - 后道负责开扣眼、装扣子、烫包
+    +
+    +         
+    +           
+    +               图片加载中…HG-QC-001后道验收衬衫
+    +             
+    +               生产单级全流程来源任务：SEW-TASK-QC-001仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO-QC-202608-001Mock V1.0售卖类型：预售
+    +             
+    +               500 件
+    +             
+    +               399 件
+    +             
+    +               299 件
+    +             
+    +               100 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               待入库DB-PF-202608-001
+    +             
+    +               已派单
+    +             
+    +               0/5 已设置
+    +             
+    +               查看来源任务回货记录（5）质检单（4）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…HG-QC-002后道验收连衣裙
+    +             
+    +               生产单级全流程来源任务：SEW-TASK-QC-002车缝＋烫包 · 三方工厂负责烫包，质检按漏做情况分流后道工厂：HiGood 后道工厂
+    +             
+    +               PO-QC-202608-002Mock V1.0售卖类型：预售
+    +             
+    +               500 件
+    +             
+    +               399 件
+    +             
+    +               199 件
+    +             
+    +               200 件
+    +             
+    +               100 件
+    +             
+    +               车缝＋烫包
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/5 已设置
+    +             
+    +               查看来源任务回货记录（5）质检单（4）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…HG-QC-003后道验收外套
+    +             
+    +               生产单级全流程来源任务：SEW-TASK-QC-003裁剪＋车缝＋烫包 · 三方工厂负责烫包，质检按漏做情况分流后道工厂：HiGood 后道工厂
+    +             
+    +               PO-QC-202608-003Mock V1.0售卖类型：预售
+    +             
+    +               500 件
+    +             
+    +               399 件
+    +             
+    +               199 件
+    +             
+    +               200 件
+    +             
+    +               100 件
+    +             
+    +               裁剪＋车缝＋烫包
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/5 已设置
+    +             
+    +               查看来源任务回货记录（5）质检单（4）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-2024-013Jas Pria Formal
+    +             
+    +               生产单级全流程来源任务：TASKGEN-202603-0007-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO-202603-0007v1.5售卖类型：备货
+    +             
+    +               800 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/4 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-2024-005Jaket Hoodie Unisex
+    +             
+    +               生产单级全流程来源任务：TASKGEN-202610-9001-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO-202610-9001v2.1售卖类型：虾皮样品
+    +             
+    +               2500 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/4 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-2024-005Jaket Hoodie Unisex
+    +             
+    +               生产单级全流程来源任务：TASKGEN-202610-9002-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO-202610-9002v2.1售卖类型：虾皮样品
+    +             
+    +               2500 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/4 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-2024-005Jaket Hoodie Unisex
+    +             
+    +               生产单级全流程来源任务：TASKGEN-202610-9003-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO-202610-9003v2.1售卖类型：虾皮样品
+    +             
+    +               2500 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/4 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-2024-005Jaket Hoodie Unisex
+    +             
+    +               生产单级全流程来源任务：TASKGEN-202610-9004-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO-202610-9004v2.1售卖类型：虾皮样品
+    +             
+    +               2500 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/4 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…CARDIGAN-CREAM奶油色针织开衫
+    +             
+    +               生产单级全流程来源任务：TK-MZ-011/WDEMO-HO:WOOL-STAGE-011:LINKING:M整件毛织 · 按本批质检确认项目处理后道工厂：HiGood 后道工厂
+    +             
+    +               PO-MZ-011绑定生产单技术包快照售卖类型：未记录
+    +             
+    +               20 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               整件毛织
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/1 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-DRESS-083春季定位印花连衣裙
+    +             
+    +               生产单级全流程来源任务：PDA-SEW-AWARDED-DEMO-001仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO14672v1.0售卖类型：基础款
+    +             
+    +               4100 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/3 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+    +         
+    +           
+    +               图片加载中…SPU-2024-001春季休闲T恤
+    +             
+    +               生产单级全流程来源任务：TASKGEN-202603-0015-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+    +             
+    +               PO14673v1.0售卖类型：JKT复购
+    +             
+    +               1400 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               0 件
+    +             
+    +               仅车缝
+    +             
+    +               不适用
+    +             
+    +               已派单
+    +             
+    +               0/4 已设置
+    +             
+    +               查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+    +             
+    +         
+    +       
+
+    Call log:
+      - Expect "toContainText" with timeout 10000ms
+      - waiting for locator('tbody')
+        22 × locator resolved to <tbody>…</tbody>
+           - unexpected value "
+            
+              
+                  图片加载中…HG-QC-001后道验收衬衫
+                
+                  生产单级全流程来源任务：SEW-TASK-QC-001仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO-QC-202608-001Mock V1.0售卖类型：预售
+                
+                  500 件
+                
+                  399 件
+                
+                  299 件
+                
+                  100 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  待入库DB-PF-202608-001
+                
+                  已派单
+                
+                  0/5 已设置
+                
+                  查看来源任务回货记录（5）质检单（4）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…HG-QC-002后道验收连衣裙
+                
+                  生产单级全流程来源任务：SEW-TASK-QC-002车缝＋烫包 · 三方工厂负责烫包，质检按漏做情况分流后道工厂：HiGood 后道工厂
+                
+                  PO-QC-202608-002Mock V1.0售卖类型：预售
+                
+                  500 件
+                
+                  399 件
+                
+                  199 件
+                
+                  200 件
+                
+                  100 件
+                
+                  车缝＋烫包
+                
+                  不适用
+                
+                  已派单
+                
+                  0/5 已设置
+                
+                  查看来源任务回货记录（5）质检单（4）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…HG-QC-003后道验收外套
+                
+                  生产单级全流程来源任务：SEW-TASK-QC-003裁剪＋车缝＋烫包 · 三方工厂负责烫包，质检按漏做情况分流后道工厂：HiGood 后道工厂
+                
+                  PO-QC-202608-003Mock V1.0售卖类型：预售
+                
+                  500 件
+                
+                  399 件
+                
+                  199 件
+                
+                  200 件
+                
+                  100 件
+                
+                  裁剪＋车缝＋烫包
+                
+                  不适用
+                
+                  已派单
+                
+                  0/5 已设置
+                
+                  查看来源任务回货记录（5）质检单（4）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-2024-013Jas Pria Formal
+                
+                  生产单级全流程来源任务：TASKGEN-202603-0007-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO-202603-0007v1.5售卖类型：备货
+                
+                  800 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/4 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-2024-005Jaket Hoodie Unisex
+                
+                  生产单级全流程来源任务：TASKGEN-202610-9001-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO-202610-9001v2.1售卖类型：虾皮样品
+                
+                  2500 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/4 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-2024-005Jaket Hoodie Unisex
+                
+                  生产单级全流程来源任务：TASKGEN-202610-9002-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO-202610-9002v2.1售卖类型：虾皮样品
+                
+                  2500 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/4 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-2024-005Jaket Hoodie Unisex
+                
+                  生产单级全流程来源任务：TASKGEN-202610-9003-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO-202610-9003v2.1售卖类型：虾皮样品
+                
+                  2500 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/4 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-2024-005Jaket Hoodie Unisex
+                
+                  生产单级全流程来源任务：TASKGEN-202610-9004-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO-202610-9004v2.1售卖类型：虾皮样品
+                
+                  2500 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/4 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…CARDIGAN-CREAM奶油色针织开衫
+                
+                  生产单级全流程来源任务：TK-MZ-011/WDEMO-HO:WOOL-STAGE-011:LINKING:M整件毛织 · 按本批质检确认项目处理后道工厂：HiGood 后道工厂
+                
+                  PO-MZ-011绑定生产单技术包快照售卖类型：未记录
+                
+                  20 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  整件毛织
+                
+                  不适用
+                
+                  已派单
+                
+                  0/1 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-DRESS-083春季定位印花连衣裙
+                
+                  生产单级全流程来源任务：PDA-SEW-AWARDED-DEMO-001仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO14672v1.0售卖类型：基础款
+                
+                  4100 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/3 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          
+            
+              
+                  图片加载中…SPU-2024-001春季休闲T恤
+                
+                  生产单级全流程来源任务：TASKGEN-202603-0015-002仅车缝 · 后道工厂负责开扣眼、装扣子、烫包后道工厂：HiGood 后道工厂
+                
+                  PO14673v1.0售卖类型：JKT复购
+                
+                  1400 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  0 件
+                
+                  仅车缝
+                
+                  不适用
+                
+                  已派单
+                
+                  0/4 已设置
+                
+                  查看来源任务回货记录（0）质检单（0）设置 SKU 重量
+                
+            
+          "
+
+
+      303 |   await expect(page.locator('tbody')).toContainText('车缝＋烫包')
+      304 |   await expect(page.locator('tbody')).toContainText('裁剪＋车缝＋烫包')
+    > 305 |   await expect(page.locator('tbody')).toContainText('后道负责开扣眼、装扣子、烫包')
+          |                                       ^
+      306 |   await expect(page.locator('tbody')).toContainText('三方工厂负责烫包；质检按漏做情况分流')
+      307 |   const statTops = await page.locator('[data-standard-list-stats] > div').evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().top)))
+      308 |   expect(new Set(statTops).size).toBe(1)
+        at /Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts:305:39
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-full-flow-三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-full-flow-三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:36355) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[4/15] tests/post-finishing-full-flow.spec.ts:365:1 › Web 质检精准领取、原因汇总、返工工厂与款式颜色图片
+[5/15] tests/post-finishing-full-flow.spec.ts:432:1 › 公共 PDA 回货登记允许部分 SKU，阻断负数并展示真实图片
+[6/15] tests/post-finishing-full-flow.spec.ts:480:1 › Web 回货详情在最终确认后仍展示逐 SKU 明细，未确认记录可废弃
+[7/15] tests/post-finishing-full-flow.spec.ts:503:1 › 车缝自助回货只进入当前专用确认页，不再注入通用交接旧事实
+[8/15] tests/post-finishing-full-flow.spec.ts:524:1 › PDA 回货确认执行超 5%二次点数、授权和真实账号记录
+[9/15] tests/post-finishing-full-flow.spec.ts:571:1 › PDA 后道扫码先核对，再逐 SKU 归类已处理与未处理数量
+[10/15] tests/post-finishing-full-flow.spec.ts:622:1 › PDA 后道允许整个 SKU 记为未处理，但必须留下说明
+[11/15] tests/post-finishing-full-flow.spec.ts:652:1 › Web 后道加工单未填已处理数量时也可先记录未处理
+[12/15] tests/post-finishing-full-flow.spec.ts:677:1 › Web 处理后交出复核精确领取、退领清空、数量授权、错码重贴并唯一生成出货单
+[13/15] tests/post-finishing-full-flow.spec.ts:724:1 › 后道工厂 PDA 删除成衣仓收货入口，出货单只保留业务条码
+[14/15] tests/post-finishing-full-flow.spec.ts:736:1 › Web 管理页、独立动态授权码、主从日志和全套打印均读取同一链路事实
+[15/15] tests/post-finishing-full-flow.spec.ts:876:1 › 后道质检唯一执行、原子保存、版本冲突与显式资料转换
+  2 failed
+    tests/post-finishing-full-flow-cross-terminal.spec.ts:816:1 › 15条链按责任逐条跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接 
+    tests/post-finishing-full-flow.spec.ts:298:1 › 三类任务责任、质检分流和后道辅料调拨均在现有页面骨架内展示 ───────────────────
+  13 passed (4.7m)

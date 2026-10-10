@@ -1,0 +1,5 @@
+### Error
+TimeoutError: locator.waitFor: Timeout 2500ms exceeded.
+Call log:
+[2m  - waiting for locator('#app h1,[data-testid^="pda-"]').first() to be visible[22m
+

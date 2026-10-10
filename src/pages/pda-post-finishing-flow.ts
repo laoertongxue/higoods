@@ -1,3 +1,5 @@
+import { handlePostFinishingStorageEvent, showPostFinishingActionFailure } from './process-factory/post-finishing/storage-notice.ts'
+import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
 // @page-pattern: pda
 
 import {
@@ -295,7 +297,7 @@ export function renderPdaPostFinishingExecutionPage(): string {
   const task = id ? getPostFinishingFullFlowPostTask(id) : undefined
   const body = task
     ? renderPostTask(task)
-    : scanner({ label: '扫描后道加工单号', placeholder: 'HD-…', action: 'scan-post', field: 'postScan', help: '只按完整后道加工单号查询；加工项目已由质检确认，后道只填已处理和未处理数量。' })
+    : scanner({ label: '扫描后道加工单号', placeholder: '生产单号-回货次数-ZJ-HD', action: 'scan-post', field: 'postScan', help: '只按完整后道加工单号查询；加工项目已由质检确认，后道只填已处理和未处理数量。' })
   return shell('后道加工', '精确扫描后道加工单', body, 'pda-post-finishing-execution-page', '/fcs/pda/exec')
 }
 
@@ -353,7 +355,7 @@ export function renderPdaPostFinishingRecheckPage(): string {
   const record = id ? getPostFinishingFullFlowRecheckOrder(id) : undefined
   const body = record
     ? renderRecheckTask(record)
-    : scanner({ label: '扫描复检单号', placeholder: 'FC-…', action: 'scan-recheck', field: 'recheckScan', help: '扫描成功即由当前账号领取；条码错误必须重贴并复扫。' })
+    : scanner({ label: '扫描复检单号', placeholder: '生产单号-回货次数-ZJ-HD-FJ', action: 'scan-recheck', field: 'recheckScan', help: '扫描成功即由当前账号领取；条码错误必须重贴并复扫。' })
   return shell('处理后交出复核', '数量清点与 SKU 条码核对', body, 'pda-post-finishing-recheck-page', '/fcs/pda/exec')
 }
 
@@ -453,7 +455,8 @@ function isQuantityInput(target: HTMLElement, event?: Event): boolean {
   return target.matches('[data-return-first-count], [data-return-second-count], [data-post-processed-qty], [data-post-adjust-field="unprocessedQty"], [data-recheck-result-field="handoverQty"]')
 }
 
-export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (await handlePostFinishingStorageEvent(target, event)) return true
   if (isQuantityInput(target, event)) {
     target.dataset.skipPageRerender = 'true'
     updateQuantitySummaries()
@@ -502,7 +505,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       const secondCounts = showSecond
         ? lines.map((line) => ({ skuId: line.dataset.returnConfirmLine || '', actualQty: numberValue(line, '[data-return-second-count]') }))
         : undefined
-      const confirmed = confirmPostFinishingFactoryReturn({
+      const confirmed = await runPostFinishingCommand(() => confirmPostFinishingFactoryReturn({
         deliveryId: current.deliveryId,
         firstCounts,
         secondCounts,
@@ -510,7 +513,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
         authorization: current.status === '差异待授权'
           ? { scanValue: readValue(root, '[data-return-authorization]'), differenceReason: readValue(root, '[data-return-difference-reason]') }
           : undefined,
-      })
+      }))
       message = `回货确认成功：${confirmed.deliveryOrderNo}；质检单 ${confirmed.qcTaskNo || '—'} 已自动生成，等待待加工仓送检。`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/return-confirm', confirmed.deliveryOrderNo)
@@ -522,11 +525,11 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       const reason = window.prompt('请填写废弃原因。废弃后只保留审计，不进入待加工仓，也不会生成质检单。')?.trim() || ''
       if (!reason) throw new Error('已取消废弃：必须填写废弃原因。')
       if (!window.confirm(`确认废弃本次回货？\n${reason}`)) return true
-      const discarded = discardPostFinishingFactoryReturn({
+      const discarded = await runPostFinishingCommand(() => discardPostFinishingFactoryReturn({
         deliveryId: current.deliveryId,
         reason,
         actor: actor('回货确认人员'),
-      })
+      }))
       message = `已废弃 ${discarded.deliveryOrderNo}；明细和原因已保留。`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/return-confirm', discarded.deliveryOrderNo)
@@ -542,7 +545,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       return true
     }
     if (action === 'start-post') {
-      const task = startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor: actor('后道操作员') })
+      const task = await runPostFinishingCommand(() => startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor: actor('后道操作员') }))
       message = '已开始后道，请逐 SKU 填写已处理和未处理数量。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
@@ -550,12 +553,12 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
     }
     if (action === 'save-processed-qty') {
       const line = actionNode?.closest<HTMLElement>('[data-post-completion-line]')
-      const task = setPostFinishingPostProcessedQuantity({
+      const task = await runPostFinishingCommand(() => setPostFinishingPostProcessedQuantity({
         postTaskId: actionNode?.dataset.taskId || '',
         skuId: actionNode?.dataset.skuId || '',
         processedQty: numberValue(line || document, '[data-post-processed-qty]'),
         actor: actor('后道操作员'),
-      })
+      }))
       message = '已处理数量已保存。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
@@ -564,30 +567,30 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
     if (action === 'save-unprocessed-qty') {
       const root = document.querySelector<HTMLElement>('[data-post-sku-adjustment-root]')
       if (!root) throw new Error('未找到当前 SKU 未处理数量表单。')
-      const task = setPostFinishingPostUnprocessedQuantity({
+      const task = await runPostFinishingCommand(() => setPostFinishingPostUnprocessedQuantity({
         postTaskId: actionNode?.dataset.taskId || '',
         skuId: actionNode?.dataset.skuId || '',
         unprocessedQty: numberValue(root, '[data-post-adjust-field="unprocessedQty"]'),
         unprocessedReason: readValue(root, '[data-post-adjust-field="unprocessedReason"]'),
         actor: actor('后道操作员'),
-      })
+      }))
       message = '当前 SKU 的未处理数量与说明已保存。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
       return true
     }
     if (action === 'complete-post') {
-      const completed = completePostFinishingPostTaskFromDraft({
+      const completed = await runPostFinishingCommand(() => completePostFinishingPostTaskFromDraft({
         postTaskId: actionNode?.dataset.taskId || '',
         actor: actor('后道操作员'),
-      })
+      }))
       message = `后道处理完成，处理后交出复核单 ${completed.recheckOrderNo}`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', completed.postTaskNo)
       return true
     }
     if (action === 'scan-recheck') {
-      const record = claimPostFinishingRecheckOrder({ recheckOrderNo: (field?.value || readValue(document, '[data-pda-post-field="recheckScan"]')).trim(), actor: actor('复检员') })
+      const record = await runPostFinishingCommand(() => claimPostFinishingRecheckOrder({ recheckOrderNo: (field?.value || readValue(document, '[data-pda-post-field="recheckScan"]')).trim(), actor: actor('复检员') }))
       message = `已领取 ${record.recheckOrderNo}`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
@@ -595,21 +598,21 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
     }
     if (action === 'scan-recheck-barcode') {
       const card = actionNode?.closest<HTMLElement>('[data-recheck-result-line]')!
-      const record = scanPostFinishingRecheckSkuBarcode({ recheckOrderId: actionNode?.dataset.recheckId || '', skuId: actionNode?.dataset.skuId || '', scannedBarcode: readValue(card, '[data-recheck-barcode-input]'), actor: actor('复检员') })
+      const record = await runPostFinishingCommand(() => scanPostFinishingRecheckSkuBarcode({ recheckOrderId: actionNode?.dataset.recheckId || '', skuId: actionNode?.dataset.skuId || '', scannedBarcode: readValue(card, '[data-recheck-barcode-input]'), actor: actor('复检员') }))
       message = record.status === '条码异常待重贴' ? '条码错误，已阻断出货；请打印正确贴标并重新贴码。' : '条码正确。'
       messageTone = record.status === '条码异常待重贴' ? 'error' : 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
       return true
     }
     if (action === 'mark-relabeled') {
-      const record = markPostFinishingRecheckSkuRelabeled({ recheckOrderId: actionNode?.dataset.recheckId || '', skuId: actionNode?.dataset.skuId || '', actor: actor('复检员') })
+      const record = await runPostFinishingCommand(() => markPostFinishingRecheckSkuRelabeled({ recheckOrderId: actionNode?.dataset.recheckId || '', skuId: actionNode?.dataset.skuId || '', actor: actor('复检员') }))
       message = '已记录重新贴码，必须复扫正确后才能完成。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
       return true
     }
     if (action === 'release-recheck') {
-      const record = releasePostFinishingRecheckOrder({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), reason: '错误领取' })
+      const record = await runPostFinishingCommand(() => releasePostFinishingRecheckOrder({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), reason: '错误领取' }))
       message = '已释放并回到待复检。'
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
@@ -620,7 +623,7 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
       const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-recheck-result-line]'))
       const results = lines.map((line) => ({ skuId: line.dataset.recheckResultLine || '', handoverQty: numberValue(line, '[data-recheck-result-field="handoverQty"]') }))
       const diff = lines.some((line, index) => Number(line.dataset.expectedQty) !== results[index]!.handoverQty)
-      const record = completePostFinishingRecheckOrderFullFlow({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), results, authorization: diff ? { scanValue: readValue(root, '[data-recheck-authorization]'), differenceReason: readValue(root, '[data-recheck-difference-reason]') } : undefined })
+      const record = await runPostFinishingCommand(() => completePostFinishingRecheckOrderFullFlow({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), results, authorization: diff ? { scanValue: readValue(root, '[data-recheck-authorization]'), differenceReason: readValue(root, '[data-recheck-difference-reason]') } : undefined }))
       message = `数量与条码复核完成，已进入后道待交出仓并生成出货单 ${record.outboundOrderNo}`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
@@ -628,6 +631,11 @@ export function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Eve
     }
   } catch (error) {
     setError(error)
+    const nextStep = error instanceof Error && 'code' in error && ['SECOND_COUNT_REQUIRED', 'AUTHORIZATION_REQUIRED'].includes(String(error.code))
+    if (!nextStep) {
+      showPostFinishingActionFailure(error instanceof Error ? error.message : '本次未保存，请保留输入后重试。', target)
+      return true
+    }
     refresh(window.location.pathname, query().get('id') || '', { skuId: query().get('skuId') || '' })
     return true
   }

@@ -1,0 +1,131 @@
+{
+  "sourceSha256": "d10d74dcd2da551c9c6d90639e5e91cfbcd3e6e6a4c9b6d31b0d694b267d715a",
+  "runtimeVersion": "build-final32",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "service": "http://127.0.0.1:43210",
+  "segment": 0,
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.20000000298023,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "coverage": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-action=\\\"activate-tab\\\"][data-tab-key=\\\"pfos-post-finishing-qc-execute\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+          "index": 0,
+          "text": "执行质检",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "interruptedReason": "Owned runner stopped for final route lookup guard fix; valid partial samples retained, not whole coverage proof"
+}

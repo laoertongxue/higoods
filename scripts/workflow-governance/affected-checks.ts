@@ -188,10 +188,19 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       handled = true
     }
 
+    const isPostFinishingNativeTest = path === 'tests/post-finishing-full-flow.spec.ts'
+      || path === 'tests/post-finishing-full-flow-cross-terminal.spec.ts'
+    if (isPostFinishingNativeTest) {
+      add(fullChecks, 'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npm run test:e2e -- tests/post-finishing-full-flow.spec.ts tests/post-finishing-full-flow-cross-terminal.spec.ts --workers=1 --reporter=json')
+      escalationReasons.add('后道 Native 变更必须绑定真实独立服务 E2E 退出结果')
+      handled = true
+    }
+
     if (path.startsWith('tests/')
       && !path.startsWith('tests/workflow-governance/')
       && !/^tests\/pms-(?:purchase-chain|material-flow|master-data|settlement-flow|peripheral)\.spec\.ts$/.test(path)
-      && path !== 'tests/wool-management-fact-workflow.spec.ts') {
+      && path !== 'tests/wool-management-fact-workflow.spec.ts'
+      && !isPostFinishingNativeTest) {
       unknownPaths.push(path)
       add(fullChecks, 'npm run build')
       escalationReasons.add('测试路径未匹配已知运行器，须补充专项验证，不以构建替代该测试')

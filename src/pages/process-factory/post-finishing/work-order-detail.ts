@@ -1,3 +1,5 @@
+import { runPostFinishingCommand } from '../../../data/fcs/post-finishing-records.ts'
+import { showPostFinishingActionFailure } from './storage-notice.ts'
 // @page-pattern: detail
 
 import {
@@ -139,7 +141,7 @@ function webNumber(root: ParentNode, selector: string): number {
   return Number(webField(root, selector) || 0)
 }
 
-export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): boolean {
+export async function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): Promise<boolean> {
   if (typeof window === 'undefined' || !window.location.pathname.startsWith('/fcs/craft/post-finishing/work-orders/')) return false
   const actionNode = target.closest<HTMLElement>('[data-post-finishing-work-order-detail-action]')
   const action = actionNode?.dataset.postFinishingWorkOrderDetailAction
@@ -148,14 +150,14 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
   try {
     const actor = webFallbackActor()
     if (action === 'start') {
-      const task = startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor })
+      const task = await runPostFinishingCommand(() => startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor }))
       fullFlowMessage = '后道加工已开始，请逐 SKU 填写已处理和未处理数量。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
       return true
     }
     if (action === 'takeover') {
-      const task = takeOverPostFinishingPostTask({ postTaskId: taskId, actor, reason: webField(document, '[data-web-post-takeover-reason]') })
+      const task = await runPostFinishingCommand(() => takeOverPostFinishingPostTask({ postTaskId: taskId, actor, reason: webField(document, '[data-web-post-takeover-reason]') }))
       fullFlowMessage = '后道加工单接管成功，原操作人与接管原因已写入日志。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
@@ -163,12 +165,12 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
     }
     if (action === 'save-processed-qty') {
       const line = actionNode.closest<HTMLElement>('[data-web-post-completion-line]')
-      const task = setPostFinishingPostProcessedQuantity({
+      const task = await runPostFinishingCommand(() => setPostFinishingPostProcessedQuantity({
         postTaskId: taskId,
         skuId: actionNode.dataset.skuId || '',
         processedQty: webNumber(line || document, '[data-web-post-processed-qty]'),
         actor,
-      })
+      }))
       fullFlowMessage = '已处理数量已保存到 PDA 与 Web 共用草稿。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
@@ -181,20 +183,20 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
     if (action === 'save-unprocessed') {
       const root = document.querySelector<HTMLElement>('[data-web-post-adjust-root]')
       if (!root) throw new Error('未找到 SKU 未处理数量表单。')
-      const task = setPostFinishingPostUnprocessedQuantity({
+      const task = await runPostFinishingCommand(() => setPostFinishingPostUnprocessedQuantity({
         postTaskId: taskId,
         skuId: actionNode.dataset.skuId || '',
         unprocessedQty: webNumber(root, '[data-web-post-adjust-field="unprocessedQty"]'),
         unprocessedReason: webField(root, '[data-web-post-adjust-field="unprocessedReason"]'),
         actor,
-      })
+      }))
       fullFlowMessage = 'SKU 未处理数量与说明已保存到共享草稿。'
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
       return true
     }
     if (action === 'complete') {
-      const task = completePostFinishingPostTaskFromDraft({ postTaskId: taskId, actor })
+      const task = await runPostFinishingCommand(() => completePostFinishingPostTaskFromDraft({ postTaskId: taskId, actor }))
       fullFlowMessage = `后道处理完成，处理后交出复核单 ${task.recheckOrderNo || '已生成'}。`
       fullFlowMessageTone = 'success'
       refreshFullFlowDetail(task.postTaskId)
@@ -203,7 +205,7 @@ export function handlePostFinishingWorkOrderDetailEvent(target: HTMLElement): bo
   } catch (error) {
     fullFlowMessage = error instanceof Error ? error.message : String(error)
     fullFlowMessageTone = 'error'
-    refreshFullFlowDetail(taskId, fullFlowQuery().get('skuId') || '')
+    showPostFinishingActionFailure(fullFlowMessage, target)
     return true
   }
   return false

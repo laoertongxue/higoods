@@ -1,0 +1,343 @@
+{
+  "sourceSha256": "b7d79833917566de272ef74443c43f9b8d89a44ad8e31e4c1604c4338426cfe9",
+  "runtimeVersion": "build-final30",
+  "service": "http://127.0.0.1:43210",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 469.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 410,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 405.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 351.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 347.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 417,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 373.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 347.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 364.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 339,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 382.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 367.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 455.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 353.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-process-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 401.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 340.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 348.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 344.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 358.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 360.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 362.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 345.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 343.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 366.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 347.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 358.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 338.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 332.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 318.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/wait-handover-warehouse",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 369.8999999910593,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "inventory": [],
+  "browser": "155.0.8059.39",
+  "passed": true,
+  "scriptSha256": "c3a36131b19b428aacbec1375ac49090dce9f5a77917ec0cb139e6647c537fc1"
+}

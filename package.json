@@ -211,7 +211,7 @@
     "check:post-finishing-return-source-generalization": "node --import tsx scripts/check-post-finishing-return-source-generalization.ts",
     "check:post-finishing-web-mobile-action-dialog": "node --import tsx scripts/check-post-finishing-web-mobile-action-dialog.ts",
     "check:post-finishing-full-flow": "node --import tsx scripts/check-post-finishing-full-flow.ts",
-    "check:post-finishing-qc-spu-parameters": "node --import tsx scripts/check-post-finishing-qc-spu-parameters.ts",
+    "check:post-finishing-qc-colors": "node --import tsx scripts/check-post-finishing-qc-colors.ts",
     "check:post-finishing-web-pda-fallback": "node --import tsx scripts/check-post-finishing-web-pda-fallback.ts",
     "check:post-finishing-default-demo": "node --import tsx scripts/check-post-finishing-default-demo.ts",
     "check:post-finishing-full-flow-surface": "node --import tsx scripts/check-post-finishing-full-flow-surface.ts",

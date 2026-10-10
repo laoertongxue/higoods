@@ -1,0 +1,184 @@
+{
+  "ms": 314.5,
+  "metrics": {
+    "navigation": [
+      {
+        "dom": 27.200000002980232,
+        "response": 3,
+        "load": 27.200000002980232
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 84,
+        "duration": 87,
+        "name": "self"
+      }
+    ],
+    "resources": [
+      {
+        "url": "http://127.0.0.1:43210/assets/production-contracts-CNvibFFp.js",
+        "duration": 27.900000005960464,
+        "size": 2897
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/runtime-task-tenders-YGz6fHpq.js",
+        "duration": 27.700000002980232,
+        "size": 2028
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/production-tech-pack-change-domain-Cw7cuQz1.js",
+        "duration": 27.5,
+        "size": 21753
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/generated-cut-orders-D0i9smDa.js",
+        "duration": 27.299999997019768,
+        "size": 5614
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/cutting-task-routing-OcDIV18l.js",
+        "duration": 27.19999998807907,
+        "size": 2549
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/production-return-fulfillment-DhO9pVOP.js",
+        "duration": 27.099999994039536,
+        "size": 4126
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/tmf-reference-images-6geKcU1B.js",
+        "duration": 23.19999998807907,
+        "size": 754
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-deduction-selectors-CGMAFTV3.js",
+        "duration": 22.600000008940697,
+        "size": 6579
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/tmf-material-purchases-Dwdsocv-.js",
+        "duration": 22.200000002980232,
+        "size": 32794
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/tmf-process-continuation-B3hoPFRr.js",
+        "duration": 22.100000008940697,
+        "size": 1790
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/store-domain-quality-bootstrap-Bnptk_Bp.js",
+        "duration": 21.399999991059303,
+        "size": 5694
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/post-finishing-current-read-model-BkqN5GzV.js",
+        "duration": 21.299999997019768,
+        "size": 5546
+      }
+    ],
+    "visibility": "visible",
+    "focus": true
+  },
+  "cpu": [
+    [
+      " (idle)",
+      123.72900000000001
+    ],
+    [
+      " (program)",
+      47.68399999999999
+    ],
+    [
+      " (garbage collector)",
+      13.921
+    ],
+    [
+      " structuredClone",
+      11.256
+    ],
+    [
+      "http://127.0.0.1:43210/assets/pcs-config-workspace-repository-CPVOYqaH.js Y",
+      9.954
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js ",
+      7.7669999999999995
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-CTP0arrd.js ",
+      5.545
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-DKGYSxms.js ",
+      4.694000000000001
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-source-shared-Bj4b3XYm.js ",
+      3.752
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-RmFcGQtN.js ",
+      3.7490000000000006
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js fs",
+      2.899
+    ],
+    [
+      "http://127.0.0.1:43210/assets/index-aWhNO4gX.js ",
+      2.67
+    ],
+    [
+      " appendChild",
+      2.569
+    ],
+    [
+      " ",
+      2.542
+    ],
+    [
+      "http://127.0.0.1:43210/assets/generated-cut-orders-D0i9smDa.js fe",
+      2.508
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-CTRm52x5.js ",
+      2.505
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-full-flow-CDLeNTbf.js ",
+      2.504
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-CTRm52x5.js Ie",
+      2.502
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-full-flow-CDLeNTbf.js i",
+      2.5010000000000003
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-records-CPMtnK8d.js V",
+      2.501
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-DKGYSxms.js A",
+      2.378
+    ],
+    [
+      "http://127.0.0.1:43210/assets/generated-cut-orders-D0i9smDa.js ",
+      1.96
+    ],
+    [
+      "http://127.0.0.1:43210/assets/quality-deduction-repository-DDBHdK6n.js Zt",
+      1.642
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js fr",
+      1.456
+    ]
+  ],
+  "sourceSha256": "aeb9e9d66b518bd8c0c9d00d04dc37f1225d9dac3a56d15cae7f1a26074a5f9a",
+  "runtimeVersion": "build-final17",
+  "kind": "diagnostic"
+}

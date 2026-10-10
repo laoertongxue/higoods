@@ -1,0 +1,536 @@
+{
+  "segment": 11,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "coverage": [
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "identity": "{\"control\":\"button[data-pda-execd-action=\\\"back\\\"]|BUTTON|submit|content\",\"state\":\"/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page|BUTTON|submit|content\"}",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-pda-execd-action=\"back\"]",
+        "index": 0,
+        "text": "返回",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+          "region": "content",
+          "selector": "button[data-pda-execd-action=\"back\"]",
+          "index": 0,
+          "text": "返回",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "identity": "{\"control\":\"button[data-production-object-action=\\\"open\\\"][data-object-type=\\\"PRODUCTION_ORDER\\\"][data-default-tab=\\\"overview\\\"][data-highlight-key=\\\"PRODUCTION_ORDER:PO-QC-202608-001\\\"]|BUTTON|button|content\",\"state\":\"/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page|BUTTON|button|content\"}",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "PO-QC-202608-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+          "region": "content",
+          "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "PO-QC-202608-001",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "identity": "{\"control\":\"button[data-production-object-action=\\\"open\\\"][data-object-type=\\\"PROCESS_DOC\\\"][data-default-tab=\\\"progress\\\"][data-highlight-key=\\\"PROCESS_DOC:SEW-TASK-QC-001\\\"]|BUTTON|button|content\",\"state\":\"/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page|BUTTON|button|content\"}",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+        "index": 0,
+        "text": "SEW-TASK-QC-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+          "region": "content",
+          "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+          "index": 0,
+          "text": "SEW-TASK-QC-001",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/pda/post-finishing/execute?id=<record>\\\"]|A||content\",\"state\":\"/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page|A||content\"}",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+        "index": 0,
+        "text": "扫描并执行后道加工单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+          "region": "content",
+          "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+          "index": 0,
+          "text": "扫描并执行后道加工单",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-pda-execd-action=\"back\"]",
+        "index": 0,
+        "text": "返回",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 513.0999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-pda-execd-action=\"back\"]",
+        "index": 0,
+        "text": "返回",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 514.5999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-pda-execd-action=\"back\"]",
+        "index": 0,
+        "text": "返回",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 497.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-pda-execd-action=\"back\"]",
+        "index": 0,
+        "text": "返回",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 514.4000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-pda-execd-action=\"back\"]",
+        "index": 0,
+        "text": "返回",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 496.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "PO-QC-202608-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "PO-QC-202608-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "PO-QC-202608-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "PO-QC-202608-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PRODUCTION_ORDER\"][data-object-id=\"PO-QC-202608-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"overview\"][data-highlight-key=\"PRODUCTION_ORDER:PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "PO-QC-202608-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+        "index": 0,
+        "text": "SEW-TASK-QC-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+        "index": 0,
+        "text": "SEW-TASK-QC-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+        "index": 0,
+        "text": "SEW-TASK-QC-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+        "index": 0,
+        "text": "SEW-TASK-QC-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "button[data-production-object-action=\"open\"][data-object-type=\"PROCESS_DOC\"][data-object-id=\"SEW-TASK-QC-001\"][data-related-production-order-no=\"PO-QC-202608-001\"][data-default-tab=\"progress\"][data-highlight-key=\"PROCESS_DOC:SEW-TASK-QC-001\"]",
+        "index": 0,
+        "text": "SEW-TASK-QC-001",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+        "index": 0,
+        "text": "扫描并执行后道加工单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 280.2000488191843,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+        "index": 0,
+        "text": "扫描并执行后道加工单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 282.69980469346046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+        "index": 0,
+        "text": "扫描并执行后道加工单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 283.1998046785593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+        "index": 0,
+        "text": "扫描并执行后道加工单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 281.20009765028954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5",
+      "control": {
+        "state": "/fcs/pda/exec/PF-POST-PF-ACCEPT-PO-1-5|page",
+        "region": "content",
+        "selector": "a[href=\"/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD\"]",
+        "index": 0,
+        "text": "扫描并执行后道加工单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 298.00014647841454,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "note": "按实际页面地址、弹层种类和动作入口汇总同一状态的重复路径，instances与首条准备路径保留；未删减数据。实际点击/输入、模块请求、IndexedDB事务完成、图片与两次绘制；保存后刷新持久结果另见browser-contract.json。覆盖此脚本登记的入口，不据此宣称所有状态/跨端路径已经覆盖。",
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "runtimeVersion": "build-final35",
+  "scriptSha256": "a4a286a27fb3f367b36ed652ffcd8696a1ad4a8e87b9464d6c8f47b68be4e69d"
+}

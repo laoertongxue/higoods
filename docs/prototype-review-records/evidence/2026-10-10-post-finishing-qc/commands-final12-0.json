@@ -1,0 +1,424 @@
+{
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "complete-qc",
+      "ms": 119,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "claim-qc",
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "complete-qc",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "claim-qc",
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "complete-qc",
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "claim-qc",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "complete-qc",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "claim-qc",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "complete-qc",
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "claim-qc",
+      "ms": 131.79999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "complete-qc",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "claim-qc",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "complete-qc",
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "claim-qc",
+      "ms": 131.6000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "complete-qc",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "claim-qc",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "complete-qc",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "claim-qc",
+      "ms": 131.3999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "complete-qc",
+      "ms": 113.69999998807907,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "claim-qc",
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "complete-qc",
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "claim-qc",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "complete-qc",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "claim-qc",
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "complete-qc",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "claim-qc",
+      "ms": 131.3999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "complete-qc",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "complete-qc",
+      "ms": 230,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "claim-qc",
+      "ms": 190.09999999403954,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    }
+  ],
+  "errors": [
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    }
+  ],
+  "passed": false,
+  "sourceSha256": "e02728e9e8adcda901fcadc2961667e02d136a442b0d9bd1d88b9343e41350fe",
+  "runtimeVersion": "build-final12",
+  "scriptSha256": "b2d220e503da86adc98bdee8d03165b754d41e15294451a7ff5de2bf74e59645"
+}

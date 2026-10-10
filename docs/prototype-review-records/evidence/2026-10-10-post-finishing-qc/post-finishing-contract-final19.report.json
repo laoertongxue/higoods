@@ -1,0 +1,128 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/8fb6/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-full-flow.spec.ts",
+      "--grep",
+      "后道质检唯一执行",
+      "--workers=1",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/8fb6/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43211 --strictPort",
+      "url": "http://127.0.0.1:43211",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-full-flow.spec.ts",
+      "file": "post-finishing-full-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "后道质检唯一执行、原子保存、版本冲突与显式资料转换",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 43526,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-10T08:30:41.219Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "post-finishing-browser-contract",
+                      "contentType": "application/json",
+                      "body": "ewogICJzdGF0dXMiOiAicGFzc2VkIiwKICAiY2hlY2tzIjogWwogICAgIummluasoeivu+WPluaXoOa8lOekuuaVsOaNruiQveebmCIsCiAgICAi6aKc6Imy5Zu+54mH5oyJ5qy+5byP5bGV56S6IiwKICAgICLpopzoibLlm77niYflhajpg6jliqDovb3miJDlip8iLAogICAgIui0qOajgOaTjeS9nOmhteaXoOWPlua2iOaMiemSriIsCiAgICAi6aKc6Imy5aSn5Zu+5Y+v5omT5byA5bm25LulIEVzY2FwZSDlhbPpl60iLAogICAgIuminOiJsuWkp+WbvuWFs+mXreaMiemSruWPr+WFs+mXrSIsCiAgICAi6aKc6Imy5aSn5Zu+6YGu572p5Y+v5YWz6ZetIiwKICAgICLmuIXljZXor6bmg4XkuLrlj6ror7vvvIzlvZPliY3mjIHmnInkurrkuZ/kuI3og73lnKjor6bmg4XkuK3mj5DkuqQiLAogICAgIuW+hei0qOajgOWPquivu+ivpuaDheS4jeaPkOS+m+mihuWPluaMiemSriIsCiAgICAi5omn6KGM5YWl5Y+j5b+955Wl5YW25LuW5Y2V5Y+377yM5LuN57ut5YGa5pys5Lq65pyq5a6M5oiQ5Y2V5o2uIiwKICAgICLlm77niYflpLHotKXml7bmr4/np43popzoibLpg73mnInmmI7noa7lpLHotKXmj5DnpLoiLAogICAgIuWkp+WbvuWksei0peaPkOekuuaYjuehruS4lOS7jeWPryBFc2NhcGUg5YWz6ZetIiwKICAgICLlt7LmnInmnKrlrozmiJDotKjmo4DkuI3og73lho3poobkuIDlvKDvvJror7flhYjlrozmiJDlvZPliY3otKjmo4DljZUgUE8tUUMtMjAyNjA4LTAwMS00LVpK77yM5YaN6aKG5Y+W5LiL5LiA5byg44CCIiwKICAgICLlrrnph4/kuI3otrPml7bkuLvljZXkuIvmuLjml6Xlv5flnYfkuI3mlLnlj5giLAogICAgIumhtemdouS/neWtmOWksei0peS/neeVmeaVsOmHj+ihqOWNleS4juW9k+WJjei0qOajgOWNlSIsCiAgICAi5LqL5Yqh5Lit5q2i5LiN5Y+R5biD5oiQ5Yqf44CB5LiN5pS55Y+Y5Li75Y2V5LiL5ri45ZKM5bey5pyJ6K6w5b2VIiwKICAgICLlt67lvILpppbmrKHngrnmlbDljp/lrZDkv53lrZjlkI7ov5vlhaXkuozmrKHngrnmlbDvvIzkuJrliqHpl6jnpoHkv53mjIHlj6/nu6fnu63mk43kvZwiLAogICAgIumhtemdouS/neWtmOS4u+WNleWQjumBk+e8luWPt+aXpeW/l+W5tuS7heWGmeWPmOWMluiusOW9le+8mntcInN0YXR1c1wiOlwi6LSo5qOA5a6M5oiQXCIsXCJwb3N0XCI6XCJQTy1RQy0yMDI2MDgtMDAxLTQtWkotSERcIixcImNvdW50XCI6NX0iLAogICAgIuaXp+agh+etvumhteaPkOS6pOivhuWIq+eJiOacrOWGsueqgSIsCiAgICAi5a6M5oiQ5Yi35paw5ZCO6L+U5Zue57K+5YeG6aKG5Y+W5YWl5Y+jIiwKICAgICLnvJblj7fnvLrlsJEgWkog5LiN5o+Q5L6b5qih57OK5YCZ6YCJ77yM5aSx6LSl5L+d55WZ5a6M5pW06L6T5YWl5LiO6ZSZ6K+v5o+Q56S6IiwKICAgICLnsr7lh4bpooblj5bliLfmlrDlkI7oh6rliqjmgaLlpI3lvZPliY3ljZXmja4iLAogICAgIumZhOS7tuS7peWNleS7vSBCbG9iIOWSjOW8leeUqOS/neWtmCIsCiAgICAi56m65rWP6KeI5Zmo5aSH5Lu95oGi5aSN5YyF5ZCr6K6w5b2V5Y+K5Y6f5aeL6ZmE5Lu2IiwKICAgICLml6fotYTmlpnmmL7lvI/ovazmjaLkuK3mlq3lj6/ph43or5XjgIHor7vlm57lkI7muIXml6fplK7jgIHljrvph43pmYTku7blubbkv53nlZnmnKrnn6XlrZfmrrXlkozml6DlhbPmlbDmja4iLAogICAgIuacquefpeacquadpeagvOW8j+aLkue7nei9rOaNouW5tuWujOaVtOS/neeVmeWOn+Wni+i1hOaWmSIsCiAgICAi5bey55+l5pen6LWE5paZ5Zyo6K+75Y+W5p2D6ZmQ5Lii5aSx5ZCO5LuN6Zi75pat5L+d5a2Y77yM5LiN5oqK5peg5rOV5qOA5p+l5b2T5oiQ5pen6LWE5paZ5raI5aSxIiwKICAgICJQREEg5L+d5a2Y5aSx6LSl5L+d55WZ5ZGY5bel6L6T5YWl5pWw6YeP5bm25pi+56S65pyq5L+d5a2YIiwKICAgICJQREEg5omA6YCJ5Yet6K+B5Lul5Li05pe25Zu+54mH6aKE6KeI77yM5LiN5YaZ5YWl5Lia5YqhSlNPTiIsCiAgICAi5pu05o2i56S65L6L5Yet6K+B6YeK5pS+5Y6f5pyq5L+d5a2Y5Zu+54mH5bm25bGV56S65paw5Yet6K+BIiwKICAgICLnrqHnkIblkZjpgIDlh7rph4rmlL7lsJrmnKrkv53lrZjnmoTlh63or4Hlm77niYciLAogICAgIumAgOWHuuWQjuaWsOeZu+iusOS4jeW4puWFpeWJjeasoemAgei0p+S6uuOAgeiBlOezu+aWueW8j+aIluWHreivgSIsCiAgICAi6ZSZ6K+v5aSH5Lu95a+85YWl5pi+56S65aSx6LSl5o+Q56S65bm25L+d55WZ5omA6YCJ5paH5Lu277yM5LiN6KKr5pW06aG16YeN57uY5ZCe5o6JIiwKICAgICJsb2NhbFN0b3JhZ2Ug56aB55So5ZCO6YGT5L+d5a2Y5Y+K6Lqr5Lu96buY6K6k5YC85LuN5Y+v55So77yI5YWo56uZ6aaW5qyh5YWl5Y+j55qE5pei5pyJ55Sf5Lqn5rqQ5L+d5oqk5Y+m5YiX6ZmQ5Yi277yJIiwKICAgICLlvoXpgIHmo4DljZXlnKjmiafooYzpobXpooblj5booqvpmLvmlq3kuJTovpPlhaXkv53nlZkiLAogICAgIuW3suWujOaIkOWNleWcqOaJp+ihjOmhtemHjeaWsOmihuWPluiiq+mYu+aWreS4lOi+k+WFpeS/neeVmSIsCiAgICAi5LuW5Lq65oyB5pyJ5Y2V5Zyo5omn6KGM6aG16aKG5Y+W6KKr6Zi75pat5LiU6L6T5YWl5L+d55WZIiwKICAgICLlj5bmtojkuLvnrqHnoa7orqTkv53nlZnljp/pooblj5bnirbmgIEiLAogICAgIuehruiupOS4u+euoemHiuaUvuWQjuS4u+WNleS4juaTjeS9nOaXpeW/l+S/neWtmO+8jOWIt+aWsOS7jeW+hei0qOajgCIKICBdCn0="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b14c3ecd0754efb51e80-1770ecf43b3136a3fe04",
+          "file": "post-finishing-full-flow.spec.ts",
+          "line": 876,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-10T08:30:40.451Z",
+    "duration": 44992.202,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,9 @@
+### Browser `pf20-advanced-0` opened with pid 2554.
+### Ran Playwright code
+```js
+await page.goto('about:blank');
+```
+### Page
+- Page URL: about:blank
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-10-10T08-40-32-670Z.yml)

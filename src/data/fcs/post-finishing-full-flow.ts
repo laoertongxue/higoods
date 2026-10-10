@@ -1,3 +1,4 @@
+import { assertPostFinishingWrite, registerPostFinishingRepository, withPostFinishingDemo, registerPostFinishingMigrationNormalizer, mapPostFinishingRepositoryValues } from './post-finishing-records.ts'
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES, migratePostFinishingMockImages } from './post-finishing-production-source-fixtures.ts'
 import {
   beginPostFinishingAuthorizationDemoBatch,
@@ -898,10 +899,8 @@ function deriveLegacyConfirmationVersions(deliveries: PostFinishingFactoryReturn
   }))
 }
 
-function readPersistedState(): PostFinishingFullFlowState {
-  let sourceRaw: string | null = null
+function readPersistedState(sourceRaw: string | null): PostFinishingFullFlowState {
   try {
-    sourceRaw = globalThis.localStorage?.getItem(STORAGE_KEY) || null
     const parsed = sourceRaw ? JSON.parse(sourceRaw) as Partial<Omit<PostFinishingFullFlowState, 'schemaVersion'>> & { schemaVersion?: number } : undefined
     if (sourceRaw && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))) {
       throw new Error('保存内容不是后道数据对象')
@@ -914,24 +913,6 @@ function readPersistedState(): PostFinishingFullFlowState {
       throw new Error('后道 schema 2 缺少必要事实集合，原始保存内容未修改')
     }
 
-    // 旧“复检后平行出货单”无法无损映射为当前 QC / 后道加工事实，且不得继续成为可写事实。
-    // 只做一次显式退役；当前出货事实统一由本模块在 QC 直达或处理后复核完成时生成。
-    // CLEAN-008 删除条件：需保留的旧独立出货存储均已 archive 且 marker=retired，
-    // 旧写入者/消费者归零后可删除本退役分支；archive 按历史留存确认单独删除，不恢复为当前账。
-    if (globalThis.localStorage?.getItem(LEGACY_OUTBOUND_MIGRATION_MARKER_KEY) !== 'retired') {
-      const legacyRaw = globalThis.localStorage?.getItem(LEGACY_OUTBOUND_STORAGE_KEY)
-      if (legacyRaw) {
-        // 无法确认来源的旧演示单保留只读原始快照，不伪造为当前实收或直接丢弃。
-        globalThis.localStorage?.setItem(`${LEGACY_OUTBOUND_STORAGE_KEY}:archive`, JSON.stringify({
-          schemaVersion: 1,
-          sourceKey: LEGACY_OUTBOUND_STORAGE_KEY,
-          retiredAt: nowIso(),
-          raw: legacyRaw,
-        }))
-      }
-      globalThis.localStorage?.removeItem(LEGACY_OUTBOUND_STORAGE_KEY)
-      globalThis.localStorage?.setItem(LEGACY_OUTBOUND_MIGRATION_MARKER_KEY, 'retired')
-    }
     if (!parsed || !sourceRaw) return emptyState()
     migratePostFinishingMockImages(parsed)
     hasPersistedFullFlowState = true
@@ -1107,16 +1088,11 @@ function readPersistedState(): PostFinishingFullFlowState {
   }
 }
 
-let state = readPersistedState()
+let state = emptyState()
 let buildingDemoData = false
 
 function persist(): void {
-  if (buildingDemoData) return
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // 原型无 localStorage 时保留运行期业务事实。
-  }
+  if (!buildingDemoData) assertPostFinishingWrite()
 }
 
 function clone<T>(value: T): T {
@@ -1323,14 +1299,12 @@ function ensurePostFinishingMaterialTransferDemo(): void {
 }
 
 export function listPostFinishingMaterialTransferOrders(): PostFinishingMaterialTransferOrder[] {
-  ensurePostFinishingMaterialTransferDemo()
   return clone(state.materialTransferOrders).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
 export function getPostFinishingMaterialTransferOrder(
   transferOrderIdOrNo: string,
 ): PostFinishingMaterialTransferOrder | undefined {
-  ensurePostFinishingMaterialTransferDemo()
   const record = state.materialTransferOrders.find((item) => (
     item.transferOrderId === transferOrderIdOrNo || item.transferOrderNo === transferOrderIdOrNo
   ))
@@ -1373,7 +1347,7 @@ export function receivePostFinishingMaterialTransfer(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): { transfer: PostFinishingMaterialTransferOrder; alreadyInbound: boolean } {
-  ensurePostFinishingMaterialTransferDemo()
+  assertPostFinishingWrite()
   const transfer = state.materialTransferOrders.find((item) => item.transferOrderNo === input.transferOrderNo.trim())
   if (!transfer) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到完整辅料调拨单号 ${input.transferOrderNo.trim()}。`)
   if (transfer.status === '已入库') return { transfer: clone(transfer), alreadyInbound: true }
@@ -1696,6 +1670,7 @@ function getOrCreateQcTaskForConfirmedDelivery(input: {
   const qcTaskId = `PF-QC-${input.delivery.productionOrderId}-${input.delivery.returnIndex}`
   const number = issuePostFinishingDocumentNumber({
     kind: 'QC',
+    sourceDocumentNo: input.delivery.deliveryOrderNo,
     productionOrderNo: input.delivery.productionOrderNo,
     sourceObjectId: input.delivery.deliveryId,
     idempotencyKey: `QC:${input.delivery.deliveryId}`,
@@ -1963,6 +1938,7 @@ export function registerPostFinishingFactoryReturn(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
+  assertPostFinishingWrite()
   if (!input.actor.roleName.trim() || /PPIC/i.test(input.actor.roleName) || !/(车缝厂送货人员|工厂|factory|ROLE_OPERATOR)/i.test(input.actor.roleName)) {
     throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '回货登记只能由车缝工厂送货人员或已登录工厂账号发起，PPIC只能读取后道回货结果。')
   }
@@ -2079,6 +2055,7 @@ export function discardPostFinishingFactoryReturn(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
+  assertPostFinishingWrite()
   const delivery = findDelivery(input.deliveryId)
   if (!canDiscardPostFinishingFactoryReturn(delivery)) {
     throw new PostFinishingFlowGateError('INVALID_STATUS', `送货单当前为${delivery.status}，已完成最终接收或已进入质检链路，不能废弃。`)
@@ -2126,6 +2103,7 @@ export function confirmPostFinishingFactoryReturn(input: {
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
+  assertPostFinishingWrite()
   if (!/回货确认/.test(input.actor.roleName) || /PPIC/i.test(input.actor.roleName)) {
     throw new PostFinishingFlowGateError('AUTHORIZATION_REQUIRED', '回货最终确认只能由后道回货确认岗位完成，PPIC不得填写或确认回货数量。')
   }
@@ -2258,7 +2236,7 @@ export function confirmPostFinishingFactoryReturn(input: {
       stage: '回货确认', delivery, objectType: '质检单', objectId: qcCreation.task.qcTaskId, objectNo: qcCreation.task.qcTaskNo,
       action: '自动生成质检单', actor: input.actor, operatedAt: now, beforeStatus: '未生成', afterStatus: qcCreation.task.status,
       afterQuantity: total(qcCreation.task.lines.map((line) => line.expectedQty)),
-      remark: `回货最终确认即自动生成；编号按同一生产单现有最大序号加一且不可人工修改；冻结责任：${qcCreation.task.responsibility.taskTypeLabel} / ${qcCreation.task.responsibility.responsibilityLabel}；来源：${qcCreation.task.responsibility.source}。`,
+      remark: `回货最终确认即自动生成；编号按回货单号追加 ZJ 且不可人工修改；冻结责任：${qcCreation.task.responsibility.taskTypeLabel} / ${qcCreation.task.responsibility.responsibilityLabel}；来源：${qcCreation.task.responsibility.source}。`,
     })
   }
   return clone(delivery)
@@ -2271,6 +2249,7 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
+  assertPostFinishingWrite()
   const delivery = findDelivery(input.deliveryId)
   if (delivery.status !== '已确认待送检' || !delivery.confirmedAt) {
     throw new PostFinishingFlowGateError('INVALID_STATUS', '只有尚未送检的后道最终确认记录可以由回货主管订正。')
@@ -2349,6 +2328,7 @@ export function uploadPostFinishingDeliveryQcReference(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingQcReferenceRecord {
+  assertPostFinishingWrite()
   const delivery = findDelivery(input.deliveryId)
   if (!['已确认待送检', '已送检'].includes(delivery.status)) {
     throw new PostFinishingFlowGateError('INVALID_STATUS', '回货确认后才能上传本次质检参考资料。')
@@ -2394,6 +2374,7 @@ export function uploadPostFinishingQcTaskReference(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingQcReferenceRecord {
+  assertPostFinishingWrite()
   const task = findQcTask(input.qcTaskId)
   const delivery = findDelivery(task.deliveryId)
   if (task.status === '质检完成') {
@@ -2436,6 +2417,7 @@ export function sendPostFinishingFactoryReturnToQc(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingQcTask {
+  assertPostFinishingWrite()
   const delivery = findDelivery(input.deliveryId)
   const linkedTask = (delivery.qcTaskId ? state.qcTasks.find((task) => task.qcTaskId === delivery.qcTaskId) : undefined)
     || state.qcTasks.find((task) => task.deliveryId === delivery.deliveryId)
@@ -2487,13 +2469,25 @@ export function sendPostFinishingFactoryReturnToQc(input: {
   return clone(task)
 }
 
+export function getPostFinishingActiveQcTask(actorId: string): PostFinishingQcTask | undefined {
+  const tasks = state.qcTasks.filter(task => task.claimedBy?.actorId === actorId && task.status !== '质检完成')
+  if (tasks.length > 1) throw new PostFinishingFlowGateError('CLAIM_CONFLICT', '当前人员有多张未完成质检单，请由主管在质检清单处理后继续。')
+  return tasks[0] ? clone(tasks[0]) : undefined
+}
+
 export function claimPostFinishingQcTask(input: {
   qcTaskNo: string
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingQcTask {
+  assertPostFinishingWrite()
   if (!input.actor.roleName.includes('QC') && !input.actor.roleName.includes('质检')) {
     throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '当前账号不是 QC 质检人员，不能领取质检单。')
+  }
+  const active = getPostFinishingActiveQcTask(input.actor.actorId)
+  if (active) {
+    if (active.qcTaskNo === input.qcTaskNo.trim()) return active
+    throw new PostFinishingFlowGateError('CLAIM_CONFLICT', `请先完成当前质检单 ${active.qcTaskNo}，再领取下一张。`)
   }
   const exact = state.qcTasks.find((item) => item.qcTaskNo === input.qcTaskNo.trim())
   if (!exact) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整质检任务号，不提供模糊候选。')
@@ -2542,6 +2536,8 @@ export function releasePostFinishingQcTask(input: {
   supervisor?: boolean
   nowMs?: number
 }): PostFinishingQcTask {
+  assertPostFinishingWrite()
+  if (!input.supervisor || input.actor.roleName !== 'QC主管') throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '质检员须完成当前单据；异常占用请由 QC 主管释放。')
   const task = findQcTask(input.qcTaskId)
   const delivery = findDelivery(task.deliveryId)
   if (task.status === '质检完成') throw new PostFinishingFlowGateError('INVALID_STATUS', '已完成质检单不能退领。')
@@ -2623,6 +2619,7 @@ function createRecheckOrder(input: {
   const recheckOrderId = `PF-RC-${input.delivery.productionOrderId}-${input.delivery.returnIndex}`
   const number = issuePostFinishingDocumentNumber({
     kind: 'RECHECK',
+    sourceDocumentNo: input.postTask.postTaskNo,
     productionOrderNo: input.delivery.productionOrderNo,
     sourceObjectId: sourceId,
     idempotencyKey: `RECHECK:${sourceId}`,
@@ -2663,6 +2660,7 @@ export function completePostFinishingQcTask(input: {
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): PostFinishingQcTask {
+  assertPostFinishingWrite()
   const task = findQcTask(input.qcTaskId)
   const delivery = findDelivery(task.deliveryId)
   if (task.status === '质检完成') return clone(task)
@@ -2736,6 +2734,7 @@ export function completePostFinishingQcTask(input: {
     ? [...new Set(selectedItems)]
     : [...POST_FINISHING_PROCESS_ITEMS]
   const needPostFinishing = processItems.length > 0
+  const qualifiedQty = total(results.map((line) => line.passedQty))
   task.responsibility = responsibility
   task.frozenProcessItems = processItems
   task.status = '质检完成'
@@ -2749,8 +2748,8 @@ export function completePostFinishingQcTask(input: {
     actor: input.actor,
     recordedAt: now,
   })
-  if (!needPostFinishing) {
-    const outbound = total(results.map((line) => line.passedQty)) > 0
+  if (!needPostFinishing || qualifiedQty === 0) {
+    const outbound = qualifiedQty > 0
       ? upsertOutboundFromQc(task, delivery, results, now)
       : undefined
     persist()
@@ -2764,7 +2763,7 @@ export function completePostFinishingQcTask(input: {
       authorization: consumed,
       remark: outbound
         ? `本次不需要我方后道处理；不生成后道加工单和处理后复核单，直接生成面向成衣仓的出货交接单 ${outbound.outboundOrderNo}`
-        : '本次不需要我方后道处理，且没有可交给成衣仓的合格数量；不生成后道加工单、处理后复核单或空出货单',
+        : '本次没有合格可交数量；不生成后道加工单、处理后复核单或空出货单',
     })
     if (outbound) {
       appendBusinessLog({
@@ -2779,6 +2778,7 @@ export function completePostFinishingQcTask(input: {
   const postTaskId = `PF-POST-${delivery.productionOrderId}-${delivery.returnIndex}`
   const number = issuePostFinishingDocumentNumber({
     kind: 'POST',
+    sourceDocumentNo: task.qcTaskNo,
     productionOrderNo: delivery.productionOrderNo,
     sourceObjectId: task.qcTaskId,
     idempotencyKey: `POST:${task.qcTaskId}`,
@@ -2871,6 +2871,7 @@ export function takeOverPostFinishingPostTask(input: {
   reason: string
   nowMs?: number
 }): PostFinishingPostTask {
+  assertPostFinishingWrite()
   const task = findPostTask(input.postTaskId)
   if (task.status !== '后道中') throw new PostFinishingFlowGateError('INVALID_STATUS', '只有加工中的后道加工单可以接管。')
   const reason = input.reason.trim()
@@ -2900,6 +2901,7 @@ export function setPostFinishingPostProcessedQuantity(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingPostTask {
+  assertPostFinishingWrite()
   const task = findPostTask(input.postTaskId)
   assertPostFinishingPostTaskOwner(task, input.actor)
   const line = task.lines.find((item) => item.sku.skuId === input.skuId)
@@ -2939,6 +2941,7 @@ export function setPostFinishingPostUnprocessedQuantity(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingPostTask {
+  assertPostFinishingWrite()
   const task = findPostTask(input.postTaskId)
   assertPostFinishingPostTaskOwner(task, input.actor)
   const line = task.lines.find((item) => item.sku.skuId === input.skuId)
@@ -2980,6 +2983,7 @@ export function completePostFinishingPostTaskFromDraft(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingPostTask {
+  assertPostFinishingWrite()
   const task = findPostTask(input.postTaskId)
   assertPostFinishingPostTaskOwner(task, input.actor)
   const drafts = ensurePostFinishingPostDraftLines(task)
@@ -3006,6 +3010,7 @@ export function startPostFinishingPostTask(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingPostTask {
+  assertPostFinishingWrite()
   const task = state.postTasks.find((item) => item.postTaskNo === input.postTaskNo.trim())
   if (!task) throw new PostFinishingFlowGateError('NOT_FOUND', '未找到完整后道加工单号，不提供模糊候选。')
   const delivery = findDelivery(task.deliveryId)
@@ -3046,6 +3051,7 @@ export function completePostFinishingPostTask(input: {
   results: Array<Omit<PostFinishingPostResultLine, 'sku' | 'expectedQty'> & { skuId: string }>
   nowMs?: number
 }): PostFinishingPostTask {
+  assertPostFinishingWrite()
   const task = findPostTask(input.postTaskId)
   const delivery = findDelivery(task.deliveryId)
   const qcTask = findQcTask(task.qcTaskId)
@@ -3107,6 +3113,7 @@ export function claimPostFinishingRecheckOrder(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingRecheckOrder {
+  assertPostFinishingWrite()
   if (!input.actor.roleName.includes('复检')) {
     throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '当前账号不是复检人员，不能领取复检单。')
   }
@@ -3149,6 +3156,7 @@ export function releasePostFinishingRecheckOrder(input: {
   supervisor?: boolean
   nowMs?: number
 }): PostFinishingRecheckOrder {
+  assertPostFinishingWrite()
   const record = findRecheck(input.recheckOrderId)
   const delivery = findDelivery(record.deliveryId)
   if (record.status === '复检完成') throw new PostFinishingFlowGateError('INVALID_STATUS', '已完成复检单不能释放。')
@@ -3188,6 +3196,7 @@ export function scanPostFinishingRecheckSkuBarcode(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingRecheckOrder {
+  assertPostFinishingWrite()
   const record = findRecheck(input.recheckOrderId)
   const delivery = findDelivery(record.deliveryId)
   if (!record.claimedBy || record.claimedBy.actorId !== input.actor.actorId) {
@@ -3229,6 +3238,7 @@ export function markPostFinishingRecheckSkuRelabeled(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingRecheckOrder {
+  assertPostFinishingWrite()
   const record = findRecheck(input.recheckOrderId)
   const delivery = findDelivery(record.deliveryId)
   if (!record.claimedBy || record.claimedBy.actorId !== input.actor.actorId) {
@@ -3268,6 +3278,7 @@ function upsertOutboundFromRecheck(
   const outboundOrderId = `PF-OUT-${delivery.productionOrderId}-${delivery.returnIndex}`
   const number = issuePostFinishingDocumentNumber({
     kind: 'OUTBOUND',
+    sourceDocumentNo: record.recheckOrderNo,
     productionOrderNo: delivery.productionOrderNo,
     sourceObjectId: record.recheckOrderId,
     idempotencyKey: `OUTBOUND:${record.recheckOrderId}`,
@@ -3311,6 +3322,7 @@ function upsertOutboundFromQc(
   const outboundOrderId = `PF-OUT-${delivery.productionOrderId}-${delivery.returnIndex}`
   const number = issuePostFinishingDocumentNumber({
     kind: 'OUTBOUND',
+    sourceDocumentNo: qcTask.qcTaskNo,
     productionOrderNo: delivery.productionOrderNo,
     sourceObjectId: qcTask.qcTaskId,
     idempotencyKey: `OUTBOUND:QC:${qcTask.qcTaskId}`,
@@ -3455,6 +3467,7 @@ export function completePostFinishingRecheckOrderFullFlow(input: {
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): PostFinishingRecheckOrder {
+  assertPostFinishingWrite()
   const record = findRecheck(input.recheckOrderId)
   const delivery = findDelivery(record.deliveryId)
   if (record.status === '复检完成') return clone(record)
@@ -3526,13 +3539,14 @@ export function receivePostFinishingOutboundOrder(input: {
   authorization?: PostFinishingAuthorizationInput
   nowMs?: number
 }): { outbound: PostFinishingOutboundOrder; receipt: PostFinishingWarehouseReceipt; alreadyReceived: boolean } {
+  assertPostFinishingWrite()
   // POST-014 / POST-021: this is the external garment warehouse responsibility boundary.
   if (!input.actor?.actorId?.trim() || !input.actor?.actorName?.trim()
     || !['仓库收货人员', '成衣仓收货员'].includes(input.actor?.roleName?.trim())) {
     throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '只有身份完整的仓库收货人员可以确认成衣仓收货。')
   }
   const exact = state.outboundOrders.find((item) => item.outboundOrderNo === input.outboundOrderNo.trim())
-  if (!exact) throw new PostFinishingFlowGateError('NOT_FOUND', '只接受完整 FCK 后道出货单号，不接受复检单或内部交接号。')
+  if (!exact) throw new PostFinishingFlowGateError('NOT_FOUND', '只接受完整后道出货单号，不接受复检单或内部交接号。')
   const delivery = findDelivery(exact.deliveryId)
   const existingReceipt = state.warehouseReceipts.find((item) => item.outboundOrderId === exact.outboundOrderId)
   if (existingReceipt) return { outbound: clone(exact), receipt: clone(existingReceipt), alreadyReceived: true }
@@ -3753,79 +3767,28 @@ export function getPostFinishingReturnToleranceRate(): number {
 }
 
 export function resetPostFinishingFullFlow(): void {
+  assertPostFinishingWrite()
   state = emptyState()
-  try {
-    if (!buildingDemoData) globalThis.localStorage?.removeItem(STORAGE_KEY)
-  } catch {
-    // 忽略原型存储不可用。
-  }
   resetPostFinishingDocumentNumbering()
   resetPostFinishingAuthorizationConsumptions()
   resetPostFinishingOperationLogs()
   resetPostFinishingQcReferences()
+  withPostFinishingDemo(() => ensurePostFinishingMaterialTransferDemo())
 }
 
-export function setPostFinishingDemoBootstrapEnabled(enabled: boolean): void {
-  try {
-    globalThis.localStorage?.setItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY, enabled ? 'demo' : 'empty')
-  } catch {
-    // 原型存储不可用时不切换默认 Mock 模式。
-  }
-}
+// Retained only as an in-memory demo choice for existing domain callers.
+export function setPostFinishingDemoBootstrapEnabled(_enabled: boolean): void {}
 
-function shouldBootstrapPostFinishingDemo(): boolean {
-  if (typeof window === 'undefined') return false
-  try {
-    const storage = globalThis.localStorage
-    return Boolean(storage) && storage.getItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY) !== 'empty'
-  } catch {
-    return false
-  }
-}
-
-export function loadPostFinishingDemoData(options: { persist?: boolean } = {}): void {
-  if (buildingDemoData) throw new Error('后道演示数据正在初始化，请稍后重试。')
-  const storage = options.persist === false ? undefined : globalThis.localStorage
-  const storageKeys = [
-    STORAGE_KEY, POST_FINISHING_DEMO_MODE_STORAGE_KEY,
-    'higood-fcs-post-finishing-full-flow-operation-logs-v1',
-    'higood-fcs-post-finishing-document-numbering-v1',
-    'higood-fcs-post-finishing-authorization-consumptions-v1',
-    'higood-fcs-post-finishing-qc-reference-v1',
-  ]
-  const saved = storageKeys.map((key) => [key, storage?.getItem(key) ?? null] as const)
-  const beforeState = state
-  const batches = [
-    beginPostFinishingOperationLogDemoBatch(),
-    beginPostFinishingNumberingDemoBatch(),
-    beginPostFinishingAuthorizationDemoBatch(),
-    beginPostFinishingQcReferenceDemoBatch(),
-  ]
-  buildingDemoData = true
-  try {
-    resetPostFinishingFullFlow()
-    populatePostFinishingDemoData()
-    // 全部命令成功后才写入；任一保存失败都恢复五组内存事实及原存储。
-    if (options.persist !== false) for (const batch of batches) batch.commit()
-    storage?.setItem(STORAGE_KEY, JSON.stringify(state))
-    storage?.setItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY, 'demo')
-  } catch (error) {
-    state = beforeState
-    for (const batch of batches) batch.rollback()
-    const restoreErrors: unknown[] = []
-    for (const [key, raw] of saved) {
-      try {
-        if ((storage?.getItem(key) ?? null) === raw) continue
-        if (raw === null) storage?.removeItem(key)
-        else storage?.setItem(key, raw)
-      } catch (restoreError) { restoreErrors.push(restoreError) }
-    }
-    if (restoreErrors.length) throw new AggregateError([error, ...restoreErrors], '后道演示初始化未保存，恢复存储失败；请保留现场并重试。')
-    throw error
-  } finally {
-    buildingDemoData = false
-    for (const batch of batches) batch.finish()
-  }
+export function loadPostFinishingDemoData(_options: { persist?: boolean } = {}): void {
+  withPostFinishingDemo(() => {
+    if (buildingDemoData) throw new Error('后道演示数据正在初始化。')
+    const beforeState = structuredClone(state)
+    const batches = [beginPostFinishingOperationLogDemoBatch(), beginPostFinishingNumberingDemoBatch(), beginPostFinishingAuthorizationDemoBatch(), beginPostFinishingQcReferenceDemoBatch()]
+    buildingDemoData = true
+    try { resetPostFinishingFullFlow(); populatePostFinishingDemoData() }
+    catch (error) { state = beforeState; batches.forEach(batch => batch.rollback()); throw error }
+    finally { buildingDemoData = false; batches.forEach(batch => batch.finish()) }
+  })
 }
 
 function populatePostFinishingDemoData(): void {
@@ -3867,7 +3830,7 @@ function populatePostFinishingDemoData(): void {
 
       const claimedQc = claimPostFinishingQcTask({
         qcTaskNo: qcTask.qcTaskNo,
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA,
+        actor: orderIndex === 0 && returnIndex <= 4 ? POST_FINISHING_ACCEPTANCE_ACTORS.qcA : POST_FINISHING_ACCEPTANCE_ACTORS.qcB,
         nowMs: chainTime + 30 * 60 * 1000,
       })
       if (returnIndex === 4 && orderIndex === 0) continue
@@ -3875,7 +3838,7 @@ function populatePostFinishingDemoData(): void {
       const isReworkDemo = orderIndex === 0 && returnIndex === 5
       const completedQc = completePostFinishingQcTask({
         qcTaskId: claimedQc.qcTaskId,
-        actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA,
+        actor: orderIndex === 0 && returnIndex <= 4 ? POST_FINISHING_ACCEPTANCE_ACTORS.qcA : POST_FINISHING_ACCEPTANCE_ACTORS.qcB,
         results: claimedQc.lines.map((line, lineIndex) => {
           if (isReworkDemo && lineIndex === 0) {
             return {
@@ -4010,16 +3973,23 @@ function migratePendingQcDirectRechecks(): void {
   state.recheckOrders = state.recheckOrders.filter((record) => !migratedIds.has(record.recheckOrderId))
 }
 
-if (needsLegacyStateMigration) {
-  migratePendingQcDirectRechecks()
-  backfillWaitProcessWarehouseFacts()
-  backfillWaitHandoverWarehouseFacts()
-  if (state.migration) state.migration.completedAt = nowIso()
-  // 即使旧 deliveries 为空，也需持久化完成标记，避免每次读取重新迁移。
-  persist()
-  needsLegacyStateMigration = false
-}
-// 已保存的旧/当前空回货库可能仍有 QC 等历史事实，不得被默认演示重置。
-// Imported by cutting/task pages too. Reading static demo data must not save a
-// different module's entire demo or fail the importing page when quota is full.
-if (!hasPersistedFullFlowState && state.deliveries.length === 0 && shouldBootstrapPostFinishingDemo()) loadPostFinishingDemoData({ persist: false })
+loadPostFinishingDemoData({ persist: false })
+registerPostFinishingRepository('flow', STORAGE_KEY, () => state, value => { state = value }, raw => {
+  const parsed = readPersistedState(raw)
+  if (parsed.migration) parsed.migration.legacyRaw = ''
+  return parsed
+})
+registerPostFinishingMigrationNormalizer(() => {
+  const names = new Map<string, string>()
+  state.deliveries.forEach(row => names.set(row.deliveryOrderNo, `${row.productionOrderNo}-${row.returnIndex}`))
+  state.qcTasks.forEach(row => names.set(row.qcTaskNo, `${names.get(row.deliveryOrderNo) || row.deliveryOrderNo}-ZJ`))
+  state.postTasks.forEach(row => names.set(row.postTaskNo, `${names.get(row.qcTaskNo) || row.qcTaskNo}-HD`))
+  state.recheckOrders.filter(row => row.postTaskNo).forEach(row => names.set(row.recheckOrderNo, `${names.get(row.postTaskNo!) || row.postTaskNo}-FJ`))
+  state.outboundOrders.forEach(row => names.set(row.outboundOrderNo, `${names.get(row.recheckOrderNo || row.qcTaskNo) || row.recheckOrderNo || row.qcTaskNo}-CH`))
+  mapPostFinishingRepositoryValues(value => {
+    if (typeof value !== 'string') return value
+    if (names.has(value)) return names.get(value)!
+    const escaped = [...names.keys()].sort((a, b) => b.length - a.length).map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    return escaped.length ? value.replace(new RegExp(escaped.join('|'), 'g'), match => names.get(match)!) : value
+  })
+})

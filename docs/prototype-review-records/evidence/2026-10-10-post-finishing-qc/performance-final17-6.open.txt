@@ -1,0 +1,9 @@
+### Browser `pf-final17-performance-6` opened with pid 97755.
+### Ran Playwright code
+```js
+await page.goto('about:blank');
+```
+### Page
+- Page URL: about:blank
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-10-10T08-08-03-617Z.yml)

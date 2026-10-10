@@ -1,0 +1,3224 @@
+{
+  "segment": 7,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-冷开",
+      "ms": 303.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 128.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 114.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-冷开",
+      "ms": 333.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 131.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 271.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-冷开",
+      "ms": 338.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-冷开",
+      "ms": 522.7999999970198,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 115.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 111,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 259.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-冷开",
+      "ms": 307.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-冷开",
+      "ms": 310.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 132,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 304.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-冷开",
+      "ms": 362.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-冷开",
+      "ms": 330.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 143.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 256.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-冷开",
+      "ms": 302.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-冷开",
+      "ms": 301.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 91.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 125.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 128.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 255.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-冷开",
+      "ms": 291.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-冷开",
+      "ms": 300.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 115.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 125.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 143.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 144.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 129.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 243.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-冷开",
+      "ms": 320.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-冷开",
+      "ms": 330.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 125.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 256.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-冷开",
+      "ms": 319.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-冷开",
+      "ms": 302.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 113.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 258.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-冷开",
+      "ms": 322.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 112.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-冷开",
+      "ms": 527,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 254.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-冷开",
+      "ms": 294,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-冷开",
+      "ms": 333.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 258.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-冷开",
+      "ms": 316.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 115.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-冷开",
+      "ms": 308.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 125.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 116.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 259.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-冷开",
+      "ms": 536.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-冷开",
+      "ms": 325.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 125.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 124.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-已处理数量",
+      "ms": 109.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 271,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-冷开",
+      "ms": 299.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 114.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-冷开",
+      "ms": 334.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 96.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 131.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 131.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 256.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-冷开",
+      "ms": 301.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-冷开",
+      "ms": 330.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 113.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 129.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 145.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存SKU",
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 255.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-冷开",
+      "ms": 301.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存失败保留数量",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-冷开",
+      "ms": 342.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-开始新编号加工",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 128.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 92.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 127.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 122.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 124.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-已处理数量",
+      "ms": 93.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存SKU",
+      "ms": 126.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-原子完成生成FJ",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web后道-保存后刷新",
+      "ms": 255.8999999910593,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web加工保存失败/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web加工五SKU保存/完成/FJ/刷新"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "16c82cfb6ae7845873303952b17dcaf29f70d9faa2dac0e6a16bc2070f0fa37d",
+  "runtimeVersion": "build-final26",
+  "scriptSha256": "35a9bd33352a02c6753f08e9c7fdc561cb5cb0e7c661c86105405dc298fac40c"
+}

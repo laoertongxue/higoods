@@ -648,7 +648,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-post-finishing-tasks', title: '后道生产任务', icon: 'ListTodo', href: '/fcs/craft/post-finishing/tasks' },
             { key: 'pfos-post-finishing-material-transfers', title: '后道辅料调拨单', icon: 'PackageOpen', href: '/fcs/craft/post-finishing/material-transfers' },
-            { key: 'pfos-post-finishing-qc-orders', title: '质检单', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-orders' },
+            { key: 'pfos-post-finishing-qc-execute', title: '执行质检', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-workbench' },
+            { key: 'pfos-post-finishing-qc-orders', title: '质检清单', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-orders' },
             { key: 'pfos-post-finishing-work-orders', title: '后道加工单', icon: 'ClipboardList', href: '/fcs/craft/post-finishing/work-orders' },
             { key: 'pfos-post-finishing-recheck-orders', title: '复检单', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/recheck-orders' },
             { key: 'pfos-post-finishing-wait-process-warehouse', title: '后道待加工仓', icon: 'Warehouse', href: '/fcs/craft/post-finishing/wait-process-warehouse' },
