@@ -43,8 +43,8 @@ const agentsSource = fs.readFileSync(new URL('../AGENTS.md', import.meta.url), '
 const supplementPageSource = fs.readFileSync(new URL('../src/pages/process-factory/cutting/supplement-management.ts', import.meta.url), 'utf8')
 
 function extractStandardListGovernanceSection(source: string): string {
-  const headingMatch = /^### 5\.2 标准管理列表页\s*$/m.exec(source)
-  assert(headingMatch, 'AGENTS.md 必须定义“### 5.2 标准管理列表页”章节')
+  const headingMatch = /^\*\*LIST-01：.*$/m.exec(source)
+  assert(headingMatch, 'AGENTS.md 必须定义稳定规则 LIST-01')
   const sectionStart = headingMatch.index
   const contentStart = sectionStart + headingMatch[0].length
   const remainingSource = source.slice(contentStart)
@@ -54,92 +54,42 @@ function extractStandardListGovernanceSection(source: string): string {
 }
 
 function assertStandardListGovernanceSection(section: string): void {
-  assert.match(section, /\/fcs\/craft\/cutting\/supplement-management/, '标准列表治理章节必须写明补料管理验收基准')
-  assert.match(section, /renderStandardListPage/, '标准列表治理章节必须要求使用标准列表公共骨架')
-  assert.match(section, /48px 单行布局/, '标准列表治理章节必须规定 48px 单行摘要')
-  assert.match(section, /列表必须分页/, '标准列表治理章节必须强制分页')
-  assert.match(section, /列显示、顺序、排序和冻结/, '标准列表治理章节必须要求完整列管理')
-  assert.match(section, /固定左侧/, '标准列表治理章节必须要求普通冻结列固定左侧')
-  assert.match(section, /不可隐藏/, '标准列表治理章节必须要求防错列不可隐藏')
-  assert.match(section, /操作列固定右侧/, '标准列表治理章节必须要求操作列固定右侧')
-  assert.match(section, /按路由持久化/, '标准列表治理章节必须要求列偏好按路由持久化')
-  assert.match(section, /页面主体不得横向溢出/, '标准列表治理章节必须规定页面横向溢出边界')
-  assert.match(section, /业务例外写入完整原型审查记录/, '标准列表治理章节必须要求业务例外写入审查记录')
-  assert.match(
-    section,
-    /^本节只适用于管理端 \/ 主管端桌面标准数据列表，不适用于 PDA、员工任务队列、固定摘要、步骤页和扫码结果页。$/m,
-    '标准列表治理章节必须明确适用范围',
-  )
-  assert.match(
-    section,
-    /^- 新增或调整的标准列表页在页面顶部声明 `\/\/ @page-pattern: list`，通过 `npm run check:list-page-governance`，并使用 `renderStandardListPage`、`renderStandardListTable`、`renderTablePagination`。$/m,
-    '标准列表治理章节必须规定页面声明、治理命令和标准组件',
-  )
-  assert.match(
-    section,
-    /^- 验收基准为 `\/fcs\/craft\/cutting\/supplement-management`；公共能力不足时扩展 `src\/components\/ui\/`，不得复制整套页面模板。$/m,
-    '标准列表治理章节必须规定验收基准并禁止复制页面模板',
-  )
-  assert.match(
-    section,
-    /^- 摘要使用 48px 单行布局；列表必须分页，并明确当前页、每页条数和总数。$/m,
-    '标准列表治理章节必须规定摘要布局与分页口径',
-  )
-  assert.match(
-    section,
-    /^- 宽表支持列显示、顺序、排序和冻结；冻结普通列固定左侧，必需 \/ 防错列不可隐藏，操作列固定右侧。$/m,
-    '标准列表治理章节必须规定宽表列管理、冻结和必需列',
-  )
-  assert.match(
-    section,
-    /^- 列显示、顺序、冻结和每页条数按路由持久化；当前页和排序不持久化。$/m,
-    '标准列表治理章节必须限定持久化与非持久化状态',
-  )
-  assert.match(
-    section,
-    /^- 页面主体不得横向溢出，宽表在表格容器内部滚动；按第 4\.4 节分辨率验收。$/m,
-    '标准列表治理章节必须规定横向溢出与分辨率验收边界',
-  )
-  assert.match(
-    section,
-    /^- `scripts\/standard-list-page-baseline\.json` 只保留未迁移且未变化的历史页面哈希，不得修改基线或检查脚本绕过门禁；业务例外写入完整原型审查记录。$/m,
-    '标准列表治理章节必须保护基线并要求记录业务例外',
-  )
+  // These are policy contracts, not a snapshot of chapter numbers or full sentences.
+  const requirements = [
+    '/fcs/craft/cutting/supplement-management',
+    'renderStandardListPage', 'renderStandardListTable', 'renderTablePagination',
+    '@page-pattern: list', '@list-pagination: none',
+    '查询、统计、导出、列设置和分页按任务、规模与既有约定提供',
+    '大量业务记录使用分页', '少量固定字典可不分页',
+    '不得截断关键结果', '长标签、翻译和低分辨率按需换行',
+    '列显示、顺序、排序和冻结', '固定左侧', '不可隐藏', '操作列固定右侧',
+    '按路由持久化', '当前页和排序不持久化',
+    '页面主体不得横向溢出', '不得复制整套页面模板',
+    '不新增或修改哈希绕过门禁', '当前轻量审查',
+  ]
+  for (const requirement of requirements) {
+    assert(section.includes(requirement), `标准列表治理缺少约定：${requirement}`)
+  }
 }
 
 const standardListGovernanceSection = extractStandardListGovernanceSection(agentsSource)
 assertStandardListGovernanceSection(standardListGovernanceSection)
 assert.match(agentsSource, /npm run check:list-page-governance/, 'AGENTS.md 必须要求统一列表页治理命令')
-assert.match(agentsSource, /历史页面哈希.*不得修改基线/, 'AGENTS.md 必须禁止修改历史列表页基线哈希')
+assert.match(agentsSource, /历史页面身份和原始哈希.*不新增或修改哈希绕过门禁/, 'AGENTS.md 必须禁止修改历史列表页基线哈希')
 assert.match(supplementPageSource, /@page-pattern:\s*list/, '补料管理页面必须声明列表页模式')
 
-const rejectedGovernanceVariants = [
-  standardListGovernanceSection.replace('列表必须分页', '列表不必分页'),
-  standardListGovernanceSection.replace(
-    '宽表支持列显示、顺序、排序和冻结',
-    '宽表不必支持列显示、顺序、排序和冻结',
-  ),
-  standardListGovernanceSection.replace('不得复制整套页面模板', '可以复制整套页面模板'),
-  standardListGovernanceSection.replace('摘要使用 48px 单行布局', '摘要不使用 48px 单行布局'),
-  standardListGovernanceSection.replace('冻结普通列固定左侧', '冻结普通列不固定左侧'),
-  standardListGovernanceSection.replace('当前页和排序不持久化', '当前页和排序持久化'),
-  standardListGovernanceSection.replace('页面主体不得横向溢出', '页面主体允许横向溢出'),
-  standardListGovernanceSection.replace('不得修改基线或检查脚本绕过门禁', '可以修改基线或检查脚本绕过门禁'),
-  standardListGovernanceSection.replace('列显示、顺序、排序和冻结', '仅显示默认列'),
-  standardListGovernanceSection.replace('48px 单行布局', '普通卡片布局'),
-  standardListGovernanceSection.replace('固定左侧', '随表格滚动'),
-  standardListGovernanceSection.replace('不可隐藏', '可以隐藏'),
-  standardListGovernanceSection.replace('操作列固定右侧', '操作列不固定'),
-  standardListGovernanceSection.replace('按路由持久化', '不持久化'),
-]
-for (const [index, rejectedVariant] of rejectedGovernanceVariants.entries()) {
-  assert.notEqual(rejectedVariant, standardListGovernanceSection, `治理否定变体 ${index + 1} 必须实际改变章节内容`)
-  assert.throws(
-    () => assertStandardListGovernanceSection(rejectedVariant),
-    undefined,
-    `治理否定变体 ${index + 1} 必须被拒绝`,
-  )
+for (const token of [
+  '大量业务记录使用分页', '少量固定字典可不分页',
+  '不得截断关键结果', '长标签、翻译和低分辨率按需换行',
+  '列显示、顺序、排序和冻结', '固定左侧', '不可隐藏', '操作列固定右侧',
+  '按路由持久化', '当前页和排序不持久化', '页面主体不得横向溢出',
+  '不新增或修改哈希绕过门禁', '不得复制整套页面模板',
+]) {
+  const variant = standardListGovernanceSection.replace(token, '已移除该约束')
+  assert.notEqual(variant, standardListGovernanceSection)
+  assert.throws(() => assertStandardListGovernanceSection(variant), undefined, `缺少 ${token} 必须被拒绝`)
 }
+
 assert.match(mainSource, /root\.addEventListener\('dragstart', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动开始事件')
 assert.match(mainSource, /root\.addEventListener\('dragover', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动经过事件')
 assert.match(mainSource, /root\.addEventListener\('drop', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动放置事件')

@@ -1,0 +1,65 @@
+[
+  {
+    "path": "docs/INDEX.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "77f3aaf131f2ce56651f504011ea53baede1b619fbb0a766f16e947e7db5625a",
+    "bytes": 2537,
+    "matchesGitSource": true
+  },
+  {
+    "path": "docs/higood-indonesia-factory-product-design-guidelines.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "b56d19ccfb07e22600bf32280491150aa515729a5eb69632666455d875a43f90",
+    "bytes": 22203,
+    "matchesGitSource": true
+  },
+  {
+    "path": "docs/higood-indonesia-factory-prototype-review-checklist.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "3d8277474e122f81beedbd278ced612b37bdb921ddfcbf7170dcf4af7c86f644",
+    "bytes": 14415,
+    "matchesGitSource": true
+  },
+  {
+    "path": "docs/standard-list-page-governance-setup.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "182a305c4f749b4478f2e49aabbb03306b53aa71e5885c97122575a7324b7426",
+    "bytes": 768,
+    "matchesGitSource": true
+  },
+  {
+    "path": "docs/fcs-truth-source-rules.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "b5f4493717941c082882f322042706650c926a4d81fac0084f67ba6f78e1e369",
+    "bytes": 732,
+    "matchesGitSource": true
+  },
+  {
+    "path": ".agents/skills/higood-indonesia-factory-design/SKILL.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "063f5e8e774622c92e772f9c5a182049adf9aea013e917a84917a51085af95fb",
+    "bytes": 3519,
+    "matchesGitSource": true
+  },
+  {
+    "path": ".agents/skills/higood-indonesia-factory-design/references/product-design-guidelines.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "13db45b32bce88f623cb90f7d2f8eab9309e97bacbe1f6974478f96b80d18cc9",
+    "bytes": 1111,
+    "matchesGitSource": true
+  },
+  {
+    "path": ".agents/skills/higood-indonesia-factory-design/references/prototype-review-checklist.md",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "c7b4d8f2cb42517405d6094f923bfa86352ac3cc3f515fa7fb175bdea6e8ef15",
+    "bytes": 1128,
+    "matchesGitSource": true
+  },
+  {
+    "path": ".agents/skills/higood-indonesia-factory-design/agents/openai.yaml",
+    "sourceCommit": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "sha256": "2483652c018d7458584c2ebb13a7f9007b66ec57d9e7862d2e0377ed6602b31d",
+    "bytes": 287,
+    "matchesGitSource": true
+  }
+]

@@ -1,0 +1,18 @@
+(node:66036) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ warehouse receiving accepts issue/transfer facts, excludes returns and preserves actual quantities (376.531958ms)
+(node:66038) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: dispatch reads keep all documents and independent copies without projecting unrelated business views (151.4705ms)
+(node:66039) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: scoped reads preserve pending/voided sources and defensive copies (6.28375ms)
+✔ VERIFY-003: metadata lookup reflects registry changes and returns independent locations (4.651875ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 850.603834

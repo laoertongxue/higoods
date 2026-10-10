@@ -1,0 +1,244 @@
+✖ 不能删除模式降级为历史交付 (2.061417ms)
+✖ 空版本不能吞下一行 (0.731917ms)
+✖ 不能保留待填写自查行 (0.097291ms)
+✖ 通过自查也必须有实质证据 (0.095333ms)
+✔ 自查不适用必须有具体理由 (0.235125ms)
+✖ 拒绝模板版本原文 (0.083083ms)
+✖ 拒绝模板证据原文 (0.08975ms)
+✖ 重复页面节不能藏空值 (0.079708ms)
+✖ 重复影响节不能掩盖冲突 (0.088917ms)
+✖ 重复可见影响字段不能掩盖冲突 (0.117958ms)
+✔ 重复命令不能掩盖失败 (0.104709ms)
+✖ 命令不能以通过前缀掩盖失败 (0.080708ms)
+✔ 不能把无理由不适用作为性能依据 (0.068667ms)
+✖ 不能只提供旧规则作为本次基线 (0.063333ms)
+✖ 编号与无编号标题得到相同当前交付结果 (0.155833ms)
+✔ 按原子需求引用既有矩阵作为自查证据 (0.071916ms)
+✔ 未关联本次受管文件的历史记录不被强制升级 (0.135708ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 5
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 86.713916
+
+✖ failing tests:
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 不能删除模式降级为历史交付 (2.061417ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /记录模式/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 空版本不能吞下一行 (0.731917ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /版本/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 不能保留待填写自查行 (0.097291ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /自查/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 通过自查也必须有实质证据 (0.095333ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /自查/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 拒绝模板版本原文 (0.083083ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /版本/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 拒绝模板证据原文 (0.08975ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /证据/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 重复页面节不能藏空值 (0.079708ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /重复/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 重复影响节不能掩盖冲突 (0.088917ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /重复/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 重复可见影响字段不能掩盖冲突 (0.117958ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /重复/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 命令不能以通过前缀掩盖失败 (0.080708ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /未通过|待填写|未运行/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:64:3
+✖ 不能只提供旧规则作为本次基线 (0.063333ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:68:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /治理基线/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:72:1
+✖ 编号与无编号标题得到相同当前交付结果 (0.155833ms)
+  AssertionError [ERR_ASSERTION]: docs/prototype-review-records/adversarial.md 缺少有效自查结论
+      at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:182:3)
+      at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:234:10)
+      at verify (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:44:3)
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:76:3)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

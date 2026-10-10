@@ -1,0 +1,106 @@
+✔ 补料页面路由到专项检查和原型治理 (0.717291ms)
+✔ 裁片数据路由到裁床检查 (0.126625ms)
+✔ 主处理器变更升级到端到端检查和构建 (0.064375ms)
+✔ 列表公共组件路由到列表治理并升级构建 (0.0595ms)
+✔ 未知路径不会静默跳过而是升级完整检查 (0.319875ms)
+✔ 未命中专项规则的原型组件仍升级构建 (0.059833ms)
+✔ 项目依赖清单单独变化仍升级构建 (0.049167ms)
+✔ 毛织事实流变更必须绑定专项静态检查和真实独立服务 E2E 退出结果 (0.07675ms)
+✔ 领域关键词不会吞掉路由、主处理器和治理脚本的结构性检查 (0.072625ms)
+✔ 冻结基线通过环境传递给原型治理子检查 (0.096625ms)
+✔ 纯治理修改只跑治理契约，不自动运行业务构建 (0.0725ms)
+✔ 业务名称出现在文档路径中不触发业务测试 (0.044625ms)
+✔ 单个时间夹具修复路由到实际单测，不凭裁床名称跑全业务 (0.043708ms)
+✔ 未识别测试必须明确升级，不能误称已运行该测试 (0.064916ms)
+✔ 完整运行目录与 HTML 入口不能漏掉产品治理 (0.046083ms)
+✔ 范围必须包含记录且不能回退整工作区 (0.050042ms)
+✔ 治理工具名中的 cutting 不触发裁床全量或构建 (0.074375ms)
+✔ 五份文档与退休入口作为文档处理而非未知业务路径 (0.034625ms)
+✔ 范围文件名中的引号、空格和命令替换仅作为文字传递 (7.575542ms)
+✔ 不能准确表达的逗号文件名明确失败而非扩大检查范围 (0.477791ms)
+✔ 归一化和去重只处理传入路径，不吸收外部工作区 (0.0415ms)
+✔ 列表治理工具也明确保留本次文件范围 (0.036ms)
+✔ 列表公共组件和事件入口保留独立运行验证 (0.060709ms)
+✔ 列表检查器改动有独立运行验证但不扩大为业务构建 (0.032ms)
+✔ 普通页面和轻量历史列表修正不隐式触发全列表运行测试 (0.023917ms)
+✖ AGENTS.md 规则或模板变化触发治理闭环而非业务构建 (3.923333ms)
+✖ docs/prototype-review-record-template.md 规则或模板变化触发治理闭环而非业务构建 (0.130834ms)
+✖ 裁片手册变化只验证文档契约，不运行业务全量 (0.311583ms)
+✔ README 架构与历史文档删除不触发治理全套 (0.040417ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 26
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 84.557541
+
+✖ failing tests:
+
+test at tests/workflow-governance/affected-checks.test.ts:212:3
+✖ AGENTS.md 规则或模板变化触发治理闭环而非业务构建 (3.923333ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert(result.fastChecks.includes('npm run test:workflow-governance'))
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/affected-checks.test.ts:214:5)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/affected-checks.test.ts:212:3
+✖ docs/prototype-review-record-template.md 规则或模板变化触发治理闭环而非业务构建 (0.130834ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert(result.fastChecks.includes('npm run test:workflow-governance'))
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/affected-checks.test.ts:214:5)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/affected-checks.test.ts:221:1
+✖ 裁片手册变化只验证文档契约，不运行业务全量 (0.311583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'node --experimental-strip-types --test tests/workflow-governance/cutting-documentation.test.ts'
+  - ]
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/affected-checks.test.ts:223:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'node --experimental-strip-types --test tests/workflow-governance/cutting-documentation.test.ts' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

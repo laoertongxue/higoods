@@ -1,253 +1,122 @@
-# HiGood 原型项目架构分析
+# HiGood 原型架构说明
 
-## 一、项目概述
+本文描述当前代码组织，不制定项目规则。技术边界和改动要求见 [AGENTS.md](AGENTS.md)，启动方式见 [README.md](README.md)。
 
-HiGood 是一个面向**服装制造供应链管理**的 Axure 风格快速原型平台。它不是生产级业务系统，而是用于快速产出 **UI 结构、交互演示和模拟数据** 的原型工具仓库。项目部署在 **Vercel** 上实现在线预览。
+核对日期：2026-10-10。业务源码基准：`99e25a0b846188176516a882b8c8d30fb915f6ef`；下列链接指向各实现入口。之后的结构变化以目标版本源码为准。
 
-### 核心约束
-- 不引入 Redux/Zustand 等状态管理框架
-- 不使用 React Query/SWR 等数据请求库
-- 无后端服务、无 API 层、无复杂表单引擎
-- 优先采用 **静态页面 + 本地 Mock 数据 + 轻量交互**
-- 所有页面内容为中文
+## 技术与入口
 
-### 技术栈
-| 类别 | 技术 | 版本 |
-|------|------|------|
-| 构建工具 | Vite | ^6.2.0 |
-| 语言 | TypeScript | ^5.8.3 |
-| CSS 框架 | Tailwind CSS | ^4.1.7 |
-| 图标库 | Lucide | ^0.468.0 |
-| E2E 测试 | Playwright | ^1.53.2 |
-| QR 码 | qrcode.react (唯一 React 依赖) | ^4.2.0 |
+应用由 [index.html](index.html) 加载 [src/main.ts](src/main.ts)，在浏览器中把 HTML 字符串写入 DOM。它不是服务端渲染；React 目前用于 [二维码挂载](src/components/real-qr.ts)等隔离功能，不承担页面组件树。
 
----
+构建使用 Vite，业务与页面使用 TypeScript，样式同时来自 Tailwind 类和 [src/styles.css](src/styles.css)。图标由 Lucide 处理，浏览器测试使用 Playwright。依赖声明及解析版本分别在 [package.json](package.json) 和 [package-lock.json](package-lock.json)，本文不复制版本表。
 
-## 二、业务系统划分
+## 系统入口与终端形态
 
-项目覆盖五大业务子系统：
+[app-shell-config.ts](src/data/app-shell-config.ts) 的 `systems` 配置包含以下入口。菜单存在只说明导航已配置，不代表该系统所有业务能力均已完成。
 
-| 系统 | 路由前缀 | 业务领域 |
-|------|----------|----------|
-| **FCS** (Factory Collaboration System) | `/fcs/*` | 工厂生产管理：工单、裁剪、印花、染色、特种工艺 |
-| **PCS** (Product Collaboration System) | `/pcs/*` | 产品开发协同：项目、样板库、工艺单、测试 |
-| **PDA** (Personal Digital Assistant) | `/fcs/pda/*` | 移动手持终端：工人领任务、执行、交接、仓库 |
-| **PFOS** (Process Factory Operations) | `/fcs/craft/*` 等 | 车间工序操作：裁床、印染、特种工艺 |
-| **通用** | `/workbench` 等 | 工作台总览、全局配置 |
+| 系统 | 中文名称 | 默认入口 |
+| --- | --- | --- |
+| PCS | 商品中心系统 | `/pcs/products/styles` |
+| PMS | 采购管理系统 | `/pms/workbench/overview` |
+| FCS | 工厂生产协同系统 | `/fcs/workbench/overview` |
+| PFOS | 工艺工厂运营系统 | `/fcs/craft/workbench/overview` |
+| WLS | 仓储物流系统 | `/wls/fabric-demand-board` |
+| LOS | 直播运营系统 | `/los/live-schedule` |
+| OMS | 订单管理系统 | `/oms/order-list` |
+| BFIS | 业财一体化系统 | `/bfis/financial-report` |
+| DDS | 数据决策系统 | `/dds/dashboard` |
 
----
+PDA 是终端形态，不是第十个业务系统。PDA 页面主要位于 `/fcs/pda/*`，也存在 WLS PDA 入口；打印同样有独立呈现形态。[renderAppShell](src/components/shell.ts) 根据路由选择桌面外壳、PDA 或独立打印容器。
 
-## 三、核心架构
+## 代码职责
 
-### 3.1 自研 SPA 路由引擎
+| 位置 | 当前职责 |
+| --- | --- |
+| [src/main.ts](src/main.ts) | 启动、按路由准备数据、组装页面与外壳、事件分派、局部或整体刷新 |
+| [src/state/store.ts](src/state/store.ts) | `AppStore` 管理路径、系统标签页、菜单展开等外壳状态及浏览器历史 |
+| [src/router/](src/router/) | 精确／动态路由匹配、按需加载路由注册表与专项页面、重定向和兜底页 |
+| [src/pages/](src/pages/) | 页面渲染及部分页面内状态、事件处理 |
+| [src/main-handlers/](src/main-handlers/) | 系统或业务交互分派；并非所有页面事件都经过同一个 Handler |
+| [src/components/](src/components/) | 外壳、共用业务展示与 UI 渲染、图标及二维码挂载 |
+| [src/data/](src/data/) | 演示数据、查询／业务动作、浏览器存储与运行数据适配 |
+| [src/domain/](src/domain/) | 部分业务领域的类型、规则、对象关联和视图适配 |
+| [src/helpers/](src/helpers/) | 已存在的共用辅助能力 |
 
-项目**不使用** React Router 或 Next.js，而是实现了一套**纯 TypeScript 的 SPA 路由引擎**：
+目录名称不构成严格单向依赖保证。业务数据与操作状态也不都位于 `AppStore`；分析某项保存或数量规则时，需要沿该动作的实际读取、计算和提交入口定位。
 
-1. **`main.ts`** — 启动入口，挂载到 `#app`，初始化 AppStore，建立全局事件委托（click/input/change/submit/keydown/popstate）
-2. **`state/store.ts`** — AppStore 单例，管理 pathname、侧栏状态、多标签页，通过 `history.pushState` 实现导航
-3. **`router/routes.ts`** — `resolvePage()` 将路径解析为 HTML 字符串，委托给三个懒加载路由注册表
-4. **Server 风格渲染** — 页面模块输出 **HTML 字符串**，通过 `root.innerHTML` 挂载，再水合图标和 QR 码
-5. **全局事件代理** — 所有交互事件冒泡到 `#app`，由 main.ts 按路径前缀分派到对应 Handler 系统
+路由入口 [routes.ts](src/router/routes.ts) 先处理部分专项和精确路径，再按路径选择 FCS、PCS、PDA、PMS、WLS、LOS、织带等注册表；未命中时还有菜单兜底。它不是只向三个注册表分派，也不是每个系统都恰好对应一份注册表。
 
-### 3.2 分层架构
+## 三条不同的运行路径
 
-```
-main.ts                 ← 启动 & 全局事件调度
-  │
-  ├─ router/            ← 路由解析（路径 → HTML）
-  ├─ state/             ← 应用状态（AppStore 单例）
-  ├─ pages/             ← 页面渲染（renderXxxPage → HTML 字符串）
-  ├─ domain/            ← 领域逻辑（类型、适配器、Mock）
-  ├─ data/              ← 种子数据 & 仓储
-  ├─ components/        ← 可复用 UI 组件（纯函数 → HTML）
-  │   ├─ shell.ts       ← 外壳（侧栏 + 标签页 + 布局）
-  │   └─ ui/            ← 基础组件（Button/Badge/Card/Dialog/Drawer/Table...）
-  ├─ helpers/           ← 跨领域工具函数
-  └─ main-handlers/     ← 按系统的交互事件处理器（FCS/PCS/PDA）
-```
+### 导航与整体组装
 
-### 3.3 领域驱动设计（以裁床域为例）
+`AppStore` 同步导航和标签页，`main.ts` 的 `render()` 获取当前页内容，再调用 `renderAppShell(state, pageContent)` 包装并挂载。页面模块返回内容；外壳由主入口组装，不是每个页面自行调用外壳。
 
-裁床（Cutting）是架构最完整的领域模块：
-
-```
-domain/cutting-core/          ← 核心类型 & 仓储注册表（Registry 模式）
-domain/cutting-platform/      ← 平台视图适配器 & Mock
-domain/cutting-settlement/    ← 结算逻辑
-domain/cutting-exception/     ← 异常处理
-domain/cutting-warehouse-writeback/  ← 仓库回写桥接
-domain/fcs-cutting-runtime/   ← 运行时数据 & 快照
-domain/fcs-cutting-piece-truth/ ← 裁片真相数据
-domain/pickup/                ← 接收适配器
-```
-
-关键设计模式：
-- **Registry 模式**：以生产订单→裁单→唛架源→裁片任务→PDA 执行构建内存缓存，支持双向查找
-- **Repository 模式**：`resolveXxxRef()` 解析器函数
-- **懒加载 + 缓存**：Registry 惰性构建，`resetCuttingCoreRegistryCache()` 提供失效机制
-
----
-
-## 四、数据流
-
-```
-用户操作
-  │
-  ▼
-全局事件委托 (#app)
-  │
-  ▼
-main.ts 事件分发
-  │
-  ├──▶ main-handlers/fcs-handlers.ts   (FCS 交互)
-  ├──▶ main-handlers/pcs-handlers.ts   (PCS 交互)
-  └──▶ main-handlers/pda-handlers.ts   (PDA 交互)
-  │
-  ▼
-data/ 层 (读写 Mock 数据)
-  │
-  ▼
-AppStore 更新 (pathname / tabs / state)
-  │
-  ▼
-resolvePage() 重新解析路由
-  │
-  ▼
-pages/ render 函数 → HTML 字符串
-  │
-  ▼
-root.innerHTML 挂载 → 组件水合
-```
-
----
-
-## 五、工程化体系
-
-### 校验脚本（~95 个）
-覆盖裁床追溯链、质检扣款、PDA 交接、生产工艺流转、产能风控、菜单路由一致性等全链路自动化检查。
-
-### E2E 测试（~70 个）
-Playwright 测试按领域组织，覆盖裁床、PDA、PCS、工厂流程、生产工艺等核心链路。
-
-### 构建与部署
-- Vite 构建，手动分 chunk（vendor-lucide / app-shell / app-routes-*）
-- Vercel SPA 部署，所有路径 rewrite 到 index.html
-
----
-
-## 六、架构总图（Mermaid）
+下图箭头表示调用或数据传递，节点标明责任：
 
 ```mermaid
-graph TB
-    subgraph Entry["入口层"]
-        index["index.html"]
-        main["main.ts<br/>启动 & 全局事件委托"]
-    end
-
-    subgraph Router["路由层"]
-        routes["router/routes.ts<br/>resolvePage()"]
-        fcs_r["routes-fcs.ts"]
-        pcs_r["routes-pcs.ts"]
-        pda_r["routes-pda.ts"]
-        renderers["route-renderers.ts"]
-    end
-
-    subgraph Shell["外壳层"]
-        shell_c["components/shell.ts<br/>侧栏 + 标签页 + 布局"]
-        ui_c["components/ui/<br/>Button/Badge/Card/Dialog/Drawer/Table/Form/FilterBar"]
-    end
-
-    subgraph Pages["页面层 (~90+)"]
-        direction LR
-        workbench["workbench.ts"]
-        cutting["process-factory/cutting/ (~70)"]
-        printing["process-factory/printing/"]
-        dyeing["process-factory/dyeing/"]
-        special["process-factory/special-craft/"]
-        pda["pda-*.ts (~30)"]
-        pcs["pcs-*.ts (~15)"]
-        factory["factory-*.ts"]
-        print["print/"]
-        settlement["settlement*.ts"]
-    end
-
-    subgraph Domain["领域层"]
-        cutting_core["cutting-core/<br/>Registry + Repository"]
-        cutting_platform["cutting-platform/<br/>Adapter + Mock"]
-        cutting_settlement["cutting-settlement/"]
-        cutting_exception["cutting-exception/"]
-        pickup["pickup/"]
-    end
-
-    subgraph Data["数据层"]
-        direction LR
-        shell_config["app-shell-config.ts<br/>菜单/导航/标签配置"]
-        fcs_data["data/fcs/ (~100)<br/>生产订单/工艺/质检/结算/产能..."]
-        pcs_data["data/pcs-*.ts (~50)<br/>项目/样板/工艺单/测试..."]
-    end
-
-    subgraph State["状态层"]
-        store["state/store.ts<br/>AppStore 单例<br/>(pathname/tabs/sidebar)"]
-        domain_store["state/fcs-claim-dispute-store.ts"]
-    end
-
-    subgraph Handlers["事件处理层"]
-        fcs_h["main-handlers/fcs-handlers.ts"]
-        pcs_h["main-handlers/pcs-handlers.ts"]
-        pda_h["main-handlers/pda-handlers.ts"]
-    end
-
-    subgraph Infra["工程化基础设施"]
-        scripts["scripts/check-*.ts (~95)<br/>自动化校验脚本"]
-        tests["tests/*.spec.ts (~70)<br/>Playwright E2E 测试"]
-        vite["vite.config.ts<br/>构建 & 分块"]
-        vercel["vercel.json<br/>SPA 部署"]
-    end
-
-    index --> main
-    main --> store
-    main --> fcs_h
-    main --> pcs_h
-    main --> pda_h
-
-    routes --> fcs_r
-    routes --> pcs_r
-    routes --> pda_r
-    routes --> renderers
-    main --> routes
-
-    fcs_r --> Pages
-    pcs_r --> Pages
-    pda_r --> Pages
-
-    shell_c --> ui_c
-    Pages --> shell_c
-
-    cutting --> Domain
-    Pages --> Data
-    Domain --> Data
-    fcs_h --> Data
-    pcs_h --> Data
-    pda_h --> Data
-    store --> Data
-
-    Infra -.-> Pages
-    Infra -.-> Domain
-    Infra -.-> Data
+flowchart TD
+    N[导航 / 浏览器历史] --> S[AppStore 更新路径与标签]
+    S --> M[main.ts render]
+    M --> P[renderCurrentPageContent 准备对应数据]
+    P --> R[resolvePage / 专项路由渲染]
+    R --> V[页面函数生成 HTML]
+    V --> C[main.ts 获得 pageContent]
+    C --> H[renderAppShell 包装内容]
+    H --> D[挂载到 app DOM]
+    D --> Q[图标及二维码挂载]
 ```
 
----
+### 局部交互
 
-## 七、架构特点总结
+主入口委托 click、input、change、submit 等事件，页面也可能有自己的局部处理。当前存在 `renderSidebarOnly()`、`renderPageContentOnly()` 及页面内部的局部更新；并非每次输入都经过完整的 `AppStore → resolvePage → root.innerHTML` 路径。
 
-| 维度 | 决策 | 原因 |
-|------|------|------|
-| 路由 | 自研 SPA 引擎（无 React Router） | 轻量、可控、不引入框架依赖 |
-| 渲染 | HTML 字符串生成 + innerHTML | 避免 React 组件树复杂性，适合原型快速迭代 |
-| 状态 | AppStore 单例 | 简单直接，原型阶段无需复杂状态管理 |
-| 样式 | Tailwind CSS（原子化） | 快速出 UI，无需维护 CSS 文件 |
-| 事件 | 全局委托代理 | 避免为每个元素绑定监听器，解耦 DOM 与逻辑 |
-| 数据 | 纯 TypeScript 文件 Mock | 无后端依赖，前端独立运行 |
-| 校验 | ~95 个 check 脚本 | 保证原型数据一致性，自动发现缺陷 |
-| 测试 | ~70 个 Playwright E2E | 保证核心交互链路可用 |
-| 部署 | Vercel + SPA rewrite | 零配置部署，实时预览 |
+```mermaid
+flowchart LR
+    E[用户动作] --> H[对应页面 / 系统处理器]
+    H --> B[校验与业务计算]
+    B --> U[按实际处理分支更新区域]
+    U --> S[侧栏 / 页面内容 / 对话框等 DOM]
+```
+
+具体动作是否局部更新、是否保留焦点和滚动，以其处理器与运行证据为准；这张结构图不证明全部页面已经完成局部刷新治理。
+
+### 读取与保存
+
+现状同时包含静态演示、页面内存、IndexedDB 和遗留存储入口，不能概括为纯 TypeScript Mock，也不能认定全站都已迁移到 IndexedDB。
+
+| 数据形态 | 已核对的实现例子 |
+| --- | --- |
+| 随应用发布的演示基线 | [pcs-record-bootstrap.ts](src/data/pcs-record-bootstrap.ts) 读取静态 JSON 并准备内存基线 |
+| 页面／运行内存 | 页面状态与 [pcs-record-runtime.ts](src/data/pcs-record-runtime.ts) 的工作副本、读取缓存和提交协调 |
+| IndexedDB 记录与附件 | [pcs-record-db.ts](src/data/pcs-record-db.ts) 保存记录、Blob、操作标识及迁移信息，并等待事务完成 |
+| 外壳偏好 | [state/store.ts](src/state/store.ts) 的标签页和菜单状态 |
+| 遗留或适配入口 | [browser-storage.ts](src/data/browser-storage.ts) 仍提供 localStorage / sessionStorage 访问和业务工作副本适配；是否已被迁移路径接管取决于调用方 |
+
+以下是 PCS 已接入记录存储的概念路径，不代表其他模块都具有相同实现：
+
+```mermaid
+flowchart LR
+    A[静态基线] --> R[运行读取视图]
+    I[(IndexedDB 已保存记录)] --> R
+    R --> V[页面展示]
+    V --> W[动作工作副本 / 校验]
+    W --> T[记录与附件事务]
+    T --> C[事务 complete]
+    C --> I
+    C --> U[发布提交结果 / 更新页面]
+```
+
+未保存输入与保存结果的边界、错误恢复和迁移目标由 `AGENTS.md` 的 STORE 规则约束；是否已满足仍需按具体模块核验。
+
+## 裁床领域定位示例
+
+[src/domain/cutting-core/](src/domain/cutting-core/) 中的类型、注册表和引用解析用于关联生产单、裁片任务等对象；`resolveXxxRef()` 这类函数负责解析关联，不等同于持久化仓库。其余裁床业务还分布在 [src/data/fcs/cutting/](src/data/fcs/cutting/) 与 [src/pages/process-factory/cutting/](src/pages/process-factory/cutting/)。这些路径用于定位，不是完整性或推荐架构评分。
+
+## 构建、测试与部署入口
+
+- [vite.config.ts](vite.config.ts) 包含分块、部分路由预加载、静态资源及预览压缩处理；构建行为以该配置为准。
+- [package.json](package.json) 的 `build` 执行工程类型检查、单元测试和 Vite 构建；专项检查另有命名入口。
+- [scripts/](scripts/) 保存专项与治理检查，[tests/](tests/) 保存单元、契约及浏览器测试；数量不等于覆盖率，每项结果只证明其断言范围。
+- [playwright.config.ts](playwright.config.ts) 定义浏览器、服务和产物设置；裁片使用方式见 [专项手册](docs/cutting-e2e.md)。
+- [vercel.json](vercel.json) 提供 SPA 路径重写。构建、Git 推送与 Vercel Production 成功是不同证据，发布口径见 `AGENTS.md` 的 RELEASE 规则。

@@ -45,8 +45,8 @@ export interface AssertInstructionContextCurrentOptions {
   requireStageTrace?: boolean
 }
 
-const CODEGRAPH_RULE = 'AGENTS.md::## 8. CodeGraph 与交付'
-const RECEIPT_RULE = 'AGENTS.md::### 8.1 任务收据与交付状态'
+const CODEGRAPH_RULE = 'AGENTS.md::TOOL-01'
+const RECEIPT_RULE = 'AGENTS.md::RECEIPT-01'
 const STAGE_TRACE_RULE = 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹'
 
 const CORE_RULE_BINDINGS: readonly InstructionRuleBinding[] = [
@@ -57,13 +57,19 @@ const CORE_RULE_BINDINGS: readonly InstructionRuleBinding[] = [
   },
 ]
 
+// Historical receipts remain readable, but cannot pass a current-context check.
+const LEGACY_CORE_BINDINGS: readonly InstructionRuleBinding[] = [
+  { ruleRef: 'AGENTS.md::## 8. CodeGraph 与交付', evidenceFields: ['codegraph'] },
+  { ruleRef: 'AGENTS.md::### 8.1 任务收据与交付状态', evidenceFields: ['revision', 'route', 'checks', 'codegraph'] },
+]
+
 const STAGE_TRACE_BINDING: InstructionRuleBinding = {
   ruleRef: STAGE_TRACE_RULE,
   evidenceFields: ['stageTrace'],
 }
 
 const KNOWN_RULE_BINDINGS = new Map(
-  [...CORE_RULE_BINDINGS, STAGE_TRACE_BINDING]
+  [...CORE_RULE_BINDINGS, ...LEGACY_CORE_BINDINGS, STAGE_TRACE_BINDING]
     .map((binding) => [binding.ruleRef, binding] as const),
 )
 
@@ -83,6 +89,11 @@ function requiredBindings(requireStageTrace: boolean): InstructionRuleBinding[] 
 
 function assertExactHeading(source: string, ruleRef: string): void {
   const heading = ruleRef.slice('AGENTS.md::'.length)
+  if (!heading.startsWith('#')) {
+    const definitions = source.split(/\r?\n/).filter((line) => line.startsWith(`**${heading}：`))
+    assert.equal(definitions.length, 1, `根 AGENTS.md 缺少或重复稳定规则：${heading}`)
+    return
+  }
   assert(
     source.split(/\r?\n/).includes(heading),
     `根 AGENTS.md 缺少精确标题：${heading}`,
@@ -227,21 +238,22 @@ function parseRuleBindings(value: unknown): InstructionRuleBinding[] {
     inputRuleRefs.push(binding.ruleRef)
   }
 
-  for (const binding of CORE_RULE_BINDINGS) {
+  const core = parsed.has(CODEGRAPH_RULE) ? CORE_RULE_BINDINGS : LEGACY_CORE_BINDINGS
+  for (const binding of core) {
     assert(parsed.has(binding.ruleRef), `缺少规则绑定：${binding.ruleRef}`)
   }
 
   const requireStageTrace = parsed.has(STAGE_TRACE_RULE)
   const expectedRuleRefs = [
-    ...CORE_RULE_BINDINGS.map((binding) => binding.ruleRef),
+    ...core.map((binding) => binding.ruleRef),
     ...(requireStageTrace ? [STAGE_TRACE_RULE] : []),
   ]
   assert.deepEqual(
     inputRuleRefs,
     expectedRuleRefs,
-    '规则绑定顺序必须与根 AGENTS.md 章节顺序一致',
+    '规则绑定顺序必须与约定一致，不得混用新旧规则',
   )
-  return requiredBindings(requireStageTrace)
+  return [...core.map(cloneBinding), ...(requireStageTrace ? [cloneBinding(STAGE_TRACE_BINDING)] : [])]
 }
 
 export function parseInstructionContext(value: unknown): InstructionContextReceipt {

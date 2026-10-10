@@ -1,0 +1,78 @@
+list page governance passed: worktree, checked 1 changed pages, excluded 1 paths
+list page governance passed: worktree, checked 1 changed pages, excluded 2 paths
+list page governance passed: staged, checked 1 changed pages, excluded 0 paths
+list page governance passed: branch, checked 1 changed pages, excluded 0 paths
+list page governance passed: worktree, checked 1 changed pages, excluded 0 paths
+list page governance passed: worktree, checked 1 changed pages, excluded 0 paths
+✔ 历史标题文案和静态外观类可比较为非结构修正 (11.2435ms)
+✔ 数量公式变化即使声明契约无也不能走历史局部例外 (1.247625ms)
+✔ 业务数值变化即使声明契约无也不能走历史局部例外 (0.658125ms)
+✔ HTML 内硬编码数量变化即使声明契约无也不能走历史局部例外 (0.567542ms)
+✔ 现场单位变化即使声明契约无也不能走历史局部例外 (0.633834ms)
+✔ 表头列数变化即使声明契约无也不能走历史局部例外 (0.512333ms)
+✔ 按钮删除变化即使声明契约无也不能走历史局部例外 (0.404791ms)
+✔ 标签结构变化即使声明契约无也不能走历史局部例外 (0.40375ms)
+✔ 事件属性变化即使声明契约无也不能走历史局部例外 (0.431542ms)
+✔ 路由地址变化即使声明契约无也不能走历史局部例外 (0.438333ms)
+✔ 元素标识变化即使声明契约无也不能走历史局部例外 (0.5835ms)
+✔ 功能选择器 class变化即使声明契约无也不能走历史局部例外 (0.367459ms)
+✔ 隐藏控件 class变化即使声明契约无也不能走历史局部例外 (0.845792ms)
+✔ 任意值 class变化即使声明契约无也不能走历史局部例外 (0.469208ms)
+✔ 文本清空变化即使声明契约无也不能走历史局部例外 (0.378041ms)
+✔ 无法解析的源码不能证明为非结构修正 (0.564125ms)
+✔ 中文数字的现场数量和被事件选择器复用的样式类也不能走外观例外 (0.80525ms)
+✔ 正负号、非穷举单位和日期符号变化均不能当作文案修正 (1.265208ms)
+✔ 没有数值的单位表头和独立单位不能放过，普通标题文案仍允许 (0.943208ms)
+✔ 仅写契约无而没有页面证据不能放过历史局部修正 (0.573292ms)
+✔ 仅有轻量记录而没有源码前后哈希不能放过 (0.493625ms)
+✔ 旧基线哈希不能冒充本次修改前哈希，当前哈希也必须匹配 (1.020625ms)
+✔ 重复或示例代码块中的历史局部证明不接受 (0.857375ms)
+✔ HTML 注释和四空格代码中的哈希表不能作为历史局部证明 (1.010959ms)
+✔ 历史列表身份持续使用原始基线，本次比较使用实际前后源码 (0.538292ms)
+✔ 新增列表须声明模式且实际调用标准组件，注释不能冒充调用 (15.08525ms)
+✔ 本地同名函数和导出入口不可达的死函数不能冒充标准组件契约 (3.552542ms)
+✖ 真实组件的丢弃调用和未使用 const 不构成返回页面的标准契约 (3.815875ms)
+✔ 真实标准组件允许 import 别名及导出入口可达的本地 helper (1.074625ms)
+✔ 跨文件 renderer 和实际调用回调的 wrapper 使用传入的同版本源码证明 (8.314875ms)
+✔ 现有直接列表、回调 wrapper、共享 factory 与缓存 renderer 保持真实标准组件契约 (207.591375ms)
+✔ 遗漏范围的 dirty wrapper 不能凑齐页面契约，已提交依赖仍可使用 (159.426792ms)
+✔ export const 页面可识别，历史列表不能更改模式伪装为详情页 (0.233875ms)
+✔ worktree 显式任务范围仅验当前页面，忽略未选中的错误页面和基线篡改 (95.840041ms)
+✔ staged 检查源码与记录都来自暂存区，不受工作区后续修改影响 (80.991125ms)
+✔ staged 中的行为改变不能用工作区已修正文案和记录掩盖 (84.25425ms)
+✔ branch 范围读取提交内容，base 范围与证据哈希一致 (115.551833ms)
+✔ 运行检查不写回历史基线 (75.066084ms)
+✔ 不能只移除未迁移页面的基线身份，迁移或删除后才可移除 (126.223917ms)
+✔ 新列表不能通过更改导出函数命名绕过声明及标准契约 (65.111834ms)
+✔ 特殊 CLI 参数必须单独使用，不能吞掉真实范围检查参数 (475.534375ms)
+ℹ tests 41
+ℹ suites 0
+ℹ pass 40
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1768.205958
+
+✖ failing tests:
+
+test at tests/workflow-governance/list-page-governance.test.ts:211:1
+✖ 真实组件的丢弃调用和未使用 const 不构成返回页面的标准契约 (3.815875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/list-page-governance.test.ts:216:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

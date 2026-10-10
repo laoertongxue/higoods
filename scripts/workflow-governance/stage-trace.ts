@@ -354,7 +354,7 @@ function assertEvent(event: WorkflowStageEvent, options: StageValidationOptions 
   assert(event.evidenceRef.trim(), '工作流阶段缺少证据引用')
   if (event.stage === 'skill-invocation') assert(event.skill?.trim(), '技能调用阶段缺少技能名称')
   if (event.stage === 'artifact') {
-    assert(event.artifact?.trim(), '阶段产物缺少路径或引用')
+    assert(typeof event.artifact === 'string' && event.artifact.trim(), '阶段产物缺少路径或引用')
     assert(existsSync(resolve(cwd, event.artifact)), `阶段产物不存在：${event.artifact}`)
   }
   assertEvidence(event, { ...options, cwd })

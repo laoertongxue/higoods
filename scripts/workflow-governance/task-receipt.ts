@@ -320,6 +320,7 @@ export function assertTaskReceiptSemantics(receipt: TaskCompletionReceipt): void
     routeAffectedChecks(receipt.revision.changedPaths),
     '检查路由必须与 revision.changedPaths 重算结果完全一致',
   )
+  assert(!receipt.route.unknownPaths.some((path) => path.startsWith('tests/')), '存在未匹配运行器的测试，不能仅凭构建标记 verified')
   for (const command of requiredCommands(receipt.route)) {
     const result = receipt.checks.find((check) => check.command === command)
     assert(result, `缺少相关检查结果：${command}`)
@@ -444,6 +445,9 @@ export function parseTaskCompletionReceipt(source: string): TaskCompletionReceip
 
 export function createTaskReceipt(input: CreateTaskReceiptInput): TaskCompletionReceipt {
   const blockers: string[] = []
+  for (const path of input.route.unknownPaths.filter((path) => path.startsWith('tests/'))) {
+    blockers.push(`未匹配测试运行器：${path}；须补充专项路由并执行，不以构建替代`)
+  }
   const instructionContext = parseInstructionContext(input.instructionAfter)
   if (!instructionContextsEqual(input.instructionBefore, instructionContext)) {
     blockers.push('AGENTS 指令上下文已变化，必须重新执行并验证任务')

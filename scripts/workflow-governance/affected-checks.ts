@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict'
 import { normalizeChangedPath } from './changed-paths.ts'
+import { isPrototypePath } from './governance-scope.ts'
 
 export interface AffectedCheckRoute {
   changedPaths: string[]
@@ -9,13 +11,21 @@ export interface AffectedCheckRoute {
   escalationReasons: string[]
 }
 
-const PROTOTYPE_PREFIXES = [
-  'src/pages/',
-  'src/components/',
-  'src/data/',
-  'src/router/',
-  'src/main-handlers/',
-]
+const LIST_GOVERNANCE_TOOLS = new Set([
+  'scripts/check-list-page-governance.ts',
+  'scripts/check-list-page-governance-suite.ts',
+  'scripts/check-standard-list-page-template.ts',
+  'scripts/workflow-governance/list-page-policy.ts',
+])
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`
+}
+
+function taskScope(command: string, paths: string[]): string {
+  assert(paths.every((path) => !path.includes(',')), '--paths 使用逗号分隔，当前变更含逗号文件名，无法精确传递任务范围')
+  return `${command} -- --scope worktree --paths ${shellQuote(paths.join(','))}`
+}
 
 function add(target: Set<string>, command: string): void {
   target.add(command)
@@ -30,14 +40,55 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    // Rule and template edits change governance behavior even without runtime product code.
+    if (path === 'AGENTS.md' || path === 'docs/prototype-review-record-template.md') {
+      add(fastChecks, 'npm run test:workflow-governance')
+      add(governanceChecks, 'npm run check:prototype-design-governance -- --self-test')
+      continue
+    }
+    if (path === 'docs/cutting-e2e.md') {
+      add(fastChecks, 'node --experimental-strip-types --test tests/workflow-governance/cutting-documentation.test.ts')
+      continue
+    }
+    // Documents do not execute the domain mentioned in their filename.
+    if (
+      path.startsWith('docs/')
+      || ['README.md', 'architecture.md'].includes(path)
+      || path.startsWith('.agents/skills/higood-indonesia-factory-design/')
+    ) continue
+
+    // Governance tools validate governance contracts, regardless of business words in filenames.
+    if (
+      path === 'scripts/check-prototype-design-governance.ts'
+      || path === 'scripts/check-cutting-p2-delivery.ts'
+      || path === 'scripts/task-completion-receipt.ts'
+      || path === 'scripts/record-workflow-stage.ts'
+      || LIST_GOVERNANCE_TOOLS.has(path)
+      || path.startsWith('scripts/workflow-governance/')
+      || path.startsWith('tests/workflow-governance/')
+    ) {
+      add(fastChecks, 'npm run test:workflow-governance')
+      add(governanceChecks, 'npm run check:prototype-design-governance -- --self-test')
+      if (LIST_GOVERNANCE_TOOLS.has(path) || /list-page-policy|list-page-governance/.test(path)) {
+        add(fastChecks, 'npm run check:list-page-governance:static -- --self-test')
+        add(governanceChecks, 'npm run check:standard-list-page-template')
+        add(governanceChecks, taskScope('npm run check:list-page-governance', changedPaths))
+      }
+      continue
+    }
+    if (/^tests\/unit\/.+\.test\.ts$/.test(path)) {
+      const quotedPath = `'${path.replace(/'/g, "'\\''")}'`
+      add(fastChecks, `if test -f ${quotedPath}; then node --import tsx --test ${quotedPath}; else npm run test:unit; fi`)
+      continue
+    }
     let handled = false
-    const isPrototype = PROTOTYPE_PREFIXES.some((prefix) => path.startsWith(prefix))
+    const isPrototype = isPrototypePath(path)
     if (isPrototype) {
-      add(governanceChecks, 'npm run check:prototype-design-governance -- --all')
+      add(governanceChecks, taskScope('npm run check:prototype-design-governance', changedPaths))
     }
 
     if (path.startsWith('src/pages/')) {
-      add(governanceChecks, 'npm run check:list-page-governance')
+      add(governanceChecks, taskScope('npm run check:list-page-governance', changedPaths))
     }
 
     if (
@@ -124,34 +175,32 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       handled = true
     }
 
-    if (/^src\/components\/ui\/list-(?:page|table|table-model)\.ts$/.test(path)) {
-      add(governanceChecks, 'npm run check:list-page-governance')
+    if (
+      /^src\/components\/ui\/list-.+\.ts$/.test(path)
+      || path === 'src/components/ui/pagination.ts'
+      || path === 'src/main.ts'
+      || path === 'src/main-handlers/fcs-handlers.ts'
+    ) {
+      add(governanceChecks, taskScope('npm run check:list-page-governance', changedPaths))
       add(fullChecks, 'npm run build')
-      escalationReasons.add('列表公共组件变化影响所有标准列表页')
+      add(governanceChecks, 'npm run check:standard-list-page-template')
+      escalationReasons.add('列表公共组件或事件入口变化需要标准列表运行验证')
       handled = true
     }
 
-    if (
-      path === 'scripts/check-prototype-design-governance.ts'
-      || path.startsWith('scripts/workflow-governance/')
-      || path.startsWith('tests/workflow-governance/')
-    ) {
-      add(fastChecks, 'npm run test:workflow-governance')
+    if (path.startsWith('tests/')
+      && !path.startsWith('tests/workflow-governance/')
+      && !/^tests\/pms-(?:purchase-chain|material-flow|master-data|settlement-flow|peripheral)\.spec\.ts$/.test(path)
+      && path !== 'tests/wool-management-fact-workflow.spec.ts') {
+      unknownPaths.push(path)
       add(fullChecks, 'npm run build')
-      escalationReasons.add('治理脚本变化需要治理测试和构建')
+      escalationReasons.add('测试路径未匹配已知运行器，须补充专项验证，不以构建替代该测试')
       handled = true
     }
 
     if (path === 'package.json' || path === 'package-lock.json') {
       add(fullChecks, 'npm run build')
       escalationReasons.add('项目依赖或命令变化需要构建')
-      handled = true
-    }
-
-    if (
-      path.startsWith('docs/')
-      || path === 'AGENTS.md'
-    ) {
       handled = true
     }
 

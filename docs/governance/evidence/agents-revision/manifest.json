@@ -1,0 +1,68 @@
+{
+  "generatedAt": "2026-10-10T02:28:34.141542+00:00",
+  "workspace": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+  "head": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+  "agentsBeforeSha256": "3123262bdfaf732f468c16677e73311823afb2d2b98454081897169cf5b393c9",
+  "agentsAfterSha256": "3b6492e3a79f100011b9a701fea27315904a2af4da61b00d68dad570f0faf296",
+  "agentsLines": 329,
+  "validatedFileSha256": {
+    "AGENTS.md": "3b6492e3a79f100011b9a701fea27315904a2af4da61b00d68dad570f0faf296",
+    "docs/governance/AGENTS规则调整实施与审查记录.md": "5a435458d1115aadcb932c56046e47ec1eebd5e84abfc34632ff191c7830fe41",
+    "docs/governance/AGENTS规则调整方案.md": "ca1652fd256066d9c8dd29017dce0ee83d35c8b13bd383b90e55d9f7e9fcfb9f",
+    "docs/prototype-review-record-template.md": "ee94ec6d7af829e9e2c23458b3986f84cbfe04a99c218de2dd9d4b73b216b272",
+    "scripts/check-list-page-governance.ts": "71ee6b7a9ff192c755993fcfdc29ba996c415e0a30737f09d2fb3ce84798e711",
+    "scripts/check-prototype-design-governance.ts": "10b00e6d3f22e5a70c95fbabb00fccc9de3fe2f5f5016e48caa0ed4272c8d7c9",
+    "scripts/check-standard-list-page-template.ts": "86f7c6db8a4368d267a7834d357ca45630405dc776821996d34b1c63fc5702a7",
+    "scripts/workflow-governance/affected-checks.ts": "91b6e6d4478b5c864b9ffa83ec703de35e852d48a578d62ca21aaf294afa34bb",
+    "scripts/workflow-governance/instruction-context.ts": "bcf9ca5f299acf78b5a7f7170555a2eb8f1854a4e11b194e6cbf82c613603ffd",
+    "scripts/workflow-governance/prototype-review.ts": "e60b38f6598c0515a9fcdeea8cbcfe31a3fc8ea192344d85687c0f68f5e3c633",
+    "scripts/workflow-governance/stage-trace.ts": "94279fa331f7e631d982867ee575e779a73bad6757314d085a230cd0918fe2c8",
+    "scripts/workflow-governance/task-receipt.ts": "e1625d87e22f901b869e1b3376ede8cfaa9773d5ef6d133e82ae7da0c3c0fc46",
+    "tests/workflow-governance/affected-checks.test.ts": "6f7cb058ac3e0a3009098bd699fb6e3ab7c47a418410e0e9789a07c5194730c7",
+    "tests/workflow-governance/instruction-context.test.ts": "5f739968d14a25b21081b8d97e869e1031cfb83d1d88d0f363eeb4428f08413b",
+    "tests/workflow-governance/prototype-review.test.ts": "c965e5f04d835715298c10f532785c0ea29e49a55a5e602aaa004cd05037db25",
+    "tests/workflow-governance/task-receipt.test.ts": "9607bd3daf528ede28ee1d1837c5e302c4f8c71c7850ba3f68109792c579a739"
+  },
+  "reportAfterEvidenceArchiveSha256": "8adf7da52891fef33bd526343a420006918af62e37d06bfda895d28cbbf98dd1",
+  "receiptState": "verified",
+  "blockers": [],
+  "checks": [
+    {
+      "command": "npm run check:list-page-governance:static -- --self-test",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test:workflow-governance",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run check:list-page-governance",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run check:prototype-design-governance -- --self-test",
+      "exitCode": 0
+    }
+  ],
+  "typecheck": {
+    "exitCode": 0,
+    "command": "npx tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck --allowImportingTsExtensions --strict scripts/check-list-page-governance.ts scripts/check-prototype-design-governance.ts scripts/workflow-governance/affected-checks.ts scripts/workflow-governance/instruction-context.ts scripts/workflow-governance/prototype-review.ts scripts/workflow-governance/task-receipt.ts tests/workflow-governance/affected-checks.test.ts tests/workflow-governance/instruction-context.test.ts tests/workflow-governance/prototype-review.test.ts tests/workflow-governance/task-receipt.test.ts",
+    "note": "两项排除文件分别由列表命令及导入依赖一并检查；类型检查在最终脚本变更之后执行"
+  },
+  "evidenceScope": "规则和治理工具，非全站业务/性能/发布验收",
+  "codegraph": {
+    "initialized": true,
+    "projectPath": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+    "pendingCount": 0,
+    "worktreeMismatch": false
+  },
+  "review": {
+    "GOV": 17,
+    "scenarios": 24,
+    "rounds": 2,
+    "reviewer": "主代理",
+    "method": "静态规则推演和工具正反例；没有子代理"
+  },
+  "publication": "not requested",
+  "derivedArtifactsNote": "此目录为验证完成后归档的派生证据；未纳入旧收据指纹，不伪造新收据时间；源码哈希逐项核对保持一致。"
+}

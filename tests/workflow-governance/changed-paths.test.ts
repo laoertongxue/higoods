@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, renameSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -9,6 +9,7 @@ import {
   getStagedChangedPaths,
   resolveVerificationPaths,
 } from '../../scripts/workflow-governance/changed-paths.ts'
+import { resolveGovernanceScope } from '../../scripts/workflow-governance/governance-scope.ts'
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
@@ -93,4 +94,28 @@ test('Git 开启路径转义时仍保留中文受管路径', () => {
   writeFileSync(join(root, 'src/pages/中文页面.ts'), 'export const 页面 = true\n')
 
   assert.deepEqual(getChangedPaths({ cwd: root, base }), ['src/pages/中文页面.ts'])
+})
+
+test('收据和子门禁对重命名、字面箭头文件名以及撤销提交保持同一范围', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'higoods-scope-parity-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  git(root, 'init', '-qb', 'main')
+  git(root, 'config', 'user.name', 'Workflow Test')
+  git(root, 'config', 'user.email', 'workflow-test@example.invalid')
+  writeFileSync(join(root, 'old.ts'), 'same\n')
+  writeFileSync(join(root, 'reverted.ts'), 'original\n')
+  git(root, 'add', 'old.ts', 'reverted.ts')
+  git(root, 'commit', '-qm', 'baseline')
+  const base = git(root, 'rev-parse', 'HEAD')
+  writeFileSync(join(root, 'reverted.ts'), 'committed change\n')
+  git(root, 'add', 'reverted.ts')
+  git(root, 'commit', '-qm', 'change')
+  writeFileSync(join(root, 'reverted.ts'), 'original\n')
+  renameSync(join(root, 'old.ts'), join(root, 'new.ts'))
+  writeFileSync(join(root, 'literal -> name.ts'), 'literal\n')
+  git(root, 'add', '-A')
+  const paths = getChangedPaths({ cwd: root, base })
+  assert.deepEqual(paths, ['literal -> name.ts', 'new.ts', 'old.ts'])
+  assert.deepEqual(paths, resolveGovernanceScope(['--scope', 'worktree', '--base', base], root, {}).paths)
+  assert.deepEqual(getStagedChangedPaths({ cwd: root }), ['literal -> name.ts', 'new.ts', 'old.ts', 'reverted.ts'])
 })

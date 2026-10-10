@@ -1,6 +1,6 @@
 import { readTmfPreparationHandoverRecord as readCurrentPreparationHandoverRecord, readTmfProductionOrderRuntimeFact as readProductionOrderRuntimeFact } from '../fcs/tmf-source-readers.ts'
 import type { PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
-import { getBrowserLocalStorage, writeBrowserStorageItem } from '../browser-storage.ts'
+import { getBrowserLocalStorage, removeBrowserStorageItem, writeBrowserStorageItem } from '../browser-storage.ts'
 import { PMS_STORES, pmsGet, pmsTx, reportPmsSaveFailure, subscribePmsDataChanged } from './idb-storage.ts'
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
 import { deriveTmfProductionDemands, type TmfProductionDemand } from '../fcs/webbing-production-demands.ts'
@@ -809,23 +809,16 @@ export function migrateTmfPurchaseStateFromLocalStorage(): Promise<void> {
         operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
       })
       await persistTmfPurchaseStateToIdb(draft)
-      try {
-        storage?.removeItem(TMF_PURCHASE_STORAGE_KEY)
+      if (removeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY)) {
         console.info('[TMF_LEGACY_MIGRATION_DONE]', { orders: draft.orders.length, operations: draft.operations.length })
-      } catch (error) {
-        console.warn('[TMF_LEGACY_MIGRATION_REMOVE_FAILED]', error)
+      } else {
+        console.warn('[TMF_LEGACY_MIGRATION_REMOVE_FAILED]', { reason: '旧存储不支持删除或删除失败，旧数据已保留' })
       }
       if (!tmfHydrationReady) state = draft
     } catch (error) {
-      // 解析/校验失败:不再永久卡死,删除旧键以避免下次启动重复尝试。
+      // 解析、校验或目标写入失败均保留旧源，避免迁移失败后失去可恢复数据。
       const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[TMF_LEGACY_MIGRATION_PARSE_FAILED]', { message })
-      try {
-        storage?.removeItem(TMF_PURCHASE_STORAGE_KEY)
-        console.warn('[TMF_LEGACY_MIGRATION_DISCARDED]', { reason: message })
-      } catch (removeError) {
-        console.error('[TMF_LEGACY_MIGRATION_REMOVE_FAILED_AFTER_PARSE]', removeError)
-      }
+      console.error('[TMF_LEGACY_MIGRATION_FAILED]', { message })
       throw error
     }
   })()

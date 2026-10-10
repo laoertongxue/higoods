@@ -1,0 +1,7 @@
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance
+> node --experimental-strip-types scripts/check-list-page-governance-suite.ts
+
+{"scope":"staged","base":"99e25a0b846188176516a882b8c8d30fb915f6ef","checkedPaths":[],"excludedPaths":[]}
+list page governance passed: staged, checked 0 changed pages, excluded 0 paths
+prototype design governance: no governed product changes in selected staged scope (not product acceptance)

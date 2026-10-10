@@ -23,8 +23,8 @@ import {
   type InstructionContextReceipt,
 } from '../../scripts/workflow-governance/instruction-context.ts'
 
-const CODEGRAPH_RULE = 'AGENTS.md::## 8. CodeGraph 与交付'
-const RECEIPT_RULE = 'AGENTS.md::### 8.1 任务收据与交付状态'
+const CODEGRAPH_RULE = 'AGENTS.md::TOOL-01'
+const RECEIPT_RULE = 'AGENTS.md::RECEIPT-01'
 const STAGE_TRACE_RULE = 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹'
 const AUTHORITATIVE_VERIFY_COMMAND =
   'npm run workflow:verify -- --output <临时目录>/task-receipt.json --task-boundary "<本次任务边界>"'
@@ -40,11 +40,11 @@ const AGENTS_SOURCE = [
   '',
   '## 8. CodeGraph 与交付',
   '',
-  '先同步并核对 CodeGraph。',
+  '**TOOL-01：按需同步 CodeGraph。**',
   '',
   '### 8.1 任务收据与交付状态',
   '',
-  '任务完成前生成机器可读收据。',
+  '**RECEIPT-01：按范围生成技术收据。**',
   '',
   '### 12.2 Superpowers 最小阶段轨迹',
   '',
@@ -162,7 +162,7 @@ function assertArgumentRejectedBeforeSideEffects(
   for (const path of receiptPaths) assert.equal(existsSync(path), false)
 }
 
-test('根 AGENTS 8.1 精确给出绑定任务边界的权威验证命令', () => {
+test('根 AGENTS RECEIPT-01 给出绑定任务边界的权威验证命令', () => {
   const source = readFileSync(join(process.cwd(), 'AGENTS.md'), 'utf8')
 
   assert.match(
@@ -191,7 +191,7 @@ test('verify 在任何检查前解析指令参数并采集前置指令上下文'
   assert.match(source, /captureInstructionContext\(\{\s*workspace,\s*taskBoundary,\s*requireStageTrace,\s*\}\)/)
 })
 
-test('仅提供可选 stage-trace 路径不会把阶段轨迹变成必填', () => {
+test('历史模型中仅提供可选 stage-trace 路径不改变必填性；现行 CLI 另受 METHOD-01 阻断', () => {
   const source = sourceBetween('function verify(args: string[]): void {', '\nasync function deliver')
 
   assert.match(
@@ -439,15 +439,15 @@ test('任务边界 trim 后为空时拒绝采集', (t) => {
   )
 })
 
-test('根 AGENTS 缺少精确章节标题时拒绝采集', (t) => {
+test('根 AGENTS 缺少稳定规则时拒绝采集', (t) => {
   const workspace = workspaceWithAgents(
     t,
-    AGENTS_SOURCE.replace('### 8.1 任务收据与交付状态', '### 8.1 任务收据和交付状态'),
+    AGENTS_SOURCE.replace('**RECEIPT-01：', '**MISSING-01：'),
   )
 
   assert.throws(
     () => captureInstructionContext({ workspace, taskBoundary: '执行任务 1' }),
-    /### 8\.1 任务收据与交付状态/,
+    /RECEIPT-01/,
   )
 })
 
@@ -688,4 +688,20 @@ test('仅阶段轨迹要求变化也会使当前断言失效', (t) => {
     }),
     /指令上下文.*已变化|过期/,
   )
+})
+
+
+test('章节重排仍可采集稳定规则，重复规则拒绝', (t) => {
+  const source = AGENTS_SOURCE.replace('## 8. CodeGraph 与交付', '## 90. 工具').replace('### 8.1 任务收据与交付状态', '## 91. 验证')
+  assert.doesNotThrow(() => captureInstructionContext({ workspace: workspaceWithAgents(t, source), taskBoundary: '规则重排' }))
+  assert.throws(() => captureInstructionContext({ workspace: workspaceWithAgents(t, source + '\n**TOOL-01：重复定义。**'), taskBoundary: '规则重排' }), /重复稳定规则/)
+})
+
+test('历史标题绑定可读取但不能冒充当前收据', (t) => {
+  const workspace = workspaceWithAgents(t)
+  const receipt = captureInstructionContext({ workspace, taskBoundary: '读取历史' })
+  receipt.ruleBindings[0].ruleRef = 'AGENTS.md::## 8. CodeGraph 与交付'
+  receipt.ruleBindings[1].ruleRef = 'AGENTS.md::### 8.1 任务收据与交付状态'
+  assert.doesNotThrow(() => parseInstructionContext(receipt))
+  assert.throws(() => assertInstructionContextCurrent(receipt, { workspace }), /已过期/)
 })

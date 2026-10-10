@@ -1,0 +1,11 @@
+{
+  "chapters": 9,
+  "stableRuleIds": 24,
+  "govRequirements": 17,
+  "adversarialScenarios": 24,
+  "rounds": 2,
+  "huaweiCopyPreserved": true,
+  "businessAndBaselineUnchanged": true,
+  "localLinks": "passed",
+  "diffCheck": 0
+}

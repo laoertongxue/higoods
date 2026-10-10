@@ -1,0 +1,34 @@
+{
+  "activeGuidance": [
+    {
+      "file": "AGENTS.md",
+      "lines": 339,
+      "brokenLinks": []
+    },
+    {
+      "file": "README.md",
+      "lines": 59,
+      "brokenLinks": []
+    },
+    {
+      "file": "architecture.md",
+      "lines": 122,
+      "brokenLinks": []
+    },
+    {
+      "file": "docs/prototype-review-record-template.md",
+      "lines": 110,
+      "brokenLinks": []
+    },
+    {
+      "file": "docs/cutting-e2e.md",
+      "lines": 104,
+      "brokenLinks": []
+    }
+  ],
+  "retiredFilesVerified": 9,
+  "atomicRequirements": 82,
+  "uniqueStableRuleIds": 25,
+  "historicalEvidence": "preserved, not relabeled as current",
+  "businessSourceChanges": []
+}

@@ -6,6 +6,7 @@ import { routeAffectedChecks } from './workflow-governance/affected-checks.ts'
 import { resolveVerificationPaths } from './workflow-governance/changed-paths.ts'
 import { verificationCheckEnvironment } from './workflow-governance/check-execution.ts'
 import { revisionForPaths } from './workflow-governance/git-revision.ts'
+import { assertWorkflowPolicyAllows } from './workflow-governance/disabled-workflows.ts'
 import {
   assertReceiptCurrent,
   createTaskReceipt,
@@ -198,6 +199,7 @@ async function accept(args: string[]): Promise<void> {
 }
 
 const [command, ...args] = process.argv.slice(2)
+assertWorkflowPolicyAllows(process.cwd(), args)
 if (command === 'verify') verify(args)
 else if (command === 'deliver') await deliver(args)
 else if (command === 'accept') await accept(args)

@@ -14,10 +14,11 @@ export function syncFactoryReceivingWarehouseSources(docs?:WarehouseExecutionDoc
  syncTmfUpstreamReceivingSources()
  const dyes=listDyeWorkOrders(),waters=listWaterSolubleWorkOrders(),prints=listPrintingWorkOrders()
  const snapshot=docs?undefined:buildWarehouseExecutionDocumentSnapshot()
+ const dispatchDocs=(docs??[...snapshot!.issueOrders,...snapshot!.internalTransferOrders]).filter(doc=>doc.docType!=='RETURN')
  // Bind only actual, already registered upstream dispatches on the same material route.
  withProcessOrderTaskRelationRead(() => {
  for(const print of prints){
-  const options=getPreparationMaterialReceiptSources(print.workOrderId,print.plannedInput.qtyUnit,[],{},docs??[...snapshot!.issueOrders,...snapshot!.internalTransferOrders]).options.filter(o=>o.sourceType==='UPSTREAM_HANDOUT')
+  const options=getPreparationMaterialReceiptSources(print.workOrderId,print.plannedInput.qtyUnit,[],{},dispatchDocs).options.filter(o=>o.sourceType==='UPSTREAM_HANDOUT')
   for(const option of options){
    const source=listFactoryReceivingSources(print.printFactoryId).find(s=>s.originalRecordId===option.recordId)
    if(!source||source.lines.some(l=>l.material.sku!==print.plannedInput.sku||l.dyeOrderId||l.waterOrderId||l.woolOrderId||l.printingOrderId&&l.printingOrderId!==print.workOrderId))continue
@@ -26,8 +27,8 @@ export function syncFactoryReceivingWarehouseSources(docs?:WarehouseExecutionDoc
   }
  }
  })
- for(const doc of docs??[...snapshot!.issueOrders,...snapshot!.internalTransferOrders]){
-  if(doc.docType==='RETURN'||doc.receivingSourceId||!doc.targetFactoryId||!doc.warehouseId||!doc.warehouseName||!doc.approvedAt)continue
+ for(const doc of dispatchDocs){
+  if(doc.receivingSourceId||!doc.targetFactoryId||!doc.warehouseId||!doc.warehouseName||!doc.approvedAt)continue
   const dye=dyes.find(o=>o.taskId===doc.runtimeTaskId||o.taskId===doc.baseTaskId)
   const water=waters.find(o=>o.taskId===doc.runtimeTaskId||o.taskId===doc.baseTaskId)
   const print=prints.find(o=>o.taskNo===doc.taskNo||o.workOrderId===doc.baseTaskId||o.taskNo===doc.runtimeTaskId)

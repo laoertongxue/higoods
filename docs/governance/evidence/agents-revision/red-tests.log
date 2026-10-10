@@ -1,0 +1,340 @@
+✔ 受管文件没有影响声明或审查记录时失败 (1.708416ms)
+✔ 只有无关记录时失败 (3.15175ms)
+✔ 有用户可见影响但缺少完整验证时失败 (0.838916ms)
+✔ 验证命令没有明确结果时失败 (0.249542ms)
+✔ 完整用户可见审查记录通过 (3.313875ms)
+✔ 无用户可见影响只需简版声明和技术验证 (0.508ms)
+✔ 无用户可见影响声明缺少有效依据时失败 (0.254334ms)
+✔ 无用户可见影响不能只用治理脚本自证 (0.252125ms)
+✔ 旧格式完整审查记录保持兼容 (0.402209ms)
+✖ 轻量可见变更有五项和页面证据，不强制完整产品矩阵 (0.786375ms)
+✖ 轻量不能缺真实页面证据 (0.907125ms)
+✖ 轻量不能缺保留范围 (0.439083ms)
+✖ 轻量不能承载契约变化 (0.344375ms)
+✖ 性能失败不能因轻量通过关闭 (0.311ms)
+✖ 性能不适用必须有依据 (0.173167ms)
+✖ 轻量不能改称无可见影响 (0.134208ms)
+✖ 未知记录模式不能降级绕过 (0.141042ms)
+✖ 完整记录最终不通过不能被覆盖检查当作通过 (0.188167ms)
+✖ 完整记录最终有条件通过不能被覆盖检查当作通过 (0.20225ms)
+✖ 仅列已失败的验证命令不能通过 (0.190041ms)
+✖ 同一文件多个冲突记录不能用首个通过记录掩盖失败 (0.22025ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 9
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 602.202041
+
+✖ failing tests:
+
+test at tests/workflow-governance/prototype-review.test.ts:238:1
+✖ 轻量可见变更有五项和页面证据，不强制完整产品矩阵 (0.786375ms)
+  AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+      at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+      at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:239:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 轻量不能缺真实页面证据 (0.907125ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /页面证据/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+        at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /页面证据/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 轻量不能缺保留范围 (0.439083ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /保留什么/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+        at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /保留什么/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 轻量不能承载契约变化 (0.344375ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /契约变化/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+        at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /契约变化/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 性能失败不能因轻量通过关闭 (0.311ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /性能/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+        at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /性能/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 性能不适用必须有依据 (0.173167ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /性能/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+        at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /性能/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 轻量不能改称无可见影响 (0.134208ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /记录模式/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少证明渲染、数据、路由或交互结果不变的直接技术验证'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少证明渲染、数据、路由或交互结果不变的直接技术验证
+        at assertTechnicalOnlyDeclaration (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:142:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:173:45)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /记录模式/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:253:3
+✖ 未知记录模式不能降级绕过 (0.141042ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /记录模式/. Input:
+  
+  'AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用'
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AssertionError [ERR_ASSERTION]: docs/prototype-review-records/light.md 缺少 AGENTS.md 当前治理基线引用
+        at assertCompleteUserVisibleReview (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:133:3)
+        at validatePrototypeReviewCoverage (file:///Users/laoer/.codex/worktrees/9ec5/higoods/scripts/workflow-governance/prototype-review.ts:174:10)
+        at file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:25
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:256:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19),
+    expected: /记录模式/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:261:3
+✖ 完整记录最终不通过不能被覆盖检查当作通过 (0.188167ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:264:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /最终结论/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:261:3
+✖ 完整记录最终有条件通过不能被覆盖检查当作通过 (0.20225ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:264:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /最终结论/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:268:1
+✖ 仅列已失败的验证命令不能通过 (0.190041ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:271:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /验证.*未通过/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review.test.ts:274:1
+✖ 同一文件多个冲突记录不能用首个通过记录掩盖失败 (0.22025ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review.test.ts:277:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /最终结论/,
+    operator: 'throws',
+    diff: 'simple'
+  }

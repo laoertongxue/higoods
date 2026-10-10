@@ -1,0 +1,22 @@
+{
+  "head": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+  "branch": "codex/sidebar-menu-group-ui",
+  "files": [
+    {
+      "path": "src/data/fcs/factory-receiving-source-sync.ts",
+      "sha256": "e983121eabd0cadec8601672e514529e74b76e917f6a4021892be72ede658716"
+    },
+    {
+      "path": "src/data/pms/tmf-material-purchases.ts",
+      "sha256": "20e76a7aca1be68da9e669c42b5a41152defc91bfe055057b0aa9428045bb22d"
+    },
+    {
+      "path": "tests/unit/factory-receiving-source-sync.test.ts",
+      "sha256": "227695e6c448a0a72caab7d14be6eab2e0bfb21b1fb9aa48a33d6395ccc42dd7"
+    },
+    {
+      "path": "tests/unit/tmf-legacy-migration.test.ts",
+      "sha256": "b90aba6c56154c0c18e042e43faab7144dd1269c560da483c0184c87b8a772bb"
+    }
+  ]
+}

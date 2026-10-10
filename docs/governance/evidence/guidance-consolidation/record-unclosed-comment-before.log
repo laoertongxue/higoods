@@ -1,0 +1,115 @@
+✔ 不能删除模式降级为历史交付 (4.295917ms)
+✔ 空版本不能吞下一行 (0.726917ms)
+✔ 不能保留待填写自查行 (0.223833ms)
+✔ 通过自查也必须有实质证据 (0.173458ms)
+✔ 自查不适用必须有具体理由 (0.179125ms)
+✔ 拒绝模板版本原文 (0.167833ms)
+✔ 拒绝模板证据原文 (0.159291ms)
+✔ 重复页面节不能藏空值 (0.111708ms)
+✔ 重复影响节不能掩盖冲突 (0.646666ms)
+✔ 重复可见影响字段不能掩盖冲突 (0.131125ms)
+✔ 重复命令不能掩盖失败 (0.127625ms)
+✔ 命令不能以通过前缀掩盖失败 (0.138292ms)
+✔ 不能把无理由不适用作为性能依据 (0.117458ms)
+✔ 不能只提供旧规则作为本次基线 (0.233083ms)
+✔ 编号与无编号标题得到相同当前交付结果 (0.240125ms)
+✔ 按原子需求引用既有矩阵作为自查证据 (0.133208ms)
+✔ 未关联本次受管文件的历史记录不被强制升级 (0.143708ms)
+✔ 空影响值不能吞下一行 (0.137125ms)
+✔ 重复同值版本也必须明确唯一 (0.083542ms)
+✔ 例外声明不能有无并存 (0.121458ms)
+✔ 例外不能保留模板待填说明 (0.12ms)
+✔ 自查不能遗留未验证结果 (0.108417ms)
+✔ 缺少表格行末分隔符不能静默截断证据 (0.111458ms)
+✔ 最终结论不适用不能关闭交付 (0.379334ms)
+✔ 隐藏注释不能替代页面证据 (0.19975ms)
+✔ 代码示例不能替代页面证据 (0.15825ms)
+✔ 同一路径的重复记录不能产生多份事实 (0.13525ms)
+✔ 技术声明不能只靠 git diff --check (0.30025ms)
+✔ 技术声明不能只靠 npm run check:prototype-design-governance (0.160666ms)
+✔ 技术声明不能只靠 npm run check:list-page-governance (0.092209ms)
+✔ 技术声明不能只靠 npm run workflow:verify (0.087042ms)
+✔ 技术声明不能只靠 npm run lint (0.094417ms)
+✔ 技术声明不能只靠 pnpm run format:check (0.081958ms)
+✔ 技术声明不能只靠 npx prettier --check src/pages/example.ts (0.083834ms)
+✔ 技术声明有专项通过仍不能省略契约结果证据 (0.116375ms)
+✔ 技术声明专项契约与结果证据通过 (0.062208ms)
+✖ 未闭合 HTML 注释内的整份记录不能作为当前证据 (0.157292ms)
+✖ 未闭合 HTML 注释中的尾部页面证据不能使可见变更通过 (0.206ms)
+✔ 闭合 HTML 注释后的有效正文仍可作为当前证据 (0.127916ms)
+✔ 技术模式不能用可选最终结论藏失败 (0.149375ms)
+✔ 验证命令不能使用空泛结果：不适用（无） (0.149458ms)
+✔ 验证命令不能使用空泛结果：不适用（   ） (0.126833ms)
+✔ 验证命令不能使用空泛结果：不适用：待填写具体原因 (0.0845ms)
+✔ 不能省略基本信息 (0.179625ms)
+✔ 空日期不能取下一个字段 (0.101458ms)
+✔ 日期必须为有效日历日期 (0.076167ms)
+✔ 日期不能是缩写格式 (0.068792ms)
+✔ 日期必须唯一 (0.071917ms)
+✔ 任务编号不能留模板值 (0.072791ms)
+✔ 验证人不能未定 (0.084625ms)
+✔ 验证人不能缺失 (0.071792ms)
+✔ 验证人重复不能遮盖责任冲突 (0.078458ms)
+✔ 路径碰巧含 AGENTS.md 不能作为规范引用 (0.14375ms)
+✔ 相同文件名的外部链接不是项目规范 (0.130083ms)
+✔ 同名子文件不能替代根规范 (0.124875ms)
+✔ 证据字段中提及规范不替代独立引用 (0.109ms)
+✔ 有效闰日元数据和真正根规范相对链接通过 (0.100584ms)
+✔ 模板头的精确规范引用可使用且不要求额外章节 (0.082209ms)
+✔ 技术模式同样必须有实际执行者 (0.088417ms)
+✔ 命令结果必须是确定枚举，不能在通过后追加声明：通过（本次未运行） (0.10475ms)
+✔ 命令结果必须是确定枚举，不能在通过后追加声明：通过，但实际执行失败 (0.094125ms)
+✔ 命令结果必须是确定枚举，不能在通过后追加声明：通过（12/12） (0.093042ms)
+✔ 命令结果必须是确定枚举，不能在通过后追加声明：通过	未运行 (0.082916ms)
+✔ 命令结果必须是确定枚举，不能在通过后追加声明：通过 (实际未执行) (0.08025ms)
+✔ 缩进代码中的字段和表格不能作为有效记录："    " (0.151ms)
+✔ 缩进代码中的字段和表格不能作为有效记录："\t" (0.071583ms)
+✔ 缩进代码中的字段和表格不能作为有效记录："  \t" (0.061209ms)
+✔ 单独缩进的自查表也不是可执行的检查结论 (0.136333ms)
+✔ 合法的两空格列表缩进不被当作代码块 (0.099125ms)
+ℹ tests 69
+ℹ suites 0
+ℹ pass 67
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 230.772625
+
+✖ failing tests:
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:55:945
+✖ 未闭合 HTML 注释内的整份记录不能作为当前证据 (0.157292ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:165:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /关联|基本信息|日期/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/prototype-review-adversarial.test.ts:56:68
+✖ 未闭合 HTML 注释中的尾部页面证据不能使可见变更通过 (0.206ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/prototype-review-adversarial.test.ts:171:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /验证命令|页面证据/,
+    operator: 'throws',
+    diff: 'simple'
+  }

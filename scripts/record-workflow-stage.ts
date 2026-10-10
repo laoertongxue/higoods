@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { assertWorkflowPolicyAllows } from './workflow-governance/disabled-workflows.ts'
 import {
   appendStageEvent,
   providerEventTimestamp,
@@ -17,6 +18,7 @@ function argument(args: string[], name: string, required = true): string {
 }
 
 const args = process.argv.slice(2)
+assertWorkflowPolicyAllows(process.cwd(), args, true)
 const path = resolve(argument(args, '--trace'))
 const current = existsSync(path)
   ? JSON.parse(readFileSync(path, 'utf8')) as WorkflowStageEvent[]

@@ -2,8 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 
 export function normalizeChangedPath(path: string): string {
-  const renameTarget = path.includes(' -> ') ? path.split(' -> ').at(-1) ?? path : path
-  return renameTarget.replace(/\\/g, '/').replace(/^\.\//, '').trim()
+  return path.replace(/\\/g, '/').replace(/^\.\//, '').trim()
 }
 
 function nullRecords(output: Buffer): string[] {
@@ -31,7 +30,7 @@ export function getStagedChangedPaths(
 ): string[] {
   const output = execFileSync(
     'git',
-    ['diff', '--cached', '--name-only', '-z', '--diff-filter=ACMRDTUXB'],
+    ['diff', '--cached', '--name-only', '--no-renames', '-z', '--diff-filter=ACMRDTUXB'],
     { cwd: options.cwd ?? process.cwd() },
   )
   return [...new Set(nullRecords(output).map(normalizeChangedPath).filter(Boolean))].sort()
@@ -41,22 +40,19 @@ export function getChangedPaths(
   options: { cwd?: string; base?: string } = {},
 ): string[] {
   const cwd = options.cwd ?? process.cwd()
-  const statusOutput = execFileSync(
-    'git',
-    ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-    { cwd },
-  )
-  const paths = porcelainPaths(statusOutput)
-
-  if (options.base) {
-    const committedOutput = execFileSync(
-      'git',
-      ['diff', '--name-only', '-z', '--diff-filter=ACMRDTUXB', `${options.base}...HEAD`],
-      { cwd },
-    )
-    paths.push(...nullRecords(committedOutput).map(normalizeChangedPath).filter(Boolean))
+  // Receipt and child gates both inspect the final worktree against one base.
+  // Disable rename collapsing so deleted source paths receive their own coverage.
+  let head: string
+  try { head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }
+  catch {
+    assert(!options.base, '尚无 HEAD 的仓库不能使用 --base')
+    return [...new Set(porcelainPaths(execFileSync('git', ['status', '--porcelain=v1', '--no-renames', '-z', '--untracked-files=all'], { cwd })))].sort()
   }
-
+  const base = options.base
+    ? execFileSync('git', ['merge-base', options.base, head], { cwd, encoding: 'utf8' }).trim()
+    : head
+  const paths = nullRecords(execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', base, '--'], { cwd }))
+  paths.push(...nullRecords(execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd })))
   return [...new Set(paths)].sort()
 }
 

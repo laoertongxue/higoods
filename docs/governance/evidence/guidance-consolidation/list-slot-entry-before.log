@@ -1,0 +1,123 @@
+list page governance passed: worktree, checked 1 changed pages, excluded 1 paths
+list page governance passed: worktree, checked 1 changed pages, excluded 2 paths
+list page governance passed: staged, checked 1 changed pages, excluded 0 paths
+list page governance passed: branch, checked 1 changed pages, excluded 0 paths
+list page governance passed: worktree, checked 1 changed pages, excluded 0 paths
+list page governance passed: worktree, checked 1 changed pages, excluded 0 paths
+✔ 历史标题文案和静态外观类可比较为非结构修正 (12.307292ms)
+✔ 数量公式变化即使声明契约无也不能走历史局部例外 (1.845083ms)
+✔ 业务数值变化即使声明契约无也不能走历史局部例外 (1.172958ms)
+✔ HTML 内硬编码数量变化即使声明契约无也不能走历史局部例外 (0.818208ms)
+✔ 现场单位变化即使声明契约无也不能走历史局部例外 (0.763042ms)
+✔ 表头列数变化即使声明契约无也不能走历史局部例外 (0.680333ms)
+✔ 按钮删除变化即使声明契约无也不能走历史局部例外 (0.592958ms)
+✔ 标签结构变化即使声明契约无也不能走历史局部例外 (1.01425ms)
+✔ 事件属性变化即使声明契约无也不能走历史局部例外 (0.698ms)
+✔ 路由地址变化即使声明契约无也不能走历史局部例外 (0.671166ms)
+✔ 元素标识变化即使声明契约无也不能走历史局部例外 (0.572792ms)
+✔ 功能选择器 class变化即使声明契约无也不能走历史局部例外 (0.576416ms)
+✔ 隐藏控件 class变化即使声明契约无也不能走历史局部例外 (0.50025ms)
+✔ 任意值 class变化即使声明契约无也不能走历史局部例外 (0.528625ms)
+✔ 文本清空变化即使声明契约无也不能走历史局部例外 (0.533542ms)
+✔ 无法解析的源码不能证明为非结构修正 (0.544709ms)
+✔ 中文数字的现场数量和被事件选择器复用的样式类也不能走外观例外 (0.698958ms)
+✔ 正负号、非穷举单位和日期符号变化均不能当作文案修正 (1.03025ms)
+✔ 同一数量单元格分开的数字和单位仍完整冻结，其他单元格文案可修正 (1.650417ms)
+✔ 没有数值的单位表头和独立单位不能放过，普通标题文案仍允许 (1.009125ms)
+✔ 仅写契约无而没有页面证据不能放过历史局部修正 (1.0975ms)
+✔ 仅有轻量记录而没有源码前后哈希不能放过 (0.491458ms)
+✔ 旧基线哈希不能冒充本次修改前哈希，当前哈希也必须匹配 (0.946459ms)
+✔ 重复或示例代码块中的历史局部证明不接受 (0.779041ms)
+✔ HTML 注释和四空格代码中的哈希表不能作为历史局部证明 (0.873709ms)
+✔ 历史列表身份持续使用原始基线，本次比较使用实际前后源码 (0.672125ms)
+✖ 未闭合 HTML 注释至 EOF 内的哈希证明无效 (0.456291ms)
+✔ 新增列表须声明模式且实际调用标准组件，注释不能冒充调用 (15.828459ms)
+✔ 本地同名函数和导出入口不可达的死函数不能冒充标准组件契约 (4.292125ms)
+✔ 真实组件的丢弃调用和未使用 const 不构成返回页面的标准契约 (4.433167ms)
+✔ 条件、逗号和对象取值仅使用实际返回链，未知动态表达式不能拼凑契约 (7.428167ms)
+✖ 真实组件须进入表格和分页输出槽，其他属性不能补证 (0.6695ms)
+✖ 真实页面入口不能由未调用的导出 helper 或另一个页面代为通过 (0.686459ms)
+✔ 真实标准组件允许 import 别名及导出入口可达的本地 helper (0.718167ms)
+✔ 跨文件 renderer 和实际调用回调的 wrapper 使用传入的同版本源码证明 (4.372292ms)
+✔ 现有直接列表、回调 wrapper、共享 factory 与缓存 renderer 保持真实标准组件契约 (171.909375ms)
+✔ 遗漏范围的 dirty wrapper 不能凑齐页面契约，已提交依赖仍可使用 (311.51325ms)
+✔ export const 页面可识别，历史列表不能更改模式伪装为详情页 (0.956375ms)
+✔ 页面模式和无分页声明仅接受真实独立行注释，字符串及模板注释不能伪造 (5.64725ms)
+✔ worktree 显式任务范围仅验当前页面，忽略未选中的错误页面和基线篡改 (167.4025ms)
+✔ staged 检查源码与记录都来自暂存区，不受工作区后续修改影响 (115.244291ms)
+✔ staged 中的行为改变不能用工作区已修正文案和记录掩盖 (107.356917ms)
+✔ branch 范围读取提交内容，base 范围与证据哈希一致 (144.98225ms)
+✔ 运行检查不写回历史基线 (90.396375ms)
+✔ 不能只移除未迁移页面的基线身份，迁移或删除后才可移除 (132.507292ms)
+✔ 新列表不能通过更改导出函数命名绕过声明及标准契约 (78.413459ms)
+✔ 特殊 CLI 参数必须单独使用，不能吞掉真实范围检查参数 (408.910167ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 44
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2042.353709
+
+✖ failing tests:
+
+test at tests/workflow-governance/list-page-governance.test.ts:199:1
+✖ 未闭合 HTML 注释至 EOF 内的哈希证明无效 (0.456291ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/list-page-governance.test.ts:202:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /必须有且仅有一条/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/list-page-governance.test.ts:255:1
+✖ 真实组件须进入表格和分页输出槽，其他属性不能补证 (0.6695ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/list-page-governance.test.ts:257:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/workflow-governance/list-page-governance.test.ts:262:1
+✖ 真实页面入口不能由未调用的导出 helper 或另一个页面代为通过 (0.686459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/laoer/.codex/worktrees/9ec5/higoods/tests/workflow-governance/list-page-governance.test.ts:264:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

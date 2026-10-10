@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
 const repoRoot = process.cwd()
 const RELEASE_READINESS_SCRIPTS = [
@@ -73,18 +74,44 @@ function assertReleaseReadinessCoverage(): void {
   )
 }
 
+/** Documentation-only contract; importing it does not execute business checks. */
+export function assertCuttingDocumentation(
+  scripts: Record<string, unknown>,
+  docsText: string,
+  playwrightConfig: string,
+): void {
+  ;[
+    ...RELEASE_READINESS_SCRIPTS,
+    'check:cutting:release',
+    'test:cutting:install-browsers',
+    'test:cutting:all:e2e',
+  ].forEach((scriptName) => {
+    assert(typeof scripts[scriptName] === 'string' && scripts[scriptName].trim(), `package.json 缺少有效交付脚本：${scriptName}`)
+  })
+  assert(!/\bnpm\s+run\s+test:cutting:bootstrap\b/.test(docsText), '文档不应要求单独执行 test:cutting:bootstrap；Playwright 通过 globalSetup 调用该模块')
+  for (const match of docsText.matchAll(/\bnpm\s+run\s+([\w:-]+)/g)) {
+    const scriptName = match[1]
+    assert(typeof scripts[scriptName] === 'string' && scripts[scriptName].trim(), `文档引用不存在或空的 npm 脚本：${scriptName}`)
+  }
+  assert(/\bnpm\s+(?:ci|install)\b/.test(docsText), '文档缺少依赖安装命令：npm ci 或 npm install')
+  ;[
+    'npm run test:cutting:install-browsers',
+    'npm run check:cutting:release',
+    'npm run test:cutting:all:e2e',
+  ].forEach((command) => {
+    assert(docsText.includes(command), `文档缺少运行命令说明：${command}`)
+  })
+  assert(/(?:npm\s+exec\s+--\s+|npx\s+)playwright\s+test\b[^\r\n`]*--debug\b/.test(docsText), '文档缺少可执行的 Playwright --debug 示例')
+  assert(/\bglobalSetup\s*:\s*['"]\.\/tests\/bootstrap\/cutting-bootstrap\.ts['"]/.test(playwrightConfig), 'Playwright 配置未通过 globalSetup 接入裁片测试初始化模块')
+}
+
 function main(): void {
   const packageJson = read('package.json')
-  ;[
-    '"check:pda-cutting-wait-handover-route-integration"',
-    '"check:cutting:all"',
-    '"check:cutting:release"',
-    '"test:cutting:bootstrap"',
-    '"test:cutting:install-browsers"',
-    '"test:cutting:all:e2e"',
-  ].forEach((scriptName) => {
-    assert(packageJson.includes(scriptName), `package.json 缺少交付脚本：${scriptName}`)
-  })
+  assertCuttingDocumentation(
+    JSON.parse(packageJson).scripts ?? {},
+    `${read('README.md')}\n${read('docs/cutting-e2e.md')}`,
+    read('playwright.config.ts'),
+  )
   assertReleaseReadinessCoverage()
   runReleaseReadiness()
 
@@ -99,17 +126,6 @@ function main(): void {
   assert(fs.existsSync(abs('tests/helpers/seed-cutting-runtime-state.ts')), 'tests/helpers/seed-cutting-runtime-state.ts 缺失')
   assert(fs.existsSync(abs('docs/cutting-e2e.md')), 'docs/cutting-e2e.md 缺失')
   assert(fs.existsSync(abs('playwright.config.ts')), 'playwright.config.ts 缺失')
-
-  const docsText = `${read('README.md')}\n${read('docs/cutting-e2e.md')}`
-  ;[
-    'npm install',
-    'npm run test:cutting:install-browsers',
-    'npm run test:cutting:bootstrap',
-    'npm run check:cutting:release',
-    'npm run test:cutting:all:e2e',
-  ].forEach((command) => {
-    assert(docsText.includes(command), `文档缺少运行命令说明：${command}`)
-  })
 
   const noiseFiles = listFiles('.', (file) => {
     const normalized = file.split(path.sep).join('/')
@@ -141,7 +157,7 @@ function main(): void {
         真实路由集成进入发布链: '通过',
         Playwright自举入口存在: '通过',
         最终验收spec存在: '通过',
-        文档运行顺序完整: '通过',
+        文档命令与初始化入口一致: '通过',
         工程噪音已清理: '通过',
         无失效cutting脚本残留: '通过',
       },
@@ -151,9 +167,11 @@ function main(): void {
   )
 }
 
-try {
-  main()
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main()
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  }
 }

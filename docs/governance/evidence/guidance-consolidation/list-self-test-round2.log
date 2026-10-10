@@ -1,0 +1,5 @@
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance:static
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts --self-test
+
+list page governance self-test passed

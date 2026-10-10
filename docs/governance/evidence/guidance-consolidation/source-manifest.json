@@ -1,0 +1,218 @@
+{
+  "head": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+  "branch": "codex/sidebar-menu-group-ui",
+  "scope": "Current implementation and five guidance files; task evidence under docs/governance excluded to avoid self-reference",
+  "sourceDigest": "259a9695de1ad7b11a9a6e4c4a5b096992db456337b9260ad8c04deec09f636f",
+  "files": [
+    {
+      "path": ".agents/skills/higood-indonesia-factory-design/SKILL.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": ".agents/skills/higood-indonesia-factory-design/agents/openai.yaml",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": ".agents/skills/higood-indonesia-factory-design/references/product-design-guidelines.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": ".agents/skills/higood-indonesia-factory-design/references/prototype-review-checklist.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "121194ee0c7266fec3ef43559ad587ef3c3ec85aa781db0d8fc9404293d846a0",
+      "state": "present"
+    },
+    {
+      "path": "README.md",
+      "sha256": "ca157331817e3270be654fbb79f9bbe5fc67525f02efc2b7002ef0093ddb1658",
+      "state": "present"
+    },
+    {
+      "path": "architecture.md",
+      "sha256": "436bdb8054c95d3d4af9027bc02e975c04cac79beb323cd138e78ae34cd0dc5d",
+      "state": "present"
+    },
+    {
+      "path": "docs/INDEX.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "docs/cutting-e2e.md",
+      "sha256": "bfb4b58a247a2fd012b8ffec5577fe1c37b1ba4c812160411cee9f2e9c7d0bb3",
+      "state": "present"
+    },
+    {
+      "path": "docs/fcs-truth-source-rules.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "docs/higood-indonesia-factory-product-design-guidelines.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "docs/higood-indonesia-factory-prototype-review-checklist.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "docs/prototype-review-record-template.md",
+      "sha256": "20e8fc8bbabdaac69fb062f2c2c2d0b68c84abd33f8adbd56e75d55522f9d7e7",
+      "state": "present"
+    },
+    {
+      "path": "docs/standard-list-page-governance-setup.md",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "package.json",
+      "sha256": "af341979da3075a9a440a13ea56b21b6dda3eed2016310f4cbf695a726247b64",
+      "state": "present"
+    },
+    {
+      "path": "scripts/check-cutting-p2-delivery.ts",
+      "sha256": "6fc4db0c22e6f4e64094a6b7c546dcd55646f6423760c97f67517cbdedada7e6",
+      "state": "present"
+    },
+    {
+      "path": "scripts/check-list-page-governance-suite.ts",
+      "sha256": "fe1516fa037e5adc043486cec491b24bc1111d5a416d7f9e00ae0c680e024d80",
+      "state": "present"
+    },
+    {
+      "path": "scripts/check-list-page-governance.ts",
+      "sha256": "1326cb12ddd5999f81ce76ca3c773fe219354068c5920106faa6b35ee023695a",
+      "state": "present"
+    },
+    {
+      "path": "scripts/check-prototype-design-governance.ts",
+      "sha256": "479a1377168d1dfc93c53a38724c2c340de7f2160748200c6f43baa02c8f94f2",
+      "state": "present"
+    },
+    {
+      "path": "scripts/check-standard-list-page-template.ts",
+      "sha256": "71843e37ec036df8a35fe5f76745d565f69176cac607d3df800e7e6da7d09917",
+      "state": "present"
+    },
+    {
+      "path": "scripts/record-workflow-stage.ts",
+      "sha256": "5397fb8fa3cdf0a7576522c9acb5db9f9432f53b93fefd492ad4ba4d53526ef1",
+      "state": "present"
+    },
+    {
+      "path": "scripts/task-completion-receipt.ts",
+      "sha256": "c3ff774a47630f993d11b60d4005bcbd82bdb187171d2fddd6ec68e8a66492fb",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/affected-checks.ts",
+      "sha256": "7b5add06b6a702be6550cb96f650a1708707240d0fae7d89ef0d9e09082e33a7",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/changed-paths.ts",
+      "sha256": "d844d3cb5ffcc23b0f0c786e99bda75bc9009762370d5eb713df060807d8a666",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/check-execution.ts",
+      "sha256": "da52913525481c95b9328a8f85dfc428b9c4233ddf2c1dfe250e1ef19d9d9115",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/disabled-workflows.ts",
+      "sha256": "5cb7cb74ca199558734b36403e8391eea2fef17bfd9b68c970a1851cf376290d",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/governance-scope.ts",
+      "sha256": "4a380d1de03bc6dc70dca1c3d996f3a06aac6f0d771f18225bd2102df23d998e",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/instruction-context.ts",
+      "sha256": "bcf9ca5f299acf78b5a7f7170555a2eb8f1854a4e11b194e6cbf82c613603ffd",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/list-page-policy.ts",
+      "sha256": "7418e531c77faf1ad4a32eecaf77508eb97edc64df30e5cd3079cad59d9dfce4",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/prototype-review.ts",
+      "sha256": "da719cf545162c5d8d2306f4cfae24fef77a6ece3308893b5200a5d2497479cd",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/stage-trace.ts",
+      "sha256": "94279fa331f7e631d982867ee575e779a73bad6757314d085a230cd0918fe2c8",
+      "state": "present"
+    },
+    {
+      "path": "scripts/workflow-governance/task-receipt.ts",
+      "sha256": "e1625d87e22f901b869e1b3376ede8cfaa9773d5ef6d133e82ae7da0c3c0fc46",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/affected-checks.test.ts",
+      "sha256": "b14829ca179a94656fe1aebc6d35f3feb0300666c4b97520a35995874467cdf0",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/changed-paths.test.ts",
+      "sha256": "79fc6ba1914702915102f82ed55a23a90788ee9b1dad7a9ba673174b223aaf4a",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/cutting-documentation.test.ts",
+      "sha256": "f4a02645b98588eb019500ff412ca3463a47315c83315648acbe227f0134eea6",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/disabled-workflows.test.ts",
+      "sha256": "2c3a9e5848e642371b457411cd08578fc85055fd67f82440e0bf9a6dc7c917c8",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/governance-scope.test.ts",
+      "sha256": "d5a221420732be5cc3534a10b9cd0946ccf7e99017a5af0c154b7ad9c089e490",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/instruction-context.test.ts",
+      "sha256": "63d0964cbf8580dbc73cc354c736bf09cd80e9d85b0b5dd751aeb7a2bd747fa4",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/list-page-governance.test.ts",
+      "sha256": "d498c61e41190a6c7743e6de41dbb389d39a215efe69e2ba2d84ba50d68c3abe",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/prototype-review-adversarial.test.ts",
+      "sha256": "1e15cda478ff9a9906823dd5a0c13e13c47632c6582d8044af7b736ba254f1f1",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/prototype-review.test.ts",
+      "sha256": "e2bb42bc4967e41fb7726af0eb2c661eefe90e502041d60ac8898717629ee06c",
+      "state": "present"
+    },
+    {
+      "path": "tests/workflow-governance/task-receipt.test.ts",
+      "sha256": "9607bd3daf528ede28ee1d1837c5e302c4f8c71c7850ba3f68109792c579a739",
+      "state": "present"
+    }
+  ]
+}

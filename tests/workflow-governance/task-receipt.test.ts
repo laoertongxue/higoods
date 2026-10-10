@@ -107,7 +107,7 @@ function instructionContext(options: {
       ...(options.requireStageTrace
         ? [{
             ruleRef: 'AGENTS.md::### 12.2 Superpowers 最小阶段轨迹',
-            evidenceFields: ['stageTrace'] as const,
+            evidenceFields: ['stageTrace' as const],
           }]
         : []),
     ],
@@ -1071,4 +1071,23 @@ test('否定验收评论不能升级接受状态', async () => {
       /远端核验失败/,
     )
   }
+})
+
+test('未识别测试即使构建成功也不得产生 verified 收据', () => {
+  const base = validReceipt()
+  const changed = { ...revision, changedPaths: ['tests/custom/example.case.ts'] }
+  const testRoute = routeAffectedChecks(changed.changedPaths)
+  const result = createTaskReceipt({
+    workspace: base.workspace,
+    revisionBefore: changed,
+    revisionAfter: changed,
+    instructionBefore: base.instructionContext,
+    instructionAfter: base.instructionContext,
+    route: testRoute,
+    checks: base.checks,
+    codegraph: base.codegraph,
+  })
+  assert.equal(result.state, 'implemented')
+  assert(result.blockers.some((blocker) => blocker.includes('未匹配测试运行器')))
+  assert.throws(() => parseTaskCompletionReceipt(JSON.stringify({ ...result, state: 'verified', blockers: [] })), /未匹配运行器/)
 })

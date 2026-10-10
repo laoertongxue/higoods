@@ -1,122 +1,45 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import assert from 'node:assert/strict'
-import {
-  validatePrototypeReviewCoverage,
-  type ReviewRecordSource,
-} from './workflow-governance/prototype-review.ts'
-import {
-  getChangedPaths,
-  getStagedChangedPaths,
-} from './workflow-governance/changed-paths.ts'
+import { validatePrototypeReviewCoverage, type ReviewRecordSource } from './workflow-governance/prototype-review.ts'
+import { isPrototypePath, isReviewRecordPath, resolveGovernanceScope, reportGovernanceScope, type GovernanceScope } from './workflow-governance/governance-scope.ts'
 
-const LEGACY_DESIGN_GUIDELINES = 'docs/higood-indonesia-factory-product-design-guidelines.md'
-const LEGACY_REVIEW_CHECKLIST = 'docs/higood-indonesia-factory-prototype-review-checklist.md'
-const REVIEW_TEMPLATE = 'docs/prototype-review-record-template.md'
-const REVIEW_RECORD_DIR = 'docs/prototype-review-records/'
-const AGENTS = 'AGENTS.md'
-
-const PROTOTYPE_PREFIXES = [
-  'src/pages/',
-  'src/components/',
-  'src/data/',
-  'src/router/',
-  'src/main-handlers/',
-]
-
-const GOVERNANCE_PATHS = new Set([
-  AGENTS,
-  LEGACY_DESIGN_GUIDELINES,
-  LEGACY_REVIEW_CHECKLIST,
-  REVIEW_TEMPLATE,
-  'scripts/check-prototype-design-governance.ts',
-  'scripts/workflow-governance/prototype-review.ts',
-  'tests/workflow-governance/prototype-review.test.ts',
-  '.agents/skills/higood-indonesia-factory-design/SKILL.md',
-  'package.json',
-])
-
-function normalizePath(path: string): string {
-  return path.replace(/^\.\//, '').trim()
-}
-
-function isPrototypePath(path: string): boolean {
-  const normalized = normalizePath(path)
-  if (GOVERNANCE_PATHS.has(normalized)) return false
-  if (normalized.startsWith(REVIEW_RECORD_DIR)) return false
-  return PROTOTYPE_PREFIXES.some((prefix) => normalized.startsWith(prefix))
-}
-
-function isReviewRecordPath(path: string): boolean {
-  const normalized = normalizePath(path)
-  return normalized.startsWith(REVIEW_RECORD_DIR) && normalized.endsWith('.md')
-}
-
-function getGovernanceChangedPaths(mode: 'staged' | 'all', base?: string): string[] {
-  if (mode === 'all') return getChangedPaths({ base })
-  return getStagedChangedPaths()
-}
-
-function assertFileExists(path: string): void {
-  assert(existsSync(path), `缺少必要治理文件：${path}`)
-}
-
-function assertAgentsContract(): void {
-  const source = readFileSync(AGENTS, 'utf8')
-  for (const token of [
-    REVIEW_TEMPLATE,
-    '用户可见影响',
-    '无用户可见影响',
-    'npm run check:prototype-design-governance',
-    '款式与物料真实图片硬门禁',
-  ]) {
-    assert(source.includes(token), `AGENTS.md 缺少治理契约：${token}`)
+function assertAgentsContract(source: string | null): void {
+  assert(source, '所选版本缺少 AGENTS.md')
+  for (const token of ['docs/prototype-review-record-template.md', 'REVIEW-01', 'PERF-01', 'IMAGE-01', '轻量可见变更', '无用户可见影响']) {
+    assert(source.includes(token), 'AGENTS.md 缺少治理契约：' + token)
   }
 }
 
-function runSelfTest(): void {
-  assert.equal(isPrototypePath('src/pages/pda-exec.ts'), true)
-  assert.equal(isPrototypePath('src/components/ui/button.ts'), true)
-  assert.equal(isPrototypePath('src/data/fcs/store-domain-pda.ts'), true)
-  assert.equal(isPrototypePath('docs/higood-indonesia-factory-product-design-guidelines.md'), false)
-  assert.equal(isPrototypePath('docs/prototype-review-records/2026-07-03-pda.md'), false)
-  assert.equal(isReviewRecordPath('docs/prototype-review-records/2026-07-03-pda.md'), true)
-  assert.equal(isReviewRecordPath('docs/prototype-review-records/.gitkeep'), false)
-  assertAgentsContract()
+export function checkPrototypeGovernance(scope: GovernanceScope): void {
+  const prototypeChanges = scope.paths.filter(isPrototypePath)
+  if (prototypeChanges.length === 0) {
+    console.log('prototype design governance: no governed product changes in selected ' + scope.kind + ' scope (not product acceptance)')
+    return
+  }
+  assertAgentsContract(scope.readText('AGENTS.md'))
+  assert(scope.readText('docs/prototype-review-record-template.md'), '所选版本缺少审查记录模板')
+  const records: ReviewRecordSource[] = scope.paths.filter(isReviewRecordPath).flatMap((path) => {
+    const source = scope.readText(path)
+    return source === null ? [] : [{ path, source }]
+  })
+  const result = validatePrototypeReviewCoverage(prototypeChanges, records)
+  console.log('prototype design governance passed: ' + JSON.stringify(result))
 }
 
 function main(): void {
-  const args = new Set(process.argv.slice(2))
-  if (args.has('--self-test')) {
-    runSelfTest()
+  const args = process.argv.slice(2)
+  if (args.length === 1 && args[0] === '--self-test') {
+    for (const path of ['src/main.ts', 'src/state/example.ts', 'src/domain/example.ts', 'src/styles.css', 'src/utils/example.ts', 'index.html']) assert(isPrototypePath(path))
+    assert(!isPrototypePath('docs/example.md'))
+    assert(isReviewRecordPath('docs/prototype-review-records/example.md'))
+    assertAgentsContract(readFileSync('AGENTS.md', 'utf8'))
     console.log('prototype design governance self-test passed')
     return
   }
-
-  for (const path of [REVIEW_TEMPLATE, AGENTS]) assertFileExists(path)
-  assertAgentsContract()
-
-  const mode = args.has('--all') ? 'all' : 'staged'
-  const baseIndex = process.argv.indexOf('--base')
-  const base = baseIndex >= 0 ? process.argv[baseIndex + 1] : process.env.GOVERNANCE_BASE_SHA
-  const changedPaths = getGovernanceChangedPaths(mode, base)
-  const prototypeChanges = changedPaths.filter(isPrototypePath)
-  if (prototypeChanges.length === 0) {
-    console.log(`prototype design governance passed (${mode}): no governed prototype changes`)
-    return
-  }
-
-  const recordSources = changedPaths
-    .filter(isReviewRecordPath)
-    .filter((path) => existsSync(path))
-    .map<ReviewRecordSource>((path) => ({ path, source: readFileSync(path, 'utf8') }))
-  const result = validatePrototypeReviewCoverage(prototypeChanges, recordSources)
-
-  console.log(
-    `prototype design governance passed (${mode}): `
-    + `${result.userVisiblePaths.length} user-visible file(s), `
-    + `${result.technicalOnlyPaths.length} technical-only file(s), `
-    + `${result.recordPaths.length} linked governance record(s)`,
-  )
+  const scope = resolveGovernanceScope(args)
+  reportGovernanceScope(scope)
+  checkPrototypeGovernance(scope)
 }
 
-main()
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()

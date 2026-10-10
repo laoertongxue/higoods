@@ -1,0 +1,35 @@
+PASS R2-01 direct returned real slots positive
+PASS R2-01 constant false conditional
+PASS R2-01 comma discard
+PASS R2-01 unselected property
+PASS R2-01 element selection variant
+PASS R2-01 escaped slots
+PASS R2-01 inverted slots
+PASS R2-01 unused exported helper
+PASS R2-01 two page outputs require both
+PASS R1-02 local same-name stubs
+PASS R1-01/R2-02 10 件
+PASS R1-01/R2-02 2 箱
+PASS R1-01/R2-02 <span>2</span><span>盒</span>
+PASS R1-01/R2-02 <span>20</span><span>尺</span>
+PASS R1-01/R2-02 <b>${quantity}</b><span>盒</span>
+PASS LIST copy positive
+PASS R2-03 ignore literal/block directive const tutorial='
+PASS R2-03 ignore literal/block directive const tutorial=`
+PASS R2-03 ignore literal/block directive /* @page-pattern
+PASS R2-03 standalone positive
+PASS R2-03 duplicate rejected
+PASS R2-03 pagination literal does not exempt
+PASS R2-05 visible technical control
+PASS R2-05 unclosed all evidence reject
+PASS R2-05 closed preface leaves visible evidence
+PASS R1-05 indented technical reject
+PASS R1-04 status suffix （本次未运行）
+PASS R1-04 status suffix ，但实际执行失败
+PASS R1-04 status suffix  (12/12)
+PASS R1-11 correct hash control
+PASS R1-11/R2-05 hidden hash closed comment
+PASS R1-11/R2-05 hidden hash unclosed comment
+PASS R1-11/R2-05 hidden hash indented
+PASS R1-11/R2-05 hidden hash fenced
+TOTAL 34 independent replay and adjacent cases passed

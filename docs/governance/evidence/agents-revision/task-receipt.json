@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "workspace": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+  "createdAt": "2026-10-10T02:27:49.480Z",
+  "state": "verified",
+  "instructionContext": {
+    "taskBoundary": "执行 GOV-01 至 GOV-17：AGENTS、治理模板/检查器/专项测试与方案审查记录；当前全部差异均为本任务，不改业务，不发布",
+    "source": {
+      "path": "AGENTS.md",
+      "algorithm": "sha256",
+      "contentHash": "3b6492e3a79f100011b9a701fea27315904a2af4da61b00d68dad570f0faf296"
+    },
+    "ruleBindings": [
+      {
+        "ruleRef": "AGENTS.md::TOOL-01",
+        "evidenceFields": [
+          "codegraph"
+        ]
+      },
+      {
+        "ruleRef": "AGENTS.md::RECEIPT-01",
+        "evidenceFields": [
+          "revision",
+          "route",
+          "checks",
+          "codegraph"
+        ]
+      }
+    ]
+  },
+  "revision": {
+    "head": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+    "diffHash": "ded94027d840f6f1b43f37f0e34a3f9fe4e65fccd8978b8619864836e91fe2f4",
+    "changedPaths": [
+      "AGENTS.md",
+      "docs/governance/AGENTS规则调整实施与审查记录.md",
+      "docs/governance/AGENTS规则调整方案.md",
+      "docs/prototype-review-record-template.md",
+      "scripts/check-list-page-governance.ts",
+      "scripts/check-prototype-design-governance.ts",
+      "scripts/check-standard-list-page-template.ts",
+      "scripts/workflow-governance/affected-checks.ts",
+      "scripts/workflow-governance/instruction-context.ts",
+      "scripts/workflow-governance/prototype-review.ts",
+      "scripts/workflow-governance/stage-trace.ts",
+      "scripts/workflow-governance/task-receipt.ts",
+      "tests/workflow-governance/affected-checks.test.ts",
+      "tests/workflow-governance/instruction-context.test.ts",
+      "tests/workflow-governance/prototype-review.test.ts",
+      "tests/workflow-governance/task-receipt.test.ts"
+    ]
+  },
+  "route": {
+    "changedPaths": [
+      "AGENTS.md",
+      "docs/governance/AGENTS规则调整实施与审查记录.md",
+      "docs/governance/AGENTS规则调整方案.md",
+      "docs/prototype-review-record-template.md",
+      "scripts/check-list-page-governance.ts",
+      "scripts/check-prototype-design-governance.ts",
+      "scripts/check-standard-list-page-template.ts",
+      "scripts/workflow-governance/affected-checks.ts",
+      "scripts/workflow-governance/instruction-context.ts",
+      "scripts/workflow-governance/prototype-review.ts",
+      "scripts/workflow-governance/stage-trace.ts",
+      "scripts/workflow-governance/task-receipt.ts",
+      "tests/workflow-governance/affected-checks.test.ts",
+      "tests/workflow-governance/instruction-context.test.ts",
+      "tests/workflow-governance/prototype-review.test.ts",
+      "tests/workflow-governance/task-receipt.test.ts"
+    ],
+    "fastChecks": [
+      "npm run check:list-page-governance:static -- --self-test",
+      "npm run test:workflow-governance"
+    ],
+    "governanceChecks": [
+      "npm run check:list-page-governance",
+      "npm run check:prototype-design-governance -- --self-test"
+    ],
+    "fullChecks": [],
+    "unknownPaths": [],
+    "escalationReasons": []
+  },
+  "checks": [
+    {
+      "command": "npm run check:list-page-governance:static -- --self-test",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T02:27:41.192Z",
+      "finishedAt": "2026-10-10T02:27:41.334Z",
+      "invariant": "受影响检查路由要求：npm run check:list-page-governance:static -- --self-test"
+    },
+    {
+      "command": "npm run test:workflow-governance",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T02:27:41.334Z",
+      "finishedAt": "2026-10-10T02:27:42.155Z",
+      "invariant": "受影响检查路由要求：npm run test:workflow-governance"
+    },
+    {
+      "command": "npm run check:list-page-governance",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T02:27:42.155Z",
+      "finishedAt": "2026-10-10T02:27:49.027Z",
+      "invariant": "受影响检查路由要求：npm run check:list-page-governance"
+    },
+    {
+      "command": "npm run check:prototype-design-governance -- --self-test",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T02:27:49.027Z",
+      "finishedAt": "2026-10-10T02:27:49.165Z",
+      "invariant": "受影响检查路由要求：npm run check:prototype-design-governance -- --self-test"
+    }
+  ],
+  "codegraph": {
+    "syncExitCode": 0,
+    "before": {
+      "initialized": true,
+      "projectPath": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+      "pendingCount": 0,
+      "worktreeMismatch": false
+    },
+    "after": {
+      "initialized": true,
+      "projectPath": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+      "pendingCount": 0,
+      "worktreeMismatch": false
+    }
+  },
+  "blockers": [],
+  "stageTrace": {
+    "required": false,
+    "valid": true,
+    "stages": [],
+    "skills": [],
+    "blockers": []
+  }
+}
