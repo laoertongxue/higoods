@@ -68,6 +68,11 @@
   visibility: hidden;
 }
 
+/* 裁片放行详情到达边界后停止纵向回弹，避免内容移出可视区。 */
+main > div:has(> [data-page-content-root] > [data-cut-piece-release-detail-page]) {
+  overscroll-behavior-y: none;
+}
+
 .group:hover [data-tab-close],
 .group[data-active='true'] [data-tab-close] {
   visibility: visible;

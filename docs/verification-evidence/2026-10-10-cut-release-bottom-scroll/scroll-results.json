@@ -1,0 +1,430 @@
+{
+  "environment": {
+    "baseCommit": "b747ab9bd1aa61a054f1c2af4865f7670c748a8b",
+    "branch": "codex/sidebar-menu-group-ui",
+    "worktree": "/Users/laoer/.codex/worktrees/9ec5/higoods",
+    "service": "http://127.0.0.1:4190",
+    "previewPid": 83075,
+    "sourceSha256": "2e208d82744a2f56932c924328389e39cc58442d25eadc7829fa69b33244aec1",
+    "assetIndexSha256": "597892de4f07ffa904a44a9546b5fd18dc2d3c98c57d35b212cec36f25025b62",
+    "browserProbeSha256": "400f4a0bea81de59a0c8117ceccb216142816b98aea766fb79be79d7cc812483",
+    "timezone": "Asia/Shanghai",
+    "initialReproduction": {
+      "route": "/fcs/craft/cutting/cut-piece-release?productionOrderId=po-14673&productionOrderNo=PO14673",
+      "viewport": [
+        1920,
+        1080
+      ],
+      "documentScrollHeight": 2346,
+      "windowScrollYAtDocumentBottom": 1266.5,
+      "contentScrollHeight": 2565,
+      "contentClientHeight": 987,
+      "screenshot": "output/playwright/release-bottom-scroll/before-document-bottom.png"
+    },
+    "diagnosticCounterfactual": [
+      {
+        "mode": "original",
+        "documentHeight": 2346
+      },
+      {
+        "mode": "target-only relative",
+        "documentHeight": 2346
+      },
+      {
+        "mode": "confirm-only relative",
+        "documentHeight": 1080
+      },
+      {
+        "mode": "both relative",
+        "documentHeight": 1080
+      }
+    ],
+    "counterfactualScope": "仅隔离浏览器临时样式，原始复现为修改前 production preview；未操作用户资料",
+    "stylesSha256": "14479e78b2a78c4b2f92350a5a061751d51c8fab43e1472f3a7941011b043edc",
+    "pixelProbeSha256": "50047b2870377a17ce3228af615d0cb385155a52a184e75f86c8b84aadeac47e",
+    "validatedAt": "2026-10-10T06:21:32.891594+00:00"
+  },
+  "result": "通过",
+  "scope": "两个矩阵容器 relative；仅详情页主内容滚动容器 overscroll-behavior-y:none；无存储/业务/路由契约变化",
+  "scrollMeasurement": {
+    "start": "每次真实 mouse.wheel 前的 performance.now",
+    "end": "目标内容到达底部、两个绘制帧且原始PNG截图返回后的 performance.now；截图耗时一并计入",
+    "samplesPerCase": 5,
+    "maxMs": 237.1000000089407
+  },
+  "cases": [
+    {
+      "order": "PO14673",
+      "viewport": [
+        1920,
+        1080
+      ],
+      "samplesMs": [
+        138.80000001192093,
+        161.40000000596046,
+        160.80000001192093,
+        156,
+        165.29999999701977
+      ],
+      "maxMs": 165.29999999701977,
+      "documentHeight": 1080,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 1578,
+      "contentMaxScrollTop": 1578,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 1024.109375,
+      "matrixBottomAfterScreenshot": 1024.109375,
+      "bottomGapPx": 55.890625,
+      "bottomActionLabels": [
+        "调整放行",
+        "核对后维持放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14673-1920x1080.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14673",
+      "viewport": [
+        1920,
+        1200
+      ],
+      "samplesMs": [
+        160.70000000298023,
+        159.5,
+        164.5,
+        155.20000000298023,
+        148.70000000298023
+      ],
+      "maxMs": 164.5,
+      "documentHeight": 1200,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 1458,
+      "contentMaxScrollTop": 1458,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 1144.109375,
+      "matrixBottomAfterScreenshot": 1144.109375,
+      "bottomGapPx": 55.890625,
+      "bottomActionLabels": [
+        "调整放行",
+        "核对后维持放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14673-1920x1200.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14673",
+      "viewport": [
+        1366,
+        768
+      ],
+      "samplesMs": [
+        133.6000000089407,
+        130.09999999403954,
+        142.59999999403954,
+        144.29999999701977,
+        134
+      ],
+      "maxMs": 144.29999999701977,
+      "documentHeight": 768,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 1890,
+      "contentMaxScrollTop": 1890,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 712.109375,
+      "matrixBottomAfterScreenshot": 712.109375,
+      "bottomGapPx": 55.890625,
+      "bottomActionLabels": [
+        "调整放行",
+        "核对后维持放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14673-1366x768.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14673",
+      "viewport": [
+        1280,
+        720
+      ],
+      "samplesMs": [
+        123.59999999403954,
+        128.69999998807907,
+        129.09999999403954,
+        125.40000000596046,
+        139.5
+      ],
+      "maxMs": 139.5,
+      "documentHeight": 720,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 1938,
+      "contentMaxScrollTop": 1938,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 664.109375,
+      "matrixBottomAfterScreenshot": 664.109375,
+      "bottomGapPx": 55.890625,
+      "bottomActionLabels": [
+        "调整放行",
+        "核对后维持放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14673-1280x720.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14673",
+      "viewport": [
+        1024,
+        768
+      ],
+      "samplesMs": [
+        128.79999999701977,
+        125.09999999403954,
+        211.79999999701977,
+        124.80000001192093,
+        129.40000000596046
+      ],
+      "maxMs": 211.79999999701977,
+      "documentHeight": 768,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 1918,
+      "contentMaxScrollTop": 1918,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 712.109375,
+      "matrixBottomAfterScreenshot": 712.109375,
+      "bottomGapPx": 55.890625,
+      "bottomActionLabels": [
+        "调整放行",
+        "核对后维持放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14673-1024x768.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14671",
+      "viewport": [
+        1920,
+        1080
+      ],
+      "samplesMs": [
+        139.1000000089407,
+        169.5,
+        211.40000000596046,
+        150.30000001192093,
+        152.30000001192093
+      ],
+      "maxMs": 211.40000000596046,
+      "documentHeight": 1080,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 3729,
+      "contentMaxScrollTop": 3729,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 1024.21875,
+      "matrixBottomAfterScreenshot": 1024.21875,
+      "bottomGapPx": 55.78125,
+      "bottomActionLabels": [
+        "调整放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14671-1920x1080.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14671",
+      "viewport": [
+        1920,
+        1200
+      ],
+      "samplesMs": [
+        162.59999999403954,
+        160.70000000298023,
+        237.1000000089407,
+        160.20000000298023,
+        156.40000000596046
+      ],
+      "maxMs": 237.1000000089407,
+      "documentHeight": 1200,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 3609,
+      "contentMaxScrollTop": 3609,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 1144.21875,
+      "matrixBottomAfterScreenshot": 1144.21875,
+      "bottomGapPx": 55.78125,
+      "bottomActionLabels": [
+        "调整放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14671-1920x1200.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14671",
+      "viewport": [
+        1366,
+        768
+      ],
+      "samplesMs": [
+        129.20000000298023,
+        129,
+        126.79999999701977,
+        125.29999999701977,
+        125.3999999910593
+      ],
+      "maxMs": 129.20000000298023,
+      "documentHeight": 768,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 4041,
+      "contentMaxScrollTop": 4041,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 712.21875,
+      "matrixBottomAfterScreenshot": 712.21875,
+      "bottomGapPx": 55.78125,
+      "bottomActionLabels": [
+        "调整放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14671-1366x768.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14671",
+      "viewport": [
+        1280,
+        720
+      ],
+      "samplesMs": [
+        122.70000000298023,
+        124,
+        124.79999999701977,
+        122.70000000298023,
+        125.90000000596046
+      ],
+      "maxMs": 125.90000000596046,
+      "documentHeight": 720,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 4089,
+      "contentMaxScrollTop": 4089,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 664.21875,
+      "matrixBottomAfterScreenshot": 664.21875,
+      "bottomGapPx": 55.78125,
+      "bottomActionLabels": [
+        "调整放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14671-1280x720.png",
+      "sampleScreenshotCount": 5
+    },
+    {
+      "order": "PO14671",
+      "viewport": [
+        1024,
+        768
+      ],
+      "samplesMs": [
+        118.29999999701977,
+        122.3999999910593,
+        118.59999999403954,
+        118.40000000596046,
+        122.40000000596046
+      ],
+      "maxMs": 122.40000000596046,
+      "documentHeight": 768,
+      "windowY": 0,
+      "overscrollY": "none",
+      "contentScrollTop": 4069,
+      "contentMaxScrollTop": 4069,
+      "shellYBeforeScreenshot": 0,
+      "shellYAfterScreenshot": 0,
+      "matrixBottomBeforeScreenshot": 712.21875,
+      "matrixBottomAfterScreenshot": 712.21875,
+      "bottomGapPx": 55.78125,
+      "bottomActionLabels": [
+        "调整放行",
+        "查看版本日志（1）",
+        "查看补料依据"
+      ],
+      "screenshot": "output/playwright/release-bottom-scroll/final-PO14671-1024x768.png",
+      "sampleScreenshotCount": 5
+    }
+  ],
+  "drawerSamplesMs": [
+    115.20000000298023,
+    65.80000001192093,
+    82.29999999701977,
+    65.59999999403954,
+    65.40000000596046
+  ],
+  "drawerMaxMs": 115.20000000298023,
+  "interactions": [
+    "adjust release and cancel, no persistent save",
+    "version log expand, scroll and collapse",
+    "target candidates expand and cancel, no persistent save",
+    "bottom cell drawer open and Escape close, five samples"
+  ],
+  "horizontal": [
+    {
+      "selector": "[data-testid=\"cut-piece-release-target-matrix\"]",
+      "scrollLeft": 294.5,
+      "width": 466,
+      "scrollWidth": 761,
+      "beforeLeft": 67,
+      "afterLeft": 67,
+      "position": "sticky"
+    },
+    {
+      "selector": "[data-testid=\"cut-piece-release-confirm-matrix\"]",
+      "scrollLeft": 294.5,
+      "width": 466,
+      "scrollWidth": 761,
+      "beforeLeft": 67,
+      "afterLeft": 67,
+      "position": "sticky"
+    }
+  ],
+  "refresh": "passed",
+  "listOverscroll": "auto",
+  "errors": [],
+  "pixelEvidence": {
+    "checks": 60,
+    "allPassed": true,
+    "negativeControlsRejected": true,
+    "method": "Read original PNG pixels without editing; match top logo, bottom action ink and card bottom border to same-shot DOM coordinates",
+    "negativeControlScreenshots": [
+      "output/playwright/release-bottom-scroll/after-PO14673-1920x1200.png",
+      "output/playwright/release-bottom-scroll/after-PO14671-1024x768.png"
+    ]
+  },
+  "rawEvidenceDirectory": "output/playwright/release-bottom-scroll/"
+}
