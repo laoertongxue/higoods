@@ -10,8 +10,6 @@ import { renderTablePagination } from '../components/ui/pagination.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../components/ui/list-table-model.ts'
 import { listStyleArchives, getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
 import { listSkuArchives, getSkuArchiveCountsByStyle, listSkuArchivesByStyleId, getSkuArchiveById, createSkuArchiveBatch } from '../data/pcs-sku-archive-repository.ts'
-import { listEngineeringBomPricingPlans } from '../data/pcs-engineering-bom-repository.ts'
-import { listTechnicalDataVersionsByStyleId } from '../data/pcs-technical-data-version-repository.ts'
 import { listChannelMappingsBySkuId, listChannelListingsByStyleId, getChannelArchiveCounts } from '../data/pcs-channel-catalog.ts'
 import { listConfigDimensionOptions, listProductCategoryNodes } from '../data/pcs-config-workspace-repository.ts'
 import { FLAT_DIMENSION_META, type FlatDimensionId } from '../data/pcs-config-dimensions.ts'
@@ -32,6 +30,10 @@ type Kind = 'style' | 'sku'
 type Row = StyleArchiveShellRecord | SkuArchiveRecord
 const PREFIX = 'pcs-product-archive'
 const STYLE_PATH = '/pcs/products/styles', SKU_PATH = '/pcs/products/specifications'
+const DETAIL_TABS: Record<Kind, Array<[string, string]>> = {
+  style: [['basic', '基本资料'], ['translations', '多语名称'], ['sales', '商品描述与尺码'], ['skus', '规格'], ['relations', '同款与组合'], ['records', '记录']],
+  sku: [['basic', '规格资料'], ['translations', '多语名称'], ['packaging', '包装物流'], ['channels', '渠道关联'], ['records', '记录']],
+}
 let listContext: { styles: Map<string, StyleArchiveShellRecord>; skuCounts: Map<string, number>; channelCounts: Map<string, number>; categoryNumbers: Map<string, ReturnType<typeof listConfigDimensionOptions>[number]>; specialCrafts: Map<string, string> } | null = null
 const cls = 'h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm disabled:bg-slate-100 disabled:text-slate-500'
 const state = {
@@ -149,7 +151,6 @@ function detailActions(r: Row): string {
 function productChangeLabel(key: string): string { return ({"styleName": "款式名称", "styleCode": "款式编码", "styleNameTranslations": "多语名称", "materialType": "材质类型", "brandName": "品牌", "mainImageUrl": "主图", "galleryImageUrls": "图片", "productConfigRefs": "分类与属性", "productCategoryId": "正式类目", "skuName": "规格名称", "skuCode": "规格编码", "colorId": "颜色", "sizeId": "尺码", "colorName": "颜色名称", "sizeName": "尺码名称", "patternId": "花型编号", "patternIdentityId": "花型", "printName": "花型名称", "barcode": "条码", "barcodeAliases": "条码别名", "pricingUnit": "主单位编码", "mainUnitId": "主单位", "packageSpecs": "包装规格", "packageSpecHistory": "历史包装", "weightKg": "净重", "remark": "备注", "approvalStatus": "审核状态", "lifecycleStatus": "使用状态", "archiveStatus": "档案状态", "salesContents": "销售基础内容", "factorySizeChartHtml": "工厂做货尺码表", "sizeChartDraft": "尺码表测量值", "salesCountrySettings": "国家设置", "salesCountryDescriptions": "国家商品描述", "sameStyleIds": "同款关联", "substitutionRelations": "替代关联", "updatedBy": "更新人", "deliveryMode": "交付方式", "buyerId": "买手", "buyerName": "买手名称", "yearTag": "年份", "seasonTags": "季节", "extraIdentityValues": "交付差异", "deliveryDifference": "交付差异", "bundleComponents": "组合组成"} as Record<string, string>)[key] || '其他资料' }
 function formatChangeValue(value: unknown): string { return value == null || value === '' ? '空' : typeof value === 'object' ? JSON.stringify(value) : String(value) }
 function recordTab(r: Row): string { return panel('记录', table(['动作', '说明', '操作人', '时间'], (r.archiveLogs || []).slice().reverse().map(l => [e(l.action), `${e(l.detail)}${l.changes?.length ? `<details class="mt-2"><summary>查看原值与新值</summary><div class="max-w-lg break-words">${l.changes.map(change => `<div class="mt-2">${e(productChangeLabel(change.field))}：${e(formatChangeValue(change.before))} → ${e(formatChangeValue(change.after))}</div>`).join('')}<div class="mt-2">原因：${e(l.reason || l.detail)}</div></div></details>` : ''}`, e(l.operator), e(l.time)])) + `<div class="mt-5">${grid([['内部身份', idOf(r)], ['来源系统', r.sourceSystem || ('legacySystem' in r ? r.legacySystem : r.identitySource === 'MANUAL' ? 'PCS手工建档' : '原型演示资料')], ['原记录 ID', r.sourceId || ('sourceProjectId' in r ? r.sourceProjectId : '')], ['来源旧码', 'legacyCode' in r ? [r.legacyCode, r.barcode, ...(r.barcodeAliases || [])].join(' ') : r.legacyCodes || r.legacyOriginProject], ['建立时间', 'createdAt' in r ? r.createdAt : r.generatedAt], ['更新人', r.updatedBy], ['更新时间', r.updatedAt]])}</div>${r.legacyValues?.length ? `<details class="mt-5"><summary>必要历史原值</summary>${table(['来源字段', '原值', '原单位 / 币种'], r.legacyValues.map(v => [e(v.field), e(formatChangeValue(v.value)), e([v.unit, v.currency].filter(Boolean).join(' / '))]))}</details>` : ''}`) }
-function technicalTab(styleId: string): string { return panel('技术包引用', table(['版本', '状态', 'BOM 条数', '尺寸 / 工艺', '更新', '操作'], listTechnicalDataVersionsByStyleId(styleId).map(v => [e(`${v.technicalVersionCode} · ${v.versionLabel}`), e(v.versionStatus === 'PUBLISHED' ? '已发布' : v.versionStatus === 'DRAFT' ? '草稿' : '归档'), e(v.bomItemCount), e(`${v.gradingRuleCount} / ${v.processEntryCount}`), e(v.updatedAt), link('查看技术包', `${STYLE_PATH}/${styleId}/technical-data/${v.technicalVersionId}`)]))) + '<div class="mt-4"></div>' + panel('核价引用', table(['核价方案', '业务来源', '采用版本', '更新', '操作'], listEngineeringBomPricingPlans().filter(p => p.styleId === styleId).map(p => [e(p.ownerCode), e(({ INDEPENDENT_SAMPLING: '设计改款', ENGINEERING_MASTER: '生产准备', TECH_PACK_DRAFT: '技术包草稿' })[p.ownerStage]), e(p.publishedSnapshotId || (p.status === 'DRAFT' ? '准备中' : p.completedConfirmedAt ? '已确认' : '当前方案')), e(p.updatedAt), link('查看核价', `/pcs/technical-data/bom-pricing/owner/${encodeURIComponent(p.ownerStage)}/${encodeURIComponent(p.ownerId)}`)]))) }
 function channelTab(skuId: string): string { return panel('渠道关联', table(['渠道 / 店铺', 'PID', '平台规格 ID', '平台颜色 / 尺码', '售价', '状态', '操作'], listChannelMappingsBySkuId(skuId).map(m => [e(`${m.channelCode} / ${m.storeName}`), e(m.platformProductId || '待发布'), e(m.platformVariantId || '待分配'), e(`${m.displayColor} / ${m.displaySize}`), e(m.effectivePrice == null ? '未维护' : `${m.effectivePrice} ${m.currency}`), e(m.platformStatus), link('查看渠道商品', `/pcs/products/channel-products/${m.listingId}`)]))) }
 
 function translationsPanel(kind: Kind, record: Partial<StyleArchiveShellRecord> | Partial<SkuArchiveRecord>, editing: boolean): string {
@@ -160,7 +161,6 @@ function translationsPanel(kind: Kind, record: Partial<StyleArchiveShellRecord> 
 
 function styleBody(r: StyleArchiveShellRecord): string {
   if (state.tab === 'translations') return translationsPanel('style', r, false)
-  if (state.tab === 'technical') return technicalTab(r.styleId)
   if (state.tab === 'records') return recordTab(r)
   if (state.tab === 'skus') return panel('规格清单', table(['规格', '颜色', '尺码', '交付方式', '审核 / 使用状态', '操作'], listSkuArchivesByStyleId(r.styleId).map(s => [link(s.skuCode, `${SKU_PATH}/${s.skuId}`), e(s.colorName), e(s.sizeName), e(deliveryLabels[s.deliveryMode || 'SINGLE']), statuses(s), link('编辑', `${SKU_PATH}/${s.skuId}/edit`)])), link('新增规格', `${SKU_PATH}/new?styleId=${r.styleId}`))
   if (state.tab === 'sales') {
@@ -172,7 +172,6 @@ function styleBody(r: StyleArchiveShellRecord): string {
 }
 function skuBody(r: SkuArchiveRecord): string {
   if (state.tab === 'translations') return translationsPanel('sku', r, false)
-  if (state.tab === 'technical') return technicalTab(r.styleId)
   if (state.tab === 'channels') return channelTab(r.skuId)
   if (state.tab === 'records') return recordTab(r)
   if (state.tab === 'packaging') return productPackagingView(r)
@@ -183,7 +182,8 @@ function renderDetail(kind: Kind, id: string): string {
   state.kind = kind; state.view = 'detail'; state.id = id; state.dirty = false
   const r = kind === 'style' ? getStyleArchiveById(id) : getSkuArchiveById(id)
   if (!r) return wrap(`<div class="p-6">${link('返回列表', path())}<p class="mt-6">档案不存在，请重新读取列表。</p></div>`)
-  const tabs: Array<[string, string]> = kind === 'style' ? [['basic', '基本资料'], ['translations', '多语名称'], ['sales', '商品描述与尺码'], ['skus', '规格'], ['technical', '技术引用'], ['relations', '同款与组合'], ['records', '记录']] : [['basic', '规格资料'], ['translations', '多语名称'], ['packaging', '包装物流'], ['channels', '渠道关联'], ['technical', '技术引用'], ['records', '记录']]
+  const tabs = DETAIL_TABS[kind]
+  if (!tabs.some(([key]) => key === state.tab)) state.tab = 'basic'
   return wrap(`<div class="space-y-4 p-4"><div class="flex items-center justify-between">${link('← 返回列表', path())}<span class="text-xs text-slate-400">${kind === 'style' ? '款式档案' : '规格档案'}</span></div><div data-product-notice>${notice()}</div><header class="flex flex-wrap items-center justify-between gap-5 rounded-lg border bg-white p-5"><div class="flex min-w-0 items-center gap-4">${photo(imageOf(r), nameOf(r), true)}<div class="min-w-0"><h1 class="break-all text-xl font-semibold">${e(codeOf(r))}</h1><p class="my-2 text-sm text-slate-600">${e(nameOf(r))}</p><div class="flex gap-2">${statuses(r)}</div></div></div>${detailActions(r)}</header>${tabBar(tabs, state.tab, 'tab')}<div data-product-detail-body>${kind === 'style' ? styleBody(r as StyleArchiveShellRecord) : skuBody(r as SkuArchiveRecord)}</div></div>`)
 }
 export function renderPcsStyleArchiveDetailPage(id: string): string { return renderDetail('style', id) }
@@ -538,7 +538,10 @@ export async function handlePcsProductArchiveEvent(target: HTMLElement, event?: 
     }
     if (action === 'editor-tab' || action === 'tab') {
       if (action === 'editor-tab') { state.editorTab = node.dataset.tab!; refreshEditorBody() }
-      else { state.tab = node.dataset.tab!; state.sales = null; refreshDetailBody() }
+      else {
+        if (!DETAIL_TABS[state.kind].some(([key]) => key === node.dataset.tab)) return true
+        state.tab = node.dataset.tab!; state.sales = null; refreshDetailBody()
+      }
       refreshArchiveTabs(action); return true
     }
     if (['image', 'close-image-preview', 'dismiss'].includes(action)) {

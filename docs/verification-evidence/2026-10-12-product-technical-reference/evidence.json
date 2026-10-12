@@ -1,0 +1,417 @@
+{
+  "base": "http://127.0.0.1:43222",
+  "formal": true,
+  "rounds": 5,
+  "routes": [
+    [
+      "style",
+      "/pcs/products/styles/style_demand_SPU_QC_001",
+      [
+        "basic",
+        "translations",
+        "sales",
+        "skus",
+        "relations",
+        "records"
+      ]
+    ],
+    [
+      "sku",
+      "/pcs/products/specifications/skuSeed_style_demand_SPU_QC_001_001",
+      [
+        "basic",
+        "translations",
+        "packaging",
+        "channels",
+        "records"
+      ]
+    ]
+  ],
+  "linkedStyleId": "style_demand_SPU_QC_001",
+  "linkedSkuId": "skuSeed_style_demand_SPU_QC_001_001",
+  "technicalVersionId": "tdv_demand_SPU_QC_001",
+  "head": "abc80b6a5716fb62b031dbdbd66f2c561a2b8b9c",
+  "branch": "codex/product-archive-technical-reference-cleanup",
+  "sourceSha": "1edbb87db76860598712d56739692f529d4788c880f3038cc0ae7a96375263be",
+  "testSha": "6f4ef95aceeabc14bf22bd67360b275b511b26e261acf2cf328d50d4913af139",
+  "assetsSha": "29b3fa4cfa3c5784db8479d7f097030eb52d00515d8c55e659fe5eeae2d9a5f9",
+  "browser": "149.0.7827.55",
+  "samples": [
+    {
+      "name": "style:cold",
+      "round": 0,
+      "ms": 261.69999998807907
+    },
+    {
+      "name": "style:refresh",
+      "round": 0,
+      "ms": 145.10000002384186
+    },
+    {
+      "name": "style:tab-basic",
+      "round": 0,
+      "ms": 61.19999998807907
+    },
+    {
+      "name": "style:tab-translations",
+      "round": 0,
+      "ms": 34.29999998211861
+    },
+    {
+      "name": "style:tab-sales",
+      "round": 0,
+      "ms": 50.60000002384186
+    },
+    {
+      "name": "style:tab-skus",
+      "round": 0,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "style:tab-relations",
+      "round": 0,
+      "ms": 33.89999997615814
+    },
+    {
+      "name": "style:tab-records",
+      "round": 0,
+      "ms": 34.39999997615814
+    },
+    {
+      "name": "sku:cold",
+      "round": 0,
+      "ms": 127.7999999821186
+    },
+    {
+      "name": "sku:refresh",
+      "round": 0,
+      "ms": 132
+    },
+    {
+      "name": "sku:tab-basic",
+      "round": 0,
+      "ms": 38.19999998807907
+    },
+    {
+      "name": "sku:tab-translations",
+      "round": 0,
+      "ms": 32.900000005960464
+    },
+    {
+      "name": "sku:tab-packaging",
+      "round": 0,
+      "ms": 34.19999998807907
+    },
+    {
+      "name": "sku:tab-channels",
+      "round": 0,
+      "ms": 50.5
+    },
+    {
+      "name": "sku:tab-records",
+      "round": 0,
+      "ms": 34.20000001788139
+    },
+    {
+      "name": "style:cold",
+      "round": 1,
+      "ms": 142.59999999403954
+    },
+    {
+      "name": "style:refresh",
+      "round": 1,
+      "ms": 130.80000001192093
+    },
+    {
+      "name": "style:tab-basic",
+      "round": 1,
+      "ms": 35.10000002384186
+    },
+    {
+      "name": "style:tab-translations",
+      "round": 1,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "style:tab-sales",
+      "round": 1,
+      "ms": 50.80000001192093
+    },
+    {
+      "name": "style:tab-skus",
+      "round": 1,
+      "ms": 38.900000005960464
+    },
+    {
+      "name": "style:tab-relations",
+      "round": 1,
+      "ms": 34.70000001788139
+    },
+    {
+      "name": "style:tab-records",
+      "round": 1,
+      "ms": 33.80000001192093
+    },
+    {
+      "name": "sku:cold",
+      "round": 1,
+      "ms": 131
+    },
+    {
+      "name": "sku:refresh",
+      "round": 1,
+      "ms": 115.2999999821186
+    },
+    {
+      "name": "sku:tab-basic",
+      "round": 1,
+      "ms": 35.19999998807907
+    },
+    {
+      "name": "sku:tab-translations",
+      "round": 1,
+      "ms": 38.5
+    },
+    {
+      "name": "sku:tab-packaging",
+      "round": 1,
+      "ms": 33.599999994039536
+    },
+    {
+      "name": "sku:tab-channels",
+      "round": 1,
+      "ms": 52
+    },
+    {
+      "name": "sku:tab-records",
+      "round": 1,
+      "ms": 34
+    },
+    {
+      "name": "style:cold",
+      "round": 2,
+      "ms": 148.7000000178814
+    },
+    {
+      "name": "style:refresh",
+      "round": 2,
+      "ms": 130.5
+    },
+    {
+      "name": "style:tab-basic",
+      "round": 2,
+      "ms": 35
+    },
+    {
+      "name": "style:tab-translations",
+      "round": 2,
+      "ms": 30.099999994039536
+    },
+    {
+      "name": "style:tab-sales",
+      "round": 2,
+      "ms": 50.69999998807907
+    },
+    {
+      "name": "style:tab-skus",
+      "round": 2,
+      "ms": 34.29999998211861
+    },
+    {
+      "name": "style:tab-relations",
+      "round": 2,
+      "ms": 35.30000001192093
+    },
+    {
+      "name": "style:tab-records",
+      "round": 2,
+      "ms": 34.099999994039536
+    },
+    {
+      "name": "sku:cold",
+      "round": 2,
+      "ms": 164.2999999821186
+    },
+    {
+      "name": "sku:refresh",
+      "round": 2,
+      "ms": 131.40000000596046
+    },
+    {
+      "name": "sku:tab-basic",
+      "round": 2,
+      "ms": 34.60000002384186
+    },
+    {
+      "name": "sku:tab-translations",
+      "round": 2,
+      "ms": 34.5
+    },
+    {
+      "name": "sku:tab-packaging",
+      "round": 2,
+      "ms": 34.20000001788139
+    },
+    {
+      "name": "sku:tab-channels",
+      "round": 2,
+      "ms": 51.099999994039536
+    },
+    {
+      "name": "sku:tab-records",
+      "round": 2,
+      "ms": 34.5
+    },
+    {
+      "name": "style:cold",
+      "round": 3,
+      "ms": 148.40000000596046
+    },
+    {
+      "name": "style:refresh",
+      "round": 3,
+      "ms": 114.39999997615814
+    },
+    {
+      "name": "style:tab-basic",
+      "round": 3,
+      "ms": 35.400000005960464
+    },
+    {
+      "name": "style:tab-translations",
+      "round": 3,
+      "ms": 29.5
+    },
+    {
+      "name": "style:tab-sales",
+      "round": 3,
+      "ms": 51
+    },
+    {
+      "name": "style:tab-skus",
+      "round": 3,
+      "ms": 34.5
+    },
+    {
+      "name": "style:tab-relations",
+      "round": 3,
+      "ms": 34.20000001788139
+    },
+    {
+      "name": "style:tab-records",
+      "round": 3,
+      "ms": 34
+    },
+    {
+      "name": "sku:cold",
+      "round": 3,
+      "ms": 125.2000000178814
+    },
+    {
+      "name": "sku:refresh",
+      "round": 3,
+      "ms": 132.59999999403954
+    },
+    {
+      "name": "sku:tab-basic",
+      "round": 3,
+      "ms": 34.19999998807907
+    },
+    {
+      "name": "sku:tab-translations",
+      "round": 3,
+      "ms": 33.900000005960464
+    },
+    {
+      "name": "sku:tab-packaging",
+      "round": 3,
+      "ms": 33.900000005960464
+    },
+    {
+      "name": "sku:tab-channels",
+      "round": 3,
+      "ms": 50.400000005960464
+    },
+    {
+      "name": "sku:tab-records",
+      "round": 3,
+      "ms": 34
+    },
+    {
+      "name": "style:cold",
+      "round": 4,
+      "ms": 147.30000001192093
+    },
+    {
+      "name": "style:refresh",
+      "round": 4,
+      "ms": 130.69999998807907
+    },
+    {
+      "name": "style:tab-basic",
+      "round": 4,
+      "ms": 34.39999997615814
+    },
+    {
+      "name": "style:tab-translations",
+      "round": 4,
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "style:tab-sales",
+      "round": 4,
+      "ms": 50.69999998807907
+    },
+    {
+      "name": "style:tab-skus",
+      "round": 4,
+      "ms": 34.19999998807907
+    },
+    {
+      "name": "style:tab-relations",
+      "round": 4,
+      "ms": 39.400000005960464
+    },
+    {
+      "name": "style:tab-records",
+      "round": 4,
+      "ms": 33.900000005960464
+    },
+    {
+      "name": "sku:cold",
+      "round": 4,
+      "ms": 130.90000000596046
+    },
+    {
+      "name": "sku:refresh",
+      "round": 4,
+      "ms": 148.90000000596046
+    },
+    {
+      "name": "sku:tab-basic",
+      "round": 4,
+      "ms": 34.900000005960464
+    },
+    {
+      "name": "sku:tab-translations",
+      "round": 4,
+      "ms": 33.79999998211861
+    },
+    {
+      "name": "sku:tab-packaging",
+      "round": 4,
+      "ms": 48.599999994039536
+    },
+    {
+      "name": "sku:tab-channels",
+      "round": 4,
+      "ms": 49.5
+    },
+    {
+      "name": "sku:tab-records",
+      "round": 4,
+      "ms": 34.39999997615814
+    }
+  ],
+  "errors": []
+}

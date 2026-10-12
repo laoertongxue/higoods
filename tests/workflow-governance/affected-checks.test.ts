@@ -270,6 +270,15 @@ test('factory material plan source snapshot contract executes its Node tests', (
   assert.deepEqual(route.fullChecks, [])
 })
 
+test('product reference deletion contracts execute their real Node runners', () => {
+  for (const path of ['tests/pcs-r1-product-rules.test.ts', 'tests/browser-contracts/pcs-product-reference-removal.test.ts']) {
+    const route = routeAffectedChecks([path])
+    assert.deepEqual(route.fastChecks, [`node --import tsx --test '${path}'`])
+    assert.deepEqual(route.unknownPaths, [])
+    assert.deepEqual(route.fullChecks, [])
+  }
+})
+
 
 test('冻结工作树基线只传给当前任务范围门禁，不污染临时仓库测试或构建', () => {
   const inherited = { GOVERNANCE_BASE_SHA: 'stale-ref', KEEP: 'yes' }

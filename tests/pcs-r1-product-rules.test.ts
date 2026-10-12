@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { beforeEach, test } from 'node:test'
 import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
 import { getStyleArchiveStoreSnapshot, getStyleArchiveById, listStyleArchives, resetStyleArchiveRepository, updateStyleArchive } from '../src/data/pcs-style-archive-repository.ts'
@@ -8,7 +9,7 @@ import { saveProductStyleDraft, previewProductSkus, saveProductSkuDraft, submitP
 import { assertProductSkuIdentity, assertProductStyleIdentity } from '../src/data/pcs-product-archive-rules.ts'
 import { resolveStyleArchiveBusinessStatus } from '../src/data/pcs-product-lifecycle-governance.ts'
 import { applyArchiveWriteback } from '../src/data/pcs-archive-writeback-contract.ts'
-import { renderPcsStyleArchiveListPage, renderPcsStyleArchiveDetailPage, renderPcsSpecificationDetailPage, resetPcsProductArchiveState } from '../src/pages/pcs-product-archives.ts'
+import { renderPcsStyleArchiveListPage, renderPcsStyleArchiveDetailPage, renderPcsSpecificationDetailPage, resetPcsProductArchiveState, handlePcsProductArchiveEvent } from '../src/pages/pcs-product-archives.ts'
 const styles = getStyleArchiveStoreSnapshot(), skus = { version: 1, records: listSkuArchives() }
 beforeEach(() => { pcsRecordStore.setItem('higood-pcs-style-archive-store-v3', JSON.stringify(styles)); pcsRecordStore.setItem('higood-pcs-sku-archive-store-v1', JSON.stringify(skus)); resetStyleArchiveRepository(); resetSkuArchiveRepository(); resetPcsProductArchiveState() })
 const colors = listConfigDimensionOptions('colors'), sizes = listConfigDimensionOptions('sizes')
@@ -82,8 +83,25 @@ test('PROD-009 package dimensions calculate m3 and reject negative or empty cont
 test('PROD-010 details and lists are independent; archive has no procurement or inventory controls', () => {
  const html = renderPcsStyleArchiveListPage(); assert.match(html, /新增款式/); assert.match(html, /列设置/); assert.doesNotMatch(html, /维护供应商|库存数量|开发项目|本机数据/)
  const detail = renderPcsStyleArchiveDetailPage(styles.records[0].styleId)
- for (const tab of ['基本资料', '销售基础内容', '规格', '技术引用', '同款与组合', '记录']) assert.ok(detail.includes(tab))
+ for (const tab of ['基本资料', '商品描述与尺码', '规格', '同款与组合', '记录']) assert.ok(detail.includes(tab))
+ assert.doesNotMatch(detail, /技术引用|技术包引用|核价引用|data-tab="technical"/)
  assert.doesNotMatch(detail, /data-pcs-product-archive-field=/)
+})
+test('REF-01..04: style and SKU references are deleted, obsolete tab events cannot reopen them', async () => {
+ const source = readFileSync(new URL('../src/pages/pcs-product-archives.ts', import.meta.url), 'utf8')
+ for (const removed of ['technicalTab', 'listTechnicalDataVersionsByStyleId', 'listEngineeringBomPricingPlans', '技术引用', '技术包引用', '核价引用', "state.tab === 'technical'"]) assert.equal(source.includes(removed), false, removed)
+ const style = styles.records.find(s => s.currentTechPackVersionId)!, sku = listSkuArchivesByStyleId(style.styleId)[0]
+ assert.ok(style && sku, 'use a real linked archive, not only an empty direct draft')
+ const beforeStyle = JSON.stringify(getStyleArchiveById(style.styleId)), beforeSku = JSON.stringify(listSkuArchivesByStyleId(style.styleId))
+ for (const [render, id] of [[renderPcsStyleArchiveDetailPage, style.styleId], [renderPcsSpecificationDetailPage, sku.skuId]] as const) {
+   resetPcsProductArchiveState(); const original = render(id)
+   const node = { dataset: { pcsProductArchiveAction: 'tab', tab: 'technical' }, closest() { return this } }
+   assert.equal(await handlePcsProductArchiveEvent(node as unknown as HTMLElement), true)
+   assert.equal(render(id), original, 'invalid old tab is ignored without touching the active detail')
+   assert.doesNotMatch(original, /技术引用|技术包引用|核价引用|data-tab="technical"/)
+ }
+ assert.equal(JSON.stringify(getStyleArchiveById(style.styleId)), beforeStyle)
+ assert.equal(JSON.stringify(listSkuArchivesByStyleId(style.styleId)), beforeSku)
 })
 test('PROD-011 counts and WMS demo identity refer to actual SKU records, without copying stock', () => {
  const sku = listSkuArchives().find(s => s.skuId === 'sku_r1_wms_tee_black_s')!

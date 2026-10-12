@@ -40,6 +40,10 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/pcs-r1-product-rules.test.ts' || path === 'tests/browser-contracts/pcs-product-reference-removal.test.ts') {
+      add(fastChecks, `node --import tsx --test ${shellQuote(path)}`)
+      continue
+    }
     if (path === 'tests/pcs-r1-material-plans.test.ts') {
       add(fastChecks, 'node --import tsx --test tests/pcs-r1-material-plans.test.ts')
       continue
