@@ -12,6 +12,8 @@ import { buildUnifiedPrintPreviewLink } from '../data/fcs/print-service.ts'
 import { ensureDispatchTaskSheetAssignments, listDispatchTaskSheetAssignments } from '../data/fcs/dispatch-task-sheet.ts'
 import {
   allocateRuntimeSkuTaskScope,
+  resolveRuntimeTaskAssignmentScope,
+  type RuntimeTaskSkuLine,
   applyRuntimeDirectDispatchMeta,
   captureRuntimeDirectDispatchState,
   runRuntimeTaskAction,
@@ -133,6 +135,7 @@ interface DispatchDialogState {
   checkedTenderPoolIds: Set<string>
   reassignReason: string
   selectedSkuCodes: Set<string>
+  confirmedSkuLines?: RuntimeTaskSkuLine[]
   confirmStage: 1 | 2
   error: string
   baggingNotice: string
@@ -1022,13 +1025,15 @@ function renderTenderPriceSettings(task: RuntimeProcessTask, dialog: DispatchDia
 }
 
 function renderTenderLaunchConfirmation(task: RuntimeProcessTask, dialog: DispatchDialogState): string {
+  const lines = dialog.confirmedSkuLines ?? resolveRuntimeTaskAssignmentScope(task.taskId, [...dialog.selectedSkuCodes])
+  const qty = lines.reduce((sum, line) => sum + line.qty, 0)
   const eligible = listEligibleTenderFactoriesForTask(task)
   const poolFactories = dialog.tenderPoolMode === 'ALL_ELIGIBLE'
     ? eligible
     : eligible.filter((factory) => dialog.selectedTenderFactoryIds.has(factory.id))
   const currency = task.standardPriceCurrency || 'IDR'
   const unit = task.standardPriceUnit || task.qtyUnit || '件'
-  return `<section class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4" data-unified-tender-second-confirm><h3 class="font-bold text-amber-900">二次确认发起竞价</h3><p class="mt-2 text-sm">任务：${escapeHtml(task.taskNo || task.taskId)} · ${task.scopeSkuLines.length || 1} 个SKU · ${task.scopeQty.toLocaleString()}件</p><p class="mt-1 text-sm">工厂池：${dialog.tenderPoolMode === 'ALL_ELIGIBLE' ? '全部符合条件工厂' : '手动选择部分工厂'} · ${poolFactories.length} 家</p><div class="mt-2 flex flex-wrap gap-2" data-unified-tender-confirmed-factories>${poolFactories.map((factory) => `<span class="rounded border border-amber-300 bg-white px-2 py-1 text-xs">${escapeHtml(factory.name)}</span>`).join('')}</div><p class="mt-2 text-sm">最低允许报价：${escapeHtml(dialog.tenderMinPrice)} ${escapeHtml(currency)}/${escapeHtml(unit)} · 截止：${escapeHtml(dialog.tenderDeadline.replace('T', ' '))}</p><p class="mt-1 text-sm">业务分配时间：${escapeHtml(dialog.businessAssignedAt.replace('T', ' '))}</p><p class="mt-2 font-semibold text-red-700">确认后整个任务进入竞价，本次工厂池、最低允许报价与任务范围全部冻结。</p></section>`
+  return `<section class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4" data-unified-tender-second-confirm><h3 class="font-bold text-amber-900">二次确认发起竞价</h3><p class="mt-2 text-sm">任务：${escapeHtml(task.taskNo || task.taskId)} · ${lines.length} 个SKU · ${qty.toLocaleString()}件</p><p class="mt-1 text-sm">工厂池：${dialog.tenderPoolMode === 'ALL_ELIGIBLE' ? '全部符合条件工厂' : '手动选择部分工厂'} · ${poolFactories.length} 家</p><div class="mt-2 flex flex-wrap gap-2" data-unified-tender-confirmed-factories>${poolFactories.map((factory) => `<span class="rounded border border-amber-300 bg-white px-2 py-1 text-xs">${escapeHtml(factory.name)}</span>`).join('')}</div><p class="mt-2 text-sm">最低允许报价：${escapeHtml(dialog.tenderMinPrice)} ${escapeHtml(currency)}/${escapeHtml(unit)} · 截止：${escapeHtml(dialog.tenderDeadline.replace('T', ' '))}</p><p class="mt-1 text-sm">业务分配时间：${escapeHtml(dialog.businessAssignedAt.replace('T', ' '))}</p><p class="mt-2 font-semibold text-red-700">确认后所选范围进入竞价，本次工厂池、最低允许报价与任务范围全部冻结。</p></section>`
 }
 
 function renderDispatchDialog(): string {
@@ -1045,12 +1050,10 @@ function renderDispatchDialog(): string {
   const reassignmentScope = dialog.mode === 'REASSIGN' ? getRuntimeSewingTaskReassignmentScopePreview(task.taskId) : null
   const effectiveAssignedQty = dialog.mode === 'REASSIGN'
     ? (canReassignRuntimeCuttingTask(task) ? task.scopeQty : reassignmentScope?.remainingQty ?? 0)
-    : dialog.mode === 'BIDDING'
-      ? task.scopeQty
-      : allowsSkuAssignment ? selectedQty : task.scopeQty
+    : allowsSkuAssignment ? selectedQty : task.scopeQty
   const isSecond = dialog.confirmStage === 2
   const selectedPpic = dialog.factoryId ? getFactoryActivePpicSnapshot(dialog.factoryId) : null
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? (canReassignRuntimeCuttingTask(task) ? '裁剪任务改派' : '车缝任务改派') : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
+  return `<div data-skip-page-rerender="true" class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? (canReassignRuntimeCuttingTask(task) ? '裁剪任务改派' : '车缝任务改派') : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
     ${isSecond && dialog.mode === 'BIDDING' ? renderTenderLaunchConfirmation(task, dialog) : ''}
     ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${effectiveAssignedQty.toLocaleString()}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.involvesSewingOutsourcing ? `<p class="mt-2 text-sm">本次分配操作人：${escapeHtml(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName)}（PPIC）</p><p class="mt-2 text-sm">任务PPIC：${escapeHtml(selectedPpic?.ppicName || '工厂归属无效')}（提交后冻结）</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">确认后，价格和任务 PPIC 不可修改。</p></div>${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}` : `
@@ -1058,13 +1061,13 @@ function renderDispatchDialog(): string {
       ${policy.requiresSewingReadinessContext ? renderSewingPreparationOverview(task, dialog.selectedSkuCodes) : ''}
       ${policy.startsWithSewing ? renderBaggingOverview(bagging) : ''}
       ${dialog.baggingNotice ? `<div class="rounded border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">${escapeHtml(dialog.baggingNotice)}</div>` : ''}
-      ${dialog.mode === 'BIDDING' ? renderWholeTaskTenderScope(task) : dialog.mode === 'REASSIGN' ? renderReassignmentScope(task) : allowsSkuAssignment ? (policy.startsWithSewing && dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : policy.startsWithSewing ? renderFreeSelection(bagging, dialog) : renderPlainSkuSelection(task, dialog)) : renderWholeTaskDirectDispatchScope(task)}
-      <p class="text-xs">${dialog.mode === 'REASSIGN' ? `本次改派 ${effectiveAssignedQty.toLocaleString()}件` : dialog.mode === 'BIDDING' ? `本次竞价 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分` : allowsSkuAssignment ? `已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件` : `本次整任务分配 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分`}</p>
+      ${dialog.mode === 'BIDDING' ? (allowsSkuAssignment ? renderPlainSkuSelection(task, dialog) : renderWholeTaskTenderScope(task)) : dialog.mode === 'REASSIGN' ? renderReassignmentScope(task) : allowsSkuAssignment ? (policy.startsWithSewing && dialog.distributionMode === 'BAG_AWARE' ? renderBagAwareSelection(bagging, dialog) : policy.startsWithSewing ? renderFreeSelection(bagging, dialog) : renderPlainSkuSelection(task, dialog)) : renderWholeTaskDirectDispatchScope(task)}
+      <p class="text-xs">${dialog.mode === 'REASSIGN' ? `本次改派 ${effectiveAssignedQty.toLocaleString()}件` : dialog.mode === 'BIDDING' ? `本次竞价 ${allowsSkuAssignment ? dialog.selectedSkuCodes.size : skuLines.length} 个SKU，共 ${effectiveAssignedQty.toLocaleString()}件${allowsSkuAssignment ? '' : '；只允许整单'}` : allowsSkuAssignment ? `已选 ${dialog.selectedSkuCodes.size} 个SKU，共 ${selectedQty.toLocaleString()}件` : `本次整任务分配 ${skuLines.length} 个SKU，共 ${task.scopeQty.toLocaleString()}件；不允许拆分`}</p>
       ${dialog.mode !== 'BIDDING' ? `<label class="block text-sm">承接工厂<select class="mt-1 h-9 w-full rounded border px-3" data-unified-field="factoryId"><option value="">请选择工厂</option>${factories.map((factory) => { const ppic = policy.involvesSewingOutsourcing ? getFactoryActivePpicSnapshot(factory.id) : null; return `<option value="${escapeHtml(factory.id)}" ${dialog.factoryId === factory.id ? 'selected' : ''} ${dialog.mode === 'REASSIGN' && factory.id === task.assignedFactoryId ? 'disabled' : ''}>${escapeHtml(factory.name)}${ppic ? ` · PPIC ${escapeHtml(ppic.ppicName)}` : ''}</option>` }).join('')}</select>${policy.involvesSewingOutsourcing ? `<span class="mt-1 block text-xs ${selectedPpic ? 'text-blue-700' : 'text-muted-foreground'}">${selectedPpic ? `任务 PPIC：${escapeHtml(selectedPpic.ppicName)}` : '请选择承接工厂。'}</span>` : ''}</label><label class="block text-sm">派单价（IDR/件）<input type="number" min="1" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="price" value="${escapeHtml(dialog.price)}"/></label>${dialog.mode === 'REASSIGN' ? `<label class="block text-sm">改派原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-unified-field="reassignReason" placeholder="必填，说明本次改派原因">${escapeHtml(dialog.reassignReason)}</textarea></label>` : ''}` : `${renderTenderFactoryPool(task, dialog)}<label class="block text-sm">竞价截止时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="tenderDeadline" value="${escapeHtml(dialog.tenderDeadline)}"/></label>`}
       ${dialog.mode === 'BIDDING' ? renderTenderPriceSettings(task, dialog) : ''}
       <label class="block text-sm">业务分配日期/时间<input type="datetime-local" class="mt-1 h-9 w-full rounded border px-3" data-unified-field="businessAssignedAt" value="${escapeHtml(dialog.businessAssignedAt)}"/><span class="mt-1 block text-xs text-muted-foreground">回货规则按日期计算，分配日期为第1个自然日；合同只打印日期，不打印具体时间。</span></label>
       ${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}
-      ${policy.startsWithSewing ? `<div class="rounded bg-amber-50 p-3 text-sm text-amber-800">每个色码最多分配其放行余量；辅料缺口由 PPIC 跟进。${dialog.mode === 'BIDDING' ? '竞价按整个任务分配。' : ''}</div>` : ''}`}
+      ${policy.startsWithSewing ? `<div class="rounded bg-amber-50 p-3 text-sm text-amber-800">每个色码最多分配其放行余量；辅料缺口由 PPIC 跟进。</div>` : ''}`}
     </div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-unified-action="${isSecond ? 'back-dispatch' : 'close-dispatch'}">${isSecond ? '返回修改' : '取消'}</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-unified-action="confirm-dispatch">${isSecond ? dialog.mode === 'BIDDING' ? '确认发起竞价并冻结工厂池与最低价' : '确认提交并冻结价格' : dialog.mode === 'BIDDING' ? '下一步：二次确认竞价' : '下一步：二次确认价格'}</button></footer></section></div>`
 }
 
@@ -1258,7 +1261,7 @@ function renderUnifiedDispatchWorkbenchContent(): string {
     listActionsHtml: '',
     tableHtml: renderStandardListTable({ columns, rows: pageRows, preferences, sort: null, eventPrefix: 'unified-dispatch', emptyText: '当前筛选下暂无任务' }),
     paginationHtml: renderTablePagination({ total: rows.length, from: rows.length ? (state.page - 1) * pageSize + 1 : 0, to: Math.min(state.page * pageSize, rows.length), currentPage: state.page, totalPages: pageCount, pageSize, actionPrefix: 'unified', fieldPrefix: 'unified', pageSizeOptions: [20] }),
-    overlaysHtml: `${renderTaskDetailDialog()}${renderDispatchDialog()}${renderMergeDialog()}${renderAutoDispatchDialog()}${renderContractPrompt()}${renderUploadDialog()}${renderImagePreview()}<div data-unified-task-sheet-overlay>${renderTaskSheetSelection()}</div>`,
+    overlaysHtml: `${renderTaskDetailDialog()}<div data-unified-dispatch-overlay>${renderDispatchDialog()}</div>${renderMergeDialog()}${renderAutoDispatchDialog()}${renderContractPrompt()}${renderUploadDialog()}${renderImagePreview()}<div data-unified-task-sheet-overlay>${renderTaskSheetSelection()}</div>`,
   })
   return `<div data-unified-dispatch-page data-skip-page-rerender="true">${content}</div>`
 }
@@ -1275,11 +1278,46 @@ function refreshRoot(): void {
   if (root) root.outerHTML = renderUnifiedDispatchWorkbenchPage()
 }
 
+function refreshDispatchDialog(): void {
+  const host = document.querySelector<HTMLElement>('[data-unified-dispatch-overlay]')
+  if (!host) return
+  const active = document.activeElement
+  const field = active instanceof HTMLElement ? active.dataset.unifiedField : undefined
+  const selection = active instanceof HTMLInputElement && ['text', 'search'].includes(active.type)
+    ? [active.selectionStart, active.selectionEnd] as const : null
+  const scroll = state.dispatch?.confirmStage === 2 ? 0 : host.querySelector('section')?.scrollTop ?? 0
+  host.innerHTML = renderDispatchDialog()
+  const section = host.querySelector('section')
+  if (section) section.scrollTop = scroll
+  if (field) {
+    const next = host.querySelector<HTMLInputElement>(`[data-unified-field="${field}"]`)
+    next?.focus({ preventScroll: true })
+    if (next && selection) next.setSelectionRange(...selection)
+  }
+}
+
+function validateDispatchSelection(dialog: DispatchDialogState): RuntimeTaskSkuLine[] {
+  const task = getRuntimeTaskById(dialog.taskId)
+  if (!task || task.assignmentStatus !== 'UNASSIGNED') throw new Error('任务已进入分配流程，请刷新后重试')
+  const lines = resolveRuntimeTaskAssignmentScope(task.taskId, [...dialog.selectedSkuCodes])
+  assertSewingAssignmentMaterialReadiness(task)
+  if (requiresCutPieceReleaseForProcessCodes(classifyTaskFulfillmentPolicy(task).normalizedProcessCodes)) {
+    assertCutPieceReleaseDispatchAvailable({ productionOrderId: task.productionOrderId, productionOrderNo: task.productionOrderNo, skuLines: lines })
+  }
+  return lines
+}
+
+function assertConfirmedAssignmentScope(dialog: DispatchDialogState, lines: RuntimeTaskSkuLine[]): void {
+  if (JSON.stringify(dialog.confirmedSkuLines) !== JSON.stringify(lines)) {
+    throw new Error('任务范围已变化，请返回重新确认')
+  }
+}
+
 function refreshTenderFactoryPool(focusField = ''): void {
   const task = state.dispatch ? getRuntimeTaskById(state.dispatch.taskId) : null
   const current = document.querySelector<HTMLElement>('[data-unified-tender-pool]')
   if (!state.dispatch || state.dispatch.mode !== 'BIDDING' || !task || !current) {
-    refreshRoot()
+    refreshDispatchDialog()
     return
   }
   current.outerHTML = renderTenderFactoryPool(task, state.dispatch)
@@ -1442,10 +1480,8 @@ function commitDirectDispatchAssignment(dialog: DispatchDialogState) {
     ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName
     : '生产计划员'
   const allowsSkuAssignment = policy.assignmentGranularity === 'SKU'
-  const selectedLines = allowsSkuAssignment
-    ? sourceLines.filter((line) => dialog.selectedSkuCodes.has(line.skuCode))
-    : sourceLines
-  if (allowsSkuAssignment && selectedLines.length === 0) throw new Error('请至少选择一个完整SKU')
+  const selectedLines = resolveRuntimeTaskAssignmentScope(sourceTask.taskId, [...dialog.selectedSkuCodes])
+  assertConfirmedAssignmentScope(dialog, selectedLines)
   const factoryUniqueness = validateRuntimeIndependentSewingFactoryUniqueness(sourceTask.taskId, factory.id)
   if (!factoryUniqueness.valid) throw new Error(factoryUniqueness.reason)
   if (requiresCutPieceReleaseForProcessCodes(policy.normalizedProcessCodes)) {
@@ -1616,7 +1652,7 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
       state.dispatch.confirmStage = 1
       state.dispatch.error = ''
       if (name === 'tenderPoolMode' || name === 'tenderFactoryKeyword' || name === 'tenderFactoryType') refreshTenderFactoryPool(name === 'tenderFactoryKeyword' ? name : '')
-      else refreshRoot()
+      else refreshDispatchDialog()
     } else if (name === 'keyword') {
       state.keyword = field.value
       state.page = 1
@@ -1649,7 +1685,7 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
     else state.dispatch.selectedSkuCodes.delete(sku.dataset.unifiedSku || '')
     state.dispatch.confirmStage = 1
     state.dispatch.error = ''
-    refreshRoot()
+    refreshDispatchDialog()
     return true
   }
   const tenderCandidate = target.closest<HTMLInputElement>('[data-unified-tender-candidate]')
@@ -1676,7 +1712,7 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
     skuCodes.forEach((skuCode) => bagGroup.checked ? state.dispatch?.selectedSkuCodes.add(skuCode) : state.dispatch?.selectedSkuCodes.delete(skuCode))
     state.dispatch.confirmStage = 1
     state.dispatch.error = ''
-    refreshRoot()
+    refreshDispatchDialog()
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-unified-action]')
@@ -1735,15 +1771,15 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
   if (action === 'open-detail') { state.detailTaskId = taskId; state.detailMode = 'DETAIL'; refreshRoot(); return true }
   if (action === 'open-log') { state.detailTaskId = taskId; state.detailMode = 'LOG'; refreshRoot(); return true }
   if (action === 'close-detail') { state.detailTaskId = null; refreshRoot(); return true }
-  if (action === 'open-direct' || action === 'open-bidding' || action === 'open-reassign') { openDispatch(taskId, action === 'open-direct' ? 'DIRECT' : action === 'open-reassign' ? 'REASSIGN' : 'BIDDING'); refreshRoot(); return true }
-  if (action === 'close-dispatch') { if(sourceSaveBusy) return true;state.dispatch = null; refreshRoot(); return true }
-  if (action === 'back-dispatch' && state.dispatch) { state.dispatch.confirmStage = 1; refreshRoot(); return true }
+  if (action === 'open-direct' || action === 'open-bidding' || action === 'open-reassign') { openDispatch(taskId, action === 'open-direct' ? 'DIRECT' : action === 'open-reassign' ? 'REASSIGN' : 'BIDDING'); refreshDispatchDialog(); return true }
+  if (action === 'close-dispatch') { if(sourceSaveBusy) return true;state.dispatch = null; refreshDispatchDialog(); return true }
+  if (action === 'back-dispatch' && state.dispatch) { state.dispatch.confirmStage = 1; refreshDispatchDialog(); return true }
   if (action === 'refresh-bagging' && state.dispatch) {
     const task = getRuntimeTaskById(state.dispatch.taskId)
     const snapshot = task ? buildDispatchBaggingSnapshot(task) : null
     state.dispatch.baggingNotice = snapshot ? `已更新装袋情况：${snapshot.updatedAt}。` : '任务已变化，请关闭后重试。'
     state.dispatch.confirmStage = 1
-    refreshRoot(); return true
+    refreshDispatchDialog(); return true
   }
   if (action === 'add-checked-tender-factories' && state.dispatch?.mode === 'BIDDING' && state.dispatch.tenderPoolMode === 'MANUAL') {
     const task = getRuntimeTaskById(state.dispatch.taskId)
@@ -1813,6 +1849,7 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
     refreshRoot(); return true
   }
   if (action === 'confirm-dispatch' && state.dispatch) {
+    if (sourceSaveBusy) return true
     try {
       if (state.dispatch.mode === 'BIDDING' && state.dispatch.confirmStage === 1) {
         const task = getRuntimeTaskById(state.dispatch.taskId)
@@ -1827,27 +1864,14 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
           ? eligible.length
           : [...state.dispatch.selectedTenderFactoryIds].filter((factoryId) => eligible.some((factory) => factory.id === factoryId)).length
         if (selectedCount === 0) throw new Error('本次竞价工厂池至少需要一家符合条件的工厂')
+        state.dispatch.confirmedSkuLines = validateDispatchSelection(state.dispatch)
         state.dispatch.confirmStage = 2
       } else if (state.dispatch.mode !== 'BIDDING' && state.dispatch.confirmStage === 1) {
         if (!state.dispatch.factoryId) throw new Error('请选择承接工厂')
         const task = getRuntimeTaskById(state.dispatch.taskId)
         if (state.dispatch.mode !== 'REASSIGN' && task && classifyTaskFulfillmentPolicy(task).assignmentGranularity === 'SKU' && state.dispatch.selectedSkuCodes.size === 0) throw new Error('请至少选择一个完整SKU')
         if (state.dispatch.mode !== 'REASSIGN' && task && classifyTaskFulfillmentPolicy(task).startsWithSewing && state.dispatch.distributionMode === 'BAG_AWARE' && !selectionMatchesRecommendationGroups(buildDispatchBaggingSnapshot(task), state.dispatch.selectedSkuCodes)) throw new Error('按菲票装袋分配时必须整组选择；如需拆开组内SKU，请切换“自由分配”。')
-        if (state.dispatch.mode !== 'REASSIGN' && task) {
-          const policy = classifyTaskFulfillmentPolicy(task)
-          if (requiresCutPieceReleaseForProcessCodes(policy.normalizedProcessCodes)) {
-            const taskLines = task.scopeSkuLines.length
-              ? task.scopeSkuLines
-              : [{ skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty }]
-            assertCutPieceReleaseDispatchAvailable({
-              productionOrderId: task.productionOrderId,
-              productionOrderNo: task.productionOrderNo,
-              skuLines: policy.assignmentGranularity === 'SKU'
-                ? taskLines.filter((line) => state.dispatch?.selectedSkuCodes.has(line.skuCode))
-                : taskLines,
-            })
-          }
-        }
+        if (state.dispatch.mode !== 'REASSIGN') state.dispatch.confirmedSkuLines = validateDispatchSelection(state.dispatch)
         state.dispatch.confirmStage = 2
         if (state.dispatch.mode === 'REASSIGN' && !state.dispatch.reassignReason.trim()) throw new Error('请填写改派原因')
       } else if (state.dispatch.mode !== 'BIDDING') {
@@ -1871,12 +1895,8 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
         if (!sourceTask) throw new Error('任务已变化，请刷新')
         if (!state.dispatch.tenderDeadline) throw new Error('请填写竞价截止时间')
         const policy = classifyTaskFulfillmentPolicy(sourceTask)
-        const sourceLines = sourceTask.scopeSkuLines.length
-          ? sourceTask.scopeSkuLines
-          : [{ skuCode: sourceTask.skuCode || 'SKU-ALL', color: sourceTask.skuColor || '混色', size: sourceTask.skuSize || '混码', qty: sourceTask.scopeQty }]
-        const sourceQty = sourceLines.reduce((sum, line) => sum + line.qty, 0)
-        if (sourceLines.length === 0 || sourceQty !== sourceTask.scopeQty) throw new Error('任务完整范围已变化，请刷新后重新发起竞价')
-        const tenderTask = sourceTask
+        const sourceLines = validateDispatchSelection(state.dispatch)
+        assertConfirmedAssignmentScope(state.dispatch, sourceLines)
         const tenderIdBase = `TD-${Date.now()}`
         const existingTenderIds = new Set(listRuntimeTaskTenderRecords().map((record) => record.tenderId))
         let tenderId = tenderIdBase
@@ -1889,7 +1909,7 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
         const businessAssignedAt = toWallClock(state.dispatch.businessAssignedAt)
         const biddingDeadline = toWallClock(state.dispatch.tenderDeadline)
         if (new Date(biddingDeadline.replace(' ', 'T')).getTime() <= new Date(assignmentOperatedAt.replace(' ', 'T')).getTime()) throw new Error('竞价截止时间必须晚于当前操作时间')
-        const eligibleTenderFactories = listEligibleTenderFactoriesForTask(tenderTask)
+        const eligibleTenderFactories = listEligibleTenderFactoriesForTask(sourceTask)
         if (eligibleTenderFactories.length === 0) throw new Error('当前没有同时满足任务能力、允许竞价及PDA启用条件的工厂，不能发起竞价')
         const eligibleById = new Map(eligibleTenderFactories.map((factory) => [factory.id, factory] as const))
         if (state.dispatch.tenderPoolMode === 'MANUAL') {
@@ -1907,7 +1927,7 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
               return factory ? [factory] : []
             })
         if (selectedPool.length === 0) throw new Error('手动选择工厂池时，至少选择一家符合条件的工厂')
-        const standardPrice = Number(tenderTask.standardPrice)
+        const standardPrice = Number(sourceTask.standardPrice)
         if (!Number.isFinite(standardPrice) || standardPrice <= 0) throw new Error('当前任务未维护有效工序标准价，不能发起竞价')
         const minPrice = Number(state.dispatch.tenderMinPrice)
         if (!Number.isFinite(minPrice) || minPrice <= 0) throw new Error('请填写有效的最低允许报价')
@@ -1916,60 +1936,68 @@ export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, e
         const tenderSnapshot = captureRuntimeTaskTenderRecordStore()
         try {
           const tenderDialog=structuredClone(state.dispatch)
-          await saveWorkbenchAction(JSON.stringify({...tenderDialog,error:''},(_key,value)=>value instanceof Set?[...value].sort():value),()=>{
-          upsertRuntimeTaskTender(tenderTask.taskId, {
-            tenderId,
-            biddingDeadline,
-            taskDeadline: '',
-            businessAssignedAt,
-            assignmentOperatedAt,
-            distributionMode: 'FREE',
-          }, '生产计划员')
-          upsertRuntimeTaskTenderRecord({
-            tenderId,
-            taskId: tenderTask.taskId,
-            businessAssignedAt,
-            assignmentOperatedAt,
-            biddingDeadline,
-            taskDeadline: '',
-            poolMode: tenderDialog.tenderPoolMode,
-            taskSnapshot: {
-              taskNo: tenderTask.taskNo || tenderTask.taskId,
-              productionOrderId: tenderTask.productionOrderId || tenderTask.productionOrderNo || tenderTask.taskId,
-              productionOrderNo: tenderTask.productionOrderNo,
-              processName: tenderTask.processNameZh,
-              taskTypeLabel: policy.taskTypeLabel,
-              qty: tenderTask.scopeQty,
-              qtyUnit: '件',
-              skuLines: sourceLines.map((line) => ({ skuCode: line.skuCode, color: line.color, size: line.size, qty: line.qty })),
-            },
-            factoryPool: selectedPool.map((factory) => ({
-              factoryId: factory.id,
-              factoryName: factory.name,
-              factoryCode: factory.code,
-              factoryAddress: factory.address,
-              factoryType: factory.factoryType,
-              capabilitySummary: getTenderFactoryCapabilitySummary(factory, tenderTask),
-              notifiedAt: assignmentOperatedAt,
-            })),
-            standardPrice,
-            minPrice,
-            currency: tenderTask.standardPriceCurrency || 'IDR',
-            unit: tenderTask.standardPriceUnit || tenderTask.qtyUnit || '件',
-            remark: '由任务分配工作台按整个任务范围发起竞价；不拆分SKU',
-            createdBy: '生产计划员',
+          const saved = await saveWorkbenchAction(JSON.stringify({...tenderDialog,error:''},(_key,value)=>value instanceof Set?[...value].sort():value),()=>{
+            const selectedLines = validateDispatchSelection(tenderDialog)
+            assertConfirmedAssignmentScope(tenderDialog, selectedLines)
+            const currentTask = getRuntimeTaskById(tenderDialog.taskId)!
+            const tenderTask = selectedLines.length < resolveRuntimeTaskAssignmentScope(currentTask.taskId).length
+              ? allocateRuntimeSkuTaskScope({ taskId: currentTask.taskId, lines: selectedLines, by: '生产计划员' })
+              : currentTask
+            upsertRuntimeTaskTender(tenderTask.taskId, {
+              tenderId,
+              biddingDeadline,
+              taskDeadline: '',
+              businessAssignedAt,
+              assignmentOperatedAt,
+              distributionMode: 'FREE',
+            }, '生产计划员')
+            upsertRuntimeTaskTenderRecord({
+              tenderId,
+              taskId: tenderTask.taskId,
+              businessAssignedAt,
+              assignmentOperatedAt,
+              biddingDeadline,
+              taskDeadline: '',
+              poolMode: tenderDialog.tenderPoolMode,
+              taskSnapshot: {
+                taskNo: tenderTask.taskNo || tenderTask.taskId,
+                productionOrderId: tenderTask.productionOrderId || tenderTask.productionOrderNo || tenderTask.taskId,
+                productionOrderNo: tenderTask.productionOrderNo,
+                processName: tenderTask.processNameZh,
+                taskTypeLabel: policy.taskTypeLabel,
+                qty: tenderTask.scopeQty,
+                qtyUnit: '件',
+                skuLines: selectedLines.map((line) => ({ skuCode: line.skuCode, color: line.color, size: line.size, qty: line.qty })),
+              },
+              factoryPool: selectedPool.map((factory) => ({
+                factoryId: factory.id,
+                factoryName: factory.name,
+                factoryCode: factory.code,
+                factoryAddress: factory.address,
+                factoryType: factory.factoryType,
+                capabilitySummary: getTenderFactoryCapabilitySummary(factory, tenderTask),
+                notifiedAt: assignmentOperatedAt,
+              })),
+              standardPrice,
+              minPrice,
+              currency: tenderTask.standardPriceCurrency || 'IDR',
+              unit: tenderTask.standardPriceUnit || tenderTask.qtyUnit || '件',
+              remark: '由任务分配工作台按已确认的完整SKU范围发起竞价',
+              createdBy: '生产计划员',
+            })
+            return { taskNo: tenderTask.taskNo || tenderTask.taskId, skuCount: selectedLines.length, qty: tenderTask.scopeQty }
           })
-          })
+          state.feedback = `已为${saved.taskNo}的完整范围（${saved.skuCount}个SKU、${saved.qty.toLocaleString()}件）发起竞价，工厂池${selectedPool.length}家；未确定工厂前不生成合同。定标时须二次确认中标价并冻结。`
         } catch (error) {
           restoreRuntimeDirectDispatchState(runtimeSnapshot,false)
           restoreRuntimeTaskTenderRecordStore(tenderSnapshot)
           throw error
         }
-        state.feedback = `已为${tenderTask.taskNo || tenderTask.taskId}的完整范围（${sourceLines.length}个SKU、${tenderTask.scopeQty.toLocaleString()}件）发起竞价，工厂池${selectedPool.length}家；未确定工厂前不生成合同。定标时须二次确认中标价并冻结。`
         state.dispatch = null
       }
     } catch (error) { if (state.dispatch) state.dispatch.error = error instanceof Error ? error.message : '提交失败' }
-    refreshRoot(); return true
+    if (state.dispatch) refreshDispatchDialog(); else refreshRoot()
+    return true
   }
   if (action === 'open-merge') {
     state.merge = { mode: 'MERGE', productionOrderKeyword: '', productionOrderId: '', taskIds: [], confirmStage: 1, error: '' }

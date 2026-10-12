@@ -52,8 +52,8 @@ assert.ok(!page.includes("title: '工艺组'"), '列表不得沿用错误的工�
 assert.ok(!page.includes("title: '后道任务'"), '列表不得使用后道任务口径')
 assert.ok(!page.includes('data-unified-field="riskAcknowledged"'), '车缝准备事实不得形成强制风险知悉勾选')
 assert.ok(!page.includes('请先确认已知悉生产准备风险'), '准备风险不得阻断派单或竞价')
-assert.ok(page.includes('renderSewingPreparationOverview(task)') && page.includes('renderBaggingOverview(bagging)'), '车缝分配弹窗必须展示辅料、裁片和菲票装袋事实')
-assert.match(page, /policy\.startsWithSewing \? `<p[^`]+\$\{renderSewingPreparationOverview\(task\)\}/, '车缝准备事实只能在车缝为首的分配弹窗展示')
+assert.ok(page.includes('renderSewingPreparationOverview(task, dialog.selectedSkuCodes)') && page.includes('renderBaggingOverview(bagging)'), '车缝分配弹窗必须展示所选范围的辅料、裁片和菲票装袋事实')
+assert.ok(page.includes('policy.requiresSewingReadinessContext ? renderSewingPreparationOverview(task, dialog.selectedSkuCodes)'), '车缝准备事实只能在需要车缝准备信息的分配弹窗展示')
 assert.ok(page.includes('物料图加载失败') && page.includes('图片加载失败，请检查原图地址'), '款式、物料和高清预览必须提供可见失败态')
 assert.ok(page.includes('Array.from(new Set(names.filter(Boolean)))'), '任务内容中的工序名称必须去重后展示')
 

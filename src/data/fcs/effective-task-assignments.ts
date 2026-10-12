@@ -1,5 +1,8 @@
 import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { getFactoryActivePpicSnapshot } from './factory-master-store.ts'
+import { readRuntimeTaskById } from './runtime-task-read-bridge.ts'
+import type { RuntimeProcessTask } from './runtime-process-tasks.ts'
+import { classifyTaskFulfillmentPolicy } from './task-fulfillment-policy.ts'
 import {
   getOnboardingPpicOptionById,
   type FactoryOnboardingPpicRole,
@@ -210,6 +213,18 @@ export function createEffectiveTaskAssignment(input: CreateEffectiveTaskAssignme
   if (!Number.isFinite(input.frozenPrice) || input.frozenPrice <= 0) throw new Error('派单价必须为大于0的有限数')
   if (input.skuLines.some((line) => !line.skuCode || !Number.isFinite(line.qty) || line.qty <= 0)) {
     throw new Error('分配明细必须按完整SKU记录且数量大于0')
+  }
+  const runtimeTask = readRuntimeTaskById<RuntimeProcessTask>(input.runtimeTaskId)
+  if (runtimeTask && classifyTaskFulfillmentPolicy(runtimeTask).assignmentGranularity === 'ORDER') {
+    const taskLines = runtimeTask.scopeSkuLines.length ? runtimeTask.scopeSkuLines : [{
+      skuCode: runtimeTask.skuCode || 'SKU-ALL', color: runtimeTask.skuColor || '混色', size: runtimeTask.skuSize || '混码', qty: runtimeTask.scopeQty,
+    }]
+    if (runtimeTask.executionEnabled === false || input.assignedQty !== runtimeTask.scopeQty
+      || input.skuLines.length !== taskLines.length
+      || new Set(input.skuLines.map(line => line.skuCode)).size !== input.skuLines.length
+      || taskLines.some(line => !input.skuLines.some(selected => selected.skuCode === line.skuCode && selected.qty === line.qty && selected.color === line.color && selected.size === line.size))) {
+      throw new Error('该任务只允许整单分配，分配记录必须包含当前任务的全部范围')
+    }
   }
 
   const requiresPpic = assignmentRequiresPpic(input.processCodes)

@@ -23,7 +23,7 @@ export const MERGED_PRODUCTION_TASK_DEFINITIONS: Record<MergedProductionTaskType
     label: '车缝+烫包',
     requiredSourceProcessCodes: ['SEWING', 'IRON_PACK'],
     responsibilityLabel: '车缝至烫包；按冻结技术包一并完成开扣眼、装扣子',
-    assignmentGranularity: 'ORDER',
+    assignmentGranularity: 'SKU',
     auxiliarySpecialExecutorMode: 'CENTRAL_FACTORY',
     generatesCentralAuxiliarySpecialOrders: true,
     returnRuleCode: 'SEWING_TO_IRON_PACK',

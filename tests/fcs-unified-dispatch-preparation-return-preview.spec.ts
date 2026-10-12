@@ -30,27 +30,26 @@ async function confirmTenderLaunch(page: Page, minPrice = '1200') {
   dialog = dispatchDialog(page)
   await expect(dialog.getByRole('heading', { name: '二次确认发起竞价' })).toBeVisible()
   await dialog.getByRole('button', { name: '确认发起竞价并冻结工厂池与最低价' }).click()
+  await expect(page.locator('[data-unified-action="close-dispatch"]')).toHaveCount(0)
 }
 
-async function raiseDemoCutPieceReleaseToTarget(page: Page) {
-  const result = await page.evaluate(async () => {
+async function raiseDemoCutPieceReleaseToTarget(page: Page, quantities = { 'Grey::S': 500, 'Grey::M': 700, 'Grey::L': 800, 'Grey::XL': 500 }) {
+  const result = await page.evaluate(async releaseQuantities => {
     const releaseModule = await import('/src/data/fcs/cut-piece-release.ts')
-    return releaseModule.confirmCutPieceReleaseAvailableQty({
+    return releaseModule.saveCutPieceReleaseAvailableQtyAction({
       productionOrderId: 'PO-202603-0002',
-      basisMatrixVersion: 1,
-      basisTargetVersion: 1,
-      releaseQtyByColorSize: {
-        'Grey::S': 500,
-        'Grey::M': 700,
-        'Grey::L': 800,
-        'Grey::XL': 500,
-      },
+      basisMatrixVersion: releaseModule.getCutPieceReleaseSummaryForProductionOrder('PO-202603-0002')!.latestMatrixVersion,
+      basisTargetVersion: releaseModule.listCutPieceReleaseTargetSnapshots('PO-202603-0002').at(-1)!.matrixVersion,
+      releaseQtyByColorSize: releaseQuantities,
       riskReason: '裁床确认对应裁片已裁出，按目标数量放行用于竞价验收。',
       confirmedBy: '裁床主管 王敏',
       confirmedAt: '2026-08-06 09:10:00',
     })
-  })
+  }, quantities)
   expect(result.ok, result.message).toBe(true)
+  // Programmatic fixture creation has no page handler to refresh the already-rendered workbench.
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '任务分配工作台', exact: true })).toBeVisible()
 }
 
 test.beforeAll(() => {
@@ -62,23 +61,25 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   await page.goto('/fcs/dispatch/workbench')
   await expect(page.getByRole('heading', { name: '任务分配工作台' })).toBeVisible()
 
+  await raiseDemoCutPieceReleaseToTarget(page, { 'Grey::S': 500, 'Grey::M': 680, 'Grey::L': 720, 'Grey::XL': 430 })
+
   await searchTask(page, 'PO-202603-0002')
   await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-direct')
   let dialog = dispatchDialog(page)
   await expect(dialog.getByRole('heading', { name: /直接派单/ })).toContainText('TASKGEN-202603-0002-002')
 
   const cutPanel = dialog.locator('[data-unified-cut-piece-readiness]')
-  await expect(cutPanel.getByRole('heading', { name: '裁片放行与分配占用（SKU 维度）' })).toBeVisible()
+  await expect(cutPanel.getByRole('heading', { name: '裁片放行与分配' })).toBeVisible()
   await expect(cutPanel.locator('tbody tr')).toHaveCount(4)
   await expect(cutPanel).toContainText('SKU-005-S-GRY')
   await expect(cutPanel).toContainText('Grey / S')
   await expect(cutPanel).toContainText('SKU-005-M-GRY')
   await expect(cutPanel).toContainText('风险放行')
   await expect(cutPanel).toContainText('20件')
-  await expect(cutPanel).toContainText('CPR-202603-0002 · 更新 2026-08-10 09:15:00')
+  await expect(cutPanel).toContainText('CPR-202603-0002 · 更新 2026-08-06 09:10:00')
 
   const materialPanel = dialog.locator('[data-unified-material-prep-readiness]')
-  await expect(materialPanel.getByRole('heading', { name: '本生产单车缝所需辅料的库存与配料情况' })).toBeVisible()
+  await expect(materialPanel.getByRole('heading', { name: '辅料配料' })).toBeVisible()
   await expect(materialPanel.locator('tbody tr')).toHaveCount(4)
   for (const expectedText of ['前中拉链', '2,500条', '3,100条', '主唛', '2,800套', '洗护唛', '2,600套', '缝纫线', '30公斤', '42公斤']) {
     await expect(materialPanel).toContainText(expectedText)
@@ -137,7 +138,7 @@ test('独立车缝派单按 SKU 展示裁片、辅料事实并实时预览 30/70
   await dispatchDialog(page).getByRole('button', { name: '取消' }).click()
 })
 
-test('只有独立车缝允许按完整 SKU 分配，组合任务和其他任务强制整任务派单', async ({ page }) => {
+test('裁剪与裁剪加车缝加烫包强制整任务派单', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto('/fcs/dispatch/workbench')
   await expect(page.getByRole('heading', { name: '任务分配工作台' })).toBeVisible()
@@ -167,13 +168,10 @@ test('只有独立车缝允许按完整 SKU 分配，组合任务和其他任务
   expect(wholeTaskAssignment).toEqual({ assignedQty: 3500, skuCount: 4 })
 
   await searchTask(page, 'MERGED-CUT-SEW-IRON-PACK-DEMO-001')
-  await openTaskAction(page, 'MERGED-CUT-SEW-IRON-PACK-DEMO-001', 'open-direct')
-  dialog = dispatchDialog(page)
-  await expect(dialog).toContainText('裁剪+车缝+烫包')
-  await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
-  await expect(dialog.locator('[data-unified-whole-task-direct-scope]')).toContainText('本次派单为整个任务')
-  await expect(dialog).toContainText('本次整任务分配 4 个SKU，共 2,100件；不允许拆分')
-  await dialog.getByRole('button', { name: '取消' }).click()
+  const mergedRow = page.locator('tbody tr').filter({ hasText: 'MERGED-CUT-SEW-IRON-PACK-DEMO-001' }).first()
+  await expect(mergedRow).toContainText('裁剪+车缝+烫包')
+  await expect(mergedRow).toContainText('暂不可分配')
+  await expect(mergedRow.locator('[data-unified-action="open-direct"], [data-unified-action="open-bidding"]')).toHaveCount(0)
 })
 
 test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改派范围不可手工改数量', async ({ page }) => {
@@ -186,9 +184,9 @@ test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改
   await openTaskAction(page, 'TASKGEN-202603-0002-002', 'open-bidding')
   let dialog = dispatchDialog(page)
   await expect(dialog.getByRole('heading', { name: /发起竞价/ })).toBeVisible()
-  await expect(dialog).toContainText('本次竞价为整个任务')
-  await expect(dialog).toContainText('不选择、不拆分 SKU')
-  await expect(dialog.locator('[data-unified-sku]')).toHaveCount(0)
+  await expect(dialog).toContainText('本次分配SKU（同一SKU不能拆数量）')
+  for (const checkbox of await dialog.locator('[data-unified-sku]').all()) await expect(checkbox).toBeChecked()
+  await expect(dialog.locator('[data-unified-sku]')).toHaveCount(4)
   let tenderPool = dialog.locator('[data-unified-tender-pool]')
   await expect(tenderPool.getByRole('heading', { name: '本次竞价工厂池' })).toBeVisible()
   await expect(tenderPool).toContainText('全部符合竞价条件的工厂')
@@ -243,7 +241,7 @@ test('整任务竞价冻结工厂池并贯通 PDA 报价、管理端定标，改
   await dialog.locator('[data-unified-field="tenderMinPrice"]').fill('1200')
   dialog = dispatchDialog(page)
   const biddingReturnPreview = dialog.locator('[data-unified-return-rule-preview]').last()
-  await expect(biddingReturnPreview).toContainText('竞价阶段仅预览')
+  await expect(biddingReturnPreview).toContainText('回货计划以定标数量和分配日期为准。')
   await expect(dialog.locator('[data-return-ratio="0.3"]')).toContainText('2026-08-08')
   await expect(dialog.locator('[data-return-ratio="1"]')).toContainText('2026-08-13')
   await biddingReturnPreview.screenshot({ path: path.join(evidenceDir, 'bidding-return-preview.png') })

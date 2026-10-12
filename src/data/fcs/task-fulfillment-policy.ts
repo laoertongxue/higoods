@@ -112,7 +112,7 @@ export function classifyTaskFulfillmentPolicy(task: TaskFulfillmentPolicyInput):
     mergedTaskType: null,
     involvesSewingOutsourcing: independentSewing,
     startsWithSewing: independentSewing,
-    assignmentGranularity: independentSewing ? 'SKU' : 'ORDER',
+    assignmentGranularity: independentSewing && task.taskUnitType !== 'WHOLE_ORDER_TASK' && task.taskUnitType !== 'MERGED_PRODUCTION_TASK' ? 'SKU' : 'ORDER',
     fulfillmentRuleCode,
     milestones: fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE'
       ? []

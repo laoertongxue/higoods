@@ -135,6 +135,46 @@ test('既有物料目录的八个node:test契约按实际文件路由，不被�
   assert.deepEqual(result.fullChecks, [])
 })
 
+test('分配专项配置及三个浏览器脚本绑定真实运行器，构建先于独立服务验收', () => {
+  for (const path of [
+    'tests/dispatch-assignment-granularity.config.ts',
+    'tests/dispatch-assignment-granularity.spec.ts',
+    'tests/dispatch-assignment-granularity-preview.spec.ts',
+    'tests/fcs-unified-dispatch-preparation-return-preview.spec.ts',
+  ]) {
+    const result = routeAffectedChecks([path])
+    assert.deepEqual(result.unknownPaths, [], path)
+    assert.deepEqual(result.fullChecks, [
+      'npm run build',
+      'npx playwright test --config tests/dispatch-assignment-granularity.config.ts --workers=1 --reporter=line',
+    ], path)
+  }
+})
+
+test('退休分配测试必须实际删除并执行替代场景，不能恢复旧文件后跳过', () => {
+  for (const path of ['tests/dispatch-board-assignment.spec.ts', 'tests/capacity-dynamic-status.spec.ts']) {
+    const result = routeAffectedChecks([path])
+    assert.deepEqual(result.unknownPaths, [], path)
+    assert.deepEqual(result.fastChecks, [`test ! -e '${path}'`], path)
+    assert(result.fullChecks.some(command => command.includes('dispatch-assignment-granularity.config.ts')), path)
+    assert.equal(execFileSync('/bin/sh', ['-c', result.fastChecks[0]], { encoding: 'utf8' }), '')
+    assert.throws(() => execFileSync('/bin/sh', ['-c', 'test ! -e tests/workflow-governance/affected-checks.test.ts'], { stdio: 'pipe' }))
+  }
+})
+
+test('分配业务检查脚本绑定对应专项，不将未知文件误判为已验证', () => {
+  const result = routeAffectedChecks([
+    'scripts/check-fcs-dispatch-list-filters.ts',
+    'scripts/check-fcs-sewing-preparation-return-preview.ts',
+    'scripts/check-fcs-unified-assignment-foundation.ts',
+    'scripts/check-sewing-outsourcing-task-boundary.ts',
+  ])
+  assert.deepEqual(result.unknownPaths, [])
+  assert.equal(result.fastChecks.length, 4)
+  assert.deepEqual(result.fullChecks, [])
+  assert.deepEqual(routeAffectedChecks(['tests/dispatch-assignment-granularity-other.spec.ts']).unknownPaths, ['tests/dispatch-assignment-granularity-other.spec.ts'])
+})
+
 test('完整运行目录与 HTML 入口不能漏掉产品治理', () => {
   for (const path of ['src/main.ts', 'src/state/order.ts', 'src/domain/order.ts', 'src/utils/quantity.ts', 'src/styles/main.css', 'index.html']) {
     const result = routeAffectedChecks([path])

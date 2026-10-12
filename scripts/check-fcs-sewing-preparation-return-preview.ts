@@ -109,8 +109,8 @@ assert.equal(missingCutReadiness.canDispatch, false)
 
 const materialReadiness = getMaterialPrepDispatchReadinessForTask(sewingTask)
 assert.equal(materialReadiness.hasMaterialPrepScope, true)
-assert.equal(materialReadiness.ready, true)
-assert.equal(materialReadiness.blockingLineCount, 0)
+assert.equal(materialReadiness.ready, false)
+assert.equal(materialReadiness.blockingLineCount, 1)
 assert.deepEqual(materialReadiness.lines.map((line) => line.materialName), ['前中拉链', '主唛', '洗护唛', '缝纫线'])
 assert.deepEqual(
   materialReadiness.lines.map((line) => [
@@ -122,7 +122,7 @@ assert.deepEqual(
     line.linePrepStatus,
   ]),
   [
-    [2500, 2500, 0, 3100, '条', '已配齐'],
+    [2500, 2200, 300, 3100, '条', '部分已配'],
     [2500, 2500, 0, 2800, '套', '已配齐'],
     [2500, 2500, 0, 2600, '套', '已配齐'],
     [30, 30, 0, 42, '公斤', '已配齐'],
@@ -168,8 +168,8 @@ assert(independentPreview)
 assert.equal(independentPreview.assignmentDate, '2026-08-10')
 assert.deepEqual(independentPreview.milestones.map((item) => [item.naturalDay, item.deadlineDate, item.targetQty]), [
   [4, '2026-08-13', 750],
-  [8, '2026-08-18', 1750],
-  [9, '2026-08-19', 2500],
+  [8, '2026-08-17', 1750],
+  [9, '2026-08-18', 2500],
 ])
 const selectedSkuPreview = buildProductionReturnRulePreview({
   assignedQty: 500,
@@ -179,8 +179,8 @@ const selectedSkuPreview = buildProductionReturnRulePreview({
 assert(selectedSkuPreview)
 assert.deepEqual(selectedSkuPreview.milestones.map((item) => [item.deadlineDate, item.targetQty]), [
   ['2026-08-14', 150],
-  ['2026-08-19', 350],
-  ['2026-08-20', 500],
+  ['2026-08-18', 350],
+  ['2026-08-19', 500],
 ])
 const roundingPreview = buildProductionReturnRulePreview({
   assignedQty: 101,
@@ -191,11 +191,11 @@ assert.deepEqual(roundingPreview?.milestones.map((item) => item.targetQty), [31,
 
 assert.deepEqual(
   buildProductionReturnRulePreview({ assignedQty: 2500, businessAssignedAt: '2026-08-10 09:22:00', policy: sewingIronPackPolicy })?.milestones.map((item) => [item.naturalDay, item.deadlineDate]),
-  [[5, '2026-08-14'], [9, '2026-08-19'], [10, '2026-08-20']],
+  [[5, '2026-08-14'], [9, '2026-08-18'], [10, '2026-08-19']],
 )
 assert.deepEqual(
   buildProductionReturnRulePreview({ assignedQty: 2500, businessAssignedAt: '2026-08-10 09:22:00', policy: cuttingSewingIronPackPolicy })?.milestones.map((item) => [item.naturalDay, item.deadlineDate]),
-  [[6, '2026-08-15'], [9, '2026-08-19'], [12, '2026-08-22']],
+  [[6, '2026-08-15'], [9, '2026-08-18'], [12, '2026-08-21']],
 )
 
 resetProductionReturnSnapshotSequenceForTests()

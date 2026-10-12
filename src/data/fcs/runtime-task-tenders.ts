@@ -1,3 +1,6 @@
+import { readRuntimeTaskById } from './runtime-task-read-bridge.ts'
+import type { RuntimeProcessTask } from './runtime-process-tasks.ts'
+
 export interface RuntimeTaskTenderFactory {
   factoryId: string
   factoryName: string
@@ -67,7 +70,11 @@ export interface RuntimeTaskTenderRecord {
 const runtimeTaskTenderRecords = new Map<string, RuntimeTaskTenderRecord>()
 
 function getLatestTaskRecord(taskId: string): RuntimeTaskTenderRecord | undefined {
-  return [...runtimeTaskTenderRecords.values()].reverse().find((record) => record.taskId === taskId)
+  // Hydration may restore records in a different Map order. Creation facts decide which tender is latest.
+  return [...runtimeTaskTenderRecords.values()].filter(record => record.taskId === taskId).sort((a, b) =>
+    toDateMs(b.assignmentOperatedAt) - toDateMs(a.assignmentOperatedAt)
+    || b.tenderId.localeCompare(a.tenderId, 'en', { numeric: true }),
+  )[0]
 }
 
 function cloneRecord(record: RuntimeTaskTenderRecord): RuntimeTaskTenderRecord {
@@ -105,6 +112,22 @@ export function upsertRuntimeTaskTenderRecord(
   const snapshotQty = input.taskSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
   if (input.taskSnapshot.skuLines.length === 0 || snapshotQty !== input.taskSnapshot.qty) {
     throw new Error('竞价任务必须保存完整且数量守恒的 SKU 范围快照')
+  }
+  const snapshotLines = input.taskSnapshot.skuLines
+  if (new Set(snapshotLines.map(line => line.skuCode)).size !== snapshotLines.length
+    || snapshotLines.some(line => !line.skuCode || !Number.isInteger(line.qty) || line.qty <= 0)) {
+    throw new Error('竞价SKU范围不能重复或包含无效数量')
+  }
+  const runtimeTask = readRuntimeTaskById<RuntimeProcessTask>(input.taskId)
+  if (runtimeTask) {
+    const taskLines = runtimeTask.scopeSkuLines.length ? runtimeTask.scopeSkuLines : [{
+      skuCode: runtimeTask.skuCode || 'SKU-ALL', color: runtimeTask.skuColor || '混色', size: runtimeTask.skuSize || '混码', qty: runtimeTask.scopeQty,
+    }]
+    if (runtimeTask.executionEnabled === false || runtimeTask.scopeQty !== input.taskSnapshot.qty
+      || taskLines.length !== snapshotLines.length
+      || taskLines.some(line => !snapshotLines.some(snapshot => snapshot.skuCode === line.skuCode && snapshot.qty === line.qty && snapshot.color === line.color && snapshot.size === line.size))) {
+      throw new Error('竞价快照必须与当前完整任务范围一致，请重新确认分配范围')
+    }
   }
   if (!input.biddingDeadline.trim()) throw new Error('竞价截止时间不能为空')
   if (toDateMs(input.biddingDeadline) <= toDateMs(input.assignmentOperatedAt)) {

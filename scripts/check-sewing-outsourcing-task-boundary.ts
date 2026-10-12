@@ -10,24 +10,24 @@ import {
   allocateRuntimeSkuTaskScope,
   applyRuntimeDirectDispatchMeta,
   captureRuntimeDirectDispatchState,
-  dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById,
   listRuntimeExecutionTasks,
-  listRuntimeTaskAllocatableGroups,
   listRuntimeTaskSplitGroupsByOrder,
   restoreRuntimeDirectDispatchState,
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import { classifyTaskFulfillmentPolicy } from '../src/data/fcs/task-fulfillment-policy.ts'
 import {
   confirmCutPieceReleaseAvailableQty,
+  getCutPieceReleaseSummaryForProductionOrder,
+  listCutPieceReleaseTargetSnapshots,
   resetCutPieceReleasePrototypeStoreForTesting,
 } from '../src/data/fcs/cut-piece-release.ts'
 
 resetCutPieceReleasePrototypeStoreForTesting()
 const fullRelease = confirmCutPieceReleaseAvailableQty({
   productionOrderId: 'PO-202603-0002',
-  basisMatrixVersion: 1,
-  basisTargetVersion: 1,
+  basisMatrixVersion: getCutPieceReleaseSummaryForProductionOrder('PO-202603-0002')!.latestMatrixVersion,
+  basisTargetVersion: listCutPieceReleaseTargetSnapshots('PO-202603-0002').at(-1)!.matrixVersion,
   releaseQtyByColorSize: {
     'Grey::S': 500,
     'Grey::M': 700,
@@ -71,11 +71,11 @@ assert.equal(sewingIronPackPolicy.involvesSewingOutsourcing, true)
 assert.equal(cuttingSewingIronPackPolicy.involvesSewingOutsourcing, true)
 assert.equal(cuttingSewingIronPackPolicy.startsWithSewing, false, '裁剪+车缝+烫包属于车缝外发，但不能套用裁片装袋和欠片口径')
 
-// 只有独立车缝允许按完整 SKU 拆分；两种合并任务必须整任务单厂。
+// 车缝、车缝＋烫包允许按完整 SKU 拆分；裁剪＋车缝＋烫包必须整任务单厂。
 assert.equal(independentPolicy.assignmentGranularity, 'SKU')
-assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.assignmentGranularity, 'ORDER')
+assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.assignmentGranularity, 'SKU')
 assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.assignmentGranularity, 'ORDER')
-assert.equal(sewingIronPackPolicy.assignmentGranularity, 'ORDER')
+assert.equal(sewingIronPackPolicy.assignmentGranularity, 'SKU')
 assert.equal(cuttingSewingIronPackPolicy.assignmentGranularity, 'ORDER')
 
 const mergedState = captureRuntimeDirectDispatchState()
@@ -89,30 +89,9 @@ try {
       by: 'PPIC任务边界专项检查',
       operatedAt: '2026-08-31 09:00:00',
     }),
-    /只有独立车缝任务允许按完整SKU分配/,
+    /必须整单分配/,
   )
 
-  const mergedGroups = listRuntimeTaskAllocatableGroups(cuttingSewingIronPackTask.taskId)
-  assert.equal(mergedGroups.length, 1, '合并任务只能形成一个整任务分配单元')
-  assert.equal(mergedGroups[0]?.granularity, 'ORDER')
-  const invalidExtraGroup = dispatchRuntimeTaskByDetailGroups({
-    taskId: cuttingSewingIronPackTask.taskId,
-    assignments: [
-      {
-        groupKey: mergedGroups[0]!.groupKey,
-        factoryId: 'FAC-CHECK-A',
-        factoryName: '边界检查A厂',
-      },
-      {
-        groupKey: `${mergedGroups[0]!.groupKey}-EXTRA`,
-        factoryId: 'FAC-CHECK-A',
-        factoryName: '边界检查A厂',
-      },
-    ],
-    by: 'PPIC任务边界专项检查',
-  })
-  assert.equal(invalidExtraGroup.ok, false)
-  assert.match(invalidExtraGroup.message ?? '', /整任务只能提交一个分配单元/)
 } finally {
   restoreRuntimeDirectDispatchState(mergedState)
 }
@@ -162,51 +141,6 @@ try {
   )
 } finally {
   restoreRuntimeDirectDispatchState(incrementalState)
-}
-
-// 独立车缝按完整 SKU 分到多厂后，同一工厂的 SKU 必须聚合到同一执行任务。
-const independentState = captureRuntimeDirectDispatchState()
-try {
-  const groups = listRuntimeTaskAllocatableGroups(independentSewingTask.taskId)
-  assert(groups.length >= 3, '独立车缝演示任务至少需要三个完整SKU')
-  assert(groups.every((group) => group.granularity === 'SKU'))
-
-  const result = dispatchRuntimeTaskByDetailGroups({
-    taskId: independentSewingTask.taskId,
-    assignments: groups.map((group, index) => ({
-      groupKey: group.groupKey,
-      factoryId: index < 2 ? 'FAC-CHECK-A' : 'FAC-CHECK-B',
-      factoryName: index < 2 ? '边界检查A厂' : '边界检查B厂',
-    })),
-    by: 'PPIC任务边界专项检查',
-  })
-
-  assert.equal(result.ok, true)
-  assert.equal(result.mode, 'MULTI_FACTORY')
-  assert.equal(result.createdTaskIds?.length, 2, '两家工厂必须恰好生成两张执行任务')
-  assert.equal(new Set(result.resultAssignments?.map((item) => item.taskId)).size, 2)
-
-  for (const factoryId of ['FAC-CHECK-A', 'FAC-CHECK-B']) {
-    const taskIds = new Set(
-      result.resultAssignments
-        ?.filter((item) => item.factoryId === factoryId)
-        .map((item) => item.taskId),
-    )
-    assert.equal(taskIds.size, 1, `${factoryId}只能对应一张执行任务`)
-  }
-
-  const sourceAfterSplit = getRuntimeTaskById(independentSewingTask.taskId)
-  assert.equal(sourceAfterSplit?.isSplitSource, true)
-  assert.equal(sourceAfterSplit?.executionEnabled, false)
-  for (const taskId of result.createdTaskIds ?? []) {
-    const executionTask = getRuntimeTaskById(taskId)
-    assert(executionTask)
-    assert.equal(executionTask.isSplitResult, true)
-    assert.equal(executionTask.executionEnabled, true)
-    assert(executionTask.assignedFactoryId)
-  }
-} finally {
-  restoreRuntimeDirectDispatchState(independentState)
 }
 
 console.log('车缝外发任务类型、完整SKU拆分与一厂一执行任务专项检查通过')

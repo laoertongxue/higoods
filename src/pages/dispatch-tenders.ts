@@ -24,6 +24,7 @@ import {
 } from '../data/fcs/sewing-delivery-sla.ts'
 import { classifyTaskFulfillmentPolicy } from '../data/fcs/task-fulfillment-policy.ts'
 import { createEffectiveTaskAssignment } from '../data/fcs/effective-task-assignments.ts'
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../data/fcs/factory-onboarding-ppic.ts'
 import {
   buildProductionReturnRulePreview,
   createProductionReturnRuleSnapshot,
@@ -769,6 +770,7 @@ async function confirmAwardInView(now = formatOperationLocalWallClock()): Promis
   const generatedContractIds: string[] = []
   for (const awardedTask of awardResult.tasks ?? []) {
     const policy = classifyTaskFulfillmentPolicy(awardedTask)
+    const operatedBy = policy.involvesSewingOutsourcing ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName : '平台定标员'
     const businessAssignedAt = resolveTenderBusinessAssignedAt(tender, awardedTask)
     const skuLines = awardedTask.scopeSkuLines.length
       ? awardedTask.scopeSkuLines.map((line) => ({ skuCode: line.skuCode, color: line.color, size: line.size, qty: line.qty }))
@@ -789,7 +791,9 @@ async function confirmAwardInView(now = formatOperationLocalWallClock()): Promis
       priceUnit: tender.unit,
       businessAssignedAt,
       operatedAt: now,
-      operatedBy: '平台定标员',
+      operatedBy,
+      allocationOperatorPpicId: policy.involvesSewingOutsourcing ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId : undefined,
+      allocationOperatorPpicName: policy.involvesSewingOutsourcing ? SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName : undefined,
     })
     const returnRuleSnapshot = createProductionReturnRuleSnapshot({
       assignmentId: assignment.assignmentId,
@@ -807,7 +811,7 @@ async function confirmAwardInView(now = formatOperationLocalWallClock()): Promis
       returnRuleSnapshot,
       processNames: awardedTask.coveredProcesses?.map((item) => item.processName) || [awardedTask.processNameZh],
       generatedAt: now,
-      generatedBy: '平台定标员',
+      generatedBy: operatedBy,
     })
     if (contract) generatedContractIds.push(contract.contractId)
   }

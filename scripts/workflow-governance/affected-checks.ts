@@ -18,6 +18,24 @@ const LIST_GOVERNANCE_TOOLS = new Set([
   'scripts/workflow-governance/list-page-policy.ts',
 ])
 
+const DISPATCH_BROWSER_CHECK = 'npx playwright test --config tests/dispatch-assignment-granularity.config.ts --workers=1 --reporter=line'
+const DISPATCH_BROWSER_PATHS = new Set([
+  'tests/dispatch-assignment-granularity.config.ts',
+  'tests/dispatch-assignment-granularity.spec.ts',
+  'tests/dispatch-assignment-granularity-preview.spec.ts',
+  'tests/fcs-unified-dispatch-preparation-return-preview.spec.ts',
+])
+const RETIRED_DISPATCH_TESTS = new Set([
+  'tests/dispatch-board-assignment.spec.ts',
+  'tests/capacity-dynamic-status.spec.ts',
+])
+const DISPATCH_SCRIPT_CHECKS = new Map([
+  ['scripts/check-fcs-dispatch-list-filters.ts', 'npm run check:fcs-dispatch-list-filters'],
+  ['scripts/check-fcs-sewing-preparation-return-preview.ts', 'npm run check:fcs-sewing-preparation-return-preview'],
+  ['scripts/check-fcs-unified-assignment-foundation.ts', 'npm run check:fcs-unified-assignment-foundation'],
+  ['scripts/check-sewing-outsourcing-task-boundary.ts', 'npm run check:sewing-outsourcing-task-boundary'],
+])
+
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`
 }
@@ -106,6 +124,16 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     if (/^tests\/unit\/.+\.test\.ts$/.test(path)) {
       const quotedPath = `'${path.replace(/'/g, "'\\''")}'`
       add(fastChecks, `if test -f ${quotedPath}; then node --import tsx --test ${quotedPath}; else npm run test:unit; fi`)
+      continue
+    }
+    if (DISPATCH_SCRIPT_CHECKS.has(path)) {
+      add(fastChecks, DISPATCH_SCRIPT_CHECKS.get(path)!)
+      continue
+    }
+    if (DISPATCH_BROWSER_PATHS.has(path) || RETIRED_DISPATCH_TESTS.has(path)) {
+      if (RETIRED_DISPATCH_TESTS.has(path)) add(fastChecks, `test ! -e ${shellQuote(path)}`)
+      add(fullChecks, 'npm run build')
+      add(fullChecks, DISPATCH_BROWSER_CHECK)
       continue
     }
     let handled = false

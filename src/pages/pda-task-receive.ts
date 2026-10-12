@@ -239,6 +239,7 @@ export function projectPdaTaskLegacyAcceptance(task: ProcessTask): ProcessTask {
 }
 
 let receiveRenderTasks: Map<string, ProcessTask> | null = null
+let receiveRenderTaskLookups: Map<string, ProcessTask | null> | null = null
 
 function listReceiveTaskFacts(): ProcessTask[] {
   if (receiveRenderTasks) return [...receiveRenderTasks.values()]
@@ -248,8 +249,11 @@ function listReceiveTaskFacts(): ProcessTask[] {
 
 function getTaskFactById(taskId: string): ProcessTask | null {
   if (receiveRenderTasks?.has(taskId)) return receiveRenderTasks.get(taskId)!
+  if (receiveRenderTaskLookups?.has(taskId)) return receiveRenderTaskLookups.get(taskId)!
   const task = getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
-  return task ? projectPdaTaskLegacyAcceptance(task) : null
+  const fact = task ? projectPdaTaskLegacyAcceptance(task) : null
+  receiveRenderTaskLookups?.set(taskId, fact)
+  return fact
 }
 
 function isPostFinishingDirectOnlyFactory(factoryId: string): boolean {
@@ -1159,6 +1163,7 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
               type="number"
               placeholder="请输入报价金额"
               data-pda-tr-field="quoteAmount"
+              data-skip-page-rerender="true"
               value="${escapeHtml(state.quoteAmount)}"
             />
             ${
@@ -1179,6 +1184,7 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
               type="number"
               placeholder="例如：10"
               data-pda-tr-field="deliveryDays"
+              data-skip-page-rerender="true"
               value="${escapeHtml(state.deliveryDays)}"
             />
           </div>
@@ -1190,6 +1196,7 @@ function renderQuoteDialog(quotingTender: BiddingTender | null): string {
               class="min-h-[72px] w-full rounded-md border bg-background px-3 py-2 text-sm"
               placeholder="可填写报价说明或补充说明"
               data-pda-tr-field="quoteRemark"
+              data-skip-page-rerender="true"
             >${escapeHtml(state.quoteRemark)}</textarea>
           </div>
         </div>
@@ -1305,11 +1312,13 @@ function renderKolGotoReceiveReadOnlyPage(factoryName: string): string {
 }
 
 export function renderPdaTaskReceivePage(): string {
+  receiveRenderTaskLookups = new Map()
   try {
     return renderPdaTaskReceivePageContent()
   } finally {
     // Reuse facts only within this synchronous render. Actions always read fresh data.
     receiveRenderTasks = null
+    receiveRenderTaskLookups = null
   }
 }
 
@@ -1487,6 +1496,8 @@ export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<bo
 
     if (field === 'quoteAmount') {
       state.quoteAmount = fieldNode.value
+      const submit = fieldNode.closest('article')?.querySelector<HTMLButtonElement>('[data-pda-tr-action="submit-quote"]')
+      if (submit) submit.disabled = !state.quoteAmount
       return true
     }
 
@@ -1657,7 +1668,10 @@ export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<bo
 
     const quotingTenderId = state.quotingTenderId
     if (!quotingTenderId) return true
-    const quotingTender = getActiveBiddingTenders().find((tender) => tender.tenderId === quotingTenderId)
+    const runtimeTender = getRuntimeTaskTenderRecordByTenderId(quotingTenderId)
+    const quotingTender = runtimeTender
+      ? { minPrice: runtimeTender.minPrice, currency: runtimeTender.currency, qtyUnit: runtimeTender.unit }
+      : getActiveBiddingTenders().find((tender) => tender.tenderId === quotingTenderId)
     if (quotingTender && Number(state.quoteAmount) < quotingTender.minPrice) {
       showTaskReceiveToast(`报价不能低于最低允许报价 ${quotingTender.minPrice.toLocaleString()} ${quotingTender.currency}/${quotingTender.qtyUnit}`)
       return true
@@ -1671,17 +1685,20 @@ export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<bo
     }
 
     try {
-      const runtimeTender = getRuntimeTaskTenderRecordByTenderId(quotingTenderId)
       if (runtimeTender) {
         const factoryId = getCurrentFactoryId()
-        recordRuntimeTaskTenderQuote(runtimeTender.taskId, {
+        const quote = {
           factoryId,
           factoryName: getFactoryName(factoryId),
           quotePrice: quoteSnapshot.quotedPrice,
           quoteTime: quoteSnapshot.quotedAt,
           deliveryDays: quoteSnapshot.deliveryDays,
           remark: quoteSnapshot.remark,
-        })
+        }
+        await saveProductionSourceUiAction(
+          JSON.stringify({ action: 'quote-runtime', taskId: runtimeTender.taskId, ...quote }),
+          () => recordRuntimeTaskTenderQuote(runtimeTender.taskId, quote),
+        )
       }
       state.submittedTenderIds = new Set([...state.submittedTenderIds, quotingTenderId])
       submittedQuotes.set(quotingTenderId, quoteSnapshot)

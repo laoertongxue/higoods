@@ -12,7 +12,6 @@ import {
   withdrawProductionOrderSewingFactory,
 } from './production-orders.ts'
 import {
-  getProcessAssignmentGranularity,
   type ProcessAssignmentGranularity,
 } from './process-types.ts'
 import {
@@ -38,14 +37,6 @@ import {
 } from './kol-goto-special-flow.ts'
 import { installRuntimeTaskReadResolver, assertRegisteredSewingMaterialReadiness } from './runtime-task-read-bridge.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from './sewing-delivery-receipt-facts.ts'
-import {
-  listTaskAllocatableGroups,
-  resolveTaskSplitDecision,
-  validateAllocatableGroupAssignments,
-  type TaskAllocatableGroup,
-  type TaskSplitFactoryBucket,
-  type TaskAllocatableGroupAssignment,
-} from './task-split-dispatch.ts'
 import {
   DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY,
   buildDispatchAcceptanceDeadline,
@@ -151,9 +142,6 @@ function asRuntimeSourceProcessTask(task: ProcessTask): RuntimeSourceProcessTask
   return task as RuntimeSourceProcessTask
 }
 
-export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup
-export type RuntimeTaskAllocatableGroupAssignment = TaskAllocatableGroupAssignment
-
 interface RuntimeTaskOverride {
   dependsOnTaskIds?: string[]
   assignmentMode?: ProcessTask['assignmentMode']
@@ -216,7 +204,6 @@ interface RuntimeSplitResultPlan {
   taskNo: string
   splitSeq: number
   detailRowKeys: string[]
-  allocatableGroupKeys: string[]
   scopeQty: number
   scopeLabel: string
   scopeSkuLines?: RuntimeTaskSkuLine[]
@@ -226,10 +213,6 @@ interface RuntimeSplitResultPlan {
   assignedFactoryId?: string
   assignedFactoryName?: string
   tenderId?: string
-}
-
-interface RuntimeSplitFactoryPlan extends TaskSplitFactoryBucket {
-  taskId: string
 }
 
 interface RuntimeTaskSplitPlan {
@@ -380,17 +363,6 @@ export interface RuntimeDirectDispatchState {
   dispatchBoardSeedReady: boolean
   productionOrders: Array<(typeof productionOrders)[number]>
   reassignedTasks: Array<[string, RuntimeProcessTask]>
-}
-
-export interface RuntimeDetailDispatchInput {
-  taskId: string
-  assignments: TaskAllocatableGroupAssignment[]
-  by: string
-}
-
-export interface RuntimeDetailTenderInput {
-  taskId: string
-  by: string
 }
 
 export interface RuntimeTaskTenderAwardInput {
@@ -629,11 +601,6 @@ function parseDateLike(value: string): number {
   return new Date(normalized).getTime()
 }
 
-function normalizeScopeToken(raw: string): string {
-  const token = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
-  return token || 'unknown'
-}
-
 function normalizeColorLabel(color: string): string {
   const text = color.trim()
   return text || '未识别颜色'
@@ -842,36 +809,6 @@ function getTaskDetailRows(baseTask: ProcessTask): TaskDetailRow[] {
   return cloneTaskDetailRows(baseTask.detailRows).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }
 
-function filterDetailRowsByScope(
-  rows: TaskDetailRow[],
-  scopeType: RuntimeTaskScopeType,
-  scopeSkuLines: RuntimeTaskSkuLine[],
-): TaskDetailRow[] {
-  if (rows.length === 0) return []
-  if (scopeType === 'ORDER') return rows
-
-  const scopeSkuSet = new Set(scopeSkuLines.map((line) => line.skuCode))
-  const scopeColorSet = new Set(scopeSkuLines.map((line) => line.color))
-
-  return rows.filter((row) => {
-    const rowSku = row.dimensions.GARMENT_SKU
-    const rowColor = row.dimensions.GARMENT_COLOR
-
-    if (scopeType === 'SKU') {
-      if (rowSku && !scopeSkuSet.has(rowSku)) return false
-      if (rowColor && !scopeColorSet.has(rowColor)) return false
-      return true
-    }
-
-    if (scopeType === 'COLOR') {
-      if (rowColor && !scopeColorSet.has(rowColor)) return false
-      if (rowSku && !scopeSkuSet.has(rowSku)) return false
-      return true
-    }
-
-    return true
-  })
-}
 
 function getTaskNo(task: RuntimeProcessTask): string {
   return task.taskNo || task.taskId
@@ -970,6 +907,7 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
         ...task,
         taskId: resultTask.taskId,
         taskNo: resultTask.taskNo,
+        taskQrValue: task.taskQrValue ? buildTaskQrValue(resultTask.taskId) : undefined,
         rootTaskNo: sourceRootNo,
         splitGroupId: plan.splitGroupId,
         splitFromTaskNo: sourceTaskNo,
@@ -1022,6 +960,8 @@ function buildOrderScopeTask(baseTask: RuntimeSourceProcessTask, skuLines: Runti
     baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
     dependsOnTaskIds: [],
     qty: baseTask.qty,
+    assignmentGranularity: isAssignableProductionExecutionTask(baseTask)
+      ? classifyTaskFulfillmentPolicy(baseTask).assignmentGranularity : baseTask.assignmentGranularity,
     scopeType: 'ORDER',
     scopeKey: 'ORDER',
     scopeLabel: '整单',
@@ -1031,78 +971,11 @@ function buildOrderScopeTask(baseTask: RuntimeSourceProcessTask, skuLines: Runti
   }
 }
 
-function buildColorScopeTasks(baseTask: RuntimeSourceProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
-  if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
-  const baseDetailRows = getTaskDetailRows(baseTask)
-
-  const grouped = new Map<string, RuntimeTaskSkuLine[]>()
-  for (const line of skuLines) {
-    const label = normalizeColorLabel(line.color)
-    const current = grouped.get(label) ?? []
-    current.push(line)
-    grouped.set(label, current)
-  }
-
-  return Array.from(grouped.entries()).map(([color, lines]) => {
-    const qty = lines.reduce((sum, line) => sum + line.qty, 0)
-    const detailRows = filterDetailRowsByScope(baseDetailRows, 'COLOR', lines)
-    const taskId = `${baseTask.taskId}__COLOR__${normalizeScopeToken(color)}`
-    return {
-      ...baseTask,
-      taskId,
-      taskQrValue: baseTask.taskQrValue ? buildTaskQrValue(taskId) : undefined,
-      baseTaskId: baseTask.taskId,
-      baseQty: baseTask.qty,
-      baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
-      dependsOnTaskIds: [],
-      qty,
-      scopeType: 'COLOR',
-      scopeKey: color,
-      scopeLabel: color,
-      scopeQty: qty,
-      scopeSkuLines: lines,
-      scopeDetailRows: detailRows,
-    }
-  })
-}
-
-function buildSkuScopeTasks(baseTask: RuntimeSourceProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask[] {
-  if (!skuLines.length) return [buildOrderScopeTask(baseTask, [])]
-  const baseDetailRows = getTaskDetailRows(baseTask)
-
-  return skuLines.map((line) => {
-    const detailRows = filterDetailRowsByScope(baseDetailRows, 'SKU', [line])
-    const taskId = `${baseTask.taskId}__SKU__${normalizeScopeToken(line.skuCode)}`
-    return {
-      ...baseTask,
-      taskId,
-      taskQrValue: baseTask.taskQrValue ? buildTaskQrValue(taskId) : undefined,
-      baseTaskId: baseTask.taskId,
-      baseQty: baseTask.qty,
-      baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
-      dependsOnTaskIds: [],
-      qty: line.qty,
-      scopeType: 'SKU',
-      scopeKey: line.skuCode,
-      scopeLabel: `${line.skuCode} / ${normalizeColorLabel(line.color)} / ${line.size || '-'}`,
-      scopeQty: line.qty,
-      scopeSkuLines: [line],
-      skuCode: line.skuCode,
-      skuColor: line.color,
-      skuSize: line.size,
-      scopeDetailRows: detailRows,
-    }
-  })
-}
-
 function buildRuntimeTasksByGranularity(baseTask: ProcessTask): RuntimeProcessTask[] {
   const runtimeSourceTask = asRuntimeSourceProcessTask(baseTask)
   const skuLines = getOrderSkuLines(runtimeSourceTask.productionOrderId)
   // 冻结规则：任务拆分仅在分配时发生。runtime 不再按粒度预拆任务。
   // assignmentGranularity 仅决定“可分配单元”边界，不决定任务是否先天拆成多条。
-  const _granularity = (baseTask.assignmentGranularity as ProcessAssignmentGranularity | undefined)
-    ?? getProcessAssignmentGranularity(baseTask.processCode)
-  void _granularity
   return [buildOrderScopeTask(runtimeSourceTask, skuLines)]
 }
 
@@ -1265,9 +1138,9 @@ function buildFixedMergedTask(
     assignmentGranularity: definition.assignmentGranularity,
     detailSplitMode: undefined,
     detailSplitDimensions: [],
-    scopeType: definition.assignmentGranularity,
-    scopeKey: definition.assignmentGranularity,
-    scopeLabel: definition.assignmentGranularity === 'SKU' ? '完整SKU' : '整张合并任务',
+    scopeType: 'ORDER',
+    scopeKey: 'ORDER',
+    scopeLabel: '整张合并任务',
     routeStepNo: source.routeStepNo,
     routeLaneNo: source.routeLaneNo,
     routeParallelGroupId: source.routeParallelGroupId,
@@ -2265,241 +2138,27 @@ export function validateRuntimeIndependentSewingFactoryUniqueness(
   return { valid: true }
 }
 
-function resolveTaskAssignmentGranularity(task: RuntimeProcessTask): ProcessAssignmentGranularity {
-  const fulfillmentPolicy = classifyTaskFulfillmentPolicy(task)
-  if (fulfillmentPolicy.contractEligibilityCode === 'INDEPENDENT_SEWING' || fulfillmentPolicy.mergedTaskType) {
-    return fulfillmentPolicy.assignmentGranularity
-  }
-  return (task.assignmentGranularity as ProcessAssignmentGranularity | undefined)
-    ?? getProcessAssignmentGranularity(task.processCode)
-}
-
-export function listRuntimeTaskAllocatableGroups(taskId: string): RuntimeTaskAllocatableGroup[] {
+/** 派单与竞价共用的范围校验；不读取旧工序粒度，也不修改任务。 */
+export function resolveRuntimeTaskAssignmentScope(taskId: string, selectedSkuCodes?: readonly string[]): RuntimeTaskSkuLine[] {
   const task = getRuntimeTaskById(taskId)
-  if (!task) return []
-
-  const detailRows = task.scopeDetailRows.length > 0
-    ? task.scopeDetailRows
-    : cloneTaskDetailRows(task.detailRows)
-
-  return listTaskAllocatableGroups({
-    taskId: task.taskId,
-    assignmentGranularity: resolveTaskAssignmentGranularity(task),
-    detailRows,
-    fallbackQty: task.scopeQty,
-    fallbackScopeLabel: task.scopeLabel || '整任务',
-    scopeSkuLines: task.scopeSkuLines,
-  })
-}
-
-function clearRuntimeTaskSplitPlan(sourceTaskId: string): void {
-  const plan = runtimeTaskSplitPlans.get(sourceTaskId)
-  if (!plan) return
-
-  for (const splitTask of plan.results) {
-    runtimeTaskOverrides.delete(splitTask.taskId)
+  if (!task || !isAssignableProductionExecutionTask(task)) throw new Error('任务已变化，请刷新后重新分配')
+  const lines = task.scopeSkuLines.length ? task.scopeSkuLines : [{
+    skuCode: task.skuCode || 'SKU-ALL', color: task.skuColor || '混色', size: task.skuSize || '混码', qty: task.scopeQty,
+  }]
+  if (new Set(lines.map(line => line.skuCode)).size !== lines.length
+    || lines.some(line => !line.skuCode || !Number.isInteger(line.qty) || line.qty <= 0)
+    || lines.reduce((sum, line) => sum + line.qty, 0) !== task.scopeQty) {
+    throw new Error('任务完整范围已变化，请刷新后重新分配')
   }
-  runtimeTaskSplitPlans.delete(sourceTaskId)
-  invalidateRuntimeTasksCache()
-}
-
-export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchInput): {
-  ok: boolean
-  mode?: 'SINGLE_FACTORY' | 'MULTI_FACTORY'
-  message?: string
-  createdTaskIds?: string[]
-  resultAssignments?: Array<{
-    taskId: string
-    factoryId: string
-    factoryName: string
-    allocationUnitId?: string
-    allocationUnitLabel?: string
-    detailRowKeys?: string[]
-  }>
-} {
-  return runRuntimeTaskAction(() => {
-  if (isKolGotoBaseTaskId(input.taskId)) {
-    return { ok: false, message: 'KOL-GOTO 整单任务已固定承接，不允许按明细重新分配' }
+  if (selectedSkuCodes === undefined) return structuredClone(lines)
+  const codes = new Set(selectedSkuCodes)
+  if (!codes.size) throw new Error('请至少选择一个完整SKU')
+  if (codes.size !== selectedSkuCodes.length) throw new Error('本次分配SKU不能重复')
+  if ([...codes].some(code => !lines.some(line => line.skuCode === code))) throw new Error('所选SKU不在当前待分配范围内')
+  if (classifyTaskFulfillmentPolicy(task).assignmentGranularity !== 'SKU' && codes.size !== lines.length) {
+    throw new Error('该任务只允许整单分配')
   }
-  if (input.assignments.some((assignment) => isKolGotoFactory(assignment.factoryId))) {
-    return { ok: false, message: 'KOL-GOTO 只承接系统自动生成的 KOL 整单任务，不能作为普通分配目标' }
-  }
-  const task = getRuntimeTaskById(input.taskId)
-  if (!task) return { ok: false, message: '任务不存在或已被移除' }
-  if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细分配，请对来源任务操作' }
-
-  const groups = listRuntimeTaskAllocatableGroups(task.taskId)
-  const assignmentGranularity = resolveTaskAssignmentGranularity(task)
-  if (assignmentGranularity === 'ORDER' && (groups.length !== 1 || input.assignments.length !== 1)) {
-    return { ok: false, message: '整任务只能提交一个分配单元，并分配给一家工厂' }
-  }
-  const validation = validateAllocatableGroupAssignments(groups, input.assignments)
-  if (!validation.valid) return { ok: false, message: validation.reason ?? '分配单元校验失败' }
-  try {
-    assertRuntimeTaskCutPieceReleaseAvailable(task)
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : '裁片放行不足，不能分配车缝任务' }
-  }
-
-  const uniqueFactoryIds = Array.from(new Set(input.assignments.map((item) => item.factoryId)))
-  if (assignmentGranularity === 'ORDER' && uniqueFactoryIds.length > 1) {
-    return { ok: false, message: '该任务粒度为按生产单，仅支持整任务分配给同一工厂' }
-  }
-
-  const sourceTaskNo = getTaskNo(task)
-  const rootTaskNo = getTaskRootNo(task)
-  const splitDecision = resolveTaskSplitDecision({
-    rootTaskNo,
-    sourceTaskNo,
-    groups,
-    assignments: input.assignments,
-  })
-
-  const baseDetailRows = task.scopeDetailRows.length > 0
-    ? task.scopeDetailRows
-    : cloneTaskDetailRows(task.detailRows)
-  const sourceDetailRowKeys = baseDetailRows.map((row) => row.rowKey)
-
-  if (splitDecision.mode === 'SINGLE_FACTORY') {
-    clearRuntimeTaskSplitPlan(task.taskId)
-    const updated = updateRuntimeTaskWithAudit(
-      task.taskId,
-      {
-        taskNo: splitDecision.sourceTaskNo,
-        rootTaskNo: splitDecision.rootTaskNo,
-        splitGroupId: undefined,
-        splitFromTaskNo: undefined,
-        splitSeq: 0,
-        detailRowKeys: splitDecision.detailRowKeys,
-        isSplitResult: false,
-        isSplitSource: false,
-        executionEnabled: true,
-        assignmentMode: 'DIRECT',
-        assignmentStatus: 'ASSIGNED',
-        assignedFactoryId: splitDecision.factoryId,
-        assignedFactoryName: splitDecision.factoryName,
-      },
-      'DETAIL_DISPATCH',
-      `按明细分配完成（同一工厂：${splitDecision.factoryName}），保持原任务执行`,
-      input.by,
-    )
-
-    if (!updated) {
-      return { ok: false, message: '更新任务分配结果失败' }
-    }
-
-    recomputeRuntimeTransitionsForOrder(task.productionOrderId)
-    return {
-      ok: true,
-      mode: 'SINGLE_FACTORY',
-      createdTaskIds: [],
-      resultAssignments: groups.map((group) => ({
-        taskId: task.taskId,
-        factoryId: splitDecision.factoryId,
-        factoryName: splitDecision.factoryName,
-        allocationUnitId: group.groupKey,
-        allocationUnitLabel: group.groupLabel,
-        detailRowKeys: [...group.detailRowKeys],
-      })),
-    }
-  }
-
-  clearRuntimeTaskSplitPlan(task.taskId)
-
-  const splitFactories: RuntimeSplitFactoryPlan[] = splitDecision.factories.map((factory) => ({
-    ...factory,
-    taskId: factory.taskNo,
-  }))
-
-  runtimeTaskSplitPlans.set(task.taskId, {
-    sourceTaskId: task.taskId,
-    sourceTaskNo: splitDecision.sourceTaskNo,
-    rootTaskNo: splitDecision.rootTaskNo,
-    splitGroupId: splitDecision.splitGroupId,
-    createdAt: nowTimestamp(),
-    createdBy: input.by,
-    results: splitFactories.map((factory) => ({
-      taskId: factory.taskId,
-      taskNo: factory.taskNo,
-      splitSeq: factory.splitSeq,
-      detailRowKeys: [...factory.detailRowKeys],
-      allocatableGroupKeys: [...factory.allocatableGroupKeys],
-      scopeQty: factory.scopeQty,
-      scopeLabel: factory.scopeLabel,
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: factory.factoryId,
-      assignedFactoryName: factory.factoryName,
-    })),
-  })
-  invalidateRuntimeTasksCache()
-
-  const sourceAuditLogs = appendRuntimeAudit(
-    task,
-    'DETAIL_SPLIT',
-    `按明细分配到多个工厂，生成 ${splitFactories.length} 条平级任务`,
-    input.by,
-  )
-
-  patchRuntimeTask(task.taskId, {
-    taskNo: splitDecision.sourceTaskNo,
-    rootTaskNo: splitDecision.rootTaskNo,
-    splitGroupId: splitDecision.splitGroupId,
-    splitFromTaskNo: undefined,
-    splitSeq: 0,
-    detailRowKeys: sourceDetailRowKeys,
-    isSplitResult: false,
-    isSplitSource: true,
-    executionEnabled: false,
-    assignedFactoryId: undefined,
-    assignedFactoryName: undefined,
-    assignmentStatus: 'ASSIGNED',
-    updatedAt: nowTimestamp(),
-    auditLogs: sourceAuditLogs,
-  })
-
-  for (const factory of splitFactories) {
-    runtimeTaskOverrides.set(factory.taskId, {
-      taskNo: factory.taskNo,
-      rootTaskNo: splitDecision.rootTaskNo,
-      splitGroupId: splitDecision.splitGroupId,
-      splitFromTaskNo: splitDecision.sourceTaskNo,
-      splitSeq: factory.splitSeq,
-      detailRowKeys: [...factory.detailRowKeys],
-      isSplitResult: true,
-      isSplitSource: false,
-      executionEnabled: true,
-      assignmentMode: 'DIRECT',
-      assignmentStatus: 'ASSIGNED',
-      assignedFactoryId: factory.factoryId,
-      assignedFactoryName: factory.factoryName,
-      updatedAt: nowTimestamp(),
-    })
-  }
-  invalidateRuntimeTasksCache()
-
-  recomputeRuntimeTransitionsForOrder(task.productionOrderId)
-  return {
-    ok: true,
-    mode: 'MULTI_FACTORY',
-    createdTaskIds: splitFactories.map((factory) => factory.taskId),
-    resultAssignments: splitFactories.flatMap((factory) =>
-      groups
-        .filter((group) => factory.allocatableGroupKeys.includes(group.groupKey))
-        .map((group) => {
-          return {
-            taskId: factory.taskId,
-            factoryId: factory.factoryId,
-            factoryName: factory.factoryName,
-            allocationUnitId: group.groupKey,
-            allocationUnitLabel: group.groupLabel,
-            detailRowKeys: [...group.detailRowKeys],
-          }
-        }),
-    ),
-  }
-
-  })
+  return structuredClone(lines.filter(line => codes.has(line.skuCode)))
 }
 
 export interface RuntimeSkuScopeAllocationInput {
@@ -2510,7 +2169,7 @@ export interface RuntimeSkuScopeAllocationInput {
 }
 
 /**
- * 把独立车缝任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
+ * 把车缝或车缝＋烫包任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
  * 同一个 SKU 不允许再按数量拆分；分区继续使用既有 split plan，
  * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
@@ -2523,15 +2182,15 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
   const policy = classifyTaskFulfillmentPolicy(task)
   if (
     !isRuntimeTaskExecutionTask(task)
-    || policy.contractEligibilityCode !== 'INDEPENDENT_SEWING'
     || policy.assignmentGranularity !== 'SKU'
   ) {
-    throw new Error(`只有独立车缝任务允许按完整SKU分配；任务 ${input.taskId} 必须整任务分配`)
+    throw new Error(`只有车缝任务、车缝＋烫包合并任务允许按完整SKU分配；任务 ${input.taskId} 必须整单分配`)
   }
   if (task.assignmentStatus !== 'UNASSIGNED') throw new Error(`任务 ${input.taskId} 已进入分配流程，不可重复分区`)
   if (!input.by.trim()) throw new Error('分区操作人不能为空')
 
-  const availableBySku = new Map(task.scopeSkuLines.map((line) => [line.skuCode, line]))
+  const validatedLines = resolveRuntimeTaskAssignmentScope(task.taskId, input.lines.map(line => line.skuCode))
+  const availableBySku = new Map(validatedLines.map((line) => [line.skuCode, line]))
   const requestedBySku = new Map<string, number>()
   for (const line of input.lines) {
     const skuCode = line.skuCode.trim()
@@ -2590,7 +2249,6 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
       taskNo: selectedTaskId,
       splitSeq: suffix,
       detailRowKeys: selectedDetailRows.map((row) => row.rowKey),
-      allocatableGroupKeys: selectedLines.map((line) => line.skuCode),
       scopeQty: selectedQty,
       scopeLabel: selectedLines.map((line) => `${line.skuCode} ${line.qty}件`).join('、'),
       scopeSkuLines: selectedLines,
@@ -2611,7 +2269,6 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
           taskNo: residualTaskId,
           splitSeq: suffix,
           detailRowKeys: residualDetailRows.map((row) => row.rowKey),
-          allocatableGroupKeys: residualLines.map((line) => line.skuCode),
           scopeQty: residualQty,
           scopeLabel: `${residualLines.length}个SKU待分配，共${residualQty}件`,
           scopeSkuLines: residualLines,
@@ -2664,107 +2321,6 @@ export function allocateRuntimeSkuTaskScope(input: RuntimeSkuScopeAllocationInpu
   } catch (error) {
     restoreRuntimeDirectDispatchState(runtimeState)
     throw error
-  }
-
-  })
-}
-
-export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTenderInput): {
-  ok: boolean
-  message?: string
-  createdTaskIds?: string[]
-} {
-  return runRuntimeTaskAction(() => {
-  if (isKolGotoBaseTaskId(input.taskId)) {
-    return { ok: false, message: 'KOL-GOTO 整单任务已固定承接，不参与竞价' }
-  }
-  const task = getRuntimeTaskById(input.taskId)
-  if (!task) return { ok: false, message: '任务不存在或已被移除' }
-  if (task.isSplitResult) return { ok: false, message: '拆分结果任务不支持再次按明细创建招标单，请对来源任务操作' }
-
-  const groups = listRuntimeTaskAllocatableGroups(task.taskId)
-  if (groups.length <= 1) {
-    return { ok: false, message: '该任务当前不需要按明细创建招标单，请使用整任务模式' }
-  }
-
-  clearRuntimeTaskSplitPlan(task.taskId)
-
-  const sourceTaskNo = getTaskNo(task)
-  const rootTaskNo = getTaskRootNo(task)
-  const splitGroupId = `SG-${rootTaskNo}-TD-${String(Date.now()).slice(-6)}`
-  const eventAt = nowTimestamp()
-  const sourceDetailRows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : cloneTaskDetailRows(task.detailRows)
-
-  const resultPlans: RuntimeSplitResultPlan[] = groups.map((group, index) => {
-    const splitSeq = index + 1
-    const taskNo = `${rootTaskNo}-${String(splitSeq).padStart(2, '0')}`
-    return {
-      taskId: taskNo,
-      taskNo,
-      splitSeq,
-      detailRowKeys: [...group.detailRowKeys],
-      allocatableGroupKeys: [group.groupKey],
-      scopeQty: group.qty,
-      scopeLabel: group.groupLabel,
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'BIDDING',
-    }
-  })
-
-  runtimeTaskSplitPlans.set(task.taskId, {
-    sourceTaskId: task.taskId,
-    sourceTaskNo,
-    rootTaskNo,
-    splitGroupId,
-    createdAt: eventAt,
-    createdBy: input.by,
-    results: resultPlans,
-  })
-  invalidateRuntimeTasksCache()
-
-  patchRuntimeTask(task.taskId, {
-    taskNo: sourceTaskNo,
-    rootTaskNo,
-    splitGroupId,
-    splitFromTaskNo: undefined,
-    splitSeq: 0,
-    detailRowKeys: sourceDetailRows.map((row) => row.rowKey),
-    isSplitResult: false,
-    isSplitSource: true,
-    executionEnabled: false,
-    assignmentMode: 'BIDDING',
-    assignmentStatus: 'BIDDING',
-    updatedAt: eventAt,
-    auditLogs: appendRuntimeAudit(
-      task,
-      'DETAIL_TENDER_SPLIT',
-      `按明细创建招标单，生成 ${resultPlans.length} 条平级竞价任务`,
-      input.by,
-    ),
-  })
-
-  for (const result of resultPlans) {
-    runtimeTaskOverrides.set(result.taskId, {
-      taskNo: result.taskNo,
-      rootTaskNo,
-      splitGroupId,
-      splitFromTaskNo: sourceTaskNo,
-      splitSeq: result.splitSeq,
-      detailRowKeys: [...result.detailRowKeys],
-      isSplitResult: true,
-      isSplitSource: false,
-      executionEnabled: true,
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'BIDDING',
-      updatedAt: eventAt,
-    })
-  }
-  invalidateRuntimeTasksCache()
-
-  recomputeRuntimeTransitionsForOrder(task.productionOrderId)
-  return {
-    ok: true,
-    createdTaskIds: resultPlans.map((result) => result.taskId),
   }
 
   })

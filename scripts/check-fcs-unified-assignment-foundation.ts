@@ -121,7 +121,7 @@ assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.generatesCentra
 assert.deepEqual(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.requiredSourceProcessCodes, ['CUTTING', 'SEWING', 'IRON_PACK'])
 assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.auxiliarySpecialExecutorMode, 'FOLLOW_MERGED_TASK_FACTORY')
 assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.generatesCentralAuxiliarySpecialOrders, false)
-assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.assignmentGranularity, 'ORDER')
+assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.SEWING_IRON_PACK.assignmentGranularity, 'SKU')
 assert.equal(MERGED_PRODUCTION_TASK_DEFINITIONS.CUTTING_SEWING_IRON_PACK.assignmentGranularity, 'ORDER')
 
 assert.equal(resolveMergedProductionTaskType([{ processCode: 'SEW' }, { processCode: 'IRON_PACK' }]), 'SEWING_IRON_PACK')
@@ -193,7 +193,7 @@ const cuttingSewingIronPackPolicy = policy({ taskUnitType: 'MERGED_PRODUCTION_TA
 const printingPolicy = policy({ processCode: 'PRINT', processBusinessCode: 'PRINT', processNameZh: '印花', assignmentGranularity: 'ORDER' })
 const nonSewingWithLegacySkuGranularityPolicy = policy({ processCode: 'CUT', processBusinessCode: 'CUTTING', processNameZh: '裁剪', assignmentGranularity: 'SKU' })
 assert.equal(sewingPolicy.assignmentGranularity, 'SKU')
-assert.equal(sewingIronPackPolicy.assignmentGranularity, 'ORDER')
+assert.equal(sewingIronPackPolicy.assignmentGranularity, 'SKU')
 assert.equal(cuttingSewingIronPackPolicy.assignmentGranularity, 'ORDER')
 assert.equal(printingPolicy.assignmentGranularity, 'ORDER')
 assert.equal(nonSewingWithLegacySkuGranularityPolicy.assignmentGranularity, 'ORDER')
@@ -219,7 +219,7 @@ try {
       by: '专项检查',
       operatedAt: '2026-08-21 09:00:00',
     }),
-    /只有独立车缝任务允许按完整SKU分配/,
+    /必须整单分配/,
   )
 } finally {
   restoreRuntimeDirectDispatchState(runtimeStateBeforeSkuAllocation)
@@ -414,9 +414,9 @@ const packageSource = read('package.json')
 
 for (const requiredText of [
   '创建合并任务', '搜索生产单', '车缝+烫包', '裁剪+车缝+烫包',
-  '请再次确认', '本生产单车缝所需辅料的库存与配料情况', '裁片放行与分配占用（SKU 维度）',
+  '请再次确认', '辅料配料', '裁片放行与分配',
   '裁床目标', '已确认放行', '已分配占用', '可分配余量', '回货规则预览（自然日）', '% 回货节点', 'data-return-ratio=', 'milestone.targetQty',
-  '菲票装袋', '当前存在无放行或可分配余量不足，本次提交将被阻断',
+  '菲票装袋', '放行余量不足，请调整分配数量。',
   '同一SKU不能拆数量', 'BAG_AWARE', 'FREE', '不生成拆袋重装待办',
   '谨慎确认价格，一经提交确认不得修改。', '生产合同已生成', '是否立即打印合同',
 ]) assert(workbenchSource.includes(requiredText), `统一分配页缺少：${requiredText}`)
