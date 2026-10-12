@@ -7,6 +7,8 @@ import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 // 技术包列表委托轻量入口，统一复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
 
 import { paginateStandardListRows } from '../components/ui/list-table-model.ts'
+import { renderStandardListPage } from '../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import { ensureEngineeringMasterDemoData } from '../data/pcs-engineering-master-view-model.ts'
 import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
@@ -25,6 +27,8 @@ import {
 } from '../data/pcs-engineering-master-repository.ts'
 import {
   getMaterialStandardCost,
+  getMaterialArchiveById,
+  getMaterialSkuRecordById,
   listMaterialArchives,
   listMaterialSkuRecordsByMaterialId,
   isMaterialSkuAvailableForNewUse,
@@ -50,7 +54,26 @@ export function renderPcsTechnicalDataBomPricingPage(): string {
   const paging = paginateStandardListRows(rows, bomListState.currentPage, bomListState.pageSize)
   bomListState.currentPage = paging.currentPage
   const versions = listEngineeringBomVersions()
-  return `<div class="space-y-4 p-4" data-pcs-technical-data-page data-bom-plan-list><header><h1 class="text-xl font-semibold">BOM 与价格</h1><p class="mt-1 text-sm text-slate-500">一张业务单据对应一份整款方案；各颜色分别维护物料，自定义费用只在整款方案中维护一次。</p></header><section class="overflow-hidden rounded-lg border bg-white"><div class="overflow-x-auto"><table class="w-full min-w-[1180px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-3">款式</th><th class="px-4 py-3">业务来源</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">颜色物料方案</th><th class="px-4 py-3">物料行</th><th class="px-4 py-3">整款费用</th><th class="px-4 py-3">买手</th><th class="px-4 py-3">更新时间</th><th class="px-4 py-3">操作</th></tr></thead><tbody>${paging.rows.length ? paging.rows.map((plan) => { const ownerVersions = versions.filter((item) => item.ownerStage === plan.ownerStage && item.ownerId === plan.ownerId); const materialCount = ownerVersions.reduce((total, item) => total + item.materialLines.length, 0); return `<tr class="border-t"><td class="px-4 py-3"><div class="flex items-center gap-3"><button type="button" class="h-12 w-12 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(plan.styleImageUrl)}" data-image-title="${escapeHtml(plan.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(plan.styleImageUrl)}" alt="${escapeHtml(plan.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><p class="font-medium">${escapeHtml(plan.styleName)}</p><p class="text-xs text-slate-500">${escapeHtml(plan.styleCode)}</p></div></div></td><td class="px-4 py-3"><p>${ownerStageText(plan.ownerStage)}</p><p class="text-xs text-slate-500">${escapeHtml(plan.ownerCode)}</p></td><td class="px-4 py-3">${pricingPlanStatusText(plan.status)}</td><td class="px-4 py-3">${ownerVersions.length} 个颜色</td><td class="px-4 py-3">${materialCount}</td><td class="px-4 py-3">${customCostDecisionText(plan)}</td><td class="px-4 py-3">${escapeHtml(plan.buyerName)}</td><td class="px-4 py-3">${escapeHtml(plan.updatedAt)}</td><td class="px-4 py-3"><a class="text-blue-700" href="${pricingPlanHref(plan.ownerStage, plan.ownerId)}">查看整款方案</a></td></tr>` }).join('') : '<tr><td colspan="9" class="px-4 py-12 text-center text-slate-500">暂无 BOM 与价格方案；创建设计改款任务或生产准备单后自动建立。</td></tr>'}</tbody></table></div><div class="border-t p-3">${renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'tech-data', pageSizeOptions: PAGE_SIZE_OPTIONS })}</div></section>${renderTechnicalImagePreview()}</div>`
+  const columns: StandardListColumn<EngineeringBomPricingPlanRecord>[] = [
+    { key: 'style', title: '款式', width: 240, render: plan => `<div class="flex items-center gap-3"><button type="button" class="h-12 w-12 shrink-0 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(plan.styleImageUrl)}" data-image-title="${escapeHtml(plan.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(plan.styleImageUrl)}" alt="${escapeHtml(plan.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><p class="font-medium">${escapeHtml(plan.styleName)}</p><p class="text-xs text-slate-500">${escapeHtml(plan.styleCode)}</p></div></div>` },
+    { key: 'owner', title: '业务来源', width: 160, render: plan => `<p>${ownerStageText(plan.ownerStage)}</p><p class="text-xs text-slate-500">${escapeHtml(plan.ownerCode)}</p>` },
+    { key: 'status', title: '状态', width: 140, render: plan => pricingPlanStatusText(plan.status) },
+    { key: 'colors', title: '颜色物料方案', width: 120, render: plan => `${versions.filter(item => item.ownerStage === plan.ownerStage && item.ownerId === plan.ownerId).length} 个颜色` },
+    { key: 'materials', title: '物料行', width: 90, render: plan => String(versions.filter(item => item.ownerStage === plan.ownerStage && item.ownerId === plan.ownerId).reduce((total, item) => total + item.materialLines.length, 0)) },
+    { key: 'cost', title: '整款费用', width: 170, render: plan => customCostDecisionText(plan) },
+    { key: 'buyer', title: '买手', width: 100, render: plan => escapeHtml(plan.buyerName) },
+    { key: 'updated', title: '更新时间', width: 155, render: plan => escapeHtml(plan.updatedAt) },
+    { key: 'actions', title: '操作', width: 125, actionColumn: true, render: plan => `<a class="text-blue-700" href="${pricingPlanHref(plan.ownerStage, plan.ownerId)}">查看整款方案</a>` },
+  ]
+  return `<div data-pcs-technical-data-page data-bom-plan-list>${renderStandardListPage({
+    title: 'BOM 与价格',
+    filtersHtml: '',
+    feedbackHtml: '<p class="text-sm text-slate-500">一张业务单据对应一份整款方案；各颜色分别维护物料，自定义费用只在整款方案中维护一次。</p>',
+    listTitle: '整款方案',
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: { order: columns.map(c => c.key), visibleKeys: columns.map(c => c.key), frozenKeys: [], pageSize: paging.pageSize }, sort: null, eventPrefix: 'tech-data', emptyText: '暂无 BOM 与价格方案；创建设计改款任务或生产准备单后自动建立。' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'tech-data', pageSizeOptions: PAGE_SIZE_OPTIONS }),
+    overlaysHtml: renderTechnicalImagePreview(),
+  })}</div>`
 }
 
 function allMaterialSkuOptions() {
@@ -98,7 +121,7 @@ function renderBomMaterialRows(
     const disabled = editable ? '' : 'disabled'
     const skuScope = new Set(line.applicableSkuIds?.length ? line.applicableSkuIds : record.applicableSkuIds)
     return `<tr class="border-t align-top" data-bom-line="${escapeHtml(line.bomItemId || '')}">
-      <td class="p-3"><div class="flex items-center gap-2"><button type="button" class="h-12 w-12 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(resolvedLine?.materialImageUrl || skuInfo?.sku.skuImageUrl || '')}" data-image-title="${escapeHtml(resolvedLine?.materialName || skuInfo?.sku.materialName || line.materialSkuId)}"><img class="h-full w-full object-cover" src="${escapeHtml(resolvedLine?.materialImageUrl || skuInfo?.sku.skuImageUrl || '')}" alt="${escapeHtml(resolvedLine?.materialName || skuInfo?.sku.materialName || line.materialSkuId)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><p class="font-medium">${escapeHtml(resolvedLine?.materialName || skuInfo?.sku.materialName || line.materialSkuId)}</p><p class="text-xs text-slate-500">${escapeHtml(resolvedLine?.materialSkuCode || skuInfo?.sku.materialSkuCode || line.materialSkuId)}</p><p class="text-xs text-slate-400">${escapeHtml(line.materialType || '')} ${escapeHtml(line.specification || '')}</p></div></div></td>
+      <td class="p-3"><div class="flex items-center gap-2"><button type="button" class="h-12 w-12 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(resolvedLine?.materialImageUrl || skuInfo?.sku.skuImageUrl || '')}" data-image-title="${escapeHtml(resolvedLine?.materialName || skuInfo?.sku.materialName || line.materialSkuId)}"><img class="h-full w-full object-cover" src="${escapeHtml(resolvedLine?.materialImageUrl || skuInfo?.sku.skuImageUrl || '')}" alt="${escapeHtml(resolvedLine?.materialName || skuInfo?.sku.materialName || line.materialSkuId)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><p class="font-medium">${escapeHtml(resolvedLine?.materialName || skuInfo?.sku.materialName || line.materialSkuId)}</p><p class="text-xs text-slate-500">${escapeHtml(resolvedLine?.materialSkuCode || skuInfo?.sku.materialSkuCode || line.materialSkuId)}</p><p class="text-xs text-slate-400">${skuInfo?.material.kind==='consumable'?`<select data-bom-line-field="materialType" ${disabled}>${['其他','包装材料'].map(t=>`<option value="${t}" ${t===line.materialType?'selected':''}>${t}</option>`).join('')}</select>`:escapeHtml(line.materialType || '')} ${escapeHtml(line.specification || '')}</p></div></div></td>
       <td class="p-3"><input class="h-9 w-24 rounded border px-2" type="number" min="0.0001" step="0.0001" value="${line.usage}" data-bom-line-field="usage" ${disabled}> ${escapeHtml(line.usageUnit)}</td>
       <td class="p-3"><input class="h-9 w-20 rounded border px-2" type="number" min="1" step="1" value="${line.sampleQuantity}" data-bom-line-field="sampleQuantity" ${disabled}></td>
       <td class="p-3"><input class="h-9 w-20 rounded border px-2" type="number" min="0" max="99.99" step="0.01" value="${line.lossRate * 100}" data-bom-line-field="lossRate" ${disabled}>%</td>
@@ -124,7 +147,7 @@ function renderBomMaterialRows(
   }).join('')
 }
 
-export function renderPcsTechnicalDataBomPricingPlanPage(ownerStage: EngineeringBomOwnerStage, ownerId: string): string {
+export function renderPcsTechnicalDataBomPricingPlanDetailPage(ownerStage: EngineeringBomOwnerStage, ownerId: string): string {
   const plan = getEngineeringBomPricingPlan(ownerStage, ownerId)
   if (!plan) return '<div class="p-6 text-sm text-slate-500">未找到整款 BOM 与价格方案。</div>'
   const versions = listEngineeringBomVersions().filter((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
@@ -155,7 +178,7 @@ export function renderPcsTechnicalDataBomPricingDetailPage(versionId: string): s
     <header class="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-white p-4"><div class="flex items-center gap-3"><button type="button" class="h-16 w-16 overflow-hidden rounded border" data-tech-data-action="open-image" data-image-url="${escapeHtml(record.styleImageUrl)}" data-image-title="${escapeHtml(record.styleName)}"><img class="h-full w-full object-cover" src="${escapeHtml(record.styleImageUrl)}" alt="${escapeHtml(record.styleName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-[10px] text-slate-500">图片失败</span></button><div><h1 class="text-xl font-semibold">${escapeHtml(record.styleName)} · ${escapeHtml(record.productColor)}</h1><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.styleCode)} · ${escapeHtml(record.versionCode)} · ${ownerStageText(record.ownerStage)} ${escapeHtml(record.ownerCode)}</p><p class="mt-1 text-xs text-slate-500">颜色物料方案 · 买手：${escapeHtml(record.buyerName)}</p></div></div><a class="rounded border px-4 py-2 text-sm" href="${pricingPlanHref(record.ownerStage, record.ownerId)}">返回整款方案</a></header>
     <nav class="flex flex-wrap gap-2 rounded-lg border bg-white p-3" aria-label="同一整款方案的颜色物料">${siblingVersions.map((item) => `<a class="rounded-full border px-3 py-1 text-sm ${item.bomDraftVersionId === record.bomDraftVersionId ? 'border-blue-600 bg-blue-50 text-blue-700' : 'text-slate-600'}" href="/pcs/technical-data/bom-pricing/${escapeHtml(item.bomDraftVersionId)}">${escapeHtml(item.productColor)} · ${escapeHtml(item.versionCode)}</a>`).join('')}</nav>
     ${bomFeedback.message ? `<p class="rounded border px-3 py-2 text-sm ${bomFeedback.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(bomFeedback.message)}</p>` : ''}
-    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">${escapeHtml(record.productColor)} · 物料方案</h2><p class="mt-1 text-xs text-slate-500">本页只维护该颜色的物料、用量、打样数量、损耗及工艺要求；整款费用在上一级方案维护。</p></div>${editable ? `<div class="flex gap-2"><select class="h-9 min-w-72 rounded border px-3 text-sm" data-tech-data-field="bom-material-sku"><option value="">选择物料 SKU</option>${options.map(({ sku, standardCost }) => `<option value="${escapeHtml(sku.materialSkuId)}">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.specName)} · ${escapeHtml(sku.materialSkuCode)} · ${standardCost.totalStandardCny === null ? '成本待维护' : `¥${standardCost.totalStandardCny.toFixed(4)}/${escapeHtml(standardCost.pricingUnit)}`}</option>`).join('')}</select><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-add-material">加入物料</button></div>` : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header>
+    <section class="rounded-lg border bg-white"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">${escapeHtml(record.productColor)} · 物料方案</h2><p class="mt-1 text-xs text-slate-500">本页只维护该颜色的物料、用量、打样数量、损耗及工艺要求；整款费用在上一级方案维护。</p></div>${editable ? `<div class="flex gap-2"><select class="h-9 min-w-72 rounded border px-3 text-sm" data-tech-data-field="bom-material-sku"><option value="">选择物料 SKU</option>${options.map(({ sku, standardCost }) => `<option value="${escapeHtml(sku.materialSkuId)}">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.specName)} · ${escapeHtml(sku.materialSkuCode)} · ${standardCost.totalStandardCny === null ? '成本待维护' : `¥${standardCost.totalStandardCny.toFixed(4)}/${escapeHtml(standardCost.pricingUnit)}`}</option>`).join('')}</select><label class="text-xs">耗材用途<select class="h-9 rounded border px-2" data-tech-data-field="bom-consumable-use"><option value="其他">其他</option><option value="包装材料">包装材料</option></select></label><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-add-material">加入物料</button></div>` : '<span class="text-sm text-slate-500">已锁定，只读</span>'}</header>
       <div class="overflow-x-auto"><table class="w-full min-w-[1500px] text-sm"><thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="p-3">物料</th><th class="p-3">单位用量</th><th class="p-3">打样数量</th><th class="p-3">损耗率</th><th class="p-3">总需求量</th><th class="p-3">标准单价</th><th class="p-3">印花</th><th class="p-3">染色</th><th class="p-3">需采购</th><th class="p-3">适用 SKU</th><th class="p-3">操作</th></tr></thead><tbody>${record.materialLines.length ? renderBomMaterialRows(record, resolvedById, options, editable) : '<tr><td colspan="11" class="p-10 text-center text-slate-500">暂无物料。买手可从物料档案选择有有效标准单价的 SKU。</td></tr>'}</tbody></table></div>
       ${editable ? '<footer class="flex justify-end border-t p-4"><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-tech-data-action="bom-save">保存该颜色物料</button></footer>' : ''}
     </section>
@@ -168,7 +191,7 @@ function rerender(): void {
   if (!host) return
   const planMatch = /^\/pcs\/technical-data\/bom-pricing\/owner\/([^/]+)\/([^/]+)$/.exec(window.location.pathname)
   const bomMatch = /^\/pcs\/technical-data\/bom-pricing\/([^/]+)$/.exec(window.location.pathname)
-  if (planMatch) host.outerHTML = renderPcsTechnicalDataBomPricingPlanPage(decodeURIComponent(planMatch[1]) as EngineeringBomOwnerStage, decodeURIComponent(planMatch[2]))
+  if (planMatch) host.outerHTML = renderPcsTechnicalDataBomPricingPlanDetailPage(decodeURIComponent(planMatch[1]) as EngineeringBomOwnerStage, decodeURIComponent(planMatch[2]))
   else if (bomMatch) host.outerHTML = renderPcsTechnicalDataBomPricingDetailPage(bomMatch[1])
   else if (window.location.pathname === '/pcs/technical-data/bom-pricing') host.outerHTML = renderPcsTechnicalDataBomPricingPage()
   else host.outerHTML = renderPcsTechnicalDataTechPackListPage()
@@ -198,6 +221,7 @@ function collectBomLines(record: EngineeringBomVersionRecord): EngineeringBomMat
     const textValue = (name: string) => field(name)?.value.trim() || ''
     return {
       ...current,
+      materialType: getMaterialArchiveById(getMaterialSkuRecordById(current.materialSkuId)?.materialId || '')?.kind==='consumable' ? textValue('materialType') || current.materialType : current.materialType,
       usage: Number(textValue('usage') || 0),
       sampleQuantity: Number(textValue('sampleQuantity') || 0),
       lossRate: Number(textValue('lossRate') || 0) / 100,
@@ -253,7 +277,7 @@ async function saveCurrentBom(record: EngineeringBomVersionRecord, lines: Engine
 export function handlePcsTechnicalDataInput(target: Element): boolean {
   const node = target.closest<HTMLInputElement | HTMLSelectElement>('[data-tech-data-field]')
   if (!node) return false
-  if (node.dataset.techDataField === 'bom-material-sku') return false
+  if (['bom-material-sku','bom-consumable-use'].includes(node.dataset.techDataField || '')) return false
   if (node.dataset.techDataField === 'keyword') listState.keyword = node.value
   if (node.dataset.techDataField === 'status') listState.status = node.value
   if (node.dataset.techDataField === 'review') listState.review = node.value
@@ -349,7 +373,7 @@ export async function handlePcsTechnicalDataEvent(target: HTMLElement, event?: E
       const selected = allMaterialSkuOptions().find((item) => item.sku.materialSkuId === select?.value)
       if (!selected) throw new Error('请先选择要加入的物料 SKU。')
       if (record.materialLines.some((line) => line.materialSkuId === selected.sku.materialSkuId)) throw new Error('该物料 SKU 已在当前 BOM 中。')
-      const kindText = getGarmentBomMaterialType(selected.sku.materialSkuId) || ''
+      const kindText = selected.material.kind==='consumable' ? document.querySelector<HTMLSelectElement>('[data-tech-data-field="bom-consumable-use"]')?.value || '其他' : getGarmentBomMaterialType(selected.sku.materialSkuId) || ''
       ;(await saveCurrentBom(record, [...record.materialLines, {
         bomItemId: `${record.bomDraftVersionId}-LINE-${record.materialLines.length + 1}`,
         materialSkuId: selected.sku.materialSkuId,

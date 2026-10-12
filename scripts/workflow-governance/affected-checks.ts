@@ -40,6 +40,17 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/pcs-engineering-bom-version-workflow.spec.ts') {
+      add(fastChecks, 'node --import tsx tests/pcs-engineering-bom-version-workflow.spec.ts')
+      continue
+    }
+    if (path === 'scripts/check-pcs-simple-browser-evidence.ts'
+      || /^tests\/browser-contracts\/pcs-simple-(adversarial|config|copy-identity|dossier|downstream|import|long-label|materials|list-entry|category-usage)\.test\.ts$/.test(path)) {
+      add(fastChecks, 'node --import tsx scripts/check-pcs-simple-browser-evidence.ts')
+      add(fastChecks, 'node --import tsx --test tests/workflow-governance/pcs-simple-browser-evidence.test.ts')
+      continue
+    }
+
     // Rule and template edits change governance behavior even without runtime product code.
     if (path === 'AGENTS.md' || path === 'docs/prototype-review-record-template.md') {
       add(fastChecks, 'npm run test:workflow-governance')

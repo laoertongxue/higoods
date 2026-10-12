@@ -1,12 +1,12 @@
 import { getPcsDurableFileReference, resolvePcsFileReference } from './pcs-record-runtime.ts'
-import { listSimpleMaterialCategories, type SimpleMaterialKind } from './pcs-simple-material-categories.ts'
+import type { SimpleMaterialKind } from './pcs-material-archive-types.ts'
 import { listMaterialUnitDefinitions } from './pcs-material-config.ts'
 import { canonicalMaterialUnit, fixedMaterialFactor, checkedMaterialCode, materialCodeSegment } from './pcs-material-rules.ts'
 import { createMaterialArchive, createMaterialSkuRecord, updateMaterialArchive, updateMaterialSkuRecord, withMaterialArchiveMutationBatch, getMaterialArchiveStoreSnapshot, getMaterialArchiveByCode, resolveMaterialSkuIdentity, validateSimpleMaterialSpecification, simpleMaterialSpecificationIdentity, listMaterialUnitRelations, listMaterialPackageSpecs, listMaterialCostVersions, saveMaterialUnitRelation, saveMaterialPackageSpec, saveMaterialStandardCost, getMaterialPricingRelationId, getMaterialUnitFactor, type MaterialArchiveDraft } from './pcs-material-archive-repository.ts'
 import { parseMaterialBusinessCsv, materialRowsToCsv, type MaterialTransferMode, type MaterialImportGroup, type MaterialImportPreview, type MaterialImportRow } from './pcs-material-transfer.ts'
 import type { MaterialSkuRecord, MaterialSkuDraftInput, MaterialStandardCostVersion, MaterialUnitRelation } from './pcs-material-archive-types.ts'
 const columns:Record<MaterialTransferMode,string[]>={
- archives:['模式','物料编码','物料名称','分类编码','SKU编码','规格型号','主计量单位','识别图','主档说明','规格说明','版本时间'],
+ archives:['模式','物料编码','物料名称','SKU编码','规格型号','主计量单位','识别图','主档说明','规格说明','版本时间'],
  units:['SKU编码','辅助单位','每辅助单位主数量','包装含量','含量单位','计量依据','用途','默认用途','调整原因'],
  costs:['SKU编码','标准采购成本RMB','基础运输成本RMB','采购已含运输','计价单位','包装含量','原币金额','原币','原报价单位','原币折算CNY','归一依据','调整原因'],
 }
@@ -17,9 +17,9 @@ function image(value:string):string {if(/^(data|blob|javascript):/i.test(value))
 function revision(sku:MaterialSkuRecord,root:unknown):string {let hash=2166136261;for(const char of JSON.stringify([sku,root])){hash=Math.imul(hash^char.charCodeAt(0),16777619)}return `${sku.updatedAt}#${(hash>>>0).toString(16)}`}
 function amount(value:string):number|null{if(!value)return null;const n=Number(value);if(!Number.isFinite(n)||n<0)throw new Error('标准金额请输入非负数，未知留空。');return n}
 function rootDraft(kind:SimpleMaterialKind,v:Record<string,string>,previous?:ReturnType<typeof getMaterialArchiveByCode>):MaterialArchiveDraft{
- const category=listSimpleMaterialCategories(kind).find(x=>x.code===v['分类编码']);if(!category||!category.enabled&&previous?.subcategoryId!==category.id)throw new Error('分类编码不存在、停用或不属于当前物料类型。')
+
  if(!v['物料名称'].trim()||v['物料名称'].length>80||v['主档说明'].length>500)throw new Error('名称必填且最多80字，说明最多500字。')
- return {kind,materialCode:v['物料编码']||undefined,materialName:v['物料名称'],materialNameEn:'',categoryName:category.name,subcategoryId:category.id,remark:v['主档说明'],specSummary:'',composition:'',processTags:[],widthText:'',gramWeightText:'',pricingUnit:unit(v['主计量单位']),mainImageUrl:image(v['识别图']),barcodeTemplateCode:'material-label-r1'}
+ return {kind,materialCode:v['物料编码']||undefined,materialName:v['物料名称'],materialNameEn:'',categoryName:'',remark:v['主档说明'],specSummary:'',composition:'',processTags:[],widthText:'',gramWeightText:'',pricingUnit:unit(v['主计量单位']),mainImageUrl:image(v['识别图']),barcodeTemplateCode:'material-label-r1'}
 }
 function skuDraft(v:Record<string,string>):MaterialSkuDraftInput {validateSimpleMaterialSpecification({specName:v['规格型号'],specDescription:v['规格说明']});return {specName:v['规格型号'].trim(),specDescription:v['规格说明'],mainUnit:unit(v['主计量单位']),pricingUnit:unit(v['主计量单位']),skuImageUrl:image(v['识别图']),colorName:'',sizeName:'',costPrice:0,freightCost:0,purchaseStandardCny:null,transportStandardCny:null,weightKg:0,lengthCm:0,widthCm:0,heightCm:0,barcode:''}}
 const useNames:Record<string,MaterialUnitRelation['uses'][number]>={'采购':'PURCHASE','计价':'PRICING','领用':'ISSUE',PURCHASE:'PURCHASE',PRICING:'PRICING',ISSUE:'ISSUE'}
@@ -64,8 +64,8 @@ export function previewSimpleMaterialImport(kind:SimpleMaterialKind,mode:Materia
     if(checkedMaterialCode(materialCodeSegment(key,'物料编码'))!==key)throw new Error('物料编码需规范化。')
     if(v['模式']==='新增'&&(root||v['SKU编码']))throw new Error('新增主档编码已存在或填写了已有SKU编码。')
     if(v['模式']!=='新增'&&(!root||root.kind!==kind||root.status==='ARCHIVED'))throw new Error('更新或新增规格需有效的同类主档。')
-    if(root && v['模式']!=='更新' && (root.status==='INACTIVE'||root.materialName!==draft.materialName||root.subcategoryId!==draft.subcategoryId))throw new Error('新增规格必须采用原主档名称和分类，且主档不能停用。')
-    if(group.rows.length>1&&['模式','物料名称','分类编码','主档说明'].some(field=>group!.rows[0].values[field]!==v[field]))throw new Error('同一主档组的模式、名称或分类不一致。')
+    if(root && v['模式']!=='更新' && (root.status==='INACTIVE'||root.materialName!==draft.materialName))throw new Error('新增规格必须采用原主档名称，且主档不能停用。')
+    if(group.rows.length>1&&['模式','物料名称','主档说明'].some(field=>group!.rows[0].values[field]!==v[field]))throw new Error('同一主档组的模式、名称不一致。')
     const old=skus.get(v['SKU编码']);if(v['模式']==='更新'){
      if(!old||old.materialId!==root!.materialId||!v['版本时间']||v['版本时间']!==revision(old,root))throw new Error('更新需对应SKU编码及当前导出版本时间，请重新导出。')
      if(old.approvalStatus==='APPROVED'&&simpleMaterialSpecificationIdentity(old.specName)!==simpleMaterialSpecificationIdentity(spec.specName))throw new Error('已审核规格不能通过导入改变实物身份；文字更正请使用专门操作。')
@@ -99,7 +99,7 @@ export function applySimpleMaterialImportGroup(kind:SimpleMaterialKind,mode:Mate
      // Import changes the explicitly selected dossier fields only; preserve existing gallery, aliases and all adopted costs/units.
      root=updateMaterialArchive(root.materialId,{...root,...draft,galleryImageUrls:root.galleryImageUrls});checkedRootVersion=true
      const saved=updateMaterialSkuRecord(old.materialSkuId,{...old,...spec,pricingUnit:old.pricingUnit,purchaseStandardCny:undefined,transportStandardCny:undefined,barcode:old.barcode,barcodeAliases:old.barcodeAliases});if(!saved)throw new Error('规格不存在。');codes.push(saved.materialSkuCode)
-    }else if(['新增','新增规格'].includes(v['模式'])){if(root.status==='ARCHIVED'||root.status==='INACTIVE'||root.materialName!==draft.materialName||root.subcategoryId!==draft.subcategoryId)throw new Error('主档已变化或不可新增规格。');const saved=createMaterialSkuRecord(root.materialId,spec);if(!saved)throw new Error('未保存规格。');codes.push(saved.materialSkuCode)}else throw new Error('导入模式无效。')
+    }else if(['新增','新增规格'].includes(v['模式'])){if(root.status==='ARCHIVED'||root.status==='INACTIVE'||root.materialName!==draft.materialName)throw new Error('主档已变化或不可新增规格。');const saved=createMaterialSkuRecord(root.materialId,spec);if(!saved)throw new Error('未保存规格。');codes.push(saved.materialSkuCode)}else throw new Error('导入模式无效。')
    }else{
     const sku=resolveMaterialSkuIdentity(v['SKU编码']),parent=sku&&getMaterialArchiveStoreSnapshot().records.find(x=>x.materialId===sku.materialId);if(!sku||parent?.kind!==kind)throw new Error('SKU不存在或类型不符。')
     if(mode==='costs')saveMaterialStandardCost(sku.materialSkuId,costDraft(v,sku))
@@ -112,12 +112,12 @@ export function applySimpleMaterialImportGroup(kind:SimpleMaterialKind,mode:Mate
  })
 }
 export function buildSimpleMaterialTemplate(kind:SimpleMaterialKind,mode:MaterialTransferMode):string{
- const headers=columns[mode],v:Record<string,string>=mode==='archives'?{'模式':'新增','物料名称':kind==='parts'?'裁剪刀片':'包装袋','分类编码':listSimpleMaterialCategories(kind).find(x=>x.enabled)!.code,'规格型号':kind==='parts'?'10英寸':'30×25cm','主计量单位':'PCS','主档说明':'原型导入示例','规格说明':'按实际规格填写'}:mode==='units'?{'SKU编码':'请替换实际SKU编码','辅助单位':'箱','每辅助单位主数量':'10','包装含量':'10','含量单位':'PCS','计量依据':'确认每盒10个','用途':'采购|计价|领用','调整原因':'导入确认'}:{'SKU编码':'请替换实际SKU编码','标准采购成本RMB':'2','基础运输成本RMB':'0.1','采购已含运输':'否','计价单位':'PCS','调整原因':'维护标准成本'}
+ const headers=columns[mode],v:Record<string,string>=mode==='archives'?{'模式':'新增','物料名称':kind==='parts'?'裁剪刀片':'包装袋','规格型号':kind==='parts'?'10英寸':'30×25cm','主计量单位':'PCS','主档说明':'原型导入示例','规格说明':'按实际规格填写'}:mode==='units'?{'SKU编码':'请替换实际SKU编码','辅助单位':'箱','每辅助单位主数量':'10','包装含量':'10','含量单位':'PCS','计量依据':'确认每盒10个','用途':'采购|计价|领用','调整原因':'导入确认'}:{'SKU编码':'请替换实际SKU编码','标准采购成本RMB':'2','基础运输成本RMB':'0.1','采购已含运输':'否','计价单位':'PCS','调整原因':'维护标准成本'}
  return materialRowsToCsv([headers,headers.map(x=>v[x]||'')])
 }
 export function exportSimpleMaterialRows(mode:MaterialTransferMode,skus:MaterialSkuRecord[]):string{
  const headers=columns[mode],snapshot=getMaterialArchiveStoreSnapshot(),rows:unknown[][]=[headers]
- for(const sku of skus){if(mode==='archives'){const root=snapshot.records.find(x=>x.materialId===sku.materialId)!,category=listSimpleMaterialCategories().find(x=>x.id===root.subcategoryId);rows.push(['更新',root.materialCode,root.materialName,category?.code,sku.materialSkuCode,sku.specName,sku.mainUnit,getPcsDurableFileReference(sku.skuImageUrl),root.remark||'',sku.specDescription||'',revision(sku,root)])}
+ for(const sku of skus){if(mode==='archives'){const root=snapshot.records.find(x=>x.materialId===sku.materialId)!;rows.push(['更新',root.materialCode,root.materialName,sku.materialSkuCode,sku.specName,sku.mainUnit,getPcsDurableFileReference(sku.skuImageUrl),root.remark||'',sku.specDescription||'',revision(sku,root)])}
  else if(mode==='units')for(const r of listMaterialUnitRelations(sku.materialSkuId)){const pack=listMaterialPackageSpecs(sku.materialSkuId,true).find(x=>x.packageSpecId===r.packageSpecId);rows.push([sku.materialSkuCode,r.auxUnitId,r.mainQtyPerAux,pack?.contentQty,pack?.contentUnitId,r.basisReference,r.uses.map(x=>({PURCHASE:'采购',PRICING:'计价',ISSUE:'领用'})[x]).join('|'),r.isDefaultForUse.map(x=>({PURCHASE:'采购',PRICING:'计价',ISSUE:'领用'})[x]).join('|'),r.changeReason])}
  else{const c=listMaterialCostVersions(sku.materialSkuId).at(-1),relation=listMaterialUnitRelations(sku.materialSkuId,true).find(x=>x.relationId===c?.pricingUnitRelationId);rows.push([sku.materialSkuCode,c?.purchaseStandardCny,c?.transportStandardCny,c?.purchaseIncludesTransport?'是':'否',c?.pricingUnit||sku.pricingUnit,relation?.mainQtyPerAux,c?.sourceMoney?.amount,c?.sourceMoney?.currency,c?.sourceMoney?.unit,c?.sourceMoney?.cnyPerSourceCurrency,c?.sourceMoney?.normalizationBasis,c?.changeReason])}}
  return materialRowsToCsv(rows)

@@ -1,5 +1,5 @@
 import { consumeMaterialArchiveReferenceCheck } from './pcs-material-reference-check.ts'
-import { isSimpleMaterialKind, listSimpleMaterialCategories, getSimpleMaterialCategory } from './pcs-simple-material-categories.ts'
+import { isSimpleMaterialKind } from './pcs-material-archive-types.ts'
 import { listMaterialTechnicalUsages } from './pcs-material-technical-usage.ts'
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
 import { migrateMaterialMockGallery, migrateMaterialMockImage } from './pcs-reviewed-image-catalog.ts'
@@ -160,12 +160,10 @@ function normalizeRecord(record: MaterialArchiveRecord, templates = new Map<stri
   const mainUnit = resolveMainUnit(record)
   if (isSimpleMaterialKind(kind)) {
     const result = owned ? record : cloneRecord(record)
-    const originalCategoryId=record.subcategoryId || listMaterialTemplates().find(item=>item.kind===kind&&(item.templateId===record.templateId||!record.templateId&&item.category===templateCategory))?.categoryId
-    const category = getSimpleMaterialCategory(record.subcategoryId || originalCategoryId || '') || listSimpleMaterialCategories(kind).find(item => item.name === templateCategory||item.logs.some(log=>log.changes?.some(change=>change.field==='名称'&&(change.before===templateCategory||change.after===templateCategory))))
     const legacyFields=[simpleLegacySpecification(record,record.categoryAttributes),record.composition&&record.composition!=='-'?'成分：'+record.composition:'',record.compositionItems?.length?'成分比例：'+record.compositionItems.map(x=>`${x.component} ${x.percentage}%`).join('、'):'',record.equipmentCompatibility?.length?'适配设备：'+record.equipmentCompatibility.join('、'):'',record.equipmentCompatibilityDetails?.length?'适配机型：'+record.equipmentCompatibilityDetails.map(x=>Object.values(x).filter(Boolean).join(' ')).join('、'):'',record.widthText&&record.widthText!=='-'?'幅宽：'+record.widthText:'',record.gramWeightText&&record.gramWeightText!=='-'?'克重：'+record.gramWeightText:'',record.processTags?.length?'既有工艺：'+record.processTags.join('、'):''];
     const history=legacyFields.filter(Boolean).join('；')
     const remark=record.remark || ''
-    return Object.assign(result, {kind, subcategoryId: category?.id || record.subcategoryId, categoryName: category?.name || record.categoryName, mainUnit, approvalStatus: record.approvalStatus || 'APPROVED', status: normalizeStatus(record.status), mainImageUrl: migrateMaterialMockImage(record.materialCode,record.mainImageUrl,'material'), galleryImageUrls: migrateMaterialMockGallery(record.materialCode,record.galleryImageUrls || []), categoryAttributes: record.categoryAttributes || {}, remark: history && !remark.includes(history) ? [remark,'既有资料：'+history].filter(Boolean).join('\n') : remark, auxiliaryUnits: record.auxiliaryUnits || [], processTags: record.processTags || []})
+    return Object.assign(result, {kind, subcategoryId: undefined, categoryName: '', templateId: undefined, templateVersion: undefined, mainUnit, approvalStatus: record.approvalStatus || 'APPROVED', status: normalizeStatus(record.status), mainImageUrl: migrateMaterialMockImage(record.materialCode,record.mainImageUrl,'material'), galleryImageUrls: migrateMaterialMockGallery(record.materialCode,record.galleryImageUrls || []), categoryAttributes: record.categoryAttributes || {}, remark: history && !remark.includes(history) ? [remark,'既有资料：'+history].filter(Boolean).join('\n') : remark, auxiliaryUnits: record.auxiliaryUnits || [], processTags: record.processTags || []})
   }
   const templateKey = `${record.templateId || record.kind + ':' + record.categoryName}:${record.templateVersion || 1}`
   let template = templates.get(templateKey)
@@ -1043,6 +1041,7 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
 }
 function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot, owned = false): MaterialArchiveStoreSnapshot {
   const templates = new Map<string, ReturnType<typeof getMaterialTemplateByVersion>>()
+  const legacyRoots = new Map(snapshot.records.map(root=>[root.materialId,{...root}]))
   const records = snapshot.records.map(record => normalizeRecord(record, templates, owned))
   const roots = new Map(records.map(root => [root.materialId, root]))
   const usedRoots = new Set(snapshot.usageRecords.map(row => row.materialId))
@@ -1050,8 +1049,8 @@ function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot, owned = false):
     const root = roots.get(raw.materialId)
     const record = owned ? raw : cloneSkuRecord(raw)
     if(root && isSimpleMaterialKind(root.kind)){
-      const history=simpleLegacySpecification(root,{...raw.identityValues,...raw.effectiveSpecValues})
-      if(history && !record.specDescription?.includes(history))record.specDescription=[record.specDescription,'既有规格：'+history].filter(Boolean).join('\n')
+      const history=simpleLegacySpecification(legacyRoots.get(raw.materialId)||root,{...raw.identityValues,...raw.effectiveSpecValues})
+      if(history && !record.specDescription?.includes('既有规格：'))record.specDescription=[record.specDescription,'既有规格：'+history].filter(Boolean).join('\n')
       if(!record.specName || /^规格\s*\d+$/.test(record.specName) || record.specName==='-')record.specName=[raw.sizeName && raw.sizeName!=='-' ? raw.sizeName:'',raw.colorName,history || root.specSummary].filter(Boolean).join(' / ') || root.materialName
     }
     record.mainUnit ||= root?.mainUnit || record.pricingUnit
@@ -1208,7 +1207,7 @@ function materialReadIndex(snapshot = currentSnapshot()) {
   return readIndex
 }
 export function getMaterialArchiveCategoryOptions(kind: MaterialArchiveKind): Array<{ value: string; label: string }> {
-  if (isSimpleMaterialKind(kind)) return listSimpleMaterialCategories(kind).filter(item=>item.enabled).map(item=>({value:item.name,label:item.name}))
+  if (isSimpleMaterialKind(kind)) return []
   const latest = new Map<string, ReturnType<typeof listMaterialTemplates>[number]>()
   for (const item of listMaterialTemplates().filter(item => item.kind === kind && item.status === 'APPROVED')) if (!latest.has(item.templateId) || latest.get(item.templateId)!.version < item.version) latest.set(item.templateId, item)
   return [...new Set([...latest.values()].filter(item => item.enabled !== false).map(item => item.category))].map(value => ({ value, label: value }))
@@ -1275,7 +1274,7 @@ export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialL
     return false
   }
   for (const root of snapshot.records) {
-    if (root.kind !== kind || f.category && root.categoryName !== f.category) continue
+    if (root.kind !== kind || !isSimpleMaterialKind(kind) && f.category && root.categoryName !== f.category) continue
     if (f.view === 'root' && (f.approval && root.approvalStatus !== f.approval || f.status && root.status !== f.status)) continue
     const children = index.skusByRoot.get(root.materialId) || []
     let matched = 0
@@ -1321,8 +1320,6 @@ export interface MaterialArchiveDraft {
 function validateRoot(input: MaterialArchiveDraft, previous?: MaterialArchiveRecord): void {
   if(isSimpleMaterialKind(input.kind)){
     if(!input.materialName.trim() || input.materialName.length>80 || (input.remark||'').length>500)throw new Error('物料名称必填且不超过80字，说明最多500字。')
-    const category=getSimpleMaterialCategory(input.subcategoryId || '')
-    if(!category || category.kind!==input.kind || !category.enabled && category.id!==previous?.subcategoryId)throw new Error('请选择有效的物料分类。')
     return
   }
   if (!input.materialName.trim() || !input.categoryName.trim()) throw new Error('请填写物料名称并选择子类。')
@@ -1351,8 +1348,7 @@ function validateRoot(input: MaterialArchiveDraft, previous?: MaterialArchiveRec
 }
 function materialDraftReferences(input: MaterialArchiveDraft, previous?: MaterialArchiveRecord): MaterialArchiveDraft {
   if(isSimpleMaterialKind(input.kind)){
-    const category=getSimpleMaterialCategory(input.subcategoryId || '') || listSimpleMaterialCategories(input.kind).find(item=>item.name===input.categoryName)
-    return {...input,categoryName:category?.name || input.categoryName,subcategoryId:category?.id,templateId:undefined,templateVersion:undefined,categoryAttributes:{},categoryAttributeReferences:{},composition:'',compositionItems:[],equipmentCompatibility:[],equipmentCompatibilityDetails:[],widthText:'',gramWeightText:'',processTags:[]}
+    return {...input,categoryName:'',subcategoryId:undefined,templateId:undefined,templateVersion:undefined,categoryAttributes:{},categoryAttributeReferences:{},composition:'',compositionItems:[],equipmentCompatibility:[],equipmentCompatibilityDetails:[],widthText:'',gramWeightText:'',processTags:[]}
   }
   const template = input.templateId ? getMaterialTemplateByVersion(input.templateId, input.templateVersion || 1) : getMaterialTemplate(input.kind, input.categoryName)
   return { ...input, templateId: template.templateId, templateVersion: template.version, subcategoryId: previous?.subcategoryId || template.categoryId,
@@ -1414,6 +1410,31 @@ export function updateMaterialArchive(materialId: string, input: MaterialArchive
   Object.assign(root, input, { materialId, materialCode: nextCode, mainUnit: root.mainUnit, auxiliaryUnits: root.auxiliaryUnits, updatedAt: nowText(), updatedBy: '商品中心管理员' })
   log(snapshot, materialId, '修改物料资料', '保存名称、资料和适用技术属性。'); persistSnapshot(snapshot); return cloneRecord(root)
 }
+/** One editor save prepares all dossier/specification changes; PCS owns the durable transaction. */
+export function saveSimpleMaterialDossier(input: MaterialArchiveDraft, rows: Array<MaterialSkuDraftInput & { materialSkuId?: string; costChanged?: boolean; purchaseIncludesTransport?: boolean }>, materialId?: string): MaterialArchiveRecord {
+  if (!isSimpleMaterialKind(input.kind)) throw new Error('仅耗材和配件使用同页建档。')
+  if (!rows.length || rows.length > 100) throw new Error('规格清单至少一行，最多100行。')
+  const identities = new Set<string>()
+  rows.forEach((row,index)=>{try{const historical=row.materialSkuId?getMaterialSkuRecordById(row.materialSkuId):null;if(historical?.inputSkuId){if(row.costChanged||Object.keys(row).some(key=>!['costChanged','materialSkuId'].includes(key)&&JSON.stringify(row[key as keyof typeof row])!==JSON.stringify(historical[key as keyof MaterialSkuRecord])))throw new Error('历史加工规格仅供查阅，不允许修改。');return}validateSimpleMaterialSpecification(row);requireEnabledUnit(row.mainUnit || '',row.materialSkuId?getMaterialSkuRecordById(row.materialSkuId)?.mainUnit:undefined);const key=simpleMaterialSpecificationIdentity(row.specName);if(identities.has(key))throw new Error('同一主档规格型号重复。');identities.add(key)}catch(error){throw new Error(`第 ${index+1} 行：${error instanceof Error?error.message:'规格无效。'}`)}})
+  return withMaterialArchiveMutationBatch(()=>{
+    const prior=materialId?getMaterialArchiveById(materialId):null
+    if(materialId&&!prior)throw new Error('主档不存在，请重新读取。')
+    const owned=prior?listMaterialSkuRecordsByMaterialId(prior.materialId):[]
+    const supplied=rows.filter(row=>row.materialSkuId).map(row=>row.materialSkuId!)
+    if(new Set(supplied).size!==supplied.length || supplied.some(id=>!owned.some(sku=>sku.materialSkuId===id)) || owned.some(sku=>!supplied.includes(sku.materialSkuId)))throw new Error('已有规格不能省略、重复或跨主档，请重新读取完整资料。')
+    const root=prior?updateMaterialArchive(prior.materialId,input):createMaterialArchive({...input,firstSku:rows[0]})
+    rows.forEach((entry,index)=>{try{
+      const {materialSkuId,costChanged,...row}=entry
+      const existing=materialSkuId?getMaterialSkuRecordById(materialSkuId):null
+      const unchanged=existing&&['materialName','specName','specDescription','mainUnit','pricingUnit','skuImageUrl','barcodeAliases'].every(key=>JSON.stringify(existing[key as keyof MaterialSkuRecord]??(key==='barcodeAliases'?[]:''))===JSON.stringify(row[key as keyof typeof row]??(key==='barcodeAliases'?[]:'')))
+      const sku=existing?(existing.inputSkuId||unchanged?existing:updateMaterialSkuRecord(existing.materialSkuId,{...existing,...row})):!prior&&index===0?listMaterialSkuRecordsByMaterialId(root.materialId)[0]:createMaterialSkuRecord(root.materialId,row)
+      if(!sku)throw new Error('规格未保存。')
+      if(costChanged && !sku.inputSkuId)saveMaterialStandardCost(sku.materialSkuId,{purchaseStandardCny:row.purchaseStandardCny??null,transportStandardCny:row.transportStandardCny??null,purchaseIncludesTransport:row.purchaseIncludesTransport||false,pricingUnit:sku.mainUnit!,changeReason:'同页维护含税标准成本'})
+    }catch(error){throw new Error(`第 ${index+1} 行：${error instanceof Error?error.message:'未保存。'}`)}})
+    return getMaterialArchiveById(root.materialId)!
+  })
+}
+
 export function copyMaterialArchive(materialId: string): MaterialArchiveRecord {
   const root = getMaterialArchiveById(materialId)
   if (!root) throw new Error('物料主档不存在。')

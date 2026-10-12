@@ -14,7 +14,7 @@ import type { MaterialArchiveKind, MaterialProcessDraft } from '../data/pcs-mate
 import { CURRENT_CHANNELS, CURRENT_MARKETS, listChannelStores, channelLabel } from '../data/pcs-channel-store-repository.ts'
 import { CHANNEL_CONTENT_SYNC_FIELDS, CHANNEL_VARIANT_SYNC_FIELDS, channelFieldSupported } from '../data/pcs-channel-sync.ts'
 import { runPcsRecordCommand, retryPcsRecordState } from '../data/pcs-record-runtime.ts'
-import { isSimpleMaterialKind, listSimpleMaterialCategories, getSimpleMaterialCategory, saveSimpleMaterialCategory, getSimpleMaterialCategoryUsage } from '../data/pcs-simple-material-categories.ts'
+import { isSimpleMaterialKind } from '../data/pcs-material-archive-types.ts'
 
 type Section = FlatDimensionId | 'productCategories' | 'templates' | 'units' | 'fixedConversions' | 'processes' | 'encoding' | 'exchangeRate' | 'channels'
 type View = 'list' | 'detail' | 'edit'
@@ -34,7 +34,6 @@ const EXTRA_NAMES: Partial<Record<Section, string>> = { productCategories: '商�
 const state = { section: 'productCategories' as Section, view: 'list' as View, tab: 'base', search: '', status: 'all', page: 1, selectedId: '', selectedVersion: 0,
   notice: '', error: false, busy: false, dirty: false, parentId: null as string | null, kind: 'fabric' as MaterialArchiveKind,
   draft: {} as Record<string, string>, template: null as MaterialTemplate | null, fieldIndex: -1,
-  simpleOverlay: '' as '' | 'logs' | 'usage',
   modelView: 'list' as View, model: null as MaterialEquipmentModel | null,
   preview: { inputSkuId: '', processType: 'EMBROIDERY', objectType: 'MATERIAL', patternCode: 'pl001197', colorCode: 'black', pantoneSystem: 'TCX', pantoneCode: '19-4003', printSide: 'A', penetration: false, backPatternCode: '' } as MaterialProcessDraft,
   predecessor: 'CNIDML160-black-19-4003PT', codePreview: '' }
@@ -133,30 +132,12 @@ function categoryList(): string {
   return managedList('productCategories', ['分类', '编码', '状态', '款式引用', '操作'], rows.map(({ node, depth }) => listRow([`<span style="padding-left:${depth * 18}px" class="block font-medium">${depth ? '└ ' : ''}${e(node.name)}</span>`, e(node.code), badge(node.status === 'ENABLED'), String(node.productCount), `<div class="flex gap-2">${button('详情', 'detail', { id: node.id })}${node.level < 3 ? button('下级', 'create-category', { parent: node.id }) : ''}</div>`], node.status === 'ENABLED', [node.name, node.code, node.status === 'ENABLED' ? '启用' : '停用', node.productCount])), { createAction: 'create-category' })
 }
 function templateList(): string {
-  if (isSimpleMaterialKind(state.kind)) return simpleCategoryList()
+  if (isSimpleMaterialKind(state.kind)) throw new Error('耗材和配件直接维护主档与规格，不使用分类与属性模板。')
   const byId = new Map<string, MaterialTemplate>()
   for (const template of listMaterialTemplates()) if ((byId.get(template.templateId)?.version || 0) < template.version) byId.set(template.templateId, template)
   const rows = [...byId.values()].filter(item => item.kind === state.kind && filterMatches([item.category, item.name, item.categoryCode, ...Object.values(item.categoryNames || {}), ...Object.values(item.categoryAliases || {}).flat()], item.enabled !== false))
-  const kinds = `<div class="flex flex-wrap gap-2">${Object.entries(KIND_NAMES).map(([id, label]) => button(label, 'kind', { kind: id }, state.kind === id)).join('')}</div>`
+  const kinds = `<div class="flex flex-wrap gap-2">${Object.entries(KIND_NAMES).filter(([kind]) => !isSimpleMaterialKind(kind)).map(([id, label]) => button(label, 'kind', { kind: id }, state.kind === id)).join('')}</div>`
   return managedList('templates', ['分类模板', '当前版本', '根属性 / SKU 属性', '版本状态', '当前引用', '操作'], rows.map(item => listRow([`<div class="font-medium">${e(item.category)}</div><div class="mt-1 text-xs text-slate-500">${e(item.name)} · ${e(item.categoryCode || '')}</div>`, `v${item.version}`, `${item.fields.filter(f => f.level === 'root').length} / ${item.fields.filter(f => f.level === 'sku').length}`, `${badge(item.status === 'APPROVED', '已审核', '草稿')} ${item.enabled === false ? badge(false) : ''}`, () => String(getMaterialTemplateUsage(item.templateId, item.version).length), button('详情', 'detail', { id: item.templateId, version: item.version })], item.enabled !== false)), { createAction: 'create', beforeFilters: kinds })
-}
-function simpleCategoryList(): string {
-  if (!isSimpleMaterialKind(state.kind)) return ''
-  const kind = state.kind
-  const rows = listSimpleMaterialCategories(kind).filter(item => filterMatches([item.name, item.code, item.remark], item.enabled))
-  const kinds = `<div class="flex flex-wrap gap-2">${Object.entries(KIND_NAMES).map(([id, label]) => button(label, 'kind', { kind: id }, kind === id)).join('')}</div>`
-  return managedList(`simple-category-${kind}`, ['分类名称', '分类编码', '排序', '状态', '档案引用', '最近更新', '操作'], rows.map(item => listRow([
-    `<div class="font-medium">${e(item.name)}</div>${item.remark ? `<div class="mt-1 text-xs text-slate-500">${e(item.remark)}</div>` : ''}`,
-    e(item.code), String(item.sortOrder), badge(item.enabled), () => String(getSimpleMaterialCategoryUsage(item.id).length),
-    `${e(item.updatedAt)}<br>${e(item.updatedBy)}`, button('详情', 'detail', { id: item.id }),
-  ], item.enabled)), { title: `${KIND_NAMES[kind]}分类`, createAction: 'create', beforeFilters: kinds })
-}
-function simpleCategoryDetail(): string {
-  const item = getSimpleMaterialCategory(state.selectedId), edit = state.view === 'edit'
-  const title = `${KIND_NAMES[state.kind]}分类`
-  const body = edit ? `<div class="grid max-w-4xl grid-cols-2 gap-5">${field('分类名称', 'nameZh', state.draft.nameZh, { required: true })}${field('分类编码', 'code', state.draft.code || '保存时自动生成', { readonly: true, help: '自动生成，保存后保持稳定，不可修改。' })}${field('排序', 'sortOrder', state.draft.sortOrder, { type: 'number' })}${select('状态', 'enabled', state.draft.enabled, [['true', '启用'], ['false', '停用']])}<div class="col-span-2">${field('说明', 'remark', state.draft.remark, { help: '选填，最多 500 个字符。' })}</div></div>` : `<dl class="grid max-w-4xl grid-cols-2 gap-5">${readOnly('分类名称', item?.name)}${readOnly('分类编码', item?.code)}${readOnly('排序', item?.sortOrder)}${readOnly('状态', item?.enabled ? '启用' : '停用')}${readOnly('说明', item?.remark)}${readOnly('最近更新', `${item?.updatedAt || ''} · ${item?.updatedBy || ''}`)}</dl>`
-  const overlay = state.simpleOverlay ? `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" role="dialog" aria-modal="true" aria-label="${state.simpleOverlay === 'usage' ? '分类使用情况' : '分类操作日志'}"><section class="max-h-[80vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-xl"><header class="flex items-center justify-between border-b px-5 py-4"><h3 class="font-semibold">${e(item?.name || '')} · ${state.simpleOverlay === 'usage' ? '使用情况' : '操作日志'}</h3>${button('关闭', 'close-simple-overlay')}</header><div class="p-5">${state.simpleOverlay === 'usage' ? usage(getSimpleMaterialCategoryUsage(state.selectedId)) : logs(item?.logs || [])}</div></section></div>` : ''
-  return `<header class="flex flex-wrap items-start justify-between gap-3 border-b p-5"><div><div class="text-xs text-slate-500">${e(title)} / ${edit ? state.selectedId ? '编辑' : '新增' : '详情'}</div><h2 class="mt-1 text-lg font-semibold">${e(state.draft.nameZh || `新增${title}`)}</h2><p data-pcs-config-save-status class="mt-1 text-xs text-slate-500">${state.busy ? '正在保存…' : state.dirty ? '有未保存修改' : edit ? '填写完成后保存' : '当前分类资料'}</p></div><div class="flex flex-wrap gap-2">${button(edit ? '取消' : '返回列表', 'back')}${edit ? button('保存', 'save', {}, true) : `${button('使用情况', 'simple-usage')}${button('日志', 'simple-logs')}${button('编辑', 'edit', {}, true)}`}</div></header><div class="space-y-5 p-5">${body}<p class="text-xs text-slate-500">停用分类后，新建档案或更换分类时不可选；已有档案按自身启停状态使用。</p></div>${overlay}`
 }
 function unitList(): string {
   const rows = listMaterialUnitDefinitions().filter(item => filterMatches([item.code, item.label, ...(item.aliases || [])], item.enabled))
@@ -165,7 +146,7 @@ function unitList(): string {
 function processList(): string {
   return managedList('processes', ['工艺', '加工对象', '新增物料 SKU', '编码段', '状态', '操作'], listMaterialProcessConfigurations().filter(item => filterMatches([item.name, item.id], item.enabled)).map(item => listRow([e(item.name), e([item.material ? '物料' : '', item.cutPiece ? '裁片' : ''].filter(Boolean).join('、')), item.material ? '是' : '否', e(item.segment || '不生成物料编码'), badge(item.enabled), button('详情', 'detail', { id: item.id })], item.enabled)))
 }
-function selectedTemplate(): MaterialTemplate | undefined { return listMaterialTemplates().find(item => item.templateId === state.selectedId && item.version === state.selectedVersion) }
+function selectedTemplate(): MaterialTemplate | undefined { return listMaterialTemplates().find(item => !isSimpleMaterialKind(item.kind) && item.kind === state.kind && item.templateId === state.selectedId && item.version === state.selectedVersion) }
 function selectedLogs(): ConfigLog[] {
   if (isFlat(state.section)) return getConfigDimensionOption(state.section, state.selectedId)?.logs || []
   if (state.section === 'productCategories') return getProductCategoryNode(state.selectedId)?.logs || []
@@ -243,7 +224,6 @@ function templateBody(): string {
   return `<dl class="grid grid-cols-2 gap-x-8 gap-y-5">${readOnly('物料大类', KIND_NAMES[template.kind])}${readOnly('分类', template.category)}${readOnly('分类业务编码', template.categoryCode)}${readOnly('分类稳定标识', template.categoryId)}${readOnly('模板名称', template.name)}${readOnly('版本', `v${template.version} · ${template.status === 'APPROVED' ? '已审核' : '草稿'}`)}${readOnly('状态', template.enabled === false ? '停用' : '启用')}${readOnly('最近更新', `${template.updatedAt} · ${template.updatedBy}`)}${readOnly('变更说明', template.changeNote)}${readOnly('维护规则', '受控字段类型、明确层级与单位；物料档案引用固定版本。')}</dl>`
 }
 function detail(): string {
-  if (state.section === 'templates' && isSimpleMaterialKind(state.kind)) return simpleCategoryDetail()
   const isTemplate = state.section === 'templates'
   const values: Array<[string, string]> = [['base', '基本信息']]
   if (isTemplate) values.push(['fields', '主档与 SKU 属性'], ['package-fields', '包装属性'], ['process-fields', '工艺属性'], ['languages', '分类多语名称'], ['conversions', '版本换算依据'])
@@ -262,7 +242,7 @@ function exchangeRate(): string {
 }
 function encoding(): string {
   const draft = state.preview
-  return `${tabs([['base', '规则说明'], ['preview', '编码预览']])}<div class="space-y-5 p-5">${state.tab === 'base' ? `<dl class="grid grid-cols-2 gap-5">${readOnly('规则版本', MATERIAL_CODE_RULE_VERSION)}${readOnly('层级关系', '在投入物料 SKU 编码后追加本次加工段；顺序由加工关系保存。')}</dl>${table(['工艺', '编码构成', '说明'], [['染色', '颜色-PantonePT', 'TCX 使用确认规则；其他色卡体系显式带入。'], ['印花', '花型-A/AB-[ST]YH', 'A 单面，AB 双面；渗透印加入 ST；正反不同花分别标明。'], ['绣花', '花型XH', '加工前对象以投入 SKU 关联识别。'], ['烫画', '花型TH', '物料烫画形成新 SKU。'], ['交付修订', '花型R02…', '可入编码的交付差异；资料纠错不新增 SKU。']].map(row => row.map(e)))}<p class="text-xs leading-6 text-slate-500">旧编码保留为查询、扫码别名。加工关系不通过解析旧编码推断。花型编号和执行资料版本分别关联。</p>${button('进入花型库', 'go-pattern-library')}` : `<div class="grid grid-cols-2 gap-5">${field('投入物料 SKU 编码', 'preview-predecessor', state.predecessor, { required: true })}${select('本次工艺', 'preview-processType', draft.processType, [['DYEING', '染色'], ['PRINTING', '印花'], ['EMBROIDERY', '绣花'], ['HEAT_TRANSFER', '烫画']])}${draft.processType === 'DYEING' ? `${field('颜色编码', 'preview-colorCode', draft.colorCode, { required: true })}${select('Pantone 体系', 'preview-pantoneSystem', draft.pantoneSystem, [['TCX', 'TCX'], ['TPX', 'TPX']])}${field('Pantone 色号', 'preview-pantoneCode', draft.pantoneCode, { required: true })}` : `${field('花型编号', 'preview-patternCode', draft.patternCode, { required: true })}${field('交付修订段', 'preview-deliveryRevisionSegment', draft.deliveryRevisionSegment, { help: '选填，例如 R02。' })}${draft.processType === 'PRINTING' ? `${select('印花面数', 'preview-printSide', draft.printSide, [['A', '单面 A'], ['AB', '双面 AB']])}${draft.printSide === 'AB' ? field('反面花型编号', 'preview-backPatternCode', draft.backPatternCode, { required: true }) : ''}${checkbox('渗透印（ST）', 'preview-penetration', Boolean(draft.penetration))}` : ''}`}</div>${button('生成预览', 'preview-code', {}, true)}${state.codePreview ? `<div class="break-all rounded-lg border border-blue-200 bg-blue-50 p-4 font-mono text-sm text-blue-700">${e(state.codePreview)}</div>` : ''}<p class="text-xs text-slate-500">此处仅预览编码，不新增物料档案。</p>`}</div>`
+  return `${tabs([['base', '规则说明'], ['preview', '编码预览']])}<div class="space-y-5 p-5">${state.tab === 'base' ? `<dl class="grid grid-cols-2 gap-5">${readOnly('规则版本', MATERIAL_CODE_RULE_VERSION)}${readOnly('层级关系', '在投入物料 SKU 编码后追加本次加工段；顺序由加工关系保存。')}</dl>${table(['工艺', '编码构成', '说明'], [['耗材主档', 'MAT-CS-数字流水号', '留空自动生成；已有主档编码保持不变。'], ['配件主档', 'MAT-EP-数字流水号', '留空自动生成；已有主档编码保持不变。'], ['普通规格', '主档编码-B01/B02…', '同一主档逐个规格递增，不把规格文字拼入编码。'], ['染色', '颜色-PantonePT', 'TCX 使用确认规则；其他色卡体系显式带入。'], ['印花', '花型-A/AB-[ST]YH', 'A 单面，AB 双面；渗透印加入 ST；正反不同花分别标明。'], ['绣花', '花型XH', '加工前对象以投入 SKU 关联识别。'], ['烫画', '花型TH', '物料烫画形成新 SKU。'], ['交付修订', '花型R02…', '可入编码的交付差异；资料纠错不新增 SKU。']].map(row => row.map(e)))}<p class="text-xs leading-6 text-slate-500">旧编码保留为查询、扫码别名。加工关系不通过解析旧编码推断。花型编号和执行资料版本分别关联。</p>${button('进入花型库', 'go-pattern-library')}` : `<div class="grid grid-cols-2 gap-5">${field('投入物料 SKU 编码', 'preview-predecessor', state.predecessor, { required: true })}${select('本次工艺', 'preview-processType', draft.processType, [['DYEING', '染色'], ['PRINTING', '印花'], ['EMBROIDERY', '绣花'], ['HEAT_TRANSFER', '烫画']])}${draft.processType === 'DYEING' ? `${field('颜色编码', 'preview-colorCode', draft.colorCode, { required: true })}${select('Pantone 体系', 'preview-pantoneSystem', draft.pantoneSystem, [['TCX', 'TCX'], ['TPX', 'TPX']])}${field('Pantone 色号', 'preview-pantoneCode', draft.pantoneCode, { required: true })}` : `${field('花型编号', 'preview-patternCode', draft.patternCode, { required: true })}${field('交付修订段', 'preview-deliveryRevisionSegment', draft.deliveryRevisionSegment, { help: '选填，例如 R02。' })}${draft.processType === 'PRINTING' ? `${select('印花面数', 'preview-printSide', draft.printSide, [['A', '单面 A'], ['AB', '双面 AB']])}${draft.printSide === 'AB' ? field('反面花型编号', 'preview-backPatternCode', draft.backPatternCode, { required: true }) : ''}${checkbox('渗透印（ST）', 'preview-penetration', Boolean(draft.penetration))}` : ''}`}</div>${button('生成预览', 'preview-code', {}, true)}${state.codePreview ? `<div class="break-all rounded-lg border border-blue-200 bg-blue-50 p-4 font-mono text-sm text-blue-700">${e(state.codePreview)}</div>` : ''}<p class="text-xs text-slate-500">此处仅预览编码，不新增物料档案。</p>`}</div>`
 }
 function renderList(): string {
   if (isFlat(state.section)) return listFlat()
@@ -307,6 +287,7 @@ function rerender(): void {
 }
 function split(value: string): string[] { return [...new Set(value.split(/[,，\n]/).map(item => item.trim()).filter(Boolean))] }
 function openDetail(id: string, version = 0): void {
+  if (state.section === 'templates' && !listMaterialTemplates().some(item => item.templateId === id && item.version === version && item.kind === state.kind && !isSimpleMaterialKind(item.kind))) throw new Error('模板版本不存在，请重新读取。')
   state.selectedId = id; state.selectedVersion = version; state.view = 'detail'; state.tab = 'base'; state.dirty = false; state.template = null; state.fieldIndex = -1; state.modelView = 'list'; state.model = null
   if (isFlat(state.section)) {
     const item = getConfigDimensionOption(state.section, id)!
@@ -315,12 +296,6 @@ function openDetail(id: string, version = 0): void {
     const item = getProductCategoryNode(id)!
     state.parentId = item.parentId; state.draft = { nameZh: item.name, sortOrder: String(item.sortOrder), status: item.status }
   } else if (state.section === 'templates') {
-    if (isSimpleMaterialKind(state.kind)) {
-      const item = getSimpleMaterialCategory(id)
-      if (!item || item.kind !== state.kind) throw new Error('分类不存在，请重新读取。')
-      state.draft = { nameZh: item.name, code: item.code, sortOrder: String(item.sortOrder), enabled: String(item.enabled), remark: item.remark }
-      state.simpleOverlay = ''; return
-    }
     const item = selectedTemplate()!
     if (!item) throw new Error('模板版本不存在，请重新读取。')
     state.template = structuredClone(item)
@@ -334,9 +309,10 @@ function openDetail(id: string, version = 0): void {
   }
 }
 function create(parentId: string | null = null): void {
+  if (state.section === 'templates' && isSimpleMaterialKind(state.kind)) throw new Error('耗材和配件不使用分类与属性模板。')
   state.selectedId = ''; state.selectedVersion = 0; state.view = 'edit'; state.tab = 'base'; state.dirty = false; state.parentId = parentId; state.fieldIndex = -1
   state.draft = { code: '', nameZh: '', nameEn: '', nameId: '', nameMs: '', changeReason: '', aliases: '', sortOrder: '1', status: 'ENABLED', dimension: 'length', precision: '4', enabled: 'true', label: '', remark: '' }
-  state.simpleOverlay = ''; state.template = null
+  state.template = null
   if (state.section === 'templates' && !isSimpleMaterialKind(state.kind)) state.template = { templateId: `material-template-${crypto.randomUUID()}`, version: 0, kind: state.kind, category: '', name: '', status: 'DRAFT', fields: [...getMaterialBoundFieldDefaults('package'), ...getMaterialBoundFieldDefaults('process')], updatedAt: '', updatedBy: '', changeNote: '', enabled: true }
   categoryLanguageRows = [{ language:'zh', name:'', aliases:'' }]
 }
@@ -350,13 +326,7 @@ async function save(): Promise<void> {
     const item = await runPcsRecordCommand(() => saveProductCategoryNode(id || null, state.parentId, { name: draft.nameZh, sortOrder: Number(draft.sortOrder), status: draft.status as ConfigOption['status'] }))
     openDetail(item.id)
   } else if (state.section === 'templates') {
-    if (isSimpleMaterialKind(state.kind)) {
-      const kind = state.kind
-      const current = id ? getSimpleMaterialCategory(id) : undefined
-      if (current?.enabled && draft.enabled !== 'true' && typeof window !== 'undefined' && !window.confirm('停用此分类后，新建档案或更换分类时不可选。已有档案保持原使用状态，确定停用吗？')) return
-      const item = await runPcsRecordCommand(() => saveSimpleMaterialCategory({ id: id || undefined, kind, code: draft.code, name: draft.nameZh, sortOrder: Number(draft.sortOrder), enabled: draft.enabled === 'true', remark: draft.remark }))
-      openDetail(item.id); state.notice = '分类已保存。'; state.error = false; state.dirty = false; return
-    }
+    if (!state.template || isSimpleMaterialKind(state.template.kind) || isSimpleMaterialKind(state.kind)) throw new Error('耗材和配件不使用分类与属性模板。')
     const template = structuredClone(state.template!)
     if (new Set(categoryLanguageRows.map(row=>row.language)).size!==categoryLanguageRows.length) throw new Error('分类语言代码不能重复。')
     template.categoryNames = Object.fromEntries(categoryLanguageRows.map(row=>[row.language,row.language==='zh'?template.category:row.name.trim()]))
@@ -412,9 +382,7 @@ export async function handlePcsConfigWorkspaceEvent(target: HTMLElement): Promis
       state.section = node.dataset.dimensionId as Section; state.view = 'list'; state.search = ''; state.status = 'all'; state.page = 1; state.tab = 'base'; state.dirty = false; state.draft = {}; state.template = null; state.modelView = 'list'; state.model = null
     } else if (action === 'query') state.page = 1
     else if (action === 'reset-query') { state.search = ''; state.status = 'all'; state.page = 1 }
-    else if (action === 'kind') { if (!canLeave()) return true; state.kind = node.dataset.kind as MaterialArchiveKind; state.page = 1; state.view = 'list'; state.selectedId = ''; state.selectedVersion = 0; state.template = null; state.draft = {}; state.tab = 'base'; state.simpleOverlay = ''; state.dirty = false }
-    else if (action === 'simple-usage' || action === 'simple-logs') state.simpleOverlay = action === 'simple-usage' ? 'usage' : 'logs'
-    else if (action === 'close-simple-overlay') state.simpleOverlay = ''
+    else if (action === 'kind') { if (!canLeave()) return true; const kind = node.dataset.kind as MaterialArchiveKind; if (!['fabric', 'accessory', 'yarn'].includes(kind)) throw new Error('仅面料、辅料、纱线维护分类与属性模板。'); state.kind = kind; state.page = 1; state.view = 'list'; state.selectedId = ''; state.selectedVersion = 0; state.template = null; state.draft = {}; state.tab = 'base'; state.dirty = false }
     else if (action === 'tab') {
       if (state.modelView === 'edit' && !canLeave()) return true
       if (state.section === 'equipmentTypes') { state.modelView = 'list'; state.model = null; state.dirty = false; state.search = ''; state.status = 'all'; state.page = 1 }
@@ -423,10 +391,10 @@ export async function handlePcsConfigWorkspaceEvent(target: HTMLElement): Promis
     else if (action === 'detail') { if (!canLeave()) return true; openDetail(node.dataset.id || '', Number(node.dataset.version || 0)) }
     else if (action === 'create' || action === 'create-category') create(node.dataset.parent || null)
     else if (action === 'edit') { state.view = 'edit'; state.tab = 'base'; state.dirty = false; if(state.template) for(const level of ['package','process'] as const) if(!state.template.fields.some(item=>item.level===level)) state.template.fields.push(...getMaterialBoundFieldDefaults(level)) }
-    else if (action === 'close-all-dialogs' && state.simpleOverlay) state.simpleOverlay = ''
-    else if (action === 'back' || action === 'close-all-dialogs') { if (!canLeave()) return true; state.view = 'list'; state.dirty = false; state.simpleOverlay = ''; state.template = null; state.fieldIndex = -1; state.modelView = 'list'; state.model = null }
+    else if (action === 'back' || action === 'close-all-dialogs') { if (!canLeave()) return true; state.view = 'list'; state.dirty = false; state.template = null; state.fieldIndex = -1; state.modelView = 'list'; state.model = null }
     else if (action === 'save') { state.busy = true; rerender(); await save() }
     else if (action === 'approve-template') {
+      if (!selectedTemplate()) throw new Error('模板版本不存在，请重新读取。')
       state.busy = true; rerender(); await runPcsRecordCommand(() => approveMaterialTemplate(state.selectedId, state.selectedVersion, '当前用户'))
       openDetail(state.selectedId, state.selectedVersion); state.notice = '模板版本已审核，新建档案可使用。'
     } else if (action === 'delete-category') {
@@ -486,7 +454,7 @@ export function handlePcsConfigWorkspaceInput(target: Element): boolean {
     else Object.assign(state.preview, { [prop]: node.type === 'checkbox' ? (node as HTMLInputElement).checked : value })
     if (['processType', 'printSide', 'penetration'].includes(prop)) rerender()
   } else if (key.startsWith('fx-')) { state.draft[key.slice(3)] = value; state.dirty = true }
-  else if (key.startsWith('template-')) { const prop = key.slice(9); Object.assign(state.template!, { [prop]: prop === 'enabled' ? value === 'true' : value }); state.dirty = true }
+  else if (key.startsWith('template-')) { const prop = key.slice(9); if (!state.template || (prop === 'kind' && !['fabric', 'accessory', 'yarn'].includes(value))) return false; Object.assign(state.template!, { [prop]: prop === 'enabled' ? value === 'true' : value }); state.dirty = true }
   else if (key.startsWith('field-')) {
     const prop = key.slice(6), item = state.template!.fields[state.fieldIndex]
     Object.assign(item, { [prop]: prop === 'options' ? split(value) : ['identity', 'integer'].includes(prop) ? (node as HTMLInputElement).checked : ['dictionaryId', 'unitId', 'valueShape'].includes(prop) ? value || undefined : prop === 'minimum' ? value.trim() ? Number(value) : undefined : value })
@@ -500,5 +468,5 @@ export function handlePcsConfigWorkspaceInput(target: Element): boolean {
   if (state.dirty && typeof document !== 'undefined') { const marker = document.querySelector<HTMLElement>('[data-pcs-config-save-status]'); if (marker) { marker.textContent = '有未保存修改'; marker.classList.add('text-amber-700') } }
   return true
 }
-export function isPcsConfigWorkspaceDialogOpen(): boolean { return state.view === 'edit' || state.modelView === 'edit' || Boolean(state.simpleOverlay) }
-export function resetPcsConfigWorkspaceState(): void { state.section = 'productCategories'; state.view = 'list'; state.tab = 'base'; state.search = ''; state.status = 'all'; state.page = 1; state.selectedId = ''; state.selectedVersion = 0; state.notice = ''; state.error = false; state.busy = false; state.dirty = false; state.draft = {}; state.simpleOverlay = ''; state.template = null; state.fieldIndex = -1; state.modelView = 'list'; state.model = null; lists.clear(); currentListKey = '' }
+export function isPcsConfigWorkspaceDialogOpen(): boolean { return state.view === 'edit' || state.modelView === 'edit' }
+export function resetPcsConfigWorkspaceState(): void { state.section = 'productCategories'; state.view = 'list'; state.tab = 'base'; state.search = ''; state.status = 'all'; state.page = 1; state.selectedId = ''; state.selectedVersion = 0; state.notice = ''; state.error = false; state.busy = false; state.dirty = false; state.draft = {}; state.template = null; state.fieldIndex = -1; state.modelView = 'list'; state.model = null; lists.clear(); currentListKey = '' }

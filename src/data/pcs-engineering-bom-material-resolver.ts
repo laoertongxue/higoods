@@ -1,6 +1,5 @@
 import { getMaterialArchiveById, getMaterialSkuRecordById, freezeMaterialCostSnapshot, readMaterialCostReference, getMaterialUnitFactor, listMaterialUnitRelations } from './pcs-material-archive-repository.ts'
 import { canonicalMaterialUnit } from './pcs-material-rules.ts'
-import { isPackagingConsumableCategory } from './pcs-material-config.ts'
 import type {
   EngineeringBomMaterialLineDraft,
   EngineeringBomResolvedMaterialLine,
@@ -14,12 +13,12 @@ export function isSimpleBomMaterialSku(materialSkuId: string): boolean {
   return kind === 'consumable' || kind === 'parts'
 }
 
-/** Candidate type is derived from stable category identity, never from its display name. */
+/** Professional material types follow their kind; consumable use is selected on the BOM line. */
 export function getGarmentBomMaterialType(materialSkuId: string): string | null {
   const sku = getMaterialSkuRecordById(materialSkuId)
   const root = sku && getMaterialArchiveById(sku.materialId)
   if (!root || root.kind === 'parts') return null
-  if (root.kind === 'consumable') return isPackagingConsumableCategory(root.subcategoryId || '') ? '包装材料' : '其他'
+  if (root.kind === 'consumable') return '其他'
   return ({ fabric: '面料', accessory: '辅料', yarn: '纱线' } as const)[root.kind]
 }
 
@@ -31,9 +30,9 @@ export function assertEngineeringBomMaterialRules(line: EngineeringBomMaterialLi
   if (root.kind === 'parts' && existingMaterialSkuId !== line.materialSkuId) throw new Error('设备配件不能新加入服装 BOM；已有历史引用保留。')
   if (root.kind !== 'consumable' && root.kind !== 'parts') return
   const expectedType = getGarmentBomMaterialType(line.materialSkuId)
-  if (root.kind === 'consumable' && line.materialType && line.materialType !== expectedType
+  if (root.kind === 'consumable' && line.materialType && !['包装材料','其他'].includes(line.materialType)
     && !(previousLine?.materialSkuId === line.materialSkuId && previousLine.materialType === line.materialType)) {
-    throw new Error(`该耗材应归属 ${expectedType}，请按物料分类选择 BOM 类型。`)
+    throw new Error(`该耗材应归属 ${expectedType}，请在BOM行选择包装材料或其他用途。`)
   }
   const processSignature = (item: EngineeringBomMaterialLineDraft) => JSON.stringify([
     item.printRequirement || '否', item.dyeRequirement || '否', item.printRequirementText || '', item.dyeRequirementText || '', item.waterSolubleRequirementText || '',

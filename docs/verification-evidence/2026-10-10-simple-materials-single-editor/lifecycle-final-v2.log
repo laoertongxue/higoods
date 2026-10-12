@@ -1,0 +1,10 @@
+samples 960 max 483.1000000089407
+✔ SIMPLE: isolated real page lifecycle, files, review, units, import, print and five performance samples (114009.586166ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 114350.882792

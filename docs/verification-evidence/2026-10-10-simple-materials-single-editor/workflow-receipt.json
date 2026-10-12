@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 2,
+  "workspace": "/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods",
+  "createdAt": "2026-10-10T11:59:33.043Z",
+  "state": "verified",
+  "instructionContext": {
+    "taskBoundary": "R2-001 至 R2-036：耗材配件无分类模板、同页主档规格及上下游；检查参数隔离",
+    "source": {
+      "path": "AGENTS.md",
+      "algorithm": "sha256",
+      "contentHash": "121194ee0c7266fec3ef43559ad587ef3c3ec85aa781db0d8fc9404293d846a0"
+    },
+    "ruleBindings": [
+      {
+        "ruleRef": "AGENTS.md::TOOL-01",
+        "evidenceFields": [
+          "codegraph"
+        ]
+      },
+      {
+        "ruleRef": "AGENTS.md::RECEIPT-01",
+        "evidenceFields": [
+          "revision",
+          "route",
+          "checks",
+          "codegraph"
+        ]
+      }
+    ]
+  },
+  "revision": {
+    "head": "4bb4fe1721a4c4ab85ac378ed555b841c31f9c19",
+    "diffHash": "f851be2e8135f5748576b15c81a69093aea43ca7029a9d36cf8c8d8535a54d6c",
+    "changedPaths": [
+      "docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/实施计划.md",
+      "docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md",
+      "docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md",
+      "docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md",
+      "docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json",
+      "scripts/check-pcs-simple-browser-evidence.ts",
+      "scripts/generate-pcs-static-baseline.ts",
+      "scripts/task-completion-receipt.ts",
+      "scripts/workflow-governance/affected-checks.ts",
+      "scripts/workflow-governance/check-execution.ts",
+      "src/data/generated/pcs-record-baseline.json",
+      "src/data/pcs-config-workspace-repository.ts",
+      "src/data/pcs-engineering-bom-material-resolver.ts",
+      "src/data/pcs-material-archive-repository.ts",
+      "src/data/pcs-material-archive-types.ts",
+      "src/data/pcs-material-config.ts",
+      "src/data/pcs-material-transfer.ts",
+      "src/data/pcs-record-runtime.ts",
+      "src/data/pcs-simple-material-categories.ts",
+      "src/data/pcs-simple-material-transfer.ts",
+      "src/pages/pcs-config-workspace.ts",
+      "src/pages/pcs-material-archives.ts",
+      "src/pages/pcs-technical-data.ts",
+      "src/pages/tech-pack/bom-domain.ts",
+      "src/pages/tech-pack/events.ts",
+      "src/router/route-renderers.ts",
+      "tests/browser-contracts/pcs-simple-adversarial.test.ts",
+      "tests/browser-contracts/pcs-simple-category-usage.test.ts",
+      "tests/browser-contracts/pcs-simple-config.test.ts",
+      "tests/browser-contracts/pcs-simple-copy-identity.test.ts",
+      "tests/browser-contracts/pcs-simple-dossier.test.ts",
+      "tests/browser-contracts/pcs-simple-downstream.test.ts",
+      "tests/browser-contracts/pcs-simple-import.test.ts",
+      "tests/browser-contracts/pcs-simple-list-entry.test.ts",
+      "tests/browser-contracts/pcs-simple-materials.test.ts",
+      "tests/pcs-engineering-bom-version-workflow.spec.ts",
+      "tests/unit/pcs-simple-config-removal.test.ts",
+      "tests/unit/pcs-simple-dossier.test.ts",
+      "tests/unit/pcs-simple-material-archives.test.ts",
+      "tests/unit/pcs-simple-material-categories.test.ts",
+      "tests/workflow-governance/affected-checks.test.ts",
+      "tests/workflow-governance/instruction-context.test.ts",
+      "tests/workflow-governance/pcs-simple-browser-evidence.test.ts"
+    ]
+  },
+  "route": {
+    "changedPaths": [
+      "docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/实施计划.md",
+      "docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md",
+      "docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md",
+      "docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md",
+      "docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md",
+      "docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log",
+      "docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json",
+      "scripts/check-pcs-simple-browser-evidence.ts",
+      "scripts/generate-pcs-static-baseline.ts",
+      "scripts/task-completion-receipt.ts",
+      "scripts/workflow-governance/affected-checks.ts",
+      "scripts/workflow-governance/check-execution.ts",
+      "src/data/generated/pcs-record-baseline.json",
+      "src/data/pcs-config-workspace-repository.ts",
+      "src/data/pcs-engineering-bom-material-resolver.ts",
+      "src/data/pcs-material-archive-repository.ts",
+      "src/data/pcs-material-archive-types.ts",
+      "src/data/pcs-material-config.ts",
+      "src/data/pcs-material-transfer.ts",
+      "src/data/pcs-record-runtime.ts",
+      "src/data/pcs-simple-material-categories.ts",
+      "src/data/pcs-simple-material-transfer.ts",
+      "src/pages/pcs-config-workspace.ts",
+      "src/pages/pcs-material-archives.ts",
+      "src/pages/pcs-technical-data.ts",
+      "src/pages/tech-pack/bom-domain.ts",
+      "src/pages/tech-pack/events.ts",
+      "src/router/route-renderers.ts",
+      "tests/browser-contracts/pcs-simple-adversarial.test.ts",
+      "tests/browser-contracts/pcs-simple-category-usage.test.ts",
+      "tests/browser-contracts/pcs-simple-config.test.ts",
+      "tests/browser-contracts/pcs-simple-copy-identity.test.ts",
+      "tests/browser-contracts/pcs-simple-dossier.test.ts",
+      "tests/browser-contracts/pcs-simple-downstream.test.ts",
+      "tests/browser-contracts/pcs-simple-import.test.ts",
+      "tests/browser-contracts/pcs-simple-list-entry.test.ts",
+      "tests/browser-contracts/pcs-simple-materials.test.ts",
+      "tests/pcs-engineering-bom-version-workflow.spec.ts",
+      "tests/unit/pcs-simple-config-removal.test.ts",
+      "tests/unit/pcs-simple-dossier.test.ts",
+      "tests/unit/pcs-simple-material-archives.test.ts",
+      "tests/unit/pcs-simple-material-categories.test.ts",
+      "tests/workflow-governance/affected-checks.test.ts",
+      "tests/workflow-governance/instruction-context.test.ts",
+      "tests/workflow-governance/pcs-simple-browser-evidence.test.ts"
+    ],
+    "fastChecks": [
+      "node --import tsx scripts/check-pcs-simple-browser-evidence.ts",
+      "node --import tsx --test tests/workflow-governance/pcs-simple-browser-evidence.test.ts",
+      "npm run test:workflow-governance",
+      "npm run check:menu-routes",
+      "node --import tsx tests/pcs-engineering-bom-version-workflow.spec.ts",
+      "if test -f 'tests/unit/pcs-simple-config-removal.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-config-removal.test.ts'; else npm run test:unit; fi",
+      "if test -f 'tests/unit/pcs-simple-dossier.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-dossier.test.ts'; else npm run test:unit; fi",
+      "if test -f 'tests/unit/pcs-simple-material-archives.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-material-archives.test.ts'; else npm run test:unit; fi",
+      "if test -f 'tests/unit/pcs-simple-material-categories.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-material-categories.test.ts'; else npm run test:unit; fi"
+    ],
+    "governanceChecks": [
+      "npm run check:prototype-design-governance -- --self-test",
+      "npm run check:prototype-design-governance -- --scope worktree --paths 'docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划.md,docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md,docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md,docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md,docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md,docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json,scripts/check-pcs-simple-browser-evidence.ts,scripts/generate-pcs-static-baseline.ts,scripts/task-completion-receipt.ts,scripts/workflow-governance/affected-checks.ts,scripts/workflow-governance/check-execution.ts,src/data/generated/pcs-record-baseline.json,src/data/pcs-config-workspace-repository.ts,src/data/pcs-engineering-bom-material-resolver.ts,src/data/pcs-material-archive-repository.ts,src/data/pcs-material-archive-types.ts,src/data/pcs-material-config.ts,src/data/pcs-material-transfer.ts,src/data/pcs-record-runtime.ts,src/data/pcs-simple-material-categories.ts,src/data/pcs-simple-material-transfer.ts,src/pages/pcs-config-workspace.ts,src/pages/pcs-material-archives.ts,src/pages/pcs-technical-data.ts,src/pages/tech-pack/bom-domain.ts,src/pages/tech-pack/events.ts,src/router/route-renderers.ts,tests/browser-contracts/pcs-simple-adversarial.test.ts,tests/browser-contracts/pcs-simple-category-usage.test.ts,tests/browser-contracts/pcs-simple-config.test.ts,tests/browser-contracts/pcs-simple-copy-identity.test.ts,tests/browser-contracts/pcs-simple-dossier.test.ts,tests/browser-contracts/pcs-simple-downstream.test.ts,tests/browser-contracts/pcs-simple-import.test.ts,tests/browser-contracts/pcs-simple-list-entry.test.ts,tests/browser-contracts/pcs-simple-materials.test.ts,tests/pcs-engineering-bom-version-workflow.spec.ts,tests/unit/pcs-simple-config-removal.test.ts,tests/unit/pcs-simple-dossier.test.ts,tests/unit/pcs-simple-material-archives.test.ts,tests/unit/pcs-simple-material-categories.test.ts,tests/workflow-governance/affected-checks.test.ts,tests/workflow-governance/instruction-context.test.ts,tests/workflow-governance/pcs-simple-browser-evidence.test.ts'",
+      "npm run check:list-page-governance -- --scope worktree --paths 'docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划.md,docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md,docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md,docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md,docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md,docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json,scripts/check-pcs-simple-browser-evidence.ts,scripts/generate-pcs-static-baseline.ts,scripts/task-completion-receipt.ts,scripts/workflow-governance/affected-checks.ts,scripts/workflow-governance/check-execution.ts,src/data/generated/pcs-record-baseline.json,src/data/pcs-config-workspace-repository.ts,src/data/pcs-engineering-bom-material-resolver.ts,src/data/pcs-material-archive-repository.ts,src/data/pcs-material-archive-types.ts,src/data/pcs-material-config.ts,src/data/pcs-material-transfer.ts,src/data/pcs-record-runtime.ts,src/data/pcs-simple-material-categories.ts,src/data/pcs-simple-material-transfer.ts,src/pages/pcs-config-workspace.ts,src/pages/pcs-material-archives.ts,src/pages/pcs-technical-data.ts,src/pages/tech-pack/bom-domain.ts,src/pages/tech-pack/events.ts,src/router/route-renderers.ts,tests/browser-contracts/pcs-simple-adversarial.test.ts,tests/browser-contracts/pcs-simple-category-usage.test.ts,tests/browser-contracts/pcs-simple-config.test.ts,tests/browser-contracts/pcs-simple-copy-identity.test.ts,tests/browser-contracts/pcs-simple-dossier.test.ts,tests/browser-contracts/pcs-simple-downstream.test.ts,tests/browser-contracts/pcs-simple-import.test.ts,tests/browser-contracts/pcs-simple-list-entry.test.ts,tests/browser-contracts/pcs-simple-materials.test.ts,tests/pcs-engineering-bom-version-workflow.spec.ts,tests/unit/pcs-simple-config-removal.test.ts,tests/unit/pcs-simple-dossier.test.ts,tests/unit/pcs-simple-material-archives.test.ts,tests/unit/pcs-simple-material-categories.test.ts,tests/workflow-governance/affected-checks.test.ts,tests/workflow-governance/instruction-context.test.ts,tests/workflow-governance/pcs-simple-browser-evidence.test.ts'"
+    ],
+    "fullChecks": [
+      "npm run build"
+    ],
+    "unknownPaths": [
+      "scripts/generate-pcs-static-baseline.ts"
+    ],
+    "escalationReasons": [
+      "未知路径需要升级到安全的完整检查",
+      "原型变更未匹配专项检查，需要构建兜底",
+      "路由结构变化需要构建验证"
+    ]
+  },
+  "checks": [
+    {
+      "command": "node --import tsx scripts/check-pcs-simple-browser-evidence.ts",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:23.845Z",
+      "finishedAt": "2026-10-10T11:01:24.142Z",
+      "invariant": "受影响检查路由要求：node --import tsx scripts/check-pcs-simple-browser-evidence.ts"
+    },
+    {
+      "command": "node --import tsx --test tests/workflow-governance/pcs-simple-browser-evidence.test.ts",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:24.142Z",
+      "finishedAt": "2026-10-10T11:01:24.322Z",
+      "invariant": "受影响检查路由要求：node --import tsx --test tests/workflow-governance/pcs-simple-browser-evidence.test.ts"
+    },
+    {
+      "command": "npm run test:workflow-governance",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:24.322Z",
+      "finishedAt": "2026-10-10T11:01:27.245Z",
+      "invariant": "受影响检查路由要求：npm run test:workflow-governance"
+    },
+    {
+      "command": "npm run check:menu-routes",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:27.245Z",
+      "finishedAt": "2026-10-10T11:01:27.984Z",
+      "invariant": "受影响检查路由要求：npm run check:menu-routes"
+    },
+    {
+      "command": "node --import tsx tests/pcs-engineering-bom-version-workflow.spec.ts",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:27.985Z",
+      "finishedAt": "2026-10-10T11:01:29.190Z",
+      "invariant": "受影响检查路由要求：node --import tsx tests/pcs-engineering-bom-version-workflow.spec.ts"
+    },
+    {
+      "command": "if test -f 'tests/unit/pcs-simple-config-removal.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-config-removal.test.ts'; else npm run test:unit; fi",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:29.190Z",
+      "finishedAt": "2026-10-10T11:01:29.454Z",
+      "invariant": "受影响检查路由要求：if test -f 'tests/unit/pcs-simple-config-removal.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-config-removal.test.ts'; else npm run test:unit; fi"
+    },
+    {
+      "command": "if test -f 'tests/unit/pcs-simple-dossier.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-dossier.test.ts'; else npm run test:unit; fi",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:29.454Z",
+      "finishedAt": "2026-10-10T11:01:29.760Z",
+      "invariant": "受影响检查路由要求：if test -f 'tests/unit/pcs-simple-dossier.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-dossier.test.ts'; else npm run test:unit; fi"
+    },
+    {
+      "command": "if test -f 'tests/unit/pcs-simple-material-archives.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-material-archives.test.ts'; else npm run test:unit; fi",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:29.760Z",
+      "finishedAt": "2026-10-10T11:01:30.144Z",
+      "invariant": "受影响检查路由要求：if test -f 'tests/unit/pcs-simple-material-archives.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-material-archives.test.ts'; else npm run test:unit; fi"
+    },
+    {
+      "command": "if test -f 'tests/unit/pcs-simple-material-categories.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-material-categories.test.ts'; else npm run test:unit; fi",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:30.144Z",
+      "finishedAt": "2026-10-10T11:01:55.538Z",
+      "invariant": "受影响检查路由要求：if test -f 'tests/unit/pcs-simple-material-categories.test.ts'; then node --import tsx --test 'tests/unit/pcs-simple-material-categories.test.ts'; else npm run test:unit; fi"
+    },
+    {
+      "command": "npm run check:prototype-design-governance -- --self-test",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:55.539Z",
+      "finishedAt": "2026-10-10T11:01:55.724Z",
+      "invariant": "受影响检查路由要求：npm run check:prototype-design-governance -- --self-test"
+    },
+    {
+      "command": "npm run check:prototype-design-governance -- --scope worktree --paths 'docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划.md,docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md,docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md,docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md,docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md,docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json,scripts/check-pcs-simple-browser-evidence.ts,scripts/generate-pcs-static-baseline.ts,scripts/task-completion-receipt.ts,scripts/workflow-governance/affected-checks.ts,scripts/workflow-governance/check-execution.ts,src/data/generated/pcs-record-baseline.json,src/data/pcs-config-workspace-repository.ts,src/data/pcs-engineering-bom-material-resolver.ts,src/data/pcs-material-archive-repository.ts,src/data/pcs-material-archive-types.ts,src/data/pcs-material-config.ts,src/data/pcs-material-transfer.ts,src/data/pcs-record-runtime.ts,src/data/pcs-simple-material-categories.ts,src/data/pcs-simple-material-transfer.ts,src/pages/pcs-config-workspace.ts,src/pages/pcs-material-archives.ts,src/pages/pcs-technical-data.ts,src/pages/tech-pack/bom-domain.ts,src/pages/tech-pack/events.ts,src/router/route-renderers.ts,tests/browser-contracts/pcs-simple-adversarial.test.ts,tests/browser-contracts/pcs-simple-category-usage.test.ts,tests/browser-contracts/pcs-simple-config.test.ts,tests/browser-contracts/pcs-simple-copy-identity.test.ts,tests/browser-contracts/pcs-simple-dossier.test.ts,tests/browser-contracts/pcs-simple-downstream.test.ts,tests/browser-contracts/pcs-simple-import.test.ts,tests/browser-contracts/pcs-simple-list-entry.test.ts,tests/browser-contracts/pcs-simple-materials.test.ts,tests/pcs-engineering-bom-version-workflow.spec.ts,tests/unit/pcs-simple-config-removal.test.ts,tests/unit/pcs-simple-dossier.test.ts,tests/unit/pcs-simple-material-archives.test.ts,tests/unit/pcs-simple-material-categories.test.ts,tests/workflow-governance/affected-checks.test.ts,tests/workflow-governance/instruction-context.test.ts,tests/workflow-governance/pcs-simple-browser-evidence.test.ts'",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:55.724Z",
+      "finishedAt": "2026-10-10T11:01:56.031Z",
+      "invariant": "受影响检查路由要求：npm run check:prototype-design-governance -- --scope worktree --paths 'docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划.md,docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md,docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md,docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md,docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md,docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json,scripts/check-pcs-simple-browser-evidence.ts,scripts/generate-pcs-static-baseline.ts,scripts/task-completion-receipt.ts,scripts/workflow-governance/affected-checks.ts,scripts/workflow-governance/check-execution.ts,src/data/generated/pcs-record-baseline.json,src/data/pcs-config-workspace-repository.ts,src/data/pcs-engineering-bom-material-resolver.ts,src/data/pcs-material-archive-repository.ts,src/data/pcs-material-archive-types.ts,src/data/pcs-material-config.ts,src/data/pcs-material-transfer.ts,src/data/pcs-record-runtime.ts,src/data/pcs-simple-material-categories.ts,src/data/pcs-simple-material-transfer.ts,src/pages/pcs-config-workspace.ts,src/pages/pcs-material-archives.ts,src/pages/pcs-technical-data.ts,src/pages/tech-pack/bom-domain.ts,src/pages/tech-pack/events.ts,src/router/route-renderers.ts,tests/browser-contracts/pcs-simple-adversarial.test.ts,tests/browser-contracts/pcs-simple-category-usage.test.ts,tests/browser-contracts/pcs-simple-config.test.ts,tests/browser-contracts/pcs-simple-copy-identity.test.ts,tests/browser-contracts/pcs-simple-dossier.test.ts,tests/browser-contracts/pcs-simple-downstream.test.ts,tests/browser-contracts/pcs-simple-import.test.ts,tests/browser-contracts/pcs-simple-list-entry.test.ts,tests/browser-contracts/pcs-simple-materials.test.ts,tests/pcs-engineering-bom-version-workflow.spec.ts,tests/unit/pcs-simple-config-removal.test.ts,tests/unit/pcs-simple-dossier.test.ts,tests/unit/pcs-simple-material-archives.test.ts,tests/unit/pcs-simple-material-categories.test.ts,tests/workflow-governance/affected-checks.test.ts,tests/workflow-governance/instruction-context.test.ts,tests/workflow-governance/pcs-simple-browser-evidence.test.ts'"
+    },
+    {
+      "command": "npm run check:list-page-governance -- --scope worktree --paths 'docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划.md,docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md,docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md,docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md,docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md,docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json,scripts/check-pcs-simple-browser-evidence.ts,scripts/generate-pcs-static-baseline.ts,scripts/task-completion-receipt.ts,scripts/workflow-governance/affected-checks.ts,scripts/workflow-governance/check-execution.ts,src/data/generated/pcs-record-baseline.json,src/data/pcs-config-workspace-repository.ts,src/data/pcs-engineering-bom-material-resolver.ts,src/data/pcs-material-archive-repository.ts,src/data/pcs-material-archive-types.ts,src/data/pcs-material-config.ts,src/data/pcs-material-transfer.ts,src/data/pcs-record-runtime.ts,src/data/pcs-simple-material-categories.ts,src/data/pcs-simple-material-transfer.ts,src/pages/pcs-config-workspace.ts,src/pages/pcs-material-archives.ts,src/pages/pcs-technical-data.ts,src/pages/tech-pack/bom-domain.ts,src/pages/tech-pack/events.ts,src/router/route-renderers.ts,tests/browser-contracts/pcs-simple-adversarial.test.ts,tests/browser-contracts/pcs-simple-category-usage.test.ts,tests/browser-contracts/pcs-simple-config.test.ts,tests/browser-contracts/pcs-simple-copy-identity.test.ts,tests/browser-contracts/pcs-simple-dossier.test.ts,tests/browser-contracts/pcs-simple-downstream.test.ts,tests/browser-contracts/pcs-simple-import.test.ts,tests/browser-contracts/pcs-simple-list-entry.test.ts,tests/browser-contracts/pcs-simple-materials.test.ts,tests/pcs-engineering-bom-version-workflow.spec.ts,tests/unit/pcs-simple-config-removal.test.ts,tests/unit/pcs-simple-dossier.test.ts,tests/unit/pcs-simple-material-archives.test.ts,tests/unit/pcs-simple-material-categories.test.ts,tests/workflow-governance/affected-checks.test.ts,tests/workflow-governance/instruction-context.test.ts,tests/workflow-governance/pcs-simple-browser-evidence.test.ts'",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:56.031Z",
+      "finishedAt": "2026-10-10T11:01:56.701Z",
+      "invariant": "受影响检查路由要求：npm run check:list-page-governance -- --scope worktree --paths 'docs/product-design/pcs-consumable-parts-simplification/修正方案-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划-R2.md,docs/product-design/pcs-consumable-parts-simplification/实施计划.md,docs/product-design/pcs-consumable-parts-simplification/对抗式审查-R2.md,docs/product-design/pcs-consumable-parts-simplification/耗材与配件档案简化方案-R1.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵-R2.md,docs/product-design/pcs-consumable-parts-simplification/需求追踪矩阵.md,docs/product-design/pcs-consumable-parts-simplification/验收证据登记.md,docs/prototype-review-records/2026-10-10-simple-materials-single-editor.md,docs/verification-evidence/2026-10-10-simple-materials-single-editor/acceptance.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial-verified.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/adversarial.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/bom-fixture-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/build-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/config.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/copy.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/dossier.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downloads.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/downstream.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/evidence-check-tests.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/governance-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-boundaries.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/import.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle-final-v2.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/lifecycle.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/limits.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/list-entry.json,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck-final.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/typecheck.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/unit-preservation-build.log,docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json,scripts/check-pcs-simple-browser-evidence.ts,scripts/generate-pcs-static-baseline.ts,scripts/task-completion-receipt.ts,scripts/workflow-governance/affected-checks.ts,scripts/workflow-governance/check-execution.ts,src/data/generated/pcs-record-baseline.json,src/data/pcs-config-workspace-repository.ts,src/data/pcs-engineering-bom-material-resolver.ts,src/data/pcs-material-archive-repository.ts,src/data/pcs-material-archive-types.ts,src/data/pcs-material-config.ts,src/data/pcs-material-transfer.ts,src/data/pcs-record-runtime.ts,src/data/pcs-simple-material-categories.ts,src/data/pcs-simple-material-transfer.ts,src/pages/pcs-config-workspace.ts,src/pages/pcs-material-archives.ts,src/pages/pcs-technical-data.ts,src/pages/tech-pack/bom-domain.ts,src/pages/tech-pack/events.ts,src/router/route-renderers.ts,tests/browser-contracts/pcs-simple-adversarial.test.ts,tests/browser-contracts/pcs-simple-category-usage.test.ts,tests/browser-contracts/pcs-simple-config.test.ts,tests/browser-contracts/pcs-simple-copy-identity.test.ts,tests/browser-contracts/pcs-simple-dossier.test.ts,tests/browser-contracts/pcs-simple-downstream.test.ts,tests/browser-contracts/pcs-simple-import.test.ts,tests/browser-contracts/pcs-simple-list-entry.test.ts,tests/browser-contracts/pcs-simple-materials.test.ts,tests/pcs-engineering-bom-version-workflow.spec.ts,tests/unit/pcs-simple-config-removal.test.ts,tests/unit/pcs-simple-dossier.test.ts,tests/unit/pcs-simple-material-archives.test.ts,tests/unit/pcs-simple-material-categories.test.ts,tests/workflow-governance/affected-checks.test.ts,tests/workflow-governance/instruction-context.test.ts,tests/workflow-governance/pcs-simple-browser-evidence.test.ts'"
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "startedAt": "2026-10-10T11:01:56.701Z",
+      "finishedAt": "2026-10-10T11:46:10.675Z",
+      "invariant": "受影响检查路由要求：npm run build"
+    }
+  ],
+  "codegraph": {
+    "syncExitCode": 0,
+    "before": {
+      "initialized": true,
+      "projectPath": "/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods",
+      "pendingCount": 4,
+      "worktreeMismatch": false
+    },
+    "after": {
+      "initialized": true,
+      "projectPath": "/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods",
+      "pendingCount": 0,
+      "worktreeMismatch": false
+    }
+  },
+  "blockers": [],
+  "stageTrace": {
+    "required": false,
+    "valid": true,
+    "stages": [],
+    "skills": [],
+    "blockers": []
+  }
+}

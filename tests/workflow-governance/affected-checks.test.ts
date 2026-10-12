@@ -229,3 +229,32 @@ test('README 架构与历史文档删除不触发治理全套', () => {
   const result = routeAffectedChecks(['README.md', 'architecture.md', 'docs/INDEX.md', 'docs/standard-list-page-governance-setup.md'])
   assert.deepEqual([...result.fastChecks, ...result.governanceChecks, ...result.fullChecks], [])
 })
+
+
+test('PCS simple browser contracts reuse only hash-verified final evidence, including retired category entrance', () => {
+  for (const name of ['adversarial','config','copy-identity','dossier','downstream','import','long-label','materials','list-entry','category-usage']) {
+    const route = routeAffectedChecks([`tests/browser-contracts/pcs-simple-${name}.test.ts`])
+    assert(route.fastChecks.includes('node --import tsx scripts/check-pcs-simple-browser-evidence.ts'))
+    assert.deepEqual(route.unknownPaths, [])
+    assert.deepEqual(route.fullChecks, [])
+  }
+  assert.deepEqual(routeAffectedChecks(['tests/browser-contracts/pcs-simple-future.test.ts']).unknownPaths, ['tests/browser-contracts/pcs-simple-future.test.ts'])
+})
+test('BOM version workflow is an actual Node assert script', () => {
+  const route = routeAffectedChecks(['tests/pcs-engineering-bom-version-workflow.spec.ts'])
+  assert.deepEqual(route.fastChecks, ['node --import tsx tests/pcs-engineering-bom-version-workflow.spec.ts'])
+  assert.deepEqual(route.unknownPaths, [])
+  assert.deepEqual(route.fullChecks, [])
+})
+
+
+test('冻结工作树基线只传给当前任务范围门禁，不污染临时仓库测试或构建', () => {
+  const inherited = { GOVERNANCE_BASE_SHA: 'stale-ref', KEEP: 'yes' }
+  for (const command of ['npm run test:workflow-governance', 'npm test', 'npm run build']) {
+    assert.deepEqual(verificationCheckEnvironment('abc123', inherited, command), { KEEP: 'yes' })
+  }
+  const environment = verificationCheckEnvironment('abc123', inherited, 'npm run check:list-page-governance -- --scope worktree --paths src/pages/example.ts')
+  assert.equal(environment.GOVERNANCE_BASE_SHA, 'abc123')
+  assert.equal(environment.KEEP, 'yes')
+  assert.equal(inherited.GOVERNANCE_BASE_SHA, 'stale-ref')
+})

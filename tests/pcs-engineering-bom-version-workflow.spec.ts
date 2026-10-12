@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { pcsRecordStore, withPcsDemoData } from '../src/data/pcs-record-runtime.ts'
+import { copyEngineeringBomDraftVersion } from '../src/data/pcs-engineering-bom-version.ts'
 
 import {
   getEngineeringBomPricingPlan,
+  createEngineeringBomVersionsForOwner,
+  captureEngineeringBomRepositoryState,
+  restoreEngineeringBomRepositoryState,
+  markEngineeringBomVersionsPublished,
   listEngineeringBomVersions,
   listEngineeringBomVersionsByOwner,
   resetEngineeringBomRepository,
@@ -10,25 +17,86 @@ import {
 import {
   confirmEngineeringMasterBomPricingPlan,
   listEngineeringMasterOrders,
-  resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { ensureEngineeringMasterDemoData } from '../src/data/pcs-engineering-master-view-model.ts'
-import { resetEngineeringIndependentSamplingRepository } from '../src/data/pcs-engineering-master-sampling.ts'
-import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   renderPcsTechnicalDataBomPricingDetailPage,
-  renderPcsTechnicalDataBomPricingPlanPage,
+  renderPcsTechnicalDataBomPricingPlanDetailPage as renderPcsTechnicalDataBomPricingPlanPage,
   renderPcsTechnicalDataBomPricingPage,
 } from '../src/pages/pcs-technical-data.ts'
 import {
   listTechnicalDataVersions,
-  resetTechnicalDataVersionRepository,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 
-resetStyleArchiveRepository()
-resetEngineeringBomRepository()
-resetEngineeringMasterRepository()
-resetTechnicalDataVersionRepository()
+// Explicit Node-only Mock assembly. Normal page reads do not create or write demo facts.
+// Reuse shipped style/SKU/approved-testing/design-revision facts, then construct 12
+// independent preparation owners and copy their color BOMs through the real API.
+const shipped = JSON.parse(readFileSync(new URL('../src/data/generated/pcs-record-baseline.json', import.meta.url), 'utf8')) as Record<string, string>
+withPcsDemoData(() => { for (const [key, raw] of Object.entries(shipped)) pcsRecordStore.setItem(key, raw) })
+const shippedMasters = JSON.parse(shipped['higood-pcs-engineering-master-store-v1'])
+const shippedTechnical = JSON.parse(shipped['higood-pcs-technical-data-version-store-v5'])
+const sourceMaster = shippedMasters.records[0]
+const sourceTechnical = shippedTechnical.records.find((record: any) => record.versionStatus === 'PUBLISHED')
+assert(sourceMaster && sourceTechnical, 'Explicit fixture requires published prerequisite Mock facts')
+const fixtureMasters = Array.from({ length: 12 }, (_, index) => {
+  const master = structuredClone(sourceMaster)
+  master.masterOrderId = `EM-EXPLICIT-${index + 1}`
+  master.masterOrderCode = `EM-MOCK-${index + 1}`
+  master.status = '资料准备中'
+  master.bomVersionIds = []
+  master.bulkProductionQualification.uniqueTriggerKey = `BULK-MOCK-${index + 1}`
+  master.tasks = master.tasks.map((task: any) => ({ ...task, taskId: `${master.masterOrderId}-${task.taskType}`, masterOrderId: master.masterOrderId, sourceId: master.masterOrderId, dependsOnTaskIds: [], dependencySatisfaction: [] }))
+  return master
+})
+const originalBom = captureEngineeringBomRepositoryState()
+function assembleFixtureBoms(includeTechnical: boolean): void {
+  withPcsDemoData(() => {
+    restoreEngineeringBomRepositoryState(structuredClone(originalBom))
+    const technicalRecords: any[] = []
+    for (const [index, master] of fixtureMasters.entries()) {
+      const versions = createEngineeringBomVersionsForOwner({ ownerStage: 'ENGINEERING_MASTER', ownerId: master.masterOrderId, ownerCode: master.masterOrderCode, styleId: master.styleId, buyerId: 'U-BUYER-MOCK', buyerName: 'Mock 买手', createdBy: 'Mock 夹具' })
+      master.bomVersionIds = versions.map(version => version.bomDraftVersionId)
+      if (!includeTechnical || index === 0) continue
+      // Owner 1 remains an editable draft for the confirmation rejection test.
+      // The other owners have confirmed Mock BOMs before technical-package copying.
+      const confirmed = captureEngineeringBomRepositoryState()
+      confirmed.records.filter(record => record.ownerStage === 'ENGINEERING_MASTER' && record.ownerId === master.masterOrderId).forEach(record => { record.versionStatus = 'COMPLETED_CONFIRMED' })
+      confirmed.plans.find(plan => plan.ownerStage === 'ENGINEERING_MASTER' && plan.ownerId === master.masterOrderId)!.status = 'COMPLETED_CONFIRMED'
+      restoreEngineeringBomRepositoryState(confirmed)
+      versions.forEach(version => { version.versionStatus = 'COMPLETED_CONFIRMED' })
+      const technical = structuredClone(sourceTechnical)
+      technical.technicalVersionId = `TP-EXPLICIT-${index + 1}`
+      technical.technicalVersionCode = String(10000 + index)
+      technical.styleId = master.styleId; technical.styleCode = master.styleCode; technical.styleName = master.styleName
+      technical.sourceProjectId = master.masterOrderId; technical.sourceProjectCode = master.masterOrderCode
+      technical.createdFromTaskType = 'ENGINEERING_MASTER'
+      technical.createdFromTaskId = `${master.masterOrderId}-TECH_PACK_CONFIRMATION`
+      technical.versionStatus = index <= 6 ? 'PUBLISHED' : 'DRAFT'
+      createEngineeringBomVersionsForOwner({ ownerStage: 'TECH_PACK_DRAFT', ownerId: technical.technicalVersionId, ownerCode: technical.technicalVersionCode, styleId: master.styleId, buyerId: 'U-BUYER-MOCK', buyerName: 'Mock 买手', createdBy: 'Mock 夹具' })
+      const linkedState = captureEngineeringBomRepositoryState()
+      linkedState.records = linkedState.records.map(record => {
+        if (record.ownerStage !== 'TECH_PACK_DRAFT' || record.ownerId !== technical.technicalVersionId) return record
+        const source = versions.find(version => version.productColor === record.productColor)
+        assert(source, '技术包颜色 BOM 必须对应本主档的颜色 BOM')
+        return { ...record, ...copyEngineeringBomDraftVersion({ source, targetVersionId: record.bomDraftVersionId, copiedAt: record.createdAt, copiedBy: 'Mock 夹具' }), ownerStage: record.ownerStage, ownerId: record.ownerId, ownerCode: record.ownerCode }
+      })
+      restoreEngineeringBomRepositoryState(linkedState)
+      if (technical.versionStatus === 'PUBLISHED') {
+        const state = captureEngineeringBomRepositoryState()
+        state.records.filter(record => record.ownerStage === 'TECH_PACK_DRAFT' && record.ownerId === technical.technicalVersionId).forEach(record => { record.versionStatus = 'COMPLETED_CONFIRMED' })
+        state.plans.find(plan => plan.ownerStage === 'TECH_PACK_DRAFT' && plan.ownerId === technical.technicalVersionId)!.status = 'COMPLETED_CONFIRMED'
+        restoreEngineeringBomRepositoryState(state)
+        markEngineeringBomVersionsPublished({ ownerStage: 'TECH_PACK_DRAFT', ownerId: technical.technicalVersionId, publishedSnapshotId: `SNAPSHOT-MOCK-${index + 1}`, publishedBy: 'Mock 发布' })
+      }
+      technicalRecords.push(technical)
+    }
+    if (includeTechnical) {
+      pcsRecordStore.setItem('higood-pcs-engineering-master-store-v1', JSON.stringify({ version: 1, records: fixtureMasters }))
+      pcsRecordStore.setItem('higood-pcs-technical-data-version-store-v5', JSON.stringify({ ...shippedTechnical, records: technicalRecords, contents: technicalRecords.map(record => ({ ...structuredClone(shippedTechnical.contents[0]), technicalVersionId: record.technicalVersionId })), pendingItems: [] }))
+    }
+  })
+}
+assembleFixtureBoms(true)
 ensureEngineeringMasterDemoData()
 
 const masters = listEngineeringMasterOrders()
@@ -131,11 +199,8 @@ assert.deepEqual(
 const originalNow = Date.now
 try {
   Date.now = () => 1790208000000
-  resetStyleArchiveRepository()
   resetEngineeringBomRepository()
-  resetEngineeringIndependentSamplingRepository(true)
-  resetEngineeringMasterRepository()
-  resetTechnicalDataVersionRepository()
+  assembleFixtureBoms(false)
   ensureEngineeringMasterDemoData()
   const seededMasters = listEngineeringMasterOrders()
   const seededVersions = listEngineeringBomVersions()

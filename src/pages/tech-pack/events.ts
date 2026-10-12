@@ -2609,7 +2609,7 @@ async function handleTechPackField(
     const sku = value ? getMaterialSkuRecordById(value) : null
     const archive = sku ? getMaterialArchiveById(sku.materialId) : null
     const existingSkuId = state.bomItems.find(item => item.id === state.editBomItemId)?.materialSkuId
-    if (sku && getGarmentBomMaterialType(sku.materialSkuId) !== state.newBomItem.type && !(archive?.kind === 'parts' && existingSkuId === sku.materialSkuId)) {
+    if (sku && !(archive?.kind === 'consumable' && ['包装材料','其他'].includes(state.newBomItem.type)) && getGarmentBomMaterialType(sku.materialSkuId) !== state.newBomItem.type && !(archive?.kind === 'parts' && existingSkuId === sku.materialSkuId)) {
       window.alert('所选物料与 BOM 类型不一致，设备配件不能新加入服装 BOM。')
       return true
     }
@@ -4412,7 +4412,7 @@ export async function handleTechPackEvent(target: HTMLElement): Promise<boolean>
         const previous = state.bomItems.find(item => item.id === state.editBomItemId)
         const existingSkuId = previous?.materialSkuId
         if (!materialSku) throw new Error('请选择具体物料 SKU。')
-        if (getGarmentBomMaterialType(materialSku.materialSkuId) !== state.newBomItem.type && !(existingSkuId === materialSku.materialSkuId && previous?.type === state.newBomItem.type)) throw new Error('所选物料与 BOM 类型不一致。')
+        if (!(materialArchive?.kind === 'consumable' && ['包装材料','其他'].includes(state.newBomItem.type)) && getGarmentBomMaterialType(materialSku.materialSkuId) !== state.newBomItem.type && !(existingSkuId === materialSku.materialSkuId && previous?.type === state.newBomItem.type)) throw new Error('所选物料与 BOM 类型不一致。')
         assertEngineeringBomMaterialRules({ materialSkuId: materialSku.materialSkuId, usage: Number(state.newBomItem.usage), sampleQuantity: 1, usageUnit: state.newBomItem.unit, lossRate: 0,
           printRequirementText: state.newBomItem.printRequirement, dyeRequirementText: state.newBomItem.dyeRequirement, waterSolubleRequirementText: state.newBomItem.waterSolubleRequirement,
           printSide: state.newBomItem.printSideMode ? '正面' : '无', linkedPatternResultIds: [...getBomPatternDesignIds(state.newBomItem, 'FRONT'), ...getBomPatternDesignIds(state.newBomItem, 'INSIDE')], processCode: state.newBomItem.usageProcessCodes.join(',') }, existingSkuId,

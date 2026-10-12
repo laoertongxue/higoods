@@ -50,7 +50,7 @@ async function prepareFixture(browser: Awaited<ReturnType<typeof chromium.launch
     const resolver = await import('/src/data/pcs-engineering-bom-material-resolver.ts')
     const technical = await import('/src/data/pcs-technical-data-version-repository.ts')
     await runtime.ensurePcsRecordState(runtime.PCS_LEGACY_KEYS)
-    const roots = material.listMaterialArchives(), root = roots.find((item: any) => item.subcategoryId === 'material-category-consumable-20')!
+    const roots = material.listMaterialArchives(), root = roots.find((item: any) => item.kind === 'consumable' && item.materialCode === 'MAT-CS-00000001')!
     const sku = material.listMaterialSkuRecordsByMaterialId(root.materialId)[0], parts = roots.find((item: any) => item.kind === 'parts')!
     const partsSku = material.listMaterialSkuRecordsByMaterialId(parts.materialId)[0], ordinary = roots.find((item: any) => item.kind === 'consumable' && item.materialId !== root.materialId)!
     const ordinarySku = material.listMaterialSkuRecordsByMaterialId(ordinary.materialId)[0]
@@ -192,11 +192,12 @@ test('SIMPLE-037/038/040/044–050: real downstream pages, persistent purchase c
       const optionValues = await page.locator('[data-tech-data-field="bom-material-sku"] option').evaluateAll(nodes => nodes.map(node => (node as HTMLOptionElement).value))
       assert.ok(optionValues.includes(fixture.skuId)); assert.ok(optionValues.includes(fixture.ordinarySkuId)); assert.ok(!optionValues.includes(fixture.partsSkuId))
       await action(page, 'BOM:select-packaging', repeat, () => page.locator('[data-tech-data-field="bom-material-sku"]').selectOption(fixture.skuId))
+      await action(page, 'BOM:choose-consumable-use', repeat, () => page.locator('[data-tech-data-field="bom-consumable-use"]').selectOption('包装材料'))
       await action(page, 'BOM:add-packaging', repeat, () => page.locator('[data-tech-data-action="bom-add-material"]').click(), () => page.waitForSelector('[data-bom-line]'))
       const row = page.locator('[data-bom-line]').first(); assert.ok((await row.innerText()).includes('包装材料')); assert.ok((await row.innerText()).includes(fixture.spec)); assert.ok((await row.innerText()).includes('¥9.0000'))
       for (const field of ['printRequirement', 'dyeRequirement', 'processCode']) assert.equal(await page.locator(`[data-bom-line-field="${field}"]`).count(), 0)
       await action(page, 'BOM:quantity', repeat, () => page.locator('[data-bom-line-field="usage"]').fill('3'))
-      await action(page, 'BOM:save', repeat, () => page.locator('[data-tech-data-action="bom-save"]').click(), () => page.waitForFunction(() => document.querySelector('main')?.textContent?.includes('已保存')))
+      await action(page, 'BOM:save', repeat, () => page.locator('[data-tech-data-action="bom-save"]').click(), () => page.getByText('该颜色物料已保存；请在所属业务单据完成整款确认。',{exact:true}).waitFor())
       await page.reload({ waitUntil: 'domcontentloaded' }); await ready(page, '[data-bom-line]'); await finish(page, 'BOM:saved-refresh', repeat, true); assert.equal(await page.locator('[data-bom-line-field="usage"]').inputValue(), '3')
       if (repeat === 0 || repeat === 4) await page.screenshot({ path: `${out}/bom-draft-${repeat === 4 ? '1280' : '1366'}.png`, fullPage: true })
       await page.goto(production + `/pcs/technical-data/bom-pricing/${fixture.publishedId}`); await ready(page, '[data-bom-line]')

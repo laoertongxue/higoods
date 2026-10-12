@@ -136,8 +136,7 @@ function verify(args: string[]): void {
     ...route.governanceChecks,
     ...route.fullChecks,
   ])]
-  const environment = verificationCheckEnvironment(base || undefined)
-  const checks = commands.map((command) => runCheck(command, environment))
+  const checks = commands.map((command) => runCheck(command, verificationCheckEnvironment(base || undefined, process.env, command)))
   const sync = spawnSync('codegraph', ['sync'], { cwd: workspace, encoding: 'utf8' })
   const after = codegraphStatus()
   const revisionAfter = gitRevision(paths)

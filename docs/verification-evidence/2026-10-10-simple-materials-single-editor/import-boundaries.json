@@ -1,0 +1,406 @@
+{
+  "base": "http://127.0.0.1:43222",
+  "samples": [
+    {
+      "name": "archives-over-limit:file-read",
+      "round": 0,
+      "ms": 71.70000000298023
+    },
+    {
+      "name": "limit:archives",
+      "round": 0,
+      "ms": 81.29999999701977
+    },
+    {
+      "name": "archives-valid:file-read",
+      "round": 0,
+      "ms": 64.3999999910593
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 0,
+      "ms": 99.09999999403954
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 0,
+      "ms": 65.40000000596046
+    },
+    {
+      "name": "boundary:retry",
+      "round": 0,
+      "ms": 114.6000000089407
+    },
+    {
+      "name": "units-over-limit:file-read",
+      "round": 0,
+      "ms": 61.400000005960464
+    },
+    {
+      "name": "limit:units",
+      "round": 0,
+      "ms": 81.40000000596046
+    },
+    {
+      "name": "units-valid:file-read",
+      "round": 0,
+      "ms": 68
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 0,
+      "ms": 81.80000001192093
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 0,
+      "ms": 331.8999999910593
+    },
+    {
+      "name": "costs-over-limit:file-read",
+      "round": 0,
+      "ms": 62.30000001192093
+    },
+    {
+      "name": "limit:costs",
+      "round": 0,
+      "ms": 82.79999999701977
+    },
+    {
+      "name": "costs-valid:file-read",
+      "round": 0,
+      "ms": 64.90000000596046
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 0,
+      "ms": 81.3999999910593
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 0,
+      "ms": 232.70000000298023
+    },
+    {
+      "name": "archives-over-limit:file-read",
+      "round": 1,
+      "ms": 68.09999999403954
+    },
+    {
+      "name": "limit:archives",
+      "round": 1,
+      "ms": 82.09999999403954
+    },
+    {
+      "name": "archives-valid:file-read",
+      "round": 1,
+      "ms": 64.80000001192093
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 1,
+      "ms": 59.5
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 1,
+      "ms": 66
+    },
+    {
+      "name": "boundary:retry",
+      "round": 1,
+      "ms": 115.8999999910593
+    },
+    {
+      "name": "units-over-limit:file-read",
+      "round": 1,
+      "ms": 76.5
+    },
+    {
+      "name": "limit:units",
+      "round": 1,
+      "ms": 80.6000000089407
+    },
+    {
+      "name": "units-valid:file-read",
+      "round": 1,
+      "ms": 68.09999999403954
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 1,
+      "ms": 84.70000000298023
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 1,
+      "ms": 363.09999999403954
+    },
+    {
+      "name": "costs-over-limit:file-read",
+      "round": 1,
+      "ms": 42.79999999701977
+    },
+    {
+      "name": "limit:costs",
+      "round": 1,
+      "ms": 88.29999999701977
+    },
+    {
+      "name": "costs-valid:file-read",
+      "round": 1,
+      "ms": 64.40000000596046
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 1,
+      "ms": 81.5
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 1,
+      "ms": 352.5
+    },
+    {
+      "name": "archives-over-limit:file-read",
+      "round": 2,
+      "ms": 56.29999999701977
+    },
+    {
+      "name": "limit:archives",
+      "round": 2,
+      "ms": 82.80000001192093
+    },
+    {
+      "name": "archives-valid:file-read",
+      "round": 2,
+      "ms": 67.8999999910593
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 2,
+      "ms": 82.79999999701977
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 2,
+      "ms": 65.29999999701977
+    },
+    {
+      "name": "boundary:retry",
+      "round": 2,
+      "ms": 116.20000000298023
+    },
+    {
+      "name": "units-over-limit:file-read",
+      "round": 2,
+      "ms": 46.20000000298023
+    },
+    {
+      "name": "limit:units",
+      "round": 2,
+      "ms": 86.6000000089407
+    },
+    {
+      "name": "units-valid:file-read",
+      "round": 2,
+      "ms": 64.59999999403954
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 2,
+      "ms": 82
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 2,
+      "ms": 216
+    },
+    {
+      "name": "costs-over-limit:file-read",
+      "round": 2,
+      "ms": 60.5
+    },
+    {
+      "name": "limit:costs",
+      "round": 2,
+      "ms": 82.29999999701977
+    },
+    {
+      "name": "costs-valid:file-read",
+      "round": 2,
+      "ms": 64.5
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 2,
+      "ms": 82.3999999910593
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 2,
+      "ms": 273.90000000596046
+    },
+    {
+      "name": "archives-over-limit:file-read",
+      "round": 3,
+      "ms": 74.29999999701977
+    },
+    {
+      "name": "limit:archives",
+      "round": 3,
+      "ms": 63.5
+    },
+    {
+      "name": "archives-valid:file-read",
+      "round": 3,
+      "ms": 72.70000000298023
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 3,
+      "ms": 80.30000001192093
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 3,
+      "ms": 95.09999999403954
+    },
+    {
+      "name": "boundary:retry",
+      "round": 3,
+      "ms": 112.79999999701977
+    },
+    {
+      "name": "units-over-limit:file-read",
+      "round": 3,
+      "ms": 62.099999994039536
+    },
+    {
+      "name": "limit:units",
+      "round": 3,
+      "ms": 83.29999999701977
+    },
+    {
+      "name": "units-valid:file-read",
+      "round": 3,
+      "ms": 61.6000000089407
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 3,
+      "ms": 83
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 3,
+      "ms": 363.3999999910593
+    },
+    {
+      "name": "costs-over-limit:file-read",
+      "round": 3,
+      "ms": 53.29999999701977
+    },
+    {
+      "name": "limit:costs",
+      "round": 3,
+      "ms": 80.29999999701977
+    },
+    {
+      "name": "costs-valid:file-read",
+      "round": 3,
+      "ms": 62.70000000298023
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 3,
+      "ms": 101.5
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 3,
+      "ms": 214.29999999701977
+    },
+    {
+      "name": "archives-over-limit:file-read",
+      "round": 4,
+      "ms": 85.29999999701977
+    },
+    {
+      "name": "limit:archives",
+      "round": 4,
+      "ms": 63.900000005960464
+    },
+    {
+      "name": "archives-valid:file-read",
+      "round": 4,
+      "ms": 64.20000000298023
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 4,
+      "ms": 88.09999999403954
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 4,
+      "ms": 65.29999999701977
+    },
+    {
+      "name": "boundary:retry",
+      "round": 4,
+      "ms": 84.5
+    },
+    {
+      "name": "units-over-limit:file-read",
+      "round": 4,
+      "ms": 61.70000000298023
+    },
+    {
+      "name": "limit:units",
+      "round": 4,
+      "ms": 66
+    },
+    {
+      "name": "units-valid:file-read",
+      "round": 4,
+      "ms": 63.70000000298023
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 4,
+      "ms": 82.59999999403954
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 4,
+      "ms": 248.80000001192093
+    },
+    {
+      "name": "costs-over-limit:file-read",
+      "round": 4,
+      "ms": 62.79999999701977
+    },
+    {
+      "name": "limit:costs",
+      "round": 4,
+      "ms": 82.79999999701977
+    },
+    {
+      "name": "costs-valid:file-read",
+      "round": 4,
+      "ms": 64
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 4,
+      "ms": 66.6000000089407
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 4,
+      "ms": 250.09999999403954
+    }
+  ],
+  "errors": []
+}

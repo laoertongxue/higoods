@@ -321,3 +321,6 @@ export interface MaterialAsset {
   version: number
   createdAt: string
 }
+
+export type SimpleMaterialKind = "consumable" | "parts"
+export function isSimpleMaterialKind(kind: string): kind is SimpleMaterialKind { return kind === "consumable" || kind === "parts" }

@@ -1,3 +1,4 @@
+import { isSimpleMaterialKind } from './pcs-material-archive-types.ts'
 import { pcsRecordStore, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import {
   FLAT_DIMENSION_META,
@@ -583,6 +584,8 @@ export function getConfigOptionUsage(dimensionId: FlatDimensionId, optionId: str
     const templates = readConfigUsageRecords('higood-pcs-material-config-v1', 'templates')
     const skus = readConfigUsageRecords('higood-pcs-material-archive-store-v2', 'skuRecords')
     for (const root of roots) {
+      // 耗材、配件不参与专业属性模板与技术字典引用；包装引用仍在下方独立核查。
+      if (isSimpleMaterialKind(root.kind)) continue
       const template = templates.find(item => item.templateId === root.templateId && item.version === root.templateVersion)
       const fields: UsageRecord[] = template?.fields?.filter((item: UsageRecord) => item.dictionaryId === dimensionId) || []
       if (fields.some(item => item.level === 'root' && matches(root.categoryAttributes?.[item.key])) ||

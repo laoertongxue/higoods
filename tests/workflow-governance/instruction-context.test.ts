@@ -186,7 +186,7 @@ test('verify 在任何检查前解析指令参数并采集前置指令上下文'
     'const route = routeAffectedChecks(paths)',
     'const revisionBefore = gitRevision(paths)',
     'const before = codegraphStatus()',
-    'const checks = commands.map((command) => runCheck(command, environment))',
+    'const checks = commands.map((command) => runCheck(command, verificationCheckEnvironment(base || undefined, process.env, command)))',
   ])
   assert.match(source, /captureInstructionContext\(\{\s*workspace,\s*taskBoundary,\s*requireStageTrace,\s*\}\)/)
 })
@@ -205,7 +205,7 @@ test('verify 在检查和 CodeGraph 后再次采集指令上下文并写入收�
   const source = sourceBetween('function verify(args: string[]): void {', '\nasync function deliver')
 
   assertSourceOrder(source, [
-    'const checks = commands.map((command) => runCheck(command, environment))',
+    'const checks = commands.map((command) => runCheck(command, verificationCheckEnvironment(base || undefined, process.env, command)))',
     "const sync = spawnSync('codegraph', ['sync']",
     'const after = codegraphStatus()',
     'const revisionAfter = gitRevision(paths)',

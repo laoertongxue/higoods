@@ -3,11 +3,10 @@ import assert from 'node:assert/strict'
 import {pcsRecordStore} from '../../src/data/pcs-record-runtime.ts'
 import * as repo from '../../src/data/pcs-material-archive-repository.ts'
 import * as transfer from '../../src/data/pcs-material-transfer.ts'
-import {listSimpleMaterialCategories} from '../../src/data/pcs-simple-material-categories.ts'
 import {assertMaterialArchiveCanBeArchived} from '../../src/data/pcs-material-reference-check.ts'
 const baseline=repo.getMaterialArchiveBaseline()
 beforeEach(()=>{pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY,JSON.stringify(baseline));repo.resetMaterialArchiveCache()})
-function draft(kind:'parts'|'consumable',name='测试档案',spec='10英寸'):repo.MaterialArchiveDraft{return {kind,materialName:name,materialNameEn:'',categoryName:listSimpleMaterialCategories(kind)[0].name,remark:'',specSummary:'',composition:'',processTags:[],widthText:'',gramWeightText:'',pricingUnit:'PCS',mainImageUrl:'/materials/pcs-reviewed/knife.jpg',barcodeTemplateCode:'material-label-r1',firstSku:{colorName:'',specName:spec,sizeName:'',skuImageUrl:'/materials/pcs-reviewed/knife.jpg',costPrice:0,freightCost:0,weightKg:0,lengthCm:0,widthCm:0,heightCm:0,barcode:'',mainUnit:'PCS',pricingUnit:'PCS'}}}
+function draft(kind:'parts'|'consumable',name='测试档案',spec='10英寸'):repo.MaterialArchiveDraft{return {kind,materialName:name,materialNameEn:'',categoryName:'',remark:'',specSummary:'',composition:'',processTags:[],widthText:'',gramWeightText:'',pricingUnit:'PCS',mainImageUrl:'/materials/pcs-reviewed/knife.jpg',barcodeTemplateCode:'material-label-r1',firstSku:{colorName:'',specName:spec,sizeName:'',skuImageUrl:'/materials/pcs-reviewed/knife.jpg',costPrice:0,freightCost:0,weightKg:0,lengthCm:0,widthCm:0,heightCm:0,barcode:'',mainUnit:'PCS',pricingUnit:'PCS'}}}
 function csv(kind:'parts'|'consumable',mode:transfer.MaterialTransferMode,values:Record<string,string>[]){const h=transfer.materialTransferHeaders(mode,kind);return transfer.materialRowsToCsv([h,...values.map(v=>h.map(x=>v[x]||''))])}
 test('SIMPLE-001/049: a saved simple archive cannot switch type to bypass capability boundaries',()=>{
  for(const kind of ['parts','consumable'] as const){const root=repo.createMaterialArchive(draft(kind)),before=JSON.stringify(repo.getMaterialArchiveStoreSnapshot());for(const target of ['parts','consumable','fabric','accessory'] as const){if(target===kind)continue;const input=target==='parts'||target==='consumable'?draft(target):{...baseline.records.find(x=>x.kind===target)!};assert.throws(()=>repo.updateMaterialArchive(root.materialId,{...input,materialCode:root.materialCode,firstSku:undefined}),/物料类型/);assert.equal(JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),before)}}
@@ -34,6 +33,7 @@ test('SIMPLE-029/030/033/034/035/036: packaging revisions preserve adopted quote
  const p=repo.saveMaterialPackageSpec(sku.materialSkuId,packInput),r=repo.listMaterialUnitRelations(sku.materialSkuId).find(x=>x.packageSpecId===p.packageSpecId)!
  assert.ok(r.uses.includes('PRICING'));repo.saveMaterialStandardCost(sku.materialSkuId,{purchaseStandardCny:20,transportStandardCny:1,pricingUnit:'箱',pricingUnitRelationId:r.relationId,changeReason:'含税每盒报价'})
  assert.equal(repo.getMaterialStandardCost(sku.materialSkuId).totalStandardCny,21);assert.equal(repo.getMaterialUnitFactor(sku.materialSkuId,'箱','PCS',r.relationId),10)
+ repo.saveSimpleMaterialDossier({...repo.getMaterialArchiveById(root.materialId)!},[{...repo.getMaterialSkuRecordById(sku.materialSkuId)!,costChanged:false}],root.materialId);assert.equal(repo.getMaterialStandardCost(sku.materialSkuId).totalStandardCny,21);assert.equal(repo.listMaterialCostVersions(sku.materialSkuId).at(-1)?.pricingUnit,'箱');
  repo.saveMaterialPackageSpec(sku.materialSkuId,{...packInput,packageSpecId:p.packageSpecId,contentQty:20,measurementBasis:'新版20个装'})
  assert.equal(repo.listMaterialCostVersions(sku.materialSkuId).at(-1)?.pricingUnitRelationId,r.relationId);assert.equal(repo.getMaterialUnitFactor(sku.materialSkuId,'箱','PCS',r.relationId),10);assert.equal(repo.getMaterialStandardCost(sku.materialSkuId).totalStandardCny,21)
  repo.saveMaterialStandardCost(sku.materialSkuId,{purchaseStandardCny:0,transportStandardCny:0,pricingUnit:'PCS',changeReason:'确认零费用'});assert.equal(repo.getMaterialStandardCost(sku.materialSkuId).totalStandardCny,0)
@@ -47,7 +47,7 @@ test('SIMPLE-042/049: independent PMS archive preflight and forged process creat
 })
 test('SIMPLE-051/052: simple CSV has no technical IDs, auto root codes, read-only preview and atomic repeated specifications',()=>{
  for(const kind of ['consumable','parts'] as const){for(const mode of ['archives','units','costs'] as const){assert.doesNotMatch(transfer.buildMaterialBusinessTemplate(kind,mode),/技术属性JSON|加工类型|计量关系ID|关系ID|模板ID/)}
- const row={模式:'新增',物料名称:'导入测试'+kind,分类编码:listSimpleMaterialCategories(kind)[0].code,规格型号:'10英寸',主计量单位:'PCS',识别图:'/materials/pcs-reviewed/knife.jpg',主档说明:'仅用于设备A',规格说明:'识别说明'}
+ const row={模式:'新增',物料名称:'导入测试'+kind,规格型号:'10英寸',主计量单位:'PCS',识别图:'/materials/pcs-reviewed/knife.jpg',主档说明:'仅用于设备A',规格说明:'识别说明'}
  const before=JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),preview=transfer.previewMaterialBusinessImport(kind,'archives',csv(kind,'archives',[row,{...row,规格型号:'12英寸'}]));assert.equal(preview.failedRows,0);assert.equal(JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),before)
  const result=transfer.applyMaterialBusinessImportPreview(preview);assert.equal(result[0].codes.length,2)
  const root=repo.getMaterialArchiveByCode(preview.groups[0].key)!;assert.equal(repo.listMaterialSkuRecordsByMaterialId(root.materialId).length,2)
@@ -65,7 +65,7 @@ test('SIMPLE-019/042/056: legacy identity survives cleanup; direct orphan copy/a
 })
 
  test('SIMPLE-051/052/060: documented simple CSV limits reject whole oversized file before preparing groups',()=>{
- const row={模式:'新增',物料名称:'单批上限验收',分类编码:listSimpleMaterialCategories('parts')[0].code,规格型号:'10英寸',主计量单位:'PCS',主档说明:'',规格说明:''}
+ const row={模式:'新增',物料名称:'单批上限验收',规格型号:'10英寸',主计量单位:'PCS',主档说明:'',规格说明:''}
  const before=JSON.stringify(repo.getMaterialArchiveStoreSnapshot())
  assert.throws(()=>transfer.previewMaterialBusinessImport('parts','archives',csv('parts','archives',Array.from({length:501},()=>row))),/最多 500 行/)
  for(const mode of ['units','costs'] as const)assert.throws(()=>transfer.previewMaterialBusinessImport('parts',mode,csv('parts',mode,Array.from({length:21},()=>({})))),/最多 20 行/)

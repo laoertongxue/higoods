@@ -24,9 +24,6 @@ export interface MaterialTemplate {
 }
 export interface MaterialUnitDefinition { id: string; code: string; label: string; dimension: 'length' | 'mass' | 'area' | 'count' | 'package' | 'volume'; precision: number; enabled: boolean; aliases?: string[]; updatedAt?: string; updatedBy?: string; logs?: ConfigLog[] }
 export const PCS_MATERIAL_CONFIG_KEY = 'higood-pcs-material-config-v1'
-/** BOM packaging role is explicitly assigned to the existing stable category, never inferred from its name. */
-export const PACKAGING_CONSUMABLE_CATEGORY_IDS = ['material-category-consumable-20'] as const
-export function isPackagingConsumableCategory(categoryId: string): boolean { return PACKAGING_CONSUMABLE_CATEGORY_IDS.some(id => id === categoryId) }
 const field = (key: string, label: string, level: MaterialTemplateField['level'], type: MaterialTemplateField['type'] = 'text', unit = '', required = true, identity = true, options?: string[]): MaterialTemplateField => ({ key, label, level, type, unit, required, identity, options })
 const color = { ...field('color', '颜色', 'sku', 'select', '', true, true), dictionaryId: 'colors' as const }
 const composition = { ...field('composition', '成分与比例', 'root', 'composition', '%'), dictionaryId: 'compositions' as const }
@@ -152,7 +149,7 @@ function snapshot(): Snapshot {
 export function getMaterialConfigSnapshot(): Snapshot { return structuredClone(snapshot()) }
 export function resetMaterialConfigCache(): void { cache = null }
 registerPcsRepositoryReset(resetMaterialConfigCache)
-export function listMaterialTemplates(): MaterialTemplate[] { return snapshot().templates.map(item => materialTemplateCategoryIdentity(item)) }
+export function listMaterialTemplates(): MaterialTemplate[] { return snapshot().templates.filter(item=>!['consumable','parts'].includes(item.kind)).map(item => materialTemplateCategoryIdentity(item)) }
 export function listMaterialEquipmentModels(equipmentTypeId?: string): MaterialEquipmentModel[] { return structuredClone((snapshot().equipmentModels || []).filter(item => !equipmentTypeId || item.equipmentTypeId === equipmentTypeId)) }
 export function saveMaterialEquipmentModel(input: MaterialEquipmentModel, operator: string): MaterialEquipmentModel {
   if (!listConfigDimensionChoices('equipmentTypes').some(item => item.id === input.equipmentTypeId && item.status === 'ENABLED') || !input.code.trim() || !input.name.trim()) throw new Error('请选择启用的设备类型，并填写型号编码和名称。')
@@ -224,7 +221,7 @@ export function listFixedMaterialConversions(): Array<{ fromUnit: string; toUnit
   return [{ fromUnit: 'Yard', toUnit: 'M', factor: 0.9144 }, { fromUnit: 'cm', toUnit: 'M', factor: 0.01 }, { fromUnit: 'mm', toUnit: 'M', factor: 0.001 }, { fromUnit: 'g', toUnit: 'KG', factor: 0.001 }]
 }
 export function saveMaterialTemplateVersion(template: MaterialTemplate, operator: string): MaterialTemplate {
-  if (template.kind === 'consumable' || template.kind === 'parts') throw new Error('耗材与配件只维护分类，请在对应分类列表保存，不新建技术属性模板。')
+  if (['consumable','parts'].includes(template.kind)) throw new Error('耗材和配件不维护分类或属性模板。')
   const previous = snapshot().templates.filter(item => item.templateId === template.templateId)
   const current = previous.find(item => item.version === template.version)
   const currentView = current ? materialTemplateCategoryIdentity(current) : undefined

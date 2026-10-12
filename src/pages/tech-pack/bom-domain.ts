@@ -473,7 +473,7 @@ export function renderBomFormDialog(): string {
   ))
   const materialSkuOptions = materialArchives.flatMap((archive) => (
     listMaterialSkuRecordsByMaterialId(archive.materialId)
-      .filter((sku) => isMaterialSkuAvailableForNewUse(sku) && getGarmentBomMaterialType(sku.materialSkuId) === state.newBomItem.type && Boolean(sku.skuImageUrl || archive.mainImageUrl))
+      .filter((sku) => isMaterialSkuAvailableForNewUse(sku) && (archive.kind === 'consumable' ? ['包装材料','其他'].includes(state.newBomItem.type) : getGarmentBomMaterialType(sku.materialSkuId) === state.newBomItem.type) && Boolean(sku.skuImageUrl || archive.mainImageUrl))
       .map((sku) => ({ archive, sku }))
   ))
   const selectedMaterialSku = state.newBomItem.materialSkuId

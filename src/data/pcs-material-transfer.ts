@@ -1,6 +1,6 @@
 import { assertMaterialMainUnitChangeAllowed } from './pcs-material-reference-check.ts'
 import { simpleTransferHeaders, previewSimpleMaterialImport, applySimpleMaterialImportGroup, buildSimpleMaterialTemplate, exportSimpleMaterialRows } from './pcs-simple-material-transfer.ts'
-import { isSimpleMaterialKind } from './pcs-simple-material-categories.ts'
+import { isSimpleMaterialKind } from './pcs-material-archive-types.ts'
 import { getPcsDurableFileReference, resolvePcsFileReference, runPcsRecordCommand, insertPcsRecordGroups } from './pcs-record-runtime.ts'
 import { buildProcessedMaterialCode, materialCodeSegment, checkedMaterialCode, canonicalMaterialUnit, materialMoney, validateMaterialRelation } from './pcs-material-rules.ts'
 import { getMaterialTemplate, getMaterialTemplateByVersion, listMaterialUnitDefinitions, listMaterialProcessConfigurations } from './pcs-material-config.ts'

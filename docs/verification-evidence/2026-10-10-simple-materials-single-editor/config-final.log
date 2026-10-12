@@ -1,0 +1,10 @@
+config samples 80 max 149.20000000298023
+✔ R2-002/003/017/034: professional templates retained, simple kinds removed, supporting configuration five rounds (6470.433583ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6838.875875
