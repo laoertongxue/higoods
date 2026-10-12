@@ -6,12 +6,20 @@ import { getMaterialArchiveBaseline, getMaterialArchiveStoreSnapshot, getMateria
 import { materialProcessHandoffPath, materialPurchaseHandoffPath, readPcsMaterialHandoff } from '../src/data/pcs-material-handoff.ts'
 import * as plans from '../src/data/fcs/material-process-plans.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import { listMaterialPatternChoices, listMaterialPatternVersionChoices } from '../src/data/pcs-material-pattern.ts'
 
 const materialBaseline = getMaterialArchiveBaseline()
 // Plan scenarios start after archive review and enabling; the published demos
 // intentionally keep the processing stages as drafts for the review workflow.
 for (const sku of materialBaseline.skuRecords.filter(item => item.materialSkuId.startsWith('material-r1-process-'))) {
   sku.approvalStatus = 'APPROVED'; sku.status = 'ACTIVE'
+}
+// These plan tests require a reviewed library pattern; historical demo IDs are
+// intentionally not valid sources for creating a new factory plan.
+const pattern = listMaterialPatternChoices()[0], patternVersion = listMaterialPatternVersionChoices(pattern.id)[0]
+for (const definition of materialBaseline.processDefinitions!.filter(item => item.processType !== 'DYEING')) {
+  Object.assign(definition, { patternId: pattern.id, patternCode: pattern.pattern_code, patternVersionId: patternVersion.id })
+  if (definition.printSide === 'AB') Object.assign(definition, { backPatternId: pattern.id, backPatternCode: pattern.pattern_code, backPatternVersionId: patternVersion.id })
 }
 beforeEach(() => {
   pcsRecordStore.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(materialBaseline)); resetMaterialArchiveCache()
@@ -74,7 +82,7 @@ test('GOV-006 new process selection, handoff and save reject unavailable input, 
       assert.ok(!plans.listFcsMaterialPlanTargets().some(item => item.materialSkuId === draft.outputSkuId), `${owner} ${JSON.stringify(patch)}`)
       assert.throws(() => materialProcessHandoffPath(draft.outputSkuId), /审核并启用/)
       assert.throws(() => plans.createFcsMaterialProcessPlan(draft, 'DRAFT', `${owner}-${JSON.stringify(patch)}`), /审核并启用/)
-      if (owner !== 'input') assert.throws(() => materialPurchaseHandoffPath(draft.outputSkuId), /审核并启用/)
+      if (owner !== 'input') assert.throws(() => materialPurchaseHandoffPath(draft.outputSkuId), /尚不可选用/)
       assert.equal(plans.listFcsMaterialProcessPlans().length, 0)
       assert.equal(JSON.stringify(getMaterialArchiveStoreSnapshot()), initial)
     }

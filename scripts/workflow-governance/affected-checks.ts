@@ -40,6 +40,14 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/pcs-r1-material-plans.test.ts') {
+      add(fastChecks, 'node --import tsx --test tests/pcs-r1-material-plans.test.ts')
+      continue
+    }
+    if (path === 'tests/browser-contracts/pcs-material-archive-tabs.test.ts') {
+      add(fastChecks, 'node --import tsx --test tests/browser-contracts/pcs-material-archive-tabs.test.ts')
+      continue
+    }
     if (/^tests\/(?:pcs-material-cost-folding|pcs-r1-config(?:-page)?|pcs-r1-material-(?:field-coverage|rules|template-gaps|transfer)|pcs-simple-material-downstream)\.test\.ts$/.test(path)) {
       add(fastChecks, `node --import tsx --test ${shellQuote(path)}`)
       continue

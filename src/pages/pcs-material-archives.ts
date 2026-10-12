@@ -1,8 +1,7 @@
 import { SIMPLE_IMPORT_LIMITS } from '../data/pcs-simple-material-transfer.ts'
 import { confirmPcsAction, requestPcsActionReason } from './pcs-action-dialog.ts'
-import { listFcsMaterialProcessPlans, fcsMaterialProcessPlanDetailPath } from '../data/fcs/material-process-plans.ts'
 import { registerPcsUnsavedChanges } from '../data/pcs-unsaved-changes.ts'
-import { materialPurchaseHandoffPath, materialProcessHandoffPath } from '../data/pcs-material-handoff.ts'
+import { materialPurchaseHandoffPath } from '../data/pcs-material-handoff.ts'
 import { assertMaterialMainUnitChangeAllowed, assertMaterialArchiveCanBeArchived } from '../data/pcs-material-reference-check.ts'
 // @page-pattern: list
 import { renderStandardListPage, renderStandardListFilters, renderStandardListStats } from '../components/ui/list-page.ts'
@@ -23,7 +22,7 @@ import { saveSimpleMaterialDossier, createMaterialArchive, updateMaterialArchive
   getMaterialArchiveCategoryOptions, getMaterialProcessDefinition, getMaterialStandardCost, getMaterialCostUnitConversion, listMaterialCostVersions, previewMaterialCostChange,
   saveMaterialStandardCost, materialStandardCostDisplay, listMaterialUnitRelations, saveMaterialUnitRelation, listMaterialPackageSpecs, saveMaterialPackageSpec,
   listMaterialLogRecordsByMaterialId, setMaterialApproval, setMaterialUseStatus, runMaterialApprovalBatch, type MaterialApprovalBatchResult,
-  listMaterialAssets, addMaterialAsset, validateMaterialAssetFile, reviseMaterialProcessAssets, materialProcessOrderIntent, type MaterialArchiveDraft } from '../data/pcs-material-archive-repository.ts'
+  listMaterialAssets, addMaterialAsset, validateMaterialAssetFile, reviseMaterialProcessAssets, type MaterialArchiveDraft } from '../data/pcs-material-archive-repository.ts'
 import { MATERIAL_PROCESS_LABELS, MATERIAL_PROCESS_NAMES, buildProcessedMaterialCode, materialUnitDimension, fixedMaterialFactor, canonicalMaterialUnit, materialDecimalMultiply, materialDecimalAdd } from '../data/pcs-material-rules.ts'
 import type { MaterialArchiveKind, MaterialArchiveRecord, MaterialSkuRecord, MaterialSkuDraftInput, MaterialProcessDraft, MaterialProcessType, MaterialSpecValues, MaterialUnitRelation, MaterialAsset, MaterialStandardCostVersion, MaterialEquipmentCompatibility, MaterialNamedDimension } from '../data/pcs-material-archive-types.ts'
 
@@ -44,7 +43,7 @@ const pendingFiles = new Map<string,string>()
 const transfer={open:false,mode:'archives' as MaterialTransferMode,text:'',preview:null as MaterialImportPreview|null,batchId:'',resultPage:1,results:[] as MaterialImportCommitResult[]}
 const approvalBatch={open:false,kind:'fabric' as MaterialArchiveKind,action:'SUBMIT' as 'SUBMIT'|'APPROVE',selectedCount:0,results:[] as MaterialApprovalBatchResult[]}
 function releasePendingFiles():void { for(const id of pendingFiles.values()) releasePcsPendingFile(id); pendingFiles.clear() }
-const state={kind:'fabric' as MaterialArchiveKind,notice:'',detailId:'',detailTab:'basic',skuId:'',skuTab:'spec',image:'',printSkuIds:[] as string[],printMaterialId:'',printQuantity:'1',labelTemplate:'standard',labelPreview:false,formKey:'',formTab:'basic',form:{} as Record<string,string>,dirty:false,saving:false,operationId:'',costCurrency:'CNY' as 'CNY'|'IDR'|'USD',fx: {IDR:2000,USD:.14} as Partial<Record<'IDR'|'USD',number>>,assetFile:null as File|null}
+const state={kind:'fabric' as MaterialArchiveKind,notice:'',detailId:'',detailTab:'basic',skuId:'',skuTab:'spec',image:'',printSkuIds:[] as string[],printMaterialId:'',printQuantity:'1',labelTemplate:'standard',labelPreview:false,formKey:'',formTab:'basic',form:{} as Record<string,string>,dirty:false,saving:false,operationId:'',costCurrency:'CNY' as 'CNY'|'IDR'|'USD',fx: {IDR:2000,USD:.14} as Partial<Record<'IDR'|'USD',number>>,assetFile:null as File|null,assetOwner:''}
 function listState(kind:MaterialArchiveKind):ListState { let value=lists.get(kind);if(!value){value={view:'root',filters:emptyFilters(),draft:emptyFilters(),page:1,sort:null,prefs:{order:[],visibleKeys:[],frozenKeys:['identity'],pageSize:20},settings:false,more:false,selected:new Set()};lists.set(kind,value)}return value }
 const h=(value:unknown)=>escapeHtml(value??'')
 const attr=(action:string,extra='')=>`data-${PREFIX}-action="${action}" ${extra}`
@@ -126,37 +125,58 @@ export function renderPcsMaterialArchiveDetailPage(kind:MaterialArchiveKind,mate
  state.kind=kind; if(state.detailId!==materialId){state.detailId=materialId;state.detailTab='basic'}
  const root=getMaterialArchiveById(materialId);if(!root||root.kind!==kind)return card('物料不存在',nav('返回列表',rootPath(kind)))
  if(simpleKind(kind))return renderSimpleRootDetail(root)
+ if(!['basic','skus','process','logs'].includes(state.detailTab))state.detailTab='basic'
  const path=rootPath(kind,materialId);let content=''
- if(state.detailTab==='basic') content=card('基本资料',`<div class="mb-6 flex gap-5">${image(root.mainImageUrl,root.materialName,'h-28 w-28')}<div class="flex-1">${rows([['名称',root.materialName],['英文名称',root.materialNameEn],['分类',root.categoryName||'待补分类'],...(root.legacyCategoryName?[['原分类',root.legacyCategoryName] as [string,unknown]]:[]),['审核',approval[root.approvalStatus||'APPROVED']],['默认条码模板',root.barcodeTemplateCode==='material-label-detail-r1'?'带加工信息物料标签':'标准物料标签']])}</div></div>${rootSpecificationRows(root)}`)
+ if(state.detailTab==='basic') content=card('基本资料',`<div class="mb-6 flex gap-5">${image(root.mainImageUrl,root.materialName,'h-28 w-28')}<div class="flex-1">${rows([['名称',root.materialName],['英文名称',root.materialNameEn],['分类',root.categoryName||'待补分类'],...(root.legacyCategoryName?[['原分类',root.legacyCategoryName] as [string,unknown]]:[]),['审核',approval[root.approvalStatus||'APPROVED']],['默认条码模板',root.barcodeTemplateCode==='material-label-detail-r1'?'带加工信息物料标签':'标准物料标签']])}</div></div>${rootSpecificationRows(root)}${root.galleryImageUrls?.length?`<div class="mt-5 flex flex-wrap gap-3">${root.galleryImageUrls.map(url=>image(url,root.materialName,'h-20 w-20')).join('')}</div>`:''}${renderArchiveAttachments(root,undefined,'spec')}`)
  else if(state.detailTab==='skus') content=card('物料 SKU',rootSkuTable(kind,root),nav('新增基础 SKU',`${path}/skus/new`,true))
- else if(state.detailTab==='process')content=card('加工关系',relations(kind,root))
- else if(state.detailTab==='assets')content=renderAssets(root)
+ else if(state.detailTab==='process')content=card('加工关系',relations(kind,root)+renderArchiveAttachments(root,undefined,'process'))
  else content=renderLogs(root.materialId)
- return `<div class="space-y-4 p-4" data-pcs-material-detail>${header(root.materialCode,`${names[kind]}档案 / 详情`,rootPath(kind),approvalActions(materialId,root.approvalStatus)+nav('编辑资料',`${path}/edit`)+button('打印条码','print-label',`data-material-id="${h(materialId)}"`)+useActions(materialId,root.status))}${note()}${tabs([['basic','基本资料'],['skus','SKU'],['process','加工关系'],['assets','资料'],['logs','记录']],state.detailTab,'root-tab')}${content}${renderOverlay()}</div>`
+ return `<div class="space-y-4 p-4" data-pcs-material-detail>${header(root.materialCode,`${names[kind]}档案 / 详情`,rootPath(kind),approvalActions(materialId,root.approvalStatus)+nav('编辑资料',`${path}/edit`)+button('打印条码','print-label',`data-material-id="${h(materialId)}"`)+useActions(materialId,root.status))}${note()}${tabs([['basic','基本资料'],['skus','SKU'],['process','加工关系'],['logs','记录']],state.detailTab,'root-tab')}${content}${renderOverlay()}</div>`
 }
 function renderLogs(materialId:string):string{return card('操作记录',simpleTable(['动作','说明','操作人','时间'],listMaterialLogRecordsByMaterialId(materialId).map(item=>[h(item.title),h(item.detail),h(item.operatorName),h(item.createdAt)])))}
-function renderAssets(root:MaterialArchiveRecord,sku?:MaterialSkuRecord):string {
- const data=listMaterialAssets(root.materialId,sku?.materialSkuId),process=sku?getMaterialProcessDefinition(sku.materialSkuId):null
- return card('资料',`${!sku&&root.galleryImageUrls?.length?`<div class="mb-5 flex flex-wrap gap-3">${root.galleryImageUrls.map(url=>image(url,root.materialName,'h-20 w-20')).join('')}</div>`:''}<p class="mb-4 text-xs text-slate-500">实物识别图、花型展示图与执行稿按用途分别保存。</p>${simpleTable(['用途','名称 / 版本','文件类型 / 大小','查看'],data.map(item=>[h(roles[item.role]),h(`${item.name} / v${item.version}`)+(item.fileName?`<div class="mt-1 text-xs text-slate-500">${h(item.fileName)}</div>`:''),h(`${item.mimeType||'原资料未记录'} / ${item.sizeBytes===undefined?'原资料未记录':(item.sizeBytes/1024).toFixed(1)+' KB'}`),!['IDENTIFICATION','INPUT','PATTERN','COLOR_SAMPLE'].includes(item.role)?`<a class="text-blue-700" href="${h(item.url)}" target="_blank" rel="noopener">查看资料</a>`:image(item.url,item.name)]))}<div class="mt-5 grid gap-3 md:grid-cols-3">${field('assetRole','资料用途',state.form.assetRole||'IDENTIFICATION','text',Object.entries(roles).map(([value,label])=>({value,label})))}${field('assetName','资料名称',state.form.assetName||'')}${process?field('assetProcessVersion','工艺资料版本',state.form.assetProcessVersion||(process.executionAssetIds.length?process.processVersionId+'-修订1':process.processVersionId)):''}<label class="text-xs text-slate-600">选择文件<input type="file" class="mt-2 block w-full text-sm" data-${PREFIX}-field="assetFile" data-skip-page-rerender="true" /></label></div>${process?.documentHistory?.length?`<details class="mt-5"><summary class="cursor-pointer text-sm">历史执行资料版本</summary>${simpleTable(['资料版本','原执行资料','替换时间'],process.documentHistory.map(version=>[h(version.processVersionId),version.executionAssetIds.map(id=>{const asset=listMaterialAssets(root.materialId).find(item=>item.assetId===id);return asset?`<a class="mr-3 text-blue-700" href="${h(asset.url)}" target="_blank" rel="noopener">${h(asset.name)}</a>`:h(id)}).join(''),h(version.replacedAt)]))}</details>`:''}<div class="mt-4">${button('保存资料','save-asset',`data-material-id="${h(root.materialId)}" data-sku-id="${h(sku?.materialSkuId||'')}"`,true)}</div>`)
+type AttachmentSection = 'spec' | 'process'
+const executionRole = (type:MaterialProcessType):MaterialAsset['role'] => type==='PRINTING'?'PRINT_FILE':type==='EMBROIDERY'?'EMBROIDERY_FILE':type==='HEAT_TRANSFER'?'HEAT_TRANSFER_FILE':'SPECIFICATION'
+function attachmentSection(asset:MaterialAsset,process:ReturnType<typeof getMaterialProcessDefinition>):AttachmentSection {
+ if(process?.executionAssetIds.includes(asset.assetId))return 'process'
+ return ['INPUT','PATTERN','PRINT_FILE','EMBROIDERY_FILE','HEAT_TRANSFER_FILE'].includes(asset.role)||asset.role==='COLOR_SAMPLE'&&Boolean(process)?'process':'spec'
+}
+function attachmentRoles(sku:MaterialSkuRecord|undefined,section:AttachmentSection):MaterialAsset['role'][] {
+ if(section==='spec')return ['IDENTIFICATION','SPECIFICATION']
+ const process=sku&&getMaterialProcessDefinition(sku.materialSkuId)
+ return !process?[]:process.processType==='DYEING'?['COLOR_SAMPLE','SPECIFICATION']:[executionRole(process.processType)]
+}
+function nextExecutionRevision(process:NonNullable<ReturnType<typeof getMaterialProcessDefinition>>):string {
+ if(!process.executionAssetIds.length)return process.processVersionId
+ const base=process.processVersionId.replace(/-修订\d+$/,'');let revision=(process.documentHistory?.length||0)+1
+ while([process.processVersionId,...(process.documentHistory||[]).map(x=>x.processVersionId)].includes(`${base}-修订${revision}`))revision++
+ return `${base}-修订${revision}`
+}
+function renderArchiveAttachments(root:MaterialArchiveRecord,sku:MaterialSkuRecord|undefined,section:AttachmentSection):string {
+ const process=sku?getMaterialProcessDefinition(sku.materialSkuId):null
+ const data=listMaterialAssets(root.materialId,sku?.materialSkuId).filter(asset=>asset.materialSkuId===sku?.materialSkuId&&attachmentSection(asset,process)===section)
+ const allowed=attachmentRoles(sku,section),context=`${root.materialId}/${sku?.materialSkuId||''}/${section}`
+ const selected=allowed.includes(value('assetRole') as MaterialAsset['role'])?value('assetRole'):allowed[0];if(selected)state.form.assetRole=selected
+ const labels={...roles,SPECIFICATION:section==='process'?'染色标准说明':'规格说明'}
+ const assetList=data.length?simpleTable(['名称','内容','查看'],data.map(asset=>[h(asset.name),h(labels[asset.role]),['IDENTIFICATION','INPUT','PATTERN','COLOR_SAMPLE'].includes(asset.role)&&(!asset.mimeType||['image/jpeg','image/png','image/webp','image/gif'].includes(asset.mimeType))?image(asset.url,asset.name):`<a class="text-blue-700" href="${h(asset.url)}" target="_blank" rel="noopener">查看文件</a>`])):'<p class="text-xs text-slate-500">暂无补充附件。</p>'
+ const fileLabel=section==='spec'?'选择图片或规格说明':process?.processType==='DYEING'?'选择色样或染色标准文件':`选择${labels[allowed[0]]||'执行文件'}`
+ const upload=allowed.length?`<div class="mt-4 grid gap-4 md:grid-cols-3">${allowed.length>1?field('assetRole','内容类型',selected,'text',allowed.map(role=>({value:role,label:labels[role]}))):''}${field('assetName','名称（可留空，使用文件名）',value('assetName'))}<label class="text-xs text-slate-600">${h(fileLabel)}<input type="file" class="mt-2 block w-full text-sm" data-${PREFIX}-field="assetFile" data-asset-context="${h(context)}" data-skip-page-rerender="true"/>${state.assetFile&&state.assetOwner===context?`<span class="mt-2 block">已选择：${h(state.assetFile.name)}（尚未保存）</span>`:''}</label></div><div class="mt-4">${button('保存附件','save-asset',`data-material-id="${h(root.materialId)}" data-sku-id="${h(sku?.materialSkuId||'')}" data-asset-section="${section}"`,true)}</div>`:''
+ const history=section==='process'&&process?.documentHistory?.length?`<details class="mt-4"><summary class="cursor-pointer text-xs text-slate-500">历史执行文件</summary><div class="mt-3">${simpleTable(['资料版本','原文件'],process.documentHistory.map(version=>[h(version.processVersionId),version.executionAssetIds.map(id=>{const asset=listMaterialAssets(root.materialId).find(x=>x.assetId===id);return asset?`<a class="mr-3 text-blue-700" href="${h(asset.url)}" target="_blank" rel="noopener">${h(asset.name)}</a>`:h(id)}).join('')]))}</div></details>`:''
+ if(!data.length&&!allowed.length&&!history)return ''
+ return `<details class="mt-5 border-t pt-4" data-material-attachments="${section}"><summary class="cursor-pointer text-sm font-medium">${section==='spec'?'补充图片与规格说明':'加工说明与执行文件'}（${data.length}）</summary><div class="mt-4">${assetList}${upload}${history}</div></details>`
 }
 export function renderPcsMaterialSkuDetailPage(kind:MaterialArchiveKind,materialId:string,skuId:string):string {
  state.kind=kind;if(state.skuId!==skuId){state.skuId=skuId;state.skuTab='spec'}
  const root=getMaterialArchiveById(materialId),sku=getMaterialSkuRecordById(skuId);if(!root||root.kind!==kind||!sku||sku.materialId!==materialId)return card('物料 SKU 不存在',nav('返回',rootPath(kind)))
  if(simpleKind(kind))return renderSimpleSkuDetail(root,sku)
+ if(!['spec','process','units','cost','pack','logs'].includes(state.skuTab))state.skuTab='spec'
  const path=skuPath(kind,materialId,skuId);let content=''
- if(state.skuTab==='spec')content=card('规格资料',`<div class="mb-6 flex items-start gap-5">${image(sku.skuImageUrl,sku.materialName,'h-28 w-28')}<div class="flex-1">${rows([['父主档',root.materialCode],['名称',sku.materialName],['当前阶段',MATERIAL_PROCESS_LABELS[sku.stage||'BASE']],['颜色',sku.colorName],['Pantone',`${sku.pantoneSystem||''} ${sku.pantoneCode||''}`],['花型编号',sku.patternCode],['审核',approval[sku.approvalStatus||'APPROVED']],['使用',useStatus[sku.status]],['编码规则',sku.codeRuleVersionId]])}</div></div>${rows([...materialSpecRows(root,{...sku.identityValues,...sku.effectiveSpecValues}),['旧码 / 条码别名',sku.barcodeAliases]])}`)
- else if(state.skuTab==='process')content=card('加工关系',relations(kind,root,skuId),nav('基于此 SKU 新增加工',`${path}/process`,true))
- else if(state.skuTab==='plans')content=renderRelatedMaterialPlans(skuId)
+ if(state.skuTab==='spec')content=card('规格资料',`<div class="mb-6 flex items-start gap-5">${image(sku.skuImageUrl,sku.materialName,'h-28 w-28')}<div class="flex-1">${rows([['父主档',root.materialCode],['名称',sku.materialName],['当前阶段',MATERIAL_PROCESS_LABELS[sku.stage||'BASE']],['颜色',sku.colorName],['Pantone',`${sku.pantoneSystem||''} ${sku.pantoneCode||''}`],['花型编号',sku.patternCode],['审核',approval[sku.approvalStatus||'APPROVED']],['使用',useStatus[sku.status]],['编码规则',sku.codeRuleVersionId]])}</div></div>${rows([...materialSpecRows(root,{...sku.identityValues,...sku.effectiveSpecValues}),['旧码 / 条码别名',sku.barcodeAliases]])}${renderArchiveAttachments(root,sku,'spec')}`)
+ else if(state.skuTab==='process')content=card('加工关系',relations(kind,root,skuId)+renderArchiveAttachments(root,sku,'process'),nav('基于此 SKU 新增加工',`${path}/process`,true))
  else if(state.skuTab==='units')content=renderUnits(sku,path)
  else if(state.skuTab==='cost')content=renderCost(sku,path)
  else if(state.skuTab==='pack')content=renderPack(sku,path)
- else if(state.skuTab==='assets')content=renderAssets(root,sku)
  else content=renderLogs(materialId)
- return `<div class="space-y-4 p-4" data-pcs-material-sku-detail>${header(sku.materialSkuCode,`${names[kind]} SKU / ${MATERIAL_PROCESS_LABELS[sku.stage||'BASE']}`,rootPath(kind,materialId),approvalActions(skuId,sku.approvalStatus)+nav('编辑资料',`${path}/edit`)+button('复制规格','copy-sku',`data-sku-id="${h(skuId)}"`)+nav('新增加工',`${path}/process`)+button('打印条码','print-label',`data-sku-id="${h(skuId)}"`)+useActions(skuId,sku.status))}${note()}${tabs([['spec','规格'],['process','加工关系'],['plans','加工计划'],['units','计量单位'],['cost','标准成本'],['pack','包装物流'],['assets','资料'],['logs','记录']],state.skuTab,'sku-tab')}${content}<div class="flex justify-end gap-2">${button('发起采购','purchase',`data-sku-id="${h(skuId)}"`)}${sku.inputSkuId?button('创建加工计划','process-order',`data-sku-id="${h(skuId)}"`):''}</div>${renderOverlay()}</div>`
-}
-function renderRelatedMaterialPlans(skuId:string):string {
- const plans=listFcsMaterialProcessPlans({skuId})
- return card('关联加工计划',simpleTable(['计划编号','工艺 / 状态','本料角色','投入数量','产出数量','工厂','查看'],plans.map(plan=>[h(plan.planNo),h(`${MATERIAL_PROCESS_NAMES[plan.processType]} / ${plan.status==='DRAFT'?'草稿':'已计划'}`),plan.source.input.materialSkuId===skuId?'直接投入':'目标产出',h(`${plan.plannedInputQty??'未维护'} ${plan.source.input.mainUnit}`),h(`${plan.plannedOutputQty??'未维护'} ${plan.source.output.mainUnit}`),h(plan.factoryName||'未指定'),nav('加工计划',fcsMaterialProcessPlanDetailPath(plan.planId))])))
+ return `<div class="space-y-4 p-4" data-pcs-material-sku-detail>${header(sku.materialSkuCode,`${names[kind]} SKU / ${MATERIAL_PROCESS_LABELS[sku.stage||'BASE']}`,rootPath(kind,materialId),approvalActions(skuId,sku.approvalStatus)+nav('编辑资料',`${path}/edit`)+button('复制规格','copy-sku',`data-sku-id="${h(skuId)}"`)+nav('新增加工',`${path}/process`)+button('打印条码','print-label',`data-sku-id="${h(skuId)}"`)+useActions(skuId,sku.status))}${note()}${tabs([['spec','规格'],['process','加工关系'],['units','计量单位'],['cost','标准成本'],['pack','包装物流'],['logs','记录']],state.skuTab,'sku-tab')}${content}<div class="flex justify-end gap-2">${button('发起采购','purchase',`data-sku-id="${h(skuId)}"`)}</div>${renderOverlay()}</div>`
 }
 function renderUnits(sku:MaterialSkuRecord,path:string):string {
  const all=listMaterialUnitRelations(sku.materialSkuId,true),active=all.filter(x=>x.status==='ACTIVE')
@@ -246,14 +266,14 @@ export function renderPcsMaterialSkuEditPage(kind:MaterialArchiveKind,materialId
  const back=skuId?skuPath(kind,materialId,skuId):rootPath(kind,materialId),template=materialTemplateForRecord(root),locked=Boolean(sku?.approvalStatus==='APPROVED'||sku?.inputSkuId)&&!process
  if(process)return renderProcessEditor(root,sku!,back)
  if(sku)applyEditRequest(sku)
+ if(!['basic','units','cost','pack'].includes(state.formTab))state.formTab='basic'
  let content=''
  if(state.formTab==='basic')content=card('规格资料',grid(field('materialName','SKU 名称',value('materialName')||root.materialName)+field('barcodeAliases','旧码 / 条码别名（逗号分隔）',value('barcodeAliases'))+(template.fields.some(f=>f.key==='color')?field('colorName','颜色',value('colorName'),'text',colorOptions(),'form',locked)+field('colorCode','颜色编码',value('colorCode'),'text',undefined,'form',locked):'')+field('specName','规格名称',value('specName'),'text',undefined,'form',locked)+field('mainUnit','主计量单位 *',value('mainUnit'),'text',units(),'form',locked||Boolean(sku?.mainUnitUsed))+templateFields(template.fields,'sku',locked))+`<div class="mt-6">${imageEditor('skuImageUrl')}</div>`)
  else if(state.formTab==='units')content=renderUnitEditor(sku)
  else if(state.formTab==='cost')content=renderCostEditor(sku)
  else if(state.formTab==='pack')content=renderPackEditor(sku)
- else content=card('资料',sku?renderAssets(root,sku):'<p class="text-sm text-slate-500">请先保存基础 SKU，再关联技术资料。</p>')
- const tabItems:Array<[string,string]>=[['basic','规格与图片'],...(sku?[['units','计量单位'],['cost','标准成本'],['pack','包装物流'],['assets','资料']]as Array<[string,string]>:[])]
- return `<div class="space-y-4 p-4" data-pcs-material-sku-edit>${header(sku?'编辑 SKU 资料':'新增基础 SKU',`${root.materialCode} / ${sku?.materialSkuCode||'基础规格'}`,back)}${note()}${tabs(tabItems,state.formTab,'form-tab')}${content}${state.formTab==='assets'?'':footer(back,state.formTab==='cost'?'预览成本影响':'保存资料',state.formTab==='cost'?'preview-cost':'save-form')}${renderOverlay()}</div>`
+ const tabItems:Array<[string,string]>=[['basic','规格与图片'],...(sku?[['units','计量单位'],['cost','标准成本'],['pack','包装物流']]as Array<[string,string]>:[])]
+ return `<div class="space-y-4 p-4" data-pcs-material-sku-edit>${header(sku?'编辑 SKU 资料':'新增基础 SKU',`${root.materialCode} / ${sku?.materialSkuCode||'基础规格'}`,back)}${note()}${tabs(tabItems,state.formTab,'form-tab')}${content}${footer(back,state.formTab==='cost'?'预览成本影响':'保存资料',state.formTab==='cost'?'preview-cost':'save-form')}${renderOverlay()}</div>`
 }
 function relationOptions(sku:MaterialSkuRecord,forPricing=false):Array<{value:string;label:string}>{const adopted=forPricing?listMaterialCostVersions(sku.materialSkuId).at(-1)?.pricingUnitRelationId:undefined;return listMaterialUnitRelations(sku.materialSkuId,simpleKind(state.kind)).filter(r=>(r.status==='ACTIVE'||r.relationId===adopted)&&(!forPricing||r.uses.includes('PRICING'))).map(r=>({value:r.relationId,label:`${r.auxUnitId}${r.packageSpecId?'（'+r.mainQtyPerAux+' '+sku.mainUnit+'）':''} · 1 = ${r.mainQtyPerAux} ${sku.mainUnit} · v${r.version}${r.status==='INACTIVE'?' · 当前成本采用的旧版本':''}`}))}
 function unitUsesEditor(key:string,label:string):string {const selected=value(key).split(/[、,，]/);return `<fieldset><legend class="mb-3 text-xs text-slate-600">${h(label)}</legend><div class="flex gap-4">${Object.entries({PURCHASE:'采购',PRICING:'计价',ISSUE:'发料'}).map(([id,name])=>`<label class="text-sm"><input type="checkbox" data-${PREFIX}-field="${key}" data-material-multi="true" data-option-value="${id}" data-skip-page-rerender="true" ${selected.includes(id)?'checked':''} /> ${name}</label>`).join('')}</div></fieldset>`}
@@ -375,7 +395,7 @@ export function handlePcsMaterialArchiveInput(target:Element):boolean {
  if(scope==='filter'){ls.draft[key as keyof Filters]=element.value;return true}
  if(scope==='print'){if(key==='labelTemplate')state.labelTemplate=element.value;else state.printQuantity=element.value;element.removeAttribute('data-skip-page-rerender');return true}
  if(key==='printSkuSelection'){const id=element.dataset.skuId!;state.printSkuIds=(element as HTMLInputElement).checked?[...new Set([...state.printSkuIds,id])]:state.printSkuIds.filter(x=>x!==id);return true}
- if(key==='assetFile'){state.assetFile=(element as HTMLInputElement).files?.[0]||null;state.dirty=Boolean(state.assetFile)||state.dirty;return true}
+ if(key==='assetFile'){state.assetFile=(element as HTMLInputElement).files?.[0]||null;state.assetOwner=element.dataset.assetContext||'';state.dirty=Boolean(state.assetFile)||state.dirty;return true}
  if(key==='image-file'||key==='gallery-files'){
   const files=Array.from((element as HTMLInputElement).files||[]);if(!files.length)return true
   if(files.some(file=>!file.type.startsWith('image/')||file.size>15*1024*1024)){state.notice='请选择不超过 15 MB 的实物图片。';return true}
@@ -607,8 +627,11 @@ export async function handlePcsMaterialArchiveEvent(target:HTMLElement,event?:Ev
   else if(action==='sort-column'){const key=el.dataset.columnKey!;ls.sort=ls.sort?.key!==key?{key,direction:'asc'}:ls.sort.direction==='asc'?{key,direction:'desc'}:null}
   else if(action==='prev-page')ls.page=Math.max(1,ls.page-1)
   else if(action==='next-page')ls.page++
-  else if(action==='root-tab')state.detailTab=el.dataset.value!
-  else if(action==='sku-tab')state.skuTab=el.dataset.value!
+  else if(action==='root-tab'||action==='sku-tab'){
+   if(state.assetFile&&!await confirmPcsAction('附件尚未保存，切换后将放弃所选文件。确认切换？'))return true
+   if(state.assetFile){state.assetFile=null;state.assetOwner='';state.dirty=false;delete state.form.assetName;delete state.form.assetRole;const pending=pendingFiles.get('asset');if(pending){releasePcsPendingFile(pending);pendingFiles.delete('asset')}}
+   if(action==='root-tab')state.detailTab=el.dataset.value!;else state.skuTab=el.dataset.value!
+  }
   else if(action==='cost-input-units'){if(state.dirty){if(!await confirmPcsAction('当前加工 SKU 尚未保存，是否放弃本次输入并查看投入物料的计量单位？'))return true;releasePendingFiles();state.dirty=false;state.formKey=''}state.skuTab='units';goto(el.dataset.path!)}
   else if(action==='dimension-add'){state.form.dimensionCount=String(dimensionCount()+1);state.dirty=true}
   else if(action==='equipment-add'){state.form.equipmentCount=String(equipmentCount()+1);state.dirty=true}
@@ -630,18 +653,35 @@ export async function handlePcsMaterialArchiveEvent(target:HTMLElement,event?:Ev
   else if(action==='use-status'){const status=el.dataset.status as 'ACTIVE'|'INACTIVE'|'ARCHIVED';if(await confirmPcsAction(`确认${status==='ACTIVE'?'启用':status==='ARCHIVED'?'归档':'停用'}此档案？`)){const reason=status==='ACTIVE'?'':await askMaterialText(status==='ARCHIVED'?'填写归档原因':'填写停用原因','原因');if(reason===null)return true;await command(()=>setMaterialUseStatus(id,status,reason),status==='ARCHIVED'?()=>assertMaterialArchiveCanBeArchived(id):undefined);state.notice='使用状态已保存。'}}
   else if(action==='remove-gallery'){const urls=value('galleryImageUrls').split('\n').filter(Boolean);urls.splice(Number(el.dataset.index),1);state.form.galleryImageUrls=urls.join('\n');state.dirty=true}
   else if(action==='copy-sku'){const source=getMaterialSkuRecordById(el.dataset.skuId!);if(!source)throw new Error('来源 SKU 不存在。');state.formKey='';if(simpleKind(state.kind))return false;else if(source.inputSkuId){const definition=getMaterialProcessDefinition(source.materialSkuId)!;copyProcess={...definition,skuImageUrl:source.skuImageUrl,mainUnit:source.mainUnit,pricingUnit:source.pricingUnit,effectiveSpecValues:source.effectiveSpecValues,processStandardCny:null};goto(skuPath(state.kind,source.materialId,source.inputSkuId)+'/process')}else{copySeed=source;goto(rootPath(state.kind,source.materialId)+'/skus/new')}}
-  else if(action==='save-asset'){const file=state.assetFile;if(!file)throw new Error('请选择资料文件。');if(pendingFiles.has('asset'))releasePcsPendingFile(pendingFiles.get('asset')!);const role=(value('assetRole')||'IDENTIFICATION')as MaterialAsset['role'];validateMaterialAssetFile({fileName:file.name,mimeType:file.type,sizeBytes:file.size,role});const ref=registerPcsFile(file);pendingFiles.set('asset',ref.fileId);await command(()=>{const asset=addMaterialAsset({materialId:el.dataset.materialId!,materialSkuId:el.dataset.skuId||undefined,role,name:value('assetName')||file.name,url:ref.url,fileId:ref.fileId,fileName:file.name,mimeType:file.type||'application/octet-stream',sizeBytes:file.size});const process=el.dataset.skuId?getMaterialProcessDefinition(el.dataset.skuId):null;if(process&&['PRINT_FILE','EMBROIDERY_FILE','HEAT_TRANSFER_FILE'].includes(role))reviseMaterialProcessAssets(el.dataset.skuId!,[...process.executionAssetIds,asset.assetId],value('assetProcessVersion')||(process.executionAssetIds.length?process.processVersionId+'-修订1':process.processVersionId))});state.assetFile=null;state.dirty=false;releasePendingFiles();state.notice='资料已保存。'}
+  else if(action==='save-asset'){
+   const file=state.assetFile;if(!file)throw new Error('请选择附件文件。')
+   const section=el.dataset.assetSection as AttachmentSection|undefined,sku=el.dataset.skuId?getMaterialSkuRecordById(el.dataset.skuId):undefined
+   const owner=getMaterialArchiveById(el.dataset.materialId!)
+   if(owner&&!simpleKind(owner.kind)&&!['spec','process'].includes(section||''))throw new Error('请在规格或加工关系中选择对应附件。')
+   const allowed=section?attachmentRoles(sku||undefined,section):null
+   if(section&&state.assetOwner!==`${el.dataset.materialId}/${el.dataset.skuId||''}/${section}`)throw new Error('所选文件不属于当前档案或页面，请在这里重新选择。')
+   const role=(allowed?.length===1?allowed[0]:value('assetRole')||'IDENTIFICATION')as MaterialAsset['role']
+   if(allowed&&!allowed.includes(role))throw new Error('请选择当前规格或工艺对应的附件类型。')
+   validateMaterialAssetFile({fileName:file.name,mimeType:file.type,sizeBytes:file.size,role})
+   if(pendingFiles.has('asset'))releasePcsPendingFile(pendingFiles.get('asset')!)
+   const ref=registerPcsFile(file);pendingFiles.set('asset',ref.fileId)
+   await command(()=>{
+    const asset=addMaterialAsset({materialId:el.dataset.materialId!,materialSkuId:el.dataset.skuId||undefined,role,name:value('assetName')||file.name,url:ref.url,fileId:ref.fileId,fileName:file.name,mimeType:file.type||'application/octet-stream',sizeBytes:file.size})
+    const process=el.dataset.skuId?getMaterialProcessDefinition(el.dataset.skuId):null
+    if(section==='process'&&process&&role===executionRole(process.processType))reviseMaterialProcessAssets(el.dataset.skuId!,[...process.executionAssetIds,asset.assetId],nextExecutionRevision(process))
+   })
+   state.assetFile=null;state.assetOwner='';state.dirty=false;delete state.form.assetName;releasePendingFiles();state.notice=section?'附件已保存。':'资料已保存。'
+  }
   else if(action==='print-label'){simplePopup.type='';state.printMaterialId=el.dataset.materialId||getMaterialSkuRecordById(el.dataset.skuId||'')?.materialId||state.detailId;state.printSkuIds=el.dataset.skuId?[el.dataset.skuId]:listMaterialSkuRecordsByMaterialId(state.printMaterialId).map(x=>x.materialSkuId);state.printQuantity='1';state.labelTemplate=!simpleKind(state.kind)&&getMaterialArchiveById(state.printMaterialId)?.barcodeTemplateCode==='material-label-detail-r1'?'detailed':'standard'}
   else if(action==='print-now'){if(!state.printSkuIds.length)throw new Error('请至少选择一个 SKU。');const qty=Number(state.printQuantity);if(!Number.isInteger(qty)||qty<1||qty>100)throw new Error('每个 SKU 的打印份数应为 1–100。');const host=document.getElementById('pcs-material-labels');if(!host||!host.querySelector('svg'))throw new Error('二维码正在生成，请稍后打印。');const win=window.open('','_blank');if(!win)throw new Error('请允许打开打印窗口。');win.document.write(`<html><head><title>物料识别标签</title><style>body{font-family:Arial,sans-serif}body>div{break-inside:avoid;border:1px solid #ddd;padding:12px;margin:8px;display:flex;gap:12px}img{width:70px;height:70px;object-fit:cover}svg{width:96px;height:96px}button{border:0;background:white}button img{width:70px}</style></head><body>${Array.from({length:qty},()=>host.innerHTML).join('')}</body></html>`);win.document.close();win.focus();try{await Promise.all([win.document.fonts?.ready||Promise.resolve(),...Array.from(win.document.images).map(async img=>{img.loading='eager';if(typeof img.decode==='function'){await img.decode();return}if(img.complete){if(!img.naturalWidth)throw new Error('标签图片加载失败。');return}await new Promise<void>((resolve,reject)=>{img.onload=()=>resolve();img.onerror=()=>reject(new Error('标签图片加载失败。'))})})]);await new Promise<void>(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(()=>resolve())));if(win.closed)throw new Error('打印窗口已关闭。');win.focus();win.print();state.notice='已打开打印对话框，是否打印成功请以打印机结果为准。'}catch(error){throw new Error('标签图片或字体尚未准备好，请重新打开打印预览后重试。'+(error instanceof Error?' '+error.message:''))}}
   else if(action==='purchase'){goto(materialPurchaseHandoffPath(el.dataset.skuId!))}
-  else if(action==='process-order'){goto(materialProcessHandoffPath(el.dataset.skuId!))}
   else return false
  }catch(error){state.notice=`${action==='print-now'?'本次未打印':'本次未保存'}：${error instanceof Error?error.message:'请重试。'}`}
  return true
 }
 export function isPcsMaterialArchiveDialogOpen():boolean{return Boolean(simplePopup.type||approvalBatch.open||transfer.open||state.image||state.printMaterialId||state.form.costPreview==='yes')}
 export function isPcsMaterialArchiveDirty():boolean{return state.dirty}
-export function resetPcsMaterialArchiveState():void{simplePopup.type='';approvalBatch.open=false;approvalBatch.results=[];approvalBatch.selectedCount=0;transfer.open=false;transfer.preview=null;transfer.results=[];transfer.resultPage=1;releasePendingFiles();copySeed=null;copyProcess=null;state.image='';state.printSkuIds=[];state.printMaterialId='';state.notice='';state.formKey='';state.form={};state.dirty=false;state.detailId='';state.skuId='';state.detailTab='basic';state.skuTab='spec';state.assetFile=null;for(const ls of lists.values()){ls.settings=false;ls.selected.clear()}}
+export function resetPcsMaterialArchiveState():void{simplePopup.type='';approvalBatch.open=false;approvalBatch.results=[];approvalBatch.selectedCount=0;transfer.open=false;transfer.preview=null;transfer.results=[];transfer.resultPage=1;releasePendingFiles();copySeed=null;copyProcess=null;state.image='';state.printSkuIds=[];state.printMaterialId='';state.notice='';state.formKey='';state.form={};state.dirty=false;state.detailId='';state.skuId='';state.detailTab='basic';state.skuTab='spec';state.assetFile=null;state.assetOwner='';for(const ls of lists.values()){ls.settings=false;ls.selected.clear()}}
 export const renderPcsFabricArchiveListPage=()=>renderListPage('fabric')
 export const renderPcsAccessoryArchiveListPage=()=>renderListPage('accessory')
 export const renderPcsYarnArchiveListPage=()=>renderListPage('yarn')

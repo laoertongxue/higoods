@@ -256,6 +256,20 @@ test('BOM version workflow is an actual Node assert script', () => {
   assert.deepEqual(route.fullChecks, [])
 })
 
+test('material archive tab contract executes the real scoped browser runner', () => {
+  const route = routeAffectedChecks(['tests/browser-contracts/pcs-material-archive-tabs.test.ts'])
+  assert.deepEqual(route.fastChecks, ['node --import tsx --test tests/browser-contracts/pcs-material-archive-tabs.test.ts'])
+  assert.deepEqual(route.unknownPaths, [])
+  assert.deepEqual(route.fullChecks, [])
+})
+
+test('factory material plan source snapshot contract executes its Node tests', () => {
+  const route = routeAffectedChecks(['tests/pcs-r1-material-plans.test.ts'])
+  assert.deepEqual(route.fastChecks, ['node --import tsx --test tests/pcs-r1-material-plans.test.ts'])
+  assert.deepEqual(route.unknownPaths, [])
+  assert.deepEqual(route.fullChecks, [])
+})
+
 
 test('冻结工作树基线只传给当前任务范围门禁，不污染临时仓库测试或构建', () => {
   const inherited = { GOVERNANCE_BASE_SHA: 'stale-ref', KEEP: 'yes' }
