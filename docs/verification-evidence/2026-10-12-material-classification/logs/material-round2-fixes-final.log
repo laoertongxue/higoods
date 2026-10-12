@@ -1,0 +1,29 @@
+✔ CAT-01..04/06: fixed classifications and codes; no cross-kind or simple templates (6.423583ms)
+✔ FAST-01..03: every BF save requires explicit installation type independently of physical fastening (8.485584ms)
+✔ DEL-01/02/KEEP-01/02: current configuration saves once; old field units and identities remain dossier facts (25.0765ms)
+✔ LIST-01..06/09: SPU search selects all children; approved root can review new draft children; no enable step (12.311417ms)
+✔ LIST-07/08/10/DEL-04: retired operation surfaces are gone on all named details and simple lists (5.444209ms)
+✔ PROC-01/FAST-02: import cannot bypass BF required type; headers contain new modes and no template revisions (1.561458ms)
+✔ round-one: legacy BF direct parent and child approvals cannot bypass installation type (2.601042ms)
+✔ round-one: unknown legacy yarn stays unclassified in editor and SKU guard; old identities remain readable (3.903375ms)
+✔ round-one: adopted units remain in display after unrelated unit configuration save (5.243083ms)
+✔ round-one: BF CSV same SPU cannot silently merge conflicting installation types (2.187ms)
+✔ round-one: explicit model text 规格0/规格1 never becomes the common SPU name on read/save (6.671958ms)
+✔ round-two: current process segments are controlled rules even with legacy serialized configuration; names and enable state persist (3.637541ms)
+✔ round-two: adopted mm units agree in root technical edit and processed effective specification inputs (4.17875ms)
+✔ round-two: BF core choice cannot be changed into numeric, conditional or unrelated dictionary input (1.64775ms)
+✔ DYE/PRINT/PROC: all modes save separate fee records and export method, two versions and revisions unchanged (14.759042ms)
+✔ PROC-02: missing dye method cannot be approved or selected by new FCS plans; valid source carries complete mode snapshot (6.645958ms)
+✔ round-one: pending single-side printing with no front version cannot approve or start a new plan (2.14175ms)
+✔ round-two: CT and AA cannot approve with an independent backside pattern (3.038083ms)
+✔ KEEP/PROC: published static input changes only named material mock facts; all other modules and adopted SKU codes stay exact (1.350166ms)
+✔ DYE/PRINT: active generated static input contains all six modes and exactly two additional specimen outputs with their independent fees (0.087834ms)
+✔ round-two: explicit A/CT/AA static definitions have one pattern and no independent backside fields (0.071042ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 434.066291

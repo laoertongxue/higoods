@@ -30,20 +30,20 @@ function line(skuId = simpleSku('consumable').materialSkuId): EngineeringBomMate
 function technicalLine(skuId: string): TechnicalBomItem {
   return { id: `simple-${skuId}`, materialSkuId: skuId, type: getGarmentBomMaterialType(skuId) || '其他', name: '原型耗材', spec: '规格', unit: 'PCS', unitConsumption: 1, lossRate: 0, supplier: '-', printRequirement: '无', dyeRequirement: '无' }
 }
-test('SIMPLE-046/047: packaging uses stable category ID; equipment parts cannot be new garment BOM candidates', () => {
-  const fixture = structuredClone(baseline), packaging = fixture.records.find(item => item.subcategoryId === 'material-category-consumable-20')!
+test('SIMPLE-046/047: consumables use explicit BOM purpose without classifications; equipment parts cannot be new garment BOM candidates', () => {
+  const fixture = structuredClone(baseline), packaging = fixture.records.find(item => item.kind === 'consumable')!
   assert.ok(packaging)
   packaging.categoryName = '改名后的耗材分类'
   const ordinary = fixture.records.find(item => item.kind === 'consumable' && item.materialId !== packaging.materialId)!
   ordinary.categoryName = '包装袋'
   pcsRecordStore.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(fixture)); resetMaterialArchiveCache()
-  assert.equal(getGarmentBomMaterialType(listMaterialSkuRecordsByMaterialId(packaging.materialId)[0].materialSkuId), '包装材料')
+  assert.equal(getGarmentBomMaterialType(listMaterialSkuRecordsByMaterialId(packaging.materialId)[0].materialSkuId), '其他')
   assert.equal(getGarmentBomMaterialType(listMaterialSkuRecordsByMaterialId(ordinary.materialId)[0].materialSkuId), '其他')
   const parts = simpleSku('parts')
   assert.equal(getGarmentBomMaterialType(parts.materialSkuId), null)
   assert.throws(() => assertEngineeringBomMaterialRules(line(parts.materialSkuId)), /设备配件不能新加入/)
   assert.doesNotThrow(() => assertEngineeringBomMaterialRules(line(parts.materialSkuId), parts.materialSkuId))
-  assert.throws(() => assertEngineeringBomMaterialRules({ ...line(listMaterialSkuRecordsByMaterialId(ordinary.materialId)[0].materialSkuId), materialType: '包装材料' }), /应归属/)
+  assert.doesNotThrow(() => assertEngineeringBomMaterialRules({ ...line(listMaterialSkuRecordsByMaterialId(ordinary.materialId)[0].materialSkuId), materialType: '包装材料' }))
 })
 test('SIMPLE-048: material line save rejects forged dye/print/process flags before cost capture', () => {
   const base = line(), before = JSON.stringify(getMaterialArchiveStoreSnapshot())

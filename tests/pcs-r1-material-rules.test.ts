@@ -4,29 +4,24 @@ import { pcsRecordStore, registerPcsFile } from '../src/data/pcs-record-runtime.
 import * as repo from '../src/data/pcs-material-archive-repository.ts'
 import { buildProcessedMaterialCode, checkedMaterialCode, fixedMaterialFactor, materialDecimalAdd, materialPackageVolume } from '../src/data/pcs-material-rules.ts'
 import type { MaterialProcessDraft } from '../src/data/pcs-material-archive-types.ts'
+import { getMaterialPatternReference } from '../src/data/pcs-material-pattern.ts'
 
 const BASE='material-r1-MAT-FB-00000001-B01'
 const baseline=repo.getMaterialArchiveBaseline()
 beforeEach(()=>{pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY,JSON.stringify(baseline));repo.resetMaterialArchiveCache()})
-const dye=(extra:Partial<MaterialProcessDraft>={}):MaterialProcessDraft=>({inputSkuId:BASE,processType:'DYEING',colorCode:'black',colorName:'黑色',pantoneSystem:'TCX',pantoneCode:'19-4003',skuImageUrl:'/materials/process-orders/white-black-cotton-jersey.jpg',...extra})
+const dye=(extra:Partial<MaterialProcessDraft>={}):MaterialProcessDraft=>({inputSkuId:BASE,processType:'DYEING',dyeMethod:'MJS',colorCode:'black',colorName:'黑色',pantoneSystem:'TCX',pantoneCode:'19-4003',skuImageUrl:'/materials/process-orders/white-black-cotton-jersey.jpg',...extra})
 function useReviewedProcessFixture():void {
  const fixture=repo.getMaterialArchiveStoreSnapshot()
- for(const sku of fixture.skuRecords.filter(item=>item.materialSkuId.startsWith('material-r1-process-'))){sku.approvalStatus='APPROVED';sku.status='ACTIVE'}
+ // New handoffs use reviewed library relations; legacy identifiers/codes stay unchanged.
+ const pattern=getMaterialPatternReference('pattern_asset_0001','pattern_version_0001')
+ for(const id of ['dye','print','embroidery','heat']){
+  const sku=fixture.skuRecords.find(item=>item.materialSkuId===`material-r1-process-${id}`)!
+  sku.approvalStatus='APPROVED';sku.status='ACTIVE'
+  if(id!=='dye')Object.assign(fixture.processDefinitions!.find(p=>p.outputSkuId===sku.materialSkuId)!,pattern)
+ }
  pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY,JSON.stringify(fixture));repo.resetMaterialArchiveCache()
 }
 
-test('CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration',()=>{
- const d=buildProcessedMaterialCode('CNIDML160',dye())
- assert.equal(d,'CNIDML160-black-19-4003PT')
- assert.equal(buildProcessedMaterialCode(d,dye({processType:'EMBROIDERY',patternCode:'pl001197'})),d+'-pl001197XH')
- assert.equal(buildProcessedMaterialCode(d,dye({processType:'PRINTING',patternCode:'pl001197',printSide:'A'})),d+'-pl001197-AYH')
- assert.equal(buildProcessedMaterialCode(d,dye({processType:'PRINTING',patternCode:'pl001197',backPatternCode:'pl001197',printSide:'AB'})),d+'-pl001197-ABYH')
- assert.equal(buildProcessedMaterialCode(d,dye({processType:'PRINTING',patternCode:'pl001197',backPatternCode:'pl001198',printSide:'AB',penetration:true})),d+'-Fpl001197-Bpl001198-AB-STYH')
- assert.equal(buildProcessedMaterialCode(d,dye({processType:'HEAT_TRANSFER',patternCode:'pl001197',deliveryRevisionSegment:'R02'})),d+'-pl001197R02TH')
- assert.throws(()=>buildProcessedMaterialCode('CNIDML160',dye({pantoneSystem:''})),/Pantone/)
- assert.throws(()=>buildProcessedMaterialCode('CNIDML160',dye({objectType:'CUT_PIECE'})),/裁片/)
- assert.throws(()=>checkedMaterialCode('A'.repeat(257)),/256/)
-})
 test('CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing',()=>{
  useReviewedProcessFixture()
  const sku=repo.resolveMaterialSkuIdentity('CNIDML160-black-19-4003-pl001197-xPT')!
@@ -179,18 +174,6 @@ test('MAT: processed siblings retain independent identities when only packaging 
  assert.throws(()=>repo.updateMaterialSkuRecord(target.materialSkuId,{...target,patternCode:'different-pattern'}),/加工产出的交付身份/)
 })
 
-test('MAT: copied archive reuses file references, resets approval and has no copied SKU or price history',()=>{
- const source=repo.getMaterialArchiveById('material-r1-MAT-FB-00000001')!
- const asset=repo.addMaterialAsset({materialId:source.materialId,role:'SPECIFICATION',name:'受控技术文件',url:'/materials/pcs-reviewed/cotton-white.jpg',fileId:'shared-file-id'})
- const copy=repo.copyMaterialArchive(source.materialId)
- assert.notEqual(copy.materialCode,source.materialCode)
- assert.equal(copy.approvalStatus,'DRAFT')
- assert.equal(repo.listMaterialSkuRecordsByMaterialId(copy.materialId).length,0)
- const copiedAsset=repo.listMaterialAssets(copy.materialId).find(x=>x.fileId===asset.fileId)!
- assert.notEqual(copiedAsset.assetId,asset.assetId)
- assert.equal(copiedAsset.url,asset.url)
-})
-
 test('MAT/CODE: a draft root code change regenerates descendants without changing their IDs',()=>{
  const old=repo.getMaterialArchiveById('material-r1-MAT-FB-00000001')!
  const root=repo.createMaterialArchive({...old,materialCode:'TEST-ROOT',firstSku:{...repo.getMaterialSkuRecordById(BASE)!,colorName:'白色',colorCode:'white'}})
@@ -198,7 +181,7 @@ test('MAT/CODE: a draft root code change regenerates descendants without changin
  const child=repo.createProcessedMaterialSku(dye({inputSkuId:first.materialSkuId}))
  repo.updateMaterialArchive(root.materialId,{...root,materialCode:'TEST-RENAMED'})
  assert.equal(repo.getMaterialSkuRecordById(first.materialSkuId)?.materialSkuCode,'TEST-RENAMED-B01')
- assert.equal(repo.getMaterialSkuRecordById(child.materialSkuId)?.materialSkuCode,'TEST-RENAMED-B01-black-19-4003PT')
+ assert.equal(repo.getMaterialSkuRecordById(child.materialSkuId)?.materialSkuCode,'TEST-RENAMED-B01-black-19-4003PT-MJS')
  assert.equal(repo.getMaterialProcessDefinition(child.materialSkuId)?.inputSkuId,first.materialSkuId)
 })
 

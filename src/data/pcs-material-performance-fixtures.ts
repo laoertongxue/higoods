@@ -20,7 +20,7 @@ export function createMaterialCostValidationSnapshot(descendantCount = 100): { s
   let parent:MaterialSkuRecord=base
   for(let index=0;index<descendantCount;index++){
     const depth=index%4;if(depth===0)parent=base
-    const draft:MaterialProcessDraft={inputSkuId:parent.materialSkuId,processType:types[depth],colorCode:`load${Math.floor(index/4)+1}`,pantoneSystem:'TCX',pantoneCode:'19-4003',patternCode:'pl001197',printSide:'A',skuImageUrl:base.skuImageUrl}
+    const draft:MaterialProcessDraft={inputSkuId:parent.materialSkuId,processType:types[depth],dyeMethod:depth===0?'MJS':undefined,colorCode:`load${Math.floor(index/4)+1}`,pantoneSystem:'TCX',pantoneCode:'19-4003',patternCode:'pl001197',printSide:'A',skuImageUrl:base.skuImageUrl}
     const id=`material-validation-${index+1}`,processId=`material-validation-process-${index+1}`,costId=`material-validation-cost-${index+1}`
     const child:MaterialSkuRecord={...parent,materialSkuId:id,materialSkuCode:buildProcessedMaterialCode(parent.materialSkuCode,draft),inputSkuId:parent.materialSkuId,stage:draft.processType,processDefinitionId:processId,currentCostVersionId:costId}
     snapshot.skuRecords.push(child)

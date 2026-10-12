@@ -1,0 +1,24 @@
+✖ MATERIAL: six process drafts and fees, 50-row import/export, exact refresh and multi-tab conflict (16918.71075ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17541.48825
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-material-process-acceptance.test.ts:1:4255
+✖ MATERIAL: six process drafts and fees, 50-row import/export, exact refresh and multi-tab conflict (16918.71075ms)
+  locator.waitFor: Timeout 6000ms exceeded.
+  Call log:
+  [2m  - waiting for getByRole('status').filter({ hasText: /冲突|其他页面|已被修改/ }) to be visible[22m
+  
+      at <anonymous> (/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods/tests/browser-contracts/pcs-material-process-acceptance.test.ts:38:1328)
+      at action (/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods/tests/browser-contracts/pcs-material-process-acceptance.test.ts:17:130)
+      at async TestContext.<anonymous> (/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods/tests/browser-contracts/pcs-material-process-acceptance.test.ts:38:1188) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for getByRole('status').filter({ hasText: /冲突|其他页面|已被修改/ }) to be visible" ]
+  }

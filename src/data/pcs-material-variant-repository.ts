@@ -1,4 +1,5 @@
 import { getMaterialSkuRecordById, listAllMaterialSkuRecords, listMaterialSkuLineage, getMaterialProcessDefinition, resolveMaterialSkuIdentity } from './pcs-material-archive-repository.ts'
+import type { MaterialDyeMethod } from './pcs-material-archive-types.ts'
 import { buildProcessedMaterialCode } from './pcs-material-rules.ts'
 import type { MaterialVariantCreateInput, MaterialVariantProcessStep, MaterialVariantRecord, MaterialVariantResult, MaterialVariantProcessType } from './pcs-material-variant-types.ts'
 
@@ -10,7 +11,7 @@ function projection(id: string): MaterialVariantRecord | null {
   const map: Record<string, MaterialVariantProcessType> = { DYEING:'dye',PRINTING:'print',EMBROIDERY:'embroider',HEAT_TRANSFER:'heat' }
   const processes = chain.filter(item=>item.stage && item.stage!=='BASE').map(item=>{
     const process=getMaterialProcessDefinition(item.materialSkuId)
-    return {processType:map[item.stage!],processCode:item.stage!,processName:({DYEING:'染色',PRINTING:'印花',EMBROIDERY:'绣花',HEAT_TRANSFER:'烫画'} as Record<string,string>)[item.stage!],patternCode:process?.patternCode}
+    return {processType:map[item.stage!],processCode:item.stage!,processName:({DYEING:'染色',PRINTING:'印花',EMBROIDERY:'绣花',HEAT_TRANSFER:'烫画'} as Record<string,string>)[item.stage!],patternCode:process?.patternCode,dyeMethod:process?.dyeMethod,printSide:process?.printSide,patternVersionId:process?.patternVersionId,backPatternCode:process?.backPatternCode,backPatternVersionId:process?.backPatternVersionId,deliveryRevisionSegment:process?.deliveryRevisionSegment,backDeliveryRevisionSegment:process?.backDeliveryRevisionSegment}
   })
   return {variantId:sku.materialSkuId,materialId:sku.materialId,materialSkuId:sku.materialSkuId,baseSkuCode:chain[0].materialSkuCode,
     variantCode:sku.materialSkuCode,displayName:sku.materialName,colorName:sku.colorName,pantoneRef:sku.pantoneCode,chainCategory:processes.length?'process':'plain',layerIndex:processes.length,
@@ -23,5 +24,5 @@ export function migrateLegacyBomLinesToBaseVariants(materialId:string,baseSkuCod
 export function mapLegacyBomItemsToBaseVariants<T extends {materialSkuId?:string;variantId?:string}>(lines:T[]):T[]{return lines.map(line=>({...line,variantId:line.materialSkuId||line.variantId}))}
 export function createMaterialVariant(_input:MaterialVariantCreateInput,_store?:Map<string,MaterialVariantRecord>):MaterialVariantResult{return {ok:false,error:'REQUIRED_FIELD',message:'请在物料 SKU 的“基于此 SKU 新增加工”创建，独立变种入口已退役。'}}
 export function resetMaterialVariantStore():void { /* No independent store exists. */ }
-export function buildDyeVariantCode(baseSkuCode:string,colorName:string,pantoneRef:string){return buildProcessedMaterialCode(baseSkuCode,{inputSkuId:'',processType:'DYEING',colorCode:colorName,pantoneSystem:'TCX',pantoneCode:pantoneRef,skuImageUrl:''})}
-export function buildAppendedVariantCode(code:string,step:MaterialVariantProcessStep){const map:Record<string,'PRINTING'|'EMBROIDERY'|'HEAT_TRANSFER'>={print:'PRINTING',embroider:'EMBROIDERY',heat:'HEAT_TRANSFER'};if(!map[step.processType])throw new Error('请使用已确认的物料身份工艺。');return buildProcessedMaterialCode(code,{inputSkuId:'',processType:map[step.processType],patternCode:step.patternCode,printSide:'A',skuImageUrl:''})}
+export function buildDyeVariantCode(baseSkuCode:string,colorName:string,pantoneRef:string,dyeMethod:MaterialDyeMethod){return buildProcessedMaterialCode(baseSkuCode,{inputSkuId:'',processType:'DYEING',dyeMethod,colorCode:colorName,pantoneSystem:'TCX',pantoneCode:pantoneRef,skuImageUrl:''})}
+export function buildAppendedVariantCode(code:string,step:MaterialVariantProcessStep){const map:Record<string,'PRINTING'|'EMBROIDERY'|'HEAT_TRANSFER'>={print:'PRINTING',embroider:'EMBROIDERY',heat:'HEAT_TRANSFER'};if(!map[step.processType])throw new Error('请使用已确认的物料身份工艺。');return buildProcessedMaterialCode(code,{inputSkuId:'',processType:map[step.processType],patternCode:step.patternCode,patternVersionId:step.patternVersionId,printSide:step.processType==='print'?step.printSide:undefined,backPatternCode:step.backPatternCode,backPatternVersionId:step.backPatternVersionId,deliveryRevisionSegment:step.deliveryRevisionSegment,backDeliveryRevisionSegment:step.backDeliveryRevisionSegment,skuImageUrl:''})}

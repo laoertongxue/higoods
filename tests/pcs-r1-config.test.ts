@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { createInitialConfigData } from '../src/data/pcs-config-dimensions.ts'
 import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
 import { getConfigWorkspaceSnapshot, getConfigOptionUsage, listConfigDimensionOptions, listProductCategoryNodes, saveConfigDimensionOption, resetConfigWorkspaceCache } from '../src/data/pcs-config-workspace-repository.ts'
-import { listMaterialTemplates, getMaterialTemplate, getMaterialTemplateByVersion, getMaterialTemplateUsage, getMaterialConfigSnapshot, resetMaterialConfigCache, saveMaterialTemplateVersion, approveMaterialTemplate, saveMaterialUnit, listMaterialUnitDefinitions, listMaterialProcessConfigurations, saveMaterialProcessConfiguration } from '../src/data/pcs-material-config.ts'
+import { listMaterialTemplates, getMaterialTemplate, getMaterialConfigSnapshot, resetMaterialConfigCache, saveMaterialTemplate, saveMaterialUnit, listMaterialUnitDefinitions, listMaterialProcessConfigurations, saveMaterialProcessConfiguration } from '../src/data/pcs-material-config.ts'
 import { getLatestPcsExchangeRate, updateLatestPcsExchangeRate, displayStandardCost, resetPcsExchangeRateCache } from '../src/data/pcs-exchange-rate-config.ts'
 import { resolveStyleProductInformation } from '../src/data/pcs-style-product-information.ts'
 
@@ -65,60 +65,10 @@ test('configuration references are counted from current records and disabling re
   assert.throws(() => saveConfigDimensionOption('styles', option.id, { code: 'changed', nameZh: '变更', sortOrder: 1, status: 'ENABLED' }), /业务编码不能修改/)
 })
 
-test('five material families have explicit field templates and unknown categories never use another template', () => {
-  assert.equal(new Set(listMaterialTemplates().map(row => row.kind)).size, 5)
-  const button = getMaterialTemplate('accessory', '纽扣'), zip = getMaterialTemplate('accessory', '拉链')
-  assert.ok(button.fields.some(row => row.key === 'diameter' && row.unit === 'mm'))
-  assert.ok(!zip.fields.some(row => row.key === 'diameter'))
-  assert.ok(zip.fields.some(row => row.key === 'length' && row.unit === 'cm'))
-  assert.ok(!getMaterialTemplate('consumable', '包装袋').fields.some(row => row.key === 'color'))
-  assert.equal(getMaterialTemplate('parts', '裁床配件').fields.find(row => row.key === 'equipment')!.type, 'reference')
-  assert.equal(getMaterialTemplate('parts', '裁床配件').fields.find(row => row.key === 'equipment')!.valueShape, 'equipmentCompatibility')
-  const fabric = getMaterialTemplate('fabric', '梭织布')
-  assert.equal(fabric.fields.filter(row => row.level === 'root' && /width/i.test(row.key)).length, 1)
-  assert.ok(getMaterialTemplate('yarn', '针织用纱').fields.some(row => row.key === 'countSystem'))
-  assert.ok(getMaterialTemplate('accessory', '流苏辅料'))
-  assert.ok(getMaterialTemplate('accessory', '刺绣花边'))
-  assert.throws(() => getMaterialTemplate('accessory', '未知辅料'), /已审核模板/)
-})
-
-test('material configuration usage follows locked template fields and actual SKU attributes', () => {
-  const original = getMaterialTemplate('fabric', '梭织布')
-  const construction = listConfigDimensionOptions('constructions')[0]
-  const color = listConfigDimensionOptions('colors')[0]
-  const pantone = listConfigDimensionOptions('pantone')[0]
-  pcsRecordStore.setItem('higood-pcs-material-config-v1', JSON.stringify(getMaterialConfigSnapshot()))
-  pcsRecordStore.setItem('higood-pcs-material-archive-store-v2', JSON.stringify({ records: [{ materialId: 'usage-root', materialCode: 'ML-REF', materialName: '配置引用测试', templateId: original.templateId, templateVersion: original.version, categoryAttributes: { construction: construction.name_zh } }], skuRecords: [{ materialId: 'usage-root', materialSkuId: 'usage-sku', materialSkuCode: 'ML-REF-1', colorName: color.name_zh, pantoneSystem: pantone.code.split(' ')[0], pantoneCode: pantone.code.split(' ')[1] }] }))
-  assert.equal(original.fields.find(row => row.key === 'construction')!.dictionaryId, 'constructions')
-  assert.equal(getConfigOptionUsage('constructions', construction.id).length, 1)
-  assert.equal(getConfigOptionUsage('colors', color.id).filter(row => row.kind === '物料 SKU').length, 1)
-  assert.equal(getConfigOptionUsage('pantone', pantone.id).length, 1)
-  assert.equal(getMaterialTemplate('parts', '裁床配件').fields.find(row => row.key === 'equipment')!.valueShape, 'equipmentCompatibility')
-})
-
-test('template editing and approval preserve versions already referenced by material roots', () => {
-  const original = getMaterialTemplate('fabric', '梭织布')
-  pcsRecordStore.setItem('higood-pcs-material-archive-store-v2', JSON.stringify({ records: [{ materialId: 'root', materialCode: 'ML-1', materialName: '面料', templateId: original.templateId, templateVersion: original.version }], skuRecords: [], unitRelations: [] }))
-  const draft = saveMaterialTemplateVersion({ ...original, changeNote: '新增检验说明', fields: [...original.fields, { key: 'inspection', label: '检验说明', level: 'root', type: 'text', required: false, identity: false }] }, '测试维护人')
-  assert.equal(draft.version, original.version + 1); assert.equal(draft.status, 'DRAFT')
-  assert.equal(getMaterialTemplate('fabric', '梭织布').version, original.version)
-  const edited = saveMaterialTemplateVersion({ ...draft, changeNote: '完善帮助' }, '测试维护人')
-  assert.equal(edited.version, original.version + 1)
-  approveMaterialTemplate(draft.templateId, draft.version, '同一维护人')
-  assert.equal(getMaterialTemplate('fabric', '梭织布').version, original.version + 1)
-  assert.deepEqual(getMaterialTemplateByVersion(original.templateId, original.version).fields, original.fields)
-  assert.equal(getMaterialTemplateUsage(original.templateId, original.version).length, 1)
-  assert.equal(getMaterialTemplateUsage(original.templateId, original.version + 1).length, 0)
-  const disabled = saveMaterialTemplateVersion({ ...getMaterialTemplate('fabric', '梭织布'), enabled: false }, '维护人')
-  approveMaterialTemplate(disabled.templateId, disabled.version, '维护人')
-  assert.throws(() => getMaterialTemplate('fabric', '梭织布'), /没有启用/)
-  assert.ok(getMaterialTemplateByVersion(original.templateId, original.version))
-})
-
 test('controlled fields and unit identities reject invalid configuration', () => {
-  const template = getMaterialTemplate('accessory', '纽扣')
-  assert.throws(() => saveMaterialTemplateVersion({ ...template, fields: [{ key: 'script', label: '脚本', level: 'root', type: 'script' as any, required: false, identity: false }] }, '维护人'), /支持的属性类型/)
-  assert.throws(() => saveMaterialTemplateVersion({ ...template, fields: [template.fields[0], template.fields[0]] }, '维护人'), /不得重复/)
+  const template = getMaterialTemplate('accessory','扣合类')
+  assert.throws(() => saveMaterialTemplate({ ...template, fields: [{ key: 'script', label: '脚本', level: 'root', type: 'script' as any, required: false, identity: false }] }, '维护人'), /支持的属性类型/)
+  assert.throws(() => saveMaterialTemplate({ ...template, fields: [template.fields[0], template.fields[0]] }, '维护人'), /不得重复/)
   const unit = listMaterialUnitDefinitions().find(row => row.code === 'M')!
   assert.throws(() => saveMaterialUnit({ ...unit, dimension: 'mass' }), /量纲不可改变/)
   saveMaterialUnit({ ...unit, enabled: false }, '维护人')

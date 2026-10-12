@@ -1,7 +1,7 @@
 import type { MaterialProcessDraft, MaterialProcessType, MaterialUnitRelation, MaterialPackageSpec } from './pcs-material-archive-types.ts'
 import { listMaterialUnitDefinitions, listFixedMaterialConversions } from './pcs-material-config.ts'
 
-export const MATERIAL_CODE_RULE_VERSION = 'MATERIAL-R1-20261005'
+export const MATERIAL_CODE_RULE_VERSION = 'MATERIAL-R2-20261012'
 export const MATERIAL_PROCESS_LABELS: Record<MaterialProcessType | 'BASE', string> = {
   BASE: '基础', DYEING: '染后', PRINTING: '印后', EMBROIDERY: '绣后', HEAT_TRANSFER: '烫画后',
 }
@@ -20,23 +20,32 @@ export function checkedMaterialCode(code: string): string {
 export function buildProcessedMaterialCode(predecessorCode: string, draft: MaterialProcessDraft): string {
   const parent = materialCodeSegment(predecessorCode, '投入 SKU 编码')
   if (draft.objectType && draft.objectType !== 'MATERIAL') throw new Error('裁片、毛织部位和成衣加工请进入技术/生产对象，不新建物料 SKU。')
+  if ('penetration' in draft) throw new Error('请选择单面 A、渗透 CT、双面同花 AA 或双面分花 AB；不再单独设置渗透印。')
   let segment = ''
   if (draft.processType === 'DYEING') {
+    if (!['MJS', 'GTG'].includes(draft.dyeMethod || '')) throw new Error('染色必须选择 MJS 或 GTG。')
     if (!draft.pantoneSystem?.trim() || !draft.pantoneCode?.trim()) throw new Error('染色必须明确 Pantone 体系和色号。')
     const system = materialCodeSegment(draft.pantoneSystem.toUpperCase(), 'Pantone 体系')
     const pantone = materialCodeSegment(draft.pantoneCode.replace(/PT$/i, ''), 'Pantone 色号')
-    segment = `${materialCodeSegment(draft.colorCode || '', '颜色编码')}-${system === 'TCX' ? '' : `${system}-`}${pantone}PT`
+    segment = `${materialCodeSegment(draft.colorCode || '', '颜色编码')}-${system === 'TCX' ? '' : `${system}-`}${pantone}PT-${draft.dyeMethod}`
   } else {
     const pattern = materialCodeSegment(draft.patternCode || '', '花型编号')
     const revision = draft.deliveryRevisionSegment?.trim().toUpperCase() || ''
     if (revision && !/^R\d{2,}$/.test(revision)) throw new Error('交付修订段请使用 R02 等格式；资料纠错不增加编码段。')
     const front = `${pattern}${revision}`
     if (draft.processType === 'PRINTING') {
-      if (!['A', 'AB'].includes(draft.printSide || '')) throw new Error('印花必须选择单面 A 或双面 AB。')
-      if (draft.printSide === 'AB' && !draft.backPatternCode?.trim()) throw new Error('双面印必须明确反面花型；同花也需确认。')
-      const back = draft.backPatternCode ? materialCodeSegment(draft.backPatternCode, '反面花型编号') : ''
-      const patternPart = draft.printSide === 'AB' && back !== pattern ? `F${front}-B${back}` : front
-      segment = `${patternPart}-${draft.printSide}${draft.penetration ? '-ST' : ''}YH`
+      if (!['A', 'CT', 'AA', 'AB'].includes(draft.printSide || '')) throw new Error('印花必须选择单面 A、渗透 CT、双面同花 AA 或双面分花 AB。')
+      let patternPart = front
+      if (draft.printSide === 'AB') {
+        if (!draft.backPatternCode?.trim() || !draft.backPatternVersionId?.trim()) throw new Error('双面分花 AB 必须明确反面花型及其版本。')
+        const back = materialCodeSegment(draft.backPatternCode, '反面花型编号')
+        const backRevision = draft.backDeliveryRevisionSegment?.trim().toUpperCase() || ''
+        if (backRevision && !/^R\d{2,}$/.test(backRevision)) throw new Error('反面交付修订段请使用 R02 等格式。')
+        patternPart = `F${front}-B${back}${backRevision}`
+      } else if (draft.backPatternId || draft.backPatternCode || draft.backPatternVersionId || draft.backDeliveryRevisionSegment) {
+        throw new Error('单面、渗透和双面同花只选择一个花型；每面分别选花型请使用双面分花 AB。')
+      }
+      segment = `${patternPart}-${draft.printSide}YH`
     } else if (draft.processType === 'EMBROIDERY') segment = `${front}XH`
     else if (draft.processType === 'HEAT_TRANSFER') segment = `${front}TH`
     else throw new Error('本期物料身份工艺仅支持染色、印花、绣花、烫画。')

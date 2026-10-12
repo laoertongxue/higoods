@@ -35,7 +35,7 @@ test('ONE-CONFIG-002: forged simple kind/detail/template-kind cannot reopen reti
     await action('kind', { kind })
     assert.match(renderPcsConfigWorkspacePage(), /仅面料、辅料、纱线维护分类与属性模板/)
     await action('detail', { id: `material-template-${kind}-1`, version: '3' })
-    assert.match(renderPcsConfigWorkspacePage(), /模板版本不存在/)
+    assert.match(renderPcsConfigWorkspacePage(), /分类属性不存在/)
     assert.doesNotMatch(renderPcsConfigWorkspacePage(), /分类操作日志|simple-usage|simple-logs/)
   }
   await action('create')
@@ -43,8 +43,8 @@ test('ONE-CONFIG-002: forged simple kind/detail/template-kind cannot reopen reti
   const edit = renderPcsConfigWorkspacePage()
   assert.doesNotMatch(edit, /<option value="(?:consumable|parts)"/)
   await action('back')
-  await action('approve-template')
-  assert.match(renderPcsConfigWorkspacePage(), /模板版本不存在/)
+  const handled=await action('approve-template')
+  assert.doesNotMatch(renderPcsConfigWorkspacePage(),/新建版本|版本记录|版本换算依据/)
   assert.equal(writes, 0)
 })
 

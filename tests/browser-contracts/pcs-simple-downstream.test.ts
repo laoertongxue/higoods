@@ -101,22 +101,14 @@ async function readPcsRows(page: Page) {
     const rows = await new Promise<any[]>((resolve, reject) => { const tx = db.transaction('records', 'readonly'), request = tx.objectStore('records').getAll(); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) }); db.close(); return rows.sort((a,b) => a.id.localeCompare(b.id))
   })
 }
-async function archiveReferenced(page: Page, route: string, orderNo: string, kind: string, repeat: number) {
+async function verifyReferencedDirectRead(page: Page, route: string, orderNo: string, kind: string, repeat: number) {
   await page.goto(production + route); await ready(page, '[data-pcs-material-sku-detail]'); await finish(page, `${kind}:independent-direct`, repeat, true)
-  await action(page, `${kind}:independent-usage`, repeat, () => page.locator('[data-pcs-material-archive-action="simple-popup"][data-popup="usage"]').click(), () => page.waitForSelector('[aria-label="使用情况"]'))
-  assert.ok((await page.locator('[aria-label="使用情况"]').innerText()).includes(orderNo), '全新页面直达使用情况必须显示真实采购引用，无需先访问 PMS')
-  await action(page, `${kind}:independent-usage-close`, repeat, () => page.locator('[aria-label="使用情况"] [data-pcs-material-archive-action="close-simple-popup"]').click(), () => page.waitForSelector('[aria-label="使用情况"]', { state: 'detached' }))
   const before = JSON.stringify(await readPcsRows(page))
-  await action(page, `${kind}:archive-more`, repeat, () => page.locator('[data-pcs-material-archive-action="simple-actions"]').click(), () => page.waitForSelector('[aria-label="更多操作"]'))
-  await action(page, `${kind}:archive-begin`, repeat, () => page.locator('[aria-label="更多操作"] [data-pcs-material-archive-action="use-status"][data-status="ARCHIVED"]').click(), () => page.waitForSelector('[data-pcs-action-dialog][open]'))
-  await action(page, `${kind}:archive-confirm`, repeat, () => page.locator('[data-pcs-action-dialog] [data-dialog-confirm]').click(), () => page.waitForSelector('dialog[open] textarea'))
-  await action(page, `${kind}:archive-reason`, repeat, () => page.locator('dialog[open] textarea').fill('真实采购引用归档阻断验收'))
-  await action(page, `${kind}:archive-blocked-save`, repeat, () => page.locator('dialog[open] button[type="submit"]').click(), () => page.waitForFunction(() => document.querySelector('main')?.textContent?.includes('已有采购草稿或采购记录引用')))
-  assert.ok((await page.locator('main').innerText()).includes('本次未保存'))
-  assert.equal(JSON.stringify(await readPcsRows(page)), before, '归档失败必须保持所有 PCS 持久记录不变')
-  if (repeat === 0 || repeat === 4) await page.screenshot({ path: `${out}/${kind}-archive-blocked-${repeat === 4 ? '1280' : '1366'}.png`, fullPage: true })
-  await page.reload({ waitUntil: 'domcontentloaded' }); await ready(page, '[data-pcs-material-sku-detail]'); await finish(page, `${kind}:archive-blocked-refresh`, repeat, true)
-  assert.ok((await page.locator('main').innerText()).includes('可选用')); assert.equal(JSON.stringify(await readPcsRows(page)), before)
+  assert.equal(await page.locator('[data-pcs-material-archive-action="use-status"], [data-popup="usage"], [data-pcs-material-archive-action="simple-actions"]').count(),0)
+  assert.ok((await readPurchases(page)).some(order=>order.purchaseOrderNo===orderNo))
+  await page.reload({ waitUntil:'domcontentloaded' }); await ready(page,'[data-pcs-material-sku-detail]'); await finish(page,`${kind}:referenced-refresh`,repeat,true)
+  assert.equal(JSON.stringify(await readPcsRows(page)),before)
+
 }
 
 // Explicitly isolated contexts: never touches the user's existing Chrome/IAB storage.
@@ -171,13 +163,10 @@ test('SIMPLE-037/038/040/044–050: real downstream pages, persistent purchase c
         await action(page, `purchase-${count}:saved-source-tab`, repeat, () => page.locator('[data-pms-mpo-action="pcs-tab"][data-tab="source"]').click())
         if (repeat === 0 || repeat === 4) await page.screenshot({ path: `${out}/purchase-${count}-${repeat === 4 ? '1280' : '1366'}.png`, fullPage: true })
         await page.goto(production + skuRoute); await ready(page, '[data-pcs-material-sku-detail]')
-        await action(page, `purchase-${count}:usage`, repeat, () => page.locator('[data-pcs-material-archive-action="simple-popup"][data-popup="usage"]').click(), () => page.waitForSelector('[aria-label="使用情况"]'))
-        assert.ok((await page.locator('[aria-label="使用情况"]').innerText()).includes(orderNo), '采购使用情况必须显示真实保存的单号')
-        await action(page, `purchase-${count}:usage-close`, repeat, () => page.locator('[aria-label="使用情况"] [data-pcs-material-archive-action="close-simple-popup"]').click(), () => page.waitForSelector('[aria-label="使用情况"]', { state: 'detached' }))
-        checks.push(`PCS source → ${count} PCS/package → actual price independent → save/refresh → relation+package versions → true usage`)
+        checks.push(`PCS source → ${count} PCS/package → actual price independent → save/refresh → relation+package versions`)
       }
       const independentPage = await context.newPage(); independentPage.on('pageerror', error => errors.push(error.message)); activePage = independentPage
-      await archiveReferenced(independentPage, skuRoute, purchases[1], 'consumable', repeat); await independentPage.close(); activePage = page
+      await verifyReferencedDirectRead(independentPage, skuRoute, purchases[1], 'consumable', repeat); await independentPage.close(); activePage = page
       const partsRoute = `/pcs/materials/parts/${fixture.partsRootId}/skus/${fixture.partsSkuId}`
       await page.goto(production + partsRoute); await ready(page, '[data-pcs-material-sku-detail]')
       await action(page, 'parts-purchase:handoff', repeat, () => page.locator('[data-pcs-material-archive-action="purchase"]').click(), () => page.waitForSelector('[data-pms-pcs-purchase-workspace]'))
@@ -186,8 +175,8 @@ test('SIMPLE-037/038/040/044–050: real downstream pages, persistent purchase c
       await action(page, 'parts-purchase:save', repeat, () => purchaseAction(page, 'pcs-save').click(), () => page.waitForSelector('[data-pms-mpo-action="pcs-edit"]'))
       const partsOrderNo = new URL(page.url()).searchParams.get('purchaseOrderNo')!; assert.ok(partsOrderNo); purchases.push(partsOrderNo)
       const partsIndependentPage = await context.newPage(); partsIndependentPage.on('pageerror', error => errors.push(error.message)); activePage = partsIndependentPage
-      await archiveReferenced(partsIndependentPage, partsRoute, partsOrderNo, 'parts', repeat); await partsIndependentPage.close(); activePage = page
-      checks.push('both kinds: true purchase references from independent fresh page; archive confirm+reason blocked; every PCS row unchanged after failed save and refresh')
+      await verifyReferencedDirectRead(partsIndependentPage, partsRoute, partsOrderNo, 'parts', repeat); await partsIndependentPage.close(); activePage = page
+      checks.push('both kinds: true purchase references from independent fresh page; independent direct reference read and refresh; every PCS row unchanged')
       await page.goto(production + `/pcs/technical-data/bom-pricing/${fixture.draftId}`); await ready(page, '[data-tech-data-action="bom-add-material"]')
       const optionValues = await page.locator('[data-tech-data-field="bom-material-sku"] option').evaluateAll(nodes => nodes.map(node => (node as HTMLOptionElement).value))
       assert.ok(optionValues.includes(fixture.skuId)); assert.ok(optionValues.includes(fixture.ordinarySkuId)); assert.ok(!optionValues.includes(fixture.partsSkuId))

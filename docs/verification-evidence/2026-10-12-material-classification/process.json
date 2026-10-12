@@ -1,0 +1,2798 @@
+{
+  "base": "http://127.0.0.1:43222",
+  "head": "c89009bb6c7189acb6370b1902347004c1052693",
+  "assetsSha": "b2efbbea490404a5a99fcc233b0af974a85775c9ca68197e69a5cc6148f119c8",
+  "browser": "149.0.7827.55",
+  "formal": true,
+  "rounds": 5,
+  "samples": [
+    {
+      "name": "process-MJS:cold",
+      "ms": 180.09999999403954,
+      "round": 0
+    },
+    {
+      "name": "process-MJS:reload",
+      "ms": 148.59999999403954,
+      "round": 0
+    },
+    {
+      "name": "MJS:type",
+      "ms": 28.899999976158142,
+      "round": 0
+    },
+    {
+      "name": "MJS:confirm-input",
+      "ms": 31.5,
+      "round": 0
+    },
+    {
+      "name": "MJS:method",
+      "ms": 31.099999994039536,
+      "round": 0
+    },
+    {
+      "name": "MJS:spec-tab",
+      "ms": 48.79999998211861,
+      "round": 0
+    },
+    {
+      "name": "MJS:color",
+      "ms": 24,
+      "round": 0
+    },
+    {
+      "name": "MJS:color-code",
+      "ms": 28.80000001192093,
+      "round": 0
+    },
+    {
+      "name": "MJS:pantone",
+      "ms": 30.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "MJS:images-tab",
+      "ms": 32.599999994039536,
+      "round": 0
+    },
+    {
+      "name": "MJS:image-file",
+      "ms": 57.599999994039536,
+      "round": 0
+    },
+    {
+      "name": "MJS:cost-tab",
+      "ms": 34.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "MJS:fee-input",
+      "ms": 26.900000005960464,
+      "round": 0
+    },
+    {
+      "name": "MJS:preview-tab",
+      "ms": 32.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "MJS:save",
+      "ms": 98.5,
+      "round": 0
+    },
+    {
+      "name": "MJS:saved-refresh",
+      "ms": 138.09999999403954,
+      "round": 0
+    },
+    {
+      "name": "MJS:cost-view",
+      "ms": 33.20000001788139,
+      "round": 0
+    },
+    {
+      "name": "process-GTG:cold",
+      "ms": 124.7999999821186,
+      "round": 0
+    },
+    {
+      "name": "process-GTG:reload",
+      "ms": 132.90000000596046,
+      "round": 0
+    },
+    {
+      "name": "GTG:type",
+      "ms": 32.099999994039536,
+      "round": 0
+    },
+    {
+      "name": "GTG:confirm-input",
+      "ms": 31.5,
+      "round": 0
+    },
+    {
+      "name": "GTG:method",
+      "ms": 31.400000005960464,
+      "round": 0
+    },
+    {
+      "name": "GTG:spec-tab",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "GTG:color",
+      "ms": 29.299999982118607,
+      "round": 0
+    },
+    {
+      "name": "GTG:color-code",
+      "ms": 25.900000005960464,
+      "round": 0
+    },
+    {
+      "name": "GTG:pantone",
+      "ms": 30.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "GTG:images-tab",
+      "ms": 32.400000005960464,
+      "round": 0
+    },
+    {
+      "name": "GTG:image-file",
+      "ms": 63.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "GTG:cost-tab",
+      "ms": 32.20000001788139,
+      "round": 0
+    },
+    {
+      "name": "GTG:fee-input",
+      "ms": 28.700000017881393,
+      "round": 0
+    },
+    {
+      "name": "GTG:preview-tab",
+      "ms": 30.5,
+      "round": 0
+    },
+    {
+      "name": "GTG:save",
+      "ms": 97.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "GTG:saved-refresh",
+      "ms": 121.5,
+      "round": 0
+    },
+    {
+      "name": "GTG:cost-view",
+      "ms": 33.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "process-A:cold",
+      "ms": 129.40000000596046,
+      "round": 0
+    },
+    {
+      "name": "process-A:reload",
+      "ms": 132.90000000596046,
+      "round": 0
+    },
+    {
+      "name": "A:type",
+      "ms": 32.400000005960464,
+      "round": 0
+    },
+    {
+      "name": "A:confirm-input",
+      "ms": 31.599999994039536,
+      "round": 0
+    },
+    {
+      "name": "A:spec-tab",
+      "ms": 35,
+      "round": 0
+    },
+    {
+      "name": "A:pattern",
+      "ms": 60.70000001788139,
+      "round": 0
+    },
+    {
+      "name": "A:front-version",
+      "ms": 64.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "A:side",
+      "ms": 63.60000002384186,
+      "round": 0
+    },
+    {
+      "name": "A:revision",
+      "ms": 31.200000017881393,
+      "round": 0
+    },
+    {
+      "name": "A:images-tab",
+      "ms": 33.099999994039536,
+      "round": 0
+    },
+    {
+      "name": "A:image-file",
+      "ms": 59.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "A:cost-tab",
+      "ms": 32.89999997615814,
+      "round": 0
+    },
+    {
+      "name": "A:fee-input",
+      "ms": 29.599999994039536,
+      "round": 0
+    },
+    {
+      "name": "A:preview-tab",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "A:save",
+      "ms": 115.5,
+      "round": 0
+    },
+    {
+      "name": "A:saved-refresh",
+      "ms": 132.39999997615814,
+      "round": 0
+    },
+    {
+      "name": "A:cost-view",
+      "ms": 32.89999997615814,
+      "round": 0
+    },
+    {
+      "name": "process-CT:cold",
+      "ms": 145.7999999821186,
+      "round": 0
+    },
+    {
+      "name": "process-CT:reload",
+      "ms": 132.90000000596046,
+      "round": 0
+    },
+    {
+      "name": "CT:type",
+      "ms": 32,
+      "round": 0
+    },
+    {
+      "name": "CT:confirm-input",
+      "ms": 31.799999982118607,
+      "round": 0
+    },
+    {
+      "name": "CT:spec-tab",
+      "ms": 32.69999998807907,
+      "round": 0
+    },
+    {
+      "name": "CT:pattern",
+      "ms": 63.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "CT:front-version",
+      "ms": 64.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "CT:side",
+      "ms": 64.7999999821186,
+      "round": 0
+    },
+    {
+      "name": "CT:revision",
+      "ms": 31.099999994039536,
+      "round": 0
+    },
+    {
+      "name": "CT:images-tab",
+      "ms": 30.69999998807907,
+      "round": 0
+    },
+    {
+      "name": "CT:image-file",
+      "ms": 60.400000005960464,
+      "round": 0
+    },
+    {
+      "name": "CT:cost-tab",
+      "ms": 32.79999998211861,
+      "round": 0
+    },
+    {
+      "name": "CT:fee-input",
+      "ms": 29.799999982118607,
+      "round": 0
+    },
+    {
+      "name": "CT:preview-tab",
+      "ms": 32.69999998807907,
+      "round": 0
+    },
+    {
+      "name": "CT:save",
+      "ms": 114.90000000596046,
+      "round": 0
+    },
+    {
+      "name": "CT:saved-refresh",
+      "ms": 132,
+      "round": 0
+    },
+    {
+      "name": "CT:cost-view",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "process-AA:cold",
+      "ms": 145.7999999821186,
+      "round": 0
+    },
+    {
+      "name": "process-AA:reload",
+      "ms": 132.90000000596046,
+      "round": 0
+    },
+    {
+      "name": "AA:type",
+      "ms": 32.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "AA:confirm-input",
+      "ms": 31.700000017881393,
+      "round": 0
+    },
+    {
+      "name": "AA:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 0
+    },
+    {
+      "name": "AA:pattern",
+      "ms": 63,
+      "round": 0
+    },
+    {
+      "name": "AA:front-version",
+      "ms": 60.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "AA:side",
+      "ms": 65.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "AA:revision",
+      "ms": 30.700000017881393,
+      "round": 0
+    },
+    {
+      "name": "AA:images-tab",
+      "ms": 32.70000001788139,
+      "round": 0
+    },
+    {
+      "name": "AA:image-file",
+      "ms": 61.20000001788139,
+      "round": 0
+    },
+    {
+      "name": "AA:cost-tab",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "AA:fee-input",
+      "ms": 30.399999976158142,
+      "round": 0
+    },
+    {
+      "name": "AA:preview-tab",
+      "ms": 30.80000001192093,
+      "round": 0
+    },
+    {
+      "name": "AA:save",
+      "ms": 116.90000000596046,
+      "round": 0
+    },
+    {
+      "name": "AA:saved-refresh",
+      "ms": 217.80000001192093,
+      "round": 0
+    },
+    {
+      "name": "AA:cost-view",
+      "ms": 32.80000001192093,
+      "round": 0
+    },
+    {
+      "name": "process-AB:cold",
+      "ms": 130.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "process-AB:reload",
+      "ms": 132.7999999821186,
+      "round": 0
+    },
+    {
+      "name": "AB:type",
+      "ms": 32.599999994039536,
+      "round": 0
+    },
+    {
+      "name": "AB:confirm-input",
+      "ms": 33.20000001788139,
+      "round": 0
+    },
+    {
+      "name": "AB:spec-tab",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "AB:pattern",
+      "ms": 63.900000005960464,
+      "round": 0
+    },
+    {
+      "name": "AB:front-version",
+      "ms": 59.80000001192093,
+      "round": 0
+    },
+    {
+      "name": "AB:side",
+      "ms": 65.5,
+      "round": 0
+    },
+    {
+      "name": "AB:back-pattern",
+      "ms": 35.39999997615814,
+      "round": 0
+    },
+    {
+      "name": "AB:back-version",
+      "ms": 66,
+      "round": 0
+    },
+    {
+      "name": "AB:revision",
+      "ms": 28.69999998807907,
+      "round": 0
+    },
+    {
+      "name": "AB:images-tab",
+      "ms": 33,
+      "round": 0
+    },
+    {
+      "name": "AB:image-file",
+      "ms": 61.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "AB:cost-tab",
+      "ms": 32.599999994039536,
+      "round": 0
+    },
+    {
+      "name": "AB:fee-input",
+      "ms": 31,
+      "round": 0
+    },
+    {
+      "name": "AB:preview-tab",
+      "ms": 32.5,
+      "round": 0
+    },
+    {
+      "name": "AB:save",
+      "ms": 82.7000000178814,
+      "round": 0
+    },
+    {
+      "name": "AB:saved-refresh",
+      "ms": 119.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "AB:cost-view",
+      "ms": 32.900000005960464,
+      "round": 0
+    },
+    {
+      "name": "import50:file",
+      "ms": 72.19999998807907,
+      "round": 0
+    },
+    {
+      "name": "import50:preview",
+      "ms": 83.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "import50:commit",
+      "ms": 81.2999999821186,
+      "round": 0
+    },
+    {
+      "name": "import50:query",
+      "ms": 34.70000001788139,
+      "round": 0
+    },
+    {
+      "name": "import50:export",
+      "ms": 48.30000001192093,
+      "round": 0
+    },
+    {
+      "name": "import50:refresh",
+      "ms": 147.39999997615814,
+      "round": 0
+    },
+    {
+      "name": "conflict:blocked-save",
+      "ms": 49.099999994039536,
+      "round": 0
+    },
+    {
+      "name": "process-MJS:cold",
+      "ms": 145.59999999403954,
+      "round": 1
+    },
+    {
+      "name": "process-MJS:reload",
+      "ms": 132.7999999821186,
+      "round": 1
+    },
+    {
+      "name": "MJS:type",
+      "ms": 31.700000017881393,
+      "round": 1
+    },
+    {
+      "name": "MJS:confirm-input",
+      "ms": 31.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "MJS:method",
+      "ms": 31.200000017881393,
+      "round": 1
+    },
+    {
+      "name": "MJS:spec-tab",
+      "ms": 56.5,
+      "round": 1
+    },
+    {
+      "name": "MJS:color",
+      "ms": 37.599999994039536,
+      "round": 1
+    },
+    {
+      "name": "MJS:color-code",
+      "ms": 31.099999994039536,
+      "round": 1
+    },
+    {
+      "name": "MJS:pantone",
+      "ms": 30.30000001192093,
+      "round": 1
+    },
+    {
+      "name": "MJS:images-tab",
+      "ms": 32.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "MJS:image-file",
+      "ms": 58.20000001788139,
+      "round": 1
+    },
+    {
+      "name": "MJS:cost-tab",
+      "ms": 31.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "MJS:fee-input",
+      "ms": 29.099999994039536,
+      "round": 1
+    },
+    {
+      "name": "MJS:preview-tab",
+      "ms": 31.600000023841858,
+      "round": 1
+    },
+    {
+      "name": "MJS:save",
+      "ms": 98,
+      "round": 1
+    },
+    {
+      "name": "MJS:saved-refresh",
+      "ms": 136.90000000596046,
+      "round": 1
+    },
+    {
+      "name": "MJS:cost-view",
+      "ms": 32.60000002384186,
+      "round": 1
+    },
+    {
+      "name": "process-GTG:cold",
+      "ms": 130.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "process-GTG:reload",
+      "ms": 133.09999999403954,
+      "round": 1
+    },
+    {
+      "name": "GTG:type",
+      "ms": 32.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "GTG:confirm-input",
+      "ms": 31.400000005960464,
+      "round": 1
+    },
+    {
+      "name": "GTG:method",
+      "ms": 31.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "GTG:spec-tab",
+      "ms": 30.5,
+      "round": 1
+    },
+    {
+      "name": "GTG:color",
+      "ms": 29.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "GTG:color-code",
+      "ms": 31.599999994039536,
+      "round": 1
+    },
+    {
+      "name": "GTG:pantone",
+      "ms": 27.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "GTG:images-tab",
+      "ms": 32.10000002384186,
+      "round": 1
+    },
+    {
+      "name": "GTG:image-file",
+      "ms": 61.5,
+      "round": 1
+    },
+    {
+      "name": "GTG:cost-tab",
+      "ms": 31.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "GTG:fee-input",
+      "ms": 29.100000023841858,
+      "round": 1
+    },
+    {
+      "name": "GTG:preview-tab",
+      "ms": 32.30000001192093,
+      "round": 1
+    },
+    {
+      "name": "GTG:save",
+      "ms": 98.40000000596046,
+      "round": 1
+    },
+    {
+      "name": "GTG:saved-refresh",
+      "ms": 133.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "GTG:cost-view",
+      "ms": 32.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "process-A:cold",
+      "ms": 130.90000000596046,
+      "round": 1
+    },
+    {
+      "name": "process-A:reload",
+      "ms": 133.10000002384186,
+      "round": 1
+    },
+    {
+      "name": "A:type",
+      "ms": 32.5,
+      "round": 1
+    },
+    {
+      "name": "A:confirm-input",
+      "ms": 31.5,
+      "round": 1
+    },
+    {
+      "name": "A:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "A:pattern",
+      "ms": 62.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "A:front-version",
+      "ms": 64.30000001192093,
+      "round": 1
+    },
+    {
+      "name": "A:side",
+      "ms": 65,
+      "round": 1
+    },
+    {
+      "name": "A:revision",
+      "ms": 35.29999998211861,
+      "round": 1
+    },
+    {
+      "name": "A:images-tab",
+      "ms": 32.400000005960464,
+      "round": 1
+    },
+    {
+      "name": "A:image-file",
+      "ms": 59.599999994039536,
+      "round": 1
+    },
+    {
+      "name": "A:cost-tab",
+      "ms": 32,
+      "round": 1
+    },
+    {
+      "name": "A:fee-input",
+      "ms": 30.299999982118607,
+      "round": 1
+    },
+    {
+      "name": "A:preview-tab",
+      "ms": 32.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "A:save",
+      "ms": 115.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "A:saved-refresh",
+      "ms": 136.7000000178814,
+      "round": 1
+    },
+    {
+      "name": "A:cost-view",
+      "ms": 32.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "process-CT:cold",
+      "ms": 131,
+      "round": 1
+    },
+    {
+      "name": "process-CT:reload",
+      "ms": 149.7000000178814,
+      "round": 1
+    },
+    {
+      "name": "CT:type",
+      "ms": 32.10000002384186,
+      "round": 1
+    },
+    {
+      "name": "CT:confirm-input",
+      "ms": 30.700000017881393,
+      "round": 1
+    },
+    {
+      "name": "CT:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "CT:pattern",
+      "ms": 63.099999994039536,
+      "round": 1
+    },
+    {
+      "name": "CT:front-version",
+      "ms": 64.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "CT:side",
+      "ms": 64.7999999821186,
+      "round": 1
+    },
+    {
+      "name": "CT:revision",
+      "ms": 30.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "CT:images-tab",
+      "ms": 33.099999994039536,
+      "round": 1
+    },
+    {
+      "name": "CT:image-file",
+      "ms": 60.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "CT:cost-tab",
+      "ms": 32.599999994039536,
+      "round": 1
+    },
+    {
+      "name": "CT:fee-input",
+      "ms": 30.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "CT:preview-tab",
+      "ms": 32.79999998211861,
+      "round": 1
+    },
+    {
+      "name": "CT:save",
+      "ms": 114.89999997615814,
+      "round": 1
+    },
+    {
+      "name": "CT:saved-refresh",
+      "ms": 135.59999999403954,
+      "round": 1
+    },
+    {
+      "name": "CT:cost-view",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "process-AA:cold",
+      "ms": 131.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "process-AA:reload",
+      "ms": 132.90000000596046,
+      "round": 1
+    },
+    {
+      "name": "AA:type",
+      "ms": 30.299999982118607,
+      "round": 1
+    },
+    {
+      "name": "AA:confirm-input",
+      "ms": 33.400000005960464,
+      "round": 1
+    },
+    {
+      "name": "AA:spec-tab",
+      "ms": 33,
+      "round": 1
+    },
+    {
+      "name": "AA:pattern",
+      "ms": 62.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "AA:front-version",
+      "ms": 66.2000000178814,
+      "round": 1
+    },
+    {
+      "name": "AA:side",
+      "ms": 63,
+      "round": 1
+    },
+    {
+      "name": "AA:revision",
+      "ms": 30.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "AA:images-tab",
+      "ms": 33.10000002384186,
+      "round": 1
+    },
+    {
+      "name": "AA:image-file",
+      "ms": 56.599999994039536,
+      "round": 1
+    },
+    {
+      "name": "AA:cost-tab",
+      "ms": 32.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "AA:fee-input",
+      "ms": 30.399999976158142,
+      "round": 1
+    },
+    {
+      "name": "AA:preview-tab",
+      "ms": 32.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "AA:save",
+      "ms": 82.2999999821186,
+      "round": 1
+    },
+    {
+      "name": "AA:saved-refresh",
+      "ms": 211.7000000178814,
+      "round": 1
+    },
+    {
+      "name": "AA:cost-view",
+      "ms": 32.099999994039536,
+      "round": 1
+    },
+    {
+      "name": "process-AB:cold",
+      "ms": 131.2000000178814,
+      "round": 1
+    },
+    {
+      "name": "process-AB:reload",
+      "ms": 133.2999999821186,
+      "round": 1
+    },
+    {
+      "name": "AB:type",
+      "ms": 31.700000017881393,
+      "round": 1
+    },
+    {
+      "name": "AB:confirm-input",
+      "ms": 31.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "AB:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 1
+    },
+    {
+      "name": "AB:pattern",
+      "ms": 63.599999994039536,
+      "round": 1
+    },
+    {
+      "name": "AB:front-version",
+      "ms": 64,
+      "round": 1
+    },
+    {
+      "name": "AB:side",
+      "ms": 65.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "AB:back-pattern",
+      "ms": 65.89999997615814,
+      "round": 1
+    },
+    {
+      "name": "AB:back-version",
+      "ms": 63.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "AB:revision",
+      "ms": 31.099999994039536,
+      "round": 1
+    },
+    {
+      "name": "AB:images-tab",
+      "ms": 32.29999998211861,
+      "round": 1
+    },
+    {
+      "name": "AB:image-file",
+      "ms": 61.400000005960464,
+      "round": 1
+    },
+    {
+      "name": "AB:cost-tab",
+      "ms": 32.70000001788139,
+      "round": 1
+    },
+    {
+      "name": "AB:fee-input",
+      "ms": 30,
+      "round": 1
+    },
+    {
+      "name": "AB:preview-tab",
+      "ms": 32.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "AB:save",
+      "ms": 65.19999998807907,
+      "round": 1
+    },
+    {
+      "name": "AB:saved-refresh",
+      "ms": 148.5,
+      "round": 1
+    },
+    {
+      "name": "AB:cost-view",
+      "ms": 32.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "import50:file",
+      "ms": 54.900000005960464,
+      "round": 1
+    },
+    {
+      "name": "import50:preview",
+      "ms": 82,
+      "round": 1
+    },
+    {
+      "name": "import50:commit",
+      "ms": 82.59999999403954,
+      "round": 1
+    },
+    {
+      "name": "import50:query",
+      "ms": 34.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "import50:export",
+      "ms": 32.69999998807907,
+      "round": 1
+    },
+    {
+      "name": "import50:refresh",
+      "ms": 147.7999999821186,
+      "round": 1
+    },
+    {
+      "name": "conflict:blocked-save",
+      "ms": 49.400000005960464,
+      "round": 1
+    },
+    {
+      "name": "process-MJS:cold",
+      "ms": 140.10000002384186,
+      "round": 2
+    },
+    {
+      "name": "process-MJS:reload",
+      "ms": 133,
+      "round": 2
+    },
+    {
+      "name": "MJS:type",
+      "ms": 31.299999982118607,
+      "round": 2
+    },
+    {
+      "name": "MJS:confirm-input",
+      "ms": 31.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "MJS:method",
+      "ms": 29.599999994039536,
+      "round": 2
+    },
+    {
+      "name": "MJS:spec-tab",
+      "ms": 55.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "MJS:color",
+      "ms": 22.200000017881393,
+      "round": 2
+    },
+    {
+      "name": "MJS:color-code",
+      "ms": 31.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "MJS:pantone",
+      "ms": 30.900000005960464,
+      "round": 2
+    },
+    {
+      "name": "MJS:images-tab",
+      "ms": 32.599999994039536,
+      "round": 2
+    },
+    {
+      "name": "MJS:image-file",
+      "ms": 59.79999998211861,
+      "round": 2
+    },
+    {
+      "name": "MJS:cost-tab",
+      "ms": 35.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "MJS:fee-input",
+      "ms": 25.299999982118607,
+      "round": 2
+    },
+    {
+      "name": "MJS:preview-tab",
+      "ms": 30.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "MJS:save",
+      "ms": 98.40000000596046,
+      "round": 2
+    },
+    {
+      "name": "MJS:saved-refresh",
+      "ms": 139.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "MJS:cost-view",
+      "ms": 36.70000001788139,
+      "round": 2
+    },
+    {
+      "name": "process-GTG:cold",
+      "ms": 127.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "process-GTG:reload",
+      "ms": 132.89999997615814,
+      "round": 2
+    },
+    {
+      "name": "GTG:type",
+      "ms": 32.599999994039536,
+      "round": 2
+    },
+    {
+      "name": "GTG:confirm-input",
+      "ms": 31.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "GTG:method",
+      "ms": 31.299999982118607,
+      "round": 2
+    },
+    {
+      "name": "GTG:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "GTG:color",
+      "ms": 29.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "GTG:color-code",
+      "ms": 31.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "GTG:pantone",
+      "ms": 30.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "GTG:images-tab",
+      "ms": 31.900000005960464,
+      "round": 2
+    },
+    {
+      "name": "GTG:image-file",
+      "ms": 62.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "GTG:cost-tab",
+      "ms": 31.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "GTG:fee-input",
+      "ms": 23.100000023841858,
+      "round": 2
+    },
+    {
+      "name": "GTG:preview-tab",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "GTG:save",
+      "ms": 82.90000000596046,
+      "round": 2
+    },
+    {
+      "name": "GTG:saved-refresh",
+      "ms": 122.60000002384186,
+      "round": 2
+    },
+    {
+      "name": "GTG:cost-view",
+      "ms": 32.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "process-A:cold",
+      "ms": 131.10000002384186,
+      "round": 2
+    },
+    {
+      "name": "process-A:reload",
+      "ms": 132.90000000596046,
+      "round": 2
+    },
+    {
+      "name": "A:type",
+      "ms": 31.600000023841858,
+      "round": 2
+    },
+    {
+      "name": "A:confirm-input",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "A:spec-tab",
+      "ms": 32.599999994039536,
+      "round": 2
+    },
+    {
+      "name": "A:pattern",
+      "ms": 62.5,
+      "round": 2
+    },
+    {
+      "name": "A:front-version",
+      "ms": 64,
+      "round": 2
+    },
+    {
+      "name": "A:side",
+      "ms": 64.89999997615814,
+      "round": 2
+    },
+    {
+      "name": "A:revision",
+      "ms": 31,
+      "round": 2
+    },
+    {
+      "name": "A:images-tab",
+      "ms": 32.900000005960464,
+      "round": 2
+    },
+    {
+      "name": "A:image-file",
+      "ms": 61.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "A:cost-tab",
+      "ms": 33,
+      "round": 2
+    },
+    {
+      "name": "A:fee-input",
+      "ms": 30.5,
+      "round": 2
+    },
+    {
+      "name": "A:preview-tab",
+      "ms": 32.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "A:save",
+      "ms": 83,
+      "round": 2
+    },
+    {
+      "name": "A:saved-refresh",
+      "ms": 138.90000000596046,
+      "round": 2
+    },
+    {
+      "name": "A:cost-view",
+      "ms": 32.69999998807907,
+      "round": 2
+    },
+    {
+      "name": "process-CT:cold",
+      "ms": 131.09999999403954,
+      "round": 2
+    },
+    {
+      "name": "process-CT:reload",
+      "ms": 132.90000000596046,
+      "round": 2
+    },
+    {
+      "name": "CT:type",
+      "ms": 32.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "CT:confirm-input",
+      "ms": 31.799999982118607,
+      "round": 2
+    },
+    {
+      "name": "CT:spec-tab",
+      "ms": 33.900000005960464,
+      "round": 2
+    },
+    {
+      "name": "CT:pattern",
+      "ms": 62.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "CT:front-version",
+      "ms": 64.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "CT:side",
+      "ms": 64.09999999403954,
+      "round": 2
+    },
+    {
+      "name": "CT:revision",
+      "ms": 31.599999994039536,
+      "round": 2
+    },
+    {
+      "name": "CT:images-tab",
+      "ms": 32.69999998807907,
+      "round": 2
+    },
+    {
+      "name": "CT:image-file",
+      "ms": 61.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "CT:cost-tab",
+      "ms": 32.70000001788139,
+      "round": 2
+    },
+    {
+      "name": "CT:fee-input",
+      "ms": 30,
+      "round": 2
+    },
+    {
+      "name": "CT:preview-tab",
+      "ms": 31.700000017881393,
+      "round": 2
+    },
+    {
+      "name": "CT:save",
+      "ms": 115.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "CT:saved-refresh",
+      "ms": 135.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "CT:cost-view",
+      "ms": 32.69999998807907,
+      "round": 2
+    },
+    {
+      "name": "process-AA:cold",
+      "ms": 131.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "process-AA:reload",
+      "ms": 166.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "AA:type",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "AA:confirm-input",
+      "ms": 31.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "AA:spec-tab",
+      "ms": 32.60000002384186,
+      "round": 2
+    },
+    {
+      "name": "AA:pattern",
+      "ms": 63.400000005960464,
+      "round": 2
+    },
+    {
+      "name": "AA:front-version",
+      "ms": 64.40000000596046,
+      "round": 2
+    },
+    {
+      "name": "AA:side",
+      "ms": 64.7999999821186,
+      "round": 2
+    },
+    {
+      "name": "AA:revision",
+      "ms": 31.5,
+      "round": 2
+    },
+    {
+      "name": "AA:images-tab",
+      "ms": 32.900000005960464,
+      "round": 2
+    },
+    {
+      "name": "AA:image-file",
+      "ms": 61.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "AA:cost-tab",
+      "ms": 32.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "AA:fee-input",
+      "ms": 30.100000023841858,
+      "round": 2
+    },
+    {
+      "name": "AA:preview-tab",
+      "ms": 32.79999998211861,
+      "round": 2
+    },
+    {
+      "name": "AA:save",
+      "ms": 64.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "AA:saved-refresh",
+      "ms": 136.10000002384186,
+      "round": 2
+    },
+    {
+      "name": "AA:cost-view",
+      "ms": 34.60000002384186,
+      "round": 2
+    },
+    {
+      "name": "process-AB:cold",
+      "ms": 129.10000002384186,
+      "round": 2
+    },
+    {
+      "name": "process-AB:reload",
+      "ms": 132.89999997615814,
+      "round": 2
+    },
+    {
+      "name": "AB:type",
+      "ms": 32.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "AB:confirm-input",
+      "ms": 31.700000017881393,
+      "round": 2
+    },
+    {
+      "name": "AB:spec-tab",
+      "ms": 30.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "AB:pattern",
+      "ms": 63.5,
+      "round": 2
+    },
+    {
+      "name": "AB:front-version",
+      "ms": 65.90000000596046,
+      "round": 2
+    },
+    {
+      "name": "AB:side",
+      "ms": 62.900000005960464,
+      "round": 2
+    },
+    {
+      "name": "AB:back-pattern",
+      "ms": 55.099999994039536,
+      "round": 2
+    },
+    {
+      "name": "AB:back-version",
+      "ms": 63.5,
+      "round": 2
+    },
+    {
+      "name": "AB:revision",
+      "ms": 31.100000023841858,
+      "round": 2
+    },
+    {
+      "name": "AB:images-tab",
+      "ms": 33,
+      "round": 2
+    },
+    {
+      "name": "AB:image-file",
+      "ms": 61,
+      "round": 2
+    },
+    {
+      "name": "AB:cost-tab",
+      "ms": 34.69999998807907,
+      "round": 2
+    },
+    {
+      "name": "AB:fee-input",
+      "ms": 27.599999994039536,
+      "round": 2
+    },
+    {
+      "name": "AB:preview-tab",
+      "ms": 32.19999998807907,
+      "round": 2
+    },
+    {
+      "name": "AB:save",
+      "ms": 65.2000000178814,
+      "round": 2
+    },
+    {
+      "name": "AB:saved-refresh",
+      "ms": 135.59999999403954,
+      "round": 2
+    },
+    {
+      "name": "AB:cost-view",
+      "ms": 32.89999997615814,
+      "round": 2
+    },
+    {
+      "name": "import50:file",
+      "ms": 54.80000001192093,
+      "round": 2
+    },
+    {
+      "name": "import50:preview",
+      "ms": 82.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "import50:commit",
+      "ms": 82.2000000178814,
+      "round": 2
+    },
+    {
+      "name": "import50:query",
+      "ms": 34.69999998807907,
+      "round": 2
+    },
+    {
+      "name": "import50:export",
+      "ms": 32.5,
+      "round": 2
+    },
+    {
+      "name": "import50:refresh",
+      "ms": 133,
+      "round": 2
+    },
+    {
+      "name": "conflict:blocked-save",
+      "ms": 49.30000001192093,
+      "round": 2
+    },
+    {
+      "name": "process-MJS:cold",
+      "ms": 142.2999999821186,
+      "round": 3
+    },
+    {
+      "name": "process-MJS:reload",
+      "ms": 133,
+      "round": 3
+    },
+    {
+      "name": "MJS:type",
+      "ms": 31.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "MJS:confirm-input",
+      "ms": 31.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "MJS:method",
+      "ms": 30.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "MJS:spec-tab",
+      "ms": 51.5,
+      "round": 3
+    },
+    {
+      "name": "MJS:color",
+      "ms": 26.400000005960464,
+      "round": 3
+    },
+    {
+      "name": "MJS:color-code",
+      "ms": 31.5,
+      "round": 3
+    },
+    {
+      "name": "MJS:pantone",
+      "ms": 30.5,
+      "round": 3
+    },
+    {
+      "name": "MJS:images-tab",
+      "ms": 32.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "MJS:image-file",
+      "ms": 32.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "MJS:cost-tab",
+      "ms": 32.89999997615814,
+      "round": 3
+    },
+    {
+      "name": "MJS:fee-input",
+      "ms": 29.799999982118607,
+      "round": 3
+    },
+    {
+      "name": "MJS:preview-tab",
+      "ms": 32,
+      "round": 3
+    },
+    {
+      "name": "MJS:save",
+      "ms": 98.5,
+      "round": 3
+    },
+    {
+      "name": "MJS:saved-refresh",
+      "ms": 139.39999997615814,
+      "round": 3
+    },
+    {
+      "name": "MJS:cost-view",
+      "ms": 33,
+      "round": 3
+    },
+    {
+      "name": "process-GTG:cold",
+      "ms": 130.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "process-GTG:reload",
+      "ms": 132.90000000596046,
+      "round": 3
+    },
+    {
+      "name": "GTG:type",
+      "ms": 32.30000001192093,
+      "round": 3
+    },
+    {
+      "name": "GTG:confirm-input",
+      "ms": 31.700000017881393,
+      "round": 3
+    },
+    {
+      "name": "GTG:method",
+      "ms": 31.799999982118607,
+      "round": 3
+    },
+    {
+      "name": "GTG:spec-tab",
+      "ms": 32.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "GTG:color",
+      "ms": 29.30000001192093,
+      "round": 3
+    },
+    {
+      "name": "GTG:color-code",
+      "ms": 30,
+      "round": 3
+    },
+    {
+      "name": "GTG:pantone",
+      "ms": 31.099999994039536,
+      "round": 3
+    },
+    {
+      "name": "GTG:images-tab",
+      "ms": 31.5,
+      "round": 3
+    },
+    {
+      "name": "GTG:image-file",
+      "ms": 61.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "GTG:cost-tab",
+      "ms": 31.5,
+      "round": 3
+    },
+    {
+      "name": "GTG:fee-input",
+      "ms": 28.19999998807907,
+      "round": 3
+    },
+    {
+      "name": "GTG:preview-tab",
+      "ms": 31.200000017881393,
+      "round": 3
+    },
+    {
+      "name": "GTG:save",
+      "ms": 98.5,
+      "round": 3
+    },
+    {
+      "name": "GTG:saved-refresh",
+      "ms": 138.40000000596046,
+      "round": 3
+    },
+    {
+      "name": "GTG:cost-view",
+      "ms": 30.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "process-A:cold",
+      "ms": 131,
+      "round": 3
+    },
+    {
+      "name": "process-A:reload",
+      "ms": 132.90000000596046,
+      "round": 3
+    },
+    {
+      "name": "A:type",
+      "ms": 32.39999997615814,
+      "round": 3
+    },
+    {
+      "name": "A:confirm-input",
+      "ms": 31.5,
+      "round": 3
+    },
+    {
+      "name": "A:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "A:pattern",
+      "ms": 63.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "A:front-version",
+      "ms": 63.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "A:side",
+      "ms": 65.09999999403954,
+      "round": 3
+    },
+    {
+      "name": "A:revision",
+      "ms": 31,
+      "round": 3
+    },
+    {
+      "name": "A:images-tab",
+      "ms": 32.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "A:image-file",
+      "ms": 60.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "A:cost-tab",
+      "ms": 34.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "A:fee-input",
+      "ms": 28.100000023841858,
+      "round": 3
+    },
+    {
+      "name": "A:preview-tab",
+      "ms": 32.70000001788139,
+      "round": 3
+    },
+    {
+      "name": "A:save",
+      "ms": 114.7000000178814,
+      "round": 3
+    },
+    {
+      "name": "A:saved-refresh",
+      "ms": 139.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "A:cost-view",
+      "ms": 33,
+      "round": 3
+    },
+    {
+      "name": "process-CT:cold",
+      "ms": 219.59999999403954,
+      "round": 3
+    },
+    {
+      "name": "process-CT:reload",
+      "ms": 142.39999997615814,
+      "round": 3
+    },
+    {
+      "name": "CT:type",
+      "ms": 32.099999994039536,
+      "round": 3
+    },
+    {
+      "name": "CT:confirm-input",
+      "ms": 32,
+      "round": 3
+    },
+    {
+      "name": "CT:spec-tab",
+      "ms": 33,
+      "round": 3
+    },
+    {
+      "name": "CT:pattern",
+      "ms": 65.30000001192093,
+      "round": 3
+    },
+    {
+      "name": "CT:front-version",
+      "ms": 62.29999998211861,
+      "round": 3
+    },
+    {
+      "name": "CT:side",
+      "ms": 65.10000002384186,
+      "round": 3
+    },
+    {
+      "name": "CT:revision",
+      "ms": 30.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "CT:images-tab",
+      "ms": 32.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "CT:image-file",
+      "ms": 61.30000001192093,
+      "round": 3
+    },
+    {
+      "name": "CT:cost-tab",
+      "ms": 32.79999998211861,
+      "round": 3
+    },
+    {
+      "name": "CT:fee-input",
+      "ms": 30.100000023841858,
+      "round": 3
+    },
+    {
+      "name": "CT:preview-tab",
+      "ms": 50.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "CT:save",
+      "ms": 84.59999999403954,
+      "round": 3
+    },
+    {
+      "name": "CT:saved-refresh",
+      "ms": 148.2000000178814,
+      "round": 3
+    },
+    {
+      "name": "CT:cost-view",
+      "ms": 33.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "process-AA:cold",
+      "ms": 129.90000000596046,
+      "round": 3
+    },
+    {
+      "name": "process-AA:reload",
+      "ms": 132.7999999821186,
+      "round": 3
+    },
+    {
+      "name": "AA:type",
+      "ms": 32.20000001788139,
+      "round": 3
+    },
+    {
+      "name": "AA:confirm-input",
+      "ms": 32,
+      "round": 3
+    },
+    {
+      "name": "AA:spec-tab",
+      "ms": 32.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "AA:pattern",
+      "ms": 63.5,
+      "round": 3
+    },
+    {
+      "name": "AA:front-version",
+      "ms": 63.79999998211861,
+      "round": 3
+    },
+    {
+      "name": "AA:side",
+      "ms": 65.2999999821186,
+      "round": 3
+    },
+    {
+      "name": "AA:revision",
+      "ms": 31.400000005960464,
+      "round": 3
+    },
+    {
+      "name": "AA:images-tab",
+      "ms": 33.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "AA:image-file",
+      "ms": 61.5,
+      "round": 3
+    },
+    {
+      "name": "AA:cost-tab",
+      "ms": 33.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "AA:fee-input",
+      "ms": 29.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "AA:preview-tab",
+      "ms": 33.099999994039536,
+      "round": 3
+    },
+    {
+      "name": "AA:save",
+      "ms": 84.59999999403954,
+      "round": 3
+    },
+    {
+      "name": "AA:saved-refresh",
+      "ms": 133.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "AA:cost-view",
+      "ms": 32.79999998211861,
+      "round": 3
+    },
+    {
+      "name": "process-AB:cold",
+      "ms": 131.2999999821186,
+      "round": 3
+    },
+    {
+      "name": "process-AB:reload",
+      "ms": 132.90000000596046,
+      "round": 3
+    },
+    {
+      "name": "AB:type",
+      "ms": 35.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "AB:confirm-input",
+      "ms": 27.099999994039536,
+      "round": 3
+    },
+    {
+      "name": "AB:spec-tab",
+      "ms": 32.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "AB:pattern",
+      "ms": 63.19999998807907,
+      "round": 3
+    },
+    {
+      "name": "AB:front-version",
+      "ms": 66.2000000178814,
+      "round": 3
+    },
+    {
+      "name": "AB:side",
+      "ms": 63.20000001788139,
+      "round": 3
+    },
+    {
+      "name": "AB:back-pattern",
+      "ms": 37.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "AB:back-version",
+      "ms": 64,
+      "round": 3
+    },
+    {
+      "name": "AB:revision",
+      "ms": 30.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "AB:images-tab",
+      "ms": 31.400000005960464,
+      "round": 3
+    },
+    {
+      "name": "AB:image-file",
+      "ms": 63.19999998807907,
+      "round": 3
+    },
+    {
+      "name": "AB:cost-tab",
+      "ms": 32.69999998807907,
+      "round": 3
+    },
+    {
+      "name": "AB:fee-input",
+      "ms": 29.900000005960464,
+      "round": 3
+    },
+    {
+      "name": "AB:preview-tab",
+      "ms": 32.599999994039536,
+      "round": 3
+    },
+    {
+      "name": "AB:save",
+      "ms": 64.90000000596046,
+      "round": 3
+    },
+    {
+      "name": "AB:saved-refresh",
+      "ms": 131.5,
+      "round": 3
+    },
+    {
+      "name": "AB:cost-view",
+      "ms": 32.80000001192093,
+      "round": 3
+    },
+    {
+      "name": "import50:file",
+      "ms": 55.5,
+      "round": 3
+    },
+    {
+      "name": "import50:preview",
+      "ms": 82.59999999403954,
+      "round": 3
+    },
+    {
+      "name": "import50:commit",
+      "ms": 82.2000000178814,
+      "round": 3
+    },
+    {
+      "name": "import50:query",
+      "ms": 34.79999998211861,
+      "round": 3
+    },
+    {
+      "name": "import50:export",
+      "ms": 32.79999998211861,
+      "round": 3
+    },
+    {
+      "name": "import50:refresh",
+      "ms": 147.19999998807907,
+      "round": 3
+    },
+    {
+      "name": "conflict:blocked-save",
+      "ms": 65.59999999403954,
+      "round": 3
+    },
+    {
+      "name": "process-MJS:cold",
+      "ms": 139.7999999821186,
+      "round": 4
+    },
+    {
+      "name": "process-MJS:reload",
+      "ms": 134.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "MJS:type",
+      "ms": 30.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "MJS:confirm-input",
+      "ms": 33.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "MJS:method",
+      "ms": 32.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "MJS:spec-tab",
+      "ms": 49.30000001192093,
+      "round": 4
+    },
+    {
+      "name": "MJS:color",
+      "ms": 28.799999982118607,
+      "round": 4
+    },
+    {
+      "name": "MJS:color-code",
+      "ms": 31.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "MJS:pantone",
+      "ms": 26.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "MJS:images-tab",
+      "ms": 32.5,
+      "round": 4
+    },
+    {
+      "name": "MJS:image-file",
+      "ms": 59.10000002384186,
+      "round": 4
+    },
+    {
+      "name": "MJS:cost-tab",
+      "ms": 32.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "MJS:fee-input",
+      "ms": 29.5,
+      "round": 4
+    },
+    {
+      "name": "MJS:preview-tab",
+      "ms": 32,
+      "round": 4
+    },
+    {
+      "name": "MJS:save",
+      "ms": 96.60000002384186,
+      "round": 4
+    },
+    {
+      "name": "MJS:saved-refresh",
+      "ms": 139.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "MJS:cost-view",
+      "ms": 32.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "process-GTG:cold",
+      "ms": 130.40000000596046,
+      "round": 4
+    },
+    {
+      "name": "process-GTG:reload",
+      "ms": 132.90000000596046,
+      "round": 4
+    },
+    {
+      "name": "GTG:type",
+      "ms": 32.5,
+      "round": 4
+    },
+    {
+      "name": "GTG:confirm-input",
+      "ms": 31.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "GTG:method",
+      "ms": 30.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "GTG:spec-tab",
+      "ms": 32.60000002384186,
+      "round": 4
+    },
+    {
+      "name": "GTG:color",
+      "ms": 29.5,
+      "round": 4
+    },
+    {
+      "name": "GTG:color-code",
+      "ms": 31.30000001192093,
+      "round": 4
+    },
+    {
+      "name": "GTG:pantone",
+      "ms": 28.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "GTG:images-tab",
+      "ms": 31.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "GTG:image-file",
+      "ms": 61.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "GTG:cost-tab",
+      "ms": 32.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "GTG:fee-input",
+      "ms": 29.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "GTG:preview-tab",
+      "ms": 32.29999998211861,
+      "round": 4
+    },
+    {
+      "name": "GTG:save",
+      "ms": 98.5,
+      "round": 4
+    },
+    {
+      "name": "GTG:saved-refresh",
+      "ms": 133.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "GTG:cost-view",
+      "ms": 33,
+      "round": 4
+    },
+    {
+      "name": "process-A:cold",
+      "ms": 130.90000000596046,
+      "round": 4
+    },
+    {
+      "name": "process-A:reload",
+      "ms": 134.5,
+      "round": 4
+    },
+    {
+      "name": "A:type",
+      "ms": 30.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "A:confirm-input",
+      "ms": 31.700000017881393,
+      "round": 4
+    },
+    {
+      "name": "A:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "A:pattern",
+      "ms": 63.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "A:front-version",
+      "ms": 67.90000000596046,
+      "round": 4
+    },
+    {
+      "name": "A:side",
+      "ms": 59.39999997615814,
+      "round": 4
+    },
+    {
+      "name": "A:revision",
+      "ms": 30.600000023841858,
+      "round": 4
+    },
+    {
+      "name": "A:images-tab",
+      "ms": 32.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "A:image-file",
+      "ms": 61.30000001192093,
+      "round": 4
+    },
+    {
+      "name": "A:cost-tab",
+      "ms": 34.5,
+      "round": 4
+    },
+    {
+      "name": "A:fee-input",
+      "ms": 28,
+      "round": 4
+    },
+    {
+      "name": "A:preview-tab",
+      "ms": 32.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "A:save",
+      "ms": 83.90000000596046,
+      "round": 4
+    },
+    {
+      "name": "A:saved-refresh",
+      "ms": 123.09999999403954,
+      "round": 4
+    },
+    {
+      "name": "A:cost-view",
+      "ms": 33.10000002384186,
+      "round": 4
+    },
+    {
+      "name": "process-CT:cold",
+      "ms": 131.89999997615814,
+      "round": 4
+    },
+    {
+      "name": "process-CT:reload",
+      "ms": 115,
+      "round": 4
+    },
+    {
+      "name": "CT:type",
+      "ms": 32,
+      "round": 4
+    },
+    {
+      "name": "CT:confirm-input",
+      "ms": 32,
+      "round": 4
+    },
+    {
+      "name": "CT:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "CT:pattern",
+      "ms": 64,
+      "round": 4
+    },
+    {
+      "name": "CT:front-version",
+      "ms": 64.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "CT:side",
+      "ms": 65.09999999403954,
+      "round": 4
+    },
+    {
+      "name": "CT:revision",
+      "ms": 30.200000017881393,
+      "round": 4
+    },
+    {
+      "name": "CT:images-tab",
+      "ms": 31.200000017881393,
+      "round": 4
+    },
+    {
+      "name": "CT:image-file",
+      "ms": 62.70000001788139,
+      "round": 4
+    },
+    {
+      "name": "CT:cost-tab",
+      "ms": 32.79999998211861,
+      "round": 4
+    },
+    {
+      "name": "CT:fee-input",
+      "ms": 30.100000023841858,
+      "round": 4
+    },
+    {
+      "name": "CT:preview-tab",
+      "ms": 32.70000001788139,
+      "round": 4
+    },
+    {
+      "name": "CT:save",
+      "ms": 115,
+      "round": 4
+    },
+    {
+      "name": "CT:saved-refresh",
+      "ms": 135.7000000178814,
+      "round": 4
+    },
+    {
+      "name": "CT:cost-view",
+      "ms": 32.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "process-AA:cold",
+      "ms": 130.59999999403954,
+      "round": 4
+    },
+    {
+      "name": "process-AA:reload",
+      "ms": 166.40000000596046,
+      "round": 4
+    },
+    {
+      "name": "AA:type",
+      "ms": 32.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "AA:confirm-input",
+      "ms": 32,
+      "round": 4
+    },
+    {
+      "name": "AA:spec-tab",
+      "ms": 32.69999998807907,
+      "round": 4
+    },
+    {
+      "name": "AA:pattern",
+      "ms": 63.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "AA:front-version",
+      "ms": 65.59999999403954,
+      "round": 4
+    },
+    {
+      "name": "AA:side",
+      "ms": 63.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "AA:revision",
+      "ms": 30.799999982118607,
+      "round": 4
+    },
+    {
+      "name": "AA:images-tab",
+      "ms": 33.10000002384186,
+      "round": 4
+    },
+    {
+      "name": "AA:image-file",
+      "ms": 56.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "AA:cost-tab",
+      "ms": 33.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "AA:fee-input",
+      "ms": 29.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "AA:preview-tab",
+      "ms": 32.69999998807907,
+      "round": 4
+    },
+    {
+      "name": "AA:save",
+      "ms": 113.40000000596046,
+      "round": 4
+    },
+    {
+      "name": "AA:saved-refresh",
+      "ms": 133.90000000596046,
+      "round": 4
+    },
+    {
+      "name": "AA:cost-view",
+      "ms": 32.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "process-AB:cold",
+      "ms": 131.10000002384186,
+      "round": 4
+    },
+    {
+      "name": "process-AB:reload",
+      "ms": 133,
+      "round": 4
+    },
+    {
+      "name": "AB:type",
+      "ms": 32.400000005960464,
+      "round": 4
+    },
+    {
+      "name": "AB:confirm-input",
+      "ms": 30.200000017881393,
+      "round": 4
+    },
+    {
+      "name": "AB:spec-tab",
+      "ms": 32.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "AB:pattern",
+      "ms": 63.900000005960464,
+      "round": 4
+    },
+    {
+      "name": "AB:front-version",
+      "ms": 66.09999999403954,
+      "round": 4
+    },
+    {
+      "name": "AB:side",
+      "ms": 62.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "AB:back-pattern",
+      "ms": 58,
+      "round": 4
+    },
+    {
+      "name": "AB:back-version",
+      "ms": 59.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "AB:revision",
+      "ms": 31.099999994039536,
+      "round": 4
+    },
+    {
+      "name": "AB:images-tab",
+      "ms": 31.80000001192093,
+      "round": 4
+    },
+    {
+      "name": "AB:image-file",
+      "ms": 61.20000001788139,
+      "round": 4
+    },
+    {
+      "name": "AB:cost-tab",
+      "ms": 33.10000002384186,
+      "round": 4
+    },
+    {
+      "name": "AB:fee-input",
+      "ms": 28.30000001192093,
+      "round": 4
+    },
+    {
+      "name": "AB:preview-tab",
+      "ms": 32.599999994039536,
+      "round": 4
+    },
+    {
+      "name": "AB:save",
+      "ms": 63.400000005960464,
+      "round": 4
+    },
+    {
+      "name": "AB:saved-refresh",
+      "ms": 133.19999998807907,
+      "round": 4
+    },
+    {
+      "name": "AB:cost-view",
+      "ms": 33.10000002384186,
+      "round": 4
+    },
+    {
+      "name": "import50:file",
+      "ms": 55,
+      "round": 4
+    },
+    {
+      "name": "import50:preview",
+      "ms": 63.89999997615814,
+      "round": 4
+    },
+    {
+      "name": "import50:commit",
+      "ms": 82.7999999821186,
+      "round": 4
+    },
+    {
+      "name": "import50:query",
+      "ms": 33.69999998807907,
+      "round": 4
+    },
+    {
+      "name": "import50:export",
+      "ms": 31.400000005960464,
+      "round": 4
+    },
+    {
+      "name": "import50:refresh",
+      "ms": 147.59999999403954,
+      "round": 4
+    },
+    {
+      "name": "conflict:blocked-save",
+      "ms": 47.29999998211861,
+      "round": 4
+    }
+  ],
+  "checks": [
+    "six distinct modes and independently persisted fees, AB explicit two patterns; all refreshed",
+    "50 rows: ten SPU with five specs, all exported/refreshed; cross-tab conflict preserves input and earlier committed data",
+    "six distinct modes and independently persisted fees, AB explicit two patterns; all refreshed",
+    "50 rows: ten SPU with five specs, all exported/refreshed; cross-tab conflict preserves input and earlier committed data",
+    "six distinct modes and independently persisted fees, AB explicit two patterns; all refreshed",
+    "50 rows: ten SPU with five specs, all exported/refreshed; cross-tab conflict preserves input and earlier committed data",
+    "six distinct modes and independently persisted fees, AB explicit two patterns; all refreshed",
+    "50 rows: ten SPU with five specs, all exported/refreshed; cross-tab conflict preserves input and earlier committed data",
+    "six distinct modes and independently persisted fees, AB explicit two patterns; all refreshed",
+    "50 rows: ten SPU with five specs, all exported/refreshed; cross-tab conflict preserves input and earlier committed data"
+  ],
+  "errors": []
+}

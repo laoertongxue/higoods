@@ -11,7 +11,7 @@ export interface PcsMaterialHandoff {
 }
 export function materialPurchaseHandoffPath(skuId: string): string {
   const sku = getMaterialSkuRecordById(skuId)
-  if (!isMaterialSkuAvailableForNewUse(sku)) throw new Error('物料 SKU 及其主档须已审核并启用，才能发起采购。')
+  if (!isMaterialSkuAvailableForNewUse(sku)) throw new Error('物料 SKU 及其主档尚不可选用，请核对审核状态后再发起采购。')
   return `/pms/material-purchase-orders?${new URLSearchParams({ pcsIntent: 'purchase', materialSkuId: skuId })}`
 }
 export function materialProcessHandoffPath(skuId: string): string {
@@ -31,7 +31,7 @@ export function readPcsMaterialHandoff(search = typeof window === 'undefined' ? 
   if (!sku || !root) throw new Error('来源物料不存在，请返回物料档案重新选择。')
   const returnPath = `/pcs/materials/${root.kind}/${root.materialId}/skus/${sku.materialSkuId}`
   if (intent === 'purchase') {
-    if (!isMaterialSkuAvailableForNewUse(sku)) throw new Error('物料 SKU 及其主档须已审核并启用，才能发起采购。')
+    if (!isMaterialSkuAvailableForNewUse(sku)) throw new Error('物料 SKU 及其主档尚不可选用，请核对审核状态后再发起采购。')
     return { kind: 'PURCHASE', target: sku, returnPath }
   }
   assertProcessMaterial(sku.materialSkuId)

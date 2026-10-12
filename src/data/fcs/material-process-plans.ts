@@ -1,3 +1,4 @@
+import {assertMaterialProcessModeForNewPlan} from '../pcs-material-archive-repository.ts'
 import { getMaterialArchiveById, getMaterialProcessDefinition, getMaterialSkuRecordById, listAllMaterialSkuRecords, listMaterialAssets, markMaterialSkuMainUnitUsed, isMaterialSkuAvailableForNewUse } from '../pcs-material-archive-repository.ts'
 import type { MaterialProcessDefinition, MaterialProcessType, MaterialSkuRecord } from '../pcs-material-archive-types.ts'
 import { getPcsDurableFileReference, pcsRecordStore, registerPcsRepositoryReset } from '../pcs-record-runtime.ts'
@@ -102,6 +103,7 @@ export function readFcsMaterialProcessPlanSource(input: Pick<FcsMaterialProcessP
   const process = getMaterialProcessDefinition(input.outputSkuId)
   if (!output || !source || !process || process.inputSkuId !== input.inputSkuId || process.outputSkuId !== input.outputSkuId || process.processDefinitionId !== input.processDefinitionId) throw new Error('直接投入、目标物料和加工定义不一致，请重新从物料档案发起。')
   if (!input.processVersionId || process.processVersionId !== input.processVersionId) throw new Error('加工资料版本已变化，请重新选择目标料并核对资料。')
+  assertMaterialProcessModeForNewPlan(input.outputSkuId)
   if (process.objectType !== 'MATERIAL') throw new Error('此入口只为物料加工建计划；裁片与毛织成片请使用对应专业任务。')
   if (process.processType === 'DYEING' && (!process.pantoneCode || !process.pantoneSystem)) throw new Error('染色加工定义缺少 Pantone 体系或色号。')
   if (process.processType === 'EMBROIDERY' || process.processType === 'HEAT_TRANSFER') {
@@ -119,7 +121,7 @@ export function readFcsMaterialProcessPlanSource(input: Pick<FcsMaterialProcessP
   return { sourceType: 'MATERIAL_SKU', input: snapshotSku(source), output: snapshotSku(output), process: definition, executionAssets }
 }
 export function listFcsMaterialPlanTargets(type?: MaterialProcessType): MaterialSkuRecord[] {
-  return listAllMaterialSkuRecords().filter(sku => {
+  return listAllMaterialSkuRecords().filter(sku=>{try{assertMaterialProcessModeForNewPlan(sku.materialSkuId);return true}catch{return false}}).filter(sku => {
     const kind = getMaterialArchiveById(sku.materialId)?.kind
     return kind !== 'consumable' && kind !== 'parts' && sku.processDefinitionId && isMaterialSkuAvailableForNewUse(sku)
   })

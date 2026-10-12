@@ -425,6 +425,12 @@ export function assertListPage(
   readSource?: (path: string) => string | null,
 ): void {
   const pattern = parsePagePattern(source)
+  // A fully migrated current list must prove the complete contract. Its old
+  // malformed directive is not a historical exception and cannot weaken it.
+  if (pattern === 'list') {
+    assert(hasStandardListContract(source, path, readSource), `${path} 声明为列表页，但未完整使用标准列表骨架、表格和适用分页；无分页须声明具体原因`)
+    return
+  }
   const wasList = before !== null && isListCandidate(before)
   if (before === null && !pattern) {
     throw new Error(`${path} 是新增页面，必须声明 @page-pattern: list|detail|form|dashboard|pda`)
@@ -433,10 +439,6 @@ export function assertListPage(
     throw new Error(`${path} 不能通过删除或修改列表声明绕过标准列表契约`)
   }
   if (!isListCandidate(source) && !wasList && !baseline[path]) return
-  if (pattern === 'list') {
-    assert(hasStandardListContract(source, path, readSource), `${path} 声明为列表页，但未完整使用标准列表骨架、表格和适用分页；无分页须声明具体原因`)
-    return
-  }
   // The fixed baseline proves that this is a grandfathered page. It must never be
   // overwritten with an approved copy edit's digest: each edit binds its own source pair.
   if (baseline[path] && before !== null) {

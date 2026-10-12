@@ -40,11 +40,15 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (/^tests\/(?:pcs-material-cost-folding|pcs-r1-config(?:-page)?|pcs-r1-material-(?:field-coverage|rules|template-gaps|transfer)|pcs-simple-material-downstream)\.test\.ts$/.test(path)) {
+      add(fastChecks, `node --import tsx --test ${shellQuote(path)}`)
+      continue
+    }
     if (path === 'tests/pcs-engineering-bom-version-workflow.spec.ts') {
       add(fastChecks, 'node --import tsx tests/pcs-engineering-bom-version-workflow.spec.ts')
       continue
     }
-    if (path === 'scripts/check-pcs-simple-browser-evidence.ts'
+    if (path === 'tests/browser-contracts/pcs-material-process-acceptance.test.ts' || path === 'tests/browser-contracts/pcs-material-layout-downstream.test.ts' || path === 'scripts/check-pcs-simple-browser-evidence.ts'
       || /^tests\/browser-contracts\/pcs-simple-(adversarial|config|copy-identity|dossier|downstream|import|long-label|materials|list-entry|category-usage)\.test\.ts$/.test(path)) {
       add(fastChecks, 'node --import tsx scripts/check-pcs-simple-browser-evidence.ts')
       add(fastChecks, 'node --import tsx --test tests/workflow-governance/pcs-simple-browser-evidence.test.ts')

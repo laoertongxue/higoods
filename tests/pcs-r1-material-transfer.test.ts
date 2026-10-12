@@ -44,11 +44,11 @@ test('GOV-008: a save failure after preview publishes neither parent nor earlier
  assert.equal(JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),before)
 })
 test('MAT/CODE: CSV stages use the preceding row actual generated SKU',()=>{
- const root=sample(),dye={...root,'加工类型':'DYEING','直接投入SKU':root['物料编码']+'-B01','SKU颜色编码':'black','SKU颜色':'黑色','Pantone体系':'TCX','Pantone色号':'19-4003'}
+ const root=sample(),dye={...root,'加工类型':'DYEING','染色方式':'MJS','直接投入SKU':root['物料编码']+'-B01','SKU颜色编码':'black','SKU颜色':'黑色','Pantone体系':'TCX','Pantone色号':'19-4003'}
  const preview=previewMaterialBusinessImport('fabric','archives',csv('archives',[root,dye]))
  assert.equal(preview.failedRows,0)
  applyMaterialBusinessImportPreview(preview)
- const target=repo.resolveMaterialSkuIdentity(root['物料编码']+'-B01-black-19-4003PT')!
+ const target=repo.resolveMaterialSkuIdentity(root['物料编码']+'-B01-black-19-4003PT-MJS')!
  assert.equal(repo.getMaterialSkuRecordById(target.inputSkuId!)?.materialSkuCode,root['物料编码']+'-B01')
 })
 test('UOM/COST: CSV rejects nonpositive relation and preserves an explicit zero cost',()=>{
@@ -71,7 +71,7 @@ test('GOV-027: image columns reject bytes and temporary URLs, while empty root e
   const preview=previewMaterialBusinessImport('fabric','archives',csv('archives',[{...row,'主图':url}]))
   assert.equal(preview.validGroups,0);assert.equal(preview.failedRows,1)
  }
- const copied=repo.copyMaterialArchive(baseline.records[0].materialId)!
+ const source=baseline.records.find(r=>r.kind==='fabric')!;const copied=repo.createMaterialArchive({...source,materialCode:undefined,firstSku:undefined})
  const exported=parseMaterialBusinessCsv(exportMaterialBusinessRows('archives',[],[copied.materialId]))
  assert.equal(exported.length,2)
  assert.equal(exported[1][exported[0].indexOf('物料编码')],copied.materialCode)

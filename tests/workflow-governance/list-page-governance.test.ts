@@ -212,6 +212,14 @@ test('新增列表须声明模式且实际调用标准组件，注释不能冒�
   assert.doesNotThrow(() => assertListPage('src/pages/new.ts', standard.replace('paginationHtml: renderTablePagination({})', '').replace('// @page-pattern: list', '// @page-pattern: list\n// @list-pagination: none — 固定四项展示，无分页需求'), null, {}))
 })
 
+test('完整标准列表可修正历史无效声明；当前声明与骨架契约仍严格验证', () => {
+  const before = '// @page-pattern: list, detail, form\n' + BEFORE
+  const current = STANDARD_IMPORTS + '// @page-pattern: list\nexport function renderMigratedPage() { return renderStandardListPage({ tableHtml: renderStandardListTable({}), paginationHtml: renderTablePagination({}) }) }'
+  assert.doesNotThrow(() => assertListPage('src/pages/migrated.ts', current, before, {}))
+  assert.throws(() => assertListPage('src/pages/migrated.ts', '// @page-pattern: list\nexport function renderMigratedPage() { return "" }', before, {}), /未完整使用/)
+  assert.throws(() => assertListPage('src/pages/migrated.ts', before, BEFORE, {}), /声明无效/)
+})
+
 test('本地同名函数和导出入口不可达的死函数不能冒充标准组件契约', () => {
   const calls = 'renderStandardListPage({ tableHtml: renderStandardListTable({}), paginationHtml: renderTablePagination({}) })'
   const fake = `function renderStandardListPage() { return '' }\nfunction renderStandardListTable() { return '' }\nfunction renderTablePagination() { return '' }\nexport function renderFakePage() { return ${calls} }`

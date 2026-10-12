@@ -1,3 +1,5 @@
+import type { MaterialDyeMethod, MaterialPrintSide } from './pcs-material-archive-types.ts'
+
 export type MaterialVariantProcessType = 'dye' | 'finish' | 'print' | 'embroider' | 'wash' | 'heat'
 
 export type MaterialVariantChainCategory = 'plain' | 'process'
@@ -8,6 +10,13 @@ export interface MaterialVariantProcessStep {
   processName: string
   craftCode?: string
   patternCode?: string
+  dyeMethod?: MaterialDyeMethod
+  printSide?: MaterialPrintSide
+  patternVersionId?: string
+  backPatternCode?: string
+  backPatternVersionId?: string
+  deliveryRevisionSegment?: string
+  backDeliveryRevisionSegment?: string
 }
 
 export interface MaterialVariantRecord {

@@ -1,0 +1,42 @@
+✔ CAT-01..04/06: fixed classifications and codes; no cross-kind or simple templates (8.269125ms)
+✔ FAST-01..03: every BF save requires explicit installation type independently of physical fastening (8.851625ms)
+✔ DEL-01/02/KEEP-01/02: current configuration saves once; old field units and identities remain dossier facts (11.995583ms)
+✔ LIST-01..06/09: SPU search selects all children; approved root can review new draft children; no enable step (12.622333ms)
+✔ LIST-07/08/10/DEL-04: retired operation surfaces are gone on all named details and simple lists (5.609125ms)
+✔ PROC-01/FAST-02: import cannot bypass BF required type; headers contain new modes and no template revisions (1.669708ms)
+✔ round-one: legacy BF direct parent and child approvals cannot bypass installation type (2.787833ms)
+✔ round-one: unknown legacy yarn stays unclassified in editor and SKU guard; old identities remain readable (4.189083ms)
+✔ round-one: adopted units remain in display after unrelated unit configuration save (5.674208ms)
+✔ round-one: BF CSV same SPU cannot silently merge conflicting installation types (2.423334ms)
+✔ round-one: explicit model text 规格0/规格1 never becomes the common SPU name on read/save (7.313333ms)
+✔ R2-006/012/015/018: two types atomically create parent and several independently coded specs/costs (6.755625ms)
+✔ R2-010/011/019: invalid/duplicate/empty/oversized rows never publish a partial dossier (5.954708ms)
+✔ R2-007/013/014/016: editing preserves old identities/states/cost unit; cannot omit approved specs (10.161ms)
+✔ R2-014/030: appending a copied specification does not rewrite unchanged source record (3.972459ms)
+✔ R2-028/030: historical processing rows remain read-only and identical labels may survive beside a new base specification (4.905334ms)
+✖ R2-030: retired template units survive as historical specification text without retaining an editable template (2.746583ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 16
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 386.805709
+
+✖ failing tests:
+
+test at tests/unit/pcs-simple-dossier.test.ts:1:5422
+✖ R2-030: retired template units survive as historical specification text without retaining an editable template (2.746583ms)
+  AssertionError [ERR_ASSERTION]: 25 cm
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/simple-materials-main-integration/higoods/tests/unit/pcs-simple-dossier.test.ts:18:766)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

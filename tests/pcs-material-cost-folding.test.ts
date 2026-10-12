@@ -8,7 +8,7 @@ import { renderPcsMaterialSkuEditPage, handlePcsMaterialArchiveEvent, handlePcsM
 const BASE='material-r1-MAT-FB-00000001-B01', ROOT='material-r1-MAT-FB-00000001'
 const baseline=repo.getMaterialArchiveBaseline()
 beforeEach(()=>{pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY,JSON.stringify(baseline));repo.resetMaterialArchiveCache()})
-const dye=(extra={})=>({inputSkuId:BASE,processType:'DYEING' as const,colorCode:'blue-test',colorName:'蓝色',pantoneSystem:'TCX',pantoneCode:'19-4003',skuImageUrl:'/materials/process-orders/white-black-cotton-jersey.jpg',processStandardCny:2,...extra})
+const dye=(extra={})=>({inputSkuId:BASE,processType:'DYEING' as const,dyeMethod:'MJS' as const,colorCode:'blue-test',colorName:'蓝色',pantoneSystem:'TCX',pantoneCode:'19-4003',skuImageUrl:'/materials/process-orders/white-black-cotton-jersey.jpg',processStandardCny:2,...extra})
 test('fixed cost conversions use exactly the configuration relationships in both directions',()=>{
  for(const relation of listFixedMaterialConversions()){
   assert.equal(fixedMaterialFactor(relation.fromUnit,relation.toUnit),relation.factor)

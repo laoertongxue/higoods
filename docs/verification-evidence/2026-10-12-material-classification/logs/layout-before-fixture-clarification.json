@@ -1,0 +1,861 @@
+{
+  "base": "http://127.0.0.1:43222",
+  "formal": true,
+  "rounds": 5,
+  "head": "c89009bb6c7189acb6370b1902347004c1052693",
+  "assetsSha": "b2efbbea490404a5a99fcc233b0af974a85775c9ca68197e69a5cc6148f119c8",
+  "browser": "149.0.7827.55",
+  "samples": [
+    {
+      "name": "parts:preference-fault-cold",
+      "round": 0,
+      "ms": 281.7999999821186
+    },
+    {
+      "name": "parts:table-scroll-right",
+      "round": 0,
+      "ms": 33.400000005960464
+    },
+    {
+      "name": "parts:table-bottom",
+      "round": 0,
+      "ms": 16.80000001192093
+    },
+    {
+      "name": "parts:logs-direct",
+      "round": 0,
+      "ms": 63.099999994039536
+    },
+    {
+      "name": "parts:logs-close",
+      "round": 0,
+      "ms": 33.099999994039536
+    },
+    {
+      "name": "consumable:preference-fault-cold",
+      "round": 0,
+      "ms": 147.60000002384186
+    },
+    {
+      "name": "consumable:table-scroll-right",
+      "round": 0,
+      "ms": 33.599999994039536
+    },
+    {
+      "name": "consumable:table-bottom",
+      "round": 0,
+      "ms": 17
+    },
+    {
+      "name": "consumable:logs-direct",
+      "round": 0,
+      "ms": 82.59999999403954
+    },
+    {
+      "name": "consumable:logs-close",
+      "round": 0,
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "purchase:source-direct",
+      "round": 0,
+      "ms": 147
+    },
+    {
+      "name": "purchase:handoff-SPA",
+      "round": 0,
+      "ms": 232.7999999821186
+    },
+    {
+      "name": "purchase:supplier",
+      "round": 0,
+      "ms": 43.69999998807907
+    },
+    {
+      "name": "purchase:field-quantity",
+      "round": 0,
+      "ms": 28.400000005960464
+    },
+    {
+      "name": "purchase:field-unitPrice",
+      "round": 0,
+      "ms": 31
+    },
+    {
+      "name": "purchase:field-purchaseRegion",
+      "round": 0,
+      "ms": 29.5
+    },
+    {
+      "name": "purchase:field-warehouse",
+      "round": 0,
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "purchase:field-buyerName",
+      "round": 0,
+      "ms": 30.19999998807907
+    },
+    {
+      "name": "purchase:field-expectedArrivalDate",
+      "round": 0,
+      "ms": 30.099999994039536
+    },
+    {
+      "name": "purchase:field-remark",
+      "round": 0,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "purchase:save",
+      "round": 0,
+      "ms": 61.599999994039536
+    },
+    {
+      "name": "purchase:refresh",
+      "round": 0,
+      "ms": 249.5
+    },
+    {
+      "name": "FCS:source-cold",
+      "round": 0,
+      "ms": 248.5
+    },
+    {
+      "name": "FCS:input",
+      "round": 0,
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "FCS:output",
+      "round": 0,
+      "ms": 29.400000005960464
+    },
+    {
+      "name": "FCS:process-view",
+      "round": 0,
+      "ms": 32.5
+    },
+    {
+      "name": "FCS:save-draft",
+      "round": 0,
+      "ms": 98.90000000596046
+    },
+    {
+      "name": "FCS:refresh",
+      "round": 0,
+      "ms": 248.59999999403954
+    },
+    {
+      "name": "FCS:saved-definition",
+      "round": 0,
+      "ms": 32.79999998211861
+    },
+    {
+      "name": "historical-mm:root-edit-cold",
+      "round": 0,
+      "ms": 145.19999998807907
+    },
+    {
+      "name": "historical-mm:technical",
+      "round": 0,
+      "ms": 32.39999997615814
+    },
+    {
+      "name": "historical-mm:process-cold",
+      "round": 0,
+      "ms": 130.19999998807907
+    },
+    {
+      "name": "historical-mm:process-spec",
+      "round": 0,
+      "ms": 33
+    },
+    {
+      "name": "AB-specimen:pending-direct",
+      "round": 0,
+      "ms": 131.5
+    },
+    {
+      "name": "parts:preference-fault-cold",
+      "round": 1,
+      "ms": 156.30000001192093
+    },
+    {
+      "name": "parts:table-scroll-right",
+      "round": 1,
+      "ms": 33.5
+    },
+    {
+      "name": "parts:table-bottom",
+      "round": 1,
+      "ms": 16.900000005960464
+    },
+    {
+      "name": "parts:logs-direct",
+      "round": 1,
+      "ms": 65.10000002384186
+    },
+    {
+      "name": "parts:logs-close",
+      "round": 1,
+      "ms": 33.29999998211861
+    },
+    {
+      "name": "consumable:preference-fault-cold",
+      "round": 1,
+      "ms": 147.69999998807907
+    },
+    {
+      "name": "consumable:table-scroll-right",
+      "round": 1,
+      "ms": 33.400000005960464
+    },
+    {
+      "name": "consumable:table-bottom",
+      "round": 1,
+      "ms": 17
+    },
+    {
+      "name": "consumable:logs-direct",
+      "round": 1,
+      "ms": 80.30000001192093
+    },
+    {
+      "name": "consumable:logs-close",
+      "round": 1,
+      "ms": 31.5
+    },
+    {
+      "name": "purchase:source-direct",
+      "round": 1,
+      "ms": 148.60000002384186
+    },
+    {
+      "name": "purchase:handoff-SPA",
+      "round": 1,
+      "ms": 230.5
+    },
+    {
+      "name": "purchase:supplier",
+      "round": 1,
+      "ms": 30.200000017881393
+    },
+    {
+      "name": "purchase:field-quantity",
+      "round": 1,
+      "ms": 31
+    },
+    {
+      "name": "purchase:field-unitPrice",
+      "round": 1,
+      "ms": 30.19999998807907
+    },
+    {
+      "name": "purchase:field-purchaseRegion",
+      "round": 1,
+      "ms": 30.100000023841858
+    },
+    {
+      "name": "purchase:field-warehouse",
+      "round": 1,
+      "ms": 30
+    },
+    {
+      "name": "purchase:field-buyerName",
+      "round": 1,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-expectedArrivalDate",
+      "round": 1,
+      "ms": 28.900000005960464
+    },
+    {
+      "name": "purchase:field-remark",
+      "round": 1,
+      "ms": 31.099999994039536
+    },
+    {
+      "name": "purchase:save",
+      "round": 1,
+      "ms": 64.80000001192093
+    },
+    {
+      "name": "purchase:refresh",
+      "round": 1,
+      "ms": 267.40000000596046
+    },
+    {
+      "name": "FCS:source-cold",
+      "round": 1,
+      "ms": 264.59999999403954
+    },
+    {
+      "name": "FCS:input",
+      "round": 1,
+      "ms": 30
+    },
+    {
+      "name": "FCS:output",
+      "round": 1,
+      "ms": 31.899999976158142
+    },
+    {
+      "name": "FCS:process-view",
+      "round": 1,
+      "ms": 32
+    },
+    {
+      "name": "FCS:save-draft",
+      "round": 1,
+      "ms": 115.60000002384186
+    },
+    {
+      "name": "FCS:refresh",
+      "round": 1,
+      "ms": 249.2999999821186
+    },
+    {
+      "name": "FCS:saved-definition",
+      "round": 1,
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "historical-mm:root-edit-cold",
+      "round": 1,
+      "ms": 147.2000000178814
+    },
+    {
+      "name": "historical-mm:technical",
+      "round": 1,
+      "ms": 32.900000005960464
+    },
+    {
+      "name": "historical-mm:process-cold",
+      "round": 1,
+      "ms": 130.10000002384186
+    },
+    {
+      "name": "historical-mm:process-spec",
+      "round": 1,
+      "ms": 32.900000005960464
+    },
+    {
+      "name": "AB-specimen:pending-direct",
+      "round": 1,
+      "ms": 130.89999997615814
+    },
+    {
+      "name": "parts:preference-fault-cold",
+      "round": 2,
+      "ms": 159.2999999821186
+    },
+    {
+      "name": "parts:table-scroll-right",
+      "round": 2,
+      "ms": 33.400000005960464
+    },
+    {
+      "name": "parts:table-bottom",
+      "round": 2,
+      "ms": 18.900000005960464
+    },
+    {
+      "name": "parts:logs-direct",
+      "round": 2,
+      "ms": 84
+    },
+    {
+      "name": "parts:logs-close",
+      "round": 2,
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "consumable:preference-fault-cold",
+      "round": 2,
+      "ms": 147.2999999821186
+    },
+    {
+      "name": "consumable:table-scroll-right",
+      "round": 2,
+      "ms": 33.5
+    },
+    {
+      "name": "consumable:table-bottom",
+      "round": 2,
+      "ms": 17
+    },
+    {
+      "name": "consumable:logs-direct",
+      "round": 2,
+      "ms": 79.60000002384186
+    },
+    {
+      "name": "consumable:logs-close",
+      "round": 2,
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "purchase:source-direct",
+      "round": 2,
+      "ms": 146.59999999403954
+    },
+    {
+      "name": "purchase:handoff-SPA",
+      "round": 2,
+      "ms": 215.7999999821186
+    },
+    {
+      "name": "purchase:supplier",
+      "round": 2,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-quantity",
+      "round": 2,
+      "ms": 30.900000005960464
+    },
+    {
+      "name": "purchase:field-unitPrice",
+      "round": 2,
+      "ms": 30.900000005960464
+    },
+    {
+      "name": "purchase:field-purchaseRegion",
+      "round": 2,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "purchase:field-warehouse",
+      "round": 2,
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "purchase:field-buyerName",
+      "round": 2,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-expectedArrivalDate",
+      "round": 2,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "purchase:field-remark",
+      "round": 2,
+      "ms": 30.5
+    },
+    {
+      "name": "purchase:save",
+      "round": 2,
+      "ms": 62.5
+    },
+    {
+      "name": "purchase:refresh",
+      "round": 2,
+      "ms": 249
+    },
+    {
+      "name": "FCS:source-cold",
+      "round": 2,
+      "ms": 249.09999999403954
+    },
+    {
+      "name": "FCS:input",
+      "round": 2,
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "FCS:output",
+      "round": 2,
+      "ms": 30.099999994039536
+    },
+    {
+      "name": "FCS:process-view",
+      "round": 2,
+      "ms": 32.400000005960464
+    },
+    {
+      "name": "FCS:save-draft",
+      "round": 2,
+      "ms": 115.7000000178814
+    },
+    {
+      "name": "FCS:refresh",
+      "round": 2,
+      "ms": 251.2999999821186
+    },
+    {
+      "name": "FCS:saved-definition",
+      "round": 2,
+      "ms": 32.79999998211861
+    },
+    {
+      "name": "historical-mm:root-edit-cold",
+      "round": 2,
+      "ms": 147.2000000178814
+    },
+    {
+      "name": "historical-mm:technical",
+      "round": 2,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "historical-mm:process-cold",
+      "round": 2,
+      "ms": 130.60000002384186
+    },
+    {
+      "name": "historical-mm:process-spec",
+      "round": 2,
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "AB-specimen:pending-direct",
+      "round": 2,
+      "ms": 146.69999998807907
+    },
+    {
+      "name": "parts:preference-fault-cold",
+      "round": 3,
+      "ms": 156.89999997615814
+    },
+    {
+      "name": "parts:table-scroll-right",
+      "round": 3,
+      "ms": 35.10000002384186
+    },
+    {
+      "name": "parts:table-bottom",
+      "round": 3,
+      "ms": 17.099999994039536
+    },
+    {
+      "name": "parts:logs-direct",
+      "round": 3,
+      "ms": 64.19999998807907
+    },
+    {
+      "name": "parts:logs-close",
+      "round": 3,
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "consumable:preference-fault-cold",
+      "round": 3,
+      "ms": 147.80000001192093
+    },
+    {
+      "name": "consumable:table-scroll-right",
+      "round": 3,
+      "ms": 33.5
+    },
+    {
+      "name": "consumable:table-bottom",
+      "round": 3,
+      "ms": 16.900000005960464
+    },
+    {
+      "name": "consumable:logs-direct",
+      "round": 3,
+      "ms": 56.20000001788139
+    },
+    {
+      "name": "consumable:logs-close",
+      "round": 3,
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "purchase:source-direct",
+      "round": 3,
+      "ms": 147.7000000178814
+    },
+    {
+      "name": "purchase:handoff-SPA",
+      "round": 3,
+      "ms": 215.7000000178814
+    },
+    {
+      "name": "purchase:supplier",
+      "round": 3,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-quantity",
+      "round": 3,
+      "ms": 31
+    },
+    {
+      "name": "purchase:field-unitPrice",
+      "round": 3,
+      "ms": 30.700000017881393
+    },
+    {
+      "name": "purchase:field-purchaseRegion",
+      "round": 3,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-warehouse",
+      "round": 3,
+      "ms": 30.19999998807907
+    },
+    {
+      "name": "purchase:field-buyerName",
+      "round": 3,
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "purchase:field-expectedArrivalDate",
+      "round": 3,
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "purchase:field-remark",
+      "round": 3,
+      "ms": 30.399999976158142
+    },
+    {
+      "name": "purchase:save",
+      "round": 3,
+      "ms": 65.69999998807907
+    },
+    {
+      "name": "purchase:refresh",
+      "round": 3,
+      "ms": 249.7999999821186
+    },
+    {
+      "name": "FCS:source-cold",
+      "round": 3,
+      "ms": 264.09999999403954
+    },
+    {
+      "name": "FCS:input",
+      "round": 3,
+      "ms": 31.099999994039536
+    },
+    {
+      "name": "FCS:output",
+      "round": 3,
+      "ms": 31.700000017881393
+    },
+    {
+      "name": "FCS:process-view",
+      "round": 3,
+      "ms": 32.5
+    },
+    {
+      "name": "FCS:save-draft",
+      "round": 3,
+      "ms": 116
+    },
+    {
+      "name": "FCS:refresh",
+      "round": 3,
+      "ms": 249.40000000596046
+    },
+    {
+      "name": "FCS:saved-definition",
+      "round": 3,
+      "ms": 33.80000001192093
+    },
+    {
+      "name": "historical-mm:root-edit-cold",
+      "round": 3,
+      "ms": 146.2999999821186
+    },
+    {
+      "name": "historical-mm:technical",
+      "round": 3,
+      "ms": 32.79999998211861
+    },
+    {
+      "name": "historical-mm:process-cold",
+      "round": 3,
+      "ms": 130.19999998807907
+    },
+    {
+      "name": "historical-mm:process-spec",
+      "round": 3,
+      "ms": 33
+    },
+    {
+      "name": "AB-specimen:pending-direct",
+      "round": 3,
+      "ms": 132.5
+    },
+    {
+      "name": "parts:preference-fault-cold",
+      "round": 4,
+      "ms": 157.5
+    },
+    {
+      "name": "parts:table-scroll-right",
+      "round": 4,
+      "ms": 33.70000001788139
+    },
+    {
+      "name": "parts:table-bottom",
+      "round": 4,
+      "ms": 16.899999976158142
+    },
+    {
+      "name": "parts:logs-direct",
+      "round": 4,
+      "ms": 82.5
+    },
+    {
+      "name": "parts:logs-close",
+      "round": 4,
+      "ms": 33.20000001788139
+    },
+    {
+      "name": "consumable:preference-fault-cold",
+      "round": 4,
+      "ms": 147.30000001192093
+    },
+    {
+      "name": "consumable:table-scroll-right",
+      "round": 4,
+      "ms": 33.5
+    },
+    {
+      "name": "consumable:table-bottom",
+      "round": 4,
+      "ms": 17.30000001192093
+    },
+    {
+      "name": "consumable:logs-direct",
+      "round": 4,
+      "ms": 82.5
+    },
+    {
+      "name": "consumable:logs-close",
+      "round": 4,
+      "ms": 33.20000001788139
+    },
+    {
+      "name": "purchase:source-direct",
+      "round": 4,
+      "ms": 147.39999997615814
+    },
+    {
+      "name": "purchase:handoff-SPA",
+      "round": 4,
+      "ms": 232.30000001192093
+    },
+    {
+      "name": "purchase:supplier",
+      "round": 4,
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "purchase:field-quantity",
+      "round": 4,
+      "ms": 31
+    },
+    {
+      "name": "purchase:field-unitPrice",
+      "round": 4,
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "purchase:field-purchaseRegion",
+      "round": 4,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "purchase:field-warehouse",
+      "round": 4,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-buyerName",
+      "round": 4,
+      "ms": 30.099999994039536
+    },
+    {
+      "name": "purchase:field-expectedArrivalDate",
+      "round": 4,
+      "ms": 30.400000005960464
+    },
+    {
+      "name": "purchase:field-remark",
+      "round": 4,
+      "ms": 30.599999994039536
+    },
+    {
+      "name": "purchase:save",
+      "round": 4,
+      "ms": 63.599999994039536
+    },
+    {
+      "name": "purchase:refresh",
+      "round": 4,
+      "ms": 248.80000001192093
+    },
+    {
+      "name": "FCS:source-cold",
+      "round": 4,
+      "ms": 250.30000001192093
+    },
+    {
+      "name": "FCS:input",
+      "round": 4,
+      "ms": 29.80000001192093
+    },
+    {
+      "name": "FCS:output",
+      "round": 4,
+      "ms": 31.599999994039536
+    },
+    {
+      "name": "FCS:process-view",
+      "round": 4,
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "FCS:save-draft",
+      "round": 4,
+      "ms": 115.59999999403954
+    },
+    {
+      "name": "FCS:refresh",
+      "round": 4,
+      "ms": 249.2000000178814
+    },
+    {
+      "name": "FCS:saved-definition",
+      "round": 4,
+      "ms": 33.5
+    },
+    {
+      "name": "historical-mm:root-edit-cold",
+      "round": 4,
+      "ms": 146.90000000596046
+    },
+    {
+      "name": "historical-mm:technical",
+      "round": 4,
+      "ms": 32.70000001788139
+    },
+    {
+      "name": "historical-mm:process-cold",
+      "round": 4,
+      "ms": 132.39999997615814
+    },
+    {
+      "name": "historical-mm:process-spec",
+      "round": 4,
+      "ms": 32.70000001788139
+    },
+    {
+      "name": "AB-specimen:pending-direct",
+      "round": 4,
+      "ms": 119.30000001192093
+    }
+  ],
+  "errors": []
+}

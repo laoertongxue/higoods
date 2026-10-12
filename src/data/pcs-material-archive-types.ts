@@ -2,6 +2,8 @@ export type MaterialArchiveKind = 'fabric' | 'accessory' | 'yarn' | 'consumable'
 export type MaterialArchiveStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED' | 'NOT_ENABLED'
 export type MaterialApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED'
 export type MaterialProcessType = 'DYEING' | 'PRINTING' | 'EMBROIDERY' | 'HEAT_TRANSFER'
+export type MaterialDyeMethod = 'MJS' | 'GTG'
+export type MaterialPrintSide = 'A' | 'CT' | 'AA' | 'AB'
 export interface MaterialNamedDimension { name: string; value: number; unit: string }
 export interface MaterialDictionaryReference { id: string; name: string; code: string; dictionaryId?: string; dictionaryVersion?: number }
 export interface MaterialEquipmentCompatibility {
@@ -22,7 +24,9 @@ export interface MaterialArchiveRecord {
   templateId?: string
   templateVersion?: number
   categoryAttributes?: MaterialSpecValues
+  attributeFields?: Array<{ key: string; label: string; unit?: string }>
   categoryAttributeReferences?: Record<string, MaterialDictionaryReference[]>
+  legacyCategoryName?: string
   subcategoryId?: string
   materialNameTranslations?: Record<string, string>
   equipmentCompatibility?: string[]
@@ -199,8 +203,10 @@ export interface MaterialProcessDefinition {
   backPatternId?: string
   backPatternCode?: string
   backPatternVersionId?: string
-  printSide?: 'A' | 'AB'
-  penetration?: boolean
+  dyeMethod?: MaterialDyeMethod
+  printSide?: MaterialPrintSide
+  /** Historical read only; new drafts use the exclusive printSide modes. */
+  readonly penetration?: boolean
   pantoneSystem?: string
   pantoneCode?: string
   pantoneId?: string
@@ -213,6 +219,7 @@ export interface MaterialProcessDefinition {
   unitBridgeVersionId?: string
   codeRuleVersionId: string
   deliveryRevisionSegment?: string
+  backDeliveryRevisionSegment?: string
   createdAt: string
 }
 export interface MaterialProcessDraft {
@@ -230,11 +237,12 @@ export interface MaterialProcessDraft {
   backPatternId?: string
   backPatternCode?: string
   backPatternVersionId?: string
-  printSide?: 'A' | 'AB'
-  penetration?: boolean
+  dyeMethod?: MaterialDyeMethod
+  printSide?: MaterialPrintSide
   executionAssetIds?: string[]
   processVersionId?: string
   deliveryRevisionSegment?: string
+  backDeliveryRevisionSegment?: string
   skuImageUrl: string
   mainUnit?: string
   pricingUnit?: string

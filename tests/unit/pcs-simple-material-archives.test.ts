@@ -42,7 +42,7 @@ test('SIMPLE-029/030/033/034/035/036: packaging revisions preserve adopted quote
 })
 test('SIMPLE-042/049: independent PMS archive preflight and forged process creation do not write',async()=>{
  const root=repo.createMaterialArchive(draft('consumable')),sku=repo.listMaterialSkuRecordsByMaterialId(root.materialId)[0],before=JSON.stringify(repo.getMaterialArchiveStoreSnapshot())
- await assertMaterialArchiveCanBeArchived(root.materialId,async()=>false);await assert.rejects(()=>assertMaterialArchiveCanBeArchived(root.materialId,async()=>true),/采购/);assert.throws(()=>repo.setMaterialUseStatus(root.materialId,'ARCHIVED','旧预检不可重用'),/核对采购/);await assert.rejects(()=>assertMaterialArchiveCanBeArchived(root.materialId,async()=>{throw Error('offline')}),/未归档/)
+ await assertMaterialArchiveCanBeArchived(root.materialId,async()=>false);await assert.rejects(()=>assertMaterialArchiveCanBeArchived(root.materialId,async()=>true),/采购/);assert.throws(()=>repo.setMaterialUseStatus(root.materialId,'ARCHIVED','旧预检不可重用'),/不提供启停或归档/);await assert.rejects(()=>assertMaterialArchiveCanBeArchived(root.materialId,async()=>{throw Error('offline')}),/未归档/)
  assert.throws(()=>repo.createProcessedMaterialSku({inputSkuId:sku.materialSkuId,processType:'DYEING',colorName:'黑色',colorCode:'black',pantoneSystem:'TCX',pantoneCode:'19-4003'}),/不新增物料加工/);assert.equal(JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),before)
 })
 test('SIMPLE-051/052: simple CSV has no technical IDs, auto root codes, read-only preview and atomic repeated specifications',()=>{
@@ -61,7 +61,7 @@ test('SIMPLE-051/052: simple CSV has no technical IDs, auto root codes, read-onl
 test('SIMPLE-019/042/056: legacy identity survives cleanup; direct orphan copy/archive cannot bypass guards',async()=>{
  const snap=repo.getMaterialArchiveBaseline(),root=snap.records.find(x=>x.kind==='parts')!;root.categoryAttributes={};root.composition='钢';root.widthText='12 mm';root.equipmentCompatibility=['裁床'];root.processTags=['旧工艺'];root.templateId=undefined;root.subcategoryId=undefined
  const originalId=root.materialId;pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY,JSON.stringify(snap));repo.resetMaterialArchiveCache();const view=repo.getMaterialArchiveById(originalId)!;assert.match(view.remark,/钢/);assert.match(view.remark,/12 mm/);assert.match(view.remark,/裁床/)
- repo.updateMaterialArchive(originalId,{...view});const reopened=repo.getMaterialArchiveById(originalId)!;assert.match(reopened.remark,/裁床/);assert.equal(reopened.materialId,originalId);assert.throws(()=>repo.copyMaterialArchive(originalId),/新规格/);assert.throws(()=>repo.setMaterialUseStatus(originalId,'ARCHIVED','测试'),/核对采购/);await assertMaterialArchiveCanBeArchived(originalId,async()=>false);repo.setMaterialUseStatus(originalId,'ARCHIVED','无引用确认');assert.equal(repo.getMaterialArchiveById(originalId)?.status,'ARCHIVED')
+ repo.updateMaterialArchive(originalId,{...view});const reopened=repo.getMaterialArchiveById(originalId)!;assert.match(reopened.remark,/裁床/);assert.equal(reopened.materialId,originalId);assert.equal('copyMaterialArchive' in repo,false);assert.throws(()=>repo.setMaterialUseStatus(originalId,'ARCHIVED','测试'),/不提供启停或归档/);await assertMaterialArchiveCanBeArchived(originalId,async()=>false);assert.throws(()=>repo.setMaterialUseStatus(originalId,'ARCHIVED','无引用确认'),/不提供启停或归档/);assert.equal(repo.getMaterialArchiveById(originalId)?.status,reopened.status)
 })
 
  test('SIMPLE-051/052/060: documented simple CSV limits reject whole oversized file before preparing groups',()=>{

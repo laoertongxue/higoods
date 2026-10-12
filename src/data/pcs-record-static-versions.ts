@@ -25,7 +25,7 @@ register('higood-pcs-sku-archive-store-v1', 'records', [
 const materialKey = 'higood-pcs-material-archive-store-v2'
 const roots = ['MAT-FB-00000001', 'MAT-FB-00000002', 'MAT-YN-00000001', 'MAT-YN-00000002', 'MAT-CS-00000001', 'MAT-CS-00000002', 'MAT-EP-00000001', 'MAT-EP-00000002'].map(code => `material-r1-${code}`)
 const bases = roots.flatMap((id, index) => index <= 1 ? [`${id}-B01`] : [`${id}-B01`, `${id}-B02`])
-const phases = ['dye', 'print', 'double', 'penetration', 'embroidery', 'heat', 'techpack-cn360-dye', 'techpack-cn360-print', 'techpack-cotton-dye', 'techpack-cotton-print']
+const phases = ['dye-gtg', 'double-different', 'dye', 'print', 'double', 'penetration', 'embroidery', 'heat', 'techpack-cn360-dye', 'techpack-cn360-print', 'techpack-cotton-dye', 'techpack-cotton-print']
 const processed = phases.map(phase => `material-r1-process-${phase}`)
 register(materialKey, 'records', roots)
 register(materialKey, 'skuRecords', [...bases, ...processed])

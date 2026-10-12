@@ -45,7 +45,7 @@ export function pcsRecordIdentity(key: string, group: string, value: unknown, po
   if (!value || typeof value !== 'object') return String(position)
   const item = value as Record<string, unknown>
   const text = (name: string) => typeof item[name] === 'string' && item[name] ? String(item[name]) : undefined
-  if (key === 'higood-pcs-material-config-v1' && group === 'templates' && text('templateId')) return `${item.templateId}:v${item.version}`
+  if (key === 'higood-pcs-material-config-v1' && group === 'templates' && text('templateId')) return item.version===undefined?String(item.templateId):`${item.templateId}:v${item.version}`
   if (key === 'higood-pcs-config-workspace-store-v1' && group === 'options' && text('dimensionId') && text('id')) return `${item.dimensionId}:${item.id}`
   if (key === 'higood-pcs-channel-catalog-v1' || key === 'higood-pcs-channel-store-v1') {
     if (text('id')) return text('id')!

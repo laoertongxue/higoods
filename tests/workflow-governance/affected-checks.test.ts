@@ -126,6 +126,15 @@ test('未识别测试必须明确升级，不能误称已运行该测试', () =>
   assert(result.escalationReasons.some((reason) => reason.includes('不以构建替代')))
 })
 
+test('既有物料目录的八个node:test契约按实际文件路由，不被构建冒充', () => {
+  const paths = ['pcs-material-cost-folding', 'pcs-r1-config-page', 'pcs-r1-config', 'pcs-r1-material-field-coverage', 'pcs-r1-material-rules', 'pcs-r1-material-template-gaps', 'pcs-r1-material-transfer', 'pcs-simple-material-downstream'].map(name => `tests/${name}.test.ts`)
+  const result = routeAffectedChecks(paths)
+  assert.deepEqual(result.unknownPaths, [])
+  assert.equal(result.fastChecks.length, 8)
+  for (const path of paths) assert(result.fastChecks.includes(`node --import tsx --test '${path}'`))
+  assert.deepEqual(result.fullChecks, [])
+})
+
 test('完整运行目录与 HTML 入口不能漏掉产品治理', () => {
   for (const path of ['src/main.ts', 'src/state/order.ts', 'src/domain/order.ts', 'src/utils/quantity.ts', 'src/styles/main.css', 'index.html']) {
     const result = routeAffectedChecks([path])

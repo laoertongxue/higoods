@@ -12,7 +12,7 @@ test('织带与绳子参考档案接入实际物料库，保留图片来源和�
     const archive = records.find((item) => item.materialId === id)!
     const sku = getMaterialSkuRecordById(`${id}-white`)!
     assert.ok(archive && sku)
-    assert.equal(archive.categoryName, category)
+    assert.equal(archive.categoryName, '织带/编带类')
     assert.match(archive.widthText, /待确认/)
     assert.equal(sku.materialId, archive.materialId)
     assert.equal(sku.pricingUnit, '米')
@@ -31,7 +31,7 @@ test('同分钟新建不同幅宽织带和绳径主档不共用 SPU 身份，SKU
   const base = {
     ...reference, materialCode: undefined, templateId: undefined, templateVersion: undefined,
     materialName: '测试同名织带', materialNameEn: 'Test webbing', mainImageUrl: '',
-    categoryName: '织带', widthText: '', categoryAttributes: {},
+    categoryName: '织带/编带类', widthText: '', categoryAttributes: {},
   }
   const before = m.listMaterialArchives('accessory').length
   for (const widthText of ['', '待确认', '20/30mm', '0mm', '-20mm', 'Φ20mm', '50CM截断']) {
@@ -62,10 +62,10 @@ test('同分钟新建不同幅宽织带和绳径主档不共用 SPU 身份，SKU
   assert.equal(lineageSku.pantoneCode, '19-4052')
   assert.equal(lineageSku.patternCode, 'P001')
   assert.throws(() => m.createMaterialSkuRecord(records[1].materialId, { ...draft, colorName: '' }), /至少需要 SPU 和颜色编码/)
-  const rope = m.createMaterialArchive({ ...base, categoryName: '绳子', materialName: '测试绳子', categoryAttributes: { diameter: 5 } })
+  const rope = m.createMaterialArchive({ ...base, categoryName: '织带/编带类', materialName: '测试绳子', categoryAttributes: { diameter: 5 } })
   assert.equal(rope.categoryAttributes?.diameter, 5)
   assert.match(rope.materialCode, /^MAT-AC-\d{8}$/)
-  const legacy = m.createMaterialArchive({ ...base, categoryName: '绳子', materialName: '兼容既有尺寸格式', widthText: 'Φ5mm' })
+  const legacy = m.createMaterialArchive({ ...base, categoryName: '织带/编带类', materialName: '兼容既有尺寸格式', categoryAttributes:{diameter:5},widthText:'Φ5mm' })
   assert.equal(legacy.widthText, 'Φ5mm')
   const repeated = m.createMaterialArchive({ ...base, categoryAttributes: { width: 20 } })
   assert.notEqual(repeated.materialId, records[0].materialId)

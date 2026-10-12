@@ -1,4 +1,4 @@
-// @page-pattern: list, detail, form
+// @page-pattern: list
 import { appStore } from '../../state/store.ts'
 import { escapeHtml as h } from '../../utils.ts'
 import { renderStandardListFilters, renderStandardListPage, renderStandardListStats } from '../../components/ui/list-page.ts'
@@ -52,7 +52,7 @@ function sourceCards(source: FcsMaterialProcessPlanSource): string {
 }
 function processDetails(source: FcsMaterialProcessPlanSource): string {
   const p = source.process
-  return card('加工定义', `${dataRows([['工艺', MATERIAL_PROCESS_NAMES[p.processType]], ['加工对象', '物料'], ['加工资料版本', p.processVersionId], ['Pantone', [p.pantoneSystem, p.pantoneCode].filter(Boolean).join(' ')], ['花型编号', p.patternCode], ['花型版本', p.patternVersionId], ['背面花型', p.backPatternCode], ['印花面', p.printSide === 'A' ? '单面 A' : p.printSide === 'AB' ? '双面 AB' : '不适用'], ['渗透印', p.processType === 'PRINTING' ? p.penetration ? '是' : '否' : '不适用']])}${p.patternImageUrl ? `<div class="mt-5 flex items-center gap-3">${image(p.patternImageUrl, '花型', 'h-24 w-24')}<span class="text-sm text-slate-500">花型展示图</span></div>` : ''}`)
+  return card('加工定义', `${dataRows([['工艺', MATERIAL_PROCESS_NAMES[p.processType]], ['加工对象', '物料'], ['加工资料版本', p.processVersionId], ['Pantone', [p.pantoneSystem, p.pantoneCode].filter(Boolean).join(' ')], ['花型编号', p.patternCode], ['花型版本', p.patternVersionId], ...(p.printSide==='AB'?[['背面花型',p.backPatternCode] as [string,unknown]]:[]), ['染色方式', p.processType === 'DYEING' ? p.dyeMethod || '未登记' : '不适用'], ['印花方式', p.processType === 'PRINTING' ? (p.printSide ? { A:'单面印', CT:'渗透印 - 正面渗透到反面 (CT)', AA:'双面印 - 一花印两面 (AA)', AB:'双面印 - 每面都一花 (AB)' }[p.printSide] : '未登记') : '不适用'], ...(p.printSide==='AB'?[['反面花型版本',p.backPatternVersionId],['反面交付修订',p.backDeliveryRevisionSegment]] as Array<[string,unknown]>:[])])}${p.patternImageUrl ? `<div class="mt-5 flex items-center gap-3">${image(p.patternImageUrl, '花型', 'h-24 w-24')}<span class="text-sm text-slate-500">花型展示图</span></div>` : ''}`)
     + card('加工执行资料', source.executionAssets.length ? `<div class="divide-y">${source.executionAssets.map(asset => {
       let url = ''; try { url = resolvePcsFileReference(asset.fileReference) } catch { /* Inline missing-file feedback keeps the plan readable. */ }
       return `<div class="flex items-center justify-between gap-4 py-3 text-sm"><span>${h(asset.name)} · v${h(asset.version)}</span>${url ? `<a href="${h(url)}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">查看资料</a>` : '<span class="text-amber-700">资料无法读取</span>'}</div>`

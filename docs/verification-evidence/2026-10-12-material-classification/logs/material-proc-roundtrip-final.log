@@ -1,0 +1,11 @@
+✔ DYE/PRINT/PROC: all modes save separate fee records and export method, two versions and revisions unchanged (13.54225ms)
+✔ PROC-02: missing dye method cannot be approved or selected by new FCS plans; valid source carries complete mode snapshot (5.897417ms)
+✔ round-one: pending single-side printing with no front version cannot approve or start a new plan (1.8825ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 392.098458

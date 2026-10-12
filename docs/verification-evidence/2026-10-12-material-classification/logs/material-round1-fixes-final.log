@@ -1,0 +1,18 @@
+✔ CAT-01..04/06: fixed classifications and codes; no cross-kind or simple templates (5.6305ms)
+✔ FAST-01..03: every BF save requires explicit installation type independently of physical fastening (7.86275ms)
+✔ DEL-01/02/KEEP-01/02: current configuration saves once; old field units and identities remain dossier facts (11.5905ms)
+✔ LIST-01..06/09: SPU search selects all children; approved root can review new draft children; no enable step (11.770167ms)
+✔ LIST-07/08/10/DEL-04: retired operation surfaces are gone on all named details and simple lists (5.168625ms)
+✔ PROC-01/FAST-02: import cannot bypass BF required type; headers contain new modes and no template revisions (1.575583ms)
+✔ round-one: legacy BF direct parent and child approvals cannot bypass installation type (2.557208ms)
+✔ round-one: unknown legacy yarn stays unclassified in editor and SKU guard; old identities remain readable (3.826542ms)
+✔ round-one: adopted units remain in display after unrelated unit configuration save (5.179542ms)
+✔ round-one: BF CSV same SPU cannot silently merge conflicting installation types (2.191042ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 380.152

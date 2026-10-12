@@ -63,8 +63,8 @@ export function previewSimpleMaterialImport(kind:SimpleMaterialKind,mode:Materia
     const root=roots.get(key),draft=rootDraft(kind,v,root),spec=skuDraft(v)
     if(checkedMaterialCode(materialCodeSegment(key,'物料编码'))!==key)throw new Error('物料编码需规范化。')
     if(v['模式']==='新增'&&(root||v['SKU编码']))throw new Error('新增主档编码已存在或填写了已有SKU编码。')
-    if(v['模式']!=='新增'&&(!root||root.kind!==kind||root.status==='ARCHIVED'))throw new Error('更新或新增规格需有效的同类主档。')
-    if(root && v['模式']!=='更新' && (root.status==='INACTIVE'||root.materialName!==draft.materialName))throw new Error('新增规格必须采用原主档名称，且主档不能停用。')
+    if(v['模式']!=='新增'&&(!root||root.kind!==kind))throw new Error('更新或新增规格需有效的同类主档。')
+    if(root && v['模式']!=='更新' && (root.materialName!==draft.materialName))throw new Error('新增规格必须采用原主档名称，采用原主档资料。')
     if(group.rows.length>1&&['模式','物料名称','主档说明'].some(field=>group!.rows[0].values[field]!==v[field]))throw new Error('同一主档组的模式、名称不一致。')
     const old=skus.get(v['SKU编码']);if(v['模式']==='更新'){
      if(!old||old.materialId!==root!.materialId||!v['版本时间']||v['版本时间']!==revision(old,root))throw new Error('更新需对应SKU编码及当前导出版本时间，请重新导出。')
@@ -99,7 +99,7 @@ export function applySimpleMaterialImportGroup(kind:SimpleMaterialKind,mode:Mate
      // Import changes the explicitly selected dossier fields only; preserve existing gallery, aliases and all adopted costs/units.
      root=updateMaterialArchive(root.materialId,{...root,...draft,galleryImageUrls:root.galleryImageUrls});checkedRootVersion=true
      const saved=updateMaterialSkuRecord(old.materialSkuId,{...old,...spec,pricingUnit:old.pricingUnit,purchaseStandardCny:undefined,transportStandardCny:undefined,barcode:old.barcode,barcodeAliases:old.barcodeAliases});if(!saved)throw new Error('规格不存在。');codes.push(saved.materialSkuCode)
-    }else if(['新增','新增规格'].includes(v['模式'])){if(root.status==='ARCHIVED'||root.status==='INACTIVE'||root.materialName!==draft.materialName)throw new Error('主档已变化或不可新增规格。');const saved=createMaterialSkuRecord(root.materialId,spec);if(!saved)throw new Error('未保存规格。');codes.push(saved.materialSkuCode)}else throw new Error('导入模式无效。')
+    }else if(['新增','新增规格'].includes(v['模式'])){if(root.materialName!==draft.materialName)throw new Error('主档已变化或不可新增规格。');const saved=createMaterialSkuRecord(root.materialId,spec);if(!saved)throw new Error('未保存规格。');codes.push(saved.materialSkuCode)}else throw new Error('导入模式无效。')
    }else{
     const sku=resolveMaterialSkuIdentity(v['SKU编码']),parent=sku&&getMaterialArchiveStoreSnapshot().records.find(x=>x.materialId===sku.materialId);if(!sku||parent?.kind!==kind)throw new Error('SKU不存在或类型不符。')
     if(mode==='costs')saveMaterialStandardCost(sku.materialSkuId,costDraft(v,sku))

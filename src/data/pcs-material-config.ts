@@ -1,9 +1,10 @@
+import { preserveMaterialAttributeFields } from './pcs-material-archive-repository.ts'
 import { pcsRecordStore, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import type { MaterialArchiveKind } from './pcs-material-archive-types.ts'
 import { FLAT_DIMENSION_META, type ConfigLog, type FlatDimensionId } from './pcs-config-dimensions.ts'
 import { listConfigDimensionChoices } from './pcs-config-workspace-repository.ts'
 
-// CFG-006..014: 受控模板，不执行用户公式。已创建档案引用固定模板版本。
+// Current category attributes; document-owned field snapshots preserve adopted units.
 export interface MaterialTemplateField {
   key: string; label: string; level: 'root' | 'sku' | 'package' | 'process'
   type: 'text' | 'number' | 'select' | 'multiSelect' | 'composition' | 'reference'
@@ -15,12 +16,11 @@ export interface MaterialTemplateField {
   enumDefinition?: { id: string; version: number; options: Array<{ id: string; value: string; label: string }> }
 }
 export interface MaterialTemplate {
-  templateId: string; version: number; kind: MaterialArchiveKind; category: string
+  templateId: string; kind: MaterialArchiveKind; category: string
   categoryId?: string; categoryCode?: string
   categoryNames?: Record<string, string>; categoryAliases?: Record<string, string[]>
   name: string; status: 'DRAFT' | 'APPROVED'; fields: MaterialTemplateField[]
   updatedAt: string; updatedBy: string; changeNote: string; logs?: ConfigLog[]; enabled?: boolean
-  previousVersionConversions?: Array<{ key: string; fromUnit: string; toUnit: string; factor: number }>
 }
 export interface MaterialUnitDefinition { id: string; code: string; label: string; dimension: 'length' | 'mass' | 'area' | 'count' | 'package' | 'volume'; precision: number; enabled: boolean; aliases?: string[]; updatedAt?: string; updatedBy?: string; logs?: ConfigLog[] }
 export const PCS_MATERIAL_CONFIG_KEY = 'higood-pcs-material-config-v1'
@@ -29,42 +29,26 @@ const color = { ...field('color', '颜色', 'sku', 'select', '', true, true), di
 const composition = { ...field('composition', '成分与比例', 'root', 'composition', '%'), dictionaryId: 'compositions' as const }
 const material = field('material', '材质', 'root')
 const fabricFields = [composition, { ...field('construction', '组织', 'root', 'select', '', true, true), dictionaryId: 'constructions' as const }, field('width', '幅宽', 'root', 'number', 'cm'), field('gramWeight', '克重', 'root', 'number', 'g/m²'), field('elasticity', '弹力说明', 'root', 'text', '', false, false), color]
-const definitions: Array<[MaterialArchiveKind, string, MaterialTemplateField[]]> = [
-  ...['毛织布', '梭织布', '经编布', '里布', '网布', '牛仔布'].map(category => ['fabric', category, fabricFields] as [MaterialArchiveKind, string, MaterialTemplateField[]]),
-  ...['花边辅料', '刺绣辅料', '装饰件'].map(category => ['accessory', category, [material, field('construction', '结构 / 款式', 'root'), field('width', '宽度', 'sku', 'number', 'mm', false), color]] as [MaterialArchiveKind, string, MaterialTemplateField[]]),
-  ['accessory', '纽扣', [material, field('construction', '款式', 'root'), field('holeCount', '孔数', 'root', 'number', '孔'), field('fastening', '固定方式', 'root'), color, field('diameter', '直径', 'sku', 'number', 'mm'), field('thickness', '厚度', 'sku', 'number', 'mm')]],
-  ['accessory', '拉链', [material, field('teeth', '齿型', 'root'), field('opening', '开合方式', 'root'), color, field('length', '长度', 'sku', 'number', 'cm'), field('gauge', '规格号', 'sku')]],
-  ...['松紧带', '织带', '绳子'].map(category => ['accessory', category, [material, field('construction', '组织', 'root'), field(category === '绳子' ? 'diameter' : 'width', category === '绳子' ? '直径' : '宽度', 'root', 'number', 'mm'), color]] as [MaterialArchiveKind, string, MaterialTemplateField[]]),
-  ...['针织用纱', '车缝线', '包缝线', '绣花线', '织带线'].map(category => ['yarn', category, [composition, { ...field('countSystem', '纱支体系', 'root', 'select', '', true, true), dictionaryId: 'yarnCountSystems' as const }, field('countValue', '纱支数值', 'root', 'number'), field('plies', '股数', 'root', 'number', '股'), field('twist', '捻度', 'root', 'number', '捻/m', false), field('usage', '用途', 'root', 'text', '', false, false), color]] as [MaterialArchiveKind, string, MaterialTemplateField[]]),
-  ['consumable', '包装袋', [material, field('length', '长度', 'sku', 'number', 'cm'), field('width', '宽度', 'sku', 'number', 'cm'), field('thickness', '厚度', 'sku', 'number', 'mm')]],
-  ['consumable', '胶带', [material, field('width', '宽度', 'sku', 'number', 'mm'), field('length', '标准长度', 'sku', 'number', 'm')]],
-  ['consumable', '油剂', [field('model', '产品型号', 'root'), field('grade', '牌号 / 黏度等级', 'sku'), field('netContent', '净含量', 'sku', 'number', 'L')]],
-  ...['裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'].map(category => ['consumable', category, [material, field('usage', '用途', 'root', 'text', '', false, false), field('model', '型号', 'sku')]] as [MaterialArchiveKind, string, MaterialTemplateField[]]),
-  ...['裁床配件', '缝纫机配件', '烫包配件', '检针配件', '通用配件'].map(category => ['parts', category, [field('partType', '部件类型', 'root'), material, { ...field('equipment', '适配设备', 'root', 'multiSelect'), dictionaryId: 'equipmentTypes' as const }, field('model', '型号', 'sku'), field('dimensions', '尺寸', 'sku'), field('interface', '接口 / 安装规格', 'sku')]] as [MaterialArchiveKind, string, MaterialTemplateField[]]),
-  ['accessory', '流苏辅料', [material, field('construction', '结构 / 款式', 'root'), field('length', '长度', 'sku', 'number', 'cm'), color]],
-  ['accessory', '刺绣花边', [material, field('construction', '结构 / 款式', 'root'), field('width', '宽度', 'sku', 'number', 'mm'), color]],
+export const MATERIAL_KIND_CODES = { fabric:'FA', accessory:'TR', yarn:'YR', consumable:'CS', parts:'EP' } as const
+export const MATERIAL_CATEGORIES: Array<{kind:MaterialArchiveKind;code:string;name:string}> = [
+ ...[['SZ','梭织面料'],['ZZ','针织面料'],['LL','里料/衬布'],['MZ','毛织/羊毛面料'],['YH','印花/提花面料'],['GN','功能/特殊面料']].map(([code,name])=>({kind:'fabric' as const,code,name})),
+ ...[['SN','缝纫/衬布类'],['BF','扣合类'],['LR','花边/蕾丝类'],['TB','织带/编带类'],['LB','标识类辅料'],['HD','五金'],['OT','其他类目']].map(([code,name])=>({kind:'accessory' as const,code,name})),
+ ...[['NF','天然纤维纱线'],['CF','化学纤维纱线'],['BL','混纺纱线']].map(([code,name])=>({kind:'yarn' as const,code,name})),
 ]
-const templates: MaterialTemplate[] = definitions.map(([kind, category, fields], index) => ({ templateId: `material-template-${kind}-${index + 1}`, kind, category, name: `${category}属性`, version: 1, status: 'APPROVED', fields, updatedAt: '2026-10-05 09:00', updatedBy: '原型演示', changeNote: 'R1 分类模板' }))
-// Keep published v1 records and their units intact. New archives may adopt v2;
-// existing archives continue to read exactly the template version they saved.
-const refinedTemplates = templates.filter(item => item.kind !== 'fabric').map(previous => {
-  const next: MaterialTemplate = { ...structuredClone(previous), version: 2, updatedAt: '2026-10-05 18:00', changeNote: 'R1 字段核查：条件、单位与结构化规格补齐' }
-  next.fields = next.fields.map(item => item.key === 'material' ? { ...item, type: 'select', dictionaryId: 'materialConstructions' } : item.key === 'construction' ? { ...item, type: 'select', dictionaryId: 'materialStructures' } : item.key === 'teeth' ? { ...item, type: 'select', dictionaryId: 'zipperTeeth' } : item.key === 'opening' ? { ...item, type: 'select', dictionaryId: 'zipperOpenings' } : item)
-  if (next.category === '纽扣') next.fields = next.fields.map(item => item.key === 'fastening' ? { ...item, type: 'select', options: ['孔式', '脚式'] } : item.key === 'holeCount' ? { ...item, integer: true, minimum: 0, requiredWhen: 'button-hole', help: '孔式维护实际孔数；脚式不填写孔数。' } : item.key === 'thickness' ? { ...item, required: false } : item)
-  if (next.category === '包装袋') {
-    next.fields = next.fields.map(item => item.key === 'length' || item.key === 'width' ? { ...item, unit: 'mm' } : item.key === 'thickness' ? { ...item, unit: 'μm' } : item)
-    next.previousVersionConversions = [{ key: 'length', fromUnit: 'cm', toUnit: 'mm', factor: 10 }, { key: 'width', fromUnit: 'cm', toUnit: 'mm', factor: 10 }, { key: 'thickness', fromUnit: 'mm', toUnit: 'μm', factor: 1000 }]
-  }
-  if (next.category === '油剂') next.fields = [field('model', '产品型号', 'root'), field('grade', '牌号', 'sku'), field('viscosityGrade', '黏度等级', 'sku'), field('netContent', '净含量', 'sku', 'number', 'L')]
-  if (next.kind === 'parts') next.fields = next.fields.map(item => item.key === 'equipment' ? { ...item, label: '设备类型与型号适配', type: 'reference', valueShape: 'equipmentCompatibility' } : item.key === 'dimensions' ? { ...item, label: '命名尺寸', type: 'reference', valueShape: 'namedDimensions', help: '每一项分别填写尺寸名称、数值和单位，例如：外径 20 mm、厚度 3 mm。' } : item)
-  if (['花边辅料', '刺绣辅料', '刺绣花边', '装饰件'].includes(next.category)) {
-    next.fields = next.fields.map(item => item.key === 'width' ? { ...item, level: 'root', required: next.category !== '装饰件' } : item)
-    next.fields.push(field('shape', '形状要求', 'root', 'text', '', false))
-  }
-  if (next.kind === 'yarn') next.fields = next.fields.map(item => item.key === 'plies' ? { ...item, integer: true } : item.key === 'usage' ? { ...item, type: 'multiSelect', dictionaryId: 'yarnUses' } : item)
-  return next
-})
-templates.push(...refinedTemplates)
+/** Retired names are accepted only when projecting saved records, never as new categories. */
+export function materialSavedCategory(kind:MaterialArchiveKind,name:string,composition=''):string {
+ if(MATERIAL_CATEGORIES.some(c=>c.kind===kind&&c.name===name))return name
+ const legacy:Record<string,string>={'毛织布':'毛织/羊毛面料','梭织布':'梭织面料','牛仔布':'梭织面料','经编布':'针织面料','网布':'针织面料','里布':'里料/衬布','花边辅料':'花边/蕾丝类','刺绣辅料':'花边/蕾丝类','刺绣花边':'花边/蕾丝类','纽扣':'扣合类','拉链':'扣合类','松紧带':'织带/编带类','织带':'织带/编带类','绳子':'织带/编带类','装饰件':'其他类目','流苏辅料':'其他类目'}
+ if(kind==='yarn'&&['针织用纱','车缝线','包缝线','绣花线','织带线'].includes(name)){
+  const natural=/棉|麻|羊毛|羊绒|蚕丝|兔毛|马海毛|cotton|linen|wool|silk/i.test(composition),chemical=/涤|锦|腈|氨|粘|黏|尼龙|人造|天丝|polyester|nylon|acrylic|viscose/i.test(composition)
+  return natural&&chemical?'混纺纱线':natural?'天然纤维纱线':chemical?'化学纤维纱线':name
+ }
+ const mapped=legacy[name]
+ return mapped&&MATERIAL_CATEGORIES.some(c=>c.kind===kind&&c.name===mapped)?mapped:name
+}
+const yarnFields=[composition,{...field('countSystem','纱支体系','root','select'),dictionaryId:'yarnCountSystems' as const},field('countValue','纱支数值','root','number'),{...field('plies','股数','root','number','股'),integer:true},{...field('usage','用途','root','multiSelect','',false,false),dictionaryId:'yarnUses' as const},color]
+const accessoryFields=[{...material,type:'select' as const,dictionaryId:'materialConstructions' as const},{...field('construction','结构 / 款式','root','select','',false),dictionaryId:'materialStructures' as const},field('width','宽度','root','number','mm',false),color]
+const templates:MaterialTemplate[]=MATERIAL_CATEGORIES.map(c=>({templateId:`material-category-${c.kind}-${c.code}`,categoryId:`material-category-${c.kind}-${c.code}`,categoryCode:c.code,kind:c.kind,category:c.name,name:`${c.name}属性`,status:'APPROVED',enabled:true,updatedAt:'2026-10-12 09:00',updatedBy:'原型演示',changeNote:'当前分类属性',fields:structuredClone(c.kind==='fabric'?fabricFields:c.kind==='yarn'?yarnFields:c.code==='BF'?[...accessoryFields,{...field('installationType','类型','root','select','',true,false,['机打','手缝'])},{...field('fastening','纽扣结构','root','select','',false,true,['孔式','脚式'])},{...field('holeCount','孔数','root','number','孔'),requiredWhen:'button-hole',integer:true,minimum:0},field('diameter','直径','sku','number','mm',false)]:c.code==='TB'?[...accessoryFields,field('diameter','直径','root','number','mm',false)]:accessoryFields)}))
 const units: MaterialUnitDefinition[] = [
   ['M', '米', 'length', 4], ['Yard', '码', 'length', 4], ['cm', '厘米', 'length', 2], ['mm', '毫米', 'length', 2],
   ['KG', '千克', 'mass', 4], ['g', '克', 'mass', 2], ['PCS', '个', 'count', 0], ['件', '件', 'count', 0], ['套', '套', 'count', 0], ['片', '片', 'count', 0], ['L', '升', 'volume', 4],
@@ -92,7 +76,7 @@ function projectTemplateFieldReferences(template: MaterialTemplate, choices = li
   result.fields = result.fields.map(item => {
     if (item.unit && !item.unitId) item.unitId = attributeUnitForText(item.unit, choices)?.id
     if (['select', 'multiSelect'].includes(item.type) && !item.dictionaryId && !item.enumDefinition && item.options?.length) {
-      item.enumDefinition = { id: `${template.templateId}:enum:${item.key}`, version: template.version,
+      item.enumDefinition = { id: `${template.templateId}:enum:${item.key}`, version: 1,
         options: item.options.map(value => ({ id: `${template.templateId}:enum:${item.key}:${encodeURIComponent(value)}`, value, label: value })) }
     }
     return item
@@ -115,21 +99,15 @@ export function getMaterialBoundFieldDefaults(level: 'package' | 'process'): Mat
     make('deliveryRevisionSegment', '交付版次', 'text'),
   ]
 }
-// New metadata is published as a new version. Already referenced versions retain
-// their field lists, units and local enum values without being rewritten.
-const latestInitialTemplates = [...new Map(templates.map(item => [item.templateId, item])).values()]
-templates.push(...latestInitialTemplates.map(previous => projectTemplateFieldReferences({ ...structuredClone(previous), version: previous.version + 1,
-  changeNote: 'R1 完整字段契约：四层归属、稳定单位与受控字典',
-  previousVersionConversions: [],
-  fields: [...previous.fields.map(item => previous.category === '拉链' && item.key === 'gauge' ? { ...item, type: 'select' as const, dictionaryId: 'zipperGauges' as const } : structuredClone(item)), ...getMaterialBoundFieldDefaults('package'), ...getMaterialBoundFieldDefaults('process')] }, [...units, ...attributeUnits])))
+for(const template of templates)template.fields=[...template.fields,...getMaterialBoundFieldDefaults('package'),...getMaterialBoundFieldDefaults('process')]
 
 export function getMaterialBoundFields(template: MaterialTemplate, level: 'package' | 'process'): MaterialTemplateField[] {
   const configured = template.fields.filter(item => item.level === level)
   return getMaterialBoundFieldDefaults(level).map(fallback => structuredClone(configured.find(item => item.modelBinding === fallback.modelBinding) || fallback))
 }
 export const MATERIAL_PROCESS_DEFINITIONS = [
-  { id: 'DYEING', name: '染色', segment: '颜色-PantonePT', material: true, cutPiece: false },
-  { id: 'PRINTING', name: '印花', segment: '花型-A/AB-[ST]YH', material: true, cutPiece: true },
+  { id: 'DYEING', name: '染色', segment: '颜色-PantonePT-MJS/GTG', material: true, cutPiece: false },
+  { id: 'PRINTING', name: '印花', segment: '花型-A/CT/AAYH；F正面-B反面-ABYH', material: true, cutPiece: true },
   { id: 'EMBROIDERY', name: '绣花', segment: '花型XH', material: true, cutPiece: true },
   { id: 'HEAT_TRANSFER', name: '烫画', segment: '花型TH', material: true, cutPiece: true },
   { id: 'PLEATING', name: '压褶', segment: '', material: false, cutPiece: true },
@@ -143,7 +121,9 @@ function snapshot(): Snapshot {
   if (cache) return cache
   const raw = pcsRecordStore.getItem(PCS_MATERIAL_CONFIG_KEY)
   const seed = { version: 2, templates: structuredClone(templates), units: structuredClone(units), processes: MATERIAL_PROCESS_DEFINITIONS.map(item => ({ ...item, enabled: true })), equipmentModels: [] }
-  cache = raw ? { ...seed, ...JSON.parse(raw) } as Snapshot : seed
+  const stored = raw ? JSON.parse(raw) as Snapshot : undefined
+  cache = { ...seed, ...stored, templates: templates.map(base=>{const current=stored?.templates?.find(item=>item.templateId===base.templateId&&!('version' in item));return current?{...base,...current}:base}) }
+  cache.processes=cache.processes.map(item=>({...item,segment:MATERIAL_PROCESS_DEFINITIONS.find(rule=>rule.id===item.id)?.segment??item.segment}))
   return cache
 }
 export function getMaterialConfigSnapshot(): Snapshot { return structuredClone(snapshot()) }
@@ -158,19 +138,17 @@ export function saveMaterialEquipmentModel(input: MaterialEquipmentModel, operat
   if (listMaterialEquipmentModels().some(item => item.id !== input.id && item.equipmentTypeId === input.equipmentTypeId && item.code === input.code.trim())) throw new Error('同一设备类型下的型号编码不能重复。')
   const saved = { ...input, id: input.id || `equipment-model-${crypto.randomUUID()}`, code: input.code.trim(), name: input.name.trim(), updatedAt: new Date().toISOString(), updatedBy: operator }
   const next = getMaterialConfigSnapshot(); next.equipmentModels = [...(next.equipmentModels || []).filter(item => item.id !== saved.id), saved]
-  pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(next)); cache = next; return structuredClone(saved)
+  preserveMaterialAttributeFields(); pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(next)); cache = next; return structuredClone(saved)
 }
-export function getMaterialTemplate(kind: MaterialArchiveKind, category: string): MaterialTemplate {
-  const candidates = snapshot().templates.filter(item => item.kind === kind && item.status === 'APPROVED')
-  const rows = candidates.filter(item => item.category === category)
-  const selected = rows.sort((a, b) => b.version - a.version)[0]
-  if (!selected || selected.enabled === false) throw new Error('该物料分类没有启用的已审核模板，请先维护基础配置。')
-  return resolveTemplateOptions(selected)
+export function getMaterialTemplate(kind:MaterialArchiveKind,category:string):MaterialTemplate {
+ const item=snapshot().templates.find(row=>row.kind===kind&&row.category===category)
+ if(!item||item.enabled===false)throw new Error('请选择当前物料大类下有效的分类。')
+ return resolveTemplateOptions(item)
 }
-export function getMaterialTemplateByVersion(templateId: string, version: number): MaterialTemplate {
-  const item = snapshot().templates.find(row => row.templateId === templateId && row.version === version)
-  if (!item) throw new Error('档案引用的模板版本不存在，请核对资料。')
-  return resolveTemplateOptions(item)
+export function getMaterialTemplateById(templateId:string):MaterialTemplate {
+ const item=snapshot().templates.find(row=>row.templateId===templateId)
+ if(!item)throw new Error('分类属性不存在，请重新读取资料。')
+ return resolveTemplateOptions(item)
 }
 function resolveTemplateOptions(template: MaterialTemplate): MaterialTemplate {
   // Dictionary selections are immutable between workspace saves. Cache the
@@ -198,7 +176,6 @@ function copyMaterialTemplate(template: MaterialTemplate): MaterialTemplate {
   if (template.categoryNames) copy.categoryNames = { ...template.categoryNames }
   if (template.categoryAliases) copy.categoryAliases = Object.fromEntries(Object.entries(template.categoryAliases).map(([key, values]) => [key, [...values]]))
   if (template.logs) copy.logs = structuredClone(template.logs)
-  if (template.previousVersionConversions) copy.previousVersionConversions = template.previousVersionConversions.map(item => ({ ...item }))
   return copy
 }
 let resolvedDictionarySource: string | null | undefined
@@ -220,11 +197,10 @@ export function listMaterialUnitDefinitions(): MaterialUnitDefinition[] {
 export function listFixedMaterialConversions(): Array<{ fromUnit: string; toUnit: string; factor: number }> {
   return [{ fromUnit: 'Yard', toUnit: 'M', factor: 0.9144 }, { fromUnit: 'cm', toUnit: 'M', factor: 0.01 }, { fromUnit: 'mm', toUnit: 'M', factor: 0.001 }, { fromUnit: 'g', toUnit: 'KG', factor: 0.001 }]
 }
-export function saveMaterialTemplateVersion(template: MaterialTemplate, operator: string): MaterialTemplate {
+export function saveMaterialTemplate(template: MaterialTemplate, operator: string): MaterialTemplate {
   if (['consumable','parts'].includes(template.kind)) throw new Error('耗材和配件不维护分类或属性模板。')
-  const previous = snapshot().templates.filter(item => item.templateId === template.templateId)
-  const current = previous.find(item => item.version === template.version)
-  const currentView = current ? materialTemplateCategoryIdentity(current) : undefined
+  const current=snapshot().templates.find(item=>item.templateId===template.templateId)
+  const currentView=current?materialTemplateCategoryIdentity(current):undefined
   template = structuredClone(template)
   if (!template.category.trim() || !template.fields.length) throw new Error('请输入分类与至少一个属性。')
   for (const level of ['package', 'process'] as const) if (!template.fields.some(item => item.level === level)) template.fields.push(...getMaterialBoundFieldDefaults(level))
@@ -241,7 +217,7 @@ export function saveMaterialTemplateVersion(template: MaterialTemplate, operator
     } else if (item.modelBinding) throw new Error('包装与工艺绑定不能移到主档或 SKU。')
     if (item.unit?.trim()) {
       const projected = item.unitId ? choices.find(row => row.id === item.unitId) : attributeUnitForText(item.unit, choices)
-      if (!projected || !projected.enabled && old?.unitId !== projected.id) throw new Error('请选择有效的属性单位。旧版未知单位需明确选择后保存新版本。')
+      if (!projected || !projected.enabled && old?.unitId !== projected.id) throw new Error('请选择有效的属性单位。未知单位请明确选择后保存。')
       if (!item.unitId && !old && !item.modelBinding) throw new Error('新数值属性请选择稳定单位，不直接填写单位文字。')
       if (![projected.code, ...(projected.aliases || []), ...(projected.code === 'M' ? ['m'] : [])].includes(item.unit)) throw new Error('属性单位 ID 与单位文字不一致。')
       item.unitId = projected.id
@@ -255,7 +231,7 @@ export function saveMaterialTemplateVersion(template: MaterialTemplate, operator
         if (!prior || item.enumDefinition?.id !== prior.id) throw new Error('新选择型属性必须关联独立取值字典；旧版自有枚举需保留明确枚举引用。')
         const values = item.options || item.enumDefinition.options.map(row => row.value)
         if (!values.length || values.some(value => !value.trim()) || new Set(values).size !== values.length) throw new Error('旧版枚举选项不得为空或重复。')
-        item.enumDefinition = { id: prior.id, version: current?.status === 'DRAFT' ? current.version : Math.max(0, ...previous.map(row => row.version)) + 1,
+        item.enumDefinition = { id: prior.id, version: prior.version,
           options: values.map(value => ({ id: prior.options.find(row => row.value === value)?.id || `${prior.id}:${encodeURIComponent(value)}`, value, label: value })) }
         item.options = values
       }
@@ -270,20 +246,11 @@ export function saveMaterialTemplateVersion(template: MaterialTemplate, operator
     keys.add(item.key)
   }
   for (const level of ['package', 'process'] as const) if (getMaterialBoundFieldDefaults(level).some(field => !template.fields.some(item => item.modelBinding === field.modelBinding))) throw new Error('包装与工艺固定字段不能删除；请通过模板说明和可选要求维护。')
-  const conversionKeys = new Set<string>()
-  for (const conversion of template.previousVersionConversions || []) {
-    const target = template.fields.find(item => item.key === conversion.key)
-    if (conversionKeys.has(conversion.key) || !target || target.type !== 'number' || !conversion.fromUnit.trim() || target.unit !== conversion.toUnit || !Number.isFinite(conversion.factor) || conversion.factor <= 0) throw new Error('版本换算依据需对应唯一数值属性、明确原单位及匹配的新单位，并采用正数系数。')
-    conversionKeys.add(conversion.key)
-  }
-  // A published version's transition describes how that version was reached.
-  // Cloning it without another unit change must not apply the same factor again.
-  if (current?.status === 'APPROVED') template.previousVersionConversions = (template.previousVersionConversions || []).filter(conversion => {
-    const inherited = current.previousVersionConversions?.some(old => old.key === conversion.key && old.fromUnit === conversion.fromUnit && old.toUnit === conversion.toUnit && old.factor === conversion.factor)
-    return !inherited || current.fields.find(item => item.key === conversion.key)?.unit !== template.fields.find(item => item.key === conversion.key)?.unit
-  })
   if (!['fabric', 'accessory', 'yarn', 'consumable', 'parts'].includes(template.kind)) throw new Error('物料大类只能使用面料、辅料、纱线、耗材、配件。')
-  const category = materialTemplateCategoryIdentity(template), priorCategory = current ? materialTemplateCategoryIdentity(current) : previous[0] ? materialTemplateCategoryIdentity(previous[0]) : undefined
+  const category = materialTemplateCategoryIdentity(template), priorCategory = currentView
+  const rule=MATERIAL_CATEGORIES.find(c=>c.kind===category.kind&&c.name===category.category&&c.code===category.categoryCode)
+  if(!rule||category.templateId!==`material-category-${rule.kind}-${rule.code}`)throw new Error('物料分类名称与编码使用固定目录，不新增表外分类。')
+  if(rule.code==='BF'&&!category.fields.some(f=>f.key==='installationType'&&f.type==='select'&&!f.dictionaryId&&!f.valueShape&&!f.modelBinding&&!f.unit&&(!f.requiredWhen||f.requiredWhen==='always')&&f.level==='root'&&f.required&&f.identity===false&&f.options?.join('|')==='机打|手缝'))throw new Error('扣合类类型必须保留机打/手缝必填。')
   for (const [language, name] of Object.entries(category.categoryNames || {})) if (!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(language) || !name.trim()) throw new Error('分类多语名称需要有效语言代码及非空名称。')
   if (category.categoryNames?.zh !== category.category) throw new Error('中文分类名称需与所属分类一致，其他语言名称请单独维护。')
   for (const [language, aliases] of Object.entries(category.categoryAliases || {})) if (!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(language) || !Array.isArray(aliases) || aliases.some(value => !value.trim()) || new Set(aliases).size !== aliases.length) throw new Error('分类语言别名需要有效语言代码，别名不能为空或重复。')
@@ -291,23 +258,12 @@ export function saveMaterialTemplateVersion(template: MaterialTemplate, operator
   if (priorCategory && (category.categoryId !== priorCategory.categoryId || category.categoryCode !== priorCategory.categoryCode)) throw new Error('已有分类的稳定 ID 和业务编码不能变更。')
   if (snapshot().templates.some(item => item.templateId !== template.templateId && (materialTemplateCategoryIdentity(item).categoryId === category.categoryId || materialTemplateCategoryIdentity(item).categoryCode === category.categoryCode))) throw new Error('分类 ID 与业务编码须在物料分类中唯一。')
   if (current && (current.kind !== template.kind || current.category !== template.category)) throw new Error('已有模板不能变更所属大类或分类，请新建分类模板。')
-  if (!previous.length && snapshot().templates.some(item => item.kind === template.kind && item.category === template.category.trim())) throw new Error('该分类已有模板，请从现有模板建立新版本。')
-  if (previous.some(item => item.status === 'DRAFT' && item.version !== template.version)) throw new Error('此模板已有待审核版本，请先完成该版本。')
-  const editingDraft = current?.status === 'DRAFT'
-  const next = { ...category, category: template.category.trim(), version: editingDraft ? current.version : Math.max(0, ...previous.map(item => item.version)) + 1, status: 'DRAFT' as const, updatedAt: new Date().toISOString(), updatedBy: operator,
-    logs: [...(editingDraft ? current.logs || [] : []), materialConfigLog('保存模板草稿', template.changeNote || '维护分类属性', operator)] }
-  const result = { ...getMaterialConfigSnapshot(), templates: [...snapshot().templates.filter(item => !(editingDraft && item.templateId === next.templateId && item.version === next.version)), next] }
-  pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result
-  return next
-}
-export function approveMaterialTemplate(templateId: string, version: number, operator: string): void {
-  const result = getMaterialConfigSnapshot()
-  const target = result.templates.find(item => item.templateId === templateId && item.version === version)
-  if (!target || target.status !== 'DRAFT') throw new Error('请选择待审核模板版本。')
-  if (target.kind === 'consumable' || target.kind === 'parts') throw new Error('耗材与配件分类不使用模板审核，请维护分类资料。')
-  target.status = 'APPROVED'; target.updatedBy = operator; target.updatedAt = new Date().toISOString()
-  target.logs = [...(target.logs || []), materialConfigLog('审核通过', `模板 v${version}供新建档案使用，旧档案保留引用版本。`, operator)]
-  pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result
+  const used=materialRecords().records.some(row=>row.templateId===category.templateId)
+  if(used&&currentView)for(const old of currentView.fields){const next=category.fields.find(f=>f.key===old.key);if(!next||next.level!==old.level||next.type!==old.type||next.unit!==old.unit||next.identity!==old.identity)throw new Error('已有物料采用的属性不能删除或改变归属、类型、单位和身份；可维护名称与说明。')}
+  const next={...category,status:'APPROVED' as const,updatedAt:new Date().toISOString(),updatedBy:operator,logs:[...(current?.logs||[]),materialConfigLog('维护分类属性',template.changeNote||'维护当前资料',operator)]}
+  const result={...getMaterialConfigSnapshot(),templates:snapshot().templates.map(item=>item.templateId===next.templateId?next:item)}
+  preserveMaterialAttributeFields(); pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY,JSON.stringify(result));cache=result
+  return copyMaterialTemplate(next)
 }
 export function saveMaterialUnit(unit: MaterialUnitDefinition, operator = '当前用户'): void {
   if (!unit.code.trim() || !unit.label.trim() || !Number.isInteger(unit.precision) || unit.precision < 0 || unit.precision > 8) throw new Error('请填写单位编码、名称和 0–8 位精度。')
@@ -319,7 +275,7 @@ export function saveMaterialUnit(unit: MaterialUnitDefinition, operator = '当�
   if (['count', 'package'].includes(unit.dimension) && unit.precision !== 0) throw new Error('计数和包装单位不支持小数数量。')
   result.units = [...result.units.filter(item => item.id !== unit.id), { ...structuredClone(unit), updatedAt: new Date().toISOString(), updatedBy: operator,
     logs: [...(current?.logs || []), materialConfigLog(current ? '维护单位' : '新增单位', `${unit.code} · ${unit.label} · ${unit.enabled ? '启用' : '停用'}`, operator)] }]
-  pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result
+  preserveMaterialAttributeFields(); pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result
 }
 
 function materialConfigLog(action: string, detail: string, operator: string): ConfigLog {
@@ -335,14 +291,11 @@ export function saveMaterialProcessConfiguration(process: MaterialProcessConfigu
   const next = { ...structuredClone(process), updatedAt: new Date().toISOString(), updatedBy: operator,
     logs: [...(previous?.logs || []), materialConfigLog('维护加工工艺', `${process.name} · ${process.enabled ? '启用' : '停用'}`, operator)] }
   result.processes = result.processes.map(item => item.id === process.id ? next : item)
-  pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result
+  preserveMaterialAttributeFields(); pcsRecordStore.setItem(PCS_MATERIAL_CONFIG_KEY, JSON.stringify(result)); cache = result
 }
 function materialRecords(): { records: Array<Record<string, any>>; skuRecords: Array<Record<string, any>>; unitRelations: Array<Record<string, any>> } {
   const raw = pcsRecordStore.getItem('higood-pcs-material-archive-store-v2')
   return { records: [], skuRecords: [], unitRelations: [], ...(raw ? JSON.parse(raw) : {}) }
-}
-export function getMaterialTemplateUsage(templateId: string, version: number): Array<{ id: string; label: string; href?: string }> {
-  return materialRecords().records.filter(item => item.templateId === templateId && item.templateVersion === version).map(item => ({ id: item.materialId, label: `${item.materialCode} · ${item.materialName}`, href: `/pcs/materials/${item.kind}/${item.materialId}` }))
 }
 export function getMaterialUnitUsage(code: string): Array<{ id: string; label: string; href?: string }> {
   const records = materialRecords()

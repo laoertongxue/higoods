@@ -1,3 +1,5 @@
+import { getTechnicalDataVersionStoreSnapshot } from './pcs-technical-data-version-repository.ts'
+import { listEngineeringBomVersions } from './pcs-engineering-bom-repository.ts'
 import { getMaterialArchiveById, getMaterialSkuRecordById, listMaterialSkuRecordsByMaterialId } from './pcs-material-archive-repository.ts'
 import type { MaterialSkuRecord } from './pcs-material-archive-types.ts'
 import { canonicalMaterialUnit } from './pcs-material-rules.ts'
@@ -43,6 +45,9 @@ export async function assertMaterialArchiveCanBeArchived(id: string, hasPurchase
  const ids=sku?[sku.materialSkuId]:listMaterialSkuRecordsByMaterialId(root.materialId).map(x=>x.materialSkuId)
  let found:boolean
  try{found=(await Promise.all(ids.map(hasPurchaseReference))).some(Boolean)}catch{throw new Error('暂时无法核对采购引用，未归档。请重新读取后重试。')}
+ if(hasMaterialTechnicalReference(ids))throw new Error('已有技术资料或 BOM 使用该物料，请保留历史档案。')
  if(found)throw new Error('已有采购草稿或采购记录引用，请停用并保留历史档案。')
  archiveChecks.set(id,archiveSignature(id))
 }
+
+export function hasMaterialTechnicalReference(skuIds:readonly string[]):boolean{const ids=new Set(skuIds);return getTechnicalDataVersionStoreSnapshot().contents.some(c=>c.bomItems?.some(l=>l.materialSkuId&&ids.has(l.materialSkuId)))||listEngineeringBomVersions().some(v=>v.materialLines.some(l=>ids.has(l.materialSkuId)))}

@@ -117,7 +117,7 @@ function preparePublishedVersion(styleCode: string, specsOverride?: (versionId: 
 
   const material = createMaterialArchive({
     kind: 'accessory', materialName: `TMF发布采用链织带 ${Date.now()}`, materialNameEn: 'TMF adopt chain webbing',
-    categoryName: '织带', specSummary: '链测试白色 20mm', composition: '涤纶', processTags: [],
+    categoryName: '织带/编带类', specSummary: '链测试白色 20mm', composition: '涤纶', processTags: [],
     widthText: '20mm', gramWeightText: '', pricingUnit: '米', mainUnit: '米', auxiliaryUnits: [], unitConversions: [],
     mainImageUrl: '', barcodeTemplateCode: '', remark: 'TMF发布采用链测试物料',
   })
