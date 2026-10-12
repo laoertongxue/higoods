@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-12",
+  "featureCommit": "a6a3f0626e7529c3bf7fee79a26535dcfe8ce072",
+  "integratedMain": "dab3ebf2acbd67234bfe0e700358d21e354c546b",
+  "integrationHead": "29999b95a8a6c520b11191aae6be090305becb7c",
+  "mergeChangedTaskFiles": [
+    "scripts/workflow-governance/affected-checks.ts",
+    "src/router/route-renderers.ts",
+    "tests/workflow-governance/affected-checks.test.ts"
+  ],
+  "unchangedTaskFiles": [
+    "scripts/check-pcs-simple-browser-evidence.ts",
+    "scripts/generate-pcs-static-baseline.ts",
+    "scripts/task-completion-receipt.ts",
+    "scripts/workflow-governance/check-execution.ts",
+    "src/data/generated/pcs-record-baseline.json",
+    "src/data/pcs-config-workspace-repository.ts",
+    "src/data/pcs-engineering-bom-material-resolver.ts",
+    "src/data/pcs-material-archive-repository.ts",
+    "src/data/pcs-material-archive-types.ts",
+    "src/data/pcs-material-config.ts",
+    "src/data/pcs-material-transfer.ts",
+    "src/data/pcs-record-runtime.ts",
+    "src/data/pcs-simple-material-categories.ts",
+    "src/data/pcs-simple-material-transfer.ts",
+    "src/pages/pcs-config-workspace.ts",
+    "src/pages/pcs-material-archives.ts",
+    "src/pages/pcs-technical-data.ts",
+    "src/pages/tech-pack/bom-domain.ts",
+    "src/pages/tech-pack/events.ts",
+    "tests/browser-contracts/pcs-simple-adversarial.test.ts",
+    "tests/browser-contracts/pcs-simple-category-usage.test.ts",
+    "tests/browser-contracts/pcs-simple-config.test.ts",
+    "tests/browser-contracts/pcs-simple-copy-identity.test.ts",
+    "tests/browser-contracts/pcs-simple-dossier.test.ts",
+    "tests/browser-contracts/pcs-simple-downstream.test.ts",
+    "tests/browser-contracts/pcs-simple-import.test.ts",
+    "tests/browser-contracts/pcs-simple-list-entry.test.ts",
+    "tests/browser-contracts/pcs-simple-materials.test.ts",
+    "tests/pcs-engineering-bom-version-workflow.spec.ts",
+    "tests/unit/pcs-simple-config-removal.test.ts",
+    "tests/unit/pcs-simple-dossier.test.ts",
+    "tests/unit/pcs-simple-material-archives.test.ts",
+    "tests/unit/pcs-simple-material-categories.test.ts",
+    "tests/workflow-governance/instruction-context.test.ts",
+    "tests/workflow-governance/pcs-simple-browser-evidence.test.ts"
+  ],
+  "additionalPublicationFix": [
+    "scripts/workflow-governance/governance-scope.ts",
+    "tests/workflow-governance/governance-scope.test.ts"
+  ],
+  "scope": "Only merge routing/governance impacts plus same-page dossier persistence, full feature evidence retains original build identity",
+  "bundleSHA256": "e13c89f937796235526e8fd3474dae398570d78ceeebf2bcad05d42bc7826833",
+  "preview": "http://127.0.0.1:43222",
+  "viewports": [
+    "1366x768",
+    "1280x720"
+  ],
+  "samples": 285,
+  "maximumMs": 312.59999999403954,
+  "passed": true,
+  "checks": {
+    "build": true,
+    "unitTests": 778,
+    "governanceTests": 303,
+    "prototypeGovernance": true,
+    "listGovernance": true,
+    "menuRoutes": true
+  },
+  "originalWorkflowReceipt": "docs/verification-evidence/2026-10-10-simple-materials-single-editor/workflow-receipt.json",
+  "incrementalReceipt": "/tmp/higoods-r2-publication-final-receipt.json"
+}

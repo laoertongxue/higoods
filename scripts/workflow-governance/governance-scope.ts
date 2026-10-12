@@ -30,7 +30,7 @@ function safePath(value: string): string {
 
 export function resolveGovernanceScope(args: string[], cwd = process.cwd(), environment: NodeJS.ProcessEnv = process.env): GovernanceScope {
   const root = realpathSync(cwd)
-  const git = (...argv: string[]): string => execFileSync('git', argv, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const git = (...argv: string[]): string => execFileSync('git', argv, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 })
   const options = new Map<string, string>()
   let legacyAll = false
   for (let i = 0; i < args.length; i++) {

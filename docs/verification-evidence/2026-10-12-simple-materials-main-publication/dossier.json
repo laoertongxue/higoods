@@ -1,0 +1,1255 @@
+{
+  "samples": [
+    {
+      "round": 0,
+      "name": "parts:new-direct",
+      "ms": 211.90000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:name",
+      "ms": 102.5
+    },
+    {
+      "round": 0,
+      "name": "parts:row-upload",
+      "ms": 132.7999999821186
+    },
+    {
+      "round": 0,
+      "name": "parts:copy-row",
+      "ms": 98.30000001192093
+    },
+    {
+      "round": 0,
+      "name": "parts:replace-original-image",
+      "ms": 93.90000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:remove-original",
+      "ms": 132.59999999403954
+    },
+    {
+      "round": 0,
+      "name": "parts:spec-one",
+      "ms": 95.69999998807907
+    },
+    {
+      "round": 0,
+      "name": "parts:add-row",
+      "ms": 109.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:spec-two",
+      "ms": 96.39999997615814
+    },
+    {
+      "round": 0,
+      "name": "parts:duplicate-block",
+      "ms": 130.2000000178814
+    },
+    {
+      "round": 0,
+      "name": "parts:spec-two-distinct",
+      "ms": 94.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:purchase-zero",
+      "ms": 88.90000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:transport-zero",
+      "ms": 96.59999999403954
+    },
+    {
+      "round": 0,
+      "name": "parts:root-upload",
+      "ms": 104.2999999821186
+    },
+    {
+      "round": 0,
+      "name": "parts:abort-no-success",
+      "ms": 129.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:retry-save",
+      "ms": 134.5
+    },
+    {
+      "round": 0,
+      "name": "parts:saved-specs",
+      "ms": 114.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:refresh",
+      "ms": 214
+    },
+    {
+      "round": 0,
+      "name": "parts:specs-after-refresh",
+      "ms": 115.19999998807907
+    },
+    {
+      "round": 0,
+      "name": "parts:all-specs-edit",
+      "ms": 197.5
+    },
+    {
+      "round": 0,
+      "name": "parts:append-third",
+      "ms": 99.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:third-model",
+      "ms": 96.90000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:save-three",
+      "ms": 182.5
+    },
+    {
+      "round": 0,
+      "name": "parts:specs-after-third-save",
+      "ms": 113.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "parts:three-specs-read",
+      "ms": 214.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "consumable:new-direct",
+      "ms": 214.59999999403954
+    },
+    {
+      "round": 0,
+      "name": "consumable:name",
+      "ms": 96
+    },
+    {
+      "round": 0,
+      "name": "consumable:row-upload",
+      "ms": 132.80000001192093
+    },
+    {
+      "round": 0,
+      "name": "consumable:copy-row",
+      "ms": 99.30000001192093
+    },
+    {
+      "round": 0,
+      "name": "consumable:replace-original-image",
+      "ms": 102.69999998807907
+    },
+    {
+      "round": 0,
+      "name": "consumable:remove-original",
+      "ms": 129.2000000178814
+    },
+    {
+      "round": 0,
+      "name": "consumable:spec-one",
+      "ms": 99.10000002384186
+    },
+    {
+      "round": 0,
+      "name": "consumable:add-row",
+      "ms": 113.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "consumable:spec-two",
+      "ms": 92.09999999403954
+    },
+    {
+      "round": 0,
+      "name": "consumable:duplicate-block",
+      "ms": 128.59999999403954
+    },
+    {
+      "round": 0,
+      "name": "consumable:spec-two-distinct",
+      "ms": 96.30000001192093
+    },
+    {
+      "round": 0,
+      "name": "consumable:purchase-zero",
+      "ms": 107
+    },
+    {
+      "round": 0,
+      "name": "consumable:transport-zero",
+      "ms": 105
+    },
+    {
+      "round": 0,
+      "name": "consumable:root-upload",
+      "ms": 108.09999999403954
+    },
+    {
+      "round": 0,
+      "name": "consumable:abort-no-success",
+      "ms": 116.10000002384186
+    },
+    {
+      "round": 0,
+      "name": "consumable:retry-save",
+      "ms": 120.5
+    },
+    {
+      "round": 0,
+      "name": "consumable:saved-specs",
+      "ms": 115.59999999403954
+    },
+    {
+      "round": 0,
+      "name": "consumable:refresh",
+      "ms": 214.2000000178814
+    },
+    {
+      "round": 0,
+      "name": "consumable:specs-after-refresh",
+      "ms": 116.2000000178814
+    },
+    {
+      "round": 0,
+      "name": "consumable:all-specs-edit",
+      "ms": 231.40000000596046
+    },
+    {
+      "round": 0,
+      "name": "consumable:append-third",
+      "ms": 99.2000000178814
+    },
+    {
+      "round": 0,
+      "name": "consumable:third-model",
+      "ms": 97.5
+    },
+    {
+      "round": 0,
+      "name": "consumable:save-three",
+      "ms": 165.69999998807907
+    },
+    {
+      "round": 0,
+      "name": "consumable:specs-after-third-save",
+      "ms": 115.59999999403954
+    },
+    {
+      "round": 0,
+      "name": "consumable:three-specs-read",
+      "ms": 217.19999998807907
+    },
+    {
+      "round": 1,
+      "name": "parts:new-direct",
+      "ms": 211
+    },
+    {
+      "round": 1,
+      "name": "parts:name",
+      "ms": 96.59999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:row-upload",
+      "ms": 132.69999998807907
+    },
+    {
+      "round": 1,
+      "name": "parts:copy-row",
+      "ms": 99
+    },
+    {
+      "round": 1,
+      "name": "parts:replace-original-image",
+      "ms": 101.59999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:remove-original",
+      "ms": 128.90000000596046
+    },
+    {
+      "round": 1,
+      "name": "parts:spec-one",
+      "ms": 97.5
+    },
+    {
+      "round": 1,
+      "name": "parts:add-row",
+      "ms": 97.80000001192093
+    },
+    {
+      "round": 1,
+      "name": "parts:spec-two",
+      "ms": 96
+    },
+    {
+      "round": 1,
+      "name": "parts:duplicate-block",
+      "ms": 127.40000000596046
+    },
+    {
+      "round": 1,
+      "name": "parts:spec-two-distinct",
+      "ms": 96.80000001192093
+    },
+    {
+      "round": 1,
+      "name": "parts:purchase-zero",
+      "ms": 92.7999999821186
+    },
+    {
+      "round": 1,
+      "name": "parts:transport-zero",
+      "ms": 109.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:root-upload",
+      "ms": 113.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:abort-no-success",
+      "ms": 128.30000001192093
+    },
+    {
+      "round": 1,
+      "name": "parts:retry-save",
+      "ms": 118.90000000596046
+    },
+    {
+      "round": 1,
+      "name": "parts:saved-specs",
+      "ms": 115.5
+    },
+    {
+      "round": 1,
+      "name": "parts:refresh",
+      "ms": 214.2999999821186
+    },
+    {
+      "round": 1,
+      "name": "parts:specs-after-refresh",
+      "ms": 115.10000002384186
+    },
+    {
+      "round": 1,
+      "name": "parts:all-specs-edit",
+      "ms": 197.59999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:append-third",
+      "ms": 97.5
+    },
+    {
+      "round": 1,
+      "name": "parts:third-model",
+      "ms": 99.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:save-three",
+      "ms": 176.40000000596046
+    },
+    {
+      "round": 1,
+      "name": "parts:specs-after-third-save",
+      "ms": 113.59999999403954
+    },
+    {
+      "round": 1,
+      "name": "parts:three-specs-read",
+      "ms": 215
+    },
+    {
+      "round": 1,
+      "name": "consumable:new-direct",
+      "ms": 214.80000001192093
+    },
+    {
+      "round": 1,
+      "name": "consumable:name",
+      "ms": 96.59999999403954
+    },
+    {
+      "round": 1,
+      "name": "consumable:row-upload",
+      "ms": 135.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "consumable:copy-row",
+      "ms": 100.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "consumable:replace-original-image",
+      "ms": 91.7999999821186
+    },
+    {
+      "round": 1,
+      "name": "consumable:remove-original",
+      "ms": 130.19999998807907
+    },
+    {
+      "round": 1,
+      "name": "consumable:spec-one",
+      "ms": 98.5
+    },
+    {
+      "round": 1,
+      "name": "consumable:add-row",
+      "ms": 112.2999999821186
+    },
+    {
+      "round": 1,
+      "name": "consumable:spec-two",
+      "ms": 105
+    },
+    {
+      "round": 1,
+      "name": "consumable:duplicate-block",
+      "ms": 128.5
+    },
+    {
+      "round": 1,
+      "name": "consumable:spec-two-distinct",
+      "ms": 97.5
+    },
+    {
+      "round": 1,
+      "name": "consumable:purchase-zero",
+      "ms": 108.2000000178814
+    },
+    {
+      "round": 1,
+      "name": "consumable:transport-zero",
+      "ms": 108.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "consumable:root-upload",
+      "ms": 98
+    },
+    {
+      "round": 1,
+      "name": "consumable:abort-no-success",
+      "ms": 129.69999998807907
+    },
+    {
+      "round": 1,
+      "name": "consumable:retry-save",
+      "ms": 134.5
+    },
+    {
+      "round": 1,
+      "name": "consumable:saved-specs",
+      "ms": 115.5
+    },
+    {
+      "round": 1,
+      "name": "consumable:refresh",
+      "ms": 214.2000000178814
+    },
+    {
+      "round": 1,
+      "name": "consumable:specs-after-refresh",
+      "ms": 115.7000000178814
+    },
+    {
+      "round": 1,
+      "name": "consumable:all-specs-edit",
+      "ms": 197.30000001192093
+    },
+    {
+      "round": 1,
+      "name": "consumable:append-third",
+      "ms": 99.09999999403954
+    },
+    {
+      "round": 1,
+      "name": "consumable:third-model",
+      "ms": 98.40000000596046
+    },
+    {
+      "round": 1,
+      "name": "consumable:save-three",
+      "ms": 163.5
+    },
+    {
+      "round": 1,
+      "name": "consumable:specs-after-third-save",
+      "ms": 113.39999997615814
+    },
+    {
+      "round": 1,
+      "name": "consumable:three-specs-read",
+      "ms": 216
+    },
+    {
+      "round": 2,
+      "name": "parts:new-direct",
+      "ms": 212.5
+    },
+    {
+      "round": 2,
+      "name": "parts:name",
+      "ms": 96.39999997615814
+    },
+    {
+      "round": 2,
+      "name": "parts:row-upload",
+      "ms": 133
+    },
+    {
+      "round": 2,
+      "name": "parts:copy-row",
+      "ms": 98.5
+    },
+    {
+      "round": 2,
+      "name": "parts:replace-original-image",
+      "ms": 94.90000000596046
+    },
+    {
+      "round": 2,
+      "name": "parts:remove-original",
+      "ms": 129
+    },
+    {
+      "round": 2,
+      "name": "parts:spec-one",
+      "ms": 98.2000000178814
+    },
+    {
+      "round": 2,
+      "name": "parts:add-row",
+      "ms": 95.59999999403954
+    },
+    {
+      "round": 2,
+      "name": "parts:spec-two",
+      "ms": 94.09999999403954
+    },
+    {
+      "round": 2,
+      "name": "parts:duplicate-block",
+      "ms": 126.5
+    },
+    {
+      "round": 2,
+      "name": "parts:spec-two-distinct",
+      "ms": 96.2000000178814
+    },
+    {
+      "round": 2,
+      "name": "parts:purchase-zero",
+      "ms": 96
+    },
+    {
+      "round": 2,
+      "name": "parts:transport-zero",
+      "ms": 110.10000002384186
+    },
+    {
+      "round": 2,
+      "name": "parts:root-upload",
+      "ms": 98.10000002384186
+    },
+    {
+      "round": 2,
+      "name": "parts:abort-no-success",
+      "ms": 129.40000000596046
+    },
+    {
+      "round": 2,
+      "name": "parts:retry-save",
+      "ms": 134.19999998807907
+    },
+    {
+      "round": 2,
+      "name": "parts:saved-specs",
+      "ms": 115.09999999403954
+    },
+    {
+      "round": 2,
+      "name": "parts:refresh",
+      "ms": 197.59999999403954
+    },
+    {
+      "round": 2,
+      "name": "parts:specs-after-refresh",
+      "ms": 115.80000001192093
+    },
+    {
+      "round": 2,
+      "name": "parts:all-specs-edit",
+      "ms": 197.80000001192093
+    },
+    {
+      "round": 2,
+      "name": "parts:append-third",
+      "ms": 98.5
+    },
+    {
+      "round": 2,
+      "name": "parts:third-model",
+      "ms": 98.19999998807907
+    },
+    {
+      "round": 2,
+      "name": "parts:save-three",
+      "ms": 159.80000001192093
+    },
+    {
+      "round": 2,
+      "name": "parts:specs-after-third-save",
+      "ms": 114.30000001192093
+    },
+    {
+      "round": 2,
+      "name": "parts:three-specs-read",
+      "ms": 215.90000000596046
+    },
+    {
+      "round": 2,
+      "name": "consumable:new-direct",
+      "ms": 246
+    },
+    {
+      "round": 2,
+      "name": "consumable:name",
+      "ms": 96.40000000596046
+    },
+    {
+      "round": 2,
+      "name": "consumable:row-upload",
+      "ms": 131.7999999821186
+    },
+    {
+      "round": 2,
+      "name": "consumable:copy-row",
+      "ms": 99.7999999821186
+    },
+    {
+      "round": 2,
+      "name": "consumable:replace-original-image",
+      "ms": 88.19999998807907
+    },
+    {
+      "round": 2,
+      "name": "consumable:remove-original",
+      "ms": 131.59999999403954
+    },
+    {
+      "round": 2,
+      "name": "consumable:spec-one",
+      "ms": 98
+    },
+    {
+      "round": 2,
+      "name": "consumable:add-row",
+      "ms": 111.19999998807907
+    },
+    {
+      "round": 2,
+      "name": "consumable:spec-two",
+      "ms": 93.09999999403954
+    },
+    {
+      "round": 2,
+      "name": "consumable:duplicate-block",
+      "ms": 126.69999998807907
+    },
+    {
+      "round": 2,
+      "name": "consumable:spec-two-distinct",
+      "ms": 97.59999999403954
+    },
+    {
+      "round": 2,
+      "name": "consumable:purchase-zero",
+      "ms": 91.2999999821186
+    },
+    {
+      "round": 2,
+      "name": "consumable:transport-zero",
+      "ms": 103.40000000596046
+    },
+    {
+      "round": 2,
+      "name": "consumable:root-upload",
+      "ms": 89.69999998807907
+    },
+    {
+      "round": 2,
+      "name": "consumable:abort-no-success",
+      "ms": 129.80000001192093
+    },
+    {
+      "round": 2,
+      "name": "consumable:retry-save",
+      "ms": 118.89999997615814
+    },
+    {
+      "round": 2,
+      "name": "consumable:saved-specs",
+      "ms": 115.5
+    },
+    {
+      "round": 2,
+      "name": "consumable:refresh",
+      "ms": 214.5
+    },
+    {
+      "round": 2,
+      "name": "consumable:specs-after-refresh",
+      "ms": 114.59999999403954
+    },
+    {
+      "round": 2,
+      "name": "consumable:all-specs-edit",
+      "ms": 198.09999999403954
+    },
+    {
+      "round": 2,
+      "name": "consumable:append-third",
+      "ms": 98.90000000596046
+    },
+    {
+      "round": 2,
+      "name": "consumable:third-model",
+      "ms": 97.40000000596046
+    },
+    {
+      "round": 2,
+      "name": "consumable:save-three",
+      "ms": 160.30000001192093
+    },
+    {
+      "round": 2,
+      "name": "consumable:specs-after-third-save",
+      "ms": 114.19999998807907
+    },
+    {
+      "round": 2,
+      "name": "consumable:three-specs-read",
+      "ms": 216.90000000596046
+    },
+    {
+      "round": 3,
+      "name": "parts:new-direct",
+      "ms": 246.40000000596046
+    },
+    {
+      "round": 3,
+      "name": "parts:name",
+      "ms": 96.80000001192093
+    },
+    {
+      "round": 3,
+      "name": "parts:row-upload",
+      "ms": 169.09999999403954
+    },
+    {
+      "round": 3,
+      "name": "parts:copy-row",
+      "ms": 95.7999999821186
+    },
+    {
+      "round": 3,
+      "name": "parts:replace-original-image",
+      "ms": 94.30000001192093
+    },
+    {
+      "round": 3,
+      "name": "parts:remove-original",
+      "ms": 115.5
+    },
+    {
+      "round": 3,
+      "name": "parts:spec-one",
+      "ms": 97.80000001192093
+    },
+    {
+      "round": 3,
+      "name": "parts:add-row",
+      "ms": 99.39999997615814
+    },
+    {
+      "round": 3,
+      "name": "parts:spec-two",
+      "ms": 94.2000000178814
+    },
+    {
+      "round": 3,
+      "name": "parts:duplicate-block",
+      "ms": 126.2999999821186
+    },
+    {
+      "round": 3,
+      "name": "parts:spec-two-distinct",
+      "ms": 96.89999997615814
+    },
+    {
+      "round": 3,
+      "name": "parts:purchase-zero",
+      "ms": 109.7000000178814
+    },
+    {
+      "round": 3,
+      "name": "parts:transport-zero",
+      "ms": 104.2000000178814
+    },
+    {
+      "round": 3,
+      "name": "parts:root-upload",
+      "ms": 95
+    },
+    {
+      "round": 3,
+      "name": "parts:abort-no-success",
+      "ms": 130.39999997615814
+    },
+    {
+      "round": 3,
+      "name": "parts:retry-save",
+      "ms": 119.5
+    },
+    {
+      "round": 3,
+      "name": "parts:saved-specs",
+      "ms": 115.2999999821186
+    },
+    {
+      "round": 3,
+      "name": "parts:refresh",
+      "ms": 197.89999997615814
+    },
+    {
+      "round": 3,
+      "name": "parts:specs-after-refresh",
+      "ms": 115.69999998807907
+    },
+    {
+      "round": 3,
+      "name": "parts:all-specs-edit",
+      "ms": 198.10000002384186
+    },
+    {
+      "round": 3,
+      "name": "parts:append-third",
+      "ms": 99.40000000596046
+    },
+    {
+      "round": 3,
+      "name": "parts:third-model",
+      "ms": 97.30000001192093
+    },
+    {
+      "round": 3,
+      "name": "parts:save-three",
+      "ms": 159.2999999821186
+    },
+    {
+      "round": 3,
+      "name": "parts:specs-after-third-save",
+      "ms": 115
+    },
+    {
+      "round": 3,
+      "name": "parts:three-specs-read",
+      "ms": 216.09999999403954
+    },
+    {
+      "round": 3,
+      "name": "consumable:new-direct",
+      "ms": 226.09999999403954
+    },
+    {
+      "round": 3,
+      "name": "consumable:name",
+      "ms": 96.80000001192093
+    },
+    {
+      "round": 3,
+      "name": "consumable:row-upload",
+      "ms": 134.5
+    },
+    {
+      "round": 3,
+      "name": "consumable:copy-row",
+      "ms": 99.80000001192093
+    },
+    {
+      "round": 3,
+      "name": "consumable:replace-original-image",
+      "ms": 103.19999998807907
+    },
+    {
+      "round": 3,
+      "name": "consumable:remove-original",
+      "ms": 125.69999998807907
+    },
+    {
+      "round": 3,
+      "name": "consumable:spec-one",
+      "ms": 99
+    },
+    {
+      "round": 3,
+      "name": "consumable:add-row",
+      "ms": 98.30000001192093
+    },
+    {
+      "round": 3,
+      "name": "consumable:spec-two",
+      "ms": 108.5
+    },
+    {
+      "round": 3,
+      "name": "consumable:duplicate-block",
+      "ms": 131.2999999821186
+    },
+    {
+      "round": 3,
+      "name": "consumable:spec-two-distinct",
+      "ms": 96.90000000596046
+    },
+    {
+      "round": 3,
+      "name": "consumable:purchase-zero",
+      "ms": 92.59999999403954
+    },
+    {
+      "round": 3,
+      "name": "consumable:transport-zero",
+      "ms": 107.2000000178814
+    },
+    {
+      "round": 3,
+      "name": "consumable:root-upload",
+      "ms": 103.2999999821186
+    },
+    {
+      "round": 3,
+      "name": "consumable:abort-no-success",
+      "ms": 128.30000001192093
+    },
+    {
+      "round": 3,
+      "name": "consumable:retry-save",
+      "ms": 133.2000000178814
+    },
+    {
+      "round": 3,
+      "name": "consumable:saved-specs",
+      "ms": 115.09999999403954
+    },
+    {
+      "round": 3,
+      "name": "consumable:refresh",
+      "ms": 214.5
+    },
+    {
+      "round": 3,
+      "name": "consumable:specs-after-refresh",
+      "ms": 116
+    },
+    {
+      "round": 3,
+      "name": "consumable:all-specs-edit",
+      "ms": 197.7000000178814
+    },
+    {
+      "round": 3,
+      "name": "consumable:append-third",
+      "ms": 99.7000000178814
+    },
+    {
+      "round": 3,
+      "name": "consumable:third-model",
+      "ms": 97.40000000596046
+    },
+    {
+      "round": 3,
+      "name": "consumable:save-three",
+      "ms": 160.5
+    },
+    {
+      "round": 3,
+      "name": "consumable:specs-after-third-save",
+      "ms": 113.5
+    },
+    {
+      "round": 3,
+      "name": "consumable:three-specs-read",
+      "ms": 216.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "parts:new-direct",
+      "ms": 213.30000001192093
+    },
+    {
+      "round": 4,
+      "name": "parts:name",
+      "ms": 96.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "parts:row-upload",
+      "ms": 97.30000001192093
+    },
+    {
+      "round": 4,
+      "name": "parts:copy-row",
+      "ms": 99.30000001192093
+    },
+    {
+      "round": 4,
+      "name": "parts:replace-original-image",
+      "ms": 104
+    },
+    {
+      "round": 4,
+      "name": "parts:remove-original",
+      "ms": 127.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "parts:spec-one",
+      "ms": 98.7999999821186
+    },
+    {
+      "round": 4,
+      "name": "parts:add-row",
+      "ms": 108.5
+    },
+    {
+      "round": 4,
+      "name": "parts:spec-two",
+      "ms": 111
+    },
+    {
+      "round": 4,
+      "name": "parts:duplicate-block",
+      "ms": 126.5
+    },
+    {
+      "round": 4,
+      "name": "parts:spec-two-distinct",
+      "ms": 96.09999999403954
+    },
+    {
+      "round": 4,
+      "name": "parts:purchase-zero",
+      "ms": 94.89999997615814
+    },
+    {
+      "round": 4,
+      "name": "parts:transport-zero",
+      "ms": 96.5
+    },
+    {
+      "round": 4,
+      "name": "parts:root-upload",
+      "ms": 91.30000001192093
+    },
+    {
+      "round": 4,
+      "name": "parts:abort-no-success",
+      "ms": 130.40000000596046
+    },
+    {
+      "round": 4,
+      "name": "parts:retry-save",
+      "ms": 133.5
+    },
+    {
+      "round": 4,
+      "name": "parts:saved-specs",
+      "ms": 112.80000001192093
+    },
+    {
+      "round": 4,
+      "name": "parts:refresh",
+      "ms": 214.2999999821186
+    },
+    {
+      "round": 4,
+      "name": "parts:specs-after-refresh",
+      "ms": 115.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "parts:all-specs-edit",
+      "ms": 197.89999997615814
+    },
+    {
+      "round": 4,
+      "name": "parts:append-third",
+      "ms": 99
+    },
+    {
+      "round": 4,
+      "name": "parts:third-model",
+      "ms": 97.5
+    },
+    {
+      "round": 4,
+      "name": "parts:save-three",
+      "ms": 182.2000000178814
+    },
+    {
+      "round": 4,
+      "name": "parts:specs-after-third-save",
+      "ms": 113.30000001192093
+    },
+    {
+      "round": 4,
+      "name": "parts:three-specs-read",
+      "ms": 214.59999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:new-direct",
+      "ms": 208
+    },
+    {
+      "round": 4,
+      "name": "consumable:name",
+      "ms": 96.90000000596046
+    },
+    {
+      "round": 4,
+      "name": "consumable:row-upload",
+      "ms": 132
+    },
+    {
+      "round": 4,
+      "name": "consumable:copy-row",
+      "ms": 99.59999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:replace-original-image",
+      "ms": 104.10000002384186
+    },
+    {
+      "round": 4,
+      "name": "consumable:remove-original",
+      "ms": 129.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "consumable:spec-one",
+      "ms": 97.80000001192093
+    },
+    {
+      "round": 4,
+      "name": "consumable:add-row",
+      "ms": 110.30000001192093
+    },
+    {
+      "round": 4,
+      "name": "consumable:spec-two",
+      "ms": 93.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "consumable:duplicate-block",
+      "ms": 126.39999997615814
+    },
+    {
+      "round": 4,
+      "name": "consumable:spec-two-distinct",
+      "ms": 97.39999997615814
+    },
+    {
+      "round": 4,
+      "name": "consumable:purchase-zero",
+      "ms": 107.80000001192093
+    },
+    {
+      "round": 4,
+      "name": "consumable:transport-zero",
+      "ms": 106
+    },
+    {
+      "round": 4,
+      "name": "consumable:root-upload",
+      "ms": 101.7999999821186
+    },
+    {
+      "round": 4,
+      "name": "consumable:abort-no-success",
+      "ms": 129.5
+    },
+    {
+      "round": 4,
+      "name": "consumable:retry-save",
+      "ms": 119
+    },
+    {
+      "round": 4,
+      "name": "consumable:saved-specs",
+      "ms": 115.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "consumable:refresh",
+      "ms": 231.09999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:specs-after-refresh",
+      "ms": 115.59999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:all-specs-edit",
+      "ms": 197.59999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:append-third",
+      "ms": 98.69999998807907
+    },
+    {
+      "round": 4,
+      "name": "consumable:third-model",
+      "ms": 98.09999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:save-three",
+      "ms": 183.09999999403954
+    },
+    {
+      "round": 4,
+      "name": "consumable:specs-after-third-save",
+      "ms": 113.2000000178814
+    },
+    {
+      "round": 4,
+      "name": "consumable:three-specs-read",
+      "ms": 213.7000000178814
+    }
+  ],
+  "errors": []
+}
