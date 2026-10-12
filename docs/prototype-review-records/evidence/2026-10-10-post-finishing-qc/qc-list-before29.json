@@ -1,0 +1,77 @@
+{
+  "text": "质检清单\n全部关闭\n质检清单\n打印质检单\n打印质检单详情\n执行质检\n返工扣款边界：本页只记录返工数量、原因和接收工厂；返工扣款由后续财务事实承接，对账单确认后才影响本期应付。\n关键词\n当前状态\n全部\n待送检\n待质检\n质检中\n质检完成\n后道来源\n全部\n仅车缝\n车缝＋烫包\n裁剪＋车缝＋烫包\n工厂\n全部\nCV Micro Sewing Jakarta Pusat\nCV Micro Sewing Bandung Utara\nCV Micro Sewing Semarang Timur\n重置\n查询\n待送检\n0\n待质检\n0\n质检中\n1\n质检完成\n0\n质检单号\t单号\t来源工厂\t后道责任 / 完成去向\t质检员\tSKU 明细\t质检数量\t合格数量\t不合格数量\t质检结果\t状态\t操作\n\nPO-QC-202608-001-4-ZJ\n第 4 次回货\n\t\n后道：SEW-TASK-QC-001\n生产： PO-QC-202608-001\n后道验收 Mock 来源；生产主线已关联\n回货：PO-QC-202608-001-4\n\tCV Micro Sewing Jakarta Pusat\t\n仅车缝 · 后道工厂负责\n加工项目固定不可修改\n固定生成后道加工单\n\t李质检员\t\nSPU-QC-001-01\n黑色 · S · 20 件\nSPU-QC-001-02\n白色 · M · 20 件\nSPU-QC-001-03\n雾蓝 · L · 20 件\nSPU-QC-001-04\n卡其 · XL · 20 件\nSPU-QC-001-05\n酒红 · 2XL · 20 件\n\t100 件\t0 件\t0 件\t未出结果\t质检中\t\n完成质检\n查看质检单\n打印质检单\n打印质检详情单\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+  "buttons": [
+    {
+      "text": "质检清单",
+      "attributes": {
+        "data-action": "activate-tab",
+        "data-tab-key": "pfos-post-finishing-qc-orders"
+      }
+    },
+    {
+      "text": "",
+      "attributes": {
+        "data-action": "close-tab",
+        "data-tab-key": "pfos-post-finishing-qc-orders",
+        "data-tab-close": ""
+      }
+    },
+    {
+      "text": "\n            全部关闭\n          ",
+      "attributes": {
+        "data-action": "close-all-tabs"
+      }
+    },
+    {
+      "text": "打印质检单",
+      "attributes": {
+        "data-post-finishing-action": "open-qc-print-dialog",
+        "data-qc-print-type": "QC_ORDER",
+        "data-skip-page-rerender": "true"
+      }
+    },
+    {
+      "text": "打印质检单详情",
+      "attributes": {
+        "data-post-finishing-action": "open-qc-print-dialog",
+        "data-qc-print-type": "QC_DETAIL",
+        "data-skip-page-rerender": "true"
+      }
+    },
+    {
+      "text": "查询",
+      "attributes": {}
+    },
+    {
+      "text": "PO-QC-202608-001-4-ZJ",
+      "attributes": {
+        "data-production-object-action": "open",
+        "data-object-type": "QC_ORDER",
+        "data-object-id": "PO-QC-202608-001-4-ZJ",
+        "data-related-production-order-no": "PO-QC-202608-001",
+        "data-skip-page-rerender": "true"
+      }
+    },
+    {
+      "text": "PO-QC-202608-001",
+      "attributes": {
+        "data-production-object-action": "open",
+        "data-object-type": "PRODUCTION_ORDER",
+        "data-object-id": "PO-QC-202608-001",
+        "data-skip-page-rerender": "true"
+      }
+    },
+    {
+      "text": "\n          上一页\n        ",
+      "attributes": {
+        "data-post-finishing-qc-orders-action": "prev-page"
+      }
+    },
+    {
+      "text": "\n          下一页\n        ",
+      "attributes": {
+        "data-post-finishing-qc-orders-action": "next-page"
+      }
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/8fb6/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-full-flow.spec.ts",
+      "--grep",
+      "质检清单按新编号",
+      "--workers=1",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/8fb6/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43211 --strictPort",
+      "url": "http://127.0.0.1:43211",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-full-flow.spec.ts",
+      "file": "post-finishing-full-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "质检清单按新编号查询并复位筛选",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 61151,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts",
+                        "column": 77,
+                        "line": 1036
+                      },
+                      "message": "Error: locator.click: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('main').getByRole('link', { name: '重置', exact: true })\u001b[22m\n\n\n  1034 |   await expect(page).toHaveURL(/keyword=NO-QC-MATCH-20261010/, { timeout: 5000 })\n  1035 |   await expect(page.locator('main')).toContainText('暂无符合条件的质检单')\n> 1036 |   await page.locator('main').getByRole('link', { name: '重置', exact: true }).click()\n       |                                                                             ^\n  1037 |   await expect(page).toHaveURL(/\\/qc-orders$/)\n  1038 |   await page.locator('input[name=\"keyword\"]').fill('PO-QC-202608-001-4-ZJ')\n  1039 |   await page.locator('main').getByRole('button', { name: '查询', exact: true }).click()\n    at /Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts:1036:77"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-10T13:12:28.643Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-质检清单按新编号查询并复位筛选/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-质检清单按新编号查询并复位筛选/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-质检清单按新编号查询并复位筛选/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-质检清单按新编号查询并复位筛选/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b14c3ecd0754efb51e80-27f4aad44b833eace1c5",
+          "file": "post-finishing-full-flow.spec.ts",
+          "line": 1028,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-10T13:12:28.081Z",
+    "duration": 62094.992999999995,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

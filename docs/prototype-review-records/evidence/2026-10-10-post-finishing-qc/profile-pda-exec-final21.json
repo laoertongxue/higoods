@@ -1,0 +1,187 @@
+{
+  "ms": 1227.7999999970198,
+  "metrics": {
+    "navigation": [
+      {
+        "dom": 30,
+        "response": 3.9000000059604645,
+        "load": 30.400000005960464
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 111.09999999403954,
+        "duration": 87,
+        "name": "self"
+      },
+      {
+        "start": 309,
+        "duration": 809,
+        "name": "self"
+      }
+    ],
+    "resources": [
+      {
+        "url": "http://127.0.0.1:43210/assets/supplement-management-BI2s3j8v.js",
+        "duration": 31,
+        "size": 31190
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/sewing-dispatch-DPmouRVS.js",
+        "duration": 30.5,
+        "size": 18808
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-warehouse-shared-6aZozf3i.js",
+        "duration": 30.099999994039536,
+        "size": 5591
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/sewing-cut-piece-responsibility-Bl_8iQW6.js",
+        "duration": 29.700000002980232,
+        "size": 5338
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-runtime-B080RwIK.js",
+        "duration": 29.299999997019768,
+        "size": 893
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+        "duration": 28.900000005960464,
+        "size": 786
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-IzAJ7V1M.js",
+        "duration": 28.899999991059303,
+        "size": 14268
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-shell-D757Z_Ry.js",
+        "duration": 28.799999997019768,
+        "size": 8792
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-deduction-repository-CllNI3iQ.js",
+        "duration": 28.5,
+        "size": 24137
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/store-domain-settlement-seeds-DMwd2Juh.js",
+        "duration": 28.299999997019768,
+        "size": 8655
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/supplement-node-facts-DNVYbTSY.js",
+        "duration": 27.80000001192093,
+        "size": 3142
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-handlers-CG9cpDPM.js",
+        "duration": 27.400000005960464,
+        "size": 6332
+      }
+    ],
+    "visibility": "visible",
+    "focus": true
+  },
+  "cpu": [
+    [
+      " (idle)",
+      148.309
+    ],
+    [
+      " (program)",
+      98.03600000000002
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js vr",
+      81.35700000000001
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js ",
+      64.31599999999999
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-B-MxZllX.js J",
+      49.11899999999999
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-B-MxZllX.js ",
+      43.276999999999994
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-full-flow-RKBYGcgp.js i",
+      41.14900000000001
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js Ee",
+      32.742
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js cm",
+      29.661
+    ],
+    [
+      " structuredClone",
+      27.597
+    ],
+    [
+      "http://127.0.0.1:43210/assets/generated-cut-orders-DhUUG-6j.js Ne",
+      26.928000000000004
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-B-MxZllX.js K",
+      26.581
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js Ve",
+      24.298000000000005
+    ],
+    [
+      "http://127.0.0.1:43210/assets/factory-receiving-By7YQYJ9.js O",
+      22.528
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js rr",
+      21.262000000000004
+    ],
+    [
+      " (garbage collector)",
+      20.862000000000002
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js ",
+      19.020999999999997
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js sr",
+      14.372000000000002
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js we",
+      13.525999999999998
+    ],
+    [
+      "http://127.0.0.1:43210/assets/pcs-config-workspace-repository-CoqDi0W1.js Y",
+      13.512999999999998
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js st",
+      13.314
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js da",
+      11.683
+    ],
+    [
+      "http://127.0.0.1:43210/assets/factory-receiving-By7YQYJ9.js j",
+      11.495999999999999
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-jakLSBMA.js BI",
+      8.989
+    ]
+  ],
+  "sourceSha256": "ba98f6954191555e9514f9b397abd4fcdc137c8c7540f28b7e99c5e571600654"
+}

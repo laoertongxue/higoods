@@ -1,0 +1,419 @@
+{
+  "runtimeVersion": "build-final35",
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "preview": "http://127.0.0.1:43210",
+  "prints": [
+    {
+      "template": "QC_ORDER",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_ORDER-1.pdf",
+      "sha256": "abd05c0e1ee75b8f01e528c4d00ec116ddc533752b85bdd58ad991c5cc51e2d1",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_ORDER",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_ORDER-2.pdf",
+      "sha256": "9b66f7c54486150645485d2c116cfc9d68591db969f364de6198a71143e028c9",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_ORDER",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_ORDER-3.pdf",
+      "sha256": "d035d76e3a345fcf8058a3407723a505c9439ebb29e141cf22778d314e070d43",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_ORDER",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_ORDER-4.pdf",
+      "sha256": "cf36cf5d2049b0f5c79658f14579ee42b0a54e9d1b0ea7f194be777d7db594f9",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_ORDER",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_ORDER-5.pdf",
+      "sha256": "e38df264c2b9ab995a23a8335d06b3f3327d25ea2c4ae2d6e7738c9c4bc1843a",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_DETAIL",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_DETAIL-1.pdf",
+      "sha256": "48d8f728ab16bcc05404a025ee0a902a3772ce6af83f247055d30c0dd50b049a",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_DETAIL",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_DETAIL-2.pdf",
+      "sha256": "8248990403e9ff5f4fb6ce44a38a9764e095bdf5c21e2feb925cd70fc55516d2",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_DETAIL",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_DETAIL-3.pdf",
+      "sha256": "c0f059c90d8759e9cb1733889178057a2779dee5866c0911e91ed94380d78556",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_DETAIL",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_DETAIL-4.pdf",
+      "sha256": "879b2ce5046df42fe815105160411ce934c616d1e635a78dabf455a6712dcb09",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "QC_DETAIL",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/QC_DETAIL-5.pdf",
+      "sha256": "d145df0d153230cd1453cf478576d0512f01cbff48700463e2e0d5ee4740ea25",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-2.json",
+      "scriptSha256": "210578ba3f1787813fbf59f5a9dd1877a5b7945a80e7209f10325c374b5b8d27"
+    },
+    {
+      "template": "UNIFIED_QC_DETAIL",
+      "trial": 1,
+      "route": "/fcs/print/preview?documentType=POST_FINISHING_QC_ORDER&sourceId=PO-QC-202608-001-4-ZJ&sourceType=POST_FINISHING_QC_ORDER",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/UNIFIED_QC_DETAIL-1.pdf",
+      "sha256": "cfb17f119c11498d7d5d8d0eeb32795f44ab34771445ba43df55386e2ad4c71e",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-interactions-final35-7-1366.json",
+      "scriptSha256": "3290c420fb20c6756b367832215f68dc971c0d0794814d03c1101238b46bb52f"
+    },
+    {
+      "template": "UNIFIED_QC_DETAIL",
+      "trial": 2,
+      "route": "/fcs/print/preview?documentType=POST_FINISHING_QC_ORDER&sourceId=PO-QC-202608-001-4-ZJ&sourceType=POST_FINISHING_QC_ORDER",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/UNIFIED_QC_DETAIL-2.pdf",
+      "sha256": "cfb17f119c11498d7d5d8d0eeb32795f44ab34771445ba43df55386e2ad4c71e",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-interactions-final35-7-1366.json",
+      "scriptSha256": "3290c420fb20c6756b367832215f68dc971c0d0794814d03c1101238b46bb52f"
+    },
+    {
+      "template": "UNIFIED_QC_DETAIL",
+      "trial": 3,
+      "route": "/fcs/print/preview?documentType=POST_FINISHING_QC_ORDER&sourceId=PO-QC-202608-001-4-ZJ&sourceType=POST_FINISHING_QC_ORDER",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/UNIFIED_QC_DETAIL-3.pdf",
+      "sha256": "a546869a401ccbc3f79c4294ef1622f49a5a4ba5823a108e57b226a60f540c52",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-interactions-final35-7-1366.json",
+      "scriptSha256": "3290c420fb20c6756b367832215f68dc971c0d0794814d03c1101238b46bb52f"
+    },
+    {
+      "template": "UNIFIED_QC_DETAIL",
+      "trial": 4,
+      "route": "/fcs/print/preview?documentType=POST_FINISHING_QC_ORDER&sourceId=PO-QC-202608-001-4-ZJ&sourceType=POST_FINISHING_QC_ORDER",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/UNIFIED_QC_DETAIL-4.pdf",
+      "sha256": "a546869a401ccbc3f79c4294ef1622f49a5a4ba5823a108e57b226a60f540c52",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-interactions-final35-7-1366.json",
+      "scriptSha256": "3290c420fb20c6756b367832215f68dc971c0d0794814d03c1101238b46bb52f"
+    },
+    {
+      "template": "UNIFIED_QC_DETAIL",
+      "trial": 5,
+      "route": "/fcs/print/preview?documentType=POST_FINISHING_QC_ORDER&sourceId=PO-QC-202608-001-4-ZJ&sourceType=POST_FINISHING_QC_ORDER",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/UNIFIED_QC_DETAIL-5.pdf",
+      "sha256": "a546869a401ccbc3f79c4294ef1622f49a5a4ba5823a108e57b226a60f540c52",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-interactions-final35-7-1366.json",
+      "scriptSha256": "3290c420fb20c6756b367832215f68dc971c0d0794814d03c1101238b46bb52f"
+    },
+    {
+      "template": "SEND_QC",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=SEND_QC&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SEND_QC-1.pdf",
+      "sha256": "3c4fd69de1813ea4488593b123e20b2100c2f36245e1722108ff606a9b4ea2db",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "SEND_QC",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=SEND_QC&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SEND_QC-2.pdf",
+      "sha256": "433755ed81d2bd2f49c10ca70ae4ff33b16ce268e6536acf6743fe25be5d58f0",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "SEND_QC",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=SEND_QC&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SEND_QC-3.pdf",
+      "sha256": "5ea4a1b570c95066a79dd79535d93eae5ca9dc1c81a8a3ce17a17995980bc7dd",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "SEND_QC",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=SEND_QC&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SEND_QC-4.pdf",
+      "sha256": "baf45417dda3f76a1293db425a88143b551b80fbbc2a75c33d10989911a7609a",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "SEND_QC",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=SEND_QC&id=PO-QC-202608-001-4-ZJ",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SEND_QC-5.pdf",
+      "sha256": "b3465921409fe5d8ede50c4462fb070d9cfa41a1c8c68a274475a2d49e8fcd82",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "POST_ORDER",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PO-QC-202608-001-5-ZJ-HD",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/POST_ORDER-1.pdf",
+      "sha256": "4140c3dd5e0fff1b91709ce971f33e62c34a142ca672ca8153b7ec6c4f98bac3",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "POST_ORDER",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PO-QC-202608-001-5-ZJ-HD",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/POST_ORDER-2.pdf",
+      "sha256": "cd45de6cb6b03bbd2926b12511d8d3f746ad7ce84ec0fe938e908a3b30f894e2",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "POST_ORDER",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PO-QC-202608-001-5-ZJ-HD",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/POST_ORDER-3.pdf",
+      "sha256": "be1ed34f779b306ef10a3539bde9a344906e0e9ee5733888258e010658eaeb8e",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "POST_ORDER",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PO-QC-202608-001-5-ZJ-HD",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/POST_ORDER-4.pdf",
+      "sha256": "c8fd661d606b0fdb0668ac6a1cff8d52acafc4353267eade221c7cd7fab4e253",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "POST_ORDER",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PO-QC-202608-001-5-ZJ-HD",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/POST_ORDER-5.pdf",
+      "sha256": "19fdca34f5ea9f13ccdefbad5688e7a7948534c434267856c52a13545a31d9bb",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "OUTBOUND",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND-1.pdf",
+      "sha256": "5ae5d87f97d57133d5bb18d5f8a7e1a6c9a38afee49a4d0651d76d0bfdd18cc7",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "OUTBOUND",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND-2.pdf",
+      "sha256": "fe247db93c22b9b632582d616d7274f86ce6b56f15830f3c276f0677937e24b7",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "OUTBOUND",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND-3.pdf",
+      "sha256": "01d8ff5e3e77bc0d1a973020136d3d223820f022dfa1eac332dab89bacec5de4",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "OUTBOUND",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND-4.pdf",
+      "sha256": "6bea268244b9b6143d1d08c2e4df813efdc30cbd3d0b5c947bc21e2e34830157",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "OUTBOUND",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND-5.pdf",
+      "sha256": "2994f036cadf06dd987d05e248dd3f74c0627207e986afebdf492cbd1c327b52",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-5.json",
+      "scriptSha256": "9adadbc43321cd710dfc34013d40066947e7dabdfbb74eb72a218c2e72c2510d"
+    },
+    {
+      "template": "OUTBOUND_BARCODE",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_BARCODE-1.pdf",
+      "sha256": "1d146a6bc6472323d54cb56d760b31e9ddac7965d373ae4473d44f7ed6a14b92",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_BARCODE",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_BARCODE-2.pdf",
+      "sha256": "967ce93f8914921c2e86c1e40d948dff565f9b8676c1d3041f5619883031d2f8",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_BARCODE",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_BARCODE-3.pdf",
+      "sha256": "d8e528be1c02bf0859932d620781f482ef9bf5149c7ea25b5445f4b64b215a2e",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_BARCODE",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_BARCODE-4.pdf",
+      "sha256": "17d2971576cc50eb04b9268156361db4635a70043603063ca257d2835f0d7b5a",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_BARCODE",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_BARCODE-5.pdf",
+      "sha256": "a08ce57cf0da78fab7b32caf13c171023db505d228d99ef354d95cfcac2d2053",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_HANGTAG",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_HANGTAG-1.pdf",
+      "sha256": "602b3215eaec2b9045b0d22c6a363fc5ce75d1ed1276b768ae03aa27f6125d86",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_HANGTAG",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_HANGTAG-2.pdf",
+      "sha256": "28af72ce725bbd2777457297882404eb2bf16996fb3efa1801fce8c9ebac0fb2",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_HANGTAG",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_HANGTAG-3.pdf",
+      "sha256": "69918e606ea88cceee5b9bb9d7343de9e3428824d0a8b9af91ba99e328c28278",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_HANGTAG",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_HANGTAG-4.pdf",
+      "sha256": "43b72fbdeec0989bffd090f80a535b2db7c9cc5de789fc12aa32e4967481a90c",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "OUTBOUND_HANGTAG",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/OUTBOUND_HANGTAG-5.pdf",
+      "sha256": "83f2496f56361db6ac2941fed8db9675b09c97db31df5bd95428d89285953b61",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "SKU_LABEL",
+      "trial": 1,
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SKU_LABEL-1.pdf",
+      "sha256": "9cf76a7574100e9a5bc20a67b96fc5a5aa28bcae3f63261bbccb70d7bd5ea796",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "SKU_LABEL",
+      "trial": 2,
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SKU_LABEL-2.pdf",
+      "sha256": "02cc94dd75799ace731e8569029e5bf97f4b0ac85f8696bccf23136808a596d4",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "SKU_LABEL",
+      "trial": 3,
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SKU_LABEL-3.pdf",
+      "sha256": "d655087d7ab6d73d85670c58460517c935d549e84690543b8d9abfe48938621e",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "SKU_LABEL",
+      "trial": 4,
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SKU_LABEL-4.pdf",
+      "sha256": "a5781c9daf660d8a9852b618a4ea2c910c36769816b881b3d711c1fd5c95b4b0",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    },
+    {
+      "template": "SKU_LABEL",
+      "trial": 5,
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/print-final35/SKU_LABEL-5.pdf",
+      "sha256": "0134c7f3a0762a65aa4418797fd461f7d7a4c3b47b7ce164f799de309dbc11ce",
+      "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-6.json",
+      "scriptSha256": "e4a88c202fb59f915afed87f63e4faab00202f8c3ec40e8b9bfe71bba5713ce0"
+    }
+  ],
+  "qcWorkbenchScreenshot": {
+    "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/qc-workbench-final35.png",
+    "sha256": "02681661a0a55bf78da1c96c5e69151813aa7554e08693dfa66c37874990e70a",
+    "measurementReport": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/performance-final35-0.json",
+    "scriptSha256": "616cea4009f55c7a3e9909a58ccf3f01c0310ed24a61a16ae0647e6191635d37"
+  }
+}

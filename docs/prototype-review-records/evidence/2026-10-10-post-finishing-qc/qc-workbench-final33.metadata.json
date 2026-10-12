@@ -1,0 +1,15 @@
+{
+  "runtimeVersion": "build-final33",
+  "sourceSha256": "efa656252a2df74e6237e5b63e25b5bb5de06823c7c518bb1686b0f25ea1efcf",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "service": "http://127.0.0.1:43210",
+  "route": "/fcs/craft/post-finishing/qc-workbench",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "trial": 1,
+  "capture": "performance-final33-0.js cold/refresh/navigation result before first large-image action",
+  "file": "qc-workbench-final33.png",
+  "sha256": "02681661a0a55bf78da1c96c5e69151813aa7554e08693dfa66c37874990e70a"
+}

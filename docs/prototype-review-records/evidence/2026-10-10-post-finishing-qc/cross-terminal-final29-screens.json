@@ -1,0 +1,219 @@
+{
+  "sourceSha256": "43936d7dc44a5c29fbc6c46542c33b05b149c40f761d5134a44c902ec4891b55",
+  "runtimeVersion": "build-final29",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "service": "http://127.0.0.1:43211",
+  "count": 42,
+  "screenshots": [
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/01-PO-QC-202608-001-R1-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/01-PO-QC-202608-001-R1-wait-handover-pending.png",
+      "sha256": "72308752607d101c1a4108ea6bab13bd53048dceb037c92c5972bfae05048e56"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/01-PO-QC-202608-001-R1-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/01-PO-QC-202608-001-R1-wait-handover-ready.png",
+      "sha256": "72308752607d101c1a4108ea6bab13bd53048dceb037c92c5972bfae05048e56"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/01-PO-QC-202608-001-R1-web-qc-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/01-PO-QC-202608-001-R1-web-qc-completed.png",
+      "sha256": "3e6529bff09f2269a7ce04299440d1f1849b388ac0eb116416aae43e735d88c9"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/02-PO-QC-202608-001-R2-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/02-PO-QC-202608-001-R2-wait-handover-pending.png",
+      "sha256": "0df88fde2360c2762ddf4c3eeaa7ddc7e287889aef7d7122b6327776ee6a8f12"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/02-PO-QC-202608-001-R2-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/02-PO-QC-202608-001-R2-wait-handover-ready.png",
+      "sha256": "0df88fde2360c2762ddf4c3eeaa7ddc7e287889aef7d7122b6327776ee6a8f12"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/03-PO-QC-202608-001-R3-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/03-PO-QC-202608-001-R3-wait-handover-pending.png",
+      "sha256": "4ba49aad333b3df0279a2cf777406f03d2edb1591ae21c0130eab8972bb809c1"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/03-PO-QC-202608-001-R3-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/03-PO-QC-202608-001-R3-wait-handover-ready.png",
+      "sha256": "4ba49aad333b3df0279a2cf777406f03d2edb1591ae21c0130eab8972bb809c1"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/03-PO-QC-202608-001-R3-web-return-authorization.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/03-PO-QC-202608-001-R3-web-return-authorization.png",
+      "sha256": "90bb08ba0f80740783f01b5c0f27f7fd0682f74dfb23295f04178c8628bcf2e3"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/04-PO-QC-202608-001-R4-pda-post-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/04-PO-QC-202608-001-R4-pda-post-completed.png",
+      "sha256": "5f0b239a07d3941ba8f6acbfad5818524620e74c6e128d42e6a3353794cf46e6"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/04-PO-QC-202608-001-R4-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/04-PO-QC-202608-001-R4-wait-handover-pending.png",
+      "sha256": "d6317bd22246c78c5a8c2f77c7ab2aa5355ff786c85b4779cbdd1aa89f303128"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/04-PO-QC-202608-001-R4-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/04-PO-QC-202608-001-R4-wait-handover-ready.png",
+      "sha256": "d6317bd22246c78c5a8c2f77c7ab2aa5355ff786c85b4779cbdd1aa89f303128"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/04-PO-QC-202608-001-R4-web-qc-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/04-PO-QC-202608-001-R4-web-qc-completed.png",
+      "sha256": "a1519e2ad42d91c17b9ebdb1ffbf0824bb84f08b63f20aedd1c8bcab8b1400ef"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/05-PO-QC-202608-001-R5-barcode-relabel-block.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/05-PO-QC-202608-001-R5-barcode-relabel-block.png",
+      "sha256": "91a29731f3727018a0a6ec0f8e6393ed8bd1f25bdec94b5b207aed1a05d064dc"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/05-PO-QC-202608-001-R5-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/05-PO-QC-202608-001-R5-wait-handover-pending.png",
+      "sha256": "caac0c6aac2c55a678920850214b13bfcdfd14e1bf8f85d763d0137690fe95c4"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/05-PO-QC-202608-001-R5-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/05-PO-QC-202608-001-R5-wait-handover-ready.png",
+      "sha256": "caac0c6aac2c55a678920850214b13bfcdfd14e1bf8f85d763d0137690fe95c4"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/06-PO-QC-202608-002-R1-qc-direct-warehouse-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/06-PO-QC-202608-002-R1-qc-direct-warehouse-pending.png",
+      "sha256": "e9021b7e4678dedeb92bb19d104ce2a30ccb1b8a75429b4b261fcbe25019482b"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/07-PO-QC-202608-002-R2-qc-authorization.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/07-PO-QC-202608-002-R2-qc-authorization.png",
+      "sha256": "636fb038f11bd0af5cd1a7915ac08d4c8a86b97eedcdd3def767417297f37133"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/07-PO-QC-202608-002-R2-qc-direct-warehouse-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/07-PO-QC-202608-002-R2-qc-direct-warehouse-pending.png",
+      "sha256": "0594e9288f5b7817bcfefab1ce90982a6cf9a847c7f06b2a8497836e47b62938"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/07-PO-QC-202608-002-R2-web-qc-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/07-PO-QC-202608-002-R2-web-qc-completed.png",
+      "sha256": "e014831f78f243ea125125d0043e68cbff7176b5fc4b603e9a4f130a547b5989"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/08-PO-QC-202608-002-R3-pda-post-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/08-PO-QC-202608-002-R3-pda-post-completed.png",
+      "sha256": "658c5881e1caa917af4a6edb7fa3c7531663d57f0e976da697001db5a01b3860"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/08-PO-QC-202608-002-R3-recheck-authorization.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/08-PO-QC-202608-002-R3-recheck-authorization.png",
+      "sha256": "a6736264d658533820c9bd53e0d0083e5933fc10b00495282e000c8dd0c47b4c"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/08-PO-QC-202608-002-R3-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/08-PO-QC-202608-002-R3-wait-handover-pending.png",
+      "sha256": "188e09183a92275104d51f8f5ddff5dd760e6e8602a0a485d61ee78a565e531a"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/08-PO-QC-202608-002-R3-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/08-PO-QC-202608-002-R3-wait-handover-ready.png",
+      "sha256": "188e09183a92275104d51f8f5ddff5dd760e6e8602a0a485d61ee78a565e531a"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/09-PO-QC-202608-002-R4-qc-direct-warehouse-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/09-PO-QC-202608-002-R4-qc-direct-warehouse-pending.png",
+      "sha256": "7db9d4873193521ec02e661536309c43a4000cc7b5ed08370f139289c3ca2d05"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/10-PO-QC-202608-002-R5-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/10-PO-QC-202608-002-R5-wait-handover-pending.png",
+      "sha256": "44cced0b1018310f787cd7c2ab4951d0803740d655e90792adff637f73f43890"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/10-PO-QC-202608-002-R5-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/10-PO-QC-202608-002-R5-wait-handover-ready.png",
+      "sha256": "44cced0b1018310f787cd7c2ab4951d0803740d655e90792adff637f73f43890"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/11-PO-QC-202608-003-R1-qc-direct-warehouse-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/11-PO-QC-202608-003-R1-qc-direct-warehouse-pending.png",
+      "sha256": "d2411b63d53d892828263cd2806c044054314d9538b18bc242ab3340fdab0c2a"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/11-PO-QC-202608-003-R1-web-qc-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/11-PO-QC-202608-003-R1-web-qc-completed.png",
+      "sha256": "00ef8f56a5fb0477cface2687c284159adfef6f9925368b4f6203fa2676b7526"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/12-PO-QC-202608-003-R2-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/12-PO-QC-202608-003-R2-wait-handover-pending.png",
+      "sha256": "5cce01876c16351e82a2e14be6e6bceb2053640c66bae2238ad6760723ebc0b4"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/12-PO-QC-202608-003-R2-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/12-PO-QC-202608-003-R2-wait-handover-ready.png",
+      "sha256": "5cce01876c16351e82a2e14be6e6bceb2053640c66bae2238ad6760723ebc0b4"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/13-PO-QC-202608-003-R3-pda-post-completed.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/13-PO-QC-202608-003-R3-pda-post-completed.png",
+      "sha256": "e27b78b1d95c3976ccf093e64cff0ed3e966e2a3d4dd641d91aebe1a8ef915cf"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/13-PO-QC-202608-003-R3-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/13-PO-QC-202608-003-R3-wait-handover-pending.png",
+      "sha256": "0c1fd05ff3d1d20ba2f7977824aee017514714f235ec66870c66f391286f9118"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/13-PO-QC-202608-003-R3-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/13-PO-QC-202608-003-R3-wait-handover-ready.png",
+      "sha256": "0c1fd05ff3d1d20ba2f7977824aee017514714f235ec66870c66f391286f9118"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/14-PO-QC-202608-003-R4-barcode-relabel-block.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/14-PO-QC-202608-003-R4-barcode-relabel-block.png",
+      "sha256": "f0ac6b58417c267cac925e7c3d6991be2e9acf8152f8f9616d7f6e70a8b97b99"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/14-PO-QC-202608-003-R4-wait-handover-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/14-PO-QC-202608-003-R4-wait-handover-pending.png",
+      "sha256": "a6f3afd0c0f7429ee68350e3f0f5d4724b30f12f4ef1d516ee24fd5cb18988e3"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/14-PO-QC-202608-003-R4-wait-handover-ready.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/14-PO-QC-202608-003-R4-wait-handover-ready.png",
+      "sha256": "a6f3afd0c0f7429ee68350e3f0f5d4724b30f12f4ef1d516ee24fd5cb18988e3"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/15-PO-QC-202608-003-R5-qc-direct-warehouse-pending.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/15-PO-QC-202608-003-R5-qc-direct-warehouse-pending.png",
+      "sha256": "8054e1b0c8560ad8a21ac882a41d1a6d85d9e9d7f38fea23b26b67e9ab626fac"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/surface-audit-chain-detail.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/surface-audit-chain-detail.png",
+      "sha256": "284c606a1c70de59ddf08ce294cd6062994ff1502aeb030ecf491cf7fd09fb3d"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/surface-authorization-code.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/surface-authorization-code.png",
+      "sha256": "ecc6b1fe69dcec50870fe3fa9e717564562e1ef5aafa419a3fbec4461673f4d0"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/surface-qc-task.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/surface-qc-task.png",
+      "sha256": "4b0fd796dc28c82460d8ee24e3a45d99e2dfe42cd94dbec5c9600c0ec1cd9816"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/surface-wait-handover-warehouse.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/surface-wait-handover-warehouse.png",
+      "sha256": "b1c6a62ddc2066339d7bcbeb88e6259c54356bb99a659739bc7db0052626ccbe"
+    },
+    {
+      "source": "/tmp/post-finishing-cross-terminal-final29-screens/surface-wait-process-warehouse.png",
+      "file": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/cross-terminal-final29-screens/surface-wait-process-warehouse.png",
+      "sha256": "563c626fb82674440c9a72ef734c5e18dba78c2d19d0f966c2d25b08aa80955d"
+    }
+  ]
+}

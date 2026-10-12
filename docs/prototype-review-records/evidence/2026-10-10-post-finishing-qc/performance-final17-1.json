@@ -1,0 +1,4478 @@
+{
+  "segment": 1,
+  "browser": "155.0.8059.39",
+  "service": "http://127.0.0.1:43210",
+  "data": "静态 3 个生产单 / 15 次回货 / 75 条 SKU",
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 333.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 248.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 112.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 97.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 330.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 249.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 324.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 317.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 248.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 100.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 326.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 247.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 109.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 317.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 265,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 97.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 333.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 245.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 100.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 332.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 327.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 320.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 246,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 99.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 97.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 317.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 245.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 99.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 330.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 247.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 99.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 112.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 333,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 340.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 246.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 320.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 246,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 321.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 246.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 305.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 232.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 290.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 230.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 307.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 230.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 289.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 249.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 115.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 292.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 246.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 99.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 301.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 230.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 97.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 293.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 245.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 99.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 112.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 100.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 327.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 248.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 304.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 230.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 303.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 229.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 301.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 231.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 292.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 248.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 113.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 294.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 384.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 249.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 99.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 319.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 247.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 325,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 247.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 97.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 315.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 245.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 333.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 248.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 317.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 248.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 99,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 319.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 244,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 332.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 249.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 99.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 116.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 333.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 332.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 100.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 334.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 245.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 317.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 245.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 100.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image",
+      "ms": 113.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "image-close-escape",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 333.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 246.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "image-close-escape",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 335.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 245.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "image-close-escape",
+      "ms": 99.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 322,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 245.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "image-close-escape",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 336.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 245.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image",
+      "ms": 116,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "image-close-escape",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 314.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 247.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 290.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 230.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 301.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 230.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 99.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 302.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 246.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 303.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 231.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 296.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 246.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 100.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 295.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 246.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 290.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 232.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 97,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 289.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 96.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 296.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 229.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 100.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 305.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 247.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 302.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 232.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 300.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 232.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 303.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 248.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 294.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 246.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 300.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 232.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 301.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 247.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 304.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 308.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 230.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 297.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 247.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 300.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 249,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 288.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 231.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 288.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 314.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 303.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 304.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 232.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 100.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 303.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 230.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 97.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 300.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 231.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 300,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 246.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 304.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 231,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 302.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 230.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.80000001192093,
+      "pass": true
+    }
+  ],
+  "inventory": [
+    {
+      "route": "/fcs/craft/post-finishing/work-orders",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "后道加工单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-work-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-work-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "开始后道",
+          "attrs": {
+            "data-post-finishing-work-orders-action": "open-start",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部待后道后道中后道完成",
+          "attrs": {
+            "name": "status"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部开扣眼装扣子烫包",
+          "attrs": {
+            "name": "processItem"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部PT Prima Printing Center",
+          "attrs": {
+            "name": "factory"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "重置",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/work-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {}
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-black.jpg",
+            "data-image-label": "SPU-QC-001-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/linen-white.jpg",
+            "data-image-label": "SPU-QC-001-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "data-image-label": "SPU-QC-001-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "data-image-label": "SPU-QC-001-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "data-image-label": "SPU-QC-001-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "DB-PF-202608-001",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/material-transfers?transferId=DB-PF-202608-001"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看加工单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "开始后道",
+          "attrs": {
+            "data-post-finishing-work-orders-action": "open-start",
+            "data-task-no": "PO-QC-202608-001-5-ZJ-HD",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印加工单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-1-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看全流程",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看加工单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-3-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印加工单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-3-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看全流程",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看加工单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印加工单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看全流程",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-work-orders-field": "pageSize"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-5",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "开始后道",
+          "attrs": {
+            "data-post-finishing-work-order-detail-action": "start",
+            "data-task-no": "PO-QC-202608-001-5-ZJ-HD"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "返回列表",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/work-orders"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "DB-PF-202608-001",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-black.jpg",
+            "data-image-label": "SPU-QC-001-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/linen-white.jpg",
+            "data-image-label": "SPU-QC-001-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "data-image-label": "SPU-QC-001-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "data-image-label": "SPU-QC-001-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "data-image-label": "SPU-QC-001-05 酒红 2XL"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/recheck-orders",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "复检单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-recheck-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-recheck-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "领取复检单",
+          "attrs": {
+            "data-post-finishing-recheck-action": "open-claim",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部待复检复检中条码异常待重贴复检完成",
+          "attrs": {
+            "name": "status"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部质检直达后道加工后",
+          "attrs": {
+            "name": "source"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部PT Prima Printing Center",
+          "attrs": {
+            "name": "factory"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "重置",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/recheck-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {}
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看复检详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-3-4"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "图片加载中…",
+          "attrs": {
+            "data-post-finishing-action": "full-flow-zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看复检详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-recheck-orders-field": "pageSize"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/outbound-orders",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "后道出货单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-outbound-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-outbound-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部待确认已确认",
+          "attrs": {
+            "name": "status"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部PT Prima Printing Center",
+          "attrs": {
+            "name": "factory"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "createdFrom"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "createdTo"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "重置",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/outbound-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {}
+        },
+        {
+          "tag": "A",
+          "text": "详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/outbound-orders/PF-OUT-PF-ACCEPT-PO-2-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印整单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印条码",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PF-OUT-PF-ACCEPT-PO-2-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印吊牌",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PF-OUT-PF-ACCEPT-PO-2-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/outbound-orders/PF-OUT-PF-ACCEPT-PO-2-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印整单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印条码",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PF-OUT-PF-ACCEPT-PO-2-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印吊牌",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PF-OUT-PF-ACCEPT-PO-2-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/outbound-orders/PF-OUT-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印整单",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印条码",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PF-OUT-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "打印吊牌",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PF-OUT-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-outbound-orders-field": "pageSize"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "差异与操作日志",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-audit-records"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-audit-records",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "质检清单",
+          "attrs": {
+            "data-action": "activate-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "attrs": {
+            "data-action": "close-tab",
+            "data-tab-key": "pfos-post-finishing-qc-orders",
+            "data-tab-close": ""
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "全部关闭",
+          "attrs": {
+            "data-action": "close-all-tabs"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "导出本浏览器后道资料",
+          "attrs": {
+            "data-post-finishing-action": "storage-export"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "keyword"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+          "attrs": {
+            "name": "status"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "startedAt"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "endedAt"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "operator"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "name": "authorizer"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部多少",
+          "attrs": {
+            "name": "direction"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "全部成功过期已使用无效",
+          "attrs": {
+            "name": "authorizationResult"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {}
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2"
+          }
+        },
+        {
+          "tag": "A",
+          "text": "查看详情",
+          "attrs": {
+            "data-nav": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1"
+          }
+        },
+        {
+          "tag": "SELECT",
+          "text": "10 条/页20 条/页50 条/页",
+          "attrs": {
+            "data-post-finishing-field": "pageSize"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "下一页",
+          "attrs": {
+            "data-post-finishing-action": "next-page"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "aeb9e9d66b518bd8c0c9d00d04dc37f1225d9dac3a56d15cae7f1a26074a5f9a",
+  "runtimeVersion": "build-final17",
+  "scriptSha256": "b517b8ab9910f79bea8e8b40b90b443d18afe1a4eda7b6346333493c878d5835"
+}

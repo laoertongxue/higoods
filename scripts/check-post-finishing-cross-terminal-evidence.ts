@@ -70,7 +70,7 @@ const expectedScenarioLabels = [
   '回货超过5%复点与动态授权',
   '质检瑕疵守恒、后道记录未处理数量',
   'SKU错码重贴与复扫恢复',
-  '回货 +5%边界、SPU技术参数及质检直达成衣仓',
+  '回货 +5%边界、款式颜色图片及质检直达成衣仓',
   '质检少1件授权后直达成衣仓',
   '漏做烫包，PDA中断后由Web接管并做交出差异授权',
   '空项目不进复检和待交出仓',
@@ -151,8 +151,8 @@ const results = passes.map((pass) => {
     assert(chain.finalScreenshot && existsSync(chain.finalScreenshot), `${pass.label} 第 ${chain.chainIndex} 条链缺少最终页面截图`)
   }
 
-  const spuTechnicalStages = evidence.chains.flatMap((chain) => chain.stages).filter((stage) => stage.stage === 'Web SPU技术参数核对')
-  assert.equal(spuTechnicalStages.length, 3, `${pass.label} 必须按 3 个生产单各验证 1 次 SPU 技术参数`)
+  const spuTechnicalStages = evidence.chains.flatMap((chain) => chain.stages).filter((stage) => stage.stage === 'Web 款式颜色图片核对')
+  assert.equal(spuTechnicalStages.length, 3, `${pass.label} 必须按 3 个生产单各验证 1 次款式颜色图片`)
 
   const authorizationStages = evidence.chains.flatMap((chain) => chain.authorizationStages).sort()
   assert.deepEqual(authorizationStages, expectedAuthorizationStages, `${pass.label} 必须覆盖 6 次跨阶段差异授权`)

@@ -1,0 +1,4168 @@
+{
+  "segment": 2,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "coverage": [
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-action=\\\"activate-tab\\\"][data-tab-key=\\\"pfos-post-finishing-tasks\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+        "index": 0,
+        "text": "后道生产任务",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+          "index": 0,
+          "text": "后道生产任务",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-action=\\\"close-tab\\\"][data-tab-key=\\\"pfos-post-finishing-tasks\\\"][data-tab-close=\\\"\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-action=\\\"close-all-tabs\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"close-all-tabs\"]",
+          "index": 0,
+          "text": "全部关闭",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"input[name=\\\"keyword\\\"]|INPUT|text\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[name=\"keyword\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"select[name=\\\"outboundStatus\\\"]|SELECT|select-one\",\"prepare\":[]}",
+      "control": {
+        "selector": "select[name=\"outboundStatus\"]",
+        "index": 0,
+        "text": "全部未出库待出库已出库",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "select[name=\"outboundStatus\"]",
+          "index": 0,
+          "text": "全部未出库待出库已出库",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"select[name=\\\"source\\\"]|SELECT|select-one\",\"prepare\":[]}",
+      "control": {
+        "selector": "select[name=\"source\"]",
+        "index": 0,
+        "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "select[name=\"source\"]",
+          "index": 0,
+          "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"select[name=\\\"assignment\\\"]|SELECT|select-one\",\"prepare\":[]}",
+      "control": {
+        "selector": "select[name=\"assignment\"]",
+        "index": 0,
+        "text": "全部已派单",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "select[name=\"assignment\"]",
+          "index": 0,
+          "text": "全部已派单",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"select[name=\\\"factory\\\"]|SELECT|select-one\",\"prepare\":[]}",
+      "control": {
+        "selector": "select[name=\"factory\"]",
+        "index": 0,
+        "text": "全部HiGood 后道工厂",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "select[name=\"factory\"]",
+          "index": 0,
+          "text": "全部HiGood 后道工厂",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"select[name=\\\"saleType\\\"]|SELECT|select-one\",\"prepare\":[]}",
+      "control": {
+        "selector": "select[name=\"saleType\"]",
+        "index": 0,
+        "text": "全部预售",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "select[name=\"saleType\"]",
+          "index": 0,
+          "text": "全部预售",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/craft/post-finishing/tasks\\\"]|A|\",\"prepare\":[]}",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+        "index": 0,
+        "text": "重置",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+          "index": 0,
+          "text": "重置",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button",
+        "index": 71,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button",
+          "index": 71,
+          "text": "查询",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"full-flow-zoom-image\\\"]|BUTTON|button\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/casual-dress-black.jpg\"][data-image-label=\"HG-QC-002 后道验收连衣裙\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/jacket-black.jpg\"][data-image-label=\"HG-QC-003 后道验收外套\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/craft/post-finishing/material-transfers?keyword=<record>\\\"]|A|\",\"prepare\":[]}",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+        "index": 0,
+        "text": "DB-PF-202608-001",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+          "index": 0,
+          "text": "DB-PF-202608-001",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/dispatch/workbench?search_field=task&keyword=<record>&source=post-finishing\\\"]|A|\",\"prepare\":[]}",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+        "index": 0,
+        "text": "查看来源任务",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+          "index": 0,
+          "text": "查看来源任务",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-002&source=post-finishing\"]",
+          "index": 0,
+          "text": "查看来源任务",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-003&source=post-finishing\"]",
+          "index": 0,
+          "text": "查看来源任务",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-tasks-action=\\\"view-return-records\\\"]|BUTTON|button\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "回货记录（5）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "回货记录（5）",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-002\"]",
+          "index": 0,
+          "text": "回货记录（5）",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-003\"]",
+          "index": 0,
+          "text": "回货记录（5）",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-tasks-action=\\\"view-qc-orders\\\"]|BUTTON|button\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "质检单（4）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "质检单（4）",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-002\"]",
+          "index": 0,
+          "text": "质检单（4）",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-003\"]",
+          "index": 0,
+          "text": "质检单（4）",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "设置 SKU 重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-002\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-003\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"select[data-post-finishing-tasks-field=\\\"pageSize\\\"]|SELECT|select-one\",\"prepare\":[]}",
+      "control": {
+        "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "20"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "20"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-zoom-image\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button",
+        "index": 87,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button",
+          "index": 87,
+          "text": "关闭",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-tasks-action=\\\"close-weight\\\"]|BUTTON|submit\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+          "index": 0,
+          "text": "",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"full-flow-zoom-image\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/linen-white.jpg\"][data-image-label=\"SPU-QC-001-02 白色 M\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-blue.jpg\"][data-image-label=\"SPU-QC-001-03 雾蓝 L\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-khaki.jpg\"][data-image-label=\"SPU-QC-001-04 卡其 XL\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-wine.jpg\"][data-image-label=\"SPU-QC-001-05 酒红 2XL\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"input[data-post-finishing-sku-weight=\\\"SPU-QC-001-S\\\"][aria-label=\\\"SPU-QC-001-01 单件重量\\\"]|INPUT|number\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"input[data-post-finishing-sku-weight=\\\"SPU-QC-001-M\\\"][aria-label=\\\"SPU-QC-001-02 单件重量\\\"]|INPUT|number\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"input[data-post-finishing-sku-weight=\\\"SPU-QC-001-L\\\"][aria-label=\\\"SPU-QC-001-03 单件重量\\\"]|INPUT|number\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"input[data-post-finishing-sku-weight=\\\"SPU-QC-001-XL\\\"][aria-label=\\\"SPU-QC-001-04 单件重量\\\"]|INPUT|number\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"input[data-post-finishing-sku-weight=\\\"SPU-QC-001-2XL\\\"][aria-label=\\\"SPU-QC-001-05 单件重量\\\"]|INPUT|number\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-tasks-action=\\\"close-weight\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 1,
+        "text": "取消",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+          "index": 1,
+          "text": "取消",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button[data-post-finishing-tasks-action=\\\"save-weight\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+        "index": 0,
+        "text": "保存重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+          "index": 0,
+          "text": "保存重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "identity": "{\"control\":\"button|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-tasks-action=\\\"open-weight\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"full-flow-zoom-image\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button",
+        "index": 95,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button",
+          "index": 95,
+          "text": "关闭",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+        "index": 0,
+        "text": "后道生产任务",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+        "index": 0,
+        "text": "后道生产任务",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 116.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+        "index": 0,
+        "text": "后道生产任务",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+        "index": 0,
+        "text": "后道生产任务",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"]",
+        "index": 0,
+        "text": "后道生产任务",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 112.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 229,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 232.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 231.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 231.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-tasks\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 232.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 230.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 229.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 231.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 229.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 233.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 109.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"outboundStatus\"]",
+        "index": 0,
+        "text": "全部未出库待出库已出库",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"outboundStatus\"]",
+        "index": 0,
+        "text": "全部未出库待出库已出库",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"outboundStatus\"]",
+        "index": 0,
+        "text": "全部未出库待出库已出库",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"outboundStatus\"]",
+        "index": 0,
+        "text": "全部未出库待出库已出库",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"outboundStatus\"]",
+        "index": 0,
+        "text": "全部未出库待出库已出库",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"source\"]",
+        "index": 0,
+        "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"source\"]",
+        "index": 0,
+        "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"source\"]",
+        "index": 0,
+        "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"source\"]",
+        "index": 0,
+        "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"source\"]",
+        "index": 0,
+        "text": "全部仅车缝车缝＋烫包裁剪＋车缝＋烫包整件毛织成衣烫画成衣直喷",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"assignment\"]",
+        "index": 0,
+        "text": "全部已派单",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"assignment\"]",
+        "index": 0,
+        "text": "全部已派单",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"assignment\"]",
+        "index": 0,
+        "text": "全部已派单",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"assignment\"]",
+        "index": 0,
+        "text": "全部已派单",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"assignment\"]",
+        "index": 0,
+        "text": "全部已派单",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"factory\"]",
+        "index": 0,
+        "text": "全部HiGood 后道工厂",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"factory\"]",
+        "index": 0,
+        "text": "全部HiGood 后道工厂",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"factory\"]",
+        "index": 0,
+        "text": "全部HiGood 后道工厂",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"factory\"]",
+        "index": 0,
+        "text": "全部HiGood 后道工厂",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"factory\"]",
+        "index": 0,
+        "text": "全部HiGood 后道工厂",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"saleType\"]",
+        "index": 0,
+        "text": "全部预售",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"saleType\"]",
+        "index": 0,
+        "text": "全部预售",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 110.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"saleType\"]",
+        "index": 0,
+        "text": "全部预售",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 110.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"saleType\"]",
+        "index": 0,
+        "text": "全部预售",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[name=\"saleType\"]",
+        "index": 0,
+        "text": "全部预售",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+        "index": 0,
+        "text": "重置",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+        "index": 0,
+        "text": "重置",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+        "index": 0,
+        "text": "重置",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 112.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+        "index": 0,
+        "text": "重置",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/tasks\"]",
+        "index": 0,
+        "text": "重置",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 71,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 71,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 71,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 71,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 71,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+        "index": 0,
+        "text": "DB-PF-202608-001",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+        "index": 0,
+        "text": "DB-PF-202608-001",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 129.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+        "index": 0,
+        "text": "DB-PF-202608-001",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+        "index": 0,
+        "text": "DB-PF-202608-001",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 112.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/material-transfers?keyword=DB-PF-202608-001\"]",
+        "index": 0,
+        "text": "DB-PF-202608-001",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 129,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+        "index": 0,
+        "text": "查看来源任务",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 346.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+        "index": 0,
+        "text": "查看来源任务",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 347.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+        "index": 0,
+        "text": "查看来源任务",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 347.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+        "index": 0,
+        "text": "查看来源任务",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 347,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/dispatch/workbench?search_field=task&keyword=SEW-TASK-QC-001&source=post-finishing\"]",
+        "index": 0,
+        "text": "查看来源任务",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 380.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "回货记录（5）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "回货记录（5）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "回货记录（5）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "回货记录（5）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 113.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-return-records\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "回货记录（5）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "质检单（4）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "质检单（4）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "质检单（4）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "质检单（4）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"view-qc-orders\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "质检单（4）",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "设置 SKU 重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "设置 SKU 重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "设置 SKU 重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 132.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "设置 SKU 重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+        "index": 0,
+        "text": "设置 SKU 重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 127.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 112,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 111.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "select[data-post-finishing-tasks-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 109.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 87,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 87,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 96.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 87,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 97.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 87,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 87,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"HG-QC-001 后道验收衬衫\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 98.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 132.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 117.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-S\"][aria-label=\"SPU-QC-001-01 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-M\"][aria-label=\"SPU-QC-001-02 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 90.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-L\"][aria-label=\"SPU-QC-001-03 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-XL\"][aria-label=\"SPU-QC-001-04 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "input[data-post-finishing-sku-weight=\"SPU-QC-001-2XL\"][aria-label=\"SPU-QC-001-05 单件重量\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 1,
+        "text": "取消",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 1,
+        "text": "取消",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 1,
+        "text": "取消",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 1,
+        "text": "取消",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"close-weight\"]",
+        "index": 1,
+        "text": "取消",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 132.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+        "index": 0,
+        "text": "保存重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 132.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+        "index": 0,
+        "text": "保存重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+        "index": 0,
+        "text": "保存重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+        "index": 0,
+        "text": "保存重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button[data-post-finishing-tasks-action=\"save-weight\"]",
+        "index": 0,
+        "text": "保存重量",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 132.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 95,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 99.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 95,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 99.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 95,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 95,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/tasks",
+      "control": {
+        "selector": "button",
+        "index": 95,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-tasks-action=\"open-weight\"][data-production-order-no=\"PO-QC-202608-001\"]",
+          "index": 0,
+          "text": "设置 SKU 重量",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "ms": 96.30000001192093,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "note": "同一模板的重复行按钮/列偏好按同一动作入口汇总，instances保留实例；未删减数据。实际点击/输入、模块请求、IndexedDB事务完成、图片与两次绘制；保存后刷新持久结果另见browser-contract.json。覆盖此脚本登记的入口，不据此宣称所有状态/跨端路径已经覆盖。",
+  "sourceSha256": "070adb5ff16d37810ee28c446f25f95994b7e88bb2044ba8c200ad0964846845",
+  "runtimeVersion": "build-final34",
+  "scriptSha256": "63d656f18f472ca00c902e157324768873fa9abe266506d0ad099e157df3c7bc"
+}

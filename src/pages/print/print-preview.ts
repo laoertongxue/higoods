@@ -17,6 +17,16 @@ import {
 type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
 /** 任务单、部位票和中转袋标签只加载对应模板。 */
 async function loadPrintAdapter(documentType: PrintDocumentType): Promise<PrintAdapter> {
+  if (documentType === 'POST_FINISHING_QC_ORDER') {
+    const qc = await import('./templates/post-finishing-qc-print-template.ts')
+    return {
+      buildPrintDocument(input) {
+        if (input.sourceType !== 'POST_FINISHING_QC_ORDER') throw new Error('质检单打印来源类型不匹配，请返回质检清单重新打印。')
+        return qc.buildPostFinishingQcOrderPrintDocument(input)
+      },
+      renderPrintDocument: qc.renderPostFinishingQcPrintTemplate,
+    }
+  }
   if (documentType === 'DISPATCH_TASK_SHEET') {
     const sheet = await import('./templates/dispatch-task-sheet-template.ts')
     return { buildPrintDocument: sheet.buildDispatchTaskSheetPrintDocument, renderPrintDocument: sheet.renderDispatchTaskSheetTemplate }

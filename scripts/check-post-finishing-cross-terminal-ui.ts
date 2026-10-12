@@ -46,7 +46,6 @@ const requiredUiStages = [
 ]
 
 const forbiddenDomainWrites = [
-  'resetPostFinishingFullFlow',
   'registerPostFinishingFactoryReturn',
   'confirmPostFinishingFactoryReturn',
   'sendPostFinishingFactoryReturnToQc',
@@ -72,15 +71,16 @@ for (const write of forbiddenDomainWrites) {
   assert(!spec.includes(write), `跨端验收不得直接调用领域写入：${write}`)
 }
 
-assert(spec.includes("window.localStorage.clear()"), '跨端验收必须从空浏览器业务状态开始')
+assert.equal([...spec.matchAll(/flow\.resetPostFinishingFullFlow\(\)/g)].length, 1, '只能在隔离浏览器准备阶段重置一次后道记录')
+assert(spec.includes('records.runPostFinishingCommand(() => flow.resetPostFinishingFullFlow())'), '测试重置必须使用已就绪的原子事务入口')
+assert(!spec.includes('localStorage.clear()'), '不得清空无关模块的浏览器资料')
 assert(spec.includes("window.localStorage.setItem('fcs_pda_session'"), '跨端验收必须明确设置PDA测试会话')
-assert(spec.includes("window.localStorage.setItem('higood-fcs-post-finishing-demo-mode-v1', 'empty')"), '跨端验收必须关闭默认演示数据后再执行 UI 写入')
 assert(spec.includes("window.localStorage.setItem('higood-fcs-post-finishing-current-authorizer-v1'"), '跨端验收必须通过当前授权身份打开独立授权码页')
 assert(spec.includes("window.localStorage.setItem('higood-fcs-post-finishing-current-actor-v1'"), '跨端验收必须使用当前登录质检身份，不得通过网址参数切换')
 assert.equal(
   [...spec.matchAll(/window\.localStorage\.setItem\(/g)].length,
-  4,
-  '测试准备阶段只允许写入 PDA 会话、演示数据开关、当前登录质检身份和当前授权身份',
+  3,
+  '测试准备阶段只允许写入 PDA 会话、当前登录质检身份和当前授权身份偏好',
 )
 
 assert(spec.includes("'PO-QC-202608-001'"), '缺少第 1 个生产单')
@@ -92,7 +92,7 @@ assert(spec.includes("toHaveLength(15)"), '必须断言 15 条跨端业务链')
 assert(spec.includes('POST_FINISHING_CROSS_TERMINAL_EVIDENCE_OUT'), '必须输出结构化验收证据')
 assert(spec.includes('POST_FINISHING_CROSS_TERMINAL_SCREENSHOT_DIR'), '必须输出逐链截图证据')
 assert(spec.includes('全部业务写入由 Web/PDA 页面操作产生'), '必须声明 UI 写入边界')
-assert(spec.includes("getByRole('button', { name: '领取质检单' })"), '跨端验收必须从质检单列表的精确领取弹窗进入 Web 质检')
+assert(spec.includes("getByRole('button', { name: '领取质检单', exact: true })"), '跨端验收必须从质检单列表的精确领取弹窗进入 Web 质检')
 assert(spec.includes("getByRole('button', { name: '领取复检单' })"), '跨端验收必须从复检单列表的精确领取弹窗进入 Web 复检')
 assert(spec.includes("[data-recheck-result-field=\"handoverQty\"]"), '处理后复核必须提交实际交出数量')
 for (const legacyField of ['data-post-completed-qty', 'data-post-defect-reason-qty', 'data-recheck-result-field=\"passedQty\"', 'data-recheck-result-field=\"defectQty\"']) {
@@ -113,6 +113,6 @@ console.log(JSON.stringify({
   namedRoutes: requiredUiRoutes.length,
   uiStages: requiredUiStages.length,
   forbiddenDomainWrites: forbiddenDomainWrites.length,
-  setupWrites: '清空浏览器状态，写入PDA测试会话、关闭默认演示数据并设置当前登录质检身份与指定授权身份',
+  setupWrites: '隔离浏览器按后道事务重置测试记录，仅写入 PDA 会话和质检/授权身份偏好',
   writeBoundary: 'UI-only',
 }, null, 2))

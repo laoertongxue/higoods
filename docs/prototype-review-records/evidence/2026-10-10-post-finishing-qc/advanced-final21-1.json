@@ -1,0 +1,7424 @@
+{
+  "segment": 1,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 285.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 103.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-原子保存",
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 236.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 293.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 301.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-原子保存",
+      "ms": 144.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 248.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 334.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 92.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 110.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-容量不足",
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 302.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-原子保存",
+      "ms": 146.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 239.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 285.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 295.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-原子保存",
+      "ms": 128.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 238.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 285,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-容量不足",
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 304.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 103,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-原子保存",
+      "ms": 128.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 236.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 278.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-容量不足",
+      "ms": 132,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 287.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-原子保存",
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 223.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 285.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 102,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 108.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-容量不足",
+      "ms": 129.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 303.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-原子保存",
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 238.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 283.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 104,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-容量不足",
+      "ms": 127.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 298.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-原子保存",
+      "ms": 146.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 243.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 288.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 109.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 308.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 86.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-原子保存",
+      "ms": 144.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 233.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 285.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-容量不足",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 297.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-原子保存",
+      "ms": 142.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 225.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 300.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-容量不足",
+      "ms": 128,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 281.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-原子保存",
+      "ms": 123.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 238.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 287.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-容量不足",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 292.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 99.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-原子保存",
+      "ms": 144.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 237.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 272.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 101.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓-容量不足",
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 285.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-原子保存",
+      "ms": 145.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 251.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 286.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 294.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-原子保存",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 225.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 282.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓-容量不足",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 285.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-原子保存",
+      "ms": 147.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 236.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 288.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-容量不足",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 280.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-原子保存",
+      "ms": 147.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 357.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 457.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 274.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 99.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-原子保存",
+      "ms": 145.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 235.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 282.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-容量不足",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 282.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 109.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-原子保存",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 224.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 395.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 102,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 101.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 294.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-原子保存",
+      "ms": 145,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 222.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 336.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-容量不足",
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 298.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 88.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-原子保存",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 235.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 308.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 90.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓-容量不足",
+      "ms": 132.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 296.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-原子保存",
+      "ms": 146.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 229.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 295.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 97.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-容量不足",
+      "ms": 128.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 291.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 115.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-原子保存",
+      "ms": 132.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 228.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-冷开",
+      "ms": 298,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 115.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓-容量不足",
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 304.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-原子保存",
+      "ms": 132.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 211.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 322.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 90.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 83.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-容量不足",
+      "ms": 120.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 304.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-原子保存",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 277.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-冷开",
+      "ms": 313,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 90.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 115.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓-容量不足",
+      "ms": 129.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 366.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-原子保存",
+      "ms": 127.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 223.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 321.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 102.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-容量不足",
+      "ms": 127.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 297,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 97.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 110.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-原子保存",
+      "ms": 128.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 216.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-冷开",
+      "ms": 286.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 90.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-收货人",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 115.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 101.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓-容量不足",
+      "ms": 127.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 298.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-原子保存",
+      "ms": 127.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 214.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 295.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 112.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 90.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-容量不足",
+      "ms": 127.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 300.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-原子保存",
+      "ms": 132,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 227.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-冷开",
+      "ms": 368.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-收货人",
+      "ms": 100.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-实收输入",
+      "ms": 88.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓-容量不足",
+      "ms": 128.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 311.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 84.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-原子保存",
+      "ms": 144.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 230.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 302.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 111.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 100.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-容量不足",
+      "ms": 132.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 327.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 96.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-原子保存",
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-保存后刷新",
+      "ms": 256.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-冷开",
+      "ms": 318.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-选择收货员",
+      "ms": 87.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-收货人",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-打开新编号出货单",
+      "ms": 114.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 85.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 86.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-实收输入",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓-容量不足",
+      "ms": 124,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "新CH收货/原子记录/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "成衣仓容量不足/输入保留/无收货记录"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "ba98f6954191555e9514f9b397abd4fcdc137c8c7540f28b7e99c5e571600654",
+  "runtimeVersion": "build-final21",
+  "scriptSha256": "bf0f8d542f2ec3aaae56959b5e4e1d6e0082b1e5a0a49a34fa234ab4e2bb4f14"
+}

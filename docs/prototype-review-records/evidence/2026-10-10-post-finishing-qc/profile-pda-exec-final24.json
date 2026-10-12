@@ -1,0 +1,293 @@
+{
+  "ms": 507.70000000298023,
+  "ui": {
+    "headings": [
+      "实际工序执行",
+      "当前可执行动作",
+      "收货、质检、后道、复检记录",
+      "操作记录"
+    ],
+    "controls": [
+      {
+        "tag": "BUTTON",
+        "text": "待办\n      4",
+        "attrs": {
+          "data-pda-shell-action": "open-todo-modal",
+          "data-pda-todo-trigger": "true"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "P\n      PT_P",
+        "attrs": {
+          "data-pda-shell-action": "open-account-modal"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "返回",
+        "attrs": {
+          "data-pda-execd-action": "back"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "PO-QC-202608-001",
+        "attrs": {
+          "data-production-object-action": "open",
+          "data-object-type": "PRODUCTION_ORDER",
+          "data-object-id": "PO-QC-202608-001",
+          "data-related-production-order-no": "PO-QC-202608-001",
+          "data-default-tab": "overview",
+          "data-highlight-key": "PRODUCTION_ORDER:PO-QC-202608-001",
+          "data-skip-page-rerender": "true"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "SEW-TASK-QC-001",
+        "attrs": {
+          "data-production-object-action": "open",
+          "data-object-type": "PROCESS_DOC",
+          "data-object-id": "SEW-TASK-QC-001",
+          "data-related-production-order-no": "PO-QC-202608-001",
+          "data-default-tab": "progress",
+          "data-highlight-key": "PROCESS_DOC:SEW-TASK-QC-001",
+          "data-skip-page-rerender": "true"
+        }
+      },
+      {
+        "tag": "A",
+        "text": "扫描并执行后道加工单",
+        "attrs": {
+          "href": "/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "接单",
+        "attrs": {
+          "data-nav": "/fcs/pda/task-receive",
+          "data-pda-tab": "task-receive"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "执行",
+        "attrs": {
+          "data-nav": "/fcs/pda/exec",
+          "data-pda-tab": "exec"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "交接",
+        "attrs": {
+          "data-nav": "/fcs/pda/handover",
+          "data-pda-tab": "handover"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "仓管",
+        "attrs": {
+          "data-nav": "/fcs/pda/warehouse",
+          "data-pda-tab": "warehouse"
+        }
+      },
+      {
+        "tag": "BUTTON",
+        "text": "结算",
+        "attrs": {
+          "data-nav": "/fcs/pda/settlement",
+          "data-pda-tab": "settlement"
+        }
+      }
+    ]
+  },
+  "metrics": {
+    "navigation": [
+      {
+        "dom": 28.899999991059303,
+        "response": 4.5999999940395355,
+        "load": 29.5
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 106,
+        "duration": 86,
+        "name": "self"
+      },
+      {
+        "start": 291.09999999403954,
+        "duration": 114,
+        "name": "self"
+      }
+    ],
+    "resources": [
+      {
+        "url": "http://127.0.0.1:43210/assets/sewing-cut-piece-responsibility-CDg-y50K.js",
+        "duration": 28,
+        "size": 5339
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/supplement-management-araugOLi.js",
+        "duration": 27.700000002980232,
+        "size": 31193
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/sewing-dispatch-l-SJ61cD.js",
+        "duration": 27.700000002980232,
+        "size": 18803
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/production-return-fulfillment-98rbnraP.js",
+        "duration": 27.200000002980232,
+        "size": 4128
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-runtime-BLAEkmIS.js",
+        "duration": 27.200000002980232,
+        "size": 894
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-warehouse-shared-D3qXu6SK.js",
+        "duration": 27.200000002980232,
+        "size": 5589
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-DjhRboDv.js",
+        "duration": 27.200000002980232,
+        "size": 14267
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/production-contracts-Lc3zubR0.js",
+        "duration": 27.100000008940697,
+        "size": 2898
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/runtime-task-tenders-YGz6fHpq.js",
+        "duration": 27.100000008940697,
+        "size": 2028
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/cutting-task-routing-CRWr9abz.js",
+        "duration": 27.099999994039536,
+        "size": 2547
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+        "duration": 27.099999994039536,
+        "size": 786
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/generated-cut-orders-BgXAtUDF.js",
+        "duration": 26.900000005960464,
+        "size": 5614
+      }
+    ],
+    "visibility": "visible",
+    "focus": true
+  },
+  "cpu": [
+    [
+      " (idle)",
+      147.443
+    ],
+    [
+      " (program)",
+      71.92800000000001
+    ],
+    [
+      " (garbage collector)",
+      16.561
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-Dweme8xL.js ",
+      14.419000000000002
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-full-flow-CD1-nFnO.js i",
+      13.799
+    ],
+    [
+      "http://127.0.0.1:43210/assets/pcs-config-workspace-repository-DxgJJHih.js Y",
+      13.528999999999996
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-Ce0FHHni.js ",
+      13.196
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-Dweme8xL.js oe",
+      10.457
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-DlzQprT2.js ",
+      9.905
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js ",
+      9.230999999999998
+    ],
+    [
+      "http://127.0.0.1:43210/assets/generated-cut-orders-BgXAtUDF.js Ne",
+      8.882000000000001
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-Ce0FHHni.js Rt",
+      5.98
+    ],
+    [
+      "http://127.0.0.1:43210/assets/special-craft-task-orders-Bd_mmYjd.js ",
+      4.952999999999999
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-CujvGSFK.js ",
+      4.608
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-CujvGSFK.js A",
+      3.84
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-Dweme8xL.js we",
+      3.7669999999999995
+    ],
+    [
+      "http://127.0.0.1:43210/assets/pcs-tech-pack-review-ChMvYVHW.js ",
+      3.763
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-full-flow-CD1-nFnO.js ",
+      3.758
+    ],
+    [
+      "http://127.0.0.1:43210/assets/factory-receiving-By7YQYJ9.js O",
+      3.7520000000000002
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-source-shared-Bj4b3XYm.js ",
+      3.751
+    ],
+    [
+      " appendChild",
+      3.6740000000000004
+    ],
+    [
+      " structuredClone",
+      3.663
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js b",
+      3.612
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-Dweme8xL.js pT",
+      2.766
+    ]
+  ],
+  "sourceSha256": "c1d87a0104937b3e0e9aa301ee936e552857792532606585431e73a1cd79638a",
+  "uiMatchesBefore": false
+}

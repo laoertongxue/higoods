@@ -258,3 +258,16 @@ test('冻结工作树基线只传给当前任务范围门禁，不污染临时�
   assert.equal(environment.KEEP, 'yes')
   assert.equal(inherited.GOVERNANCE_BASE_SHA, 'stale-ref')
 })
+
+test('后道两项 Native 变更绑定真实独立服务 E2E，其他未知测试仍阻断', () => {
+  const known = ['tests/post-finishing-full-flow.spec.ts', 'tests/post-finishing-full-flow-cross-terminal.spec.ts']
+  const expected = 'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npm run test:e2e -- tests/post-finishing-full-flow.spec.ts tests/post-finishing-full-flow-cross-terminal.spec.ts --workers=1 --reporter=json'
+  for (const path of known) {
+    const result = routeAffectedChecks([path])
+    assert.deepEqual(result.unknownPaths, [])
+    assert(result.fullChecks.includes(expected))
+  }
+  const result = routeAffectedChecks([...known, 'tests/unregistered-post-finishing.spec.ts'])
+  assert.deepEqual(result.unknownPaths, ['tests/unregistered-post-finishing.spec.ts'])
+  assert.equal(result.fullChecks.filter((command) => command === expected).length, 1)
+})

@@ -56,7 +56,7 @@ test('旧存储 getter 不可读时，后道演示开关不阻断裁床依赖模
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { accesses += 1; throw new Error('旧存储不可读取') } })
     try {
       await import(${JSON.stringify(moduleUrl)})
-      if (!accesses) throw new Error('未执行 getter 反例')
+      if (accesses) throw new Error('普通模块导入不得读取旧后道业务存储')
       process.exit(0)
     } catch (error) {
       console.error(error)

@@ -1,3 +1,4 @@
+import { assertPostFinishingWrite, registerPostFinishingRepository } from './post-finishing-records.ts'
 export type PostFinishingFullFlowStage =
   | '送货登记'
   | '回货确认'
@@ -55,16 +56,7 @@ export interface PostFinishingOperationLogFilter {
 
 const STORAGE_KEY = 'higood-fcs-post-finishing-full-flow-operation-logs-v1'
 
-function readPersistedLogs(): PostFinishingOperationLogEntry[] {
-  try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed as PostFinishingOperationLogEntry[] : []
-  } catch {
-    return []
-  }
-}
+function readPersistedLogs(): PostFinishingOperationLogEntry[] { return [] }
 
 let logs = readPersistedLogs()
 
@@ -72,26 +64,17 @@ let logs = readPersistedLogs()
 let demoPersistence: 'idle' | 'save' | 'remove' | undefined
 
 export function beginPostFinishingOperationLogDemoBatch() {
-  const before = logs
+  const before = structuredClone(logs)
   demoPersistence = 'idle'
   return {
     commit(): void {
-      if (demoPersistence === 'save') globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
-      if (demoPersistence === 'remove') globalThis.localStorage?.removeItem(STORAGE_KEY)
     },
     rollback(): void { logs = before },
     finish(): void { demoPersistence = undefined },
   }
 }
 
-function persist(): void {
-  if (demoPersistence !== undefined) { demoPersistence = 'save'; return }
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(logs))
-  } catch {
-    // 原型无 localStorage 时保留当前运行期内存事实。
-  }
-}
+function persist(): void { assertPostFinishingWrite() }
 
 function cloneLog(entry: PostFinishingOperationLogEntry): PostFinishingOperationLogEntry {
   return { ...entry }
@@ -100,6 +83,7 @@ function cloneLog(entry: PostFinishingOperationLogEntry): PostFinishingOperation
 export function appendPostFinishingOperationLog(
   input: Omit<PostFinishingOperationLogEntry, 'logId'> & { logId?: string },
 ): PostFinishingOperationLogEntry {
+  assertPostFinishingWrite()
   const entry: PostFinishingOperationLogEntry = {
     ...input,
     logId: input.logId || `PF-LOG-${String(logs.length + 1).padStart(6, '0')}`,
@@ -143,11 +127,10 @@ export function listPostFinishingOperationLogs(
 }
 
 export function resetPostFinishingOperationLogs(): void {
+  assertPostFinishingWrite()
   logs = []
   if (demoPersistence !== undefined) { demoPersistence = 'remove'; return }
-  try {
-    globalThis.localStorage?.removeItem(STORAGE_KEY)
-  } catch {
-    // 忽略原型存储不可用。
-  }
+  assertPostFinishingWrite()
 }
+
+registerPostFinishingRepository('logs', STORAGE_KEY, () => logs, value => { logs = value })

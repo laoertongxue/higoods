@@ -1,0 +1,5369 @@
+{
+  "segment": 5,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 222.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-领取新编号",
+      "ms": 129.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 91.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 99.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 101.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 113.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 227.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 99.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 129.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 171,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 218.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 116.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 91.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 98.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 95,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 225.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-领取新编号",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 100.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 101.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 173.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 230.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-领取新编号",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 90.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 90.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 97,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 97,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 232.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 116,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-领取新编号",
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 102.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 90.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 84.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 100.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 171.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 218.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 91.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 84.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 217.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 130.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 172.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 216.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-领取新编号",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 100.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 96.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 214.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 97.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 102.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 84.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 129.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 172.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 216.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 226,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 101.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 170.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 216.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 100.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 217.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-领取新编号",
+      "ms": 128.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 129.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 172.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 221.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-领取新编号",
+      "ms": 132.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 112,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 221.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 128.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 160.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 220.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-领取新编号",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 110.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 101.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 101.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 111.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 220.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 116.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-领取新编号",
+      "ms": 128.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 174.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 215.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 114.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 220.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-领取新编号",
+      "ms": 132.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 88.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 128.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 174.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 216.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 112.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 97.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-领取新编号",
+      "ms": 128.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 89.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 221.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-领取新编号",
+      "ms": 128.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 99.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 96.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 173.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 226.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-领取新编号",
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 100.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 100.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 230.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-领取新编号",
+      "ms": 131.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 129.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 175.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 218.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-领取新编号",
+      "ms": 132.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 88.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 85.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 102.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 112.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 217.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-领取新编号",
+      "ms": 131.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 87.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 91,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 89.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 91.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码确认",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 172.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 220.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-领取新编号",
+      "ms": 132.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 92.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 95.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 99.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 112.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 221.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 96.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-领取新编号",
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 100.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-交出数量",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 127.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 174.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 214.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-领取新编号",
+      "ms": 128.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 93.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 84,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 86.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 91.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-出货保存中止",
+      "ms": 112,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 222.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 97.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-领取新编号",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 92.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 97.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 96,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-交出数量",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码确认",
+      "ms": 90.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-条码与出货同事务",
+      "ms": 129.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-保存后刷新",
+      "ms": 172.80000001192093,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检出货失败全部回滚/输入保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检条码/主单/CH原子提交/刷新"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "efa656252a2df74e6237e5b63e25b5bb5de06823c7c518bb1686b0f25ea1efcf",
+  "runtimeVersion": "build-final33",
+  "scriptSha256": "9b5472bbdc4cf34a60d5b1889881f49f9d7da94332c741fcbcabc3a260bd9ee2"
+}

@@ -1,0 +1,93 @@
+{
+  "sourceSha256": "efa656252a2df74e6237e5b63e25b5bb5de06823c7c518bb1686b0f25ea1efcf",
+  "checks": [
+    {
+      "name": "full-flow",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-full-flow.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-full-flow-final33.log"
+    },
+    {
+      "name": "full-flow-surface",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-full-flow-surface.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-full-flow-surface-final33.log"
+    },
+    {
+      "name": "qc-colors",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-qc-colors.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-qc-colors-final33.log"
+    },
+    {
+      "name": "qc-result-buckets",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-qc-result-buckets.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-qc-result-buckets-final33.log"
+    },
+    {
+      "name": "default-demo",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-default-demo.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-default-demo-final33.log"
+    },
+    {
+      "name": "flow-correction",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-flow-correction.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-flow-correction-final33.log"
+    },
+    {
+      "name": "web-pda-fallback",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-web-pda-fallback.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-web-pda-fallback-final33.log"
+    },
+    {
+      "name": "full-flow-traceability",
+      "command": [
+        "node",
+        "--import",
+        "tsx",
+        "scripts/check-post-finishing-full-flow-traceability.ts"
+      ],
+      "exitCode": 0,
+      "log": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/check-full-flow-traceability-final33.log"
+    }
+  ]
+}

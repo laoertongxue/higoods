@@ -1,3 +1,4 @@
+import { assertPostFinishingWrite, registerPostFinishingRepository } from './post-finishing-records.ts'
 export type PostFinishingAuthorizationStage = '回货确认' | '质检' | '后道' | '复检' | '仓库收货'
 
 export interface PostFinishingAuthorizedPerson {
@@ -76,16 +77,7 @@ const AUTHORIZED_PEOPLE: PostFinishingAuthorizedPerson[] = [
   { authorizerId: 'AUTH-WH-001', authorizerName: '陈仓库主管', roleName: '仓库主管', secret: 'PF-WH-83' },
 ]
 
-function readPersistedConsumptions(): PostFinishingAuthorizationConsumption[] {
-  try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed as PostFinishingAuthorizationConsumption[] : []
-  } catch {
-    return []
-  }
-}
+function readPersistedConsumptions(): PostFinishingAuthorizationConsumption[] { return [] }
 
 let consumptions = readPersistedConsumptions()
 
@@ -93,26 +85,17 @@ let consumptions = readPersistedConsumptions()
 let demoPersistence: 'idle' | 'save' | 'remove' | undefined
 
 export function beginPostFinishingAuthorizationDemoBatch() {
-  const before = consumptions
+  const before = structuredClone(consumptions)
   demoPersistence = 'idle'
   return {
     commit(): void {
-      if (demoPersistence === 'save') globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(consumptions))
-      if (demoPersistence === 'remove') globalThis.localStorage?.removeItem(STORAGE_KEY)
     },
     rollback(): void { consumptions = before },
     finish(): void { demoPersistence = undefined },
   }
 }
 
-function persist(): void {
-  if (demoPersistence !== undefined) { demoPersistence = 'save'; return }
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(consumptions))
-  } catch {
-    // 原型无 localStorage 时保留运行期授权消费事实。
-  }
-}
+function persist(): void { assertPostFinishingWrite() }
 
 function stableHash(value: string): number {
   let hash = 2166136261
@@ -226,6 +209,7 @@ function parseScanValue(scanValue: string, fallbackAuthorizerId: string | undefi
 export function consumePostFinishingAuthorization(
   input: ConsumePostFinishingAuthorizationInput,
 ): PostFinishingAuthorizationConsumption {
+  assertPostFinishingWrite()
   if (!input.differenceReason.trim()) {
     throw new PostFinishingAuthorizationError('MISSING_REASON', '存在数量差异时必须填写差异原因。')
   }
@@ -269,13 +253,12 @@ export function listPostFinishingAuthorizationConsumptions(): PostFinishingAutho
 }
 
 export function resetPostFinishingAuthorizationConsumptions(): void {
+  assertPostFinishingWrite()
   consumptions = []
   if (demoPersistence !== undefined) { demoPersistence = 'remove'; return }
-  try {
-    globalThis.localStorage?.removeItem(STORAGE_KEY)
-  } catch {
-    // 忽略原型存储不可用。
-  }
+  assertPostFinishingWrite()
 }
 
 export const POST_FINISHING_AUTHORIZATION_WINDOW_MS = TIME_WINDOW_MS
+
+registerPostFinishingRepository('authorizations', STORAGE_KEY, () => consumptions, value => { consumptions = value })

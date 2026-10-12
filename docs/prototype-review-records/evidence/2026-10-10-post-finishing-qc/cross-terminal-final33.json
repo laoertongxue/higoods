@@ -1,0 +1,2110 @@
+{
+  "suite": "QC 后道全流程 3×5×5 全量跨端 UI 验收",
+  "passLabel": "cross-terminal",
+  "startedAt": "2026-10-10T12:40:42.697Z",
+  "writeBoundary": "开始时在隔离浏览器按事务重置后道测试记录并写入 PDA 测试会话；除此之外全部业务写入由 Web/PDA 页面操作产生；结束时只读业务事实用于核对。",
+  "expected": {
+    "productionOrders": 3,
+    "skuPerProductionOrder": 5,
+    "returnsPerProductionOrder": 5,
+    "chains": 15
+  },
+  "chains": [
+    {
+      "chainIndex": 1,
+      "productionOrderNo": "PO-QC-202608-001",
+      "returnIndex": 1,
+      "label": "正常一致",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636045735",
+          "status": "登记成功：PO-QC-202608-001-1，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-001-1",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-1-1&refresh=1791636046399",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-001-1-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-1-1&refresh=1791636046399",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-1-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-1-1",
+          "status": "送检成功：PO-QC-202608-001-1-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-1-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web 款式颜色图片核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-1-ZJ&refresh=1791636048062",
+          "status": "已展示",
+          "skuCount": 5,
+          "details": {
+            "spuCode": "SPU-QC-001"
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-1-ZJ&refresh=1791636049229",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-001-1-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 3,
+            "downstreamNo": "PO-QC-202608-001-1-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-1-1",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-001-1-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636051961&id=PO-QC-202608-001-1-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-001-1-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-1-1&refresh=1791636052652",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-001-1-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636053319",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/01-PO-QC-202608-001-R1-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-1-1",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636055101",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-001-1",
+      "qcTaskNo": "PO-QC-202608-001-1-ZJ",
+      "postTaskNo": "PO-QC-202608-001-1-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/01-PO-QC-202608-001-R1-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 2,
+      "productionOrderNo": "PO-QC-202608-001",
+      "returnIndex": 2,
+      "label": "回货 -5%边界且后道全链路",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636057188",
+          "status": "登记成功：PO-QC-202608-001-2，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-001-2",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636058928&id=PO-QC-202608-001-2",
+          "status": "回货确认成功：PO-QC-202608-001-2；质检单 PO-QC-202608-001-2-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "minus-5-boundary",
+            "firstSkuConfirmedQty": 19
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636058928&id=PO-QC-202608-001-2",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-2-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-1-2",
+          "status": "送检成功：PO-QC-202608-001-2-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-2-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-2-ZJ&refresh=1791636060830",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-001-2-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 3,
+            "downstreamNo": "PO-QC-202608-001-2-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-1-2",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-001-2-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636063461&id=PO-QC-202608-001-2-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-001-2-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-1-2&refresh=1791636064184",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-001-2-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636064802",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/02-PO-QC-202608-001-R2-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-1-2",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636067586",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-001-2",
+      "qcTaskNo": "PO-QC-202608-001-2-ZJ",
+      "postTaskNo": "PO-QC-202608-001-2-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/02-PO-QC-202608-001-R2-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 3,
+      "productionOrderNo": "PO-QC-202608-001",
+      "returnIndex": 3,
+      "label": "回货超过5%复点与动态授权",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636069640",
+          "status": "登记成功：PO-QC-202608-001-3，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-001-3",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-1-3&refresh=1791636071182",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-001-3-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "over-5-authorization",
+            "firstSkuConfirmedQty": 18
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-1-3&refresh=1791636071182",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-3-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-1-3",
+          "status": "送检成功：PO-QC-202608-001-3-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-3-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-3-ZJ&refresh=1791636073597",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-001-3-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 3,
+            "downstreamNo": "PO-QC-202608-001-3-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-1-3",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-001-3-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636076794&id=PO-QC-202608-001-3-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-001-3-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-1-3&refresh=1791636077486",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-001-3-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636078119",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/03-PO-QC-202608-001-R3-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-1-3",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636080603",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [
+        "Web回货确认"
+      ],
+      "deliveryOrderNo": "PO-QC-202608-001-3",
+      "qcTaskNo": "PO-QC-202608-001-3-ZJ",
+      "postTaskNo": "PO-QC-202608-001-3-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/03-PO-QC-202608-001-R3-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 4,
+      "productionOrderNo": "PO-QC-202608-001",
+      "returnIndex": 4,
+      "label": "质检瑕疵守恒、后道记录未处理数量",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636082707",
+          "status": "登记成功：PO-QC-202608-001-4，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-001-4",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636084261&id=PO-QC-202608-001-4",
+          "status": "回货确认成功：PO-QC-202608-001-4；质检单 PO-QC-202608-001-4-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636084261&id=PO-QC-202608-001-4",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-4-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-1-4",
+          "status": "送检成功：PO-QC-202608-001-4-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-4-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-4-ZJ&refresh=1791636086048",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-001-4-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "balanced-defect",
+            "needPost": true,
+            "selectedProcessItems": 3,
+            "downstreamNo": "PO-QC-202608-001-4-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-1-4",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-001-4-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636089628&id=PO-QC-202608-001-4-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-001-4-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "unprocessed",
+            "recheckOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-1-4&refresh=1791636090436",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-001-4-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636091069",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/04-PO-QC-202608-001-R4-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-1-4",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636093571",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-001-4",
+      "qcTaskNo": "PO-QC-202608-001-4-ZJ",
+      "postTaskNo": "PO-QC-202608-001-4-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/04-PO-QC-202608-001-R4-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 5,
+      "productionOrderNo": "PO-QC-202608-001",
+      "returnIndex": 5,
+      "label": "SKU错码重贴与复扫恢复",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636095641",
+          "status": "登记成功：PO-QC-202608-001-5，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-001-5",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&refresh=1791636096269",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-001-5-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&refresh=1791636096269",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-5-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-1-5",
+          "status": "送检成功：PO-QC-202608-001-5-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-001-5-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-001-5-ZJ&refresh=1791636098634",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-001-5-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 3,
+            "downstreamNo": "PO-QC-202608-001-5-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-1-5",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-001-5-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636101846&id=PO-QC-202608-001-5-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-001-5-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-1-5&refresh=1791636103221",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-001-5-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": true,
+            "outboundOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636103854",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/05-PO-QC-202608-001-R5-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-1-5",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636105654",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-001-5",
+      "qcTaskNo": "PO-QC-202608-001-5-ZJ",
+      "postTaskNo": "PO-QC-202608-001-5-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/05-PO-QC-202608-001-R5-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 6,
+      "productionOrderNo": "PO-QC-202608-002",
+      "returnIndex": 1,
+      "label": "回货 +5%边界、款式颜色图片及质检直达成衣仓",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636107759",
+          "status": "登记成功：PO-QC-202608-002-1，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-002-1",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636109346&id=PO-QC-202608-002-1",
+          "status": "回货确认成功：PO-QC-202608-002-1；质检单 PO-QC-202608-002-1-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "plus-5-boundary",
+            "firstSkuConfirmedQty": 21
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636109346&id=PO-QC-202608-002-1",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-1-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-2-1",
+          "status": "送检成功：PO-QC-202608-002-1-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-1-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web 款式颜色图片核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-002-1-ZJ&refresh=1791636111417",
+          "status": "已展示",
+          "skuCount": 5,
+          "details": {
+            "spuCode": "SPU-QC-002"
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-002-1-ZJ&refresh=1791636111667",
+          "status": "质检完成，已生成面向成衣仓的待接收交接单 PO-QC-202608-002-1-ZJ-CH",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": false,
+            "selectedProcessItems": 0,
+            "downstreamNo": "PO-QC-202608-002-1-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达跳过后道待交出仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory",
+          "status": "不适用",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-1-ZJ-CH"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-1",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-1-ZJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-1-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达成衣仓待接收回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/outbound-orders?keyword=PO-QC-202608-002-1-ZJ-CH",
+          "status": "待仓库接收",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "尚未由成衣仓确认"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-002-1",
+      "qcTaskNo": "PO-QC-202608-002-1-ZJ",
+      "outboundOrderNo": "PO-QC-202608-002-1-ZJ-CH",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/06-PO-QC-202608-002-R1-qc-direct-warehouse-pending.png"
+    },
+    {
+      "chainIndex": 7,
+      "productionOrderNo": "PO-QC-202608-002",
+      "returnIndex": 2,
+      "label": "质检少1件授权后直达成衣仓",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636115839",
+          "status": "登记成功：PO-QC-202608-002-2，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-002-2",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-2-2&refresh=1791636116505",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-002-2-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-2-2&refresh=1791636116505",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-2-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-2-2",
+          "status": "送检成功：PO-QC-202608-002-2-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-2-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-002-2-ZJ&refresh=1791636120668",
+          "status": "质检完成，已生成面向成衣仓的待接收交接单 PO-QC-202608-002-2-ZJ-CH",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "difference",
+            "needPost": false,
+            "selectedProcessItems": 0,
+            "downstreamNo": "PO-QC-202608-002-2-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达跳过后道待交出仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory",
+          "status": "不适用",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-2-ZJ-CH"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-2",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-2-ZJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-2-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达成衣仓待接收回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/outbound-orders?keyword=PO-QC-202608-002-2-ZJ-CH",
+          "status": "待仓库接收",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "尚未由成衣仓确认"
+          }
+        }
+      ],
+      "authorizationStages": [
+        "Web质检"
+      ],
+      "deliveryOrderNo": "PO-QC-202608-002-2",
+      "qcTaskNo": "PO-QC-202608-002-2-ZJ",
+      "outboundOrderNo": "PO-QC-202608-002-2-ZJ-CH",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/07-PO-QC-202608-002-R2-qc-direct-warehouse-pending.png"
+    },
+    {
+      "chainIndex": 8,
+      "productionOrderNo": "PO-QC-202608-002",
+      "returnIndex": 3,
+      "label": "漏做烫包，PDA中断后由Web接管并做交出差异授权",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636125456",
+          "status": "登记成功：PO-QC-202608-002-3，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-002-3",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636127013&id=PO-QC-202608-002-3",
+          "status": "回货确认成功：PO-QC-202608-002-3；质检单 PO-QC-202608-002-3-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636127013&id=PO-QC-202608-002-3",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-3-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-2-3",
+          "status": "送检成功：PO-QC-202608-002-3-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-3-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-002-3-ZJ&refresh=1791636129401",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-002-3-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 1,
+            "downstreamNo": "PO-QC-202608-002-3-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-2-3",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-002-3-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web接管后道完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-2-3?refresh=1791636133234",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-002-3-ZJ-HD-FJ。",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "web-fallback",
+            "recheckOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-2-3&refresh=1791636134875",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-002-3-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "difference",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636135616",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/08-PO-QC-202608-002-R3-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-3",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636138138",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [
+        "Web复检"
+      ],
+      "deliveryOrderNo": "PO-QC-202608-002-3",
+      "qcTaskNo": "PO-QC-202608-002-3-ZJ",
+      "postTaskNo": "PO-QC-202608-002-3-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/08-PO-QC-202608-002-R3-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 9,
+      "productionOrderNo": "PO-QC-202608-002",
+      "returnIndex": 4,
+      "label": "空项目不进复检和待交出仓",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636140242",
+          "status": "登记成功：PO-QC-202608-002-4，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-002-4",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-2-4&refresh=1791636140837",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-002-4-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-2-4&refresh=1791636140837",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-4-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-2-4",
+          "status": "送检成功：PO-QC-202608-002-4-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-4-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-002-4-ZJ&refresh=1791636142668",
+          "status": "质检完成，已生成面向成衣仓的待接收交接单 PO-QC-202608-002-4-ZJ-CH",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": false,
+            "selectedProcessItems": 0,
+            "downstreamNo": "PO-QC-202608-002-4-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达跳过后道待交出仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636143305",
+          "status": "不适用",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-4-ZJ-CH"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-4",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-4-ZJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-4-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达成衣仓待接收回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/outbound-orders?keyword=PO-QC-202608-002-4-ZJ-CH",
+          "status": "待仓库接收",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "尚未由成衣仓确认"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-002-4",
+      "qcTaskNo": "PO-QC-202608-002-4-ZJ",
+      "outboundOrderNo": "PO-QC-202608-002-4-ZJ-CH",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/09-PO-QC-202608-002-R4-qc-direct-warehouse-pending.png"
+    },
+    {
+      "chainIndex": 10,
+      "productionOrderNo": "PO-QC-202608-002",
+      "returnIndex": 5,
+      "label": "漏做烫包后的出货单与待交出库存核对",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636147459",
+          "status": "登记成功：PO-QC-202608-002-5，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-002-5",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636149047&id=PO-QC-202608-002-5",
+          "status": "回货确认成功：PO-QC-202608-002-5；质检单 PO-QC-202608-002-5-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636149047&id=PO-QC-202608-002-5",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-5-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-2-5",
+          "status": "送检成功：PO-QC-202608-002-5-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-002-5-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-002-5-ZJ&refresh=1791636150919",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-002-5-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 1,
+            "downstreamNo": "PO-QC-202608-002-5-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-2-5",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-002-5-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636154280&id=PO-QC-202608-002-5-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-002-5-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-2-5&refresh=1791636155024",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-002-5-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636155671",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/10-PO-QC-202608-002-R5-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-2-5",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636157522",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-002-5",
+      "qcTaskNo": "PO-QC-202608-002-5-ZJ",
+      "postTaskNo": "PO-QC-202608-002-5-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/10-PO-QC-202608-002-R5-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 11,
+      "productionOrderNo": "PO-QC-202608-003",
+      "returnIndex": 1,
+      "label": "质检返工守恒及返工工厂选择",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636159593",
+          "status": "登记成功：PO-QC-202608-003-1，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-003-1",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-3-1&refresh=1791636160239",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-003-1-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-3-1&refresh=1791636160239",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-1-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-3-1",
+          "status": "送检成功：PO-QC-202608-003-1-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-1-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web 款式颜色图片核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-1-ZJ&refresh=1791636161835",
+          "status": "已展示",
+          "skuCount": 5,
+          "details": {
+            "spuCode": "SPU-QC-003"
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-1-ZJ&refresh=1791636162120",
+          "status": "质检完成，已生成面向成衣仓的待接收交接单 PO-QC-202608-003-1-ZJ-CH",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "balanced-return",
+            "needPost": false,
+            "selectedProcessItems": 0,
+            "downstreamNo": "PO-QC-202608-003-1-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达跳过后道待交出仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory",
+          "status": "不适用",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-1-ZJ-CH"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-3-1",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-1-ZJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-1-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达成衣仓待接收回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/outbound-orders?keyword=PO-QC-202608-003-1-ZJ-CH",
+          "status": "待仓库接收",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "尚未由成衣仓确认"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-003-1",
+      "qcTaskNo": "PO-QC-202608-003-1-ZJ",
+      "outboundOrderNo": "PO-QC-202608-003-1-ZJ-CH",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/11-PO-QC-202608-003-R1-qc-direct-warehouse-pending.png"
+    },
+    {
+      "chainIndex": 12,
+      "productionOrderNo": "PO-QC-202608-003",
+      "returnIndex": 2,
+      "label": "漏做项目进入后道后正常完成处理后复核",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636166627",
+          "status": "登记成功：PO-QC-202608-003-2，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-003-2",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636168214&id=PO-QC-202608-003-2",
+          "status": "回货确认成功：PO-QC-202608-003-2；质检单 PO-QC-202608-003-2-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636168214&id=PO-QC-202608-003-2",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-2-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-3-2",
+          "status": "送检成功：PO-QC-202608-003-2-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-2-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-2-ZJ&refresh=1791636170653",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-003-2-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 1,
+            "downstreamNo": "PO-QC-202608-003-2-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-3-2",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-003-2-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636173913&id=PO-QC-202608-003-2-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-003-2-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-3-2&refresh=1791636174658",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-003-2-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636175356",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/12-PO-QC-202608-003-R2-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-3-2",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636177703",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-003-2",
+      "qcTaskNo": "PO-QC-202608-003-2-ZJ",
+      "postTaskNo": "PO-QC-202608-003-2-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/12-PO-QC-202608-003-R2-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 13,
+      "productionOrderNo": "PO-QC-202608-003",
+      "returnIndex": 3,
+      "label": "漏做项目进入后道并记录未处理数量",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636180127",
+          "status": "登记成功：PO-QC-202608-003-3，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-003-3",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-3-3&refresh=1791636180757",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-003-3-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-3-3&refresh=1791636180757",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-3-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-3-3",
+          "status": "送检成功：PO-QC-202608-003-3-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-3-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-3-ZJ&refresh=1791636182772",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-003-3-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 1,
+            "downstreamNo": "PO-QC-202608-003-3-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-3-3",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-003-3-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636186280&id=PO-QC-202608-003-3-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-003-3-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "unprocessed",
+            "recheckOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-3-3&refresh=1791636187129",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-003-3-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": false,
+            "outboundOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636187945",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/13-PO-QC-202608-003-R3-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-3-3",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636190454",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-003-3",
+      "qcTaskNo": "PO-QC-202608-003-3-ZJ",
+      "postTaskNo": "PO-QC-202608-003-3-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/13-PO-QC-202608-003-R3-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 14,
+      "productionOrderNo": "PO-QC-202608-003",
+      "returnIndex": 4,
+      "label": "处理后复核退领重领及第二组SKU错码重贴复扫",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636192628",
+          "status": "登记成功：PO-QC-202608-003-4，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-003-4",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA回货确认",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636194214&id=PO-QC-202608-003-4",
+          "status": "回货确认成功：PO-QC-202608-003-4；质检单 PO-QC-202608-003-4-ZJ 已自动生成，等待待加工仓送检。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/return-confirm?refresh=1791636194214&id=PO-QC-202608-003-4",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-4-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-3-4",
+          "status": "送检成功：PO-QC-202608-003-4-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-4-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-4-ZJ&refresh=1791636196123",
+          "status": "质检完成，已生成后道加工单 PO-QC-202608-003-4-ZJ-HD",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": true,
+            "selectedProcessItems": 1,
+            "downstreamNo": "PO-QC-202608-003-4-ZJ-HD"
+          }
+        },
+        {
+          "stage": "Web后道加工单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=POST_ORDER&id=PF-POST-PF-ACCEPT-PO-3-4",
+          "skuCount": 5,
+          "details": {
+            "postTaskNo": "PO-QC-202608-003-4-ZJ-HD",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "PDA后道完成",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/execute?refresh=1791636199730&id=PO-QC-202608-003-4-ZJ-HD",
+          "status": "后道处理完成，处理后交出复核单 PO-QC-202608-003-4-ZJ-HD-FJ",
+          "skuCount": 5,
+          "details": {
+            "postScenario": "normal",
+            "recheckOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ"
+          }
+        },
+        {
+          "stage": "Web处理后交出复核完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/recheck-orders?id=PF-RC-PF-ACCEPT-PO-3-4&refresh=1791636202092",
+          "status": "数量与条码复核完成，已生成唯一后道出货单 PO-QC-202608-003-4-ZJ-HD-FJ-CH",
+          "skuCount": 5,
+          "details": {
+            "recheckScenario": "normal",
+            "barcodeErrorRecovered": true,
+            "outboundOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓入仓核对",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636202750",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ-CH",
+            "skuCount": 5,
+            "screenshot": "/tmp/post-finishing-cross-terminal-final33-screens/14-PO-QC-202608-003-R4-wait-handover-ready.png"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-3-4",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ-CH"
+          }
+        },
+        {
+          "stage": "Web待交出仓待交出回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636205103",
+          "status": "待交出",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "成衣仓系统范围外"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-003-4",
+      "qcTaskNo": "PO-QC-202608-003-4-ZJ",
+      "postTaskNo": "PO-QC-202608-003-4-ZJ-HD",
+      "outboundOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ-CH",
+      "recheckOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/14-PO-QC-202608-003-R4-wait-handover-pending.png"
+    },
+    {
+      "chainIndex": 15,
+      "productionOrderNo": "PO-QC-202608-003",
+      "returnIndex": 5,
+      "label": "空项目直接生成成衣仓待接收交接单",
+      "stages": [
+        {
+          "stage": "公共PDA登记回货",
+          "url": "http://127.0.0.1:43211/fcs/pda/handover/sewing-self-return?refresh=1791636207177",
+          "status": "登记成功：PO-QC-202608-003-5，等待后道二次点数。",
+          "skuCount": 5,
+          "details": {
+            "deliveryOrderNo": "PO-QC-202608-003-5",
+            "registeredSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web回货确认并入待加工仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&refresh=1791636207842",
+          "status": "后道已最终确认回货，质检单 PO-QC-202608-003-5-ZJ 已自动生成并进入待送检；数量已进入后道待加工仓。",
+          "skuCount": 5,
+          "details": {
+            "returnScenario": "normal",
+            "firstSkuConfirmedQty": 20
+          }
+        },
+        {
+          "stage": "回货确认自动生成质检单",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-process-warehouse?tab=returns&deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&refresh=1791636207842",
+          "status": "待送检",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-5-ZJ",
+            "generatedAtConfirmation": true,
+            "sentAtConfirmation": false
+          }
+        },
+        {
+          "stage": "Web送检及送检单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=SEND_QC&id=PF-DEL-PF-ACCEPT-PO-3-5",
+          "status": "送检成功：PO-QC-202608-003-5-ZJ",
+          "skuCount": 5,
+          "details": {
+            "qcTaskNo": "PO-QC-202608-003-5-ZJ",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "Web质检完成",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/qc-workbench?taskNo=PO-QC-202608-003-5-ZJ&refresh=1791636209721",
+          "status": "质检完成，已生成面向成衣仓的待接收交接单 PO-QC-202608-003-5-ZJ-CH",
+          "skuCount": 5,
+          "details": {
+            "qcScenario": "normal",
+            "needPost": false,
+            "selectedProcessItems": 0,
+            "downstreamNo": "PO-QC-202608-003-5-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达跳过后道待交出仓",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/wait-handover-warehouse?tab=inventory&refresh=1791636210387",
+          "status": "不适用",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-5-ZJ-CH"
+          }
+        },
+        {
+          "stage": "Web出货核对及出货单打印",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/print?type=OUTBOUND&id=PF-OUT-PF-ACCEPT-PO-3-5",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-5-ZJ-CH",
+            "printedSkuLines": 5
+          }
+        },
+        {
+          "stage": "后道工厂PDA收货入口已删除",
+          "url": "http://127.0.0.1:43211/fcs/pda/post-finishing/outbound-receive",
+          "status": "不可达",
+          "skuCount": 5,
+          "details": {
+            "outboundOrderNo": "PO-QC-202608-003-5-ZJ-CH"
+          }
+        },
+        {
+          "stage": "QC直达成衣仓待接收回查",
+          "url": "http://127.0.0.1:43211/fcs/craft/post-finishing/outbound-orders?keyword=PO-QC-202608-003-5-ZJ-CH",
+          "status": "待仓库接收",
+          "skuCount": 5,
+          "details": {
+            "downstreamReceipt": "尚未由成衣仓确认"
+          }
+        }
+      ],
+      "authorizationStages": [],
+      "deliveryOrderNo": "PO-QC-202608-003-5",
+      "qcTaskNo": "PO-QC-202608-003-5-ZJ",
+      "outboundOrderNo": "PO-QC-202608-003-5-ZJ-CH",
+      "finalScreenshot": "/tmp/post-finishing-cross-terminal-final33-screens/15-PO-QC-202608-003-R5-qc-direct-warehouse-pending.png"
+    }
+  ],
+  "surfaceScreenshots": [
+    "/tmp/post-finishing-cross-terminal-final33-screens/surface-wait-process-warehouse.png",
+    "/tmp/post-finishing-cross-terminal-final33-screens/surface-wait-handover-warehouse.png",
+    "/tmp/post-finishing-cross-terminal-final33-screens/surface-qc-task.png",
+    "/tmp/post-finishing-cross-terminal-final33-screens/surface-audit-chain-detail.png",
+    "/tmp/post-finishing-cross-terminal-final33-screens/surface-authorization-code.png"
+  ],
+  "finalSnapshot": {
+    "totals": {
+      "productionOrders": 3,
+      "deliveries": 15,
+      "skuReturnLines": 75,
+      "qcTasks": 15,
+      "postTasks": 10,
+      "recheckOrders": 10,
+      "outboundOrders": 15,
+      "warehouseReceipts": 0,
+      "waitProcessWarehouseRecords": 15,
+      "waitProcessWarehouseMovements": 30,
+      "waitHandoverWarehouseRecords": 10,
+      "waitHandoverWarehouseMovements": 10,
+      "defects": 1,
+      "operationLogs": 296,
+      "authorizationConsumptions": 3
+    },
+    "chains": [
+      {
+        "productionOrderNo": "PO-QC-202608-001",
+        "returnIndex": 1,
+        "deliveryOrderNo": "PO-QC-202608-001-1",
+        "qcTaskNo": "PO-QC-202608-001-1-ZJ",
+        "postTaskNo": "PO-QC-202608-001-1-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-1-1",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-001",
+        "returnIndex": 2,
+        "deliveryOrderNo": "PO-QC-202608-001-2",
+        "qcTaskNo": "PO-QC-202608-001-2-ZJ",
+        "postTaskNo": "PO-QC-202608-001-2-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-001-2-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-1-2",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-001",
+        "returnIndex": 3,
+        "deliveryOrderNo": "PO-QC-202608-001-3",
+        "qcTaskNo": "PO-QC-202608-001-3-ZJ",
+        "postTaskNo": "PO-QC-202608-001-3-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-001-3-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-1-3",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-001",
+        "returnIndex": 4,
+        "deliveryOrderNo": "PO-QC-202608-001-4",
+        "qcTaskNo": "PO-QC-202608-001-4-ZJ",
+        "postTaskNo": "PO-QC-202608-001-4-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-001-4-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-1-4",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-001",
+        "returnIndex": 5,
+        "deliveryOrderNo": "PO-QC-202608-001-5",
+        "qcTaskNo": "PO-QC-202608-001-5-ZJ",
+        "postTaskNo": "PO-QC-202608-001-5-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-001-5-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-1-5",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-002",
+        "returnIndex": 1,
+        "deliveryOrderNo": "PO-QC-202608-002-1",
+        "qcTaskNo": "PO-QC-202608-002-1-ZJ",
+        "outboundOrderNo": "PO-QC-202608-002-1-ZJ-CH",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-002",
+        "returnIndex": 2,
+        "deliveryOrderNo": "PO-QC-202608-002-2",
+        "qcTaskNo": "PO-QC-202608-002-2-ZJ",
+        "outboundOrderNo": "PO-QC-202608-002-2-ZJ-CH",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-002",
+        "returnIndex": 3,
+        "deliveryOrderNo": "PO-QC-202608-002-3",
+        "qcTaskNo": "PO-QC-202608-002-3-ZJ",
+        "postTaskNo": "PO-QC-202608-002-3-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-002-3-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-2-3",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-002",
+        "returnIndex": 4,
+        "deliveryOrderNo": "PO-QC-202608-002-4",
+        "qcTaskNo": "PO-QC-202608-002-4-ZJ",
+        "outboundOrderNo": "PO-QC-202608-002-4-ZJ-CH",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-002",
+        "returnIndex": 5,
+        "deliveryOrderNo": "PO-QC-202608-002-5",
+        "qcTaskNo": "PO-QC-202608-002-5-ZJ",
+        "postTaskNo": "PO-QC-202608-002-5-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-002-5-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-2-5",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-003",
+        "returnIndex": 1,
+        "deliveryOrderNo": "PO-QC-202608-003-1",
+        "qcTaskNo": "PO-QC-202608-003-1-ZJ",
+        "outboundOrderNo": "PO-QC-202608-003-1-ZJ-CH",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-003",
+        "returnIndex": 2,
+        "deliveryOrderNo": "PO-QC-202608-003-2",
+        "qcTaskNo": "PO-QC-202608-003-2-ZJ",
+        "postTaskNo": "PO-QC-202608-003-2-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-003-2-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-3-2",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-003",
+        "returnIndex": 3,
+        "deliveryOrderNo": "PO-QC-202608-003-3",
+        "qcTaskNo": "PO-QC-202608-003-3-ZJ",
+        "postTaskNo": "PO-QC-202608-003-3-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-003-3-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-3-3",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-003",
+        "returnIndex": 4,
+        "deliveryOrderNo": "PO-QC-202608-003-4",
+        "qcTaskNo": "PO-QC-202608-003-4-ZJ",
+        "postTaskNo": "PO-QC-202608-003-4-ZJ-HD",
+        "recheckOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ",
+        "outboundOrderNo": "PO-QC-202608-003-4-ZJ-HD-FJ-CH",
+        "waitHandoverWarehouseRecordId": "PF-WHW-PF-RC-PF-ACCEPT-PO-3-4",
+        "waitHandoverStatus": "待交出",
+        "warehouseReceived": false
+      },
+      {
+        "productionOrderNo": "PO-QC-202608-003",
+        "returnIndex": 5,
+        "deliveryOrderNo": "PO-QC-202608-003-5",
+        "qcTaskNo": "PO-QC-202608-003-5-ZJ",
+        "outboundOrderNo": "PO-QC-202608-003-5-ZJ-CH",
+        "warehouseReceived": false
+      }
+    ]
+  },
+  "finishedAt": "2026-10-10T12:43:34.835Z",
+  "sourceSha256": "efa656252a2df74e6237e5b63e25b5bb5de06823c7c518bb1686b0f25ea1efcf",
+  "runtimeVersion": "build-final33",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "service": "http://127.0.0.1:43211"
+}

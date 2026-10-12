@@ -1,3 +1,5 @@
+import { handlePostFinishingStorageEvent } from './process-factory/post-finishing/storage-notice.ts'
+import { runPostFinishingCommand, registerPostFinishingFile, releasePostFinishingPendingFile } from '../data/fcs/post-finishing-records.ts'
 import {
   canDiscardPostFinishingFactoryReturn,
   discardPostFinishingFactoryReturn,
@@ -121,7 +123,9 @@ function renderEvidence(): string {
 }
 
 function renderRecent(): string {
-  const recent = listPostFinishingFactoryReturns().slice(-3).reverse()
+  const recent = [...listPostFinishingFactoryReturns()]
+    .sort((a, b) => b.registeredAt.localeCompare(a.registeredAt) || b.deliveryId.localeCompare(a.deliveryId))
+    .slice(0, 3)
   if (!recent.length) return ''
   return `<section class="rounded-2xl border bg-white p-4 shadow-sm"><h2 class="text-sm font-semibold">最近登记</h2><div class="mt-3 space-y-3">${recent.map((record) => `<article class="rounded-xl bg-slate-50 px-3 py-3 text-xs" data-self-return-recent="${escapeHtml(record.deliveryId)}"><div class="flex items-start justify-between gap-2"><div><div class="font-mono font-semibold">${escapeHtml(record.deliveryOrderNo)}</div><div class="mt-1 text-slate-500">${escapeHtml(record.productionOrderNo)} · 第 ${record.returnIndex} 次 · ${record.lines.reduce((sum, line) => sum + line.registeredQty, 0)} 件 · ${escapeHtml(record.status)}</div></div><button type="button" class="shrink-0 text-blue-700 underline" data-nav="/fcs/pda/post-finishing/return-confirm?id=${encodeURIComponent(record.deliveryOrderNo)}">${record.status === '已废弃' ? '查看详情' : '查看并确认'}</button></div><details class="mt-2 rounded-lg border bg-white"><summary class="cursor-pointer px-3 py-2 font-medium">SKU 明细（${record.lines.length}）</summary><div class="space-y-2 border-t p-2">${record.lines.map((line) => `<div class="flex items-center gap-2 rounded-lg bg-slate-50 p-2"><button type="button" class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white" data-pda-sewing-self-return-action="zoom-image" data-image-url="${escapeHtml(line.sku.imageUrl)}" data-image-label="${escapeHtml(`${line.sku.skuCode} ${line.sku.colorName} ${line.sku.sizeName}`)}"><img src="${escapeHtml(line.sku.imageUrl)}" alt="${escapeHtml(`${line.sku.spuName} ${line.sku.colorName} ${line.sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="px-1 text-center text-[8px] text-slate-500">加载中…</span></button><div class="min-w-0 flex-1"><div class="truncate font-medium">${escapeHtml(line.sku.skuCode)}</div><div class="text-[11px] text-slate-500">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div></div><strong class="shrink-0">${line.registeredQty} 件</strong></div>`).join('')}</div></details>${canDiscardPostFinishingFactoryReturn(record) ? `<button type="button" class="mt-2 text-red-700 underline" data-pda-sewing-self-return-action="discard" data-delivery-id="${escapeHtml(record.deliveryId)}">废弃本次回货</button>` : ''}${record.status === '已废弃' ? `<div class="mt-2 rounded-lg bg-slate-100 px-2 py-1.5 text-slate-600">${escapeHtml(record.discardReason || '已废弃')} · ${escapeHtml(record.discardedBy?.actorName || '—')}</div>` : ''}</article>`).join('')}</div></section>`
 }
@@ -165,7 +169,8 @@ function showImage(url: string, label: string): void {
   document.body.appendChild(overlay)
 }
 
-export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (await handlePostFinishingStorageEvent(target, event)) return true
   const fieldNode = target.closest<HTMLInputElement>('[data-pda-sewing-self-return-field]')
   if (fieldNode) {
     const field = fieldNode.dataset.pdaSewingSelfReturnField
@@ -194,8 +199,15 @@ export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Even
     }
     if (field === 'evidenceFile' && event?.type === 'change' && fieldNode.files?.[0]) {
       const file = fieldNode.files[0]
-      state.evidenceImages.forEach(image => { if (image.previewUrl.startsWith('blob:')) URL.revokeObjectURL(image.previewUrl) })
-      state.evidenceImages = [{ name: file.name, previewUrl: URL.createObjectURL(file) }]
+      try {
+        const previewUrl = registerPostFinishingFile(file)
+        state.evidenceImages.forEach(image => releasePostFinishingPendingFile(image.previewUrl))
+        state.evidenceImages = [{ name: file.name, previewUrl }]
+        state.errorText = ''
+      } catch (error) {
+        state.errorText = error instanceof Error ? error.message : '图片读取失败，请重新选择。'
+        fieldNode.insertAdjacentHTML('afterend', `<p role="alert" class="text-red-700">${escapeHtml(state.errorText)}</p>`)
+      }
       const preview = document.querySelector<HTMLElement>('[data-return-evidence-preview]')
       if (preview) preview.innerHTML = renderEvidenceImages()
     }
@@ -208,6 +220,10 @@ export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Even
   try {
     if (action === 'admin-exit') {
       clearPdaSewingSelfReturnMode()
+      state.evidenceImages.forEach(image => releasePostFinishingPendingFile(image.previewUrl))
+      state.evidenceImages = []
+      state.deliveryPersonName = ''
+      state.deliveryPersonPhone = ''
       state.resolvedOrder = undefined
       state.returnIndex = undefined
       state.quantities = {}
@@ -222,13 +238,18 @@ export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Even
       resolveCurrentScan()
     }
     if (action === 'reset') {
+      state.evidenceImages.forEach(image => releasePostFinishingPendingFile(image.previewUrl))
+      state.evidenceImages = []
       state.scanValue = ''
       state.resolvedOrder = undefined
       state.returnIndex = undefined
       state.quantities = {}
       state.errorText = ''
     }
-    if (action === 'load-evidence') state.evidenceImages = [{ name: '现场回货凭证.jpg', previewUrl: '/shirt-sample.jpg' }]
+    if (action === 'load-evidence') {
+      state.evidenceImages.forEach(image => releasePostFinishingPendingFile(image.previewUrl))
+      state.evidenceImages = [{ name: '现场回货凭证.jpg', previewUrl: '/shirt-sample.jpg' }]
+    }
     if (action === 'zoom-image' && actionNode?.dataset.imageUrl) showImage(actionNode.dataset.imageUrl, actionNode.dataset.imageLabel || '图片大图')
     if (action === 'discard') {
       const runtime = getPdaRuntimeContext()
@@ -236,29 +257,31 @@ export function handlePdaSewingSelfReturnEvent(target: HTMLElement, event?: Even
       const reason = window.prompt('请填写废弃原因。废弃后只保留审计，不进入待加工仓，也不会生成质检单。')?.trim() || ''
       if (!reason) throw new Error('已取消废弃：必须填写废弃原因。')
       if (!window.confirm(`确认废弃本次回货？\n${reason}`)) return true
-      const discarded = discardPostFinishingFactoryReturn({
+      const discarded = await runPostFinishingCommand(() => discardPostFinishingFactoryReturn({
         deliveryId: actionNode.dataset.deliveryId || '',
         reason,
         actor: { actorId: runtime.userId, actorName: runtime.userName, roleName: runtime.roleId },
-      })
+      }))
       state.successText = `已废弃 ${discarded.deliveryOrderNo}；明细和原因已保留。`
       state.errorText = ''
     }
     if (action === 'submit') {
       const runtime = getPdaRuntimeContext()
       if (!runtime || !state.resolvedOrder || !state.returnIndex) throw new Error('请先扫描本次回货来源码。')
-      const record = registerPostFinishingFactoryReturn({
-        productionOrderNo: state.resolvedOrder.productionOrderNo,
-        executionTaskId: state.resolvedOrder.executionTaskId,
-        returnIndex: state.returnIndex,
+      const source = state.resolvedOrder
+      const returnIndex = state.returnIndex
+      const record = await runPostFinishingCommand(() => registerPostFinishingFactoryReturn({
+        productionOrderNo: source.productionOrderNo,
+        executionTaskId: source.executionTaskId,
+        returnIndex,
         triggerSource: '公共PDA自助回货',
-        idempotencyKey: `PUBLIC-PDA:${state.resolvedOrder.productionOrderNo}:${state.resolvedOrder.executionTaskId}:${state.returnIndex}`,
-        quantities: state.resolvedOrder.skus.map((sku) => ({ skuId: sku.skuId, registeredQty: Number(state.quantities[sku.skuId]) })),
+        idempotencyKey: `PUBLIC-PDA:${source.productionOrderNo}:${source.executionTaskId}:${returnIndex}`,
+        quantities: source.skus.map((sku) => ({ skuId: sku.skuId, registeredQty: Number(state.quantities[sku.skuId]) })),
         deliveryPersonName: state.deliveryPersonName,
         deliveryPersonPhone: state.deliveryPersonPhone,
         evidenceImageUrls: state.evidenceImages.map((image) => image.previewUrl),
         actor: resolveSewingSelfReturnRegistrationActor(runtime, state.deliveryPersonName, getPdaSewingSelfReturnModeLock()),
-      })
+      }))
       state.successText = `登记成功：${record.deliveryOrderNo}，等待后道二次点数。`
       state.errorText = ''
       state.resolvedOrder = undefined

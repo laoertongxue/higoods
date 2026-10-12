@@ -1,0 +1,4249 @@
+{
+  "segment": 8,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "coverage": [
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-action=\\\"activate-tab\\\"][data-tab-key=\\\"pfos-post-finishing-audit-records\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+        "index": 0,
+        "text": "差异与操作日志",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+          "index": 0,
+          "text": "差异与操作日志",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-action=\\\"close-tab\\\"][data-tab-key=\\\"pfos-post-finishing-audit-records\\\"][data-tab-close=\\\"\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-action=\\\"close-all-tabs\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-action=\"close-all-tabs\"]",
+          "index": 0,
+          "text": "全部关闭",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"storage-export\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"storage-export\"]",
+        "index": 0,
+        "text": "导出本浏览器后道资料",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"storage-export\"]",
+          "index": 0,
+          "text": "导出本浏览器后道资料",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"storage-export\"]",
+          "index": 0,
+          "text": "导出本浏览器后道资料",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"input[name=\\\"keyword\\\"]|INPUT|text\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|INPUT|text\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"keyword\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"keyword\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"select[name=\\\"status\\\"]|SELECT|select-one\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|SELECT|select-one\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"status\"]",
+        "index": 0,
+        "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[name=\"status\"]",
+          "index": 0,
+          "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[name=\"status\"]",
+          "index": 0,
+          "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"input[name=\\\"startedAt\\\"]|INPUT|date\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|INPUT|date\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"startedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"startedAt\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"startedAt\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "date",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"input[name=\\\"endedAt\\\"]|INPUT|date\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|INPUT|date\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"endedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"endedAt\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "date",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"endedAt\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "date",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"input[name=\\\"operator\\\"]|INPUT|text\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|INPUT|text\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"operator\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"operator\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"operator\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"input[name=\\\"authorizer\\\"]|INPUT|text\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|INPUT|text\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"authorizer\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"authorizer\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "input[name=\"authorizer\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"select[name=\\\"direction\\\"]|SELECT|select-one\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|SELECT|select-one\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"direction\"]",
+        "index": 0,
+        "text": "全部多少",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[name=\"direction\"]",
+          "index": 0,
+          "text": "全部多少",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[name=\"direction\"]",
+          "index": 0,
+          "text": "全部多少",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"select[name=\\\"authorizationResult\\\"]|SELECT|select-one\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|SELECT|select-one\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"authorizationResult\"]",
+        "index": 0,
+        "text": "全部成功过期已使用无效",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[name=\"authorizationResult\"]",
+          "index": 0,
+          "text": "全部成功过期已使用无效",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[name=\"authorizationResult\"]",
+          "index": 0,
+          "text": "全部成功过期已使用无效",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button",
+        "index": 72,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button",
+          "index": 72,
+          "text": "查询",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button",
+          "index": 72,
+          "text": "查询",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"select[data-post-finishing-field=\\\"pageSize\\\"]|SELECT|select-one\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|SELECT|select-one\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[data-post-finishing-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "10"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"next-page\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+        "index": 0,
+        "text": "← 返回业务链列表",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+          "index": 0,
+          "text": "← 返回业务链列表",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+          "index": 0,
+          "text": "← 返回业务链列表",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+          "index": 0,
+          "text": "← 返回业务链列表",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+          "index": 0,
+          "text": "← 返回业务链列表",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>&detailTab=overview\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>&detailTab=overview\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+        "index": 0,
+        "text": "业务链总览",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+          "index": 0,
+          "text": "业务链总览",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=overview\"]",
+          "index": 0,
+          "text": "业务链总览",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=overview\"]",
+          "index": 0,
+          "text": "业务链总览",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+          "index": 0,
+          "text": "业务链总览",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>&detailTab=differences\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>&detailTab=differences\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+        "index": 0,
+        "text": "差异与质检",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+          "index": 0,
+          "text": "差异与质检",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=differences\"]",
+          "index": 0,
+          "text": "差异与质检",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=differences\"]",
+          "index": 0,
+          "text": "差异与质检",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+          "index": 0,
+          "text": "差异与质检",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>&detailTab=timeline\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>&detailTab=timeline\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+        "index": 0,
+        "text": "操作时间线",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+          "index": 0,
+          "text": "操作时间线",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=timeline\"]",
+          "index": 0,
+          "text": "操作时间线",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5&detailTab=timeline\"]",
+          "index": 0,
+          "text": "操作时间线",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+          "index": 0,
+          "text": "操作时间线",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?page=2|page|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"prev-page\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records?page=2|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "button[data-post-finishing-action=\"prev-page\"]",
+        "index": 0,
+        "text": "上一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"a[href=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"][data-nav=\\\"/fcs/craft/post-finishing/audit-records?deliveryId=<record>\\\"]|A|\",\"state\":\"/fcs/craft/post-finishing/audit-records?page=1|page|A|\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-4\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-3\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-2\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-2-1\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"next-page\\\"]|BUTTON|submit\",\"state\":\"/fcs/craft/post-finishing/audit-records?page=1|page|BUTTON|submit\"}",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+        "index": 0,
+        "text": "差异与操作日志",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+        "index": 0,
+        "text": "差异与操作日志",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+        "index": 0,
+        "text": "差异与操作日志",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 180.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+        "index": 0,
+        "text": "差异与操作日志",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"]",
+        "index": 0,
+        "text": "差异与操作日志",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 246.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 247.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 230.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 229.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-audit-records\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 231.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 245.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 248.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 264.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 247.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 248,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"storage-export\"]",
+        "index": 0,
+        "text": "导出本浏览器后道资料",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"storage-export\"]",
+        "index": 0,
+        "text": "导出本浏览器后道资料",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"storage-export\"]",
+        "index": 0,
+        "text": "导出本浏览器后道资料",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"storage-export\"]",
+        "index": 0,
+        "text": "导出本浏览器后道资料",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"storage-export\"]",
+        "index": 0,
+        "text": "导出本浏览器后道资料",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 108.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"keyword\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"status\"]",
+        "index": 0,
+        "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"status\"]",
+        "index": 0,
+        "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 108.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"status\"]",
+        "index": 0,
+        "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"status\"]",
+        "index": 0,
+        "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 109.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"status\"]",
+        "index": 0,
+        "text": "全部待交出待复检待质检待送检待后道确认全流程完成待仓库接收待后道质检中",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"startedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 109.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"startedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"startedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 94.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"startedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"startedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"endedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"endedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"endedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"endedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 107.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"endedAt\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "date",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"operator\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"operator\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"operator\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"operator\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"operator\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"authorizer\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"authorizer\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"authorizer\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"authorizer\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "input[name=\"authorizer\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"direction\"]",
+        "index": 0,
+        "text": "全部多少",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 109.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"direction\"]",
+        "index": 0,
+        "text": "全部多少",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"direction\"]",
+        "index": 0,
+        "text": "全部多少",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"direction\"]",
+        "index": 0,
+        "text": "全部多少",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"direction\"]",
+        "index": 0,
+        "text": "全部多少",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"authorizationResult\"]",
+        "index": 0,
+        "text": "全部成功过期已使用无效",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"authorizationResult\"]",
+        "index": 0,
+        "text": "全部成功过期已使用无效",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 111,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"authorizationResult\"]",
+        "index": 0,
+        "text": "全部成功过期已使用无效",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 109.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"authorizationResult\"]",
+        "index": 0,
+        "text": "全部成功过期已使用无效",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 94.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[name=\"authorizationResult\"]",
+        "index": 0,
+        "text": "全部成功过期已使用无效",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button",
+        "index": 72,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button",
+        "index": 72,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button",
+        "index": 72,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button",
+        "index": 72,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button",
+        "index": 72,
+        "text": "查询",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[data-post-finishing-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "10"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 116.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[data-post-finishing-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "10"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 127.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[data-post-finishing-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "10"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 126.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[data-post-finishing-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "10"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 127,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "select[data-post-finishing-field=\"pageSize\"]",
+        "index": 0,
+        "text": "10 条/页20 条/页50 条/页",
+        "tag": "SELECT",
+        "type": "select-one",
+        "value": "10"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 124.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 116.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 132.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+        "index": 0,
+        "text": "← 返回业务链列表",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 116.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+        "index": 0,
+        "text": "← 返回业务链列表",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 112.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+        "index": 0,
+        "text": "← 返回业务链列表",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+        "index": 0,
+        "text": "← 返回业务链列表",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records\"][data-nav=\"/fcs/craft/post-finishing/audit-records\"]",
+        "index": 0,
+        "text": "← 返回业务链列表",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+        "index": 0,
+        "text": "业务链总览",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+        "index": 0,
+        "text": "业务链总览",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+        "index": 0,
+        "text": "业务链总览",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+        "index": 0,
+        "text": "业务链总览",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=overview\"]",
+        "index": 0,
+        "text": "业务链总览",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+        "index": 0,
+        "text": "差异与质检",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+        "index": 0,
+        "text": "差异与质检",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+        "index": 0,
+        "text": "差异与质检",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+        "index": 0,
+        "text": "差异与质检",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=differences\"]",
+        "index": 0,
+        "text": "差异与质检",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+        "index": 0,
+        "text": "操作时间线",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+        "index": 0,
+        "text": "操作时间线",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+        "index": 0,
+        "text": "操作时间线",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+        "index": 0,
+        "text": "操作时间线",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5&detailTab=timeline\"]",
+        "index": 0,
+        "text": "操作时间线",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+          "index": 0,
+          "text": "查看详情",
+          "tag": "A",
+          "type": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1&pageSize=20|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "select[data-post-finishing-field=\"pageSize\"]",
+          "index": 0,
+          "text": "10 条/页20 条/页50 条/页",
+          "tag": "SELECT",
+          "type": "select-one",
+          "value": "10"
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 115.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-1-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "button[data-post-finishing-action=\"prev-page\"]",
+        "index": 0,
+        "text": "上一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "button[data-post-finishing-action=\"prev-page\"]",
+        "index": 0,
+        "text": "上一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 132.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "button[data-post-finishing-action=\"prev-page\"]",
+        "index": 0,
+        "text": "上一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 129.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "button[data-post-finishing-action=\"prev-page\"]",
+        "index": 0,
+        "text": "上一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+        "selector": "button[data-post-finishing-action=\"prev-page\"]",
+        "index": 0,
+        "text": "上一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "a[href=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"][data-nav=\"/fcs/craft/post-finishing/audit-records?deliveryId=PF-DEL-PF-ACCEPT-PO-3-5\"]",
+        "index": 0,
+        "text": "查看详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/audit-records",
+      "control": {
+        "state": "/fcs/craft/post-finishing/audit-records?page=1|page",
+        "selector": "button[data-post-finishing-action=\"next-page\"]",
+        "index": 0,
+        "text": "下一页",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "state": "/fcs/craft/post-finishing/audit-records|page",
+          "selector": "button[data-post-finishing-action=\"next-page\"]",
+          "index": 0,
+          "text": "下一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        },
+        {
+          "state": "/fcs/craft/post-finishing/audit-records?page=2|page",
+          "selector": "button[data-post-finishing-action=\"prev-page\"]",
+          "index": 0,
+          "text": "上一页",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "note": "按实际页面地址、弹层种类和动作入口汇总同一状态的重复路径，instances与首条准备路径保留；未删减数据。实际点击/输入、模块请求、IndexedDB事务完成、图片与两次绘制；保存后刷新持久结果另见browser-contract.json。覆盖此脚本登记的入口，不据此宣称所有状态/跨端路径已经覆盖。",
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "runtimeVersion": "build-final35",
+  "scriptSha256": "c17f4004e9e7d5ac1535d854fb3ef9ea8ea4e6e253b497fbf2351e089aec5fb8"
+}

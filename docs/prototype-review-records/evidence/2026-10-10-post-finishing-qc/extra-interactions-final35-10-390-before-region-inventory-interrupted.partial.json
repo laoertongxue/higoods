@@ -1,0 +1,5430 @@
+{
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "runtimeVersion": "build-final35",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "service": "http://127.0.0.1:43210",
+  "segment": 10,
+  "samples": [
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+        "index": 0,
+        "text": "待加工仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+        "index": 0,
+        "text": "待加工仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+        "index": 0,
+        "text": "待加工仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+        "index": 0,
+        "text": "待加工仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 97.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+        "index": 0,
+        "text": "待加工仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+        "index": 0,
+        "text": "待交出仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 198.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+        "index": 0,
+        "text": "待交出仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 197.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+        "index": 0,
+        "text": "待交出仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 214.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+        "index": 0,
+        "text": "待交出仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 196.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+        "index": 0,
+        "text": "待交出仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 198.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+        "index": 0,
+        "text": "扫描送货单确认回货",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 113.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+        "index": 0,
+        "text": "扫描送货单确认回货",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 115.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+        "index": 0,
+        "text": "扫描送货单确认回货",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 112.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+        "index": 0,
+        "text": "扫描送货单确认回货",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+        "index": 0,
+        "text": "扫描送货单确认回货",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 432.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 416.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 128.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 148,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 413.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 133,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 430.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 398.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 147.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 428.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 133,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 133.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 416,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 481.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 128.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 133.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 147.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 147.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 148.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 128.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 148.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 128.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 147.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 132,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 129.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 445.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 431,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 415.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 414.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "ms": 446.79999999701977,
+      "pass": true
+    }
+  ],
+  "errors": [
+    {
+      "toolError": "list index out of range",
+      "partial": true
+    }
+  ],
+  "coverage": [
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/warehouse/wait-process\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+        "index": 0,
+        "text": "待加工仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-process\"]",
+          "index": 0,
+          "text": "待加工仓",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/warehouse/wait-handover\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+        "index": 0,
+        "text": "待交出仓",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/warehouse/wait-handover\"]",
+          "index": 0,
+          "text": "待交出仓",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/pda/post-finishing/return-confirm\\\"]|A|\",\"state\":\"/fcs/pda/warehouse/wait-process|page|A|\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+        "index": 0,
+        "text": "扫描送货单确认回货",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 0,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 1,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 2,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 3,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 4,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 5,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 6,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 7,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 8,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "a[data-nav=\"/fcs/pda/post-finishing/return-confirm\"]",
+          "index": 9,
+          "text": "扫描送货单确认回货",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-001-1\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+          "index": 1,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+          "index": 2,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+          "index": 3,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-1\"]",
+          "index": 4,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-M\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-L\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-1:SPU-QC-001-2XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-001-2\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+          "index": 1,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+          "index": 2,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+          "index": 3,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-2\"]",
+          "index": 4,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-M\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-L\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-2:SPU-QC-001-2XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-001-3\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+          "index": 1,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+          "index": 2,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+          "index": 3,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-3\"]",
+          "index": 4,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-M\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-L\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-3:SPU-QC-001-2XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-001-4\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+          "index": 1,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+          "index": 2,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+          "index": 3,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-4\"]",
+          "index": 4,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-M\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-L\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-4:SPU-QC-001-2XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-001-5\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+          "index": 1,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+          "index": 2,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+          "index": 3,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-001-5\"]",
+          "index": 4,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-M\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-L\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-1-5:SPU-QC-001-2XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-002-1\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+          "index": 1,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+          "index": 2,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+          "index": 3,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-1\"]",
+          "index": 4,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-M\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-L\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-1:SPU-QC-002-2XL\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-pda-warehouse-action=\\\"open-wait-process-detail\\\"][data-stock-item-id=\\\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+        "index": 0,
+        "text": "查看流水",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-pda-warehouse-action=\"open-wait-process-detail\"][data-stock-item-id=\"PF-WPW-PF-DEL-PF-ACCEPT-PO-2-2:SPU-QC-002-S\"]",
+          "index": 0,
+          "text": "查看流水",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/warehouse/wait-process",
+      "identity": "{\"control\":\"button[data-nav=\\\"/fcs/pda/exec/PO-QC-202608-002-2\\\"]|BUTTON|button\",\"state\":\"/fcs/pda/warehouse/wait-process|page|BUTTON|button\"}",
+      "control": {
+        "state": "/fcs/pda/warehouse/wait-process|page",
+        "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+        "index": 0,
+        "text": "查看任务",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "state": "/fcs/pda/warehouse/wait-process|page",
+          "selector": "button[data-nav=\"/fcs/pda/exec/PO-QC-202608-002-2\"]",
+          "index": 0,
+          "text": "查看任务",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "scriptSha256": "c1fa998e0f8d7434e2506b09f5cbfa94194669d112aff979259adc10f31fbc37",
+  "interruption": {
+    "by": "主代理",
+    "reason": "补齐遮罩/按钮两个独立交互；重复库存行按动作归类，保持原始实例和全部记录。",
+    "validSamplesRetained": 205,
+    "businessErrorsBeforeInterruption": 0
+  }
+}

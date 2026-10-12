@@ -1,0 +1,167 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/8fb6/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-full-flow.spec.ts",
+      "--grep",
+      "后道命名页复用现有渲染器",
+      "--workers=1",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/8fb6/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 600000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43211 --strictPort",
+      "url": "http://127.0.0.1:43211",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-full-flow.spec.ts",
+      "file": "post-finishing-full-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "后道命名页复用现有渲染器，其他生产入口仍读取完整路由",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 2371,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at /Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts:1021:75",
+                    "location": {
+                      "file": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts",
+                      "column": 75,
+                      "line": 1021
+                    },
+                    "snippet": "  1019 |   await page.goto('/fcs/production/orders')\n  1020 |   await expect(page.locator('main h1')).toHaveText('生产单管理')\n> 1021 |   expect(requests.some(url => url.includes('/src/router/routes-fcs.ts'))).toBe(true)\n       |                                                                           ^\n  1022 | })\n  1023 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts",
+                        "column": 75,
+                        "line": 1021
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n  1019 |   await page.goto('/fcs/production/orders')\n  1020 |   await expect(page.locator('main h1')).toHaveText('生产单管理')\n> 1021 |   expect(requests.some(url => url.includes('/src/router/routes-fcs.ts'))).toBe(true)\n       |                                                                           ^\n  1022 | })\n  1023 |\n    at /Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts:1021:75"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-10T12:10:15.573Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-后道命名页复用现有渲染器，其他生产入口仍读取完整路由/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-后道命名页复用现有渲染器，其他生产入口仍读取完整路由/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-后道命名页复用现有渲染器，其他生产入口仍读取完整路由/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/laoer/.codex/worktrees/8fb6/higoods/test-results/playwright/post-finishing-full-flow-后道命名页复用现有渲染器，其他生产入口仍读取完整路由/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/laoer/.codex/worktrees/8fb6/higoods/tests/post-finishing-full-flow.spec.ts",
+                    "column": 75,
+                    "line": 1021
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b14c3ecd0754efb51e80-8dfd27844917bcfd7680",
+          "file": "post-finishing-full-flow.spec.ts",
+          "line": 1005,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-10T12:10:15.037Z",
+    "duration": 3323.8520000000003,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

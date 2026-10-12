@@ -1,0 +1,1695 @@
+{
+  "segment": 6,
+  "browser": "155.0.8059.39",
+  "service": "http://127.0.0.1:43210",
+  "data": "静态 3 个生产单 / 15 次回货 / 75 条 SKU",
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 401,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 314.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "pdf-generation",
+      "ms": 186.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 501.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 380,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "pdf-generation",
+      "ms": 252.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 480,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 329.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "pdf-generation",
+      "ms": 194,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 509.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 379.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "pdf-generation",
+      "ms": 268.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 556.8000000119209,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 363.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "pdf-generation",
+      "ms": 233.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 503.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 413.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 510.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 394.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 522.5999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 411.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 500.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 413.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 504.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 463.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 489.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 412.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 525.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 447.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 547.8000000119209,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 428.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 557.5999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 413.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 550.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 430.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 596.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 494.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 97.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "pdf-generation",
+      "ms": 271.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 636.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 444.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "pdf-generation",
+      "ms": 258.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 558.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 412.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 131.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "pdf-generation",
+      "ms": 282.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 515.2000000029802,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 413.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "pdf-generation",
+      "ms": 336.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 771.4000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 494.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "pdf-generation",
+      "ms": 265,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 565.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 484.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 131.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 595.0999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 446.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 531.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 412.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 583.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 425.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 130.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 510.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 396.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 133.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 691.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 511.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 740.7000000029802,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 829.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 103,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 837.4000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 545.0999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 650.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 478,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 574.0999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 430.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 131.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 559,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 446.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "pdf-generation",
+      "ms": 167.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 495,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 396.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 101.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "pdf-generation",
+      "ms": 237.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 563.2999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 442.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "pdf-generation",
+      "ms": 178.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 620.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 478,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "pdf-generation",
+      "ms": 195.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 630.6999999880791,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 396.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 95.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "pdf-generation",
+      "ms": 165.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 622.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 446.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 563.7999999970198,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 428.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 97.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 610.7000000029802,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 412.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 525.9000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 513,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 513.0999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 513,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 97.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 699.5999999940395,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 362.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 529.4000000059605,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 379,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 471.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 381.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 445.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 378.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 516.7000000029802,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 348.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    }
+  ],
+  "inventory": [
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_BARCODE&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "打印全部",
+          "attrs": {}
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=OUTBOUND_HANGTAG&id=PO-QC-202608-003-5-ZJ-HD-FJ-CH",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "打印全部",
+          "attrs": {}
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/print?type=SKU_LABEL&id=PO-QC-202608-003-4-ZJ-HD-FJ&skuId=SPU-QC-003-S",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "打印 40×30 SKU 贴标",
+          "attrs": {}
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "e02728e9e8adcda901fcadc2961667e02d136a442b0d9bd1d88b9343e41350fe",
+  "runtimeVersion": "build-final12",
+  "scriptSha256": "acb4f012da2bb7091c7a24f39483d1e397cbd350a795be46c74901b44353cf30"
+}

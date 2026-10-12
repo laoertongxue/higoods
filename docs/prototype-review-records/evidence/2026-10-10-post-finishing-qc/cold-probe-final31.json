@@ -1,0 +1,343 @@
+{
+  "sourceSha256": "b1977fcefcda8980e00da67d0de28fd13b0efa1564685fdbc9178415aff5deb1",
+  "runtimeVersion": "build-final31",
+  "service": "http://127.0.0.1:43210",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 348.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 543.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 308.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 261.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 329,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 288.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 288.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 247.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 318.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 247.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 315.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 263.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 315.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 247.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 347.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 263.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 327.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 364.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 539.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 356.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 344.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 248.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 304.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 281,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 306.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 247.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 337,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 247.6000000089407,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "inventory": [],
+  "browser": "155.0.8059.39",
+  "passed": true,
+  "scriptSha256": "7325bc1cbe9e98b25a78de8e828558d9769d7b42d7f5123a178409e9e9c0a3d6"
+}

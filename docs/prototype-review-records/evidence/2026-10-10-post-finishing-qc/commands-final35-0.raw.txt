@@ -1,0 +1,106 @@
+### Result
+{"service":"http://127.0.0.1:43210","browser":"155.0.8059.39","samples":[{"device":{"width":1366,"height":768},"trial":1,"kind":"menu-质检清单","ms":112,"pass":true},{"device":{"width":1366,"height":768},"trial":1,"kind":"menu-执行质检","ms":114.19999998807907,"pass":true},{"device":{"width":1366,"height":768},"trial":1,"kind":"complete-qc","ms":123,"pass":true},{"device":{"width":1366,"height":768},"trial":1,"kind":"claim-qc","ms":131.19999998807907,"pass":true},{"device":{"width":1366,"height":768},"trial":2,"kind":"menu-质检清单","ms":196.5,"pass":true},{"device":{"width":1366,"height":768},"trial":2,"kind":"menu-执行质检","ms":114,"pass":true},{"device":{"width":1366,"height":768},"trial":2,"kind":"complete-qc","ms":130.40000000596046,"pass":true},{"device":{"width":1366,"height":768},"trial":2,"kind":"claim-qc","ms":130.70000000298023,"pass":true},{"device":{"width":1366,"height":768},"trial":3,"kind":"menu-质检清单","ms":114.29999999701977,"pass":true},{"device":{"width":1366,"height":768},"trial":3,"kind":"menu-执行质检","ms":114,"pass":true},{"device":{"width":1366,"height":768},"trial":3,"kind":"complete-qc","ms":130.29999999701977,"pass":true},{"device":{"width":1366,"height":768},"trial":3,"kind":"claim-qc","ms":132.20000000298023,"pass":true},{"device":{"width":1366,"height":768},"trial":4,"kind":"menu-质检清单","ms":114.90000000596046,"pass":true},{"device":{"width":1366,"height":768},"trial":4,"kind":"menu-执行质检","ms":114,"pass":true},{"device":{"width":1366,"height":768},"trial":4,"kind":"complete-qc","ms":130,"pass":true},{"device":{"width":1366,"height":768},"trial":4,"kind":"claim-qc","ms":132.6000000089407,"pass":true},{"device":{"width":1366,"height":768},"trial":5,"kind":"menu-质检清单","ms":115.80000001192093,"pass":true},{"device":{"width":1366,"height":768},"trial":5,"kind":"menu-执行质检","ms":112,"pass":true},{"device":{"width":1366,"height":768},"trial":5,"kind":"complete-qc","ms":130.29999999701977,"pass":true},{"device":{"width":1366,"height":768},"trial":5,"kind":"claim-qc","ms":131.20000000298023,"pass":true},{"device":{"width":1280,"height":720},"trial":1,"kind":"menu-质检清单","ms":114.20000000298023,"pass":true},{"device":{"width":1280,"height":720},"trial":1,"kind":"menu-执行质检","ms":115.3999999910593,"pass":true},{"device":{"width":1280,"height":720},"trial":1,"kind":"complete-qc","ms":129.20000000298023,"pass":true},{"device":{"width":1280,"height":720},"trial":1,"kind":"claim-qc","ms":131.70000000298023,"pass":true},{"device":{"width":1280,"height":720},"trial":2,"kind":"menu-质检清单","ms":114.09999999403954,"pass":true},{"device":{"width":1280,"height":720},"trial":2,"kind":"menu-执行质检","ms":114.20000000298023,"pass":true},{"device":{"width":1280,"height":720},"trial":2,"kind":"complete-qc","ms":130.29999999701977,"pass":true},{"device":{"width":1280,"height":720},"trial":2,"kind":"claim-qc","ms":131.29999999701977,"pass":true},{"device":{"width":1280,"height":720},"trial":3,"kind":"menu-质检清单","ms":114.3999999910593,"pass":true},{"device":{"width":1280,"height":720},"trial":3,"kind":"menu-执行质检","ms":114.09999999403954,"pass":true},{"device":{"width":1280,"height":720},"trial":3,"kind":"complete-qc","ms":130,"pass":true},{"device":{"width":1280,"height":720},"trial":3,"kind":"claim-qc","ms":131.79999999701977,"pass":true},{"device":{"width":1280,"height":720},"trial":4,"kind":"menu-质检清单","ms":114.29999999701977,"pass":true},{"device":{"width":1280,"height":720},"trial":4,"kind":"menu-执行质检","ms":114.29999999701977,"pass":true},{"device":{"width":1280,"height":720},"trial":4,"kind":"complete-qc","ms":161.59999999403954,"pass":true},{"device":{"width":1280,"height":720},"trial":4,"kind":"claim-qc","ms":130.80000001192093,"pass":true},{"device":{"width":1280,"height":720},"trial":5,"kind":"menu-质检清单","ms":114.20000000298023,"pass":true},{"device":{"width":1280,"height":720},"trial":5,"kind":"menu-执行质检","ms":114.40000000596046,"pass":true},{"device":{"width":1280,"height":720},"trial":5,"kind":"complete-qc","ms":130.59999999403954,"pass":true},{"device":{"width":1280,"height":720},"trial":5,"kind":"claim-qc","ms":140.1000000089407,"pass":true},{"device":{"width":1024,"height":768},"trial":1,"kind":"menu-质检清单","ms":113.80000001192093,"pass":true},{"device":{"width":1024,"height":768},"trial":1,"kind":"menu-执行质检","ms":115.5,"pass":true},{"device":{"width":1024,"height":768},"trial":1,"kind":"complete-qc","ms":131.29999999701977,"pass":true},{"device":{"width":1024,"height":768},"trial":1,"kind":"claim-qc","ms":130.09999999403954,"pass":true},{"device":{"width":1024,"height":768},"trial":2,"kind":"menu-质检清单","ms":112.79999999701977,"pass":true},{"device":{"width":1024,"height":768},"trial":2,"kind":"menu-执行质检","ms":114.70000000298023,"pass":true},{"device":{"width":1024,"height":768},"trial":2,"kind":"complete-qc","ms":128.90000000596046,"pass":true},{"device":{"width":1024,"height":768},"trial":2,"kind":"claim-qc","ms":132.8999999910593,"pass":true},{"device":{"width":1024,"height":768},"trial":3,"kind":"menu-质检清单","ms":114,"pass":true},{"device":{"width":1024,"height":768},"trial":3,"kind":"menu-执行质检","ms":114.30000001192093,"pass":true},{"device":{"width":1024,"height":768},"trial":3,"kind":"complete-qc","ms":129.5,"pass":true},{"device":{"width":1024,"height":768},"trial":3,"kind":"claim-qc","ms":131,"pass":true},{"device":{"width":1024,"height":768},"trial":4,"kind":"menu-质检清单","ms":114.29999999701977,"pass":true},{"device":{"width":1024,"height":768},"trial":4,"kind":"menu-执行质检","ms":115.3999999910593,"pass":true},{"device":{"width":1024,"height":768},"trial":4,"kind":"complete-qc","ms":130.20000000298023,"pass":true},{"device":{"width":1024,"height":768},"trial":4,"kind":"claim-qc","ms":131,"pass":true},{"device":{"width":1024,"height":768},"trial":5,"kind":"menu-质检清单","ms":114.20000000298023,"pass":true},{"device":{"width":1024,"height":768},"trial":5,"kind":"menu-执行质检","ms":114.20000000298023,"pass":true},{"device":{"width":1024,"height":768},"trial":5,"kind":"complete-qc","ms":130.5,"pass":true},{"device":{"width":1024,"height":768},"trial":5,"kind":"claim-qc","ms":131.40000000596046,"pass":true}],"checks":[{"device":{"width":1366,"height":768},"trial":1,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1366,"height":768},"trial":2,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1366,"height":768},"trial":3,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1366,"height":768},"trial":4,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1366,"height":768},"trial":5,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1280,"height":720},"trial":1,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1280,"height":720},"trial":2,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1280,"height":720},"trial":3,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1280,"height":720},"trial":4,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1280,"height":720},"trial":5,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1024,"height":768},"trial":1,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1024,"height":768},"trial":2,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1024,"height":768},"trial":3,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1024,"height":768},"trial":4,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"},{"device":{"width":1024,"height":768},"trial":5,"persisted":"QC完成、HD生成、下一单领取、刷新续做一致"}],"errors":[],"passed":true}
+### Ran Playwright code
+```js
+await (async(page)=>{
+ const verification={"sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a", "runtimeVersion": "build-final35", "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods", "service": "http://127.0.0.1:43210"}
+
+  const samples=[],errors=[],checks=[]
+  const base='http://127.0.0.1:43210'
+  const pdaSession={userId:'ID-F002_operator',loginId:'ID-F002_operator',userName:'后道验收操作员',roleId:'ROLE_OPERATOR',factoryId:'ID-F002',factoryName:'PT Prima Printing Center',loggedAt:'2026-10-10 10:00:00'}
+  const create = async (device, route) => {
+    const c = await page.context().browser().newContext({ viewport:device })
+    await c.addInitScript(({session,route})=>{
+      localStorage.setItem('fcs_pda_session',JSON.stringify(session))
+      window.pfLastMutation=0;window.pfPendingHandlers=0;window.pfPendingTransactions=0;window.pfMeasurements=[];window.pfHandlerErrors=[]
+      const originalAdd=EventTarget.prototype.addEventListener
+      // Await the actual async app handler, including module loading and save.
+      // Browser timestamps end at the rendered result, before host-tool polling.
+      EventTarget.prototype.addEventListener=function(type,listener,options){
+        if(((this instanceof Element && this.id==='app') || this===document) && ['click','input','change','keydown','submit'].includes(type) && typeof listener==='function' && listener.constructor.name==='AsyncFunction'){
+          const wrapped=function(event){
+            const result=listener.call(this,event)
+            if(result&&typeof result.then==='function'){
+              window.pfPendingHandlers++
+              Promise.resolve(result).finally(()=>{window.pfPendingHandlers--;window.pfLastMutation=performance.now()}).catch(error=>window.pfHandlerErrors.push(String(error)))
+            }
+            return result
+          }
+          return originalAdd.call(this,type,wrapped,options)
+        }
+        return originalAdd.call(this,type,listener,options)
+      }
+      const originalTransaction=IDBDatabase.prototype.transaction
+      IDBDatabase.prototype.transaction=function(...args){
+        const tx=originalTransaction.apply(this,args);window.pfPendingTransactions++
+        const done=()=>{window.pfPendingTransactions--;window.pfLastMutation=performance.now()}
+        tx.addEventListener('complete',done,{once:true});tx.addEventListener('abort',done,{once:true});return tx
+      }
+      new MutationObserver(()=>{window.pfLastMutation=performance.now()}).observe(document,{childList:true,subtree:true,attributes:true,characterData:true})
+      const inView=e=>{const b=e.getBoundingClientRect();return b.top<innerHeight&&b.bottom>0&&b.width&&b.height&&getComputedStyle(e).visibility!=='hidden'}
+      const targetReady=r=>r.previousContent&&r.previousContent.isConnected?false:r.selector?Boolean(document.querySelector(r.selector)):r.title?[...document.querySelectorAll('h1,h2')].some(e=>e.textContent.trim()===r.title):[...document.querySelectorAll('body *')].some(e=>e.children.length===0&&e.textContent.trim()===r.text)
+      let generation=0
+      window.pfBegin=(kind,expected,start=performance.now())=>{
+        const current=++generation;window.pfMeasurementGeneration=current
+        const check=()=>{
+          if(current!==generation)return
+          const images=[...document.querySelectorAll('main img,[data-testid] img,[role="dialog"] img')].filter(inView)
+          const qr=[...document.querySelectorAll('[data-real-qr]')].filter(inView)
+          if(targetReady(expected)&&window.pfPendingHandlers===0&&window.pfPendingTransactions===0&&performance.now()-window.pfLastMutation>=50&&images.every(i=>i.complete)&&qr.every(e=>e.querySelector('svg'))){
+            requestAnimationFrame(()=>requestAnimationFrame(()=>{
+              if(current!==generation)return
+              if(window.pfPendingHandlers||window.pfPendingTransactions||performance.now()-window.pfLastMutation<50){requestAnimationFrame(check);return}
+              window.pfMeasurements.push({generation:current,kind,ms:performance.now()-start})
+            }))
+          }else requestAnimationFrame(check)
+        }
+        requestAnimationFrame(check)
+      }
+      originalAdd.call(document,'click',event=>{if(!event.isTrusted)return;const image=event.target.closest('[data-post-finishing-action="full-flow-zoom-image"]');const nativeLink=event.target.closest('a[href^="/"]:not([data-nav])');if(nativeLink)window.name=JSON.stringify({pfClickAt:performance.timeOrigin+performance.now()});const nav=event.target.closest('[data-nav], [data-action="open-tab"][data-tab-href]');const form=event.target.closest('button[type="submit"],button:not([type])')?.closest('form[action]');let destination=nav?.getAttribute('data-nav')||nav?.getAttribute('data-tab-href');if(form&&form.method==='get'){const target=new URL(form.getAttribute('action'),location.href);const values=new URLSearchParams();new FormData(form).forEach((value,name)=>{if(typeof value==='string'&&value.trim())values.append(name,value.trim())});target.search=values.toString();destination=target.href}const next=destination?new URL(destination,location.href):null;const changesPage=Boolean(next&&next.pathname+next.search!==location.pathname+location.search);window.pfBegin(image?'image':'action',image?{selector:'[role="dialog"] img'}:changesPage?{selector:'main h1,[data-testid*="post-finishing"][data-testid*="print"]',previousContent:document.querySelector('[data-page-content-root="true"]')?.firstElementChild||document.querySelector('main')?.firstElementChild||document.querySelector('#app')?.firstElementChild}:route)},true)
+      originalAdd.call(document,'keydown',event=>{if(event.key==='Escape')window.pfBegin('image-close-escape',route)},true)
+      window.pfBegin('load',route,0)
+    },{session:pdaSession,route})
+    const p=await c.newPage();p.setDefaultTimeout(4000);p.on('dialog',d=>d.accept());p.on('pageerror',e=>errors.push(e.message))
+    return {c,p}
+  }
+  const measured=async(p,kind)=>{
+    await p.waitForFunction(kind=>window.pfMeasurements?.some(s=>s.kind===kind&&s.generation===window.pfMeasurementGeneration),kind)
+    return p.evaluate(kind=>window.pfMeasurements.filter(s=>s.kind===kind).at(-1).ms,kind)
+  }
+
+  const route={path:'/fcs/craft/post-finishing/qc-workbench',title:'执行质检'}
+  const read=async p=>p.evaluate(async()=>{
+    const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('higood-pcs-records');q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})
+    const rows=await new Promise((resolve,reject)=>{const tx=db.transaction('records','readonly'),q=tx.objectStore('records').getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});db.close()
+    return rows.filter(row=>row.id.startsWith('higood-fcs-post-finishing-records/')).map(row=>row.value)
+  })
+  for(const device of [{width:1366,height:768},{width:1280,height:720},{width:1024,height:768}])for(let trial=1;trial<=5;trial++){
+    const {c,p}=await create(device,route)
+    let stage='open'
+    try{
+      await p.goto(base+route.path);await measured(p,'load')
+      stage='menu'
+      for(const title of ['质检清单','执行质检']){
+        await p.getByRole('complementary').getByRole('button',{name:title,exact:true}).click()
+        const ms=await measured(p,'action')
+        samples.push({device,trial,kind:`menu-${title}`,ms,pass:ms<=1000})
+      }
+      await p.locator('[data-post-finishing-action="full-flow-complete-qc"]').click();const completeMs=await measured(p,'action')
+      samples.push({device,trial,kind:'complete-qc',ms:completeMs,pass:completeMs<=1000})
+      let rows=await read(p)
+      if(!rows.some(row=>row?.qcTaskNo==='PO-QC-202608-001-4-ZJ'&&row.status==='质检完成'&&row.postTaskNo==='PO-QC-202608-001-4-ZJ-HD'))throw new Error('完成质检持久读回不一致')
+      stage='reload';await p.reload();await measured(p,'load')
+      await p.locator('[data-post-finishing-field="qc-task-input"]').fill('PO-QC-202608-001-3-ZJ')
+      stage='claim';await p.locator('[data-post-finishing-action="full-flow-claim-qc"]').click();const claimMs=await measured(p,'action')
+      samples.push({device,trial,kind:'claim-qc',ms:claimMs,pass:claimMs<=1000})
+      rows=await read(p)
+      if(!rows.some(row=>row?.qcTaskNo==='PO-QC-202608-001-3-ZJ'&&row.status==='质检中'&&row.claimedBy.actorId==='PF-USER-QC-A'))throw new Error('领取质检持久读回不一致')
+      stage='reload';await p.reload();await measured(p,'load')
+      if(await p.locator('[data-qc-workbench-task]').getAttribute('data-qc-workbench-task')!=='PF-QC-PF-ACCEPT-PO-1-3')throw new Error('刷新未续做所领单据')
+      checks.push({device,trial,persisted:'QC完成、HD生成、下一单领取、刷新续做一致'})
+    }catch(e){errors.push({device,trial,stage,error:e.message,diagnostic:await p.evaluate(()=>({url:location.href,title:document.querySelector('h1')?.textContent,pendingHandlers:window.pfPendingHandlers,pendingTransactions:window.pfPendingTransactions,generation:window.pfMeasurementGeneration,measurements:window.pfMeasurements,handlerErrors:window.pfHandlerErrors,task:document.querySelector('[data-qc-workbench-task]')?.dataset.qcWorkbenchTask,alerts:[...document.querySelectorAll('[role="alert"]')].map(e=>e.textContent)})).catch(()=>null)})}finally{await c.close()}
+  }
+  return {service:base,browser:page.context().browser().version(),samples,checks,errors,passed:errors.length===0&&samples.every(s=>s.pass)}
+}
+)(page);
+```

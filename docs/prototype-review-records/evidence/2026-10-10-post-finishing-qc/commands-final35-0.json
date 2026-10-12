@@ -1,0 +1,733 @@
+{
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "menu-质检清单",
+      "ms": 112,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "menu-执行质检",
+      "ms": 114.19999998807907,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "complete-qc",
+      "ms": 123,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "claim-qc",
+      "ms": 131.19999998807907,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "menu-质检清单",
+      "ms": 196.5,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "menu-执行质检",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "complete-qc",
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "claim-qc",
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "menu-质检清单",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "menu-执行质检",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "complete-qc",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "claim-qc",
+      "ms": 132.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "menu-质检清单",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "menu-执行质检",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "complete-qc",
+      "ms": 130,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "claim-qc",
+      "ms": 132.6000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "menu-质检清单",
+      "ms": 115.80000001192093,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "menu-执行质检",
+      "ms": 112,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "complete-qc",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "claim-qc",
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "menu-质检清单",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "menu-执行质检",
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "complete-qc",
+      "ms": 129.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "kind": "claim-qc",
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "menu-质检清单",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "menu-执行质检",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "complete-qc",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "kind": "claim-qc",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "menu-质检清单",
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "menu-执行质检",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "complete-qc",
+      "ms": 130,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "kind": "claim-qc",
+      "ms": 131.79999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "menu-质检清单",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "menu-执行质检",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "complete-qc",
+      "ms": 161.59999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "kind": "claim-qc",
+      "ms": 130.80000001192093,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "menu-质检清单",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "menu-执行质检",
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "complete-qc",
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "kind": "claim-qc",
+      "ms": 140.1000000089407,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "menu-质检清单",
+      "ms": 113.80000001192093,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "menu-执行质检",
+      "ms": 115.5,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "complete-qc",
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "kind": "claim-qc",
+      "ms": 130.09999999403954,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "menu-质检清单",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "menu-执行质检",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "complete-qc",
+      "ms": 128.90000000596046,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "kind": "claim-qc",
+      "ms": 132.8999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "menu-质检清单",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "menu-执行质检",
+      "ms": 114.30000001192093,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "complete-qc",
+      "ms": 129.5,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "kind": "claim-qc",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "menu-质检清单",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "menu-执行质检",
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "complete-qc",
+      "ms": 130.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "kind": "claim-qc",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "menu-质检清单",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "menu-执行质检",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "complete-qc",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "kind": "claim-qc",
+      "ms": 131.40000000596046,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "persisted": "QC完成、HD生成、下一单领取、刷新续做一致"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "runtimeVersion": "build-final35",
+  "scriptSha256": "4f83009a7edbebdbc773a7043f638260ad7594918efd1cec5b0ea44ab97c22b9"
+}

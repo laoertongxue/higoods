@@ -1,0 +1,549 @@
+{
+  "segment": 3,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-示例扫码",
+      "ms": 130.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-选取原始图片",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-替换并释放临时图片",
+      "ms": 115.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-重新选图",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-送货人",
+      "ms": 91.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-联系方式",
+      "ms": 91.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-退出并释放图片",
+      "ms": 240.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-新登记",
+      "ms": 330,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "凭证-新扫码",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-示例扫码",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-选取原始图片",
+      "ms": 95.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-替换并释放临时图片",
+      "ms": 112.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-重新选图",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-送货人",
+      "ms": 90.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-联系方式",
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-退出并释放图片",
+      "ms": 242.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-新登记",
+      "ms": 330,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "凭证-新扫码",
+      "ms": 114.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-示例扫码",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-选取原始图片",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-替换并释放临时图片",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-重新选图",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-送货人",
+      "ms": 86.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-联系方式",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-退出并释放图片",
+      "ms": 243.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-新登记",
+      "ms": 363,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "凭证-新扫码",
+      "ms": 115.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-示例扫码",
+      "ms": 114.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-选取原始图片",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-替换并释放临时图片",
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-重新选图",
+      "ms": 89.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-送货人",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-联系方式",
+      "ms": 90.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-退出并释放图片",
+      "ms": 243.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-新登记",
+      "ms": 312.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "凭证-新扫码",
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-示例扫码",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-选取原始图片",
+      "ms": 95.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-替换并释放临时图片",
+      "ms": 113.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-重新选图",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-送货人",
+      "ms": 86.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-联系方式",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-退出并释放图片",
+      "ms": 242.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-新登记",
+      "ms": 297.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "凭证-新扫码",
+      "ms": 114.20000000298023,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "附件选择/替换/管理员退出/重新登记"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "附件选择/替换/管理员退出/重新登记"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "附件选择/替换/管理员退出/重新登记"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "附件选择/替换/管理员退出/重新登记"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "附件选择/替换/管理员退出/重新登记"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "ba98f6954191555e9514f9b397abd4fcdc137c8c7540f28b7e99c5e571600654",
+  "runtimeVersion": "build-final21",
+  "scriptSha256": "b76700a271e484acd50b7971b4f61067dfbe4ed8eb2d617bddcb64c84774acbb"
+}

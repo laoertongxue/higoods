@@ -1,0 +1,1704 @@
+{
+  "segment": 2,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-冷开",
+      "ms": 418.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-编号输入",
+      "ms": 87.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-精确查询",
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-开始",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-数量输入",
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-数量输入",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 111.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-数量输入",
+      "ms": 84.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 111.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-数量输入",
+      "ms": 96.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 107.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-数量输入",
+      "ms": 83.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 107.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA加工-完成生成FJ",
+      "ms": 109.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-冷开",
+      "ms": 293.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-编号输入",
+      "ms": 88.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-领取",
+      "ms": 115.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-条码输入",
+      "ms": 90.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 109.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-条码输入",
+      "ms": 88.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 110.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-条码输入",
+      "ms": 85,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 110.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-条码输入",
+      "ms": 96.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 108.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-条码输入",
+      "ms": 84.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 111.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-完成生成CH",
+      "ms": 109.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA复检-保存后刷新",
+      "ms": 290.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-冷开",
+      "ms": 346.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-编号输入",
+      "ms": 86.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-精确查询",
+      "ms": 129,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-开始",
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-数量输入",
+      "ms": 91.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 109.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-数量输入",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 124.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-数量输入",
+      "ms": 88.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 107.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-数量输入",
+      "ms": 86.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 112.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-数量输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 111.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA加工-完成生成FJ",
+      "ms": 111.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-冷开",
+      "ms": 447.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-编号输入",
+      "ms": 86,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-领取",
+      "ms": 115.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-条码输入",
+      "ms": 96.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 115.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-条码输入",
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 115.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-条码输入",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-条码输入",
+      "ms": 95.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-条码输入",
+      "ms": 94.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 127.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-完成生成CH",
+      "ms": 112.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA复检-保存后刷新",
+      "ms": 297.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-冷开",
+      "ms": 361.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-编号输入",
+      "ms": 101.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-精确查询",
+      "ms": 129.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-开始",
+      "ms": 106.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-数量输入",
+      "ms": 84.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 111.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-数量输入",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-数量输入",
+      "ms": 94.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 110.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-数量输入",
+      "ms": 93,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-数量输入",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 110.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA加工-完成生成FJ",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-冷开",
+      "ms": 311.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-编号输入",
+      "ms": 90,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-领取",
+      "ms": 115.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-条码输入",
+      "ms": 96.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-条码输入",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 111.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-条码输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 124.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-条码输入",
+      "ms": 86.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 110.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-条码输入",
+      "ms": 93.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 125.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-完成生成CH",
+      "ms": 113,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA复检-保存后刷新",
+      "ms": 310.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-冷开",
+      "ms": 350.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-编号输入",
+      "ms": 85.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-精确查询",
+      "ms": 130.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-开始",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-数量输入",
+      "ms": 93.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 112.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-数量输入",
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-数量输入",
+      "ms": 87.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 126.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-数量输入",
+      "ms": 91.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 126.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-数量输入",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 126.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA加工-完成生成FJ",
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-冷开",
+      "ms": 312.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-编号输入",
+      "ms": 87.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-领取",
+      "ms": 130.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-条码输入",
+      "ms": 93.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 126.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-条码输入",
+      "ms": 88.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 127.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-条码输入",
+      "ms": 84.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 113.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-条码输入",
+      "ms": 96.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-条码输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-完成生成CH",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA复检-保存后刷新",
+      "ms": 317.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-冷开",
+      "ms": 370.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-编号输入",
+      "ms": 87.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-精确查询",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-开始",
+      "ms": 113.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-数量输入",
+      "ms": 92.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 112.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-数量输入",
+      "ms": 94,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 112.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-数量输入",
+      "ms": 95.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 128.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-数量输入",
+      "ms": 88,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-数量输入",
+      "ms": 95.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-保存SKU",
+      "ms": 111.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA加工-完成生成FJ",
+      "ms": 112.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-冷开",
+      "ms": 342.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-编号输入",
+      "ms": 87.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-领取",
+      "ms": 113.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-条码输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 111.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-条码输入",
+      "ms": 94.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 125.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-条码输入",
+      "ms": 92.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 111.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-条码输入",
+      "ms": 92.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 125.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-条码输入",
+      "ms": 87.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-逐SKU条码比对",
+      "ms": 126,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-完成生成CH",
+      "ms": 111.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA复检-保存后刷新",
+      "ms": 281.40000000596046,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "scenario": "PDA新HD/FJ/CH查询/加工/复检/持久化"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "scenario": "PDA新HD/FJ/CH查询/加工/复检/持久化"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "scenario": "PDA新HD/FJ/CH查询/加工/复检/持久化"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "scenario": "PDA新HD/FJ/CH查询/加工/复检/持久化"
+    },
+    {
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "scenario": "PDA新HD/FJ/CH查询/加工/复检/持久化"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "ba98f6954191555e9514f9b397abd4fcdc137c8c7540f28b7e99c5e571600654",
+  "runtimeVersion": "build-final21",
+  "scriptSha256": "eea9ba37b9eb9742e7893b259230dd61d5b07e1ecb07e53a719aee8adcf65423"
+}

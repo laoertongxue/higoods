@@ -1,3 +1,5 @@
+import { runPostFinishingCommand } from '../../../data/fcs/post-finishing-records.ts'
+import { showPostFinishingActionFailure } from './storage-notice.ts'
 // @page-pattern: list
 
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -126,7 +128,7 @@ export function renderPostFinishingWorkOrdersPage(): string {
   })
 }
 
-export function handlePostFinishingWorkOrdersEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePostFinishingWorkOrdersEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (typeof window === 'undefined' || window.location.pathname !== '/fcs/craft/post-finishing/work-orders') return false
   const action = target.closest<HTMLElement>('[data-post-finishing-work-orders-action]')?.dataset.postFinishingWorkOrdersAction
   const actionNode = target.closest<HTMLElement>('[data-post-finishing-work-orders-action]')
@@ -148,12 +150,16 @@ export function handlePostFinishingWorkOrdersEvent(target: HTMLElement, event?: 
     return true
   }
   if (action === 'confirm-start') {
-    const started = startPostFinishingPostTask({
-      postTaskNo: actionNode?.dataset.taskNo || '',
-      actor: getCurrentPostFinishingActor(),
-    })
-    removeStartDialog()
-    appStore.navigate(`/fcs/craft/post-finishing/work-orders/${encodeURIComponent(started.postTaskId)}`)
+    try {
+      const started = await runPostFinishingCommand(() => startPostFinishingPostTask({
+        postTaskNo: actionNode?.dataset.taskNo || '',
+        actor: getCurrentPostFinishingActor(),
+      }))
+      removeStartDialog()
+      appStore.navigate(`/fcs/craft/post-finishing/work-orders/${encodeURIComponent(started.postTaskId)}`)
+    } catch (error) {
+      showPostFinishingActionFailure(error instanceof Error ? error.message : '本次未保存，请保留输入后重试。', target)
+    }
     return true
   }
   if (action === 'prev-page' || action === 'next-page') {

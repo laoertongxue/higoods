@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-11",
+  "worktree": "/Users/laoer/.codex/worktrees/post-finishing-main-release/higoods",
+  "branch": "codex/post-finishing-qc-main-release",
+  "upstreamMain": "4bb4fe1721a4c4ab85ac378ed555b841c31f9c19",
+  "originalImplementationHead": "99e25a0b846188176516a882b8c8d30fb915f6ef",
+  "postFinishingSourceSha256": "0b2f0d2d4afad30bbccb44f33017303dc746acfea2c806c6dfd70d2cd4ed632b",
+  "runtimeFilesEqualToVerified35": false,
+  "runtimeFiles": {
+    "src/data/app-shell-config.ts": "c3b615e89226f3ee2fce94294f4de808c9d4042d89c95ef85dd8ec564a329874",
+    "src/data/fcs/post-finishing-authorization.ts": "5c48e7acc529722d8bd2d29cf1a5435f9470da100b117764a74ccfcfafcbd8c8",
+    "src/data/fcs/post-finishing-document-numbering.ts": "fe00b2b3e205d849805b6da25cf12af18058c8d955f178f970ac8b4552dc416e",
+    "src/data/fcs/post-finishing-full-flow.ts": "437cd5263749509c401274c907d234f0a5c657ca8b4fca7905e597c0fda6d110",
+    "src/data/fcs/post-finishing-operation-log.ts": "cb366feb3bfc619ba6324a8aaaef00b959037e0f3caec9cc40e8ac89117c46d8",
+    "src/data/fcs/post-finishing-qc-reference.ts": "5df21bde7abc2698b4c00e4864062ede578646f16360a2577ead011874d8543f",
+    "src/data/fcs/post-finishing-records.ts": "a6283f27e08242a1c67682d8a327c292fd386d5ad9fe6bb34ef2e44b58f808d1",
+    "src/data/fcs/post-finishing-spu-technical-parameters.ts": "DELETED",
+    "src/main.ts": "2ee4755d3085b23cafa07c3c581b244cc13bf88b1f18d38891d1532ac71c0444",
+    "src/pages/pda-exec-detail.ts": "7c1f27aaca2fed66fceb147309a65f80013c78999770ab870c46396cce121b9e",
+    "src/pages/pda-handover.ts": "3b1036b395fd87b00715917c025d68a39c4c3946970880bef40b1b127e621d65",
+    "src/pages/pda-post-finishing-exec-detail.ts": "223a07b8c6385fc8435f75e30e6d1aea3ce7fae7d7e05183e88d059b2bf547d0",
+    "src/pages/pda-post-finishing-flow.ts": "60f5508a9dd23b44e1c0b985d7d9db2012fa6dc52f635fb06d52530172fa2a16",
+    "src/pages/pda-quality.ts": "9531048374db89c0819c620cdc0517217900b27d6df690a288fc829d9a63d11d",
+    "src/pages/pda-sewing-self-return.ts": "1efbca772f3941b0d5057ea571f81616cd1adf2afd4da109b2cde84130a55e2c",
+    "src/pages/print/print-preview.ts": "e568cfd8f2fd024dd36472a60e048937ff6fb0326c2099632e32ac1d6f0ce326",
+    "src/pages/process-factory/post-finishing/audit-records.ts": "99e3ac14a8ec52251c3b879bf596b1b0cb5d93e5f49e27f341bff35d2c4f9489",
+    "src/pages/process-factory/post-finishing/events.ts": "8a60e08644714ca991ef961bf61838c278c4ce509e20f464302f2c374b1e9c53",
+    "src/pages/process-factory/post-finishing/qc-orders.ts": "46396323fc9cf7c454a5be7de14f148d3b43b9093b405ed56310dc32f4efae22",
+    "src/pages/process-factory/post-finishing/qc-workbench.ts": "3a228380519b451fecb03c6e6277afc8dcf258d2fe7bc1d46d8e3051768126c7",
+    "src/pages/process-factory/post-finishing/recheck-orders.ts": "56efa77edfa917fa011dde4f7ebcc35b0c1fa25eccdd1836a4014f8ef312562e",
+    "src/pages/process-factory/post-finishing/storage-notice.ts": "ae57eb46ee0d71d5ce7cab39113c08c8bb1442f616e1c27400aa0084c88aff95",
+    "src/pages/process-factory/post-finishing/tasks.ts": "12435013da8c76712269832d907a400cb873443b94ce62fb7515ad793cd04d81",
+    "src/pages/process-factory/post-finishing/warehouse.ts": "b685f8ca482d3ad96476ff4be17996b6546fe5f56138a750ff199e6778e9a737",
+    "src/pages/process-factory/post-finishing/work-order-detail.ts": "c34405c1e96f6b2cf3de8cb60f798201cad894ba366055e041b4793c3d26f28c",
+    "src/pages/process-factory/post-finishing/work-orders.ts": "c314d0d55fed964096f34cec6fec3882a08fdc39032255a4b0eea2e0a91827df",
+    "src/pages/wls-finished-inbound.ts": "e0a88a29ffa29fc7d3648e99717715b6312cc6551cf9fb8dea95eb9c7385b18a",
+    "src/router/route-renderers-fcs.ts": "0804afe5e20bdc1b7489a7d574551eff77465c31ff86e863f07a76b73235e85b",
+    "src/router/route-renderers.ts": "8284ec47ba6c54c43df1cec7bede5b5ced2496de329af3f12f450068f701869a",
+    "src/router/routes.ts": "c695cdc0414b2d292a6901f62e4efd72b21d929c2414e4fb86ef47aff4ac0365"
+  },
+  "upstreamMergeChanges": {
+    "package.json": "仅将旧SPU检查命令替换为颜色图片检查，其余当前main脚本保留",
+    "src/styles.css": "新增仅匹配data-cut-piece-release-detail-page的overscroll规则，不匹配后道页面",
+    "factory-receiving-source-sync.ts": "现有材料实收返回类型过滤修复，后道领域编号和保存源未修改",
+    "tmf-material-purchases.ts": "现有TMF迁移删除保护修复，后道命名空间和存储路径未修改"
+  },
+  "evidenceReuse": "原final35证据保留原分支、时间、环境和哈希，不改标当前合并版本；当前复验结果另存publication-2026-10-11",
+  "node": "v26.8.2",
+  "npm": "11.19.1",
+  "lockfileSha256": "b63b8f1781b08d9a62ffa8d9c094b375cea727ef850fbf25007655edd8a89ec5",
+  "services": {
+    "dev": "http://127.0.0.1:43213",
+    "preview": "http://127.0.0.1:43212"
+  },
+  "publicationCompatibilityChange": {
+    "file": "src/pages/process-factory/post-finishing/warehouse.ts",
+    "reason": "当前main列表门禁不能沿返回对象属性及条件表达式追踪原有完整列表；改用已支持的局部渲染回调和明确分支，不改检查器、表格、分页、数据、事件和路由",
+    "requirements": "PAGE/SCOPE 发布整合"
+  }
+}

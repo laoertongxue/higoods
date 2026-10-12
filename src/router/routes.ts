@@ -334,6 +334,36 @@ export async function resolvePage(pathname: string): Promise<string> {
     return baseRenderer()
   }
 
+  // 后道命名页复用原渲染器与记录读取，不为命中一个页面先载入
+  // 整份 FCS 路由表的染整交接、质量扣款等静态来源。
+  if (normalizedPathname.startsWith('/fcs/craft/post-finishing/')) {
+    const pages = await import('./route-renderers-fcs')
+    const suffix = normalizedPathname.slice('/fcs/craft/post-finishing/'.length)
+    const exact: Record<string, () => Promise<string>> = {
+      tasks: pages.renderPostFinishingTasksPage,
+      'material-transfers': pages.renderPostFinishingMaterialTransfersPage,
+      'work-orders': pages.renderPostFinishingWorkOrdersPage,
+      'qc-orders': pages.renderPostFinishingQcOrdersPage,
+      'qc-workbench': pages.renderPostFinishingQcWorkbenchPage,
+      'recheck-orders': pages.renderPostFinishingRecheckOrdersPage,
+      'wait-process-warehouse': pages.renderPostFinishingWaitProcessWarehousePage,
+      'wait-handover-warehouse': pages.renderPostFinishingWaitHandoverWarehousePage,
+      'outbound-orders': pages.renderPostFinishingOutboundOrdersPage,
+      print: pages.renderPostFinishingFullFlowPrintPage,
+      'audit-records': pages.renderPostFinishingAuditRecordsPage,
+      'authorization-code': pages.renderPostFinishingAuthorizationCodePage,
+      statistics: pages.renderPostFinishingStatisticsPage,
+    }
+    if (Object.hasOwn(exact, suffix)) return exact[suffix]()
+    const detail = suffix.match(/^(work-orders|recheck-orders|outbound-orders)\/([^/]+)$/)
+    if (detail) {
+      const renderer = detail[1] === 'work-orders' ? pages.renderPostFinishingWorkOrderDetailPage
+        : detail[1] === 'recheck-orders' ? pages.renderPostFinishingRecheckOrderDetailPage
+          : pages.renderPostFinishingOutboundOrderDetailPage
+      return renderer(decodeURIComponent(detail[2]))
+    }
+  }
+
   const registry = await getRoutesByPathname(normalizedPathname)
   if (registry) {
     const matchedContent = await resolveFromRegistry(registry, normalizedPathname)

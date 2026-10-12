@@ -1,3 +1,4 @@
+import { assertPostFinishingWrite, registerPostFinishingRepository } from './post-finishing-records.ts'
 export type PostFinishingQcReferenceType = '色差参考图' | '尺寸判断标准'
 export type PostFinishingQcReferenceSource = '买手上传' | 'QC代上传'
 
@@ -22,16 +23,7 @@ export interface PostFinishingQcReferenceRecord {
 
 const STORAGE_KEY = 'higood-fcs-post-finishing-qc-reference-v1'
 
-function readPersistedRecords(): PostFinishingQcReferenceRecord[] {
-  try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed as PostFinishingQcReferenceRecord[] : []
-  } catch {
-    return []
-  }
-}
+function readPersistedRecords(): PostFinishingQcReferenceRecord[] { return [] }
 
 let records = readPersistedRecords()
 
@@ -39,26 +31,17 @@ let records = readPersistedRecords()
 let demoPersistence: 'idle' | 'save' | 'remove' | undefined
 
 export function beginPostFinishingQcReferenceDemoBatch() {
-  const before = records
+  const before = structuredClone(records)
   demoPersistence = 'idle'
   return {
     commit(): void {
-      if (demoPersistence === 'save') globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(records))
-      if (demoPersistence === 'remove') globalThis.localStorage?.removeItem(STORAGE_KEY)
     },
     rollback(): void { records = before },
     finish(): void { demoPersistence = undefined },
   }
 }
 
-function persist(): void {
-  if (demoPersistence !== undefined) { demoPersistence = 'save'; return }
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(records))
-  } catch {
-    // 原型无 localStorage 时保留运行期资料事实。
-  }
-}
+function persist(): void { assertPostFinishingWrite() }
 
 function cloneRecord(record: PostFinishingQcReferenceRecord): PostFinishingQcReferenceRecord {
   return { ...record }
@@ -80,6 +63,7 @@ export function uploadPostFinishingQcReference(input: {
   uploaderName: string
   uploadedAt?: string
 }): PostFinishingQcReferenceRecord {
+  assertPostFinishingWrite()
   if (!input.title.trim()) throw new Error('请填写质检参考资料名称。')
   if (!input.description.trim() && !input.imageUrl) throw new Error('请填写判断标准或上传参考图片。')
   if (input.source === 'QC代上传' && !input.sourceNote?.trim()) {
@@ -107,6 +91,7 @@ export function bindPostFinishingQcReferences(input: {
   qcTaskId: string
   qcTaskNo: string
 }): PostFinishingQcReferenceRecord[] {
+  assertPostFinishingWrite()
   const unbound = records.filter((record) => record.deliveryId === input.deliveryId && !record.qcTaskId)
   unbound.forEach((record) => {
     record.qcTaskId = input.qcTaskId
@@ -131,11 +116,10 @@ export function listPostFinishingQcReferences(input: {
 }
 
 export function resetPostFinishingQcReferences(): void {
+  assertPostFinishingWrite()
   records = []
   if (demoPersistence !== undefined) { demoPersistence = 'remove'; return }
-  try {
-    globalThis.localStorage?.removeItem(STORAGE_KEY)
-  } catch {
-    // 忽略原型存储不可用。
-  }
+  assertPostFinishingWrite()
 }
+
+registerPostFinishingRepository('references', STORAGE_KEY, () => records, value => { records = value })

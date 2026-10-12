@@ -1,0 +1,5650 @@
+{
+  "segment": 0,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "coverage": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-action=\\\"activate-tab\\\"][data-tab-key=\\\"pfos-post-finishing-qc-execute\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+          "index": 0,
+          "text": "执行质检",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-action=\\\"close-tab\\\"][data-tab-key=\\\"pfos-post-finishing-qc-execute\\\"][data-tab-close=\\\"\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-action=\\\"close-all-tabs\\\"]|BUTTON|submit\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-action=\"close-all-tabs\"]",
+          "index": 0,
+          "text": "全部关闭",
+          "tag": "BUTTON",
+          "type": "submit",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=<record>\\\"]|A|\",\"prepare\":[]}",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=<record>\\\"]|A|\",\"prepare\":[]}",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"a[data-nav=\\\"/fcs/craft/post-finishing/qc-orders\\\"]|A|\",\"prepare\":[]}",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+        "index": 0,
+        "text": "← 质检清单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+          "index": 0,
+          "text": "← 质检清单",
+          "tag": "A",
+          "type": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"full-flow-zoom-image\\\"]|BUTTON|button\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/linen-white.jpg\"][data-image-label=\"SPU-QC-001-02 白色 M\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-blue.jpg\"][data-image-label=\"SPU-QC-001-03 雾蓝 L\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-khaki.jpg\"][data-image-label=\"SPU-QC-001-04 卡其 XL\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-wine.jpg\"][data-image-label=\"SPU-QC-001-05 酒红 2XL\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"后道验收衬衫 黑色\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/linen-white.jpg\"][data-image-label=\"后道验收衬衫 白色\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-blue.jpg\"][data-image-label=\"后道验收衬衫 雾蓝\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-khaki.jpg\"][data-image-label=\"后道验收衬衫 卡其\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-wine.jpg\"][data-image-label=\"后道验收衬衫 酒红\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-result-field=\\\"passedQty\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-result-field=\"passedQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "20"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-result-field=\\\"returnQty\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-result-field=\"returnQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-result-field=\"returnQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"returnQty\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"returnQty\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"returnQty\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-result-field=\"returnQty\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"做工原因\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"脏污\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"脏污\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"脏污\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"脏污\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"脏污\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"脏污\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"脏污\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"抽纱\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"做错\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做错\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"做错\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做错\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做错\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做错\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做错\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"布料原因\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"缺辅料\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"做毁\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做毁\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"做毁\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做毁\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做毁\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做毁\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"做毁\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"印花\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"印花\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"印花\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"印花\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"印花\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"印花\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"印花\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"色差\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"色差\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"色差\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"色差\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"色差\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"色差\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"色差\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"半套\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"半套\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"半套\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"半套\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"半套\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"半套\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"半套\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"破洞\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"破洞\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"破洞\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"破洞\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"破洞\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"破洞\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"破洞\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-defect-reason=\\\"缺辅料不补\\\"]|INPUT|number\",\"prepare\":[]}",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+          "index": 1,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+          "index": 2,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+          "index": 3,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        },
+        {
+          "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+          "index": 4,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"prepare\":[]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+        "index": 0,
+        "text": "完成质检并生成后道加工单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-zoom-image\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button",
+        "index": 83,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button",
+          "index": 83,
+          "text": "关闭",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-qc-difference-reason=\\\"\\\"]|INPUT|text\",\"prepare\":[\"input[data-qc-result-field=\\\"passedQty\\\"]|INPUT|number\"]}",
+      "control": {
+        "selector": "input[data-qc-difference-reason=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-qc-difference-reason=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"textarea[data-qc-authorization=\\\"\\\"]|TEXTAREA|textarea\",\"prepare\":[\"input[data-qc-result-field=\\\"passedQty\\\"]|INPUT|number\"]}",
+      "control": {
+        "selector": "textarea[data-qc-authorization=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "instances": [
+        {
+          "selector": "textarea[data-qc-authorization=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "TEXTAREA",
+          "type": "textarea",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_ORDER\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_DETAIL\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input[data-post-finishing-field=\\\"qc-task-input\\\"]|INPUT|text\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"full-flow-claim-qc\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+        "index": 0,
+        "text": "领取质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+          "index": 0,
+          "text": "领取质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"close-qc-print-dialog\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_ORDER\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+          "index": 0,
+          "text": "关闭",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+          "index": 1,
+          "text": "取消",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input|INPUT|text\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_ORDER\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-qc-print-task-no=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"confirm-qc-print\\\"][data-qc-print-type=\\\"QC_ORDER\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_ORDER\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"close-qc-print-dialog\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_DETAIL\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+          "index": 0,
+          "text": "关闭",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+          "index": 1,
+          "text": "取消",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"input|INPUT|text\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_DETAIL\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "input[data-qc-print-task-no=\"\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "text",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "identity": "{\"control\":\"button[data-post-finishing-action=\\\"confirm-qc-print\\\"][data-qc-print-type=\\\"QC_DETAIL\\\"]|BUTTON|button\",\"prepare\":[\"button[data-post-finishing-action=\\\"full-flow-complete-qc\\\"][data-qc-complete-label=\\\"\\\"]|BUTTON|button\",\"button[data-post-finishing-action=\\\"open-qc-print-dialog\\\"][data-qc-print-type=\\\"QC_DETAIL\\\"]|BUTTON|button\"]}",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "instances": [
+        {
+          "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"activate-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"]",
+        "index": 0,
+        "text": "执行质检",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 230,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 231.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 231.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 230.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-tab\"][data-tab-key=\"pfos-post-finishing-qc-execute\"][data-tab-close=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 229.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 247,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 230.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 230.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 230.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-action=\"close-all-tabs\"]",
+        "index": 0,
+        "text": "全部关闭",
+        "tag": "BUTTON",
+        "type": "submit",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 229.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 281.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 264.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 263.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 264.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_ORDER&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 264.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 263.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 262.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 429.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 264.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/print?type=QC_DETAIL&id=PO-QC-202608-001-4-ZJ\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 263.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+        "index": 0,
+        "text": "← 质检清单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+        "index": 0,
+        "text": "← 质检清单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+        "index": 0,
+        "text": "← 质检清单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+        "index": 0,
+        "text": "← 质检清单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "a[data-nav=\"/fcs/craft/post-finishing/qc-orders\"]",
+        "index": 0,
+        "text": "← 质检清单",
+        "tag": "A",
+        "type": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 112.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+        "index": 0,
+        "text": "图片加载中…",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"passedQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"passedQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"passedQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"passedQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"passedQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "20"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 110.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"returnQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"returnQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"returnQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"returnQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-result-field=\"returnQty\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做工原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"脏污\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"脏污\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"脏污\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"脏污\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"脏污\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 94.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"抽纱\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做错\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做错\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做错\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做错\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做错\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"布料原因\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 103.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 110.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做毁\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做毁\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做毁\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做毁\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"做毁\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"印花\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"印花\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"印花\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"印花\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"印花\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"色差\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"色差\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"色差\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"色差\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"色差\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"半套\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"半套\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"半套\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"半套\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"半套\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 105.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"破洞\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"破洞\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"破洞\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 111.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"破洞\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"破洞\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 109.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 106.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 107.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 110.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-defect-reason=\"缺辅料不补\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "number",
+        "value": "0"
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 108.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+        "index": 0,
+        "text": "完成质检并生成后道加工单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+        "index": 0,
+        "text": "完成质检并生成后道加工单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 131.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+        "index": 0,
+        "text": "完成质检并生成后道加工单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+        "index": 0,
+        "text": "完成质检并生成后道加工单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+        "index": 0,
+        "text": "完成质检并生成后道加工单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button",
+        "index": 83,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 97.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button",
+        "index": 83,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button",
+        "index": 83,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 96.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button",
+        "index": 83,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 99.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button",
+        "index": 83,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-zoom-image\"][data-image-url=\"/materials/pcs-reviewed/shirt-black.jpg\"][data-image-label=\"SPU-QC-001-01 黑色 S\"]",
+          "index": 0,
+          "text": "图片加载中…",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 98.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-difference-reason=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-difference-reason=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-difference-reason=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-difference-reason=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-difference-reason=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 88.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "textarea[data-qc-authorization=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 88.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "textarea[data-qc-authorization=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "textarea[data-qc-authorization=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 88.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "textarea[data-qc-authorization=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 100.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "textarea[data-qc-authorization=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "input[data-qc-result-field=\"passedQty\"]",
+          "index": 0,
+          "text": "",
+          "tag": "INPUT",
+          "type": "number",
+          "value": "20"
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 116.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 116.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 112.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 116.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 95,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 94.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 92.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-post-finishing-field=\"qc-task-input\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 94.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+        "index": 0,
+        "text": "领取质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 104.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+        "index": 0,
+        "text": "领取质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+        "index": 0,
+        "text": "领取质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+        "index": 0,
+        "text": "领取质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"full-flow-claim-qc\"]",
+        "index": 0,
+        "text": "领取质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 116,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 96.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 100,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 111,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 90.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 88.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 90.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 91.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 93.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 128.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 128.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 131.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 115.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_ORDER\"]",
+        "index": 0,
+        "text": "打印质检单",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_ORDER\"]",
+          "index": 0,
+          "text": "打印质检单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 112.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"close-qc-print-dialog\"]",
+        "index": 0,
+        "text": "关闭",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 113.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 90.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 90.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "input[data-qc-print-task-no=\"\"]",
+        "index": 0,
+        "text": "",
+        "tag": "INPUT",
+        "type": "text",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 89.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 1,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 128.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 2,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 147,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 3,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 116.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 4,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 130.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/craft/post-finishing/qc-workbench",
+      "control": {
+        "selector": "button[data-post-finishing-action=\"confirm-qc-print\"][data-qc-print-type=\"QC_DETAIL\"]",
+        "index": 0,
+        "text": "打印质检单详情",
+        "tag": "BUTTON",
+        "type": "button",
+        "value": ""
+      },
+      "prepare": [
+        {
+          "selector": "button[data-post-finishing-action=\"full-flow-complete-qc\"][data-task-id=\"PF-QC-PF-ACCEPT-PO-1-4\"][data-qc-complete-label=\"\"]",
+          "index": 0,
+          "text": "完成质检并生成后道加工单",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        },
+        {
+          "selector": "button[data-post-finishing-action=\"open-qc-print-dialog\"][data-qc-print-type=\"QC_DETAIL\"]",
+          "index": 0,
+          "text": "打印质检单详情",
+          "tag": "BUTTON",
+          "type": "button",
+          "value": ""
+        }
+      ],
+      "trial": 5,
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "ms": 114.79999999701977,
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "note": "同一模板的重复行按钮/列偏好按同一动作入口汇总，instances保留实例；未删减数据。实际点击/输入、模块请求、IndexedDB事务完成、图片与两次绘制；保存后刷新持久结果另见browser-contract.json。覆盖此脚本登记的入口，不据此宣称所有状态/跨端路径已经覆盖。",
+  "sourceSha256": "070adb5ff16d37810ee28c446f25f95994b7e88bb2044ba8c200ad0964846845",
+  "runtimeVersion": "build-final34",
+  "scriptSha256": "6d9a826d28c720766baacf6d97ef9946f924e511e2b18e41aac43c7c39ab15f3"
+}

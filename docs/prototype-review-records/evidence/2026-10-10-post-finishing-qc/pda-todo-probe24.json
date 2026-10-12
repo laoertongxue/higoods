@@ -1,0 +1,107 @@
+{
+  "before": [
+    {
+      "id": "todo-inbound-diff-WPS-INB-ISSUE-DYE-DWO-013-001",
+      "type": "差异待处理",
+      "title": "PT Prima Printing Center · 待加工仓差异待处理"
+    },
+    {
+      "id": "todo-inbound-diff-WPS-INB-ISSUE-DYE-DYE-DISPATCH-DEMO-4-001",
+      "type": "差异待处理",
+      "title": "PT Prima Printing Center · 待加工仓差异待处理"
+    },
+    {
+      "id": "todo-inbound-diff-WPS-INB-ISSUE-DYE-DYE-DISPATCH-DEMO-5-001",
+      "type": "差异待处理",
+      "title": "PT Prima Printing Center · 待加工仓差异待处理"
+    },
+    {
+      "id": "todo-settlement-ST-LINK-2026-0009",
+      "type": "对账待确认",
+      "title": "双周 2026-02-01 ~ 2026-02-14待确认"
+    }
+  ],
+  "after": [
+    {
+      "id": "todo-inbound-diff-WPS-INB-ISSUE-DYE-DWO-013-001",
+      "type": "差异待处理",
+      "title": "PT Prima Printing Center · 待加工仓差异待处理"
+    },
+    {
+      "id": "todo-inbound-diff-WPS-INB-ISSUE-DYE-DYE-DISPATCH-DEMO-4-001",
+      "type": "差异待处理",
+      "title": "PT Prima Printing Center · 待加工仓差异待处理"
+    },
+    {
+      "id": "todo-inbound-diff-WPS-INB-ISSUE-DYE-DYE-DISPATCH-DEMO-5-001",
+      "type": "差异待处理",
+      "title": "PT Prima Printing Center · 待加工仓差异待处理"
+    },
+    {
+      "id": "todo-settlement-ST-LINK-2026-0009",
+      "type": "对账待确认",
+      "title": "双周 2026-02-01 ~ 2026-02-14待确认"
+    },
+    {
+      "id": "todo-finish-DYE-DISPATCH-DEMO-4",
+      "type": "待完工",
+      "title": "匹染待完工"
+    },
+    {
+      "id": "todo-finish-DYE-DISPATCH-DEMO-5",
+      "type": "待完工",
+      "title": "匹染待完工"
+    },
+    {
+      "id": "todo-finish-DYE-YARN-DEMO-1",
+      "type": "待完工",
+      "title": "纱线段染待完工"
+    },
+    {
+      "id": "todo-finish-DYE-YARN-DEMO-2",
+      "type": "待完工",
+      "title": "纱线段染待完工"
+    },
+    {
+      "id": "todo-finish-DYE-YARN-DEMO-3",
+      "type": "待完工",
+      "title": "纱线段染待完工"
+    },
+    {
+      "id": "todo-handout-HO-DYEDISPATCHDEMO5",
+      "type": "待交出",
+      "title": "匹染待交出"
+    },
+    {
+      "id": "todo-handout-HO-DYEYARNDEMO1",
+      "type": "待交出",
+      "title": "纱线段染待交出"
+    },
+    {
+      "id": "todo-handout-HO-DYEYARNDEMO2",
+      "type": "待交出",
+      "title": "纱线段染待交出"
+    },
+    {
+      "id": "todo-handout-HO-DYEYARNDEMO3",
+      "type": "待交出",
+      "title": "纱线段染待交出"
+    },
+    {
+      "id": "todo-handout-HO-DYEDISPATCHDEMO4",
+      "type": "待交出",
+      "title": "匹染待交出"
+    },
+    {
+      "id": "todo-start-TASK-DYE-000733",
+      "type": "待开工",
+      "title": "染色待开工"
+    },
+    {
+      "id": "todo-start-TASK-DYE-000723",
+      "type": "待开工",
+      "title": "染色待开工"
+    }
+  ],
+  "ms": 419.6000000089407
+}

@@ -1,0 +1,187 @@
+{
+  "ms": 719.5999999940395,
+  "metrics": {
+    "navigation": [
+      {
+        "dom": 95.8999999910593,
+        "response": 19.899999991059303,
+        "load": 96
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 215.8999999910593,
+        "duration": 162,
+        "name": "self"
+      },
+      {
+        "start": 619.5999999940395,
+        "duration": 70,
+        "name": "self"
+      }
+    ],
+    "resources": [
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-deduction-selectors-XqlqUvZx.js",
+        "duration": 98,
+        "size": 6579
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/store-domain-quality-bootstrap-D7ID07cP.js",
+        "duration": 89.20000000298023,
+        "size": 5695
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-Eapp_Hbz.js",
+        "duration": 85.09999999403954,
+        "size": 14267
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-chain-adapter-Cq0h2X5s.js",
+        "duration": 82.79999999701977,
+        "size": 1963
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/quality-deduction-repository-CskHQuj8.js",
+        "duration": 77,
+        "size": 24137
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/tmf-material-purchases-JEELkFW_.js",
+        "duration": 76.20000000298023,
+        "size": 32794
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/warehouses-bLRTZZxS.js",
+        "duration": 71.20000000298023,
+        "size": 2409
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/suppliers-DW0-j-lW.js",
+        "duration": 70.6000000089407,
+        "size": 5565
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/generated-cut-orders-YRZk3czr.js",
+        "duration": 62.29999999701977,
+        "size": 5616
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/production-contracts-DrPCvSeZ.js",
+        "duration": 62.20000000298023,
+        "size": 2898
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/production-return-fulfillment-BvKpT-51.js",
+        "duration": 62.20000000298023,
+        "size": 4127
+      },
+      {
+        "url": "http://127.0.0.1:43210/assets/runtime-task-tenders-YGz6fHpq.js",
+        "duration": 62.099999994039536,
+        "size": 2028
+      }
+    ],
+    "visibility": "visible",
+    "focus": true
+  },
+  "cpu": [
+    [
+      " (idle)",
+      253.62499999999986
+    ],
+    [
+      " (program)",
+      179.08300000000003
+    ],
+    [
+      "http://127.0.0.1:43210/assets/pcs-config-workspace-repository-C7cYE8af.js Y",
+      22.224
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js ",
+      21.363
+    ],
+    [
+      " ",
+      20.155
+    ],
+    [
+      " (garbage collector)",
+      14.591999999999999
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-DNVezKFR.js ",
+      9.693999999999999
+    ],
+    [
+      " structuredClone",
+      8.927
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-source-shared-Bj4b3XYm.js ",
+      7.555000000000001
+    ],
+    [
+      "http://127.0.0.1:43210/assets/material-ledger-BtNOVN9c.js ",
+      6.602
+    ],
+    [
+      "http://127.0.0.1:43210/assets/cut-piece-release-DNVezKFR.js A",
+      5.171
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-BayJgvqu.js ",
+      5.0200000000000005
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-CauZErJw.js ",
+      4.606
+    ],
+    [
+      " appendChild",
+      4.196
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-BayJgvqu.js Ie",
+      3.79
+    ],
+    [
+      "http://127.0.0.1:43210/assets/production-orders-CauZErJw.js be",
+      3.7749999999999995
+    ],
+    [
+      "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-Eapp_Hbz.js ",
+      3.688
+    ],
+    [
+      "http://127.0.0.1:43210/assets/post-finishing-records-Dz2Er7nj.js V",
+      3.597
+    ],
+    [
+      "http://127.0.0.1:43210/assets/app-shared-DK5s7MKq.js fr",
+      3.405
+    ],
+    [
+      "http://127.0.0.1:43210/assets/index-fyv-iyLJ.js ",
+      3.06
+    ],
+    [
+      "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-Eapp_Hbz.js ne",
+      2.745
+    ],
+    [
+      "http://127.0.0.1:43210/assets/process-tasks-BayJgvqu.js ua",
+      2.623
+    ],
+    [
+      "http://127.0.0.1:43210/assets/settlement-linked-mock-factory-Eapp_Hbz.js xt",
+      2.5940000000000003
+    ],
+    [
+      "http://127.0.0.1:43210/assets/index-fyv-iyLJ.js as",
+      2.578
+    ]
+  ],
+  "sourceSha256": "16c82cfb6ae7845873303952b17dcaf29f70d9faa2dac0e6a16bc2070f0fa37d"
+}

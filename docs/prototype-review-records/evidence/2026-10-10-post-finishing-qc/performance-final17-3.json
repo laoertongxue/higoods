@@ -1,0 +1,1156 @@
+{
+  "segment": 3,
+  "browser": "155.0.8059.39",
+  "service": "http://127.0.0.1:43210",
+  "data": "静态 3 个生产单 / 15 次回货 / 75 条 SKU",
+  "samples": [
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 396.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 296.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 386.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 313.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 361.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 297.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 99.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 375.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 296.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 98.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 369.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 297.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 350.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 262.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 96.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 381.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 262.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 98.09999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 349.40000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 264.19999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 97.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 356.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 263.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 337.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 278.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 100.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 419.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 265.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 99.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 333.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 264.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 99.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 338.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 266,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 344.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 264.8999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 97.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 339.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 263,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 99.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 348.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 264.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 98.80000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 339.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 264,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 96.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 336.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 263.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 97.1000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 345.70000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 263.90000000596046,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 99.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 339.59999999403954,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 263.3999999910593,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 98.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "cold",
+      "ms": 448.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "refresh",
+      "ms": 346.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 1,
+      "kind": "navigation",
+      "ms": 116.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "cold",
+      "ms": 454,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "refresh",
+      "ms": 364.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 2,
+      "kind": "navigation",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "cold",
+      "ms": 444.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "refresh",
+      "ms": 346.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 3,
+      "kind": "navigation",
+      "ms": 116.30000001192093,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "cold",
+      "ms": 441.69999998807907,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "refresh",
+      "ms": 347.20000000298023,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 4,
+      "kind": "navigation",
+      "ms": 115.29999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "cold",
+      "ms": 451.5,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "refresh",
+      "ms": 345.79999999701977,
+      "pass": true
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "device": {
+        "width": 390,
+        "height": 844
+      },
+      "trial": 5,
+      "kind": "navigation",
+      "ms": 116.8999999910593,
+      "pass": true
+    }
+  ],
+  "inventory": [
+    {
+      "route": "/fcs/pda/handover/sewing-self-return",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "管理员退出",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "admin-exit"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-pda-sewing-self-return-field": "scanValue",
+            "data-pda-scan-enter": "true",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "识别",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "scan"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载验收示例码",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "load-demo"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看并确认",
+          "attrs": {
+            "data-nav": "/fcs/pda/post-finishing/return-confirm?id=PO-QC-202608-003-5"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看并确认",
+          "attrs": {
+            "data-nav": "/fcs/pda/post-finishing/return-confirm?id=PO-QC-202608-003-4"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查看并确认",
+          "attrs": {
+            "data-nav": "/fcs/pda/post-finishing/return-confirm?id=PO-QC-202608-003-3"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-black.jpg",
+            "data-image-label": "SPU-QC-003-01 黑色 S"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-white.jpg",
+            "data-image-label": "SPU-QC-003-02 白色 M"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-blue.jpg",
+            "data-image-label": "SPU-QC-003-03 雾蓝 L"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-khaki.jpg",
+            "data-image-label": "SPU-QC-003-04 卡其 XL"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "加载中…",
+          "attrs": {
+            "data-pda-sewing-self-return-action": "zoom-image",
+            "data-image-url": "/materials/pcs-reviewed/jacket-wine.jpg",
+            "data-image-label": "SPU-QC-003-05 酒红 2XL"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/post-finishing/return-confirm",
+      "controls": [
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-pda-post-field": "returnScan",
+            "data-pda-scan-enter": "true",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {
+            "data-pda-post-action": "scan-return"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/post-finishing/execute",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "←返回",
+          "attrs": {
+            "data-nav": "/fcs/pda/exec",
+            "data-testid": "pda-post-back"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-pda-post-field": "postScan",
+            "data-pda-scan-enter": "true",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {
+            "data-pda-post-action": "scan-post"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/post-finishing/recheck",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "←返回",
+          "attrs": {
+            "data-nav": "/fcs/pda/exec",
+            "data-testid": "pda-post-back"
+          }
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "attrs": {
+            "data-pda-post-field": "recheckScan",
+            "data-pda-scan-enter": "true",
+            "data-skip-page-rerender": "true"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "查询",
+          "attrs": {
+            "data-pda-post-action": "scan-recheck"
+          }
+        }
+      ]
+    },
+    {
+      "route": "/fcs/pda/handover",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "待接收\n              5",
+          "attrs": {
+            "data-pda-handover-action": "switch-tab",
+            "data-tab": "pickup"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "已交出\n              1",
+          "attrs": {
+            "data-pda-handover-action": "switch-tab",
+            "data-tab": "shipped"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "回货接收\n        扫描送货单",
+          "attrs": {
+            "data-nav": "/fcs/pda/post-finishing/return-confirm",
+            "data-pda-pickup-entry": "return"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "自助回货\n        需管理员",
+          "attrs": {
+            "data-pda-handover-action": "open-sewing-self-return-mode",
+            "data-pda-pickup-entry": "self-return"
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "辅料接收\n        待入库 5 张",
+          "attrs": {
+            "data-pda-handover-action": "open-material-transfer-scan",
+            "data-pda-pickup-entry": "material",
+            "data-skip-page-rerender": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "aeb9e9d66b518bd8c0c9d00d04dc37f1225d9dac3a56d15cae7f1a26074a5f9a",
+  "runtimeVersion": "build-final17",
+  "scriptSha256": "aa8789d30336fe1cddc180a993a17101eb1b016bf6393c5ef0f7e548873deb5f"
+}

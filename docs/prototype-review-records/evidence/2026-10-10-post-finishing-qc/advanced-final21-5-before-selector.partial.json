@@ -1,0 +1,688 @@
+{
+  "sourceSha256": "ba98f6954191555e9514f9b397abd4fcdc137c8c7540f28b7e99c5e571600654",
+  "runtimeVersion": "build-final21",
+  "worktree": "/Users/laoer/.codex/worktrees/8fb6/higoods",
+  "service": "http://127.0.0.1:43210",
+  "segment": 5,
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 376.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 113.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 318.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 321.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 331.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 319.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 94.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 330.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 329,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-冷开",
+      "ms": 323.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 325.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-冷开",
+      "ms": 311.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 327,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-冷开",
+      "ms": 335.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-打开领取",
+      "ms": 115.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 331.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-冷开",
+      "ms": 332.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 343.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-冷开",
+      "ms": 323.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-打开领取",
+      "ms": 114.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "input",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检-完整FJ输入",
+      "ms": 95.40000000596046,
+      "pass": true
+    }
+  ],
+  "errors": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "Web复检原子提交",
+      "error": "page.waitForFunction: Timeout 4000ms exceeded."
+    },
+    {
+      "interrupted": true,
+      "reason": "测量就绪条件只匹配复检单列表标题，领取后实际为复检单详情；更正测量条件后重测。"
+    }
+  ],
+  "checks": []
+}

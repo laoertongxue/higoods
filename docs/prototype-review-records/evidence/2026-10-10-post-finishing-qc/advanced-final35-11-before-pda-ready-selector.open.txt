@@ -1,0 +1,9 @@
+### Browser `pf35-advanced-11` opened with pid 34853.
+### Ran Playwright code
+```js
+await page.goto('about:blank');
+```
+### Page
+- Page URL: about:blank
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-10-10T15-53-26-528Z.yml)

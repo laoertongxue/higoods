@@ -1,0 +1,24 @@
+{
+  "suite": "后道 Web 执行与 PDA 数量归类一致性",
+  "skuCount": 5,
+  "processedQuantityFacts": [
+    17,
+    20,
+    20,
+    20,
+    0
+  ],
+  "unprocessedQuantityFacts": [
+    3,
+    0,
+    0,
+    0,
+    20
+  ],
+  "webTakeoverActor": "Web接管操作员",
+  "status": "后道完成",
+  "recheckOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ",
+  "result": "通过"
+}
+(node:81897) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

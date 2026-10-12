@@ -1,0 +1,1454 @@
+{
+  "segment": 4,
+  "service": "http://127.0.0.1:43210",
+  "browser": "155.0.8059.39",
+  "samples": [
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-阻断提示",
+      "ms": 170.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-取消转换",
+      "ms": 130.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-第二批中断",
+      "ms": 165.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 198.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-空浏览器导入",
+      "ms": 126.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-恢复后刷新",
+      "ms": 175.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 87,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-阻断提示",
+      "ms": 171.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-取消转换",
+      "ms": 114.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-第二批中断",
+      "ms": 179.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 193.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-空浏览器导入",
+      "ms": 126.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-恢复后刷新",
+      "ms": 178.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 89.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-阻断提示",
+      "ms": 155,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-取消转换",
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-第二批中断",
+      "ms": 181.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 198.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 132.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-空浏览器导入",
+      "ms": 128.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-恢复后刷新",
+      "ms": 165.19999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-阻断提示",
+      "ms": 170.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-取消转换",
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-第二批中断",
+      "ms": 167.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 199.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-空浏览器导入",
+      "ms": 128.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-恢复后刷新",
+      "ms": 178.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-阻断提示",
+      "ms": 171,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-取消转换",
+      "ms": 114.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-第二批中断",
+      "ms": 163.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 198.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-空浏览器导入",
+      "ms": 129.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-恢复后刷新",
+      "ms": 176.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "旧资料-阻断提示",
+      "ms": 171.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "旧资料-取消转换",
+      "ms": 130.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "旧资料-第二批中断",
+      "ms": 177.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 195.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "备份-空浏览器导入",
+      "ms": 127.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "备份-恢复后刷新",
+      "ms": 174,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "旧资料-阻断提示",
+      "ms": 171.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "旧资料-取消转换",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "旧资料-第二批中断",
+      "ms": 181.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 199.30000001192093,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 130.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "备份-空浏览器导入",
+      "ms": 125.80000001192093,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "备份-恢复后刷新",
+      "ms": 176.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "旧资料-阻断提示",
+      "ms": 155.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "旧资料-取消转换",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "旧资料-第二批中断",
+      "ms": 180.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 193.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "备份-空浏览器导入",
+      "ms": 129,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "备份-恢复后刷新",
+      "ms": 177.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 89.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "旧资料-阻断提示",
+      "ms": 156.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "旧资料-取消转换",
+      "ms": 129.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "旧资料-第二批中断",
+      "ms": 179.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 288.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 115,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "备份-空浏览器导入",
+      "ms": 127.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "备份-恢复后刷新",
+      "ms": 172.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 89.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "旧资料-阻断提示",
+      "ms": 169.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "旧资料-取消转换",
+      "ms": 130.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "旧资料-第二批中断",
+      "ms": 181.8999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 198.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "备份-空浏览器导入",
+      "ms": 127.5,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "备份-恢复后刷新",
+      "ms": 180.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 86.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-阻断提示",
+      "ms": 170.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-取消转换",
+      "ms": 130.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-第二批中断",
+      "ms": 181.3999999910593,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 198.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-空浏览器导入",
+      "ms": 128.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-恢复后刷新",
+      "ms": 177,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-阻断提示",
+      "ms": 153.1000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-取消转换",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-第二批中断",
+      "ms": 182.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 199.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.69999998807907,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-空浏览器导入",
+      "ms": 129.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-恢复后刷新",
+      "ms": 164.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 89.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-阻断提示",
+      "ms": 171.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-取消转换",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-第二批中断",
+      "ms": 180,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 193.5,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 130,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-空浏览器导入",
+      "ms": 128.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-恢复后刷新",
+      "ms": 180,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 89.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-阻断提示",
+      "ms": 155.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-取消转换",
+      "ms": 115.79999999701977,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-第二批中断",
+      "ms": 164.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 198.6000000089407,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 131.5,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-空浏览器导入",
+      "ms": 128.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-恢复后刷新",
+      "ms": 169.29999999701977,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 88.20000000298023,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-阻断提示",
+      "ms": 171.59999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-取消转换",
+      "ms": 131,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-第二批中断",
+      "ms": 178,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧资料-重试完成读回清源",
+      "ms": 195.09999999403954,
+      "pass": true
+    },
+    {
+      "kind": "action",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-导出记录及原始附件",
+      "ms": 130.40000000596046,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-空浏览器导入",
+      "ms": 127.90000000596046,
+      "pass": true
+    },
+    {
+      "kind": "load",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-恢复后刷新",
+      "ms": 177.70000000298023,
+      "pass": true
+    },
+    {
+      "kind": "change",
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "备份-错误格式拒绝",
+      "ms": 89.90000000596046,
+      "pass": true
+    }
+  ],
+  "checks": [
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1366,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 1,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 2,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 3,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 4,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1280,
+        "height": 720
+      },
+      "trial": 5,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 1,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 2,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 3,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 4,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    },
+    {
+      "device": {
+        "width": 1024,
+        "height": 768
+      },
+      "trial": 5,
+      "scenario": "旧源取消/中断重试/读回清源/完整备份恢复/错误格式保留"
+    }
+  ],
+  "errors": [],
+  "passed": true,
+  "sourceSha256": "e2162f54f1b0b02ae8b1d933720f50631fa9a823ba66d3752f92a88df29ec36a",
+  "runtimeVersion": "build-final35",
+  "scriptSha256": "f2a507db9211a5e06592f5662443de7fea955d3997c90d6902cdd96094c3557e"
+}
