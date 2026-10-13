@@ -8,10 +8,27 @@ import type {
 
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
-export type TechPackSourceTaskType = 'ENGINEERING_MASTER'
+// MANUAL 直接在技术资料里手动新建，区别于生产准备单路径。
+export type TechPackSourceTaskType = 'ENGINEERING_MASTER' | 'MANUAL'
 // Old sources remain readable; creation accepts only TechPackSourceTaskType.
 export type StoredTechPackSourceTaskType = TechPackSourceTaskType | 'PLATE' | 'REVISION' | 'ARTWORK' | 'PATTERN' | ''
-export type TechPackVersionChangeScope = '生产准备单生成' | '制版生成' | '改款生成' | '设计改款' | '花型生成' | '纸样生成'
+export type TechPackType = 'NORMAL' | 'GARMENT_HEAT_TRANSFER'
+export const TECHPACK_TYPE_LABEL: Record<TechPackType, string> = {
+  NORMAL: '普通',
+  GARMENT_HEAT_TRANSFER: '成衣烫画',
+}
+export const TECHPACK_TYPES: TechPackType[] = ['NORMAL', 'GARMENT_HEAT_TRANSFER']
+export type TechPackVersionChangeScope =
+  | '生产准备单生成'
+  | '制版生成'
+  | '改款生成'
+  | '设计改款'
+  | '花型生成'
+  | '纸样生成'
+  | '直接新建'
+  | '编辑技术包'
+  | '删除技术包'
+  | '设为默认'
 export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
 export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
 
@@ -555,6 +572,10 @@ export interface TechnicalDataVersionRecord {
   styleId: string
   styleCode: string
   styleName: string
+  /** 技术包类型：普通 / 成衣烫画 */
+  techPackType: TechPackType
+  /** 是否为该款式当前默认技术包版本；对应当前生效版本。 */
+  isDefault: boolean
   sourceProjectId: string
   sourceProjectCode: string
   sourceProjectName: string

@@ -1867,6 +1867,7 @@ const TECH_CHANGE_RERENDER_DRIVEN_FIELDS = new Set([
   'new-bom-print-requirement',
   'new-bom-print-side-mode',
   'new-design-file',
+  'new-attachment-file',
 ])
 const MARKER_PLAN_INPUT_SELECTOR = [
   '[data-marker-plan-filter-field]',

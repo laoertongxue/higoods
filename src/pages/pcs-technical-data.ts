@@ -1,5 +1,5 @@
 import { getGarmentBomMaterialType, isSimpleBomMaterialSku } from '../data/pcs-engineering-bom-material-resolver.ts'
-import { technicalListState as listState, technicalLogModal, technicalAssignmentFeedback, technicalImagePreview, renderTechnicalImagePreview, renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
+import { technicalListState as listState, technicalLogModal, technicalAssignmentFeedback, technicalImagePreview, technicalCreateModal, technicalDeleteDialog, renderTechnicalImagePreview, renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
 export { renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
 import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 // @page-pattern: list
@@ -12,7 +12,17 @@ import { renderStandardListTable, type StandardListColumn } from '../components/
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import { ensureEngineeringMasterDemoData } from '../data/pcs-engineering-master-view-model.ts'
 import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
-import { assignTechnicalPackResponsible, getTechnicalDataVersionContent } from '../data/pcs-technical-data-version-repository.ts'
+import { listStyleArchives } from '../data/pcs-style-archive-repository.ts'
+import {
+  assignTechnicalPackResponsible,
+  createManualTechPackVersion,
+  deleteTechPackVersion,
+  getTechnicalDataVersionContent,
+  getTechnicalDataVersionById,
+  listTechnicalDataVersions,
+  setTechPackAsDefault,
+} from '../data/pcs-technical-data-version-repository.ts'
+import { TECHPACK_TYPES, type TechPackType } from '../data/pcs-technical-data-version-types.ts'
 import {
   getEngineeringBomPricingPlan,
   getEngineeringBomVersionById,
@@ -288,18 +298,149 @@ export function handlePcsTechnicalDataInput(target: Element): boolean {
   if (node.dataset.techDataField === 'patternMaker') listState.patternMaker = node.value
   if (node.dataset.techDataField === 'createdFrom') listState.createdFrom = node.value
   if (node.dataset.techDataField === 'createdTo') listState.createdTo = node.value
+  if (node.dataset.techDataField === 'type') listState.techPackType = node.value
   if (node.dataset.techDataField === 'needMyAudit') listState.needMyAudit = (node as HTMLInputElement).checked
   if (node.dataset.techDataField === 'spuDistinct') listState.spuDistinct = (node as HTMLInputElement).checked
+  // 创建 modal 内的字段
+  if (node.dataset.techDataField === 'create.spuInput') {
+    technicalCreateModal.spuInput = node.value
+    const matched = listStyleArchives().find(style => style.styleCode.toLowerCase() === node.value.trim().toLowerCase())
+    technicalCreateModal.resolvedStyleId = matched?.styleId || ''
+    // 选择款式之后，如果该款式已有版本，建议默认复制
+    if (matched) {
+      const hasPublishedComplete = listTechnicalDataVersions().some(record => record.styleId === matched.styleId && record.versionStatus === 'PUBLISHED' && record.completenessScore === 100)
+      if (hasPublishedComplete && technicalCreateModal.copySourceMode === 'BLANK') {
+        // 维持 BLANK 模式但给提示；不主动切换
+      }
+    }
+  }
+  if (node.dataset.techDataField === 'create.techPackType') {
+    if (TECHPACK_TYPES.includes(node.value as TechPackType)) technicalCreateModal.techPackType = node.value as TechPackType
+  }
+  if (node.dataset.techDataField === 'create.copySourceMode') {
+    if (node.value === 'CURRENT_STYLE' || node.value === 'OTHER_STYLE' || node.value === 'BLANK') {
+      technicalCreateModal.copySourceMode = node.value
+      if (node.value === 'BLANK') technicalCreateModal.copySourceVersionId = ''
+    }
+  }
+  if (node.dataset.techDataField === 'create.copySourceVersionId') {
+    technicalCreateModal.copySourceVersionId = node.value
+  }
   return true
 }
 
 export async function handlePcsTechnicalDataEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && technicalImagePreview.value) { technicalImagePreview.value = null; rerender(); return true }
+  if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && technicalCreateModal.open) { technicalCreateModal.open = false; rerender(); return true }
+  if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && technicalDeleteDialog.open) { technicalDeleteDialog.open = false; rerender(); return true }
   const node = target.closest<HTMLElement>('[data-tech-data-action], [data-tech-data-field]')
   const action = node?.dataset.techDataAction || ''
   if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && technicalLogModal.versionId) { technicalLogModal.versionId = ''; rerender(); return true }
   if (action === 'open-log') { technicalLogModal.versionId = node?.dataset.technicalVersionId || ''; rerender(); return true }
   if (action === 'close-log') { technicalLogModal.versionId = ''; rerender(); return true }
+  if (action === 'open-create-modal') {
+    technicalCreateModal.open = true
+    technicalCreateModal.spuInput = ''
+    technicalCreateModal.resolvedStyleId = ''
+    technicalCreateModal.techPackType = 'NORMAL'
+    technicalCreateModal.copySourceMode = 'BLANK'
+    technicalCreateModal.copySourceVersionId = ''
+    technicalCreateModal.submitting = false
+    technicalCreateModal.error = ''
+    rerender(); return true
+  }
+  if (action === 'close-create-modal') { technicalCreateModal.open = false; technicalCreateModal.error = ''; rerender(); return true }
+  if (action === 'submit-create') {
+    if (event && event.type !== 'submit') {
+      event?.preventDefault?.()
+    }
+    const matched = listStyleArchives().find(style => style.styleCode.toLowerCase() === technicalCreateModal.spuInput.trim().toLowerCase())
+    technicalCreateModal.resolvedStyleId = matched?.styleId || ''
+    if (!matched) {
+      technicalCreateModal.error = '请先输入完整 SPU 并等待匹配后再保存。'
+      rerender(); return true
+    }
+    if (technicalCreateModal.copySourceMode !== 'BLANK' && !technicalCreateModal.copySourceVersionId) {
+      technicalCreateModal.error = '请选择复制来源版本。'
+      rerender(); return true
+    }
+    technicalCreateModal.submitting = true
+    technicalCreateModal.error = ''
+    rerender()
+    try {
+      const copyFromContent = technicalCreateModal.copySourceMode === 'BLANK'
+        ? null
+        : (() => {
+            const record = listTechnicalDataVersions().find(item => item.technicalVersionId === technicalCreateModal.copySourceVersionId)
+            return record ? getTechnicalDataVersionContent(record.technicalVersionId) : null
+          })()
+      await runPcsRecordCommand(
+        () => createManualTechPackVersion({
+          styleId: matched.styleId,
+          techPackType: technicalCreateModal.techPackType,
+          copyFromVersionId: technicalCreateModal.copySourceMode === 'BLANK' ? '' : technicalCreateModal.copySourceVersionId,
+        }),
+        crypto.randomUUID(),
+        ['higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1'],
+      )
+      technicalAssignmentFeedback.message = technicalCreateModal.copySourceMode === 'BLANK'
+        ? `已空白新建${technicalCreateModal.techPackType === 'GARMENT_HEAT_TRANSFER' ? '成衣烫画' : '普通'}技术包。`
+        : `已从已有版本复制创建技术包。`
+      technicalAssignmentFeedback.ok = true
+      technicalCreateModal.open = false
+      // copyFromContent is reserved for future content cloning; suppress unused-warning.
+      void copyFromContent
+    } catch (error) {
+      technicalCreateModal.error = error instanceof Error ? error.message : '新增失败，请重试。'
+    } finally {
+      technicalCreateModal.submitting = false
+    }
+    rerender(); return true
+  }
+  if (action === 'set-default') {
+    try {
+      await runPcsRecordCommand(
+        () => setTechPackAsDefault(node?.dataset.technicalVersionId || ''),
+        crypto.randomUUID(),
+        ['higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1'],
+      )
+      technicalAssignmentFeedback.message = '已设为该款式当前默认技术包版本。'; technicalAssignmentFeedback.ok = true
+    } catch (error) {
+      technicalAssignmentFeedback.message = error instanceof Error ? error.message : '设为默认失败。'; technicalAssignmentFeedback.ok = false
+    }
+    rerender(); return true
+  }
+  if (action === 'open-delete-dialog') {
+    const record = getTechnicalDataVersionById(node?.dataset.technicalVersionId || '')
+    if (!record) { technicalAssignmentFeedback.message = '技术包不存在。'; technicalAssignmentFeedback.ok = false; rerender(); return true }
+    technicalDeleteDialog.open = true
+    technicalDeleteDialog.versionId = record.technicalVersionId
+    technicalDeleteDialog.versionCode = record.technicalVersionCode
+    technicalDeleteDialog.styleName = record.styleName
+    technicalDeleteDialog.techPackType = record.techPackType
+    technicalDeleteDialog.submitting = false
+    rerender(); return true
+  }
+  if (action === 'close-delete-dialog') { technicalDeleteDialog.open = false; rerender(); return true }
+  if (action === 'confirm-delete') {
+    if (!technicalDeleteDialog.versionId) return true
+    technicalDeleteDialog.submitting = true
+    rerender()
+    try {
+      await runPcsRecordCommand(
+        () => deleteTechPackVersion(technicalDeleteDialog.versionId),
+        crypto.randomUUID(),
+        ['higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1', 'higood-pcs-style-archive-store-v3'],
+      )
+      technicalAssignmentFeedback.message = '技术包已删除。'; technicalAssignmentFeedback.ok = true
+      technicalDeleteDialog.open = false
+    } catch (error) {
+      technicalAssignmentFeedback.message = error instanceof Error ? error.message : '删除失败，请重试。'; technicalAssignmentFeedback.ok = false
+    } finally {
+      technicalDeleteDialog.submitting = false
+    }
+    rerender(); return true
+  }
   if (action === 'assign-person') {
     if (event?.type !== 'change') return false
     try {
