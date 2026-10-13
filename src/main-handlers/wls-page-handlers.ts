@@ -61,11 +61,17 @@ import { handleTransitWarehouseTransferEvent } from '../pages/wls/transit/wareho
 import { handleTransitWorkAreaManageEvent } from '../pages/wls/transit/work-area-manage.ts'
 import { handleWaveManageEvent } from '../pages/wls/finished/wave-manage.ts'
 import { handleWlsAccessoryReceiptsEvent } from '../pages/wls-accessory-receipts.ts'
+import { handleWlsProductionPrepEvent } from '../pages/wls/production-prep/allocation.ts'
 
 type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean
 
 const pageEventHandlers: Record<string, WlsPageEventHandler> = {
   '/wls/accessory-receipts': handleWlsAccessoryReceiptsEvent,
+  '/wls/production-prep/dyeing': handleWlsProductionPrepEvent,
+  '/wls/production-prep/printing': handleWlsProductionPrepEvent,
+  '/wls/production-prep/sewing': handleWlsProductionPrepEvent,
+  '/wls/production-prep/other': handleWlsProductionPrepEvent,
+  '/wls/production-prep/knitting': handleWlsProductionPrepEvent,
   '/wls/finished/dashboard': handleFinishedDashboardEvent,
   '/wls/raw/pda': handleRawPdaEvent,
   '/wls/finished/pda': handleFinishedPdaEvent,
