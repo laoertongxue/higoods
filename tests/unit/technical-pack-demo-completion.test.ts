@@ -135,7 +135,7 @@ test('TP-LEGACY-002: repository reads old demo without writes; new legacy-source
     Object.assign(pcsRecordStore,{getItem:k=>values.get(k)||null,setItem:(k,v)=>{writes++;values.set(k,v)},removeItem:()=>{writes++}});
     const repo=await import('./src/data/pcs-technical-data-version-repository.ts');
     const list=repo.listTechnicalDataVersions();assert.equal(list.length,26);assert.equal(list.filter(x=>x.versionStatus==='PUBLISHED'&&x.completenessScore===100&&!x.missingItemCodes.length).length,20);assert.equal(writes,0);
-    const old=list.find(x=>x.createdFromTaskType==='PLATE');assert(old);assert.throws(()=>repo.createTechnicalDataVersionDraft({...old,technicalVersionId:'new-legacy'}),/只能由生产准备单生成/);assert.equal(writes,0);
+    const old=list.find(x=>x.createdFromTaskType==='PLATE');assert(old);assert.throws(()=>repo.createTechnicalDataVersionDraft({...old,technicalVersionId:'new-legacy'}),/只能由生产准备单或手动方式生成/);assert.equal(writes,0);
     repo.assignTechnicalPackResponsible(old.technicalVersionId,'跟单','U001');
     const saved=JSON.parse(values.get('higood-pcs-technical-data-version-store-v5'));assert.equal(saved.records.length,1,'one edit must not write the remaining static baseline');assert.equal(saved.contents.length,1);assert.equal(repo.buildTechnicalDataDerivedState(saved.records[0].versionStatus,saved.contents[0]).completenessScore,100);
   `], {encoding:'utf8'})
