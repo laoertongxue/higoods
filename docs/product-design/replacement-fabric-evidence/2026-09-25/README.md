@@ -8,7 +8,7 @@
 - 基线：`aac68249a0d32dcd71807811684ebf94dbf7cc79` 加未提交任务差异。
 - 工作树：`/Users/laoer/.codex/worktrees/replacement-fabric-tickets/higoods`。
 - 开发服务：43225；同工作树构建预览：43226；LAN：192.168.5.10。
-- 源文件摘要见 `source-manifest.json`；浏览器与设备信息见 `environment.txt`。
+- 源文件摘要见 [source-manifest.json](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/source-manifest.json)；浏览器与设备信息见 [environment.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/environment.txt)。
 - 路由性能在构建预览测量；业务夹具使用开发服务的模块入口。两类服务的结果分别保存，不能互相替代。
 - 测试数据均为隔离浏览器上下文中的原型演示，不是工厂事实；没有清除用户浏览器数据。
 
@@ -33,7 +33,7 @@
 ## 复现方法
 
 1. 在上述工作树安装既有依赖，执行 `npm run build`，再以 `npm run preview -- --host 0.0.0.0 --port 43226` 启动构建预览；开发夹具使用43225的Vite服务。
-2. 创建 `output/playwright/hpb/`，把本目录脚本复制到该目录。恢复错误文件测试使用同目录的 `invalid.higcut`；测试产生的备份、图片仍写入该目录。
+2. 创建 `output/playwright/hpb/`，把本目录脚本复制到该目录。恢复错误文件测试使用同目录的 [invalid.higcut](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/invalid.higcut)；测试产生的备份、图片仍写入该目录。
 3. 用已配置的 Playwright CLI 会话执行相应 `run-code` 脚本。PDA脚本使用演示裁床角色；所有改动在新隔离上下文中执行。LAN脚本按当前机器IP替换地址后运行。
 4. 路由性能开始前停止构建、索引等CPU密集操作；每个样本从导航或路由事件开始，等待目标DOM、必要图片及两帧绘制。保存动作同时断言可读结果。
 5. 不从历史通过记录推断当前通过。实质修改后重新运行受影响脚本并更新源文件摘要。

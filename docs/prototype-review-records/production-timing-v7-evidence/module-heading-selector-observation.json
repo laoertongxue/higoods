@@ -1,6 +1,0 @@
-{
-  "kind": "harness-selector",
-  "invalidOption": "getByRole heading level=1 is not supported by the browser tool",
-  "correction": "#pf-app h1, one exact visible heading",
-  "appDefect": false
-}

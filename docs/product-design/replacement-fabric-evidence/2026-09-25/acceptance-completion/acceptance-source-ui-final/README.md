@@ -16,22 +16,22 @@
 
 ## 最终脚本
 
-- `check-perf-final.js`：9路由×3访问方式×5样本，端口43236；Web1366×768、PDA390×844，可读内容与视口图片完成后两帧，不以Loading为终点。记录consoleerror与pageerror。
-- `check-actions-final.js`：派到HiGood裁床→默认票→新增独立票→整任务改派离开→历史不可操作；legacy定标及刷新；样衣真实文件接收/移交及刷新。每场景5个新浏览器上下文。
-- `check-pda-accept-final.js`：Web真实分配→PDA真实账号登录→确认接单→执行列表→刷新一致，5样本。
+- [check-perf-final.js](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-perf-final.js)：9路由×3访问方式×5样本，端口43236；Web1366×768、PDA390×844，可读内容与视口图片完成后两帧，不以Loading为终点。记录consoleerror与pageerror。
+- [check-actions-final.js](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-actions-final.js)：派到HiGood裁床→默认票→新增独立票→整任务改派离开→历史不可操作；legacy定标及刷新；样衣真实文件接收/移交及刷新。每场景5个新浏览器上下文。
+- [check-pda-accept-final.js](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-pda-accept-final.js)：Web真实分配→PDA真实账号登录→确认接单→执行列表→刷新一致，5样本。
 
 当前不得将 build2 或 dev 结果视为最终 build4 通过。合同打印、责任移交和工厂结束两入口须由真实可操作前置任务验收；默认空列表不冒充这些动作通过。
 
 ## 合并任务开工遗漏修复（最终编译前）
 
-真实 preview 点击“开始生产”原先因未进入来源事务被阻断：`start-ui-probe-3.txt`。两个 MERGED 开工入口现等待同一个来源事务，已有仓库交出头由已保存 runtime 事实读出；只有真正新增的空交出单头才写 `started-handover-head` 记录，不复制交出/实收明细。
+真实 preview 点击“开始生产”原先因未进入来源事务被阻断：[start-ui-probe-3.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/start-ui-probe-3.txt)。两个 MERGED 开工入口现等待同一个来源事务，已有仓库交出头由已保存 runtime 事实读出；只有真正新增的空交出单头才写 `started-handover-head` 记录，不复制交出/实收明细。
 
-`start-failure-fixed-dev-4.txt` 为 Mock 前置（180 件、两 SKU、已接单、前置已接收）＋真实 PDA 按钮：真正 taskOverrides 写入注入失败，页面维持待开始；解除注入后同按钮重试，刷新仍为生产中待交出，IDB 单次 START_TASK，原 formal 交出键零写入，console/pageerror 零错误。前面未触发头写入的注入样本完整保留；原因是仓库来源已经按 runtime 生成交出头，不能将其记作故障通过。
+[start-failure-fixed-dev-4.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/start-failure-fixed-dev-4.txt) 为 Mock 前置（180 件、两 SKU、已接单、前置已接收）＋真实 PDA 按钮：真正 taskOverrides 写入注入失败，页面维持待开始；解除注入后同按钮重试，刷新仍为生产中待交出，IDB 单次 START_TASK，原 formal 交出键零写入，console/pageerror 零错误。前面未触发头写入的注入样本完整保留；原因是仓库来源已经按 runtime 生成交出头，不能将其记作故障通过。
 
-`start-codec-unit-2.txt` 35/35；`start-tsc.txt` 仅既有六处错误。最终 production 严格性能仍等待统一构建后重采，以上仅功能定位与开发服务器复验，不替代最终同版证据。
+[start-codec-unit-2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/start-codec-unit-2.txt) 35/35；[start-tsc.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/start-tsc.txt) 仅既有六处错误。最终 production 严格性能仍等待统一构建后重采，以上仅功能定位与开发服务器复验，不替代最终同版证据。
 
 ## 拆解预览首读落盘修复（build8前）
 
-`breakdown-stage-stacks.txt` 将真实生成、打开预览、确认拆解分阶段抓栈：所有旧业务写来自打开预览触发印花演示执行初始化，创建仅写页签偏好，确认拆解不写旧源。修复只改预览直接读链：`production-task-breakdown.ts` 读取加工单来源状态；`printing-task-domain.ts` 不在轻量来源读取时初始化示例收料/进度；`dyeing-task-domain.ts` 提供相同语义的来源摘要读取。
+[breakdown-stage-stacks.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/breakdown-stage-stacks.txt) 将真实生成、打开预览、确认拆解分阶段抓栈：所有旧业务写来自打开预览触发印花演示执行初始化，创建仅写页签偏好，确认拆解不写旧源。修复只改预览直接读链：`production-task-breakdown.ts` 读取加工单来源状态；`printing-task-domain.ts` 不在轻量来源读取时初始化示例收料/进度；`dyeing-task-domain.ts` 提供相同语义的来源摘要读取。
 
-`breakdown-stage-stacks-fixed-2.txt` 原真实UI重放仅页签偏好写入。`breakdown-abort-fixed-dev.txt` 对实际确认拆解 orders put 注入失败：records/commands完全不变、预览仍在；解除后实际按钮重试，刷新产生且仅产生两个2400件任务。`breakdown-source-unit-3.txt` 原生Node13/13，`breakdown-source-unit-2.txt`仓库tsx13/13；最初原生Node JSON导入兼容失败保留。最终受影响production性能等待build8。
+[breakdown-stage-stacks-fixed-2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/breakdown-stage-stacks-fixed-2.txt) 原真实UI重放仅页签偏好写入。[breakdown-abort-fixed-dev.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/breakdown-abort-fixed-dev.txt) 对实际确认拆解 orders put 注入失败：records/commands完全不变、预览仍在；解除后实际按钮重试，刷新产生且仅产生两个2400件任务。[breakdown-source-unit-3.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/breakdown-source-unit-3.txt) 原生Node13/13，[breakdown-source-unit-2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/breakdown-source-unit-2.txt)仓库tsx13/13；最初原生Node JSON导入兼容失败保留。最终受影响production性能等待build8。

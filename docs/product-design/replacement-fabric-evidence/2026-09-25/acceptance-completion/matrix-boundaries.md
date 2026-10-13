@@ -6,7 +6,7 @@ build21软件技术验收关闭，90条已验证；PRINT001/002外部现场已�
 
 三方自行裁剪任务不进入本流程。
 
-证据：[U1](acceptance-final/core-final-7.log)；[D1](acceptance-source-ui-final/actions-build7.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -16,7 +16,7 @@ C5实际读取三合一任务码后，页面明确不支持简易裁片交出，
 
 不开放独立换片布交出。
 
-证据：[U1](acceptance-final/core-final-7.log)；[D4](acceptance-final/simple-disabled-final.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D4](acceptance-final/simple-disabled-final.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -26,7 +26,7 @@ cutPieceQty=0契约阻断已测。界面只在裁片交出中提供换片布选�
 
 保持现有裁片缺口政策。
 
-证据：[D3](acceptance-final/two-factories-final.json)；[U1](acceptance-final/core-final-7.log)；[C5](acceptance-final/scope-empty-agent-r2.json)。
+证据：[D3](acceptance-final/two-factories-final.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[C5](acceptance-final/scope-empty-agent-r2.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -46,7 +46,7 @@ D3首批700片、后批200片由现有可交裁片事实决定；C5仍显示应�
 
 有效分配到裁床即出现订单行。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -56,7 +56,7 @@ D3首批700片、后批200片由现有可交裁片事实决定；C5仍显示应�
 
 同生产单只出现一条主列表行。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)；[L1](acceptance-final/list-actions-build21.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[L1](acceptance-final/list-actions-build21.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -66,7 +66,7 @@ D3首批700片、后批200片由现有可交裁片事实决定；C5仍显示应�
 
 每种合格面料仅生成一张初始票。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -76,7 +76,7 @@ D3首批700片、后批200片由现有可交裁片事实决定；C5仍显示应�
 
 资料缺失保留待核对行。
 
-证据：[U2](acceptance-final/core-final-7.log)；[C1](acceptance-final/business-boundaries-agent-r8.json)。
+证据：[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[C1](acceptance-final/business-boundaries-agent-r8.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -86,7 +86,7 @@ C1真实页面显示资料待核对、打印禁用、0票、读取未落盘；�
 
 改派移出后原裁床待办消失。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -96,7 +96,7 @@ C1真实页面显示资料待核对、打印禁用、0票、读取未落盘；�
 
 改派后旧页面不能继续提交。
 
-证据：[S1](acceptance-final/source-core-final.json)；[D1](acceptance-source-ui-final/actions-build7.json)；[C3](acceptance-final/reassignment-boundaries-r5.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[C3](acceptance-final/reassignment-boundaries-r5.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -106,7 +106,7 @@ C3 r5真实旧预览在另一页面改派后确认被拒绝，打印/回执未�
 
 已交出历史不因改派被抹除。
 
-证据：[U1](acceptance-final/core-final-7.log)；[D8](acceptance-final/history-print-build21.json)；[C3](acceptance-final/reassignment-boundaries-r5.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D8](acceptance-final/history-print-build21.json)；[C3](acceptance-final/reassignment-boundaries-r5.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -116,7 +116,7 @@ C3 r5已交后真实改派，原票历史、交出事件和回执保持；原工
 
 清单包含整单实际合格面料。
 
-证据：[U2](acceptance-final/core-final-7.log)；[D1](acceptance-source-ui-final/actions-build7.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
+证据：[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -126,7 +126,7 @@ U2验证技术资料SKU用料映射、去重、材料身份；D1实际三种面�
 
 任务需料由分配 SKU 推导。
 
-证据：[C1](acceptance-final/business-boundaries-agent-r8.json)；[U2](acceptance-final/core-final-7.log)；[D3](acceptance-final/two-factories-final.json)。
+证据：[C1](acceptance-final/business-boundaries-agent-r8.json)；[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D3](acceptance-final/two-factories-final.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -136,7 +136,7 @@ U2 SKU用料契约；C1 r8按M任务初需A、后增加SKU/B的真实需料变�
 
 相同面料不因部位／尺码重复。
 
-证据：[U2](acceptance-final/core-final-7.log)；[D1](acceptance-source-ui-final/actions-build7.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
+证据：[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -146,7 +146,7 @@ U2 SKU用料契约；C1 r8按M任务初需A、后增加SKU/B的真实需料变�
 
 同名不同身份材料不得互认。
 
-证据：[C1](acceptance-final/business-boundaries-agent-r8.json)；[U1](acceptance-final/core-final-7.log)；[U2](acceptance-final/core-final-7.log)。
+证据：[C1](acceptance-final/business-boundaries-agent-r8.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -156,7 +156,7 @@ C1 r8通过。明确Mock同名A/B不同物料身份；实际页面先A成功、B
 
 按物料名称识别排除朴。
 
-证据：[U2](acceptance-final/core-final-7.log)；[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -166,7 +166,7 @@ U2验证多SKU相同材料去重；列表和票以materialKey保持身份，C1�
 
 资料完整的空集合标为无需换片布。
 
-证据：[U2](acceptance-final/core-final-7.log)；[C1](acceptance-final/business-boundaries-agent-r8.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
+证据：[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[C1](acceptance-final/business-boundaries-agent-r8.json)；[C5](acceptance-final/scope-empty-agent-r2.json)。
 
 最终同版：[source-actions](acceptance-final/source-actions-build21.json)；[list-actions](acceptance-final/list-actions-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)。
 
@@ -176,7 +176,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 每张固定 5 Yard 不可修改。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)；[P1](acceptance-final/print-images-build21.json)；[L1](acceptance-final/list-actions-build21.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[P1](acceptance-final/print-images-build21.json)；[L1](acceptance-final/list-actions-build21.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -186,7 +186,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 无车缝分配时仍可按生产单出票。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -196,7 +196,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 同面料能新增多张独立票。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)；[P1](acceptance-final/print-images-build21.json)；[L1](acceptance-final/list-actions-build21.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[P1](acceptance-final/print-images-build21.json)；[L1](acceptance-final/list-actions-build21.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -206,7 +206,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 同一新增请求重试不重复建票。
 
-证据：[U1](acceptance-final/core-final-7.log)；[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -216,7 +216,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 换片布票号不与任何类型重复。
 
-证据：[U1](acceptance-final/core-final-7.log)；[P1](acceptance-final/print-images-build21.json)；[P4](acceptance-final/lan-build21.json)；[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[P1](acceptance-final/print-images-build21.json)；[P4](acceptance-final/lan-build21.json)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -226,7 +226,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 序号按生产单＋面料递增不重用。
 
-证据：[U1](acceptance-final/core-final-7.log)；[P1](acceptance-final/print-images-build21.json)；[P4](acceptance-final/lan-build21.json)；[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[P1](acceptance-final/print-images-build21.json)；[P4](acceptance-final/lan-build21.json)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -246,7 +246,7 @@ C1显示完整空集合“无需换片布”；C5进一步实际确认5张裁片
 
 已交出票补打不恢复交出资格。
 
-证据：[D8](acceptance-final/history-print-build21.json)；[U1](acceptance-final/core-final-7.log)。
+证据：[D8](acceptance-final/history-print-build21.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -256,7 +256,7 @@ D8实际已交票补打后票数/回执不变；C2实际回收后旧已交票再
 
 菜单位于捆条菲票打印之后。
 
-证据：[L1](acceptance-final/list-actions-build21.json)；[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[L1](acceptance-final/list-actions-build21.json)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[list-actions](acceptance-final/list-actions-build21.json)；[extra-controls](acceptance-final/extra-controls-build21.json)；[print-controls](acceptance-final/print-controls-build21.json)。
 
@@ -266,7 +266,7 @@ D8实际已交票补打后票数/回执不变；C2实际回收后旧已交票再
 
 面料单元格一行一种面料。
 
-证据：[L1](acceptance-final/list-actions-build21.json)；[D1](acceptance-source-ui-final/actions-build7.json)。
+证据：[L1](acceptance-final/list-actions-build21.json)；[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)。
 
 最终同版：[list-actions](acceptance-final/list-actions-build21.json)；[extra-controls](acceptance-final/extra-controls-build21.json)；[print-controls](acceptance-final/print-controls-build21.json)。
 
@@ -346,7 +346,7 @@ P2 build11实际整单预览/首打/补打控制有结果；build8的528.2ms作�
 
 缺项及失败给出可行动提示。
 
-证据：[L1](acceptance-final/list-actions-build21.json)；[D2](acceptance-final/roles-build21.json)；[D4](acceptance-final/simple-disabled-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)。
+证据：[L1](acceptance-final/list-actions-build21.json)；[D2](acceptance-final/roles-build21.json)；[D4](acceptance-final/simple-disabled-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)。
 
 最终同版：[list-actions](acceptance-final/list-actions-build21.json)；[extra-controls](acceptance-final/extra-controls-build21.json)；[print-controls](acceptance-final/print-controls-build21.json)。
 
@@ -356,7 +356,7 @@ P2 build11实际整单预览/首打/补打控制有结果；build8的528.2ms作�
 
 票面清楚识别单、料、第几张。
 
-证据：[P3](acceptance-final/label-qr-decode.json)；[P4](acceptance-final/lan-build21.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
+证据：[P3](acceptance-final/label-qr-decode.json)；[P4](acceptance-final/lan-build21.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -366,7 +366,7 @@ P2 build11实际整单预览/首打/补打控制有结果；build8的528.2ms作�
 
 黑白票面能区分三种菲票。
 
-证据：[P3](acceptance-final/label-qr-decode.json)；[P4](acceptance-final/lan-build21.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
+证据：[P3](acceptance-final/label-qr-decode.json)；[P4](acceptance-final/lan-build21.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -376,7 +376,7 @@ P2 build11实际整单预览/首打/补打控制有结果；build8的528.2ms作�
 
 扫码指向唯一换片布票。
 
-证据：[P3](acceptance-final/label-qr-decode.json)；[P4](acceptance-final/lan-build21.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
+证据：[P3](acceptance-final/label-qr-decode.json)；[P4](acceptance-final/lan-build21.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
 
 最终同版：[print-controls](acceptance-final/print-controls-build21.json)；[print-images](acceptance-final/print-images-build21.json)；[history-print](acceptance-final/history-print-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -406,7 +406,7 @@ P2 build11实际整单预览/首打/补打控制有结果；build8的528.2ms作�
 
 换片布可扫码装入现有袋。
 
-证据：[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
+证据：[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -416,7 +416,7 @@ P2 build11实际整单预览/首打/补打控制有结果；build8的528.2ms作�
 
 同票重复扫描不增加数量。
 
-证据：[U1](acceptance-final/core-final-7.log)；[U3](acceptance-final/binding-strip-final.txt)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[U3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/binding-strip-final.txt)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -426,7 +426,7 @@ C2 r10实际重复扫描不增加张数/数量，持久结果不重复； build2
 
 同票不能同时占用两只有效袋。
 
-证据：[U1](acceptance-final/core-final-7.log)；[U3](acceptance-final/binding-strip-final.txt)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[U3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/binding-strip-final.txt)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -436,7 +436,7 @@ C2 r10实际同票第二有效袋占用阻断，有提示和持久结果断言�
 
 三类混装不放开跨生产单。
 
-证据：[U1](acceptance-final/core-final-7.log)；[U3](acceptance-final/binding-strip-final.txt)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[U3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/binding-strip-final.txt)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -446,7 +446,7 @@ C2 r10其他生产单票不能混入当前袋；明确Mock仅准备来源，扫�
 
 袋详情同时展示三类货物。
 
-证据：[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[D5](acceptance-final/mixed-backup-final.json)。
+证据：[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[D5](acceptance-final/mixed-backup-final.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -456,7 +456,7 @@ Web/PDA三类明细与按张/片/米/Yard分项有直接结果。 build21对应�
 
 混装数量按类型单位分别汇总。
 
-证据：[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[D5](acceptance-final/mixed-backup-final.json)。
+证据：[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[D5](acceptance-final/mixed-backup-final.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -466,7 +466,7 @@ Web/PDA三类明细与按张/片/米/Yard分项有直接结果。 build21对应�
 
 移出／重装保持票身份数量守恒。
 
-证据：[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
+证据：[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -476,7 +476,7 @@ Web/PDA三类明细与按张/片/米/Yard分项有直接结果。 build21对应�
 
 换片布票不支持拆分长度。
 
-证据：[U1](acceptance-final/core-final-7.log)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -486,7 +486,7 @@ Web/PDA三类明细与按张/片/米/Yard分项有直接结果。 build21对应�
 
 回收袋不恢复旧票交出资格。
 
-证据：[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[U1](acceptance-final/core-final-7.log)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -496,7 +496,7 @@ C2 r10实际入库/交出/回收后旧已交HPB拒扫，新增独立HPB可进入
 
 货物标识和清单包含新增类型。
 
-证据：[U3](acceptance-final/binding-strip-final.txt)；[B3](acceptance-bag-lifecycle/web-detail-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[U3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/binding-strip-final.txt)；[B3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/web-detail-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -506,7 +506,7 @@ P5原cycle混装标签契约4/4；C2实际选择旧周期并点击打印，保�
 
 历史打印读取原周期快照。
 
-证据：[B3](acceptance-bag-lifecycle/web-detail-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[B3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/web-detail-five-samples-build7.json)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[hpb-scan](acceptance-final/hpb-scan-build21.json)；[bag-lifecycle](acceptance-final/bag-lifecycle-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)。
 
@@ -536,7 +536,7 @@ D3历史A覆盖后同任务下一批无需再交；C1 r8补充历史A+本次新�
 
 不同任务不能共用同一已交票。
 
-证据：[D3](acceptance-final/two-factories-final.json)；[U1](acceptance-final/core-final-7.log)。
+证据：[D3](acceptance-final/two-factories-final.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -546,7 +546,7 @@ D3历史A覆盖后同任务下一批无需再交；C1 r8补充历史A+本次新�
 
 多袋同次检查并集且顺序无关。
 
-证据：[U1](acceptance-final/core-final-7.log)；[D5](acceptance-final/mixed-backup-final.json)；[C4](acceptance-final/batch-ui-boundaries-r5.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D5](acceptance-final/mixed-backup-final.json)；[C4](acceptance-final/batch-ui-boundaries-r5.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -556,7 +556,7 @@ C4 r5两场真实UI通过。第一场裁片袋先自动选中，漏选换片布�
 
 未选入本次的袋不能满足缺项。
 
-证据：[U1](acceptance-final/core-final-7.log)；[D5](acceptance-final/mixed-backup-final.json)；[C4](acceptance-final/batch-ui-boundaries-r5.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D5](acceptance-final/mixed-backup-final.json)；[C4](acceptance-final/batch-ui-boundaries-r5.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -566,7 +566,7 @@ C4 r5实际确认未选入换片布袋时缺项阻断、数据库不变；真实
 
 裁片与换片布同次成功或失败。
 
-证据：[D4](acceptance-final/simple-disabled-final.json)；[D5](acceptance-final/mixed-backup-final.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)。
+证据：[D4](acceptance-final/simple-disabled-final.json)；[D5](acceptance-final/mixed-backup-final.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -576,7 +576,7 @@ C4 r5实际确认未选入换片布袋时缺项阻断、数据库不变；真实
 
 重试确认不重复交出。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[U1](acceptance-final/core-final-7.log)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -596,7 +596,7 @@ Web实际随交与PDA build10五组已有功能结果； build21对应命名入�
 
 直接交出不取用已装袋票。
 
-证据：[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[U1](acceptance-final/core-final-7.log)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
+证据：[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[C2](acceptance-final/bag-boundaries-agent-r10.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -616,7 +616,7 @@ D3同任务同厂后批200片0换片布；C1 r8历史A+本次B覆盖后不重复
 
 新增需料只补新增缺项。
 
-证据：[C1](acceptance-final/business-boundaries-agent-r8.json)；[U1](acceptance-final/core-final-7.log)。
+证据：[C1](acceptance-final/business-boundaries-agent-r8.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -626,7 +626,7 @@ C1 r8通过。原task已交A，明确Mock增加B需料及第二裁剪批；缺�
 
 换工厂不继承旧工厂实收。
 
-证据：[D3](acceptance-final/two-factories-final.json)；[U1](acceptance-final/core-final-7.log)；[C3](acceptance-final/reassignment-boundaries-r5.json)。
+证据：[D3](acceptance-final/two-factories-final.json)；[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[C3](acceptance-final/reassignment-boundaries-r5.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -636,7 +636,7 @@ C3 r5通过。同taskId换厂为明确Mock上游分配事实（实际改派UI会
 
 历史缺证据不自动伪造已交。
 
-证据：[U1](acceptance-final/core-final-7.log)；[D4](acceptance-final/simple-disabled-final.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D4](acceptance-final/simple-disabled-final.json)。
 
 最终同版：[simple-handover](acceptance-final/simple-handover-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[roles](acceptance-final/roles-build21.json)。
 
@@ -656,7 +656,7 @@ C3 r5通过。同taskId换厂为明确Mock上游分配事实（实际改派UI会
 
 打印装袋交出状态分别推导。
 
-证据：[U1](acceptance-final/core-final-7.log)；[P1](acceptance-final/print-images-build21.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[D3](acceptance-final/two-factories-final.json)。
+证据：[U1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[P1](acceptance-final/print-images-build21.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[D3](acceptance-final/two-factories-final.json)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[part](acceptance-final/part-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)。
 
@@ -666,7 +666,7 @@ C3 r5通过。同taskId换厂为明确Mock上游分配事实（实际改派UI会
 
 换片布不污染裁片接收和齐套数量。
 
-证据：[U2](acceptance-final/core-final-7.log)；[D3](acceptance-final/two-factories-final.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
+证据：[U2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)；[D3](acceptance-final/two-factories-final.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[part](acceptance-final/part-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)。
 
@@ -676,7 +676,7 @@ C3 r5通过。同taskId换厂为明确Mock上游分配事实（实际改派UI会
 
 保留原捆条毛织等类型行为。
 
-证据：[U3](acceptance-final/binding-strip-final.txt)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[R1](acceptance-final/core-final-7.log)。
+证据：[U3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/binding-strip-final.txt)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[R1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[part](acceptance-final/part-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)。
 
@@ -686,7 +686,7 @@ C3 r5通过。同taskId换厂为明确Mock上游分配事实（实际改派UI会
 
 未识别历史类型不猜测迁移。
 
-证据：[S3](acceptance-final/migration-final.json)；[R1](acceptance-final/core-final-7.log)。
+证据：[S3](acceptance-final/migration-final.json)；[R1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/core-final-7.log)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[part](acceptance-final/part-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)。
 
@@ -696,7 +696,7 @@ C3 r5通过。同taskId换厂为明确Mock上游分配事实（实际改派UI会
 
 PDA 可完成扫描核对确认主流程。
 
-证据：[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[D4](acceptance-final/simple-disabled-final.json)。
+证据：[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[D4](acceptance-final/simple-disabled-final.json)。
 
 最终同版：[print-images](acceptance-final/print-images-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)；[routes](acceptance-final/routes-build21.json)。
 
@@ -706,7 +706,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 每个款式面料具备对应真实图。
 
-证据：[L1](acceptance-final/list-actions-build21.json)；[P1](acceptance-final/print-images-build21.json)；[B3](acceptance-bag-lifecycle/web-detail-five-samples-build7.json)。
+证据：[L1](acceptance-final/list-actions-build21.json)；[P1](acceptance-final/print-images-build21.json)；[B3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/web-detail-five-samples-build7.json)。
 
 最终同版：[print-images](acceptance-final/print-images-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)；[routes](acceptance-final/routes-build21.json)。
 
@@ -726,7 +726,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 保存失败保留选择且可幂等重试。
 
-证据：[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](acceptance-part-tickets/performance-build7.json)。
+证据：[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)。
 
 最终同版：[print-images](acceptance-final/print-images-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)；[routes](acceptance-final/routes-build21.json)。
 
@@ -736,7 +736,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 指定低分辨率无主体溢出。
 
-证据：[L1](acceptance-final/list-actions-build21.json)；[D5](acceptance-final/mixed-backup-final.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
+证据：[L1](acceptance-final/list-actions-build21.json)；[D5](acceptance-final/mixed-backup-final.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
 
 最终同版：[print-images](acceptance-final/print-images-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[simple-handover](acceptance-final/simple-handover-build21.json)；[routes](acceptance-final/routes-build21.json)。
 
@@ -746,7 +746,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 各路由加载场景逐样本小于 500ms。
 
-证据：[R2](acceptance-final/routes-build21.json)；[R3](acceptance-source-ui-final/perf-build9.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](acceptance-part-tickets/performance-build7.json)；[M1](acceptance-final/marker-build11.json)。
+证据：[R2](acceptance-final/routes-build21.json)；[R3](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/perf-build9.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[M1](acceptance-final/marker-build11.json)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[source-routes](acceptance-final/source-routes-build21.json)；[part](acceptance-final/part-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -756,7 +756,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 全部适用交互逐样本小于 500ms。
 
-证据：[L1](acceptance-final/list-actions-build21.json)；[L2](acceptance-final/extra-controls-build21.json)；[P1](acceptance-final/print-images-build21.json)；[P2](acceptance-final/print-controls-build21.json)；[B1](acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](acceptance-part-tickets/performance-build7.json)；[D7](acceptance-source-ui-final/generation-build8.json)；[M1](acceptance-final/marker-build11.json)。
+证据：[L1](acceptance-final/list-actions-build21.json)；[L2](acceptance-final/extra-controls-build21.json)；[P1](acceptance-final/print-images-build21.json)；[P2](acceptance-final/print-controls-build21.json)；[B1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)；[M1](acceptance-final/marker-build11.json)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[source-routes](acceptance-final/source-routes-build21.json)；[part](acceptance-final/part-build21.json)；[batch-ui](acceptance-final/batch-ui-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)。
 
@@ -766,7 +766,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 业务按记录保存到 IndexedDB。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](acceptance-part-tickets/performance-build7.json)；[D7](acceptance-source-ui-final/generation-build8.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -776,7 +776,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 普通读取不落盘种子或建票。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](acceptance-part-tickets/performance-build7.json)；[D7](acceptance-source-ui-final/generation-build8.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -786,7 +786,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 同动作事务完成后才显示成功。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[D6](acceptance-part-tickets/performance-build7.json)；[D7](acceptance-source-ui-final/generation-build8.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -796,7 +796,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 多标签版本冲突不静默覆盖。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[D6](acceptance-part-tickets/performance-build7.json)；[D7](acceptance-source-ui-final/generation-build8.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -806,7 +806,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 下游直达独立读持久记录。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[D4](acceptance-final/simple-disabled-final.json)；[D8](acceptance-final/history-print-build21.json)；[D6](acceptance-part-tickets/performance-build7.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[D4](acceptance-final/simple-disabled-final.json)；[D8](acceptance-final/history-print-build21.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -816,7 +816,7 @@ PDA装袋/重装实际流程有5样本； build21对应命名入口、适用性�
 
 localStorage 失败不影响已迁移业务。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[D4](acceptance-final/simple-disabled-final.json)；[D8](acceptance-final/history-print-build21.json)；[D6](acceptance-part-tickets/performance-build7.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[D4](acceptance-final/simple-disabled-final.json)；[D8](acceptance-final/history-print-build21.json)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -826,7 +826,7 @@ localStorage 失败不影响已迁移业务。
 
 IndexedDB 失败不回退旧业务存储。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[D6](acceptance-part-tickets/performance-build7.json)；[D7](acceptance-source-ui-final/generation-build8.json)；[B4](acceptance-legacy-bags/preview-five-samples-build8.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[D6](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/performance-build7.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)；[B4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -836,7 +836,7 @@ IndexedDB 失败不回退旧业务存储。
 
 迁移中断恢复不重复不丢失。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -846,7 +846,7 @@ IndexedDB 失败不回退旧业务存储。
 
 仅清理已读回验证的源项。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -856,7 +856,7 @@ IndexedDB 失败不回退旧业务存储。
 
 共用旧键保留其他模块记录。
 
-证据：[S1](acceptance-final/source-core-final.json)；[S2](acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)。
+证据：[S1](acceptance-final/source-core-final.json)；[S2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/browser-eight-sources-final.txt)；[S3](acceptance-final/migration-final.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -866,7 +866,7 @@ IndexedDB 失败不回退旧业务存储。
 
 旧连接升级冲突有可恢复提示。
 
-证据：[S4](acceptance-final/upgrade-blocked-final.txt)。
+证据：[S4](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/upgrade-blocked-final.txt)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -886,7 +886,7 @@ IndexedDB 失败不回退旧业务存储。
 
 附件保存原始 Blob 及引用。
 
-证据：[S6](acceptance-final/files-final.json)；[D7](acceptance-source-ui-final/generation-build8.json)；[L3](acceptance-final/data-tools-build21.json)。
+证据：[S6](acceptance-final/files-final.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)；[L3](acceptance-final/data-tools-build21.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -896,7 +896,7 @@ IndexedDB 失败不回退旧业务存储。
 
 无引用清理不误删有效附件。
 
-证据：[S6](acceptance-final/files-final.json)；[D7](acceptance-source-ui-final/generation-build8.json)；[L3](acceptance-final/data-tools-build21.json)。
+证据：[S6](acceptance-final/files-final.json)；[D7](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build8.json)；[L3](acceptance-final/data-tools-build21.json)。
 
 最终同版：[backup](acceptance-final/backup-build21.json)；[data-tools](acceptance-final/data-tools-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)；[part](acceptance-final/part-build21.json)。
 
@@ -906,7 +906,7 @@ IndexedDB 失败不回退旧业务存储。
 
 Mock 覆盖多角色多任务正常边界。
 
-证据：[D1](acceptance-source-ui-final/actions-build7.json)；[D3](acceptance-final/two-factories-final.json)；[B2](acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
+证据：[D1](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.json)；[D3](acceptance-final/two-factories-final.json)；[B2](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-bag-lifecycle/lifecycle-five-samples-build7.json)。
 
 最终同版：[routes](acceptance-final/routes-build21.json)；[web-detail](acceptance-final/web-detail-build21.json)；[part](acceptance-final/part-build21.json)；[source-generation](acceptance-final/source-generation-build21.json)。
 

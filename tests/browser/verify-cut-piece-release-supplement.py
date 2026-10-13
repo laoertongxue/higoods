@@ -56,11 +56,12 @@ result.traceBefore=beforeTrace;result.traceAfter=await page.locator('[data-relea
 result.completedAt=new Date().toISOString();result.passed=!result.error&&result.scenarios.every(s=>s.passed)&&result.assertions.every(a=>a.passed);return result;
 }'''
 
+output = pathlib.Path('output/playwright/cut-release-supplement') / str(time.time_ns())
+output.mkdir(parents=True, exist_ok=True)
+CODE = CODE.replace('output/playwright/cut-release-supplement/', str(output) + '/')
 subprocess.run([CLI, '-s='+SESSION, 'open', 'about:blank'], capture_output=True, text=True, check=True)
 run = subprocess.run([CLI, '-s='+SESSION, 'run-code', CODE], capture_output=True, text=True)
 log = run.stdout + run.stderr
-output = pathlib.Path('output/playwright/cut-release-supplement')
-output.mkdir(parents=True, exist_ok=True)
 (output/'supplement-browser.log').write_text(log)
 match = re.search(r'### Result\n([^\n]+)', log)
 if not match:
@@ -68,6 +69,6 @@ if not match:
 data = json.loads(match.group(1))
 data.update(script=__file__, log=str(output/'supplement-browser.log'), runtime='http://127.0.0.1:4190', browserSession=SESSION,
             priorFailure='output/playwright/cut-release-supplement/supplement-before-readonly-bootstrap.json')
-pathlib.Path('docs/product-design/evidence/2026-10-09-cut-piece-release/supplement-browser.json').write_text(json.dumps(data, ensure_ascii=False, indent=2))
+(output/'supplement-browser.json').write_text(json.dumps(data, ensure_ascii=False, indent=2))
 print(json.dumps(data, ensure_ascii=False))
 assert data['passed']

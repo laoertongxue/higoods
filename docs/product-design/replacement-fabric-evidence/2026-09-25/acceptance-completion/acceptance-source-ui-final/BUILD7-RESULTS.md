@@ -4,14 +4,14 @@
 
 | 证据 | 场景数 | 有效计时数 | 最慢 ms | 功能异常数 | ≥500ms | 存储判定 |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| [perf-build7.txt](perf-build7.txt) | 135 | 135 | 478.9 | 0 | 0 | scope_assertions_passed |
-| [actions-build7.txt](actions-build7.txt) | 15 | 25 | 139.3 | 0 | 0 | scope_assertions_passed |
-| [pda-accept-build7.txt](pda-accept-build7.txt) | 5 | 10 | 168.9 | 0 | 0 | scope_assertions_passed |
-| [contract-transfer-build7-r2.txt](contract-transfer-build7-r2.txt) | 5 | 10 | 758.7 | 0 | 5 | scope_assertions_passed |
-| [completion-build7.txt](completion-build7.txt) | 10 | 10 | 221.9 | 0 | 0 | scope_assertions_passed |
-| [start-build7.txt](start-build7.txt) | 5 | 5 | 224.4 | 0 | 0 | scope_assertions_passed |
-| [generation-build7-r2.txt](generation-build7-r2.txt) | 15 | 20 | 204.6 | 0 | 0 | scope_assertions_passed |
-| [breakdown-build7.txt](breakdown-build7.txt) | 5 | 10 | 168.1 | 0 | 0 | FAIL_LEGACY_WRITES |
+| [perf-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/perf-build7.txt) | 135 | 135 | 478.9 | 0 | 0 | scope_assertions_passed |
+| [actions-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/actions-build7.txt) | 15 | 25 | 139.3 | 0 | 0 | scope_assertions_passed |
+| [pda-accept-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/pda-accept-build7.txt) | 5 | 10 | 168.9 | 0 | 0 | scope_assertions_passed |
+| [contract-transfer-build7-r2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/contract-transfer-build7-r2.txt) | 5 | 10 | 758.7 | 0 | 5 | scope_assertions_passed |
+| [completion-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/completion-build7.txt) | 10 | 10 | 221.9 | 0 | 0 | scope_assertions_passed |
+| [start-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/start-build7.txt) | 5 | 5 | 224.4 | 0 | 0 | scope_assertions_passed |
+| [generation-build7-r2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/generation-build7-r2.txt) | 15 | 20 | 204.6 | 0 | 0 | scope_assertions_passed |
+| [breakdown-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/breakdown-build7.txt) | 5 | 10 | 168.1 | 0 | 0 | FAIL_LEGACY_WRITES |
 
 这份记录不能标整体通过。合同首次打印的真实慢样本需修复并重测；拆解任务仍发现旧业务键写入，需定位并复验。
 

@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
 import { chromium } from 'playwright'
 import fs from 'node:fs'
+import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 const base = process.env.WOOL_BASE_URL || 'http://127.0.0.1:4186'
-const output = process.env.WOOL_PERF_OUTPUT || 'docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/action-performance.json'
+const output = process.env.WOOL_PERF_OUTPUT || `output/verification/wool/${new Date().toISOString().replaceAll(':', '-')}/action-performance.json`
+fs.mkdirSync(path.dirname(output), { recursive: true })
 const key = 'higood-fcs-wool-stage-store-v3'
 const session = { userId: 'OWN_WOOL_FACTORY_operator', loginId: 'OWN_WOOL_FACTORY_operator', userName: '周哥毛织厂_操作工', roleId: 'ROLE_OPERATOR', factoryId: 'OWN_WOOL_FACTORY', factoryName: '周哥毛织厂', loggedAt: '2026-09-18 10:00:00' }
 const report = { buildIndexSha256: createHash('sha256').update(fs.readFileSync('dist/index.html')).digest('hex'), at: new Date().toISOString(), base, branch: execFileSync('git',['branch','--show-current'],{encoding:'utf8'}).trim(), head: execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(), cwd: process.cwd(), scope: 'Named actions below only; does not claim all affected-entry coverage.', measurement: 'Captured click/input/change/keydown until explicit result predicate, all visible images decoded, and two animation frames. Raw five samples; no driver waiting counted.', actions: {}, errors: [] }

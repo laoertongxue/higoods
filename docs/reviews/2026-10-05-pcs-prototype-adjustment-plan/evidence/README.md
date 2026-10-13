@@ -23,7 +23,7 @@
 | `typecheck-base-88324f6.log` | 从基准 HEAD 独立导出源码后可重现相同 3 条错误；保留原始日志，不将当前类型检查写成通过 |
 | `material-new-use-before-fix.log` / `material-new-use-after-fix.log` | 新选用遗漏主档/投入/目标审核与启用校验的失败及修复；19 项相关检查通过。已有计划、采购草稿快照不被停用改写；浏览器动作仍待补验 |
 | `bom-new-use-before-fix.log` / `bom-new-use-after-fix.log` | BOM新行未拦截停用物料、技术BOM既有停用行反而无法编辑的失败及修复；11项BOM检查通过，新增3项覆盖主档/SKU状态和保留原有使用。修复前第一个断言还包含错误文案差异，其余两项直接复现业务问题；不将文案差异单独计为业务缺陷 |
-| `governance-final.log` / `diff-check-final.log` | 103个受管文件、2份审查记录的覆盖检查与补丁空白检查；只证明审查结构完整，不代表R1验收通过 |
+| `governance-final.log` / `../../../prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/typecheck-full.log` | 103个受管文件、2份审查记录的覆盖检查与补丁空白检查；只证明审查结构完整，不代表R1验收通过 |
 | `bom-read-before-fix.log` | BOM 已保存的缺损结构被误当成空资料的最小失败；修正后包含在 248 项回归中，读取失败可重试且零写入 |
 | `routes-after-reference-fix.json` | 配置引用修复后 30 条 PCS 路由，每条冷启动/刷新各 5 次，共 300 次，最大 229.7ms |
 | `routes-release.json` | 30 条命名路由，各冷启动与刷新 5 次，共 300 次，最大 353ms |

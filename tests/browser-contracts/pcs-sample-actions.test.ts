@@ -3,13 +3,14 @@ import { test } from 'node:test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 const base = process.env.SAMPLE_TEST_URL || 'http://127.0.0.1:4206'
-const out = 'docs/reviews/2026-10-07-sample-action-repair/evidence'
+const out = `output/verification/pcs-sample-actions/${new Date().toISOString().replaceAll(':', '-')}`
 // Browser imports below create isolated Mock fixtures and inspect persistence/faults.
 // User business actions themselves always run through rendered controls.
 for (let iteration = 1; iteration <= 5; iteration++)
   test(`SAMPLE-FIX browser ${iteration}: all routes, actual actions, persistence and <=1s`, {
     timeout: 240000,
   }, async () => {
+    await mkdir(out, { recursive: true })
     const browser = await chromium.launch({ headless: true }),
       context = await browser.newContext({ viewport: { width: 1366, height: 768 } }),
       page = await context.newPage()
@@ -530,7 +531,6 @@ for (let iteration = 1; iteration <= 5; iteration++)
       )
       throw err
     } finally {
-      await mkdir(out, { recursive: true })
       await writeFile(
         `${out}/browser-${iteration}.json`,
         JSON.stringify(

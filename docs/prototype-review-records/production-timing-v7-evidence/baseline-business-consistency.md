@@ -97,4 +97,4 @@
 - `/Users/laoer/.codex/worktrees/d29f/higoods/src/data/production-timing/fixtures.json`
   - SHA-256：`373f57cc45ca538d449bf4240a92426f7b950ed86f95b5a23666c4175212989e`；2329769字节。
 
-完整结果、逐项编号归一化、原始结构差异、图示节点计数/坐标及文本差异见 `baseline-business-consistency.json`。本次没有覆盖或重写其他证据。
+完整结果、逐项编号归一化、原始结构差异、图示节点计数/坐标及文本差异见 [baseline-business-consistency.json](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/prototype-review-records/production-timing-v7-evidence/baseline-business-consistency.json)。本次没有覆盖或重写其他证据。

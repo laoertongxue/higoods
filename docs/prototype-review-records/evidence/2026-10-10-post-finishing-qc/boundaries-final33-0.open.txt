@@ -1,9 +1,0 @@
-### Browser `pf33-boundaries-0` opened with pid 86424.
-### Ran Playwright code
-```js
-await page.goto('about:blank');
-```
-### Page
-- Page URL: about:blank
-### Snapshot
-- [Snapshot](.playwright-cli/page-2026-10-10T13-00-41-470Z.yml)

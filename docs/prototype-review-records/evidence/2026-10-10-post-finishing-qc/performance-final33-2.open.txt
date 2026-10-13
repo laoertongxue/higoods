@@ -1,9 +1,0 @@
-### Browser `pf33-performance-2` opened with pid 82668.
-### Ran Playwright code
-```js
-await page.goto('about:blank');
-```
-### Page
-- Page URL: about:blank
-### Snapshot
-- [Snapshot](.playwright-cli/page-2026-10-10T12-47-04-282Z.yml)

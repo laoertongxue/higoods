@@ -40,7 +40,7 @@ build15源码：1240个文件，`caf6a5126cc915a19994bb897f9715eb5ff4eab8de55598
 
 ### 部位票专用源清单
 
-`acceptance-part-tickets/source-hashes.txt`列出的27个src文件与build15逐项完全一致；变化0个。此清单以part编码、来源、FEI打印及直接铺布页为中心，不包含全部共享运行入口。
+[acceptance-part-tickets/source-hashes.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-part-tickets/source-hashes.txt)列出的27个src文件与build15逐项完全一致；变化0个。此清单以part编码、来源、FEI打印及直接铺布页为中心，不包含全部共享运行入口。
 
 ## 按事实复用
 

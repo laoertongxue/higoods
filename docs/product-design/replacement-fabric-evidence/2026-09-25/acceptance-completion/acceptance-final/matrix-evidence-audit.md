@@ -7,7 +7,7 @@
 - 当前矩阵仍沿用首轮 E01—E14 与 aac68249 描述；应按下列真实产物替换。最新功能/性能分别存在 build7、build8、build9，必须保留原版本及影响审查，不能统一改名为最终版本。
 - `acceptance-final/source-build7.json`、`source-build8.json` 与 `acceptance-source-ui-final/manifest-build9.json` 为版本连接点；最后实质修改后的受影响场景需重新验收，无关场景可由主代理明确影响边界后保留。
 - 一个浏览器脚本直接调用内部业务函数，属于浏览器业务集成证据，不等于真实按钮/扫码/页面流程证据；下表明确区分。
-- `source-late-final.json` 含1条失败；其正确最终回执是 `source-late-final-r2.txt`（8/8）。旧失败保留但不得误绑。
+- `source-late-final.json` 含1条失败；其正确最终回执是 [source-late-final-r2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/source-late-final-r2.txt)（8/8）。旧失败保留但不得误绑。
 - 审计时 `extra-controls-build8.json` 重置831.6ms、`print-controls-build8-functional.json` 整单528.2ms仍是保留失败。主代理已说明正在build9严格复验，结果产生后应替换本表性能绑定；本审计不自行宣称复验结果。
 - `simple-handover-build9-r2.json` 仅第1组Web成功，第2组任务读取超时；后续父任务已完成Web5组并定位PDA输入框缺少 `data-skip-page-rerender=true` 导致重绘清空，已修复并准备build10复验。HAND008/UX001/UX004/PERF002应绑定build10实际新结果，不能以旧1组成功替代Web/PDA各5组。早期dev `two-factories-final.json` 可证明业务行为，但不是最终5样本性能。
 
@@ -17,7 +17,7 @@
 |---|---|---|
 | U1 | `acceptance-final/core-final-7.log`；`tests/unit/replacement-fabric-fei-tickets.test.ts` | 核心84/84中的票身份、5Yard、改派、并集、任务/工厂、空集；不代替UI。tests路径从仓库根起。 |
 | U2 | 同上；`tests/unit/replacement-fabric-source-and-history.test.ts` | SKU需料、朴、同名身份、颜色映射、历史数量与回执。 |
-| U3 | `acceptance-final/binding-strip-final.txt`、`fei-assembly-final.txt`；`tests/unit/replacement-fabric-mixed-label.test.ts` | 捆条/部位契约和混装标签；非物理打印。 |
+| U3 | `acceptance-final/binding-strip-final.txt`、[fei-assembly-final.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/fei-assembly-final.txt)；`tests/unit/replacement-fabric-mixed-label.test.ts` | 捆条/部位契约和混装标签；非物理打印。 |
 | D1 | `acceptance-source-ui-final/actions-build7.json`；`check-actions-final.js`；`cutting-scope-in.png`、`cutting-scope-out.png` | 真分配→3初始票→增票→真改派→移出/历史失效，5组。 |
 | D2 | `acceptance-final/roles-build7.json`；`check-role-boundary.js` | 实际Web/PDA角色禁用与说明。 |
 | D3 | `acceptance-final/two-factories-final.json`；`check-two-factories.js` | UI交出700片+1票、200片+0票、另任务另厂720片+第2票；前置/后续裁剪用显式Mock，dev单轮功能。 |
@@ -31,19 +31,19 @@
 | L3 | `acceptance-final/data-tools-build8-functional.json` | 20通过样本：检查/确认清理/迁移前确认/显式迁移空源。 |
 | P1 | `acceptance-final/print-images-build8-functional.json` | 新增5次、大图5次；6票首打1张、补打保持票数/2打印记录、部分打印。 |
 | P2 | `acceptance-final/print-controls-build8-functional.json` | 50样本，取消/未打印阻断/成功票选择/首打补打/整单，含1整单预览慢样本。 |
-| P3 | `acceptance-final/label-qr-decode.json`、`label-render-1.png`、`label-render-2.png`、`labels.txt` | 正常与1001边界QR软件识别；不代表纸面扫描。 |
+| P3 | `acceptance-final/label-qr-decode.json`、`label-render-1.png`、`label-render-2.png`、[labels.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/labels.txt) | 正常与1001边界QR软件识别；不代表纸面扫描。 |
 | P4 | `acceptance-final/lan-build8-functional.json` | 5次局域网HTTP非secureContext身份、增票、打印。 |
 | B1 | `acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json` | 20通过样本，实际HPB003打印、扫描、装袋、详情刷新。 |
 | B2 | `acceptance-bag-lifecycle/lifecycle-five-samples-build7.json` | 80通过样本，三类重装、占用库位失败/重试、回收/报废、逐票守恒。 |
 | B3 | `acceptance-bag-lifecycle/web-detail-five-samples-build7.json`；`evidence-manifest.json` | 65通过样本，Web详情/刷新/11Tab与图片。历史Tab不等同历史打印。 |
 | B4 | `acceptance-legacy-bags/preview-five-samples-build8.json`；`README.md` | 45通过样本；首读0旧写、失败0实体/输入保留、保存仅自身两实体、刷新。 |
-| S1 | `acceptance-final/source-core-final.json`、`source-late-final-r2.txt`、`source-reload-final.json`、`source-actions-final.json` | 7+8+4核心与5动作：迁移/CAS/command/complete/失败/附件/禁LS。 |
+| S1 | `acceptance-final/source-core-final.json`、[source-late-final-r2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/source-late-final-r2.txt)、`source-reload-final.json`、`source-actions-final.json` | 7+8+4核心与5动作：迁移/CAS/command/complete/失败/附件/禁LS。 |
 | S2 | `acceptance-part-tickets/browser-eight-sources-final.txt`、`unit-results-final.txt`；`acceptance-final/storage-extra-final.json` | 8键记录迁移/校验/失败/禁LS；24unit，HPB核心容量/CAS。 |
 | S3 | `acceptance-final/migration-final.json`、`retired-history-final.json` | 共用裁后键/历史迁移，101/202条批量、中断/冲突/源变化/清理重试。 |
 | S4 | `acceptance-final/upgrade-blocked-final.txt` | 真实IDB blocked，注入下一schema=2、产品schema=1；关闭旧连接重试/原记录保留。 |
 | S5 | `acceptance-final/backup-build8-functional.json`、`mixed-backup-final.json`、`files-final.json` | 新context完整恢复范围、格式/引用损坏拒绝；混装备份与Blob。 |
 | S6 | `acceptance-final/files-final.json`；`acceptance-integration/check-file-lifecycle.js` | 9项Blob/引用/命令保护/并发/损坏备份/原子失败。 |
-| R1 | `acceptance-final/core-final-7.log`、`retired-history-final.json`、`binding-strip-final.txt` | 类型与历史回归专项；不能代替未执行的毛织/特殊工艺页面。 |
+| R1 | `acceptance-final/core-final-7.log`、`retired-history-final.json`、[binding-strip-final.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/binding-strip-final.txt) | 类型与历史回归专项；不能代替未执行的毛织/特殊工艺页面。 |
 | R2 | `acceptance-final/routes-build8.json` | HPB/等待交出/袋等8路由120通过样本。 |
 | R3 | `acceptance-source-ui-final/perf-build9.json` | 来源9路由135通过样本；修复build8 PDA接单613.1ms后的结果。 |
 

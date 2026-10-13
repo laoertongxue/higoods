@@ -1,9 +1,0 @@
-
-Running 1 test using 1 worker
-
-
-(node:39210) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
-(Use `node --trace-warnings ...` to show where the warning was created)
-
-[1/1] tests/post-finishing-full-flow-cross-terminal.spec.ts:824:1 › 15条链按责任逐条跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接
-  1 passed (4.0m)

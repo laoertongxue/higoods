@@ -1,5 +1,0 @@
-### Error
-Error: dialog.accept: Cannot accept dialog which is already handled!
-
-dialog.accept: Cannot accept dialog which is already handled!
-    at _Page.<anonymous> (evalmachine.<anonymous>:226:45)

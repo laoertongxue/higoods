@@ -1,6 +1,6 @@
 # 来源动作旁路最终结果（build9）
 
-本旁路负责的当前适用验证全部通过；完整产品矩阵、其它旁路与最终发布由 root 汇总。当前生产 preview 为 build9，构建标识及证据复用边界见 `manifest-build9.json`。
+本旁路负责的当前适用验证全部通过；完整产品矩阵、其它旁路与最终发布由 root 汇总。当前生产 preview 为 build9，构建标识及证据复用边界见 [manifest-build9.json](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/manifest-build9.json)。
 
 9 个入口 cold / refresh / navigation 各 5 次，共 **135/135** 个样本小于 500 ms，console/page error 均为空。
 
@@ -36,4 +36,4 @@ PDA 接单 cold 五样本：369.1 / 339.2 / 343.6 / 343.3 / 339.9 ms。实际 We
 
 合同、责任、结束加工与开工测试使用明确 Mock 前置，被测动作由真实页面执行。合同只验证浏览器打印调用及打印事实，不声称物理打印。用户主动清理浏览器导致本地数据丢失仍属于原型边界。
 
-`check-simple-handover-five.js` 已交 root 执行；本子代理没有替 root 声称该脚本已通过。
+[check-simple-handover-five.js](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-simple-handover-five.js) 已交 root 执行；本子代理没有替 root 声称该脚本已通过。

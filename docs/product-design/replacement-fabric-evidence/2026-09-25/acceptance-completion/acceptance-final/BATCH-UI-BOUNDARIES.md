@@ -20,16 +20,16 @@
 
 两场均产生同一交出批次的两个交出事件、唯一换片布回执；显示及持久结果保持部位裁片 800 片、换片布 5 Yard（pieceQty 为 0），刷新一致。真实自动归集顺序为换片布袋先、裁片袋后。页面没有供用户控制处理顺序的功能，因此不制造隐藏选择值或人为顺序按钮。反向提交排列由既有领域测试覆盖。
 
-截图：`batch-ui-r5-unbound-fabric-omission-and-retry.png`、`batch-ui-r5-both-bound-auto-aggregation.png`。
+截图：`batch-ui-r5-both-bound-auto-aggregation.png`、`batch-ui-r5-both-bound-auto-aggregation.png`。
 
 为了避免 dev HMR 双模块，测试主动关闭 Vite WebSocket；精确匹配 `[vite] failed to connect to websocket.` 的基础设施错误单列 `infrastructureErrors`（每场 4 条），原文完整保留，其余错误仍使场景失败。preview 脚本不关闭 WebSocket、不忽略任何 console error。
 
 ## 契约与相邻验证
 
-- `batch-ui-assignment-unit-before-r2.txt`：修复前 8 条中 6 条失败，准确复现有效绑定被清空及无明确阻断问题。
-- `batch-ui-assignment-unit-after.txt`：8/8 通过。
-- `batch-ui-assignment-unit-final.txt`：专用 8 条 + 换片布规则及混合标签相邻契约，共 20/20 通过。
-- `batch-ui-adjacent-flow.txt`：`check-cutting-wait-handover-transfer-bag-flow.ts` 266/266 通过。
+- [batch-ui-assignment-unit-before-r2.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-assignment-unit-before-r2.txt)：修复前 8 条中 6 条失败，准确复现有效绑定被清空及无明确阻断问题。
+- [batch-ui-assignment-unit-after.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-assignment-unit-after.txt)：8/8 通过。
+- [batch-ui-assignment-unit-final.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-assignment-unit-final.txt)：专用 8 条 + 换片布规则及混合标签相邻契约，共 20/20 通过。
+- [batch-ui-adjacent-flow.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-adjacent-flow.txt)：`check-cutting-wait-handover-transfer-bag-flow.ts` 266/266 通过。
 - 原始 `before.txt` 未设 indexedRuntimeSnapshot，不能证明有效分配场景，已保留并以 before-r2 为有效失败基线。
 - r3 为 Mock 裁片身份错误导致任务候选缺失；r4 使用正式裁片来源后发现真实已绑定 HPB 归集缺陷；全部旧失败保留。
 
@@ -37,8 +37,8 @@
 
 `prepare-batch-ui-backups.js` 已在 dev 执行一次，每场在前置完成且断言没有交出记录后，点击真实“本机数据 → 导出裁后处理备份”。产物：
 
-- `batch-prerequisite-unbound-fabric-omission-and-retry.higcut`
-- `batch-prerequisite-both-bound-auto-aggregation.higcut`
+- [batch-prerequisite-unbound-fabric-omission-and-retry.higcut](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-prerequisite-unbound-fabric-omission-and-retry.higcut)
+- [batch-prerequisite-both-bound-auto-aggregation.higcut](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-prerequisite-both-bound-auto-aggregation.higcut)
 - `batch-ui-prerequisite-export-r1.json`：两份成功、无交出前置。
 
 `check-batch-ui-preview-five.js` 已静态语法检查，未执行。供主代理在统一 build14 后独占运行：真实 preview43236 登录 → 本机恢复文件并等待“已恢复并读回确认” → 实际待交出 UI。

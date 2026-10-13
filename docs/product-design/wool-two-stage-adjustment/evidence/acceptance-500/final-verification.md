@@ -9,9 +9,9 @@
 | 构建及工程检查 | 266单元测试通过，Vite构建通过 | [build.log](./build.log) |
 | Web/PDA业务 | 47个不同业务用例均已取得通过证据：46项轮次45通过，分页等待修正后单项通过，另补A08单项通过 | [browser.log](./browser.log) |
 | 两阶段业务契约 | 17组通过 | [core.log](./core.log) |
-| 新对抗反例 | 7项通过 | [adversarial.log](./adversarial.log) |
-| PDA投影与跨厂 | 通过 | [pda-projection.log](./pda-projection.log) |
-| 接收及领退移库守恒 | 通过 | [receiving.log](./receiving.log) |
+| 新对抗反例 | 7项通过 | [adversarial.log](../adversarial-regressions.log) |
+| PDA投影与跨厂 | 通过 | [pda-projection.log](../pda-factory-projection.log) |
+| 接收及领退移库守恒 | 通过 | [receiving.log](../receiving-integration.log) |
 | 印花演示保护 | 10厂×5场景、原12条保留通过 | [printing-demos.log](./printing-demos.log) |
 | 批处理回滚及精确事实 | 通过 | [print-batch.log](./print-batch.log) |
 | 优化前后精确等价 | 578任务、239进度、267入库、91出库、29厂默认库位及KOL事实一致 | [equivalence.log](./equivalence.log) |
@@ -29,7 +29,7 @@
 
 水溶整包旧专项在BOM工艺推导处失败：`check-water-soluble-process.ts:193`预期WATER_SOLUBLE节点而实际undefined。由`git archive HEAD src scripts package.json`生成独立基线再执行，得到同位置同断言失败，见[基线](./water-head.log)与[当前](./water-current.log)。此次只改水溶接收查询的重复读取，完整任务/库存/来源等价检查通过，不借该范围外BOM问题扩大业务修改。既有印花online-gap与KOL专项失败的旧对照仍保留在首轮/诊断证据中，不计为通过测试。
 
-最终仓库竞态修复后46项回放中45项通过；分页偏好用例在异步change尚未完成时立即读取localStorage得到旧值。测试补充等待真实14行列表完成，单项重放通过，见[完整轮次含原失败](./browser-before-page-size-wait.log)与[修正后重放](./browser-page-size-wait.log)。该测试修正未改变业务源码或构建。
+最终仓库竞态修复后46项回放中45项通过；分页偏好用例在异步change尚未完成时立即读取localStorage得到旧值。测试补充等待真实14行列表完成，单项重放通过，见[完整轮次含原失败](browser.log)与[修正后重放](./browser-page-size-wait.log)。该测试修正未改变业务源码或构建。
 
 ## 需求与变更的双向检查
 

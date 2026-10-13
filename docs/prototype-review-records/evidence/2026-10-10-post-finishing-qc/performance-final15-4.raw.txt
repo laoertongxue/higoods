@@ -1,2 +1,0 @@
-### Error
-TypeError [ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING]: A dynamic import callback was not specified.

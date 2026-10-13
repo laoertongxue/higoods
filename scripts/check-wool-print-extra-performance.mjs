@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto'
 import {execFileSync} from 'node:child_process'
 import {chromium} from 'playwright'
 const base=process.env.WOOL_BASE_URL||'http://127.0.0.1:4198'
-const output=process.env.WOOL_PERF_OUTPUT||'docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500ms/print-extra-performance.json'
+const output=process.env.WOOL_PERF_OUTPUT||`output/verification/wool/${new Date().toISOString().replaceAll(':','-')}/print-extra-performance.json`
 const outDir=path.dirname(output);fs.mkdirSync(outDir,{recursive:true})
 const report={base,at:new Date().toISOString(),head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),cwd:process.cwd(),buildSha256:createHash('sha256').update(fs.readFileSync('dist/index.html')).digest('hex'),viewport:{width:1366,height:768},thresholdMs:500,conditions:'Five independent contexts. Four final handovers created through visible UI, full normal prototype data. Image request abort only in the explicitly failing scenario; successful recovery removes it. PDF timing begins at actual print-button click, uses Chromium Page.printToPDF instead of native OS print dialog, ends once the complete PDF buffer is available; OS printer queue is outside prototype scope.',samples:[],errors:[]}
 const browser=await chromium.launch({headless:true});report.browser=browser.version()

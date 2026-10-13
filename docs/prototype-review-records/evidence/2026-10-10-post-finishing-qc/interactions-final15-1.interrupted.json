@@ -1,7 +1,0 @@
-{
-  "status": "interrupted",
-  "reason": "验证器全量遍历约20分钟未返回结果。没有可采信的完整交互样本；改为最终构建重新测量，并增加逐控制项的原始样本检查点。",
-  "sourceSha256": "435891aeb1c9e52409c9ce7f4222ce6b6dadfaaaa79435095b097c41ca0021b3",
-  "runtimeVersion": "build-final15",
-  "time": "2026-10-10T07:24:09Z"
-}

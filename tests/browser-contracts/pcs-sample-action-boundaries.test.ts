@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 const base = process.env.SAMPLE_TEST_URL || 'http://127.0.0.1:4206'
-const out = 'docs/reviews/2026-10-07-sample-action-repair/evidence'
+const out = `output/verification/pcs-sample-action-boundaries/${new Date().toISOString().replaceAll(':', '-')}`
 for (let iteration = 1; iteration <= 5; iteration++)
   test(`SAMPLE-FIX boundary ${iteration}: discard, dispose, retry and expansion`, { timeout: 90000 }, async () => {
+    await mkdir(out, { recursive: true })
     const b = await chromium.launch(),
       c = await b.newContext({ viewport: { width: 1366, height: 768 } }),
       p = await c.newPage(),

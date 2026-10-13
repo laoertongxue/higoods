@@ -12,7 +12,7 @@
 
 - 记录模式：完整产品审查
 - 用户可见影响：有
-- 判定依据：三类固定目录、BF必填类型、MJS/GTG及四印花方式、简易SPU列表/审核、删除版本及技术引用入口；FCS治理注释及检查器历史声明解析同步修正，当前列表严格证明完整骨架；48个治理专项通过。具体矩阵见 [需求矩阵](../materials-classification-processing-cleanup.md)
+- 判定依据：三类固定目录、BF必填类型、MJS/GTG及四印花方式、简易SPU列表/审核、删除版本及技术引用入口；FCS治理注释及检查器历史声明解析同步修正，当前列表严格证明完整骨架；48个治理专项通过。具体矩阵见 [需求矩阵](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/materials-classification-processing-cleanup.md)
 
 ## 自查结论
 
@@ -33,7 +33,7 @@
 | 标签打印 | 通过 | 两类SPU三个标签、QR数量与型号图片，打开打印页并生成PDF；无物理出纸声明 |
 | PDA | 不适用 | 本次管理端配置/档案入口变更，不新增PDA动作；底层真实引用契约保留 |
 | 完整响应性能 | 通过 | 267家族五轮共1335样本，最大265.900ms；三报告同资产 |
-| 两轮逐项对抗审查 | 通过 | [逐项审查记录](../materials-classification-processing-review.md)，每轮41条，反例修复复验 |
+| 两轮逐项对抗审查 | 通过 | [逐项审查记录](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/materials-classification-processing-review.md)，每轮41条，反例修复复验 |
 
 ## 最终结论
 

@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
 import {chromium} from 'playwright'
 import fs from 'node:fs'
+import path from 'node:path'
 import {execFileSync} from 'node:child_process'
 const base=process.env.WOOL_BASE_URL||'http://127.0.0.1:4186'
-const out=process.env.WOOL_PERF_OUTPUT||'docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/route-performance.json'
+const out=process.env.WOOL_PERF_OUTPUT||`output/verification/wool/${new Date().toISOString().replaceAll(':','-')}/route-performance.json`
+fs.mkdirSync(path.dirname(out),{recursive:true})
 const session={userId:'OWN_WOOL_FACTORY_operator',loginId:'OWN_WOOL_FACTORY_operator',userName:'周哥毛织厂_操作工',roleId:'ROLE_OPERATOR',factoryId:'OWN_WOOL_FACTORY',factoryName:'周哥毛织厂',loggedAt:'2026-09-18 10:00:00'}
 const stage='/fcs/craft/wool/',pda='/fcs/pda/'
 const allRoutes=[

@@ -6,7 +6,8 @@ import path from 'node:path'
 
 // Timed actions always use real UI. Only finalGarment uses an explicit domain-fixture setup; see report.conditions.
 const base = process.env.WOOL_BASE_URL || 'http://127.0.0.1:4198'
-const output = process.env.WOOL_PERF_OUTPUT || `docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance${process.env.WOOL_ACTION_DEVICE==='1024'?'-1024':''}.json`
+const output = process.env.WOOL_PERF_OUTPUT || `output/verification/wool/${new Date().toISOString().replaceAll(':', '-')}/remaining-action-performance${process.env.WOOL_ACTION_DEVICE==='1024'?'-1024':''}.json`
+fs.mkdirSync(path.dirname(output), { recursive: true })
 const selected = process.env.WOOL_ACTION_FLOWS?.split(',')
 const supervisor1024 = process.env.WOOL_ACTION_DEVICE === '1024'
 const supervisorFlows = new Set(['设备替换释放档案','设备关联档案列表控件','待加工仓列表控件','待交出仓列表控件','待加工仓交互','待交出仓明细','接收历史图片','主管纱线片接收','成片成衣库存调整转回'])

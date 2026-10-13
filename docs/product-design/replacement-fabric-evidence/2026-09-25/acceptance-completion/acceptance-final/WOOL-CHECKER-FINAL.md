@@ -6,7 +6,7 @@
 
 原 `nonWool()` 依次返回待加工仓、待交出仓、工艺仓；第三项工艺仓首次查询通过 `buildInitialWarehouseRecords → listSpecialCraftTaskOrders` 惰性装配特殊工艺仓储投影。前两项已取得未完成该初始化的副本，因此原 baseline 混合了两个初始化时点。
 
-独立探针 `wool-initialization-probe.ts` 在任何毛织动作前连续读取三次，证据 `wool-initialization-probe-r5.json`：
+独立探针 [wool-initialization-probe.ts](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-initialization-probe.ts) 在任何毛织动作前连续读取三次，证据 `wool-initialization-probe-r5.json`：
 
 | 范围 | 首次 | 第二次 | 新增静态投影 | 原记录改变/删除 |
 | --- | ---: | ---: | ---: | ---: |
@@ -24,9 +24,9 @@
 
 ## 验证
 
-- `wool-final-r4.log`：原 nonWool 失败保留。
-- `wool-final-r5.log`：warehouse 7 条通过，后续 generation boundary 5 条通过；暴露 stock-allocations 前置语法错误，原失败保留。
-- `wool-final-r6.log`：`npm run check:wool-fact-workflow` exit 0，全部 17 个脚本完成；包括 warehouse 7 条、stock allocations 29 条，以及最终统一仓储守恒、命令防重、错厂/错批次阻断。
+- [wool-final-r4.log](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-final-r4.log)：原 nonWool 失败保留。
+- [wool-final-r5.log](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-final-r5.log)：warehouse 7 条通过，后续 generation boundary 5 条通过；暴露 stock-allocations 前置语法错误，原失败保留。
+- [wool-final-r6.log](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-final-r6.log)：`npm run check:wool-fact-workflow` exit 0，全部 17 个脚本完成；包括 warehouse 7 条、stock allocations 29 条，以及最终统一仓储守恒、命令防重、错厂/错批次阻断。
 - `git diff --check` 三个负责脚本通过。
 
 本次没有运行浏览器、构建或提交。CPU 已释放；既有真实毛织 E2E 由主代理持有，本记录不替代该浏览器和性能证据。

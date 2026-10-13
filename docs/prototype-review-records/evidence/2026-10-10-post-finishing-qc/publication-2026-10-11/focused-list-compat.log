@@ -1,8 +1,0 @@
-file:///private/tmp/post-finishing-main-publication/focused-list-compat-runner.mjs:5
-if(native.stats.unexpected||native.stats.skipped||native.errors.length)throw new Error('Native verification failed; performance not started');
-                                                                             ^
-
-Error: Native verification failed; performance not started
-    at file:///private/tmp/post-finishing-main-publication/focused-list-compat-runner.mjs:5:78
-
-Node.js v26.8.2

@@ -2,7 +2,7 @@ import { chromium, test } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const OUT_DIR = join(process.cwd(), 'docs/verification-evidence/2026-09-18-style-alignment')
+const OUT_DIR = join(process.cwd(), 'output/verification/pms-interaction-audit', new Date().toISOString().replaceAll(':', '-'))
 
 const ROUTES: Array<[string, string]> = [
   ['/pms/workbench/overview', '[data-pms-workbench-root]'],

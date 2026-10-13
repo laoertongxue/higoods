@@ -1,3 +1,0 @@
-The browser 'pf26-profile' is not open, please run open first
-
-  playwright-cli -s=pf26-profile open [params]

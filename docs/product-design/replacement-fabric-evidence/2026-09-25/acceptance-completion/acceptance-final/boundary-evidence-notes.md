@@ -13,7 +13,7 @@
 - 同名不同编码 A/B：真实第一次交出 A；随后明确 Mock 新增同任务需料 B 和第二裁片批。再次读取任务显示 A“此前已交”、B“还需换片布”。扫描同名另一张 A 后交出被拒绝，所有持久记录不变；改扫 B 后真实交出成功。最终恰有两次交出和 A/B 两张回执，第二次仅 1 张 / 5 Yard。
 - Mock 技术资料先通过现有生产来源事务保存，避免后续动作 hydrate 覆盖内存前置。没有插入被测交出事件或回执。
 
-该验收发现并修复同一分配下 B 面料范围被错误替换为 A 的缺陷。`tests/unit/replacement-fabric-repository-scope.test.ts` 覆盖真实来源的同分配同名 A/B 分别新增、一起打印以及错误身份拒绝。`repository-scope-before.txt` 为修复前失败；`repository-scope-after.txt` 为修复后通过。
+该验收发现并修复同一分配下 B 面料范围被错误替换为 A 的缺陷。`tests/unit/replacement-fabric-repository-scope.test.ts` 覆盖真实来源的同分配同名 A/B 分别新增、一起打印以及错误身份拒绝。[repository-scope-before.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/repository-scope-before.txt) 为修复前失败；[repository-scope-after.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/repository-scope-after.txt) 为修复后通过。
 
 ## 已通过：扫码边界与简易交出占用
 
@@ -29,9 +29,9 @@
 
 `bag-boundaries-agent-r10.json` 已完成实际 Web 当前周期及回收再装袋后历史周期的三页货物标签预览和软件打印，保持同一组三个旧票身份、裁片 20 片、换片布 5 Yard、捆条 8 米；历史打印不包含新装袋的第 3 张换片布票。`window.print` 被显式拦截计数，不表示物理打印验收。
 
-原 `mixed.higcut` 中混装袋仅装袋未入仓，脚本补走真实 PDA 入仓并选择实际空闲库位；不伪造入仓结果。之后实际整袋交出、回收、旧已交 HPB 拒扫、新独立 HPB 再装袋均已成功，新旧使用周期不同。
+原 [mixed.higcut](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/mixed.higcut) 中混装袋仅装袋未入仓，脚本补走真实 PDA 入仓并选择实际空闲库位；不伪造入仓结果。之后实际整袋交出、回收、旧已交 HPB 拒扫、新独立 HPB 再装袋均已成功，新旧使用周期不同。
 
-此链发现操作时间混用：入仓使用本地时间，交出却使用 UTC，回收/报废另用 Jakarta 时间。已在直接相关三页统一复用 `localDateTimeText().slice(0,16)`，不修改事件排序、不改变浏览器时区。`bag-time-before.txt` 保留同一瞬间 05:31 与 13:31 的失败复现，`bag-time-and-scope-after.txt` 两项专项通过。
+此链发现操作时间混用：入仓使用本地时间，交出却使用 UTC，回收/报废另用 Jakarta 时间。已在直接相关三页统一复用 `localDateTimeText().slice(0,16)`，不修改事件排序、不改变浏览器时区。[bag-time-before.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/bag-time-before.txt) 保留同一瞬间 05:31 与 13:31 的失败复现，[bag-time-and-scope-after.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/bag-time-and-scope-after.txt) 两项专项通过。
 
 历史诊断 r9 暴露点击旧周期后进入“档案信息待补充”分支的问题；主代理补齐 canonical 周期路由解析与归属校验，并通过专项测试。修复后的 r10 通过实际旧周期按钮进入所选快照和货物打印入口，覆盖 BAG-009/010/011。脚本没有用手工 URL 或直接打印调用绕过历史页面。
 

@@ -1,5 +1,5 @@
 """独立 Playwright CLI profile：模拟裁床 DB 打开失败，实际按钮恢复；不清理任何库。"""
-import json,re,subprocess,pathlib
+import json,re,subprocess,pathlib,time
 CLI='/Users/laoer/.npm/_npx/31e32ef8478fbf80/node_modules/@playwright/cli/playwright-cli.js'
 SESSION='release-open-failure'
 CODE=r'''async page => {
@@ -23,11 +23,14 @@ await page.evaluate(()=>localStorage.removeItem('RELEASE-VERIFY-IDB-ALLOW'));
 }
 return {passed:[...samples,...failures].every(t=>t<=1000),samples,failures,max:Math.max(...samples,...failures),runtime:'http://127.0.0.1:4190',isolatedProfile:true};
 }'''
+output=pathlib.Path('output/playwright/cut-release-storage')/str(time.time_ns())
+output.mkdir(parents=True,exist_ok=True)
+CODE=CODE.replace('output/playwright/cut-release-storage/',str(output)+'/')
 r=subprocess.run([CLI,'-s='+SESSION,'run-code',CODE],capture_output=True,text=True)
 log=r.stdout+r.stderr
-pathlib.Path('output/playwright/cut-release-storage/idb-open-run.log').write_text(log)
+(output/'idb-open-run.log').write_text(log)
 found=re.search(r'### Result\n([^\n]+)',log)
 if not found:raise RuntimeError(log)
-result=json.loads(found.group(1));result['script']=__file__;result['log']='output/playwright/cut-release-storage/idb-open-run.log'
-pathlib.Path('docs/product-design/evidence/2026-10-09-cut-piece-release/idb-open-browser.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+result=json.loads(found.group(1));result['script']=__file__;result['log']=str(output/'idb-open-run.log')
+(output/'idb-open-browser.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
 print(json.dumps(result,ensure_ascii=False));assert result['passed']

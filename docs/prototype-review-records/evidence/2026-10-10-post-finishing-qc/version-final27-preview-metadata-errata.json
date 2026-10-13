@@ -1,7 +1,0 @@
-{
-  "runtimeVersion": "build-final27",
-  "field": "previewOutDir",
-  "original": "/tmp/higoods-post-final26-dist",
-  "correct": "/tmp/higoods-post-final27-dist",
-  "reason": "Metadata field remained at 26; actual owned preview session 51402 was launched explicitly with final27 outDir. Source manifest and Native report used final27."
-}

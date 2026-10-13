@@ -1,7 +1,0 @@
-
-Running 1 test using 1 worker
-
-
-
-[1/1] tests/post-finishing-full-flow.spec.ts:876:1 › 后道质检唯一执行、原子保存、版本冲突与显式资料转换
-  1 passed (14.8s)

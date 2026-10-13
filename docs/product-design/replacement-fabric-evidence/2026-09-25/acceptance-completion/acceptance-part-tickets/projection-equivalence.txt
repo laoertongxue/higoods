@@ -1,6 +1,0 @@
-{
-  "sameTickets": 6,
-  "sameUnits": 3,
-  "hasPdaSummary": false,
-  "hasWarehouseSummary": false
-}

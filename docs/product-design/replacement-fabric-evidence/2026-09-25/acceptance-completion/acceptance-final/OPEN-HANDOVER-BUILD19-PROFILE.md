@@ -4,7 +4,7 @@
 
 ## 实测
 
-- 真实恢复 `batch-prerequisite-unbound-fabric-omission-and-retry.higcut` 后，仅点击“中转袋交出”，未提交交出。
+- 真实恢复 [batch-prerequisite-unbound-fabric-omission-and-retry.higcut](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-prerequisite-unbound-fabric-omission-and-retry.higcut) 后，仅点击“中转袋交出”，未提交交出。
 - click `448.9ms` → 弹窗可见 `1893.8ms` → 两帧完成 `1907.7ms`，真实动作 **1458.8ms**。
 - 一个长任务：开始 `571.7ms`，持续 **1322ms**。
 - 本次无业务 console/pageerror；新增 **160 个资源**，包括全局 `fcs-handlers` 和无关生产、结算、工艺等页面模块。
@@ -37,8 +37,8 @@
 
 ## 已完成验证及待办
 
-- `open-handover-conditional-unit.txt`：相关领域单元 **20/20** 通过。
-- `open-handover-conditional-flow.txt`：待交出/中转袋流转专项 **266/266** 通过。
+- [open-handover-conditional-unit.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/open-handover-conditional-unit.txt)：相关领域单元 **20/20** 通过。
+- [open-handover-conditional-flow.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/open-handover-conditional-flow.txt)：待交出/中转袋流转专项 **266/266** 通过。
 - `git diff --check` 当前文件通过。
 - 原始诊断：`profile-open-handover-build19.txt/json`，完整CPU节点、样本、资源、长任务和初始弹窗内容保留。
 - 旧 `batch-ui-build19.json` 的10次慢样本全部保留。

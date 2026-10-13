@@ -12,13 +12,13 @@
 
 ## 功能证据
 
-- `check-ui.js`、`ui-results-final.txt`：开发服务 43235 的实际按钮测试。成功仅写新袋 master 和它自己的 reuse cycle 两实体，刷新可查；配额失败无袋实体、输入与备注保留；业务 localStorage 写 0、pageerror 0。
-- `ui-results.txt` 保留首次失败诊断：旧 `refreshDerivedState` 曾额外落下 3 个无关演示袋摘要；修复后以 `ui-results-final.txt` 为准。
-- 截图 `ui-create.png`、`ui-abort.png` 为开发服务辅助证据，不替代最终 production preview 采样。
+- [check-ui.js](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/check-ui.js)、[ui-results-final.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/ui-results-final.txt)：开发服务 43235 的实际按钮测试。成功仅写新袋 master 和它自己的 reuse cycle 两实体，刷新可查；配额失败无袋实体、输入与备注保留；业务 localStorage 写 0、pageerror 0。
+- [ui-results.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/ui-results.txt) 保留首次失败诊断：旧 `refreshDerivedState` 曾额外落下 3 个无关演示袋摘要；修复后以 [ui-results-final.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/ui-results-final.txt) 为准。
+- 截图 [ui-create.png](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/ui-create.png)、[ui-abort.png](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/ui-abort.png) 为开发服务辅助证据，不替代最终 production preview 采样。
 
 ## 最终预览采样
 
-脚本 `preview-five-samples.js` 使用生产预览 43236，1366×768，5 个独立 browser context。每样本正常默认数据，不预热冷启动。
+脚本 [preview-five-samples.js](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples.js) 使用生产预览 43236，1366×768，5 个独立 browser context。每样本正常默认数据，不预热冷启动。
 
 计时从 navigationStart 或捕获到的真实点击事件开始，直到结果 DOM、必要图片和两帧绘制完成；保存还要求对应写事务 complete，并另行直接读取 IndexedDB 检查实际持久结果。测试包含：
 
@@ -33,17 +33,17 @@
 
 ## 第三版构建诊断与收窄修复
 
-`preview-five-samples-build3.json` 的五组真实值全部满足 `< 500ms`：冷启动最大 412.5ms、刷新 332.5ms、详情返回 49.1ms、开窗 60.4ms、配额失败 82.9ms、保存成功 117.6ms；5 组均无 pageerror、失败输入可恢复、成功仅两实体且刷新一致。该结果发现读侧旧写，因此不能据此关闭存储验收。
+[preview-five-samples-build3.json](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build3.json) 的五组真实值全部满足 `< 500ms`：冷启动最大 412.5ms、刷新 332.5ms、详情返回 49.1ms、开窗 60.4ms、配额失败 82.9ms、保存成功 117.6ms；5 组均无 pageerror、失败输入可恢复、成功仅两实体且刷新一致。该结果发现读侧旧写，因此不能据此关闭存储验收。
 
-完整调用栈 `read-write-stacks-clean.txt` 定位：袋初始化 → `buildTransferBagCutOrderRows` → `buildCutOrderViewModel` → 全量备料计算 → 印花演示初始化 → PDA 交出头汇总 → 毛织初始化 → receiving / wool 业务 localStorage 写。补丁只修改 `transfer-bags-projection.ts`，使用专门裁片来源快照与真实裁床 PDA 事件，并给来源裁片行传 `sourceIdentityOnly:true`；不迁移毛织、印花等宽域。`read-write-stacks-after-fixed.txt` 证明两个业务旧写消失；完整类型检查没有本次文件错误（仍有仓库既有 6 个错误）。
+完整调用栈 [read-write-stacks-clean.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/read-write-stacks-clean.txt) 定位：袋初始化 → `buildTransferBagCutOrderRows` → `buildCutOrderViewModel` → 全量备料计算 → 印花演示初始化 → PDA 交出头汇总 → 毛织初始化 → receiving / wool 业务 localStorage 写。补丁只修改 `transfer-bags-projection.ts`，使用专门裁片来源快照与真实裁床 PDA 事件，并给来源裁片行传 `sourceIdentityOnly:true`；不迁移毛织、印花等宽域。[read-write-stacks-after-fixed.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/read-write-stacks-after-fixed.txt) 证明两个业务旧写消失；完整类型检查没有本次文件错误（仍有仓库既有 6 个错误）。
 
-`preview-five-samples.txt` 保留早期脚本返回链接 query 未匹配造成的失败；其中旧版冷780ms/刷新581ms的慢样本仍保存，不作通过证据。正式五样本脚本已修成按 pathname 匹配并 fail-fast，同时记录首次打开、刷新和保存各阶段的存储写入。
+[preview-five-samples.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples.txt) 保留早期脚本返回链接 query 未匹配造成的失败；其中旧版冷780ms/刷新581ms的慢样本仍保存，不作通过证据。正式五样本脚本已修成按 pathname 匹配并 fail-fast，同时记录首次打开、刷新和保存各阶段的存储写入。
 
 本节是 build3 后的历史诊断；最终以文末 build8 重测回执为准。本目录只声明旧袋范围验收，不单独声明整产品验收。
 
 ## 最终 build8 通过回执
 
-2026-09-25，主代理确认完整 `npm run build` 成功的 build8，统一生产预览 43236；浏览器 1366×768，五个隔离 context，各 9 个测量点，共 **45 / 45 样本通过**。证据为 `preview-five-samples-build8.json` 和原始工具输出 `.txt`。采样期间源码冻结且无其他浏览器或 CPU 检查并发。
+2026-09-25，主代理确认完整 `npm run build` 成功的 build8，统一生产预览 43236；浏览器 1366×768，五个隔离 context，各 9 个测量点，共 **45 / 45 样本通过**。证据为 [preview-five-samples-build8.json](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build8.json) 和原始工具输出 `.txt`。采样期间源码冻结且无其他浏览器或 CPU 检查并发。
 
 | 场景 | 最大耗时 |
 | --- | ---: |
@@ -59,6 +59,6 @@
 
 五组全部 `businessStorageWrites=[]`、`errors=[]`；首次访问未落袋种子；失败记录数为 0、袋码和备注不变；成功仅新增自己的 master 和 reuse summary 两条实体，刷新后两条均存在；第一组另证明已有用户袋档案在之后的失败动作后 JSON 完全不变。
 
-build7 首次读仍两次写 `cutPieceReleaseHandoverSnapshots` 的失败保留在 `preview-five-samples-build7.json`。`read-write-stacks-build7.txt` 和 `read-write-stacks-dev-final.txt` 定位为 `handover-orders.ts` 模块级演示 forEach → `createCutPieceReleaseHandoverSnapshot` → `persistHandoverSnapshotStorage`。主代理在 build8 删除该模块初始化持久化，改为已有持久快照优先、静态 fallback 只读。此次五轮首次打开均无该键写入，关闭此遗留项。
+build7 首次读仍两次写 `cutPieceReleaseHandoverSnapshots` 的失败保留在 [preview-five-samples-build7.json](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/preview-five-samples-build7.json)。[read-write-stacks-build7.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/read-write-stacks-build7.txt) 和 [read-write-stacks-dev-final.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-legacy-bags/read-write-stacks-dev-final.txt) 定位为 `handover-orders.ts` 模块级演示 forEach → `createCutPieceReleaseHandoverSnapshot` → `persistHandoverSnapshotStorage`。主代理在 build8 删除该模块初始化持久化，改为已有持久快照优先、静态 fallback 只读。此次五轮首次打开均无该键写入，关闭此遗留项。
 
 本目录的旧袋列表及保存范围验收完成；现代三类票扫码、重装、回收、报废和详情的另外 165 个通过样本见 `../acceptance-bag-lifecycle/README.md`。不以这些局部结果单独声明整产品验收完成。

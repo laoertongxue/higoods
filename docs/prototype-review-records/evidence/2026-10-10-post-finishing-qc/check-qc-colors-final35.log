@@ -1,3 +1,0 @@
-通过：唯一质检、五级编号、颜色图片及零合格不建空下游。
-(node:99345) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)

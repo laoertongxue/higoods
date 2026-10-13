@@ -1,9 +1,0 @@
-### Browser `pf32-advanced-9` opened with pid 79963.
-### Ran Playwright code
-```js
-await page.goto('about:blank');
-```
-### Page
-- Page URL: about:blank
-### Snapshot
-- [Snapshot](.playwright-cli/page-2026-10-10T12-34-14-233Z.yml)

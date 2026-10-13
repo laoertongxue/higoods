@@ -562,17 +562,10 @@ assertIncludes(dispatchWorkbenchPath, ['listBusinessFactoryMasterRecords'])
 assertIncludes(dispatchTenderPath, ['listRuntimeTaskTenderRecords', 'factoryPool'])
 
 // 第十二类：文档
-for (const docPath of [
-  'docs/fcs-factory-onboarding-step1-model-state-form.md',
-  'docs/fcs-factory-onboarding-step2-platform-review.md',
-  'docs/fcs-factory-onboarding-step3-sample-issue.md',
-  'docs/fcs-factory-onboarding-step4-factory-sample-submit.md',
-  'docs/fcs-factory-onboarding-step5-sample-review.md',
-  'docs/fcs-factory-onboarding-step6-official-conversion.md',
-  'docs/fcs-factory-onboarding-final-flow.md',
-]) {
-  assert(existsSync(resolve(root, docPath)), `缺少文档 ${docPath}`)
-}
-assertIncludes('docs/fcs-factory-onboarding-final-flow.md', ['完整业务流程', '最终检查脚本', 'Playwright 覆盖'])
+const currentRequirements = 'docs/product-requirements/工厂入驻现行需求.md'
+assert(existsSync(resolve(root, currentRequirements)), `缺少文档 ${currentRequirements}`)
+assertIncludes(currentRequirements, ['完整业务流程', '最终检查脚本', 'Playwright 覆盖',
+  '简称在所有入驻申请和正式工厂档案中全局唯一', '样衣审核通过待转正式',
+  '老板身份号码与文件必须齐全', '不重复写默认分配记录', '不能重复转档'])
 
 console.log('工厂入驻最终全链路检查通过')

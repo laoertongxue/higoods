@@ -1,7 +1,7 @@
 import { chromium } from 'playwright'
 import fs from 'node:fs'
 import path from 'node:path'
-const base=process.env.WOOL_BASE_URL||'http://127.0.0.1:5186',out='docs/product-design/wool-two-stage-adjustment/evidence'
+const base=process.env.WOOL_BASE_URL||'http://127.0.0.1:5186',out=process.env.WOOL_BROWSER_OUTPUT||`output/verification/wool/${new Date().toISOString().replaceAll(':','-')}/stage-browser`
 fs.mkdirSync(out,{recursive:true})
 const result={at:new Date().toISOString(),base,cwd:process.cwd(),browser:'Chromium / Playwright',scope:'Functional screenshots only; performance is measured separately by check-wool-route-performance.mjs',routes:[],actions:[],checks:[],errors:[]}
 const browser=await chromium.launch({headless:true})

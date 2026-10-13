@@ -190,7 +190,7 @@
 - `/fcs/dispatch/workbench?type=NON_SEWING`、`/fcs/dispatch/tenders`、`/fcs/sewing-outsourcing/sample-approval-suggestions`、`/fcs/sewing-outsourcing/responsibility-transfers`。
 - `/fcs/contracts`、`/fcs/progress/handover`、`/fcs/pda/task-receive`、`/fcs/pda/exec`、`/fcs/pda/handover`。
 
-精确动态路径、selector、前置和计时终点见归档[主链路由脚本](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/check-routes.js)、[来源路由脚本](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-perf-final.js)及[28组矩阵](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/scenario-matrix-build21.md)。
+精确动态路径、selector、前置和计时终点见归档[主链路由脚本](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/check-routes.js)、[来源路由脚本](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-perf-final.js)及[28组矩阵](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/scenario-matrix-build21.md)。
 
 ### 验证命令
 

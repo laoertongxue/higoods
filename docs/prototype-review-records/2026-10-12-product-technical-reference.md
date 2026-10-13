@@ -26,7 +26,7 @@
 | 保留页签与设备 | 通过 | REF-06，款式六页签、规格五页签均可切换；1366×768及1280×720无主体横向溢出 |
 | 图片 | 通过 | 本轮未换原图片，黑色衬衫演示记录保留对应实拍图；可视图片解码、名称与对象可读 |
 | 性能 | 通过 | REF-07，75个完整响应样本、15家族各5次，最大261.69999998807907ms |
-| 两轮逐项审查 | 通过 | REF-08，[矩阵实质审查段](../product-archive-technical-reference-cleanup.md) |
+| 两轮逐项审查 | 通过 | REF-08，[矩阵实质审查段](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-archive-technical-reference-cleanup.md) |
 | 新增保存/迁移及附件字节 | 不适用 | 仅删除只读引用浏览，未改变读写格式、附件实体或保存动作 |
 | PDA、打印、导入导出 | 不适用 | 本轮未改其入口、运行逻辑或数据契约，不声称重新验收这些未变流程 |
 

@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import path from 'node:path'
 import { chromium } from 'playwright'
 
 const base = process.env.WOOL_BASE_URL || 'http://127.0.0.1:4186'
-const output = process.env.WOOL_PERF_OUTPUT || 'docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/extra-action-performance.json'
+const output = process.env.WOOL_PERF_OUTPUT || `output/verification/wool/${new Date().toISOString().replaceAll(':', '-')}/extra-action-performance.json`
+fs.mkdirSync(path.dirname(output), { recursive: true })
 const storeKey = 'higood-fcs-wool-stage-store-v3'
 const completionId = 'WOOL-STAGE-004:KNITTING'
 const machineOrderId = 'WOOL-STAGE-002:KNITTING'
