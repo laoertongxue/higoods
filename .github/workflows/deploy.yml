@@ -1,0 +1,76 @@
+name: Deploy Caddy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: caddy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.CADDY_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      SITE_ID: higoods
+      SITE_URL: https://higood.12lab.cn
+    steps:
+      - name: Checkout the pushed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Configure Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify deployment contracts
+        run: python3 -m unittest discover -s tests/deploy -v
+      - name: Check and build the application
+        run: npm run build
+      - name: Package the exact commit
+        run: python3 scripts/deploy/prepare-release.py --project "$SITE_ID" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" --base-url "$SITE_URL"
+      - name: Configure deployment authentication
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.CADDY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.CADDY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.CADDY_HOST }}
+          DEPLOY_PORT: ${{ secrets.CADDY_PORT }}
+          DEPLOY_USER: ${{ secrets.CADDY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          umask 077
+          mkdir -p "$RUNNER_TEMP/caddy-ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/caddy-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/caddy-ssh/known_hosts"
+          printf '%s\n' "Host production" "  HostName $DEPLOY_HOST" "  Port $DEPLOY_PORT" "  User $DEPLOY_USER" "  IdentityFile $RUNNER_TEMP/caddy-ssh/key" "  UserKnownHostsFile $RUNNER_TEMP/caddy-ssh/known_hosts" "  StrictHostKeyChecking yes" "  BatchMode yes" "  IdentitiesOnly yes" "  ConnectTimeout 20" > "$RUNNER_TEMP/caddy-ssh/config"
+      - name: Upload and atomically publish
+        run: ssh -F "$RUNNER_TEMP/caddy-ssh/config" production "deploy $GITHUB_SHA $GITHUB_RUN_ID" < release.tar.gz
+      - name: Verify HTTPS and restore the previous release on failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! python3 scripts/deploy/check-public.py --url "$SITE_URL" --probe /pcs/products/styles; then
+            ssh -F "$RUNNER_TEMP/caddy-ssh/config" production "rollback $GITHUB_SHA $GITHUB_RUN_ID"
+            exit 1
+          fi
+      - name: Record the production version
+        shell: bash
+        run: |
+          printf '### Caddy Production\n\n- Site: %s\n- Commit: `%s`\n- Public HTTPS verification: passed\n' "$SITE_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary authentication files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/caddy-ssh"

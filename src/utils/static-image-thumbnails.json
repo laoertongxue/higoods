@@ -1,0 +1,358 @@
+{
+  "/cardigan-sample.jpg": {
+    "thumbnail": "/thumbnails/cardigan-sample.webp",
+    "sourceSha256": "60783ec116a22813467b84b7c243e5c9aa06ccf37d4a0b10c8a1ffcf9736535f"
+  },
+  "/denim-shorts-sample.jpg": {
+    "thumbnail": "/thumbnails/denim-shorts-sample.webp",
+    "sourceSha256": "c1f5f70e40a7887afbf38c6c32086bed37411d064e6b7edae09f07be212ae7db"
+  },
+  "/dress-sample-1.jpg": {
+    "thumbnail": "/thumbnails/dress-sample-1.webp",
+    "sourceSha256": "9298df575a973199866ec8e7c0b18cb7b1685c2f0bfe90d77ed9c0cd05f3bffd"
+  },
+  "/jacket-sample.jpg": {
+    "thumbnail": "/thumbnails/jacket-sample.webp",
+    "sourceSha256": "bb8990e32f5d2174ca0797f5952f24359c2a3e5d5ea4d4543f76bceb1331852b"
+  },
+  "/lace-dress-sample.jpg": {
+    "thumbnail": "/thumbnails/lace-dress-sample.webp",
+    "sourceSha256": "49f6db7ebcbdaf1564ac4c3f94d1ea5bcfa6382db8adeaff322c29955bc5e405"
+  },
+  "/materials/pcs-reviewed/aline-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/aline-black.webp",
+    "sourceSha256": "011af1337701367e5489ca243d9798ab188285f75b9603e92c403c247be13e89"
+  },
+  "/materials/pcs-reviewed/aline-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/aline-white.webp",
+    "sourceSha256": "7aba84dd0aa7b0232955977a30626a939268fc449c8c49708cd0807a7c0b2765"
+  },
+  "/materials/pcs-reviewed/batik-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/batik-black.webp",
+    "sourceSha256": "db3e41a70aaea85c1d56d43b6cb2b8c645cc2258ffe25339f3ad39a233ce6987"
+  },
+  "/materials/pcs-reviewed/batik-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/batik-white.webp",
+    "sourceSha256": "e6dbf3bb42309fe06ebc202cc8ad24cd664b870a7baf3b10a358776b86404dfe"
+  },
+  "/materials/pcs-reviewed/blazer-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/blazer-black.webp",
+    "sourceSha256": "e9baa2da4e99c1e82dc13b835417cb0d2669f646997c006cf99fe14780170089"
+  },
+  "/materials/pcs-reviewed/cardigan-beige.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cardigan-beige.webp",
+    "sourceSha256": "c43985132a876ddeca95faa49149c55b0a3c4138819434e0a0957524adfdc99e"
+  },
+  "/materials/pcs-reviewed/cardigan-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cardigan-black.webp",
+    "sourceSha256": "31dcf2d4f5b417bc24cb77b7a64db1f2d5ba75a06594b7e6b3be95b439f5b451"
+  },
+  "/materials/pcs-reviewed/cardigan-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cardigan-white.webp",
+    "sourceSha256": "7be5bacd3dc354eaf0c74bfc6f86054a58497cf18b08438c158c64e2ce95bf0f"
+  },
+  "/materials/pcs-reviewed/cargo-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cargo-black.webp",
+    "sourceSha256": "1f89cb9637ed1beb128b955d7794105af81cfa59989559cbfc07fdcadd512c74"
+  },
+  "/materials/pcs-reviewed/cargo-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cargo-white.webp",
+    "sourceSha256": "f6c32fc8d02a2cc317a05e8da2ac8fd59667b8472f340dc0a0a80636d1b53b71"
+  },
+  "/materials/pcs-reviewed/casual-dress-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/casual-dress-black.webp",
+    "sourceSha256": "114bcf3fd5f1fb0225806eb863858ee67fa4fa25bf7640fcc4b221bc9c040e5b"
+  },
+  "/materials/pcs-reviewed/casual-dress-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/casual-dress-white.webp",
+    "sourceSha256": "40b33f3b7c3ac075959f59e697aba47785b75a35199d99b9558174f017813dd5"
+  },
+  "/materials/pcs-reviewed/cotton-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cotton-black.webp",
+    "sourceSha256": "ec70ac75911419c1edf8f78d6474b464e80e335a8328c9d18fe1175a428665e6"
+  },
+  "/materials/pcs-reviewed/cotton-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/cotton-white.webp",
+    "sourceSha256": "e333b4f2b2b27e424333ed8b8ed0d947bba5f09537fc284aa27f54b077716cfc"
+  },
+  "/materials/pcs-reviewed/dress-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/dress-blue.webp",
+    "sourceSha256": "aa2dbadb26070749cd050d61e98a1384738ae2094c8438be22fc72d77b194e21"
+  },
+  "/materials/pcs-reviewed/dress-floral-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/dress-floral-black.webp",
+    "sourceSha256": "0fb1a670d03dbfd1b94cbddba0865698d148c6a9deb7d665ed92550b4034e38d"
+  },
+  "/materials/pcs-reviewed/dress-floral-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/dress-floral-white.webp",
+    "sourceSha256": "f5b2c962ee1c8a4488fc686987ead53d42f41ed0856f0d130abe0404ea89a6a2"
+  },
+  "/materials/pcs-reviewed/dress-khaki.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/dress-khaki.webp",
+    "sourceSha256": "1bd95bb22e128a96e2298223939a71d0b86793ad80934d8b4b181347a47f4792"
+  },
+  "/materials/pcs-reviewed/dress-red-print.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/dress-red-print.webp",
+    "sourceSha256": "9db87708fc9fd50695d1d66e2256aaf5466df5fce57f28515056d5b62e8fda69"
+  },
+  "/materials/pcs-reviewed/dress-wine.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/dress-wine.webp",
+    "sourceSha256": "e968d7b56ddf2276430e327131ad7f6b159ef1281877adeda247bfa89f62b4b7"
+  },
+  "/materials/pcs-reviewed/embroidered-dress-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/embroidered-dress-black.webp",
+    "sourceSha256": "f40480c5172422ab9760e2f96929cd0ea468cf126c62056cdb53eb635a4f4973"
+  },
+  "/materials/pcs-reviewed/embroidered-dress-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/embroidered-dress-white.webp",
+    "sourceSha256": "616d849da3cf0ac01afb676a6fb3f59db367db5515732474464a1aaffba84e06"
+  },
+  "/materials/pcs-reviewed/flannel-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/flannel-black.webp",
+    "sourceSha256": "d74af020942000a000b64fcb50c24697485840f0ae91c04c2418596982262198"
+  },
+  "/materials/pcs-reviewed/flannel-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/flannel-blue.webp",
+    "sourceSha256": "ac956a7b2043566cd9b84b176f021918db2a1b44b2aa08b78dc9fe87716e42b7"
+  },
+  "/materials/pcs-reviewed/flannel-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/flannel-white.webp",
+    "sourceSha256": "b305c74063a9291667a925842bbdaa73f1ae0ffcaee8c9ef9851f29d7ae23100"
+  },
+  "/materials/pcs-reviewed/fringe-pink.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/fringe-pink.webp",
+    "sourceSha256": "0299c25bc4b9513d1beaeb29650e3167c8dfa3fb78e6e6cbce86f1a66637d216"
+  },
+  "/materials/pcs-reviewed/hawaii-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/hawaii-black.webp",
+    "sourceSha256": "f784cfae2ee9486e72f63816831f49c7f9cab1a211507a7f4912265d18f3aad0"
+  },
+  "/materials/pcs-reviewed/hawaii-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/hawaii-white.webp",
+    "sourceSha256": "378fbd0cb9140a0fb061560cc6050159b880a8ef923e9f735ce72cbe75b2e0cd"
+  },
+  "/materials/pcs-reviewed/hood-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/hood-black.webp",
+    "sourceSha256": "336d047ef9de8f930b4116cb56527a0b6a673ea4efad1745e92d4668b340a7bf"
+  },
+  "/materials/pcs-reviewed/hood-grey.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/hood-grey.webp",
+    "sourceSha256": "cf536b1b1d3051edcff421418b3fc463163e4fe5a82799e3fec940092460025e"
+  },
+  "/materials/pcs-reviewed/hood-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/hood-white.webp",
+    "sourceSha256": "78ca512d64bccb0ddde26fb9995e95bed1eb9ecf6fbd0753c096cea2523a648e"
+  },
+  "/materials/pcs-reviewed/jacket-army.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jacket-army.webp",
+    "sourceSha256": "ff33152f95cfc860b708b235e7067b21f62886cdea45e4252a7f4e1550e9dc22"
+  },
+  "/materials/pcs-reviewed/jacket-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jacket-black.webp",
+    "sourceSha256": "aef50416f86a76282a60a7a95533d39d558627e780d1409ca839124b05667826"
+  },
+  "/materials/pcs-reviewed/jacket-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jacket-blue.webp",
+    "sourceSha256": "3ad453d8e565b3f870b0614ac8bdf55a77b46b278305bcfa630f079cca41918b"
+  },
+  "/materials/pcs-reviewed/jacket-khaki.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jacket-khaki.webp",
+    "sourceSha256": "5e812c8be692e078b8f0a47b95345a7821833a36d89c975a934f7f0002932ea4"
+  },
+  "/materials/pcs-reviewed/jacket-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jacket-white.webp",
+    "sourceSha256": "f293cc4eded18fddfac92df092ce455d02541b76543f01ddfd113bc5827f8fd8"
+  },
+  "/materials/pcs-reviewed/jacket-wine.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jacket-wine.webp",
+    "sourceSha256": "f49e60e8a0c3ebba5e8f11d1a32d084f83cc18a7b4d606c3b0675d3eb62afb32"
+  },
+  "/materials/pcs-reviewed/jeans-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jeans-black.webp",
+    "sourceSha256": "487f60135d3e8f5767be5f1df942a96748044e01d70d5043dced8a62d3e54cff"
+  },
+  "/materials/pcs-reviewed/jeans-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jeans-white.webp",
+    "sourceSha256": "6a9bba8306a78439e4bfa642758eeb671a12430d2ca8e5c30e769c63c2d96793"
+  },
+  "/materials/pcs-reviewed/jogger-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jogger-black.webp",
+    "sourceSha256": "4d833fe9d9411ec5f710be2b80b85135851bbc3f2c9cb3beb308f2e9687ed88d"
+  },
+  "/materials/pcs-reviewed/jogger-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jogger-white.webp",
+    "sourceSha256": "9dd63915c5ecd04f7f9c44bdfc2b0f17c709913644ea9eb9e37f6e50cdc61bcc"
+  },
+  "/materials/pcs-reviewed/jumpsuit-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jumpsuit-black.webp",
+    "sourceSha256": "ec554e9ec04b7b1cb64bb43472d5a51adf15cbaa92aa1d36a44ce20e3c861a57"
+  },
+  "/materials/pcs-reviewed/jumpsuit-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/jumpsuit-white.webp",
+    "sourceSha256": "2cbb818a77e2619e26fe4ab8abc1d019825dbb4303f5c58814aea04f990bac7e"
+  },
+  "/materials/pcs-reviewed/knife.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/knife.webp",
+    "sourceSha256": "2eee76f090af08b1e9cb1b337fd1a570862613802d87354f0af1686501b76d93"
+  },
+  "/materials/pcs-reviewed/knit-coral.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/knit-coral.webp",
+    "sourceSha256": "81a046c56c7071269fe34b5a9f09693568abe550d380c7e7629a707c3ff269e6"
+  },
+  "/materials/pcs-reviewed/lace-dress-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/lace-dress-black.webp",
+    "sourceSha256": "54d20148955a5058f857fec82f8da8657e56c8a99ec2ab0eaca15cb76f078ee0"
+  },
+  "/materials/pcs-reviewed/lace-dress-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/lace-dress-white.webp",
+    "sourceSha256": "e16825d6ce2a4afe43228f213e04e32d73d2dbcf54ebbd4c3ae3c556e0f6f51c"
+  },
+  "/materials/pcs-reviewed/lace-top-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/lace-top-black.webp",
+    "sourceSha256": "383ae51110c41f709c678df9511abbd2f344667a30f33bc23f71fe53542478f2"
+  },
+  "/materials/pcs-reviewed/lace-top-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/lace-top-white.webp",
+    "sourceSha256": "72f342cf2d58dad45cfe4bae1c2473ee615ec7ee84ed95f34de21c05b0b638e0"
+  },
+  "/materials/pcs-reviewed/linen-dress-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/linen-dress-black.webp",
+    "sourceSha256": "bf583cbd133f57f8ccd0a519ee0516fd7f4bc6b247fe2aa3311d966a7da08aac"
+  },
+  "/materials/pcs-reviewed/linen-dress-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/linen-dress-white.webp",
+    "sourceSha256": "19ec681663ebf6aaf00d02738e573185ec1838f915da55df7bce1d12879e8a8f"
+  },
+  "/materials/pcs-reviewed/linen-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/linen-white.webp",
+    "sourceSha256": "cdd493a777625c026e5838b1da5d241887eb8de4300683722ab275d1c33d96c3"
+  },
+  "/materials/pcs-reviewed/organza-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/organza-blue.webp",
+    "sourceSha256": "c942f922d9c44631c914bfd1dd1ab3bf0b1755ff07fcb7d22f1031f0b27202e3"
+  },
+  "/materials/pcs-reviewed/pleated-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/pleated-black.webp",
+    "sourceSha256": "21ae1955cd825d3c8b67a86dfd4823a551276bde730cbfa52af6722d508e20d6"
+  },
+  "/materials/pcs-reviewed/pleated-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/pleated-white.webp",
+    "sourceSha256": "89063b2bb5d66cec2011e647dfde3e822db3da0d5e488433390139093b2e2727"
+  },
+  "/materials/pcs-reviewed/polo-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/polo-white.webp",
+    "sourceSha256": "c5303006723fbf2c9f0f1f47c15cad20e7533c0f756b27350ae8f9dcf52633e4"
+  },
+  "/materials/pcs-reviewed/print-tee-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/print-tee-black.webp",
+    "sourceSha256": "56963d3832bcc0827eb942a880f7a09f1f12c7c609ae0b0f200aa37dcd67f280"
+  },
+  "/materials/pcs-reviewed/print-tee-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/print-tee-white.webp",
+    "sourceSha256": "96dccae9aa37b21b903ed48b1167bf847ca083d9edaf608aee06ece52a346979"
+  },
+  "/materials/pcs-reviewed/rib-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/rib-blue.webp",
+    "sourceSha256": "d3edd1356d9b4f14f6f838103a580689cef8246cf1cf9afabc3d8ff1c08212b6"
+  },
+  "/materials/pcs-reviewed/shirt-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-black.webp",
+    "sourceSha256": "a607d7485c65aa8fa2311ab1faf96b0ab16c49d0be25ade6b7b4a23d69128ba0"
+  },
+  "/materials/pcs-reviewed/shirt-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-blue.webp",
+    "sourceSha256": "d6911a7ac99503dee0a9e306a72d10325816e6ce57eb5a82b758ef68e0842210"
+  },
+  "/materials/pcs-reviewed/shirt-floral-blue.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-floral-blue.webp",
+    "sourceSha256": "b5b19d31c1a663eb437cf18fb4353e52804749b0b1d0bcbec83727e93425517e"
+  },
+  "/materials/pcs-reviewed/shirt-khaki.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-khaki.webp",
+    "sourceSha256": "05ad4592a7b417b0635447e63f615348c1bf71ecc0fb4e8551a1144ae35cd5ab"
+  },
+  "/materials/pcs-reviewed/shirt-wine.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-wine.webp",
+    "sourceSha256": "e25c947f054bd7b63b7802a1d49c1bc90df557dc14e5133e59294e401b2e410b"
+  },
+  "/materials/pcs-reviewed/shorts-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shorts-black.webp",
+    "sourceSha256": "1268a6e32f972371dea90c7d3553528a76ceb08906393f7d117fde190afb490b"
+  },
+  "/materials/pcs-reviewed/shorts-navy.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shorts-navy.webp",
+    "sourceSha256": "764248e87c231df14de0bc8289e6ddb0cfe08cad35f3580a58d951978a2e9e4c"
+  },
+  "/materials/pcs-reviewed/shorts-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/shorts-white.webp",
+    "sourceSha256": "ef7fcb5081404c79ccf9324a7c1de81db760451152a123856f14891ff5a8bcf9"
+  },
+  "/materials/pcs-reviewed/suit-navy.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/suit-navy.webp",
+    "sourceSha256": "42a7d34f3618f60ee13f6b9d3f21914b0391bf3da2171dbb7ddf20073717c4a7"
+  },
+  "/materials/pcs-reviewed/sweat-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/sweat-black.webp",
+    "sourceSha256": "ce1bd10166246da026f591ab134d64155978c17b3dcb626f6125560713fdfa2a"
+  },
+  "/materials/pcs-reviewed/sweat-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/sweat-white.webp",
+    "sourceSha256": "b1fb27260222d967166f755d7c60b8827c5c3a7666558552c58c8e8ccbd82e86"
+  },
+  "/materials/pcs-reviewed/sweater-cream.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/sweater-cream.webp",
+    "sourceSha256": "900d2314e04687b0bb83cf67433d4ece743342e44a5d482cf8c298ccbe0bec5f"
+  },
+  "/materials/pcs-reviewed/tape-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/tape-white.webp",
+    "sourceSha256": "b1e7ac293fac0a2d096bc71796becc39eafb851f91b086df4656684619a5494b"
+  },
+  "/materials/pcs-reviewed/tee-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-black.webp",
+    "sourceSha256": "4baaa3c6c9c776fe45d2b258820c47d6d19931813935dd4a926a1b244d397fce"
+  },
+  "/materials/pcs-reviewed/tee-red.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-red.webp",
+    "sourceSha256": "b2e5defe903646b21c67686a2d1d28165c6707c7833d169f9cc3d88e95416a30"
+  },
+  "/materials/pcs-reviewed/tee-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-white.webp",
+    "sourceSha256": "d0ba34d4bb36e0e92a3f9807a3b2dbbe31fe2fbc707455cd4bb0463ac5114792"
+  },
+  "/materials/pcs-reviewed/thread-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/thread-white.webp",
+    "sourceSha256": "820c717b22e6769d7a70eb44a33c0b31e4818bc70464125e564d22ea32addc47"
+  },
+  "/materials/pcs-reviewed/trousers-black.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/trousers-black.webp",
+    "sourceSha256": "43dac16ffd2dad9c5f22c5f97efceccb95802388f79ffeb9a5e881f0479ac3fa"
+  },
+  "/materials/pcs-reviewed/trousers-navy.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/trousers-navy.webp",
+    "sourceSha256": "957a031fde6e767da4c8e708c83ad90e0d1e847b46829984bf861fc90b9ff1e4"
+  },
+  "/materials/pcs-reviewed/trousers-white.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/trousers-white.webp",
+    "sourceSha256": "c395ff08ca5ce89627d6fa22c74d297f476779ec1bdbde9d07ed64e7b7ddfd8d"
+  },
+  "/materials/pcs-reviewed/vest-green.jpg": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/vest-green.webp",
+    "sourceSha256": "f952d427a4b0b6dd04d22181d9e2e4168c8df25456925591e28ee862818044d3"
+  },
+  "/pants-sample.jpg": {
+    "thumbnail": "/thumbnails/pants-sample.webp",
+    "sourceSha256": "7fee66cfa62746c3562edbafebff3eda10a7a2307963b35ebab245ef71e6a180"
+  },
+  "/production-confirmation-demo/grey-zip-hoodie.png": {
+    "thumbnail": "/thumbnails/production-confirmation-demo/grey-zip-hoodie.webp",
+    "sourceSha256": "bdfa30b2f50cb537cd13bb8b10c2eb22c685bf4b5f23e6f11c2abd28c9acf279"
+  },
+  "/shirt-sample.jpg": {
+    "thumbnail": "/thumbnails/shirt-sample.webp",
+    "sourceSha256": "737b78268880e4fe66170f7839b13e5460e5433ee55bb9a83a02ccbb619d6fcb"
+  },
+  "/tshirt-sample.jpg": {
+    "thumbnail": "/thumbnails/tshirt-sample.webp",
+    "sourceSha256": "ff0d1c9e398d626597d515565e99ee525f98d0c0ae799b11f213b87bf8b27545"
+  }
+}

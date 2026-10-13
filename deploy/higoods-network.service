@@ -1,0 +1,13 @@
+[Unit]
+Description=HiGoods static host TCP startup window
+Wants=network-online.target
+After=network-online.target
+Before=caddy.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/higoods-network-initcwnd
+
+[Install]
+WantedBy=multi-user.target
+

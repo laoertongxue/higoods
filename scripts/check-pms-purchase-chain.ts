@@ -73,7 +73,6 @@ import { listPmsWarehouses, syncPmsWarehouses } from '../src/data/pms/warehouses
 import { createPmsUnit, listPmsUnits, togglePmsUnitStatus, updatePmsUnit, type PmsUnitInput } from '../src/data/pms/units.ts'
 import { getPmsBomDetail, submitPmsBomTemplate, updatePmsBomDetail } from '../src/data/pms/bom-detail.ts'
 import { getPmsBomTemplate, updatePmsBomMaterialUsage } from '../src/data/pms/bom-templates.ts'
-import { getPmsSubjectOperation, listPmsSubjectOperations, updatePmsSubjectOperation } from '../src/data/pms/subject-operations.ts'
 import { pmsProductPurchaseOrderAmount, pmsProductPurchaseOrderLineAmount } from '../src/data/pms/product-purchase-orders.ts'
 import {
   PMS_LOGISTICS_IMPORT_HEADERS,
@@ -123,26 +122,8 @@ import {
   listPmsInventoryOrders,
   updatePmsInventoryRule,
 } from '../src/data/pms/inventory-monitor.ts'
-import {
-  consumePmsTransitFilter,
-  filterPmsTransitReceipts,
-  getPmsTransitDashboard,
-  listPmsTransitOrderChecks,
-  listPmsTransitPreparationTasks,
-  listPmsTransitReceipts,
-  setPmsTransitFilter,
-} from '../src/data/pms/transit-warehouse.ts'
-import { listPmsSettingDictionaries, listPmsSettingRoles, listPmsSettingUsers } from '../src/data/pms/settings.ts'
 import { renderPmsMaterialInventoryPage } from '../src/pages/pms/material-inventory.ts'
-import { renderPmsTransitDashboardPage } from '../src/pages/pms/transit-dashboard.ts'
-import { renderPmsTransitReceiptsPage } from '../src/pages/pms/transit-receipts.ts'
-import { renderPmsTransitOrderChecksPage, renderPmsTransitPreparationTasksPage } from '../src/pages/pms/transit-simple-lists.ts'
-import { renderPmsUsersPage, renderPmsRolesPage, renderPmsDictionariesPage } from '../src/pages/pms/settings.ts'
-import { renderPmsSubjectOperationsPage } from '../src/pages/pms/subject-operations.ts'
-import { renderPmsMaterialReconciliationsPage } from '../src/pages/pms/material-reconciliations.ts'
-import { renderPmsLogisticsReconciliationsPage } from '../src/pages/pms/logistics-reconciliations.ts'
 import { renderPmsMaterialPaymentRequestsPage, renderPmsLogisticsPaymentRequestsPage } from '../src/pages/pms/payment-requests.ts'
-import { renderPmsTradeSubjectsPage } from '../src/pages/pms/trade-subjects.ts'
 import { renderPmsSuppliersPage } from '../src/pages/pms/suppliers.ts'
 import { renderPmsSupplierSupplyArchivesPage } from '../src/pages/pms/supplier-supply-archives.ts'
 import { renderPmsMaterialArchivesPage } from '../src/pages/pms/material-archives.ts'
@@ -159,7 +140,6 @@ import { addPmsConfirmationBoxSpec, addPmsConfirmationPackageDetail, calculatePm
 import { createPmsInventoryMonitorRow, formatPmsInventoryProcessChain, refreshPmsInventoryStocks } from '../src/data/pms/inventory-monitor.ts'
 import { renderPmsFirstLegShipmentsPage } from '../src/pages/pms/first-leg-shipments.ts'
 import { renderPmsFirstLegCarriersPage } from '../src/pages/pms/first-leg-carriers.ts'
-import { renderPmsWorkbenchPage } from '../src/pages/pms/workbench.ts'
 import { renderPmsPurchaseSuggestionsPage } from '../src/pages/pms/purchase-suggestions.ts'
 import { renderPmsKolDemandsPage } from '../src/pages/pms/kol-demands.ts'
 import { renderPmsProductPurchaseOrdersPage } from '../src/pages/pms/product-purchase-orders.ts'
@@ -168,7 +148,7 @@ function assertIncludes(haystack: string, needle: string, label: string): void {
   assert.ok(haystack.includes(needle), `${label} 缺少内容：${needle}`)
 }
 
-// 1. 菜单与路由一致性：PMS 每个菜单 href 必须存在精确路由，默认页必须可达。
+// 1. 菜单与路由一致性：PMS 每个菜单 href 必须能匹配路由，默认页必须可达。
 const pmsSystem = systems.find((system) => system.id === 'pms')
 assert.ok(pmsSystem, 'PMS 系统未注册')
 assert.ok(routes.exactRoutes[pmsSystem.defaultPage], `PMS 默认页没有精确路由：${pmsSystem.defaultPage}`)
@@ -179,20 +159,30 @@ const pmsMenuHrefs = (menusBySystem.pms ?? [])
   .filter((href): href is string => Boolean(href))
 assert.ok(pmsMenuHrefs.length >= 5, `PMS 菜单项过少：${pmsMenuHrefs.length}`)
 for (const href of pmsMenuHrefs) {
-  assert.ok(routes.exactRoutes[href], `PMS 菜单缺少精确路由：${href}`)
+  assert.ok(routes.exactRoutes[href] || routes.dynamicRoutes.some((route) => route.pattern.test(href)), `PMS 菜单缺少路由：${href}`)
 }
-for (const removed of ['/pms/supplier', '/pms/contract']) {
-  assert.ok(!pmsMenuHrefs.includes(removed), `旧占位菜单未删除：${removed}`)
-  assert.ok(!routes.exactRoutes[removed], `旧占位路由未删除：${removed}`)
+// ee149499 retired these PMS entries when aligning the live procurement menu.
+// Reconciliation data remains in use by payment requests; only its old pages retired.
+for (const removed of [
+  '/pms/supplier', '/pms/contract', '/pms/workbench/overview', '/pms/data-management',
+  '/pms/trade-subjects', '/pms/subject-operations', '/pms/material-reconciliations',
+  '/pms/logistics-reconciliations', '/pms/transit/dashboard', '/pms/transit/receipts',
+  '/pms/transit/order-checks', '/pms/transit/preparation-tasks', '/pms/users',
+  '/pms/roles', '/pms/dictionaries',
+]) {
+  assert.ok(!pmsMenuHrefs.includes(removed), `已退役菜单重新出现：${removed}`)
+  assert.ok(!routes.exactRoutes[removed], `已退役路由重新出现：${removed}`)
 }
 
-// 2. 页面渲染冒烟：四个 P1 页面可以同步渲染出业务内容。
-assertIncludes(renderPmsWorkbenchPage(), '采购管理工作台', '采购工作台')
+// Initialize the existing in-memory requirement fixtures explicitly. Their IDs
+// must not depend on whether a retired workbench happened to render first.
+listPmsMaterialRequirements()
+
+// 2. 页面渲染冒烟：现行 P1 页面可以同步渲染出业务内容。
 assertIncludes(renderPmsPurchaseSuggestionsPage(), 'data-pms-psk-root', '商品采购建议页')
 assertIncludes(renderPmsKolDemandsPage(), 'data-pms-kol-root', 'KOL 采购需求页')
 assertIncludes(renderPmsProductPurchaseOrdersPage(), 'data-pms-ppo-root', '商品采购单页')
 for (const [name, html] of [
-  ['采购工作台', renderPmsWorkbenchPage()],
   ['商品采购建议', renderPmsPurchaseSuggestionsPage()],
   ['KOL 采购需求', renderPmsKolDemandsPage()],
   ['商品采购单', renderPmsProductPurchaseOrdersPage()],
@@ -296,22 +286,28 @@ assertIncludes(renderPmsFirstLegShipmentsPage(), 'data-pms-fls-root', '头程物
 assertIncludes(renderPmsFirstLegCarriersPage(), 'data-pms-flc-root', '头程物流商页')
 
 // 9. 面辅料需求下推：生成采购单并回写需求状态与商品采购单面辅料状态。
-const pushCheck = checkPmsMaterialRequirementPush('MREQ-0001')
-assert.equal(pushCheck.ok, true, `MREQ-0001 应可下推：${pushCheck.reason}`)
+// Sequence numbers depend on which live page initializes the seed first.
+// Identify the intended mixed-quantity fixture by its source purchase order.
+const pushRequirement = listPmsMaterialRequirements().find((requirement) => requirement.sourcePurchaseOrderNo === 'CG-2026-0018')
+assert.ok(pushRequirement, 'CG-2026-0018 的面辅料需求应存在')
+const pushRequirementNo = pushRequirement.requirementNo
+const pushCheck = checkPmsMaterialRequirementPush(pushRequirementNo)
+assert.equal(pushCheck.ok, true, `${pushRequirementNo} 应可下推：${pushCheck.reason}`)
 const pushable = pushCheck.pushableLines.filter((line) => line.suggestedQty > 0)
-assert.ok(pushable.length >= 3, `MREQ-0001 可下推行不足：${pushable.length}`)
+assert.ok(pushable.length >= 3, `${pushRequirementNo} 可下推行不足：${pushable.length}`)
 const pushedOrders = pushPmsMaterialRequirement(
-  'MREQ-0001',
+  pushRequirementNo,
   pushable.map((line) => ({ lineNo: line.lineNo, actualQty: line.suggestedQty, unitPrice: 10 })),
   PMS_BUYER_ACTOR,
 )
 assert.equal(pushedOrders.length, pushable.length, '下推应逐物料生成采购单')
 assert.ok(pushedOrders.every((order) => order.status === '待采购'), '下推生成的采购单应为待采购')
-const requirementAfterPush = listPmsMaterialRequirements().find((requirement) => requirement.requirementNo === 'MREQ-0001')
+const requirementAfterPush = listPmsMaterialRequirements().find((requirement) => requirement.requirementNo === pushRequirementNo)
 assert.equal(requirementAfterPush?.status, '部分下推', '存在建议量为 0 的行时需求应为部分下推')
-assert.throws(() => pushPmsMaterialRequirement('MREQ-0001', [{ lineNo: pushable[0].lineNo, actualQty: 1, unitPrice: 1 }], PMS_BUYER_ACTOR), PmsDomainError)
-const zeroCheck = checkPmsMaterialRequirementPush('MREQ-0002')
+assert.throws(() => pushPmsMaterialRequirement(pushRequirementNo, [{ lineNo: pushable[0].lineNo, actualQty: 1, unitPrice: 1 }], PMS_BUYER_ACTOR), PmsDomainError)
+const zeroCheck = checkPmsMaterialRequirementPush(pushRequirementNo)
 assert.equal(zeroCheck.ok, false, '剩余建议量全为 0 的需求应阻断下推')
+assert.ok(zeroCheck.pushableLines.length > 0 && zeroCheck.pushableLines.every((line) => line.suggestedQty === 0), '阻断应来自剩余零建议量物料行')
 
 // 10. 快递信息导入校验与回写。
 const initialLogisticsCount = listPmsMaterialLogisticsRecords().length
@@ -456,7 +452,6 @@ assert.equal(newChannel.status, '启用', '新渠道应启用')
 
 // 14. P3a 基础资料：路由、渲染与主数据规则。
 for (const route of [
-  '/pms/trade-subjects',
   '/pms/suppliers',
   '/pms/supplier-supply-archives',
   '/pms/material-archives',
@@ -469,7 +464,6 @@ for (const route of [
   assert.ok(routes.exactRoutes[route], `P3a 缺少精确路由：${route}`)
 }
 assert.ok(routes.dynamicRoutes.some((route) => route.pattern.test('/pms/bom-templates/HG-TS-2601')), 'BOM 详情动态路由缺失')
-assertIncludes(renderPmsTradeSubjectsPage(), 'data-pms-ts-root', '贸易主体页')
 assertIncludes(renderPmsSuppliersPage(), 'data-pms-sup-root', '供应商页')
 assertIncludes(renderPmsSupplierSupplyArchivesPage(), 'data-pms-arc-root', '供货档案页')
 assertIncludes(renderPmsMaterialArchivesPage(), 'data-pms-mat-root', '物料档案页')
@@ -564,27 +558,13 @@ generatePmsMaterialRequirement('CG-2026-0019', PMS_BUYER_ACTOR)
 
 // 16. P3b 对账与请款：路由、公式、差异门禁、草稿与付款闭环。
 for (const route of [
-  '/pms/subject-operations',
-  '/pms/material-reconciliations',
-  '/pms/logistics-reconciliations',
   '/pms/material-payment-requests',
   '/pms/logistics-payment-requests',
 ]) {
   assert.ok(routes.exactRoutes[route], `P3b 缺少精确路由：${route}`)
 }
-assertIncludes(renderPmsSubjectOperationsPage(), 'data-pms-so-root', '主体经营页')
-assertIncludes(renderPmsMaterialReconciliationsPage(), 'data-pms-mrec-root', '面辅料对账页')
-assertIncludes(renderPmsLogisticsReconciliationsPage(), 'data-pms-lrec-root', '物流对账页')
 assertIncludes(renderPmsMaterialPaymentRequestsPage(), 'data-pms-pay-root', '面辅料请款页')
 assertIncludes(renderPmsLogisticsPaymentRequestsPage(), 'data-pms-pay-root', '物流请款页')
-
-const subjectRow = getPmsSubjectOperation('SO-2026-05-01')
-assert.ok(subjectRow, '主体经营明细应存在')
-assert.equal(subjectRow.totalCost, subjectRow.purchaseCost + subjectRow.logisticsCost + subjectRow.allocatedCost + subjectRow.otherCost, '总成本公式')
-assert.equal(subjectRow.grossProfit, subjectRow.salesAmount - subjectRow.totalCost, '毛利公式')
-assert.equal(subjectRow.grossMargin, Math.round((subjectRow.grossProfit / subjectRow.salesAmount) * 10000) / 100, '毛利率公式')
-updatePmsSubjectOperation('SO-2026-05-01', { allocatedCost: subjectRow.allocatedCost + 1000 }, PMS_FINANCE_ACTOR)
-assert.equal(getPmsSubjectOperation('SO-2026-05-01')?.allocatedCost, subjectRow.allocatedCost, '费用分摊应可更新')
 
 const materialRecon = getPmsMaterialReconciliation('MR-2026-0004')
 assert.ok(materialRecon, 'MR-2026-0004 应存在')
@@ -674,27 +654,13 @@ voidPmsPaymentRequest(logisticsRequest.requestNo, '供应商账单重开', PMS_F
 assert.equal(getPmsPaymentRequest(logisticsRequest.requestNo)?.status, '已作废', '请款单应作废')
 assert.equal(getPmsLogisticsReconciliation('LR-2026-0003')?.paymentRequestNo, '', '作废后应释放来源对账')
 
-// 17. P4 外围：库存监控、中转仓与系统设置结果页。
+// 17. P4 库存监控：保留现行路由、渲染和补货规则。
 for (const route of [
   '/pms/material-inventory',
-  '/pms/transit/dashboard',
-  '/pms/transit/receipts',
-  '/pms/transit/order-checks',
-  '/pms/transit/preparation-tasks',
-  '/pms/users',
-  '/pms/roles',
-  '/pms/dictionaries',
 ]) {
   assert.ok(routes.exactRoutes[route], `P4 缺少精确路由：${route}`)
 }
 assertIncludes(renderPmsMaterialInventoryPage(), 'data-pms-inv-root', '库存监控页')
-assertIncludes(renderPmsTransitDashboardPage(), '中转仓数据总览', '中转总览页')
-assertIncludes(renderPmsTransitReceiptsPage(), 'data-pms-trnr-root', '收货单页')
-assertIncludes(renderPmsTransitOrderChecksPage(), 'data-pms-trno-root', '生产单校验页')
-assertIncludes(renderPmsTransitPreparationTasksPage(), 'data-pms-trnp-root', '配料任务页')
-assertIncludes(renderPmsUsersPage(), 'data-pms-usr-root', '用户页')
-assertIncludes(renderPmsRolesPage(), 'data-pms-role-root', '角色页')
-assertIncludes(renderPmsDictionariesPage(), 'data-pms-dict-root', '字典页')
 
 const inventoryRows = listPmsInventoryMonitor()
 assert.equal(inventoryRows.length, 5, '库存监控应有 5 条')
@@ -713,24 +679,6 @@ assert.throws(() => generatePmsInventoryOrder('INV-2026-0003', '采购单', 9999
 const inventoryOrder = generatePmsInventoryOrder('INV-2026-0003', '采购单', 1000, PMS_BUYER_ACTOR)
 assert.equal(inventoryOrder.orderType, '采购单', '应生成采购单')
 assert.equal(listPmsInventoryOrders().length, 1, '建单日志应保留')
-
-const transitDashboard = getPmsTransitDashboard()
-assert.equal(transitDashboard.metrics.length, 9, '看板应有 9 个指标（含收货中）')
-assert.equal(transitDashboard.trend.length, 7, '趋势应有 7 天')
-assert.equal(transitDashboard.statusDistribution.reduce((sum, item) => sum + item.value, 0), listPmsTransitReceipts().length, '状态分布应与收货单一致')
-assert.equal(transitDashboard.metrics.some((metric) => metric.label === '收货中'), true, '看板应含收货中指标')
-assert.equal(transitDashboard.exceptions.length, 1, '应有 1 条收货异常')
-assert.equal(filterPmsTransitReceipts('pending').length, 3, '待收货筛选应有 3 单')
-assert.equal(filterPmsTransitReceipts('warehouse:广州中转仓').length, 5, '广州中转仓应有 5 单')
-setPmsTransitFilter('exception')
-assert.equal(consumePmsTransitFilter(), 'exception', '看板筛选应可传递给收货单列表')
-assert.equal(consumePmsTransitFilter(), '', '筛选消费后应清空')
-assert.equal(listPmsTransitOrderChecks().length, 6, '生产单校验应有 6 条')
-assert.equal(listPmsTransitPreparationTasks().length, 5, '配料任务应有 5 条')
-
-assert.equal(listPmsSettingUsers().length, 8, '用户应有 8 个')
-assert.equal(listPmsSettingRoles().length, 6, '角色应有 6 个')
-assert.equal(listPmsSettingDictionaries().length, 10, '字典应有 10 项')
 
 
 // 15. 第二轮字段级补全断言（批次 A–F）。
@@ -799,14 +747,6 @@ updatePmsBomDetail('HG-TS-2601', { suggestedPrice: 129, targetGrossMargin: 38.5,
 assert.equal(getPmsBomDetail('HG-TS-2601')?.suggestedPrice, 129, 'BOM 建议售价应保存')
 assert.equal(getPmsBomDetail('HG-TS-2601')?.mainFabric, '脚本主布料', 'BOM 主布料应保存')
 assert.throws(() => updatePmsBomDetail('HG-TS-2601', { suggestedPrice: -1 }, PMS_BUYER_ACTOR), PmsDomainError)
-
-updatePmsSubjectOperation('SO-2026-05-01', { domesticFreight: 1200, customsDuty: 800, revenueStatus: '部分确认', confirmedRevenue: 50000 }, PMS_FINANCE_ACTOR)
-const subjectAfter = getPmsSubjectOperation('SO-2026-05-01')
-assert.ok(subjectAfter, '主体经营明细应存在')
-assert.equal(subjectAfter.domesticFreight, 1200, '国内段运费应保存')
-assert.equal(subjectAfter.customsDuty, 800, '关税应保存')
-assert.equal(subjectAfter.revenueStatus, '部分确认', '收入状态应保存')
-assert.equal(subjectAfter.confirmedRevenue, 50000, '已确认收入应保存')
 
 
 // 16. 第三轮独立复核补全断言（M5-M7、P3-1..P3-7）。
@@ -914,9 +854,6 @@ assert.ok(listPmsUnits().every((unit) => unit.category !== '时间'), '单位类
 const requirementWithHistory = listPmsMaterialRequirements().flatMap((requirement) => requirement.lines)[0]
 assert.ok(requirementWithHistory && requirementWithHistory.historicalStockQty >= 0, '物料行应有历史库存')
 assert.ok(requirementWithHistory && requirementWithHistory.idHistoricalStockQty >= 0, '物料行应有 ID 历史库存')
-assert.ok(listPmsTransitOrderChecks().every((check) => ['缺货', '未收齐', '已收齐'].includes(check.receivedStatus)), '生产单校验状态应对齐 SRM')
-assert.ok(listPmsTransitPreparationTasks().every((task) => ['已收齐配料', '未收齐配料'].includes(task.type)), '配料任务类型应对齐 SRM')
-assert.equal(filterPmsTransitReceipts('receiving').length, 1, '收货中筛选应命中 1 单')
 
 console.log('[check-pms-purchase-chain] PASS')
 console.log(`  菜单路由: ${pmsMenuHrefs.length} 条，精确路由 ${Object.keys(routes.exactRoutes).length} 条`)
@@ -931,5 +868,3 @@ console.log(`  BOM: HG-JK-2605 发布后生成需求成功`)
 console.log(`  对账请款: 面辅料对账 ${listPmsMaterialReconciliations().length} 条、物流对账 ${listPmsLogisticsReconciliations().length} 条、请款单 ${listPmsPaymentRequests().length} 张`)
 console.log(`  请款闭环: ${materialRequest.requestNo} 已请款并部分付款；${logisticsRequest.requestNo} 已作废并释放对账`)
 console.log(`  库存监控: ${inventoryRows.length} 条、建单 ${inventoryOrder.orderNo}`)
-console.log(`  中转仓: 收货单 ${listPmsTransitReceipts().length} 条、异常 ${transitDashboard.exceptions.length} 条`)
-console.log(`  系统设置: 用户 ${listPmsSettingUsers().length}、角色 ${listPmsSettingRoles().length}、字典 ${listPmsSettingDictionaries().length}`)

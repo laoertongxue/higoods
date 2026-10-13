@@ -102,6 +102,29 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       || path.startsWith('.agents/skills/higood-indonesia-factory-design/')
     ) continue
 
+    // Static deployment has a Python runner; a product build cannot substitute for it.
+    if ([
+      'scripts/deploy/receiver.py',
+      'scripts/deploy/prepare-release.py',
+      'scripts/deploy/check-public.py',
+      'tests/deploy/test_receiver.py',
+      'tests/deploy/test_prepare.py',
+      'tests/deploy/test_network.py',
+      'deploy/network-initcwnd.py',
+      'deploy/higoods-network.service',
+      'deploy/higoods-network.timer',
+    ].includes(path)) {
+      add(fastChecks, 'PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/deploy -v')
+      continue
+    }
+    if (['.github/workflows/deploy.yml', 'deploy/Caddyfile', 'deploy/sites.json', 'vercel.json'].includes(path)) {
+      add(fastChecks, 'PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/deploy -v')
+      add(fastChecks, 'python3 -m json.tool deploy/sites.json > /dev/null')
+      add(fullChecks, 'npm run build')
+      escalationReasons.add('自动发布配置变化需要发布契约与构建验证；Caddy 和公网验收另记直接证据')
+      continue
+    }
+
     // Governance tools validate governance contracts, regardless of business words in filenames.
     if (
       path === 'scripts/check-prototype-design-governance.ts'

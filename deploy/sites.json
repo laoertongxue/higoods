@@ -1,0 +1,18 @@
+{
+  "higoods": {
+    "root": "/srv/higoods",
+    "health_url": "http://127.0.0.1:18081",
+    "probes": [
+      "/pcs/products/styles",
+      "/pms/purchase-suggestions",
+      "/fcs/pda/auth/login"
+    ]
+  },
+  "old-higoods": {
+    "root": "/srv/old-higoods",
+    "health_url": "http://127.0.0.1:18082",
+    "probes": [
+      "/data-monitoring/new-style-first-order-control"
+    ]
+  }
+}

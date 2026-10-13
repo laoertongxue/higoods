@@ -115,6 +115,29 @@ function preloadPcsArchiveRoute(): Plugin {
   }
 }
 
+function preloadStaticFirstScreenRoutes(): Plugin {
+  return {
+    name: 'preload-static-first-screen-routes',
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, context) {
+        if (!context.bundle) return
+        const entries = [
+          ['/fcs/pda/auth/login', routeStaticChunks(context.bundle, ['/src/pages/pda-login.ts']), []],
+          ['/pms/purchase-suggestions', routeStaticChunks(context.bundle, ['/src/pages/pms/purchase-suggestions.ts']), [
+            '/thumbnails/tshirt-sample.webp', '/thumbnails/pants-sample.webp',
+            '/thumbnails/production-confirmation-demo/grey-zip-hoodie.webp', '/thumbnails/jacket-sample.webp',
+          ]],
+          ['/pcs/products/styles', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
+          ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
+        ]
+        return [{ tag: 'script', injectTo: 'head-prepend', children:
+          `for(var entry of ${JSON.stringify(entries)}){if(location.pathname===entry[0]){entry[1].forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';link.href=src;document.head.appendChild(link)});break}}` }]
+      },
+    },
+  }
+}
+
 // Preview's default middleware recompresses large chunks on every cold request.
 // Emit the same bytes ahead of time; neither data nor module evaluation is skipped.
 function compressedPreviewAssets(): Plugin {
@@ -159,7 +182,7 @@ function compressedPreviewAssets(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [ensureStaticPlaceholderPlugin(), preloadProductionTimelinessRoute(), preloadPcsArchiveRoute(), compressedPreviewAssets()],
+  plugins: [ensureStaticPlaceholderPlugin(), preloadProductionTimelinessRoute(), preloadPcsArchiveRoute(), preloadStaticFirstScreenRoutes(), compressedPreviewAssets()],
   resolve: {
     extensions: ['.ts', '.tsx', '.mts', '.mjs', '.js', '.jsx', '.json'],
   },
