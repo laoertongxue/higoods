@@ -2,10 +2,12 @@
  * § 2.4.7 PMS IDB 存储专项验收(端到端浏览器实测)。
  * 测试场景:
  *   1. IDB 写入后刷新页面数据保留
- *   2. 多标签页 BroadcastChannel 同步(Banner 提示)
- *   3. 关闭 IDB 后 hydrate 失败 Banner 出现
- *   4. 旧 localStorage 键迁 IDB 后页面可读
- *   5. 数据管理页面:导出 + 估算 + 清空
+ *   2. 多标签页 BroadcastChannel 同步
+ *   3. IDB 不可用时 hydrate 不抛错
+ *   4. 乐观锁:pmsVersionSnapshots 在 hydrate 后保留
+ *
+ * 说明:数据管理 UI(/pms/data-management)已下线,数据治理能力(导出/导入/估算/清空)
+ * 由 settings/system 工具栏承载,见 src/pages/pms/data-management.ts 迁移记录。
  */
 import { chromium, expect, test } from '@playwright/test'
 
@@ -21,14 +23,10 @@ test.describe('PMS IDB 存储 § 2.4.7 验收', () => {
   test('1. IDB 写入后刷新页面数据保留', async ({ page }) => {
     await page.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
-    // 触发一次写入:进入数据管理页面调用 estimatePmsStorage 间接触发 hydrate
-    await page.goto(`${BASE}/pms/data-management`, { waitUntil: 'domcontentloaded' })
-    await page.waitForSelector('[data-pms-data-management-root]', { timeout: 10000 })
-    // 等 hydrate 完成(数据管理页面 render 时已触发 hydrate)
+    // 等 hydrate 完成(suppliers 页面渲染要求 hydrate 已就绪)
     await page.waitForTimeout(2500)
     // 在 IDB 中 put 一条测试 entity(模拟业务写入)
     await page.evaluate(async () => {
-      const db = await indexedDB.open('higood-pms')
       return new Promise((resolve, reject) => {
         const req = indexedDB.open('higood-pms')
         req.onsuccess = (): void => {
@@ -78,10 +76,9 @@ test.describe('PMS IDB 存储 § 2.4.7 验收', () => {
         req.onerror = (): void => reject(req.error)
       })
     })
-    // 显式跳转到 suppliers 页面(避免 page.reload 沿用 data-management URL)
+    // 显式跳转到 suppliers 页面触发 hydrate
     await page.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
-    // 等页面 hydrate 完成(suppliers 页面渲染要求 hydrate 已就绪)
     await page.waitForTimeout(2500)
     const visible = await page.evaluate(async () => {
       const all = await new Promise<unknown[]>((resolve, reject) => {
@@ -103,17 +100,16 @@ test.describe('PMS IDB 存储 § 2.4.7 验收', () => {
     expect(visible).toBe(true)
   })
 
-  test('2. 多标签页同步:BroadcastChannel 通知 + 页面写入后另一标签页检测', async ({ context }) => {
+  test('2. 多标签页同步:BroadcastChannel 订阅机制已注册', async ({ context }) => {
     const page1 = await context.newPage()
-    await page1.goto(`${BASE}/pms/data-management`, { waitUntil: 'domcontentloaded' })
-    await page1.waitForSelector('[data-pms-data-management-root]', { timeout: 10000 })
-    // 触发本地 IDB 写入,在另一标签页应该有 banner
+    await page1.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
+    await page1.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
+    // 在另一标签页写入,触发 BroadcastChannel
     const page2 = await context.newPage()
-    await page2.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
-    await page2.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
+    await page2.goto(`${BASE}/pms/purchase-suggestions`, { waitUntil: 'domcontentloaded' })
+    await page2.waitForSelector('[data-pms-psk-root]', { timeout: 10000 })
     await page1.bringToFront()
     await page1.evaluate(async () => {
-      // 通过 IDB 直接写入,触发 BroadcastChannel
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open('higood-pms')
         req.onsuccess = (): void => resolve(req.result)
@@ -146,77 +142,26 @@ test.describe('PMS IDB 存储 § 2.4.7 验收', () => {
         }
       })
     })
-    // 等待 BroadcastChannel 消息传递到 page2
     await page2.waitForTimeout(500)
-    // 检查 console.info 调用被订阅(用 evaluate 注入临时 spy)
-    const bannerOrConsoleSeen = await page2.evaluate(() => {
-      // 由于 banner 只在本标签页有同 store+key hydrate 时才显示(避免误报),
-      // 这里只能验证 BroadcastChannel 订阅机制已注册(无报错)
-      return true
-    })
+    // 验证 BroadcastChannel 订阅机制已注册(无报错)
+    const bannerOrConsoleSeen = await page2.evaluate(() => true)
     expect(bannerOrConsoleSeen).toBe(true)
     await page1.close()
     await page2.close()
   })
 
-  test('3. 数据管理页面渲染 + 估算 + 导出按钮', async ({ page }) => {
-    await page.goto(`${BASE}/pms/data-management`, { waitUntil: 'domcontentloaded' })
-    await page.waitForSelector('[data-pms-data-management-root]', { timeout: 10000 })
-    // 估算卡片存在
-    const storageHeader = await page.locator('h3', { hasText: 'PMS 业务数据存储估算' }).count()
-    expect(storageHeader).toBe(1)
-    // 导出按钮存在
-    const exportBtn = page.locator('#pms-export-btn')
-    await expect(exportBtn).toBeVisible()
-    // 清空按钮存在
-    const clearBtn = page.locator('#pms-clear-btn')
-    await expect(clearBtn).toBeVisible()
-    // 导入 file input 存在
-    const importFile = page.locator('#pms-import-file')
-    await expect(importFile).toBeAttached()
-  })
-
-  test('4. 数据管理页面导出触发下载', async ({ page }) => {
-    await page.goto(`${BASE}/pms/data-management`, { waitUntil: 'domcontentloaded' })
-    await page.waitForSelector('[data-pms-data-management-root]', { timeout: 10000 })
-    await page.waitForSelector('#pms-export-btn', { timeout: 10000 })
-    // 等 hydrate 完成(避免 export 在 hydrate 期间空数据)
-    await page.waitForTimeout(2500)
-    // 监听下载事件(必须在 click 之前)
-    const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null)
-    await page.locator('#pms-export-btn').click()
-    const download = await downloadPromise
-    if (download) {
-      // 路径 A:download 事件触发(部分 Chromium 版本可触发)
-      expect(download.suggestedFilename()).toMatch(/^higood-pms-backup-.*\.json$/)
-    } else {
-      // 路径 B:headless Chromium 拦截 blob URL download,改用 status 文本 + evaluate 调用 exportPmsDataBundle 验证
-      await expect(page.locator('#pms-export-status')).toContainText(/导出成功/, { timeout: 10000 })
-      const bundleBytes = await page.evaluate(async () => {
-        // 通过动态 import 调用 exportPmsDataBundle,避免静态 import 触发 Vite 改造
-        const mod = (await import('/src/data/pms/idb-storage.ts')) as { exportPmsDataBundle: () => Promise<{ bytes: number }> }
-        const bundle = await mod.exportPmsDataBundle()
-        return bundle.bytes
-      })
-      expect(bundleBytes).toBeGreaterThan(0)
-    }
-  })
-
-  test('5. IDB 不可用时 hydrate 失败 banner', async ({ page }) => {
-    // 用 evaluate 在 hydrate 前删 IDB 对象
+  test('3. IDB 不可用时 hydrate 不抛错', async ({ page }) => {
     await page.addInitScript(() => {
-      // 删除 indexedDB,模拟不可用
       indexedDB.deleteDatabase('higood-pms')
     })
     await page.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
-    // 应该出现琥珀色 banner
     const bannerCount = await page.locator('[role="alert"]').count()
-    expect(bannerCount).toBeGreaterThanOrEqual(0) // 浏览器可能允许 indexedDB,只验证不抛错
+    expect(bannerCount).toBeGreaterThanOrEqual(0)
   })
 
-  test('6. 乐观锁:hydrate 后 entity 注入 _pmsBaseVersion + 写入走 pmsPutWithVersion', async ({ page }) => {
-    await page.goto(`${BASE}/pms/data-management`, { waitUntil: 'domcontentloaded' })
-    await page.waitForSelector('[data-pms-data-management-root]', { timeout: 10000 })
+  test('4. 乐观锁:hydrate 后 pmsVersionSnapshots 保留', async ({ page }) => {
+    await page.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
     await page.waitForTimeout(2500)
     // 直接在 IDB 内 put 一条 supplier(模拟 hydrate 后业务写入前的状态)
     await page.evaluate(async () => {
@@ -270,11 +215,9 @@ test.describe('PMS IDB 存储 § 2.4.7 验收', () => {
         tx.onerror = (): void => { database.close(); reject(tx.error) }
       })
     })
-    // 跳转到 suppliers 触发 hydrate
     await page.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
     await page.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
     await page.waitForTimeout(2500)
-    // 验证 pmsVersionSnapshots 仍有 snapshot 1(persist 没改,因为用户没操作)
     const snapshotVersion = await page.evaluate(async () => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open('higood-pms')

@@ -17,7 +17,6 @@ test.describe('PMS 冷启动性能专项', () => {
     const hostLoad = loadavg()[0]
     await new Promise((resolve) => setTimeout(resolve, 3000))
     const routes: Array<[string, string]> = [
-      ['/pms/workbench/overview', '[data-pms-workbench-root]'],
       ['/pms/purchase-suggestions', '[data-pms-psk-root]'],
       ['/pms/kol-demands', '[data-pms-kol-root]'],
       ['/pms/product-purchase-orders', '[data-pms-ppo-root]'],
@@ -27,7 +26,6 @@ test.describe('PMS 冷启动性能专项', () => {
       ['/pms/material-supplier-confirmations', '[data-pms-conf-root]'],
       ['/pms/first-leg-shipments', '[data-pms-fls-root]'],
       ['/pms/first-leg-carriers', '[data-pms-flc-root]'],
-      ['/pms/trade-subjects', '[data-pms-ts-root]'],
       ['/pms/suppliers', '[data-pms-sup-root]'],
       ['/pms/supplier-supply-archives', '[data-pms-arc-root]'],
       ['/pms/material-archives', '[data-pms-mat-root]'],
@@ -37,19 +35,9 @@ test.describe('PMS 冷启动性能专项', () => {
       ['/pms/units', '[data-pms-unit-root]'],
       ['/pms/bom-templates', '[data-pms-bom-root]'],
       ['/pms/bom-templates/HG-TS-2601', '[data-pms-bomd-root]'],
-      ['/pms/subject-operations', '[data-pms-so-root]'],
-      ['/pms/material-reconciliations', '[data-pms-mrec-root]'],
-      ['/pms/logistics-reconciliations', '[data-pms-lrec-root]'],
       ['/pms/material-payment-requests', '[data-pms-pay-root]'],
       ['/pms/logistics-payment-requests', '[data-pms-pay-root]'],
       ['/pms/material-inventory', '[data-pms-inv-root]'],
-      ['/pms/transit/dashboard', '[data-pms-trn-dash-root]'],
-      ['/pms/transit/receipts', '[data-pms-trnr-root]'],
-      ['/pms/transit/order-checks', '[data-pms-trno-root]'],
-      ['/pms/transit/preparation-tasks', '[data-pms-trnp-root]'],
-      ['/pms/users', '[data-pms-usr-root]'],
-      ['/pms/roles', '[data-pms-role-root]'],
-      ['/pms/dictionaries', '[data-pms-dict-root]'],
     ]
     const browser = await chromium.launch()
     const samples: Record<string, number[]> = {}

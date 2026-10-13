@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
 
-const TRADE_SUBJECTS = '/pms/trade-subjects'
 const SUPPLIERS = '/pms/suppliers'
 const SUPPLY_ARCHIVES = '/pms/supplier-supply-archives'
 const MATERIAL_ARCHIVES = '/pms/material-archives'
@@ -59,9 +58,8 @@ test.describe('PMS 采购链路 P3a 主数据页面', () => {
     await page.setViewportSize({ width: 1366, height: 768 })
   })
 
-  test('九个主数据路由与 BOM 详情可访问', async ({ page }) => {
+  test('八个主数据路由与 BOM 详情可访问', async ({ page }) => {
     for (const [route, rootSelector, title] of [
-      [TRADE_SUBJECTS, '[data-pms-ts-root]', '贸易主体管理'],
       [SUPPLIERS, '[data-pms-sup-root]', '商品供应商管理'],
       [SUPPLY_ARCHIVES, '[data-pms-arc-root]', '供应商供货档案'],
       [MATERIAL_ARCHIVES, '[data-pms-mat-root]', '面辅料列表'],
@@ -201,8 +199,8 @@ test.describe('PMS 采购链路 P3a 主数据页面', () => {
   })
 
   test('P3a 页面站内切换与关键交互均低于 200ms', async ({ page }) => {
-    await page.goto(TRADE_SUBJECTS)
-    await expect(page.locator('[data-pms-ts-root]')).toBeVisible()
+    await page.goto(SUPPLIERS)
+    await expect(page.locator('[data-pms-sup-root]')).toBeVisible()
 
     const routes: Array<[string, string]> = [
       [SUPPLIERS, '[data-pms-sup-root]'],
@@ -213,7 +211,6 @@ test.describe('PMS 采购链路 P3a 主数据页面', () => {
       [WAREHOUSES, '[data-pms-wh-root]'],
       [UNITS, '[data-pms-unit-root]'],
       [BOM_LIST, '[data-pms-bom-root]'],
-      [TRADE_SUBJECTS, '[data-pms-ts-root]'],
     ]
     const switchSamples: number[] = []
     for (let index = 0; index < 5; index += 1) {

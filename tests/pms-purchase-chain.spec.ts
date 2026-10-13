@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
 
-const WORKBENCH = '/pms/workbench/overview'
 const SUGGESTIONS = '/pms/purchase-suggestions'
 const KOL = '/pms/kol-demands'
 const PPO = '/pms/product-purchase-orders'
@@ -51,9 +50,8 @@ test.describe('PMS 采购链路 P1 页面', () => {
     await page.setViewportSize({ width: 1366, height: 768 })
   })
 
-  test('四个 P1 路由可直接进入且不是占位页', async ({ page }) => {
+  test('三个 P1 路由可直接进入且不是占位页', async ({ page }) => {
     for (const [route, rootSelector, title] of [
-      [WORKBENCH, '[data-pms-workbench-root]', '采购管理工作台'],
       [SUGGESTIONS, '[data-pms-psk-root]', '商品采购建议'],
       [KOL, '[data-pms-kol-root]', 'KOL 采购需求'],
       [PPO, '[data-pms-ppo-root]', '商品采购单'],
@@ -138,7 +136,6 @@ test.describe('PMS 采购链路 P1 页面', () => {
     const browser = page.context().browser()
     if (!browser) throw new Error('浏览器实例不可用')
     for (const [route, rootSelector] of [
-      [WORKBENCH, '[data-pms-workbench-root]'],
       [SUGGESTIONS, '[data-pms-psk-root]'],
       [KOL, '[data-pms-kol-root]'],
       [PPO, '[data-pms-ppo-root]'],
@@ -167,17 +164,17 @@ test.describe('PMS 采购链路 P1 页面', () => {
       expect(sample).toBeLessThan(PERF_THRESHOLD)
     }
 
-    await page.goto(WORKBENCH)
-    await expect(page.locator('[data-pms-workbench-root]')).toBeVisible()
+    await page.goto(SUGGESTIONS)
+    await expect(page.locator('[data-pms-psk-root]')).toBeVisible()
 
     const switchSamples: number[] = []
     for (let index = 0; index < 5; index += 1) {
+      const toKol = await measureRouteSwitch(page, KOL, '[data-pms-kol-root]')
+      await expect(page.locator('[data-pms-kol-root]')).toBeVisible()
+      switchSamples.push(toKol)
       const toSuggestions = await measureRouteSwitch(page, SUGGESTIONS, '[data-pms-psk-root]')
       await expect(page.locator('[data-pms-psk-root]')).toBeVisible()
       switchSamples.push(toSuggestions)
-      const toWorkbench = await measureRouteSwitch(page, WORKBENCH, '[data-pms-workbench-root]')
-      await expect(page.locator('[data-pms-workbench-root]')).toBeVisible()
-      switchSamples.push(toWorkbench)
     }
     for (const sample of switchSamples) {
       expect(sample).toBeGreaterThanOrEqual(0)

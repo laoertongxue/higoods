@@ -111,7 +111,7 @@ const specialCraftMenuGroups: MenuGroup[] = buildSpecialCraftMenuGroups()
 // 系统列表
 export const systems: System[] = [
   { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/products/styles' },
-  { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/workbench/overview' },
+  { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/purchase-suggestions' },
   { id: 'fcs', name: '工厂生产协同系统', shortName: 'FCS', defaultPage: '/fcs/workbench/overview' },
   { id: 'pfos', name: '工艺工厂运营系统', shortName: 'PFOS', defaultPage: '/fcs/craft/workbench/overview' },
   { id: 'wls', name: '仓储物流系统', shortName: 'WLS', defaultPage: '/wls/fabric-demand-board' },
@@ -206,43 +206,18 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   ],
   pms: [
     {
-      title: '采购工作台',
-      icon: 'PanelsTopLeft',
-      items: [
-        { key: 'pms-workbench', title: '采购工作台', icon: 'LayoutDashboard', href: '/pms/workbench/overview' },
-        { key: 'pms-data-management', title: '数据管理', icon: 'HardDrive', href: '/pms/data-management' },
-      ],
-    },
-    {
       title: '基础资料',
       icon: 'Library',
       items: [
-        { key: 'pms-trade-subjects', title: '贸易主体管理', icon: 'Landmark', href: '/pms/trade-subjects' },
         { key: 'pms-suppliers', title: '商品供应商管理', icon: 'Building2', href: '/pms/suppliers' },
         { key: 'pms-supplier-supply-archives', title: '供应商供货档案', icon: 'Handshake', href: '/pms/supplier-supply-archives' },
+        { key: 'pms-first-leg-carriers', title: '头程物流商管理', icon: 'Building2', href: '/pms/first-leg-carriers' },
         { key: 'pms-material-archives', title: '面辅料列表', icon: 'Layers', href: '/pms/material-archives' },
         { key: 'pms-garment-skus', title: '成衣列表', icon: 'Shirt', href: '/pms/garment-skus' },
         { key: 'pms-sample-skus', title: '样衣列表', icon: 'Scissors', href: '/pms/sample-skus' },
         { key: 'pms-warehouses', title: '仓库管理', icon: 'Warehouse', href: '/pms/warehouses' },
         { key: 'pms-units', title: '单位管理', icon: 'Ruler', href: '/pms/units' },
         { key: 'pms-bom-templates', title: 'BOM/样板管理', icon: 'Boxes', href: '/pms/bom-templates' },
-      ],
-    },
-    {
-      title: '原料管理',
-      icon: 'Layers',
-      items: [
-        { key: 'pms-material-inventory', title: '面辅料库存监控', icon: 'Radar', href: '/pms/material-inventory' },
-      ],
-    },
-    {
-      title: '中转仓',
-      icon: 'Warehouse',
-      items: [
-        { key: 'pms-transit-dashboard', title: '数据总览', icon: 'LayoutDashboard', href: '/pms/transit/dashboard' },
-        { key: 'pms-transit-receipts', title: '中转收货单列表', icon: 'PackageCheck', href: '/pms/transit/receipts' },
-        { key: 'pms-transit-order-checks', title: '生产单校验', icon: 'ClipboardCheck', href: '/pms/transit/order-checks' },
-        { key: 'pms-transit-preparation-tasks', title: '配料任务', icon: 'ListChecks', href: '/pms/transit/preparation-tasks' },
       ],
     },
     {
@@ -258,6 +233,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       icon: 'ShoppingBag',
       items: [
         { key: 'pms-product-purchase-orders', title: '商品采购单', icon: 'ClipboardList', href: '/pms/product-purchase-orders' },
+        { key: 'pms-reorder', title: '备货列表', icon: 'PackageOpen', href: '/pms/reorder' },
+        { key: 'pms-product-purchase-order-aftersales', title: '商品采购售后', icon: 'LifeBuoy', href: '/pms/product-purchase-order-aftersales' },
       ],
     },
     {
@@ -267,13 +244,31 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'pms-material-requirements', title: '面辅料需求分析', icon: 'Puzzle', href: '/pms/material-requirements' },
         { key: 'pms-material-purchase-orders', title: '面辅料采购单', icon: 'PackageSearch', href: '/pms/material-purchase-orders' },
         { key: 'pms-material-purchase-tracking', title: '面辅料采购跟踪', icon: 'Truck', href: '/pms/material-purchase-tracking' },
+        { key: 'pms-fitting-timeliness', title: '面辅料采购时效', icon: 'Hourglass', href: '/pms/fitting-timeliness' },
+      ],
+    },
+    {
+      title: 'KOL样衣申请',
+      icon: 'Send',
+      items: [
+        { key: 'pms-kol-sample-stock', title: 'KOL库存', icon: 'Package', href: '/pms/kol-sample-stock' },
+        { key: 'pms-kol-sample-apply', title: '手动寄样申请', icon: 'ClipboardList', href: '/pms/kol-sample-apply' },
+        { key: 'pms-kol-sample-link', title: '对外样品池链接', icon: 'Link', href: '/pms/kol-sample-link' },
+        { key: 'pms-kol-sample-stock-lock-log', title: '锁定操作记录', icon: 'History', href: '/pms/kol-sample-stock/lock-log' },
       ],
     },
     {
       title: '面辅料供应商确认',
-      icon: 'ClipboardCheck',
+      icon: 'BadgeCheck',
       items: [
-        { key: 'pms-material-supplier-confirmations', title: '面辅料供应商确认单', icon: 'BadgeCheck', href: '/pms/material-supplier-confirmations' },
+        { key: 'pms-material-supplier-confirmations', title: '面辅料供应商确认单', icon: 'ClipboardCheck', href: '/pms/material-supplier-confirmations' },
+      ],
+    },
+    {
+      title: '库存查询',
+      icon: 'Search',
+      items: [
+        { key: 'pms-material-inventory', title: '原料仓库存查询', icon: 'Radar', href: '/pms/material-inventory' },
       ],
     },
     {
@@ -281,27 +276,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       icon: 'Truck',
       items: [
         { key: 'pms-first-leg-shipments', title: '头程物流', icon: 'Ship', href: '/pms/first-leg-shipments' },
-        { key: 'pms-first-leg-carriers', title: '头程物流商管理', icon: 'Building2', href: '/pms/first-leg-carriers' },
       ],
     },
     {
       title: '采购对账',
       icon: 'Calculator',
       items: [
-        { key: 'pms-subject-operations', title: '主体经营明细', icon: 'ChartNoAxesCombined', href: '/pms/subject-operations' },
-        { key: 'pms-material-reconciliations', title: '面辅料采购对账', icon: 'ReceiptText', href: '/pms/material-reconciliations' },
         { key: 'pms-material-payment-requests', title: '面辅料采购请款', icon: 'Banknote', href: '/pms/material-payment-requests' },
-        { key: 'pms-logistics-reconciliations', title: '物流费用对账', icon: 'ClipboardCheck', href: '/pms/logistics-reconciliations' },
         { key: 'pms-logistics-payment-requests', title: '物流费用请款', icon: 'Wallet', href: '/pms/logistics-payment-requests' },
-      ],
-    },
-    {
-      title: '系统设置',
-      icon: 'Settings',
-      items: [
-        { key: 'pms-users', title: '用户管理', icon: 'Users', href: '/pms/users' },
-        { key: 'pms-roles', title: '角色权限', icon: 'ShieldCheck', href: '/pms/roles' },
-        { key: 'pms-dictionaries', title: '字典配置', icon: 'BookOpen', href: '/pms/dictionaries' },
       ],
     },
   ],
