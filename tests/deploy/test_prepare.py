@@ -162,6 +162,46 @@ class PrepareReleaseContracts(unittest.TestCase):
             receiver.extract(stream, unpacked)
         self.assertEqual(receiver.verify(unpacked, PROJECT, SHA, RUN_ID), second)
 
+    def test_verified_smaller_precompression_survives_packaging(self):
+        target = self.dist / 'assets/main.js'
+        source = ('export const rows = ' + json.dumps([
+            {'id': index, 'factory': index % 7, 'quantity': 100 + index}
+            for index in range(500)
+        ]) + ';').encode()
+        target.write_bytes(source)
+        result = subprocess.run([
+            'node', '--input-type=module', '-e',
+            "import {readFileSync,writeFileSync} from 'node:fs';"
+            "import {brotliCompressSync,constants} from 'node:zlib';"
+            "const source=readFileSync(process.argv[1]);"
+            "const encode=q=>brotliCompressSync(source,{params:{[constants.BROTLI_PARAM_QUALITY]:q}});"
+            "const supplied=encode(11),baseline=encode(7);"
+            "if(supplied.length>=baseline.length)throw Error('fixture must be smaller');"
+            "writeFileSync(process.argv[1]+'.br',supplied);", str(target)
+        ], capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        supplied = Path(str(target) + '.br').read_bytes()
+        manifest = self.assert_package_succeeded()
+        self.assertEqual(Path(str(target) + '.br').read_bytes(), supplied)
+        self.assertEqual(self.brotli_decode(Path(str(target) + '.br')), source)
+        self.assertEqual(manifest['files']['assets/main.js.br'], hashlib.sha256(supplied).hexdigest())
+
+    def test_invalid_precompression_is_rebuilt_without_altering_source(self):
+        target = self.dist / 'assets/main.js.br'
+        target.write_bytes(b'broken')
+        self.assert_package_succeeded()
+        self.assertEqual(self.brotli_decode(target), self.sources['assets/main.js'])
+
+    def test_obsolete_precompression_cannot_publish_other_source_bytes(self):
+        target = self.dist / 'assets/main.js'
+        first = self.assert_package_succeeded()
+        obsolete = Path(str(target) + '.br').read_bytes()
+        current = b"console.log('updated source, preserve exact bytes');" * 50
+        target.write_bytes(current)
+        self.assert_package_succeeded()
+        self.assertNotEqual(Path(str(target) + '.br').read_bytes(), obsolete)
+        self.assertEqual(self.brotli_decode(Path(str(target) + '.br')), current)
+
     def test_missing_entry_resources_rejects_packaging(self):
         for html in (b"<!doctype html><main>No entry resources</main>",
                      b'<script type="module" src="/assets/missing.js"></script>'):

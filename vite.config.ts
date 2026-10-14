@@ -192,8 +192,16 @@ function compressedPreviewAssets(): Plugin {
         '/src/pages/pda-exec-detail.ts', '/src/main-handlers/pda-handlers.ts',
         '/src/components/real-qr.ts', '/src/data/pcs-record-runtime.ts', '/src/data/pcs-record-bootstrap.ts',
       ]))
+      const dailyReadFiles = new Set(routeStaticChunks(bundle, [
+        '/src/pages/sewing-outsourcing/daily-return-report.ts',
+        '/src/pages/progress-board.ts',
+        '/src/data/pms/idb-storage.ts',
+        '/src/data/fcs/cutting/part-ticket-records.ts',
+        '/src/data/fcs/cutting/cutting-event-repository.ts',
+        '/src/data/fcs/cutting/generated-cut-release.ts',
+      ]))
       for (const item of Object.values(bundle)) {
-        const critical = /^(?:index-|app-shared-|factory-internal-warehouse-|runtime-process-tasks-|transfer-bag-operations-|generated-fei-tickets-|ppic-|daily-return-|cut-piece-release-)/.test(item.fileName.split('/').at(-1) || '')
+        const critical = dailyReadFiles.has(item.fileName) || /^(?:index-|app-shared-|factory-internal-warehouse-|runtime-process-tasks-|transfer-bag-operations-|generated-fei-tickets-|ppic-|daily-return-|cut-piece-release-)/.test(item.fileName.split('/').at(-1) || '')
         const selected = item.type === 'chunk'
           ? critical || sewingFiles.has(item.fileName) || item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
           : item.fileName.endsWith('.css') || /pcs-record-baseline-.*\.json$/.test(item.fileName)
