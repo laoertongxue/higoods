@@ -159,6 +159,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ]), []],
           ['/fcs/pda/post-finishing/return-confirm', routeStaticChunks(context.bundle, [
             '/src/pages/pda-post-finishing-flow.ts',
+            '/src/main-handlers/pda-handlers.ts',
             ...returnReadInitialization,
           ]), ['/materials/pcs-reviewed/jacket-black.jpg', '/materials/pcs-reviewed/jacket-white.jpg',
             '/materials/pcs-reviewed/jacket-blue.jpg', '/materials/pcs-reviewed/jacket-khaki.jpg', '/materials/pcs-reviewed/jacket-wine.jpg']],

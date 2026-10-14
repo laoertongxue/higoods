@@ -1,3 +1,6 @@
+import { MATERIAL_PREP_BASE_ORDER_IDS, MATERIAL_PREP_CATEGORY_SEQUENCES } from './material-prep-seed-identities.ts'
+import { resolveRuntimePrepMaterial, findRuntimePrepCutSource } from './material-prep-cut-order-read.ts'
+export { listRuntimeMaterialPrepCutOrderIds } from './material-prep-cut-order-read.ts'
 import { generatePreparationOrderArtifactsForOrder } from '../production-artifact-generation.ts'
 import { listProcessWorkOrderRelationSources } from '../process-work-order-domain.ts'
 import { listGeneratedCutOrderSourceRecords, type GeneratedCutOrderSourceRecord } from './generated-cut-orders.ts'
@@ -1098,7 +1101,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0004',
     prepOrderNo: 'WLS-PL-260302-004',
-    productionOrderId: 'PO-202603-0004',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[0]!,
     productionOrderNo: 'PO-202603-0004',
     styleNo: 'TDV-010',
     styleName: '弹力斜纹裤',
@@ -1132,7 +1135,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0008',
     prepOrderNo: 'WLS-PL-260304-008',
-    productionOrderId: 'PO-202603-0008',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[1]!,
     productionOrderNo: 'PO-202603-0008',
     styleNo: 'TDV-014',
     styleName: '绿色休闲马甲',
@@ -1170,7 +1173,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0101',
     prepOrderNo: 'WLS-PL-260306-101',
-    productionOrderId: 'PO-202603-0101',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[2]!,
     productionOrderNo: 'PO-202603-0101',
     styleNo: 'TDV-010',
     styleName: '弹力斜纹裤',
@@ -1220,7 +1223,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0102',
     prepOrderNo: 'WLS-PL-260307-102',
-    productionOrderId: 'PO-202603-0102',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[3]!,
     productionOrderNo: 'PO-202603-0102',
     styleNo: 'TDV-010',
     styleName: '弹力斜纹裤',
@@ -1270,7 +1273,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0001',
     prepOrderNo: 'WLS-PL-260302-001',
-    productionOrderId: 'PO-202603-0001',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[4]!,
     productionOrderNo: 'PO-202603-0001',
     styleNo: 'TDV-004',
     styleName: '纯色 T-shirt',
@@ -1303,7 +1306,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0002',
     prepOrderNo: 'WLS-PL-260303-002',
-    productionOrderId: 'PO-202603-0002',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[5]!,
     productionOrderNo: 'PO-202603-0002',
     styleNo: 'TDV-005',
     styleName: '灰色连帽衫',
@@ -1424,7 +1427,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0006',
     prepOrderNo: 'WLS-PL-260302-006',
-    productionOrderId: 'PO-202603-0006',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[6]!,
     productionOrderNo: 'PO-202603-0006',
     styleNo: 'TDV-012',
     styleName: '米色毛织衫',
@@ -1457,7 +1460,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
   {
     prepOrderId: 'prep-order-po-202603-0007',
     prepOrderNo: 'WLS-PL-260303-007',
-    productionOrderId: 'PO-202603-0007',
+    productionOrderId: MATERIAL_PREP_BASE_ORDER_IDS[7]!,
     productionOrderNo: 'PO-202603-0007',
     styleNo: 'TDV-013',
     styleName: 'Navy 连衣裙',
@@ -1555,7 +1558,7 @@ function buildCategoryDemoSeedOrder(input: {
 
 const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
   buildCategoryDemoSeedOrder({
-    seq: 1101,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[0]!,
     category: '染色配料',
     styleNo: 'TDV-021',
     styleName: '酒红色阔腿裤',
@@ -1571,7 +1574,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     deliveryDate: '2026-03-27',
   }),
   buildCategoryDemoSeedOrder({
-    seq: 1102,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[1]!,
     category: '染色配料',
     styleNo: 'TDV-022',
     styleName: '松石绿衬衫',
@@ -1587,7 +1590,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     deliveryDate: '2026-03-28',
   }),
   buildCategoryDemoSeedOrder({
-    seq: 1103,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[2]!,
     category: '染色配料',
     styleNo: 'TDV-023',
     styleName: '墨绿色半裙',
@@ -1603,7 +1606,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     deliveryDate: '2026-03-25',
   }),
   buildCategoryDemoSeedOrder({
-    seq: 1104,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[3]!,
     category: '染色配料',
     styleNo: 'TDV-024',
     styleName: '深灰工装短裤',
@@ -1619,7 +1622,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     deliveryDate: '2026-03-29',
   }),
   buildCategoryDemoSeedOrder({
-    seq: 1201,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[4]!,
     category: '印花配料',
     styleNo: 'TDV-031',
     styleName: '碎花吊带裙',
@@ -1635,7 +1638,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     deliveryDate: '2026-03-26',
   }),
   buildCategoryDemoSeedOrder({
-    seq: 1202,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[5]!,
     category: '印花配料',
     styleNo: 'TDV-032',
     styleName: 'Logo 印花卫衣',
@@ -1651,7 +1654,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     deliveryDate: '2026-03-30',
   }),
   buildCategoryDemoSeedOrder({
-    seq: 1203,
+    seq: MATERIAL_PREP_CATEGORY_SEQUENCES[6]!,
     category: '印花配料',
     styleNo: 'TDV-033',
     styleName: '条纹印花衬衫',
@@ -1687,45 +1690,13 @@ export interface MaterialPrepInitialStockInput {
 export const materialPrepInitialStockInputs: MaterialPrepInitialStockInput[] = []
 
 /** Frozen BOM scope for newly created orders. Never expand demo materials or manufacture stock/tasks. */
-type RuntimePrepBomItem = NonNullable<ProductionOrder['techPackSnapshot']>['bomItems'][number]
 
-function resolveRuntimePrepMaterial(
-  order: ProductionOrder,
-  bom: RuntimePrepBomItem,
-  facts: NonNullable<ReturnType<typeof getProductionOrderChangeCurrentFacts>>['materialFacts'],
-) {
-  const snapshot = order.techPackSnapshot!
-  const replacement = facts.find(fact =>
-    fact.sourceBomItemId === bom.id && fact.sourceTechPackVersionId === snapshot.sourceTechPackVersionId
-    && fact.executionMaterialReplacement?.changeRecordId)?.executionMaterialReplacement
-  return { replacement, materialSku: replacement?.materialCode.trim() || bom.materialCode?.trim() || '', unit: bom.unit?.trim() || '' }
-}
 
-function findRuntimePrepCutSource(
-  order: ProductionOrder,
-  bom: RuntimePrepBomItem,
-  material: { materialSku: string; unit: string },
-  sources: GeneratedCutOrderSourceRecord[],
-): GeneratedCutOrderSourceRecord | undefined {
-  const matching = sources.filter(cut => cut.productionOrderId === order.productionOrderId
-    && cut.techPackVersionId === order.techPackSnapshot!.sourceTechPackVersionId && cut.sourceBomItemIds?.includes(bom.id)
-    && cut.materialSku === material.materialSku && cut.materialUnit === material.unit)
-  return matching.length === 1 ? matching[0] : undefined
-}
+
+
 
 /** 物料账只需识别真实 BOM 裁片单，不展开配料任务、加工单或仓储汇总。 */
-export function listRuntimeMaterialPrepCutOrderIds(): string[] {
-  const seededIds = new Set(materialPrepSeedOrders.map(order => order.productionOrderId))
-  const sources = listGeneratedCutOrderSourceRecords()
-  return productionOrders.flatMap(order => {
-    if (seededIds.has(order.productionOrderId) || !order.techPackSnapshot) return []
-    const facts = getProductionOrderChangeCurrentFacts(order.productionOrderId)?.materialFacts ?? []
-    return order.techPackSnapshot.bomItems.filter(bom => bom.type !== '成衣').flatMap(bom => {
-      const cut = findRuntimePrepCutSource(order, bom, resolveRuntimePrepMaterial(order, bom, facts), sources)
-      return cut ? [cut.cutOrderId] : []
-    })
-  })
-}
+
 
 function listCurrentMaterialPrepOrders(
   prepRecords: MaterialPrepRecord[] = [],

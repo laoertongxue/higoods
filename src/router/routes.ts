@@ -349,6 +349,19 @@ export async function resolvePage(pathname: string): Promise<string> {
     return baseRenderer()
   }
 
+  // This exact PDA page already has its own identity and factory guards. Reuse
+  // the same record-aware renderer without importing unrelated cutting registries.
+  if (normalizedPathname === '/fcs/pda/post-finishing/return-confirm') {
+    const pages = await import('./route-renderers')
+    return pages.renderPdaPostFinishingReturnConfirmationPage()
+  }
+  if (['/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)) {
+    const pages = await import('./route-renderers-fcs')
+    if (normalizedPathname === '/fcs/dispatch/workbench') return pages.renderUnifiedDispatchWorkbenchPage()
+    if (normalizedPathname === '/fcs/progress/production-orders') return pages.renderProductionOrderProgressTrackingPage()
+    return pages.renderProductionContractPrintPage()
+  }
+
   // 后道命名页复用原渲染器与记录读取，不为命中一个页面先载入
   // 整份 FCS 路由表的染整交接、质量扣款等静态来源。
   if (normalizedPathname.startsWith('/fcs/craft/post-finishing/')) {
