@@ -819,7 +819,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       title: '老中转仓Hilon',
       icon: 'Truck',
       items: [
-        { key: 'wls-hilon-cutting-prep', title: '裁片配料单', icon: 'Scissors', href: '/fcs/material-prep/cutting' },
+        { key: 'wls-hilon-cutting-prep', title: '裁片配料单', icon: 'Scissors', href: '/wls/online/hilon-cutting-all' },
         { key: 'wls-transit-receive-manage', title: '预入库管理', icon: 'ClipboardList', href: '/wls/transit/receive-manage' },
         { key: 'wls-transit-inbound-manage', title: '收货单管理', icon: 'PackageCheck', href: '/wls/transit/inbound-manage' },
         { key: 'wls-transit-putaway-manage', title: '上架单管理', icon: 'ArrowUpToLine', href: '/wls/transit/putaway-manage' },
@@ -848,7 +848,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'wls-online-mahameru-outbound', title: '出库单管理', icon: 'ArrowUpFromLine', href: '/wls/online/mahameru-outbound' },
         { key: 'wls-online-mahameru-work', title: '作业单管理', icon: 'Warehouse', href: '/wls/online/mahameru-work' },
         { key: 'wls-online-mahameru-cutting-factory', title: '裁剪厂分配', icon: 'Factory', href: '/wls/online/mahameru-cutting-factory' },
-        { key: 'wls-online-mahameru-cutting-all', title: '裁片配料单All', icon: 'Scissors', href: '/wls/online/mahameru-cutting-all' },
       ],
     },
     {

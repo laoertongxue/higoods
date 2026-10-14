@@ -354,7 +354,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '商品供应商管理',
     primaryActionsHtml: renderPrimaryButton('新增供应商',{prefix:EVENT_PREFIX,action:'open-create'},'plus'),

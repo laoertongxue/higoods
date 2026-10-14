@@ -431,7 +431,7 @@ function renderReadOnlyConfirmation(confirmationNo:string):string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '面辅料供应商确认单',
     primaryActionsHtml: renderPrimaryButton('同步采购单',{prefix:EVENT_PREFIX,action:'sync-orders'},'refresh-cw'),

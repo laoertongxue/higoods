@@ -175,52 +175,6 @@ export const rawInboundDemoSeed: PreInboundOrder[] = [
     receivedTime: "2026-05-12 17:10",
     putawayTime: "2026-05-12 18:20",
   },
-  {
-    id: "PI-RAW-0003",
-    inboundOrderNo: "YRK-20260513-3003",
-    relatedOrderNo: "CG-20260513-9003",
-    inboundType: "原料采购入库",
-    trackingNo: "JNT7000009988",
-    inboundWarehouse: "原料仓",
-    productItems: [
-      {
-        id: "PII-RAW-0003-1",
-        spu: "SPU-RAW-1021",
-        sku: "SKU-RAW-50021",
-        materialCategory: "CONSUMABLE",
-        unit: "个",
-        package_qty: 15,
-        package_unit: "箱",
-        base_qty: 1500,
-        base_unit: "个",
-        received_package_qty: 0,
-        received_base_qty: 0,
-        putaway_package_qty: 0,
-        putaway_base_qty: 0,
-        pending_putaway_package_qty: 0,
-        pending_putaway_base_qty: 0,
-        quantity_per_package: 100,
-        current_package_qty: 0,
-        current_base_qty: 0,
-        current_putaway_package_qty: 0,
-        current_putaway_base_qty: 0,
-        target_location_code: "",
-        roll_details: [],
-        productStatus: "半成品",
-        deliveryQuantity: 1500,
-        receivedQuantity: 0,
-      },
-    ],
-    deliveryUnit: "巴厘岛辅料中心",
-    deliveryQuantity: 1500,
-    receivedQuantity: 0,
-    ownerName: "印尼万隆主体",
-    operatorName: "",
-    status: "待收货",
-    shippingTime: "2026-05-13 08:30",
-    receivedTime: "",
-    putawayTime: "",
-  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -362,56 +316,6 @@ export const yarnInboundDemoSeed: PreInboundOrder[] = [
     receivedTime: "2026-05-29 16:40",
     putawayTime: "2026-05-29 18:00",
   },
-  {
-    id: "PI-YARN-0003",
-    warehouse_id: "WH-L1-YRN-003",
-    warehouse_name: "纱线仓-武汉仓01",
-    warehouse_type: "YARN",
-    inbound_type: "MATERIAL_PURCHASE_INBOUND",
-    inboundOrderNo: "YRK-YRN-20260530-003",
-    relatedOrderNo: "CG-YRN-20260530-003",
-    inboundType: "原料采购入库",
-    trackingNo: "SICEPAT-YRN-20260530003",
-    inboundWarehouse: "纱线仓-武汉仓01",
-    productItems: [
-      {
-        id: "PII-YARN-0003-1",
-        spu: "SPU-YRN-1004",
-        sku: "SKU-YRN-50004",
-        materialCategory: "YARN",
-        unit: "米",
-        package_qty: 6,
-        package_unit: "卷",
-        base_qty: 1200,
-        base_unit: "米",
-        received_package_qty: 0,
-        received_base_qty: 0,
-        putaway_package_qty: 0,
-        putaway_base_qty: 0,
-        pending_putaway_package_qty: 0,
-        pending_putaway_base_qty: 0,
-        quantity_per_package: 200,
-        current_package_qty: 0,
-        current_base_qty: 0,
-        current_putaway_package_qty: 0,
-        current_putaway_base_qty: 0,
-        target_location_code: "",
-        roll_details: [],
-        productStatus: "半成品",
-        deliveryQuantity: 1200,
-        receivedQuantity: 0,
-      },
-    ],
-    deliveryUnit: "雅加达纱线贸易有限公司",
-    deliveryQuantity: 1200,
-    receivedQuantity: 0,
-    ownerName: "雅加达电商主体",
-    operatorName: "",
-    status: "待收货",
-    shippingTime: "2026-05-30 08:45",
-    receivedTime: "",
-    putawayTime: "",
-  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -467,7 +371,6 @@ export const materialCategoryInboundDemoSeed: PreInboundOrder[] = [
   ([
     { suffix: "101", packageQty: 12, receivedPackageQty: 0, status: "待收货" as PreInboundStatus, day: 28 },
     { suffix: "102", packageQty: 16, receivedPackageQty: 7, status: "部分收货" as PreInboundStatus, day: 29 },
-    { suffix: "103", packageQty: 9, receivedPackageQty: 9, status: "全部收货" as PreInboundStatus, day: 30 },
   ]).map((item, itemIndex) => {
     const baseQty = item.packageQty * config.basePerPackage;
     const receivedBaseQty = item.receivedPackageQty * config.basePerPackage;
@@ -536,10 +439,10 @@ export const materialCategoryInboundDemoSeed: PreInboundOrder[] = [
 );
 
 // ---------------------------------------------------------------------------
-// preInboundSeed — combined: demo seeds + 30 generated orders
+// preInboundSeed — combined: demo seeds + 4 generated orders (16 total)
 // ---------------------------------------------------------------------------
 
-export const preInboundSeed: PreInboundOrder[] = [...rawInboundDemoSeed, ...materialCategoryInboundDemoSeed, ...yarnInboundDemoSeed, ...Array.from({ length: 30 }, (_, index) => {
+export const preInboundSeed: PreInboundOrder[] = [...rawInboundDemoSeed, ...materialCategoryInboundDemoSeed, ...yarnInboundDemoSeed, ...Array.from({ length: 4 }, (_, index) => {
   const deliveryUnits = [
     "万隆纺织供应链有限公司",
     "雅加达成衣制造厂",

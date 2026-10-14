@@ -353,7 +353,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: 'KOL 采购需求',
     primaryActionsHtml: renderPrimaryButton('新增KOL需求', { prefix: EVENT_PREFIX, action: 'open-new' }, 'plus'),

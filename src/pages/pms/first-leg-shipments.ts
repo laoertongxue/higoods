@@ -415,7 +415,7 @@ function renderInner(): string {
   const targetBanner = state.targetBatchNo
     ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">已从物流费用对账定位头程单 <strong>${escapeHtml(state.targetBatchNo)}</strong>，列表已按单号过滤。</div>`
     : ''
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '头程物流',
     primaryActionsHtml: `${renderPrimaryButton('新建头程单', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus')}`,

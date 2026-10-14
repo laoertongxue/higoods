@@ -1,6 +1,6 @@
 import { getPublishedPurchaseMaterials, type PurchaseRequirementMaterial } from './canonical-purchase-references.ts'
 import { listPmsMaterialInventory } from './material-inventory.ts'
-import { listPmsMaterialPurchaseInventoryPostings, listPmsMaterialPurchaseOrders, hydratePmsMaterialPurchaseOrdersFromIdb } from './material-purchase-orders.ts'
+import { getPmsMaterialPurchaseOrderLines, isTmfPurchaseOwner, listPmsMaterialPurchaseInventoryPostings, listPmsMaterialPurchaseOrders, hydratePmsMaterialPurchaseOrdersFromIdb } from './material-purchase-orders.ts'
 import { PMS_STYLE_IMAGES } from './images.ts'
 import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsCommitRecords } from './idb-storage.ts'
 import { createPmsOperationLog, publishPmsOperationLog, nextPmsSequence, roundPmsQty } from './runtime.ts'
@@ -479,8 +479,8 @@ export interface PmsRequirementOrderSource {
 
 export function getPmsRequirementMaterialBalance(materialCode:string,unit:string):{stockQty:number;stockKnown:boolean;purchasingQty:number} {
   const stocks=listPmsMaterialInventory().filter(row=>row.sku===materialCode && row.unit===unit)
-  const purchases=listPmsMaterialPurchaseOrders().filter(row=>row.materialCode===materialCode && row.unit===unit && row.status!=='已关闭' && row.status!=='已到货')
-  return {stockQty:roundPmsQty(Math.max(0,stocks.reduce((sum,row)=>sum+row.stockQty,0)-listPmsMaterialPurchaseInventoryPostings().filter(row=>row.materialCode===materialCode&&row.unit===unit&&row.quality==='瑕疵').reduce((sum,row)=>sum+row.qty,0)),2),stockKnown:stocks.length>0,purchasingQty:roundPmsQty(purchases.reduce((sum,row)=>sum+Math.max(0,row.orderedQty-row.receivedQty),0),2)}
+  const purchases=listPmsMaterialPurchaseOrders().filter(row=>!['已关闭','已到货','已入库'].includes(row.status)).flatMap(getPmsMaterialPurchaseOrderLines).filter(line=>line.materialCode===materialCode && line.unit===unit)
+  return {stockQty:roundPmsQty(Math.max(0,stocks.reduce((sum,row)=>sum+row.stockQty,0)-listPmsMaterialPurchaseInventoryPostings().filter(row=>row.materialCode===materialCode&&row.unit===unit&&row.quality==='瑕疵').reduce((sum,row)=>sum+row.qty,0)),2),stockKnown:stocks.length>0,purchasingQty:roundPmsQty(purchases.reduce((sum,line)=>sum+Math.max(0,(line.actualPurchasedQty>0?line.actualPurchasedQty:line.orderedQty)-line.sellerReceivedQty),0),2)}
 }
 
 export function preparePmsMaterialRequirementFromOrder(order: PmsRequirementOrderSource, operationId: string): PmsMaterialRequirement {
@@ -607,7 +607,20 @@ export async function updatePmsMaterialRequirement(requirementNo:string,patch:{r
   if(patch.lineDetails) for(const input of patch.lineDetails){const line=row.lines.find(line=>line.lineNo===input.lineNo);if(!line || line.pushStatus==='已下推' || !input.supplierName.trim() || !input.warehouse.trim() || !Number.isFinite(input.actualQty) || input.actualQty<0) throw new Error('未下推行须填写供应商、采购仓库和非负数量');Object.assign(line,{supplierName:input.supplierName.trim(),warehouse:input.warehouse.trim(),actualQty:roundPmsQty(input.actualQty,2)})}
   const records:Array<import('./idb-storage.ts').PmsCommitRecord>=[{store:PMS_STORES.pmsMaterialRequirements,value:row}]
   let purchase: import('./material-purchase-orders.ts').PmsMaterialPurchaseOrder | undefined
-  if(patch.associatePurchaseOrderNo){const {getPmsMaterialPurchaseOrder}=await import('./material-purchase-orders.ts');const source=getPmsMaterialPurchaseOrder(patch.associatePurchaseOrderNo);const line=row.lines.find(line=>line.materialCode===source?.materialCode && line.pushStatus==='待下推');if(!source || !line || source.requirementNo && source.requirementNo!==requirementNo) throw new Error('选择物料一致且未关联其它需求的采购单');purchase={...structuredClone(source),requirementNo,sourceRequirementLineNo:line.lineNo,sourceProductPurchaseOrderNo:row.sourcePurchaseOrderNo};line.generatedPurchaseOrderNo=source.purchaseOrderNo;line.pushStatus='已下推';line.actualQty=source.orderedQty;row.status=row.lines.every(line=>line.pushStatus==='已下推'||line.suggestedQty<=0)?'已下推':'部分下推';records.push({store:PMS_STORES.pmsMaterialPurchaseOrderDeltas,value:purchase})}
+  if(patch.associatePurchaseOrderNo){
+    const {getPmsMaterialPurchaseOrder}=await import('./material-purchase-orders.ts')
+    const source=getPmsMaterialPurchaseOrder(patch.associatePurchaseOrderNo)
+    if(!source || source.pcsSource || source.tmfTipSource || isTmfPurchaseOwner(source.purchaseOrderNo) || ['草稿','已关闭'].includes(source.status) || source.requirementNo && source.requirementNo!==requirementNo) throw new Error('选择未关闭、未关联其它需求的普通采购单')
+    purchase=structuredClone(source)
+    const purchaseLines=getPmsMaterialPurchaseOrderLines(purchase)
+    const matches=row.lines.filter(line=>line.pushStatus==='待下推').map(line=>({line,purchaseLine:purchaseLines.find(item=>item.materialCode===line.materialCode && item.unit===line.unit)})).filter(pair=>pair.purchaseLine)
+    if(!matches.length)throw new Error('采购单 SKU 和单位须与未下推的需求行一致')
+    for(const {line,purchaseLine} of matches){line.generatedPurchaseOrderNo=source.purchaseOrderNo;line.pushStatus='已下推';line.actualQty=purchaseLine!.orderedQty;purchaseLine!.sourceRequirementLineNo=line.lineNo}
+    Object.assign(purchase,{requirementNo,sourceRequirementLineNo:purchaseLines.length===1?matches[0].line.lineNo:'',sourceProductPurchaseOrderNo:row.sourcePurchaseOrderNo})
+    if(purchase.lines?.length)purchase.lines=purchaseLines
+    row.status=row.lines.every(line=>line.pushStatus==='已下推'||line.suggestedQty<=0)?'已下推':'部分下推'
+    records.push({store:PMS_STORES.pmsMaterialPurchaseOrderDeltas,value:purchase})
+  }
   let product:import('./product-purchase-orders.ts').PmsProductPurchaseOrder|undefined
   if(purchase){const module=await import('./product-purchase-orders.ts');await module.hydratePmsProductPurchaseOrdersFromIdb();const source=module.getPmsProductPurchaseOrder(row.sourcePurchaseOrderNo);if(source){product=structuredClone(source);product.version+=1;product.lines.forEach(line=>line.materialStatus=row.status==='已下推'?'已下推':'已生成');records.push({store:PMS_STORES.pmsProductPurchaseOrders,value:product})}}
   await pmsCommitRecords(records,{operationId,operationSignature:JSON.stringify([requirementNo,patch]),log:{objectType:'material-requirement',objectId:requirementNo,action:patch.rejectedReason?'驳回需求':patch.associatePurchaseOrderNo?'关联采购单':'修改需求',beforeValue:'',afterValue:JSON.stringify(patch),reason:patch.rejectedReason || '',actorId:'USR-PMS-BUYER',actorName:'采购管理',actorRole:'采购员',secondConfirmation:!!patch.rejectedReason}})
@@ -622,9 +635,21 @@ export async function batchUpdatePmsMaterialRequirements(nos:string[],field:'buy
  if(!nos.length || new Set(nos).size!==nos.length || !value.trim())throw new Error('选择需求并填写设置内容')
  if(field==='unitPrice'&&(!Number.isFinite(Number(value))||Number(value)<0))throw new Error('实际单价须为非负数')
  const candidates=nos.map(no=>{const before=getPmsMaterialRequirement(no);if(!before)throw new Error('需求已不存在，重新查询');const row=structuredClone(before);if(field==='rejectedReason'&&row.status==='已下推')throw new Error('已全部下推需求不能驳回');if(['buyerName','purchaseRegion','remark','rejectedReason'].includes(field))Object.assign(row,{[field]:value.trim()});else row.lines.forEach(line=>Object.assign(line,{[field]:field==='unitPrice'?Number(value):value.trim(),...(field==='unitPrice'?{priceConfirmed:true}:{})}));return row})
- const {getPmsMaterialPurchaseOrder,publishPmsMaterialPurchaseOrders}=await import('./material-purchase-orders.ts')
+ const {getPmsMaterialPurchaseOrder,publishPmsMaterialPurchaseOrders,preparePmsMaterialPurchasePriceConfirmation}=await import('./material-purchase-orders.ts')
  const related=new Map<string,import('./material-purchase-orders.ts').PmsMaterialPurchaseOrder>()
- for(const row of candidates)for(const line of row.lines){if(!line.generatedPurchaseOrderNo || field==='rejectedReason')continue;const source=getPmsMaterialPurchaseOrder(line.generatedPurchaseOrderNo);if(!source)throw new Error('关联采购单不可读，未保存');if(['已关闭','已入库'].includes(source.status))throw new Error('已关闭或已入库的关联采购单不能修改');const next=related.get(source.purchaseOrderNo)||structuredClone(source);Object.assign(next,{[field]:field==='unitPrice'?Number(value):value.trim()});related.set(next.purchaseOrderNo,next)}
+ for(const row of candidates)for(const line of row.lines){
+  if(!line.generatedPurchaseOrderNo || field==='rejectedReason')continue
+  const source=getPmsMaterialPurchaseOrder(line.generatedPurchaseOrderNo)
+  if(!source)throw new Error('关联采购单不可读，未保存')
+  if(source.pcsSource||source.tmfTipSource||isTmfPurchaseOwner(source.purchaseOrderNo)||['草稿','已关闭','已入库'].includes(source.status))throw new Error('当前来源或状态的关联采购单不能修改')
+  let next=related.get(source.purchaseOrderNo)||structuredClone(source)
+  if(field==='unitPrice'){
+    const purchaseLine=getPmsMaterialPurchaseOrderLines(next).find(item=>item.materialCode===line.materialCode&&item.unit===line.unit)
+    if(!purchaseLine)throw new Error('关联采购 SKU 或单位已变更，价格未保存')
+    next=preparePmsMaterialPurchasePriceConfirmation(next,[{lineId:purchaseLine.lineId,unitPrice:Number(value)}])
+  }else Object.assign(next,{[field]:value.trim()})
+  related.set(next.purchaseOrderNo,next)
+ }
  const logs=candidates.map(row=>({...createPmsOperationLog({objectType:'material-requirement',objectId:row.requirementNo,action:field==='rejectedReason'?'批量驳回需求':'批量设置需求',beforeValue:'',afterValue:value,reason:field==='rejectedReason'?value:'',actorId:'USR-PMS-BUYER',actorName:'采购管理',actorRole:'采购员',secondConfirmation:true}),id:`${operationId}:log:${row.requirementNo}`}))
  await pmsCommitRecords([...candidates.map(value=>({store:PMS_STORES.pmsMaterialRequirements,value})),...Array.from(related.values()).map(value=>({store:PMS_STORES.pmsMaterialPurchaseOrderDeltas,value})),...logs.map(value=>({store:PMS_STORES.pmsOperationLogs,value}))],{operationId,operationSignature:JSON.stringify([nos,field,value])})
  logs.forEach(publishPmsOperationLog)
@@ -635,7 +660,21 @@ export async function batchAssociatePmsMaterialRequirements(entries:Array<{requi
  await Promise.all([hydratePmsMaterialRequirementsFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb()]);if(!entries.length || new Set(entries.map(row=>row.requirementNo)).size!==entries.length || new Set(entries.map(row=>row.purchaseOrderNo)).size!==entries.length)throw new Error('选择不重复的需求和采购单')
  const module=await import('./product-purchase-orders.ts');await module.hydratePmsProductPurchaseOrdersFromIdb()
  const requirements:PmsMaterialRequirement[]=[],purchases:import('./material-purchase-orders.ts').PmsMaterialPurchaseOrder[]=[],products=new Map<string,import('./product-purchase-orders.ts').PmsProductPurchaseOrder>()
- for(const entry of entries){const source=getPmsMaterialRequirement(entry.requirementNo),purchase=listPmsMaterialPurchaseOrders().find(row=>row.purchaseOrderNo===entry.purchaseOrderNo);if(!source||source.rejectedReason||!purchase||purchase.requirementNo||purchase.status==='已关闭')throw new Error('需求或采购单不允许关联');const row=structuredClone(source),line=row.lines.find(line=>line.materialCode===purchase.materialCode&&line.unit===purchase.unit&&line.pushStatus==='待下推');if(!line)throw new Error('采购单 SKU 和单位须与未下推的需求行一致');line.pushStatus='已下推';line.actualQty=purchase.orderedQty;line.generatedPurchaseOrderNo=purchase.purchaseOrderNo;row.status=row.lines.every(line=>line.pushStatus==='已下推'||line.suggestedQty<=0)?'已下推':'部分下推';requirements.push(row);purchases.push({...structuredClone(purchase),requirementNo:row.requirementNo,sourceRequirementLineNo:line.lineNo,sourceProductPurchaseOrderNo:row.sourcePurchaseOrderNo});const original=module.getPmsProductPurchaseOrder(row.sourcePurchaseOrderNo);if(original){const product=products.get(original.purchaseOrderNo)||structuredClone(original);product.version=original.version+1;product.lines.forEach(line=>line.materialStatus=row.status==='已下推'?'已下推':'已生成');products.set(product.purchaseOrderNo,product)}}
+ for(const entry of entries){
+  const source=getPmsMaterialRequirement(entry.requirementNo),purchase=listPmsMaterialPurchaseOrders().find(row=>row.purchaseOrderNo===entry.purchaseOrderNo)
+  if(!source||source.rejectedReason||!purchase||purchase.requirementNo||purchase.pcsSource||purchase.tmfTipSource||isTmfPurchaseOwner(purchase.purchaseOrderNo)||['草稿','已关闭'].includes(purchase.status))throw new Error('需求或采购单不允许关联')
+  const row=structuredClone(source),candidate=structuredClone(purchase),purchaseLines=getPmsMaterialPurchaseOrderLines(candidate)
+  const matches=row.lines.filter(line=>line.pushStatus==='待下推').map(line=>({line,purchaseLine:purchaseLines.find(item=>item.materialCode===line.materialCode&&item.unit===line.unit)})).filter(pair=>pair.purchaseLine)
+  if(!matches.length)throw new Error('采购单 SKU 和单位须与未下推的需求行一致')
+  for(const {line,purchaseLine} of matches){line.pushStatus='已下推';line.actualQty=purchaseLine!.orderedQty;line.generatedPurchaseOrderNo=purchase.purchaseOrderNo;purchaseLine!.sourceRequirementLineNo=line.lineNo}
+  row.status=row.lines.every(line=>line.pushStatus==='已下推'||line.suggestedQty<=0)?'已下推':'部分下推'
+  requirements.push(row)
+  Object.assign(candidate,{requirementNo:row.requirementNo,sourceRequirementLineNo:purchaseLines.length===1?matches[0].line.lineNo:'',sourceProductPurchaseOrderNo:row.sourcePurchaseOrderNo})
+  if(candidate.lines?.length)candidate.lines=purchaseLines
+  purchases.push(candidate)
+  const original=module.getPmsProductPurchaseOrder(row.sourcePurchaseOrderNo)
+  if(original){const product=products.get(original.purchaseOrderNo)||structuredClone(original);product.version=original.version+1;product.lines.forEach(line=>line.materialStatus=row.status==='已下推'?'已下推':'已生成');products.set(product.purchaseOrderNo,product)}
+ }
  const logs=requirements.map(row=>({...createPmsOperationLog({objectType:'material-requirement',objectId:row.requirementNo,action:'批量关联采购单',beforeValue:'',afterValue:row.lines.map(line=>line.generatedPurchaseOrderNo).filter(Boolean).join('、'),reason:'',actorId:'USR-PMS-BUYER',actorName:'采购管理',actorRole:'采购员'}),id:`${operationId}:log:${row.requirementNo}`}))
  await pmsCommitRecords([...requirements.map(value=>({store:PMS_STORES.pmsMaterialRequirements,value})),...purchases.map(value=>({store:PMS_STORES.pmsMaterialPurchaseOrderDeltas,value})),...Array.from(products.values()).map(value=>({store:PMS_STORES.pmsProductPurchaseOrders,value})),...logs.map(value=>({store:PMS_STORES.pmsOperationLogs,value}))],{operationId,operationSignature:JSON.stringify(entries)})
  publishPmsMaterialRequirements(requirements);(await import('./material-purchase-orders.ts')).publishPmsMaterialPurchaseOrders(purchases);module.publishPmsProductPurchaseOrders(Array.from(products.values()));logs.forEach(publishPmsOperationLog)

@@ -1,6 +1,6 @@
 import { getFabricDemandBoardRows } from '../wls/fabric-demand-board.ts'
 import { preInboundSeed } from '../wls/seed/raw-seed.ts'
-import { listPmsMaterialPurchaseInventoryPostings,listPmsMaterialPurchaseOrders,type PmsMaterialPurchaseInventoryPosting } from './material-purchase-orders.ts'
+import { getPmsMaterialPurchaseOrderLines, listPmsMaterialPurchaseInventoryPostings,listPmsMaterialPurchaseOrders,type PmsMaterialPurchaseInventoryPosting } from './material-purchase-orders.ts'
 
 /** Read-only procurement view of the existing WLS material stock source. */
 export interface PmsMaterialInventoryRow {
@@ -15,10 +15,13 @@ export function listPmsMaterialInventory():PmsMaterialInventoryRow[] {
     warehouse:stock.warehouseName,warehouseType:stock.warehouseName.includes('待加工')?'待加工仓':stock.warehouseName==='中转仓'?'中转仓':'原料仓',area:stock.areaName,location:stock.locationCode,unit:stock.unit,
     stockQty:stock.qty,transitQty:null,lockedQty:null,availableQty:null,
   })))
+  const purchases = listPmsMaterialPurchaseOrders()
   for(const posting of listPmsMaterialPurchaseInventoryPostings()){
+    const order = purchases.find(row => row.purchaseOrderNo === posting.sourcePurchaseOrderNo)
+    const line = order && getPmsMaterialPurchaseOrderLines(order).find(row => (!posting.purchaseLineId || row.lineId === posting.purchaseLineId) && row.materialCode === posting.materialCode && row.unit === posting.unit)
     const existing=rows.find(row=>row.sku===posting.materialCode&&row.warehouse===posting.warehouse&&row.unit===posting.unit)
     if(existing){existing.stockQty=Math.round((existing.stockQty+posting.qty)*10000)/10000;(existing.localPostings??=[]).push(posting)}
-    else rows.push({id:`purchase:${posting.id}`,spu:'',sku:posting.materialCode,name:posting.materialName,imageUrl:posting.imageUrl,largeImageUrl:posting.imageUrl,warehouse:posting.warehouse,warehouseType:'未指定',area:'',location:'',unit:posting.unit,stockQty:posting.qty,transitQty:null,lockedQty:null,availableQty:null,localPostings:[posting]})
+    else rows.push({id:`purchase:${posting.id}`,spu:line?.materialSpu || '',sku:posting.materialCode,name:posting.materialName,imageUrl:posting.imageUrl,largeImageUrl:posting.imageUrl,warehouse:posting.warehouse,warehouseType:'未指定',area:'',location:'',unit:posting.unit,stockQty:posting.qty,transitQty:null,lockedQty:null,availableQty:null,localPostings:[posting]})
   }
   return rows
 }
@@ -29,7 +32,13 @@ export interface PmsMaterialInventoryBarcode {
 /** Exact SKU, warehouse and unit association; local barcode moves do not change warehouse quantities. */
 export function listPmsMaterialInventoryBarcodes(sku:string,warehouse?:string,unit?:string):PmsMaterialInventoryBarcode[] {
   const wls:PmsMaterialInventoryBarcode[]=preInboundSeed.filter(order=>!warehouse||order.inboundWarehouse===warehouse).flatMap(order=>order.productItems.filter(item=>item.sku===sku).flatMap(item=>(item.roll_details||[]).filter(roll=>!unit||roll.unit===unit).map(roll=>({barcode:roll.roll_no,qty:roll.length,unit:roll.unit,status:roll.status||'未记录',location:roll.location_code||'',inboundNo:order.inboundOrderNo,sourceKind:'wls' as const}))))
-  const local:PmsMaterialInventoryBarcode[]=listPmsMaterialPurchaseOrders().filter(order=>order.materialCode===sku&&(!unit||order.unit===unit)).flatMap(order=>(order.detailBarcodes||[]).filter(row=>(!warehouse||row.warehouse===warehouse)&&(!unit||row.unit===unit)).map(row=>({barcode:row.code,qty:row.quantity,unit:row.unit,status:row.status,location:'',inboundNo:order.purchaseOrderNo,sourceKind:'local-demo' as const,targetArea:row.targetArea,movedAt:row.movedAt,movedBy:row.movedBy})))
+  const local:PmsMaterialInventoryBarcode[]=listPmsMaterialPurchaseOrders().flatMap(order=>{
+    const lines = getPmsMaterialPurchaseOrderLines(order)
+    return (order.detailBarcodes||[]).filter(row=>{
+      const line = row.purchaseLineId ? lines.find(item=>item.lineId===row.purchaseLineId) : row.materialCode ? lines.find(item=>item.materialCode===row.materialCode) : lines.length===1 ? lines[0] : undefined
+      return line?.materialCode===sku && (!row.materialCode || row.materialCode===line.materialCode) && row.unit===line.unit && (!warehouse||row.warehouse===warehouse) && (!unit||row.unit===unit)
+    }).map(row=>({barcode:row.code,qty:row.quantity,unit:row.unit,status:row.status,location:'',inboundNo:order.purchaseOrderNo,sourceKind:'local-demo' as const,targetArea:row.targetArea,movedAt:row.movedAt,movedBy:row.movedBy}))
+  })
   return [...wls,...local]
 }
 export async function listPmsMaterialInventoryFlows(sku:string,warehouse:string) {

@@ -42,6 +42,11 @@ const PMS_BROWSER_TESTS = new Set([
   'tests/pms-peripheral.spec.ts',
 ])
 const PMS_BROWSER_CHECK = 'CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/pms-cold-load.spec.ts tests/pms-purchase-chain.spec.ts tests/pms-material-flow.spec.ts tests/pms-master-data.spec.ts tests/pms-settlement-flow.spec.ts tests/pms-peripheral.spec.ts --workers=1 --reporter=line'
+const PMS_MATERIAL_PARITY_BROWSER_TESTS = new Set([
+  'tests/material-purchase-order-online-parity.spec.ts',
+  'tests/material-purchase-barcode-online-parity.spec.ts',
+])
+const PMS_MATERIAL_PARITY_BROWSER_CHECK = 'CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/material-purchase-order-online-parity.spec.ts tests/material-purchase-barcode-online-parity.spec.ts --workers=1 --reporter=line'
 const PMS_ROUTE_RETIREMENT_TESTS = new Set([
   'tests/pms-interaction-audit.spec.ts',
   'tests/pms-style-screenshots.spec.ts',
@@ -199,6 +204,10 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     if (PPIC_DAILY_BROWSER_PATHS.has(path)) {
       add(fullChecks, PPIC_DAILY_BROWSER_CHECK)
       escalationReasons.add('PPIC任务、后道原子实收及共享消费者变更须执行实际浏览器验收')
+      continue
+    }
+    if (PMS_MATERIAL_PARITY_BROWSER_TESTS.has(path)) {
+      add(fullChecks, PMS_MATERIAL_PARITY_BROWSER_CHECK)
       continue
     }
     let handled = false

@@ -1,0 +1,265 @@
+
+Running 10 tests using 1 worker
+
+
+(node:75500) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/10] tests/material-purchase-order-online-parity.spec.ts:41:1 › 多SKU采购：实采、物流、抽检凭证、分SKU入库、刷新、导出和打印
+[2/10] tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入
+  1) tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ───
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[data-mpo-parity-dialog]')
+    Expected: 0
+    Received: 1
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 10000ms
+      - waiting for locator('[data-mpo-parity-dialog]')
+        24 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      22 | async function ready(page:Page){await expect(page.locator(`${root} h1`)).toHaveText('面辅料采购单');await expect(page.locator('[data-pms-mpo-table-surface] tbody tr').first()).toBeVisible()}
+      23 | async function imagesReady(page:Page,scope=root){await expect.poll(()=>page.locator(scope).evaluate(el=>[...el.querySelectorAll('img')].filter(img=>img.getBoundingClientRect().width>0).every(img=>img.complete&&img.naturalWidth>0))).toBe(true)}
+    > 24 | async function save(page:Page){const family=await page.locator(dialog).getAttribute('aria-label');await page.locator(button('save')).click();await expect(page.locator(dialog)).toHaveCount(0);await expect(page.locator('[data-pms-mpo-feedback]')).toContainText('已保存');await records(page,'pmsMaterialPurchaseOrderDeltas');await measured(page,`保存：${family}`)}
+         |                                                                                                                                                                                 ^
+      25 | async function create(page:Page){
+      26 |  await page.locator(`${button('new')}[data-purchase-kind="面料"]`).click()
+      27 |  const form=page.locator('[data-mpo-parity-form]')
+        at save (/Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:24:177)
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:127:427
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入/trace.zip
+    Usage:
+
+        npx playwright show-trace output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:76545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/10] tests/material-purchase-order-online-parity.spec.ts:41:1 › 多SKU采购：实采、物流、抽检凭证、分SKU入库、刷新、导出和打印
+[4/10] tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入
+  2) tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ───
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[data-mpo-parity-dialog]')
+    Expected: 0
+    Received: 1
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 10000ms
+      - waiting for locator('[data-mpo-parity-dialog]')
+        24 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      22 | async function ready(page:Page){await expect(page.locator(`${root} h1`)).toHaveText('面辅料采购单');await expect(page.locator('[data-pms-mpo-table-surface] tbody tr').first()).toBeVisible()}
+      23 | async function imagesReady(page:Page,scope=root){await expect.poll(()=>page.locator(scope).evaluate(el=>[...el.querySelectorAll('img')].filter(img=>img.getBoundingClientRect().width>0).every(img=>img.complete&&img.naturalWidth>0))).toBe(true)}
+    > 24 | async function save(page:Page){const family=await page.locator(dialog).getAttribute('aria-label');await page.locator(button('save')).click();await expect(page.locator(dialog)).toHaveCount(0);await expect(page.locator('[data-pms-mpo-feedback]')).toContainText('已保存');await records(page,'pmsMaterialPurchaseOrderDeltas');await measured(page,`保存：${family}`)}
+         |                                                                                                                                                                                 ^
+      25 | async function create(page:Page){
+      26 |  await page.locator(`${button('new')}[data-purchase-kind="面料"]`).click()
+      27 |  const form=page.locator('[data-mpo-parity-form]')
+        at save (/Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:24:177)
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:127:427
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat1/trace.zip
+    Usage:
+
+        npx playwright show-trace output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:77504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[5/10] tests/material-purchase-order-online-parity.spec.ts:41:1 › 多SKU采购：实采、物流、抽检凭证、分SKU入库、刷新、导出和打印
+[6/10] tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入
+  3) tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ───
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[data-mpo-parity-dialog]')
+    Expected: 0
+    Received: 1
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 10000ms
+      - waiting for locator('[data-mpo-parity-dialog]')
+        24 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      22 | async function ready(page:Page){await expect(page.locator(`${root} h1`)).toHaveText('面辅料采购单');await expect(page.locator('[data-pms-mpo-table-surface] tbody tr').first()).toBeVisible()}
+      23 | async function imagesReady(page:Page,scope=root){await expect.poll(()=>page.locator(scope).evaluate(el=>[...el.querySelectorAll('img')].filter(img=>img.getBoundingClientRect().width>0).every(img=>img.complete&&img.naturalWidth>0))).toBe(true)}
+    > 24 | async function save(page:Page){const family=await page.locator(dialog).getAttribute('aria-label');await page.locator(button('save')).click();await expect(page.locator(dialog)).toHaveCount(0);await expect(page.locator('[data-pms-mpo-feedback]')).toContainText('已保存');await records(page,'pmsMaterialPurchaseOrderDeltas');await measured(page,`保存：${family}`)}
+         |                                                                                                                                                                                 ^
+      25 | async function create(page:Page){
+      26 |  await page.locator(`${button('new')}[data-purchase-kind="面料"]`).click()
+      27 |  const form=page.locator('[data-mpo-parity-form]')
+        at save (/Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:24:177)
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:127:427
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat2/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat2/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat2/trace.zip
+    Usage:
+
+        npx playwright show-trace output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:78118) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[7/10] tests/material-purchase-order-online-parity.spec.ts:41:1 › 多SKU采购：实采、物流、抽检凭证、分SKU入库、刷新、导出和打印
+[8/10] tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入
+  4) tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ───
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[data-mpo-parity-dialog]')
+    Expected: 0
+    Received: 1
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 10000ms
+      - waiting for locator('[data-mpo-parity-dialog]')
+        24 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      22 | async function ready(page:Page){await expect(page.locator(`${root} h1`)).toHaveText('面辅料采购单');await expect(page.locator('[data-pms-mpo-table-surface] tbody tr').first()).toBeVisible()}
+      23 | async function imagesReady(page:Page,scope=root){await expect.poll(()=>page.locator(scope).evaluate(el=>[...el.querySelectorAll('img')].filter(img=>img.getBoundingClientRect().width>0).every(img=>img.complete&&img.naturalWidth>0))).toBe(true)}
+    > 24 | async function save(page:Page){const family=await page.locator(dialog).getAttribute('aria-label');await page.locator(button('save')).click();await expect(page.locator(dialog)).toHaveCount(0);await expect(page.locator('[data-pms-mpo-feedback]')).toContainText('已保存');await records(page,'pmsMaterialPurchaseOrderDeltas');await measured(page,`保存：${family}`)}
+         |                                                                                                                                                                                 ^
+      25 | async function create(page:Page){
+      26 |  await page.locator(`${button('new')}[data-purchase-kind="面料"]`).click()
+      27 |  const form=page.locator('[data-mpo-parity-form]')
+        at save (/Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:24:177)
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:127:427
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat3/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat3/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat3/trace.zip
+    Usage:
+
+        npx playwright show-trace output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat3/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:78740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[9/10] tests/material-purchase-order-online-parity.spec.ts:41:1 › 多SKU采购：实采、物流、抽检凭证、分SKU入库、刷新、导出和打印
+[10/10] tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入
+  5) tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ───
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[data-mpo-parity-dialog]')
+    Expected: 0
+    Received: 1
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 10000ms
+      - waiting for locator('[data-mpo-parity-dialog]')
+        24 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      22 | async function ready(page:Page){await expect(page.locator(`${root} h1`)).toHaveText('面辅料采购单');await expect(page.locator('[data-pms-mpo-table-surface] tbody tr').first()).toBeVisible()}
+      23 | async function imagesReady(page:Page,scope=root){await expect.poll(()=>page.locator(scope).evaluate(el=>[...el.querySelectorAll('img')].filter(img=>img.getBoundingClientRect().width>0).every(img=>img.complete&&img.naturalWidth>0))).toBe(true)}
+    > 24 | async function save(page:Page){const family=await page.locator(dialog).getAttribute('aria-label');await page.locator(button('save')).click();await expect(page.locator(dialog)).toHaveCount(0);await expect(page.locator('[data-pms-mpo-feedback]')).toContainText('已保存');await records(page,'pmsMaterialPurchaseOrderDeltas');await measured(page,`保存：${family}`)}
+         |                                                                                                                                                                                 ^
+      25 | async function create(page:Page){
+      26 |  await page.locator(`${button('new')}[data-purchase-kind="面料"]`).click()
+      27 |  const form=page.locator('[data-mpo-parity-form]')
+        at save (/Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:24:177)
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/material-purchase-order-online-parity.spec.ts:127:427
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat4/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat4/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat4/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat4/trace.zip
+    Usage:
+
+        npx playwright show-trace output/playwright/mpo-parity-20261014/final-adjacent-v2/raw/material-purchase-order-on-b12c2-操作：批量字段、分类建单、复制转换驳回与20行文件导入-repeat4/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  5 failed
+    tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ────
+    tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ────
+    tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ────
+    tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ────
+    tests/material-purchase-order-online-parity.spec.ts:106:1 › 其余对齐操作：批量字段、分类建单、复制转换驳回与20行文件导入 ────
+  5 passed (1.8m)

@@ -419,3 +419,17 @@ test('legacy PMS audit and screenshot route-only retirement selects its explicit
   assert(governance.fastChecks.includes('npm run test:workflow-governance'))
   assert.deepEqual(governance.unknownPaths, [])
 })
+
+
+test('面辅料采购对齐两份浏览器专项使用独立预览，不能仅靠构建或吞掉未知测试',()=>{
+ const paths=['tests/material-purchase-order-online-parity.spec.ts','tests/material-purchase-barcode-online-parity.spec.ts']
+ const result=routeAffectedChecks(paths)
+ assert.deepEqual(result.unknownPaths,[])
+ assert.equal(result.fullChecks.length,1)
+ const command=result.fullChecks[0]
+ for(const path of paths)assert(command.includes(path))
+ assert(command.includes('CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false'))
+ assert(command.endsWith('--workers=1 --reporter=line'))
+ assert(!command.includes('pms-peripheral.spec.ts'))
+ assert.deepEqual(routeAffectedChecks(['tests/material-purchase-unregistered.spec.ts']).unknownPaths,['tests/material-purchase-unregistered.spec.ts'])
+})

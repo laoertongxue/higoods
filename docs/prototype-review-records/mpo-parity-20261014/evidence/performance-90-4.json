@@ -1,0 +1,284 @@
+[
+  {
+    "family": "首次访问",
+    "milliseconds": 374.80000001192093,
+    "viewport": "1366×768",
+    "scale": "8 主单 / 5 行"
+  },
+  {
+    "family": "载入 SPU 的 SKU",
+    "milliseconds": 167.5,
+    "viewport": "1366×768",
+    "scale": "4 SKU / 图片"
+  },
+  {
+    "family": "保存：面料采购",
+    "milliseconds": 98.59999996423721,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "查询与统计",
+    "milliseconds": 48.40000003576279,
+    "viewport": "1366×768",
+    "scale": "9 主单 / 1 匹配"
+  },
+  {
+    "family": "保存下单事实",
+    "milliseconds": 66.89999997615814,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 57.19999998807907,
+    "viewport": "1366×768",
+    "scale": "18 个操作"
+  },
+  {
+    "family": "打开：采购物流信息",
+    "milliseconds": 52.30000001192093,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "保存：采购物流信息",
+    "milliseconds": 65.30000001192093,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "保存：登记商家到货数量",
+    "milliseconds": 66.20000004768372,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 51.19999998807907,
+    "viewport": "1366×768",
+    "scale": "19 个操作"
+  },
+  {
+    "family": "打开：采购单抽检",
+    "milliseconds": 49.89999997615814,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "保存：采购单抽检",
+    "milliseconds": 67.19999998807907,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 51.299999952316284,
+    "viewport": "1366×768",
+    "scale": "19 个操作"
+  },
+  {
+    "family": "打开：上传转运凭证",
+    "milliseconds": 49.89999997615814,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "保存：上传转运凭证",
+    "milliseconds": 66.20000004768372,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "保存：运单批量入库",
+    "milliseconds": 65.69999998807907,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "刷新回读",
+    "milliseconds": 477.30000001192093,
+    "viewport": "1366×768",
+    "scale": "9 主单 / 5 行"
+  },
+  {
+    "family": "查询与统计",
+    "milliseconds": 48.90000003576279,
+    "viewport": "1366×768",
+    "scale": "9 主单 / 1 匹配"
+  },
+  {
+    "family": "打开采购详情",
+    "milliseconds": 84.80000001192093,
+    "viewport": "1366×768",
+    "scale": "2 SKU / 20字段 / 图片 / 3附件"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 51.60000002384186,
+    "viewport": "1366×768",
+    "scale": "19 个操作"
+  },
+  {
+    "family": "打开：确认实际采购价",
+    "milliseconds": 49.30000001192093,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "保存：确认实际采购价",
+    "milliseconds": 66,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "导出：订单明细",
+    "milliseconds": 50.5,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "导出：订单",
+    "milliseconds": 51.40000003576279,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "导出：结算单",
+    "milliseconds": 67.80000001192093,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "导出：原料入库",
+    "milliseconds": 50.89999997615814,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 64.69999998807907,
+    "viewport": "1366×768",
+    "scale": "19 个操作"
+  },
+  {
+    "family": "采购打印预览",
+    "milliseconds": 98.59999996423721,
+    "viewport": "1366×768",
+    "scale": "2 SKU / 对应原图"
+  },
+  {
+    "family": "物料原图预览",
+    "milliseconds": 50.299999952316284,
+    "viewport": "1280×720",
+    "scale": "对应实际素材"
+  },
+  {
+    "family": "保存校验阻断",
+    "milliseconds": 67.5,
+    "viewport": "1280×720",
+    "scale": "未选 SKU / 不写入"
+  },
+  {
+    "family": "放弃未保存修改",
+    "milliseconds": 302.60000002384186,
+    "viewport": "1280×720",
+    "scale": "取消 / 不写入"
+  },
+  {
+    "family": "载入 SPU 的 SKU",
+    "milliseconds": 241.4000000357628,
+    "viewport": "1280×720",
+    "scale": "4 SKU / 图片"
+  },
+  {
+    "family": "保存：面料采购",
+    "milliseconds": 97.80000001192093,
+    "viewport": "1280×720",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "查询与统计",
+    "milliseconds": 67.5,
+    "viewport": "1280×720",
+    "scale": "9 主单 / 1 匹配"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 99.79999995231628,
+    "viewport": "1280×720",
+    "scale": "18 个操作"
+  },
+  {
+    "family": "打开：设置采购备注",
+    "milliseconds": 79.60000002384186,
+    "viewport": "1280×720",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "事务失败保留输入",
+    "milliseconds": 122.09999996423721,
+    "viewport": "1280×720",
+    "scale": "readwrite abort / 不假成功"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 68.30000001192093,
+    "viewport": "1366×768",
+    "scale": "18 个操作"
+  },
+  {
+    "family": "打开：日志记录",
+    "milliseconds": 49.39999997615814,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 51.799999952316284,
+    "viewport": "1366×768",
+    "scale": "18 个操作"
+  },
+  {
+    "family": "打开：采购单抽检",
+    "milliseconds": 54.19999998807907,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 69.10000002384186,
+    "viewport": "1366×768",
+    "scale": "18 个操作"
+  },
+  {
+    "family": "打开：上传转运凭证",
+    "milliseconds": 46,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "行操作菜单",
+    "milliseconds": 69.19999998807907,
+    "viewport": "1366×768",
+    "scale": "18 个操作"
+  },
+  {
+    "family": "打开：修改采购信息",
+    "milliseconds": 83.19999998807907,
+    "viewport": "1366×768",
+    "scale": "2 SKU"
+  },
+  {
+    "family": "排序结果",
+    "milliseconds": 67.09999996423721,
+    "viewport": "1366×768",
+    "scale": "8 主单"
+  },
+  {
+    "family": "重置查询",
+    "milliseconds": 67.5,
+    "viewport": "1366×768",
+    "scale": "8 主单 / 全部统计"
+  }
+]

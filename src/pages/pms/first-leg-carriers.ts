@@ -389,7 +389,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '头程物流商管理',
     primaryActionsHtml: renderPrimaryButton('新增物流商',{prefix:EVENT_PREFIX,action:'open-carrier-create'},'plus'),

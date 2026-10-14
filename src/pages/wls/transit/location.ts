@@ -1,35 +1,35 @@
 // @page-pattern: list
-import { escapeHtml, localDateTimeText } from '../../../utils.ts'
+import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderTabs } from '../../../components/ui/tabs.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
-import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+type LocationStatus = '空闲' | '占用'
 
 type LocationRecord = {
-  locationCode: string; zone: string; status: string; bindProductionNo: string
-  skuCount: number; materialQty: number; capacity: number
-  lastBindTime: string; lastReleaseTime: string
+  locationCode: string; zone: string; status: LocationStatus; bindProductionNo: string
+  skuCount: number; lastBindTime: string; warehouse: string
 }
 
 const statusClass: Record<string, string> = {
-  '空闲': 'bg-slate-100 text-slate-500', '已绑定': 'bg-blue-50 text-blue-700',
-  '部分取用': 'bg-amber-50 text-amber-700', '已释放': 'bg-emerald-50 text-emerald-700', '禁用': 'bg-red-50 text-red-700',
+  '空闲': 'bg-slate-100 text-slate-500', '占用': 'bg-blue-50 text-blue-700',
 }
 
+const TAB_STATUSES: Array<'ALL' | LocationStatus> = ['ALL', '空闲', '占用']
+
 const seedLocations: LocationRecord[] = [
-  { locationCode: 'TR-A-01', zone: '中转仓货架区', status: '已绑定', bindProductionNo: 'PO14955', skuCount: 1, materialQty: 3, capacity: 17, lastBindTime: '2026-07-12 16:30', lastReleaseTime: '—' },
-  { locationCode: 'TR-A-02', zone: '中转仓货架区', status: '已绑定', bindProductionNo: 'PO14956', skuCount: 1, materialQty: 1, capacity: 19, lastBindTime: '2026-07-13 14:10', lastReleaseTime: '—' },
-  { locationCode: 'TR-A-03', zone: '中转仓货架区', status: '已绑定', bindProductionNo: 'PO14958', skuCount: 1, materialQty: 1, capacity: 19, lastBindTime: '2026-07-12 17:10', lastReleaseTime: '—' },
-  { locationCode: 'TR-A-04', zone: '中转仓货架区', status: '已绑定', bindProductionNo: 'PO14963', skuCount: 1, materialQty: 1, capacity: 19, lastBindTime: '2026-07-15 16:20', lastReleaseTime: '—' },
-  { locationCode: 'TR-A-05', zone: '中转仓货架区', status: '已绑定', bindProductionNo: 'PO14964', skuCount: 1, materialQty: 1, capacity: 19, lastBindTime: '2026-07-15 16:45', lastReleaseTime: '—' },
-  ...Array.from({ length: 10 }, (_, i) => ({
-    locationCode: `TR-B-${String(i + 1).padStart(2, '0')}`, zone: '中转仓货架区', status: '空闲',
-    bindProductionNo: '—', skuCount: 0, materialQty: 0, capacity: 20,
-    lastBindTime: '—', lastReleaseTime: '—',
+  { locationCode: 'TR-A-01', zone: '中转仓货架区', status: '占用', bindProductionNo: 'PO14955', skuCount: 1, lastBindTime: '2026-07-12 16:30', warehouse: 'Hilon 中转仓' },
+  { locationCode: 'TR-A-02', zone: '中转仓货架区', status: '占用', bindProductionNo: 'PO14956', skuCount: 1, lastBindTime: '2026-07-13 14:10', warehouse: 'Hilon 中转仓' },
+  { locationCode: 'TR-A-03', zone: '中转仓货架区', status: '占用', bindProductionNo: 'PO14958', skuCount: 1, lastBindTime: '2026-07-12 17:10', warehouse: 'Hilon 中转仓' },
+  { locationCode: 'TR-A-04', zone: '中转仓货架区', status: '占用', bindProductionNo: 'PO14963', skuCount: 1, lastBindTime: '2026-07-15 16:20', warehouse: 'Hilon 中转仓' },
+  ...Array.from({ length: 11 }, (_, i) => ({
+    locationCode: `TR-B-${String(i + 1).padStart(2, '0')}`, zone: '中转仓货架区', status: '空闲' as LocationStatus,
+    bindProductionNo: '—', skuCount: 0, lastBindTime: '—', warehouse: 'Hilon 中转仓',
   })),
 ]
 
@@ -45,30 +45,24 @@ const state = {
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
-  statusFilter: '' as string,
+  tab: 'ALL' as (typeof TAB_STATUSES)[number],
 }
 
 const columns: StandardListColumn<LocationRecord>[] = [
   { key: 'locationCode', title: '库位编号', width: 120, required: true, freezeable: true, sortable: true, sortValue: r => r.locationCode,
-    render: r => `<span class="font-mono text-xs text-slate-700 font-medium">${escapeHtml(r.locationCode)}</span>` },
+    render: r => `<span class="font-mono text-xs font-medium text-slate-700">${escapeHtml(r.locationCode)}</span>` },
   { key: 'zone', title: '所属库区', width: 140, sortable: true, sortValue: r => r.zone,
-    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.zone)}</span>` },
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.zone)}</span>` },
   { key: 'status', title: '库位状态', width: 100, sortable: true, sortValue: r => r.status,
-    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status] || ''}">${escapeHtml(r.status)}</span>` },
-  { key: 'bindProductionNo', title: '绑定生产单', width: 120, sortable: true, sortValue: r => r.bindProductionNo,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status]}">${escapeHtml(r.status)}</span>` },
+  { key: 'bindProductionNo', title: '绑定生产单号', width: 130, sortable: true, sortValue: r => r.bindProductionNo,
     render: r => `<span class="text-slate-600">${escapeHtml(r.bindProductionNo)}</span>` },
+  { key: 'lastBindTime', title: '最后绑定时间', width: 150, sortable: true, sortValue: r => r.lastBindTime,
+    render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.lastBindTime)}</span>` },
   { key: 'skuCount', title: 'SKU数', width: 80, align: 'right', sortable: true, sortValue: r => r.skuCount,
     render: r => `<span class="text-slate-600">${r.skuCount}</span>` },
-  { key: 'materialQty', title: '库存数量', width: 90, align: 'right', sortable: true, sortValue: r => r.materialQty,
-    render: r => `<span class="text-slate-600">${r.materialQty}</span>` },
-  { key: 'capacity', title: '可用容量', width: 90, align: 'right', sortable: true, sortValue: r => r.capacity,
-    render: r => `<span class="text-slate-600">${r.capacity}</span>` },
-  { key: 'lastBindTime', title: '最后绑定', width: 140, sortable: true, sortValue: r => r.lastBindTime,
-    render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.lastBindTime)}</span>` },
-  { key: 'lastReleaseTime', title: '最后释放', width: 140, sortable: true, sortValue: r => r.lastReleaseTime,
-    render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.lastReleaseTime)}</span>` },
-  { key: 'actions', title: '操作', width: 140, required: true, actionColumn: true,
-    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 ${r.materialQty > 0 ? 'opacity-40 cursor-not-allowed' : ''}" ${r.materialQty > 0 ? 'disabled' : ''} data-${EVENT_PREFIX}-action="release" data-${EVENT_PREFIX}-idx="${ seedLocations.indexOf(r) }">释放</button><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="disable" data-${EVENT_PREFIX}-idx="${ seedLocations.indexOf(r) }">禁用</button></div>` },
+  { key: 'warehouse', title: '仓库', width: 140, sortable: true, sortValue: r => r.warehouse,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.warehouse)}</span>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -85,10 +79,28 @@ function ensurePreferencesLoaded(): void {
   state.preferencesLoaded = true
 }
 
+function tabMatches(l: LocationRecord): boolean {
+  return state.tab === 'ALL' || l.status === state.tab
+}
+
+function renderTabsHtml(): string {
+  return renderTabs({
+    tabs: TAB_STATUSES.map(status => ({
+      key: status,
+      label: status === 'ALL' ? '全部' : status,
+      count: status === 'ALL' ? seedLocations.length : seedLocations.filter(l => l.status === status).length,
+    })),
+    activeKey: state.tab,
+    variant: 'pills',
+    prefix: EVENT_PREFIX,
+    action: 'switch-tab',
+  })
+}
+
 function filteredRows(): LocationRecord[] {
   const kw = state.keyword.trim().toLowerCase()
   return seedLocations.filter(l => {
-    if (state.statusFilter && l.status !== state.statusFilter) return false
+    if (!tabMatches(l)) return false
     if (!kw) return true
     return `${l.locationCode} ${l.zone} ${l.bindProductionNo}`.toLowerCase().includes(kw)
   })
@@ -96,8 +108,7 @@ function filteredRows(): LocationRecord[] {
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="库位编号 / 库区 / 绑定生产单" data-${EVENT_PREFIX}-field="keyword"></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">库位状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="空闲" ${state.statusFilter === '空闲' ? 'selected' : ''}>空闲</option><option value="已绑定" ${state.statusFilter === '已绑定' ? 'selected' : ''}>已绑定</option><option value="部分取用" ${state.statusFilter === '部分取用' ? 'selected' : ''}>部分取用</option><option value="已释放" ${state.statusFilter === '已释放' ? 'selected' : ''}>已释放</option><option value="禁用" ${state.statusFilter === '禁用' ? 'selected' : ''}>禁用</option></select></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="库位编号 / 库区 / 绑定生产单号" data-${EVENT_PREFIX}-field="keyword"></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -109,16 +120,17 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
   return renderStandardListPage({
     title: '中转仓库位管理',
+    description: '查看中转仓存储库位占用情况，数据来自库位主数据与上架库存汇总',
+    statusTabsHtml: renderTabsHtml(),
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${all.length} 条` },
-      { label: '已绑定', value: `${seedLocations.filter(l => l.status === '已绑定').length} 条` },
       { label: '空闲', value: `${seedLocations.filter(l => l.status === '空闲').length} 条` },
-      { label: '库存总量', value: `${seedLocations.reduce((s, l) => s + l.materialQty, 0)}` },
+      { label: '占用', value: `${seedLocations.filter(l => l.status === '占用').length} 条` },
     ]),
     listTitle: '库位列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
-    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无库位' }),
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '未找到符合条件的库位' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
     overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '库位列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
   })
@@ -147,7 +159,6 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
   if (field) {
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
-    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -161,6 +172,12 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
   const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action.startsWith('switch-tab:')) {
+    state.tab = action.slice('switch-tab:'.length) as (typeof TAB_STATUSES)[number]
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
   if (action === 'prev-page' || action === 'next-page') {
     state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
     refreshWorkspace()
@@ -176,15 +193,12 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
   if (action === 'apply-filter') {
     const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
     if (input) state.keyword = input.value
-    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
-    if (select) state.statusFilter = select.value
     state.currentPage = 1
     refreshWorkspace()
     return true
   }
   if (action === 'reset-filter') {
     state.keyword = ''
-    state.statusFilter = ''
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -200,30 +214,6 @@ export function handleTransitLocationEvent(target: HTMLElement, event?: Event): 
     const prop = action === 'toggle-column-freeze' ? 'frozenKeys' : 'visibleKeys'
     state.preferences[prop] = state.preferences[prop].includes(key) ? state.preferences[prop].filter(k => k !== key) : [...state.preferences[prop], key]
     saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
-    refreshWorkspace()
-    return true
-  }
-  if (action === 'disable') {
-    const row = seedLocations[Number(actionNode.dataset['wlsTransitLocationIdx'])]
-    if (row && row.status !== '禁用') {
-      row.status = '禁用'
-      showListFeedback(`库位 ${row.locationCode} 已禁用，不再参与上架与拣货`)
-    }
-    refreshWorkspace()
-    return true
-  }
-  if (action === 'release') {
-    const row = seedLocations[Number(actionNode.dataset['wlsTransitLocationIdx'])]
-    if (row) {
-      if (row.materialQty > 0) {
-        showListFeedback(`库位 ${row.locationCode} 仍有 ${row.materialQty} 件物料，不能释放`, 'warning')
-      } else {
-        row.status = '已释放'
-        row.bindProductionNo = '-'
-        row.lastReleaseTime = localDateTimeText()
-        showListFeedback(`库位 ${row.locationCode} 已释放`)
-      }
-    }
     refreshWorkspace()
     return true
   }

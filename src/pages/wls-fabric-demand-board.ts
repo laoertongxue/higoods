@@ -2,13 +2,11 @@
 
 import {
   defaultFabricDemandBoardFilters,
-  fabricDemandBoardNextActions,
   filterFabricDemandBoardRows,
   formatFabricDemandQty,
   getFabricDemandBoardAlertRules,
   getFabricDemandBoardRows,
   getWarehouseQty,
-  summarizeFabricDemandBoardRows,
   type FabricDemandBoardFilters,
   type FabricDemandBoardRow,
   type FabricDemandBoardWarehouseName,
@@ -33,22 +31,6 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20]
 const materialTypes: Array<FabricDemandBoardFilters['materialType']> = ['全部', '直裁面料', '印花面料', '染色面料']
 const printRequirements: Array<FabricDemandBoardFilters['printRequirement']> = ['全部', '需印花', '不需印花']
 const dyeRequirements: Array<FabricDemandBoardFilters['dyeRequirement']> = ['全部', '需染色', '不需染色']
-const alertTypes: Array<FabricDemandBoardFilters['alertType']> = [
-  '全部',
-  '缺直裁面料',
-  '缺印花原料',
-  '缺染色原料',
-  '直裁待调拨',
-  '印花待调拨',
-  '染色待调拨',
-]
-const warehouseNames: Array<FabricDemandBoardFilters['warehouseName']> = [
-  '全部',
-  '中央仓面料仓',
-  '中转仓',
-  '印花厂待加工仓',
-  '染色厂待加工仓',
-]
 
 const state = {
   filters: { ...defaultFabricDemandBoardFilters } as FabricDemandBoardFilters,
@@ -193,14 +175,11 @@ function renderFilters(): string {
   return `
     <section class="rounded-lg border border-slate-200 bg-white p-4">
       <div class="mb-3"><div class="text-sm font-semibold text-slate-900">数据搜索区</div><p class="mt-1 text-xs text-slate-500">按目标面料 SKU 查看多仓库存、原料库存、加工在途和异常预警。</p></div>
-      <div class="grid items-end gap-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_0.95fr_0.95fr_1fr_1.35fr_1fr_auto]">
+      <div class="grid items-end gap-3 md:grid-cols-3 xl:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
         <label class="space-y-1 text-xs text-slate-500"><span>关键词</span><input data-fabric-demand-filter="keyword" data-skip-page-rerender="true" value="${escapeHtml(filters.keyword)}" placeholder="面料名称 / 面料 SKU / 面料 SPU" class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-700" /></label>
         ${renderSelect<FabricDemandBoardFilters['materialType']>('面料类型', 'materialType', filters.materialType, materialTypes)}
         ${renderSelect<FabricDemandBoardFilters['printRequirement']>('是否需印花', 'printRequirement', filters.printRequirement, printRequirements)}
         ${renderSelect<FabricDemandBoardFilters['dyeRequirement']>('是否需染色', 'dyeRequirement', filters.dyeRequirement, dyeRequirements)}
-        ${renderSelect<FabricDemandBoardFilters['alertType']>('异常类型', 'alertType', filters.alertType, alertTypes)}
-        ${renderSelect<FabricDemandBoardFilters['nextAction']>('后续建议工作', 'nextAction', filters.nextAction, fabricDemandBoardNextActions)}
-        ${renderSelect<FabricDemandBoardFilters['warehouseName']>('仓库/目的仓', 'warehouseName', filters.warehouseName, warehouseNames)}
         <div class="flex h-9 items-center justify-end gap-2 md:col-span-3 xl:col-span-1"><button type="button" class="h-9 rounded-md border border-slate-200 px-4 text-sm text-slate-700 hover:bg-slate-50" data-fabric-demand-action="reset" data-skip-page-rerender="true">重置</button><button type="button" class="h-9 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-fabric-demand-action="filter" data-skip-page-rerender="true">筛选</button></div>
       </div>
     </section>
@@ -208,19 +187,23 @@ function renderFilters(): string {
 }
 
 function renderStats(rows: FabricDemandBoardRow[]): string {
-  const summary = summarizeFabricDemandBoardRows(rows)
+  const directCutCount = rows.filter((row) => !row.requiresPrint && !row.requiresDye).length
+  const printCount = rows.filter((row) => row.requiresPrint).length
+  const dyeCount = rows.filter((row) => row.requiresDye).length
+  const printingYard = rows.reduce((sum, row) => sum + row.printQty.processingQty, 0)
+  const dyeingYard = rows.reduce((sum, row) => sum + row.dyeQty.processingQty, 0)
+  const purchasingYard = rows.reduce((sum, row) => sum + row.purchaseQty.purchasingQty + row.purchaseQty.transitQty, 0)
   return `
     <section class="space-y-2">
       <div class="text-sm font-semibold text-slate-900">数据统计区</div>
-      <div class="grid gap-2 md:grid-cols-4 xl:grid-cols-8" data-standard-list-stats>
-        ${renderMetric('总数', `${summary.totalSkuCount} 个`)}
-        ${renderMetric('印染数量', `${summary.printOrDyeSkuCount} 个`, 'blue')}
-        ${renderMetric('直裁数量', `${summary.directCutSkuCount} 个`)}
-        ${renderMetric('印花中 Yard', formatFabricDemandQty(summary.printingQty), 'blue')}
-        ${renderMetric('染色中 Yard', formatFabricDemandQty(summary.dyeingQty), 'blue')}
-        ${renderMetric('裁剪中 Yard', formatFabricDemandQty(summary.cuttingQty))}
-        ${renderMetric('采购中 Yard', formatFabricDemandQty(summary.purchasingQty), 'red')}
-        ${renderMetric('库存数量', formatFabricDemandQty(summary.stockQty))}
+      <div class="grid gap-2 md:grid-cols-4 xl:grid-cols-7" data-standard-list-stats>
+        ${renderMetric('总数 SKU', `${rows.length} 个`)}
+        ${renderMetric('直裁 SKU', `${directCutCount} 个`)}
+        ${renderMetric('印花 SKU', `${printCount} 个`, 'blue')}
+        ${renderMetric('染色 SKU', `${dyeCount} 个`, 'blue')}
+        ${renderMetric('印花中 Yard·卷', formatFabricDemandQty(printingYard), 'blue')}
+        ${renderMetric('染色中 Yard·卷', formatFabricDemandQty(dyeingYard), 'blue')}
+        ${renderMetric('采购在途 Yard', formatFabricDemandQty(purchasingYard), 'red')}
       </div>
     </section>
   `

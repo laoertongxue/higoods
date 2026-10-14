@@ -17,19 +17,23 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
-type Warehouse = { code: string; name: string; type: '自建' | '合作'; businessType: string; contact: string; country: string; timezone: string; manager: string; enabled: boolean; subjects: string[] }
+type Warehouse = { code: string; name: string; type: '自建' | '合作'; businessType: string; contact: string; country: string; timezone: string; manager: string; enabled: boolean; subjects: string[]; zoneCount: number; locationCount: number }
 
 const seedWarehouses: Warehouse[] = [
-  { code: 'WH-FINISHED', name: '成衣仓', type: '自建', businessType: '成衣仓储', contact: '王仓管', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '王敏', enabled: true, subjects: ['HiGood 中国'] },
-  { code: 'WH-TRANSIT', name: '中转仓', type: '合作', businessType: '中转仓储', contact: '李经理', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '李强', enabled: true, subjects: ['HiGood 中国', '顺达物流'] },
-  { code: 'WH-RAW', name: '原料仓', type: '自建', businessType: '原料仓储', contact: '赵主管', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '赵刚', enabled: true, subjects: ['HiGood 中国'] },
-  { code: 'WH-ID', name: '印尼成品仓', type: '合作', businessType: '成衣仓储', contact: 'Budi', country: '印度尼西亚', timezone: 'Asia/Jakarta (UTC+7)', manager: 'Budi Santoso', enabled: false, subjects: ['PT HiGood Indonesia'] },
+  { code: 'WH-FINISHED', name: '成衣仓', type: '自建', businessType: '成衣仓', contact: '王仓管', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '王敏', enabled: true, subjects: ['HiGood 中国'], zoneCount: 5, locationCount: 128 },
+  { code: 'WH-TRANSIT', name: '中转仓', type: '合作', businessType: '中转仓', contact: '李经理', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '李强', enabled: true, subjects: ['HiGood 中国', '顺达物流'], zoneCount: 3, locationCount: 46 },
+  { code: 'WH-RAW', name: '原料仓', type: '自建', businessType: '面料仓', contact: '赵主管', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '赵刚', enabled: true, subjects: ['HiGood 中国'], zoneCount: 4, locationCount: 72 },
+  { code: 'WH-ID', name: '印尼成品仓', type: '合作', businessType: '成衣仓', contact: 'Budi', country: '印度尼西亚', timezone: 'Asia/Jakarta (UTC+7)', manager: 'Budi Santoso', enabled: false, subjects: ['PT HiGood Indonesia'], zoneCount: 2, locationCount: 30 },
 ]
+
+const WAREHOUSE_TYPES = ['全部', '自建', '合作']
+const WAREHOUSE_ATTRS = ['全部', '成衣仓', '面料仓', '辅料仓', '纱线仓', '耗材仓', '包材仓', '中转仓']
 
 const EVENT_PREFIX = 'wls-basic-warehouse'
 const PREFERENCE_KEY = '/wls/finished/basic/warehouse:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50]
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
 
 const state: {
   currentPage: number
@@ -38,6 +42,8 @@ const state: {
   preferencesLoaded: boolean
   showColumnSettings: boolean
   keyword: string
+  typeFilter: string
+  attrFilter: string
 } = {
   currentPage: 1,
   sort: null,
@@ -45,6 +51,8 @@ const state: {
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
+  typeFilter: '',
+  attrFilter: '',
 }
 
 const columns: StandardListColumn<Warehouse>[] = [
@@ -60,14 +68,16 @@ const columns: StandardListColumn<Warehouse>[] = [
     render: r => `<span class="text-slate-600">${escapeHtml(r.subjects.join(', '))}</span>` },
   { key: 'contact', title: '联系人', width: 100, sortable: true, sortValue: r => r.contact,
     render: r => `<span class="text-slate-600">${escapeHtml(r.contact)}</span>` },
+  { key: 'zoneLocation', title: '库区/库位总数', width: 120, align: 'right', sortable: true, sortValue: r => `${r.zoneCount}/${r.locationCount}`,
+    render: r => `<span class="text-slate-600">${r.zoneCount} / ${r.locationCount}</span>` },
   { key: 'country', title: '国家', width: 110, sortable: true, sortValue: r => r.country,
     render: r => `<span class="text-slate-600">${escapeHtml(r.country)}</span>` },
   { key: 'timezone', title: '时区', width: 180, sortable: true, sortValue: r => r.timezone,
     render: r => `<span class="text-slate-500">${escapeHtml(r.timezone)}</span>` },
   { key: 'enabled', title: '启用', width: 70, sortable: true, sortValue: r => r.enabled,
     render: r => `<label class="relative inline-flex cursor-items-center"><input type="checkbox" ${r.enabled ? 'checked' : ''} class="peer sr-only" disabled /><span class="h-5 w-9 rounded-full ${r.enabled ? 'bg-[var(--link)]' : 'bg-slate-200'} after:absolute after:${r.enabled ? 'left-[18px]' : 'left-[2px]'} after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all"></span></label>` },
-  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: () => `<button class="text-[var(--link)] hover:underline text-xs">修改</button><button class="text-red-500 hover:underline text-xs ml-2">删除</button>` },
+  { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true,
+    render: () => `<button class="text-[var(--link)] hover:underline text-xs">编辑</button><button class="text-[var(--link)] hover:underline text-xs ml-2">绑定账号</button><button class="text-red-500 hover:underline text-xs ml-2">删除</button>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -77,7 +87,7 @@ function defaultPreferences(): StandardListColumnPreferences {
     order: columns.map(c => c.key),
     visibleKeys: columns.map(c => c.key),
     frozenKeys: [],
-    pageSize: 20,
+    pageSize: 15,
   }, [...PAGE_SIZE_OPTIONS])
 }
 
@@ -92,18 +102,22 @@ function ensurePreferencesLoaded(): void {
 
 function filteredRows(): Warehouse[] {
   const kw = state.keyword.trim().toLowerCase()
-  if (!kw) return [...seedWarehouses]
-  return seedWarehouses.filter(w =>
-    w.code.toLowerCase().includes(kw)
-    || w.name.toLowerCase().includes(kw)
-    || w.contact.toLowerCase().includes(kw)
-    || w.country.toLowerCase().includes(kw)
-  )
+  return seedWarehouses.filter(w => {
+    if (state.typeFilter && w.type !== state.typeFilter) return false
+    if (state.attrFilter && w.businessType !== state.attrFilter) return false
+    if (!kw) return true
+    return w.code.toLowerCase().includes(kw)
+      || w.name.toLowerCase().includes(kw)
+      || w.contact.toLowerCase().includes(kw)
+      || w.country.toLowerCase().includes(kw)
+  })
 }
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="按仓库编码 / 名称搜索" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="type"><option value="">全部</option>${WAREHOUSE_TYPES.filter(t => t !== '全部').map(t => `<option value="${escapeHtml(t)}" ${state.typeFilter === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">属性</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="attr"><option value="">全部</option>${WAREHOUSE_ATTRS.filter(t => t !== '全部').map(t => `<option value="${escapeHtml(t)}" ${state.attrFilter === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -119,6 +133,7 @@ function renderWorkspace(): string {
 
   return renderStandardListPage({
     title: '仓库管理',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('新增仓库', { prefix: EVENT_PREFIX, action: 'create' }, 'plus')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${rows.length} 条` },
@@ -161,9 +176,11 @@ export function handleBasicWarehouseEvent(target: HTMLElement, event?: Event): b
   if (field) {
     const name = field.dataset.wlsBasicWarehouseField
     if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'type') { state.typeFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'attr') { state.attrFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       const pageSize = Number((field as HTMLSelectElement).value)
-      state.preferences.pageSize = ([...PAGE_SIZE_OPTIONS] as number[]).includes(pageSize) ? pageSize as (typeof PAGE_SIZE_OPTIONS)[number] : 10
+      state.preferences.pageSize = ([...PAGE_SIZE_OPTIONS] as number[]).includes(pageSize) ? pageSize as (typeof PAGE_SIZE_OPTIONS)[number] : 15
       state.currentPage = 1
       persistPreferences()
       refreshWorkspace()
@@ -194,7 +211,8 @@ export function handleBasicWarehouseEvent(target: HTMLElement, event?: Event): b
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'reset-filter') { state.keyword = ''; state.typeFilter = ''; state.attrFilter = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'create') { showListFeedback('新增仓库为演示入口，测试环境不写入数据', 'info'); return true }
   if (action === 'export') { exportStandardListRows({ fileName: '仓库管理', columns, rows: filteredRows() }); return true }
   return false
 }

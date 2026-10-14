@@ -8,14 +8,38 @@ import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-feedback.ts'
+import { renderFormDialog } from '../../../components/ui/dialog.ts'
 import type { PreInboundOrder } from '../../../data/wls/types'
 import { preInboundSeed } from '../../../data/wls/seed/raw-seed'
 
 function statusClass(status: string): string {
-  if (status === '全部收货') return 'bg-emerald-50 text-emerald-700'
-  if (status === '收货中') return 'bg-blue-50 text-blue-700'
-  if (status === '部分收货') return 'bg-orange-50 text-orange-700'
+  if (status === '上架完成' || status === '收货完成') return 'bg-emerald-50 text-emerald-700'
+  if (status === '部分上架' || status === '部分收货') return 'bg-amber-50 text-amber-700'
+  if (status === '待收货') return 'bg-blue-50 text-blue-700'
   return 'bg-red-50 text-red-700'
+}
+
+// 生产单号在原型中由关联单号推导，仅用于单号块展示（group3 行6）。
+function productionOrderOf(o: PreInboundOrder): string {
+  const digits = o.relatedOrderNo.replace(/\D/g, '')
+  return digits ? `PO${digits}` : '-'
+}
+
+// 状态页签（group3 行5）：收货完成 / 部分上架 / 上架完成由收货状态与上架进度推导。
+const INBOUND_TABS = ['全部', '待收货', '部分收货', '收货完成', '部分上架', '上架完成', '异常'] as const
+
+function putawayProgress(o: PreInboundOrder): { done: number; total: number } {
+  const total = o.productItems.length
+  const done = o.productItems.filter((p) => (p.pending_putaway_base_qty ?? 0) === 0 && (p.received_base_qty ?? 0) > 0 && (p.putaway_base_qty ?? 0) > 0).length
+  return { done, total }
+}
+
+function inboundTabOf(o: PreInboundOrder): string {
+  if (o.status === '待收货') return '待收货'
+  if (o.status === '部分收货' || o.status === '收货中') return '部分收货'
+  const { done, total } = putawayProgress(o)
+  if (done === 0) return '收货完成'
+  return done >= total ? '上架完成' : '部分上架'
 }
 
 const EVENT_PREFIX = 'wls-pre-inbound'
@@ -32,13 +56,20 @@ const state = {
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
+  tab: '全部' as string,
+  warehouseFilter: '' as string,
+  typeFilter: '' as string,
+  createOpen: false,
 }
+
+const createDraft = { warehouse: 'A&C WH', type: '采购入库', sourceNo: '', sku: '' }
 
 const columns: StandardListColumn<PreInboundOrder>[] = [
   { key: 'orderNos', title: '单号', width: 220, required: true, freezeable: true,
     render: r => `<div class="space-y-0.5 text-xs">
       <div><span class="text-slate-400">入库单号：</span><span class="text-slate-700">${escapeHtml(r.inboundOrderNo)}</span></div>
       <div><span class="text-slate-400">关联单号（ASN）：</span><span class="text-slate-700">${escapeHtml(r.relatedOrderNo)}</span></div>
+      <div><span class="text-slate-400">生产单：</span><span class="text-slate-700">${escapeHtml(productionOrderOf(r))}</span></div>
       <div><span class="text-slate-400">跟踪单号：</span><span class="text-slate-700">${escapeHtml(r.trackingNo)}</span></div>
     </div>` },
   { key: 'spu', title: '商品SPU', width: 160,
@@ -57,7 +88,7 @@ const columns: StandardListColumn<PreInboundOrder>[] = [
       const baseQty = p.base_qty || 0
       return `<div class="text-slate-600">${packageQty} ${escapeHtml(p.package_unit || '包')} / ${baseQty} ${escapeHtml(p.base_unit || '个')}</div>`
     }).join('')}</div>` },
-  { key: 'receivedQty', title: '已收货数量', width: 140,
+  { key: 'receivedQty', title: '已收数量', width: 140,
     render: r => `<div class="space-y-0.5 text-xs">${r.productItems.slice(0, 3).map(p => {
       const receivedPackage = p.received_package_qty || p.current_package_qty || 0
       const receivedBase = p.received_base_qty || p.current_base_qty || 0
@@ -71,21 +102,22 @@ const columns: StandardListColumn<PreInboundOrder>[] = [
     render: r => `<span class="text-slate-600">${escapeHtml(r.deliveryUnit)}</span>` },
   { key: 'ownerName', title: '货主', width: 100, sortable: true, sortValue: r => r.ownerName,
     render: r => `<span class="text-slate-600">${escapeHtml(r.ownerName)}</span>` },
-  { key: 'operatorName', title: '操作人员', width: 100, sortable: true, sortValue: r => r.operatorName || '',
+  { key: 'operatorName', title: '操作人（创建/收货）', width: 150, sortable: true, sortValue: r => r.operatorName || '',
     render: r => `<span class="text-slate-600">${escapeHtml(r.operatorName || '-')}</span>` },
-  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
-    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass(r.status)}">${escapeHtml(r.status)}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => inboundTabOf(r),
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass(inboundTabOf(r))}">${escapeHtml(inboundTabOf(r))}</span>` },
   { key: 'time', title: '时间', width: 180,
     render: r => `<div class="space-y-0.5 text-xs text-slate-500">
       <div><span class="text-slate-400">发货：</span><span>${escapeHtml(r.shippingTime || '-')}</span></div>
       <div><span class="text-slate-400">收货：</span><span>${escapeHtml(r.receivedTime || '-')}</span></div>
       <div><span class="text-slate-400">上架：</span><span>${escapeHtml(r.putawayTime || '-')}</span></div>
     </div>` },
-  { key: 'actions', title: '操作', width: 160, required: true, actionColumn: true,
+  { key: 'actions', title: '操作', width: 220, required: true, actionColumn: true,
     render: r => {
       const allReceived = r.status === '全部收货'
-      return `<div class="flex items-center gap-1">
+      return `<div class="flex flex-wrap items-center gap-1">
         <button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view-detail" data-order-id="${escapeHtml(r.inboundOrderNo)}">查看详情</button>
+        <button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="change-warehouse" data-order-id="${escapeHtml(r.inboundOrderNo)}">更换仓库</button>
         <button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 ${allReceived ? 'cursor-not-allowed opacity-50' : ''}" data-${EVENT_PREFIX}-action="start-receive" data-order-id="${escapeHtml(r.inboundOrderNo)}" ${allReceived ? 'disabled' : ''}>开始收货</button>
       </div>`
     } },
@@ -107,21 +139,57 @@ function ensurePreferencesLoaded(): void {
   state.preferencesLoaded = true
 }
 
+function warehouseWhOf(warehouse: string): string {
+  return warehouse.includes('成衣') ? 'A&C WH' : 'F&M WH'
+}
+
 function filteredRows(): PreInboundOrder[] {
   const kw = state.keyword.trim().toLowerCase()
   return preInboundSeed.filter(o => {
-    if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (state.statusFilter && inboundTabOf(o) !== state.statusFilter) return false
+    if (state.tab && state.tab !== '全部' && inboundTabOf(o) !== state.tab) return false
+    if (state.warehouseFilter && warehouseWhOf(o.inboundWarehouse) !== state.warehouseFilter) return false
+    if (state.typeFilter && !o.inboundType.includes(state.typeFilter)) return false
     if (!kw) return true
     return `${o.inboundOrderNo} ${o.relatedOrderNo} ${o.trackingNo} ${o.inboundType} ${o.inboundWarehouse} ${o.deliveryUnit} ${o.ownerName} ${o.status}`.toLowerCase().includes(kw)
   })
 }
 
+function renderStatusTabs(): string {
+  const counts: Record<string, number> = {}
+  for (const tab of INBOUND_TABS) {
+    counts[tab] = tab === '全部' ? preInboundSeed.length : preInboundSeed.filter(o => inboundTabOf(o) === tab).length
+  }
+  return `<div class="flex flex-wrap gap-2">${INBOUND_TABS.map(tab => `<button type="button" class="rounded-md border px-3 py-1.5 text-sm ${tab === state.tab ? 'border-blue-600 bg-blue-600 text-white' : 'bg-background hover:bg-muted'}" data-${EVENT_PREFIX}-action="switch-tab" data-${EVENT_PREFIX}-tab="${escapeHtml(tab)}">${escapeHtml(tab)}<span class="ml-1 text-xs opacity-80">${counts[tab]}</span></button>`).join('')}</div>`
+}
+
+function renderCreateDialog(): string {
+  const content = `<div class="grid grid-cols-2 gap-x-6 gap-y-3">
+    <label class="flex min-w-0 flex-col gap-1"><span class="text-xs text-muted-foreground">入库仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="create:warehouse">${['A&C WH', 'F&M WH'].map(o => `<option value="${o}" ${createDraft.warehouse === o ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
+    <label class="flex min-w-0 flex-col gap-1"><span class="text-xs text-muted-foreground">入库类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="create:type">${['采购入库', '工厂回货', '调拨入库', '手动入库', 'kol预留'].map(o => `<option value="${o}" ${createDraft.type === o ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
+    <label class="flex min-w-0 flex-col gap-1"><span class="text-xs text-muted-foreground">关联单号</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(createDraft.sourceNo)}" placeholder="关联单号 / ASN" data-${EVENT_PREFIX}-field="create:sourceNo"></label>
+    <label class="flex min-w-0 flex-col gap-1"><span class="text-xs text-muted-foreground">商品 SPU/SKU</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(createDraft.sku)}" placeholder="SPU / SKU" data-${EVENT_PREFIX}-field="create:sku"></label>
+  </div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+  return renderFormDialog(
+    {
+      title: '创建入库单',
+      description: '按仓库与入库类型登记预入库，保存后进入待收货。',
+      closeAction: { prefix: EVENT_PREFIX, action: 'close-create' },
+      submitAction: { prefix: EVENT_PREFIX, action: 'submit-create', label: '保存入库单' },
+      width: 'lg',
+    },
+    content,
+  )
+}
+
 function renderFilters(): string {
-  const statusOptions = ['待收货', '收货中', '部分收货', '全部收货']
+  const statusOptions = ['待收货', '部分收货', '收货完成', '部分上架', '上架完成', '异常']
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="入库单号 / 关联单号（ASN） / 入库类型 / 跟踪单号 / SPU / SKU" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部状态</option>${statusOptions.map(s => `<option value="${escapeHtml(s)}" ${state.statusFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库 (A&C WH / F&M WH)</option><option value="A&C WH" ${state.warehouseFilter === 'A&C WH' ? 'selected' : ''}>A&C WH</option><option value="F&M WH" ${state.warehouseFilter === 'F&M WH' ? 'selected' : ''}>F&M WH</option></select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">入库类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="type"><option value="">全部类型</option>${['采购入库', '工厂回货', '调拨入库', '手动入库', 'kol预留'].map(t => `<option value="${escapeHtml(t)}" ${state.typeFilter === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true')
 }
 
 function renderWorkspace(): string {
@@ -132,18 +200,20 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
   return renderStandardListPage({
     title: '成衣入库单列表',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('创建入库单', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus')}</div>`,
+    statusTabsHtml: renderStatusTabs(),
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '总入库单', value: `${preInboundSeed.length} 条` },
       { label: '待收货', value: `${preInboundSeed.filter(o => o.status === '待收货').length} 条` },
-      { label: '收货中', value: `${preInboundSeed.filter(o => o.status === '收货中').length} 条` },
-      { label: '全部收货', value: `${preInboundSeed.filter(o => o.status === '全部收货').length} 条` },
+      { label: '部分收货', value: `${preInboundSeed.filter(o => o.status === '部分收货').length} 条` },
+      { label: '收货完成', value: `${preInboundSeed.filter(o => o.status === '全部收货').length} 条` },
     ]),
     listTitle: '入库单列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无入库单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '入库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailHtml].join(''),
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '入库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailHtml, state.createOpen ? renderCreateDialog() : ''].join(''),
   })
 }
 
@@ -171,6 +241,13 @@ export function handleFinishedPreInboundEvent(target: HTMLElement, event?: Event
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'type') { state.typeFilter = (field as HTMLSelectElement).value; return true }
+    if (name && name.startsWith('create:')) {
+      const key = name.slice('create:'.length) as keyof typeof createDraft
+      createDraft[key] = field.value
+      return true
+    }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -201,6 +278,10 @@ export function handleFinishedPreInboundEvent(target: HTMLElement, event?: Event
     if (input) state.keyword = input.value
     const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
     if (select) state.statusFilter = select.value
+    const warehouse = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+    if (warehouse) state.warehouseFilter = warehouse.value
+    const type = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="type"]`)
+    if (type) state.typeFilter = type.value
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -208,8 +289,36 @@ export function handleFinishedPreInboundEvent(target: HTMLElement, event?: Event
   if (action === 'reset-filter') {
     state.keyword = ''
     state.statusFilter = ''
+    state.warehouseFilter = ''
+    state.typeFilter = ''
+    state.tab = '全部'
     state.currentPage = 1
     refreshWorkspace()
+    return true
+  }
+  if (action === 'switch-tab') {
+    state.tab = actionNode.dataset[`${DATASET_PREFIX}Tab`] || '全部'
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'open-create') { state.createOpen = true; refreshWorkspace(); return true }
+  if (action === 'close-create') { state.createOpen = false; refreshWorkspace(); return true }
+  if (action === 'submit-create') {
+    if (!createDraft.sourceNo.trim() || !createDraft.sku.trim()) {
+      showListFeedback('请填写关联单号与商品 SPU/SKU 后再保存', 'warning')
+      return true
+    }
+    state.createOpen = false
+    showListFeedback(`入库单已创建：${createDraft.warehouse} · ${createDraft.type} · ${createDraft.sku}`)
+    createDraft.sourceNo = ''
+    createDraft.sku = ''
+    return true
+  }
+  if (action === 'change-warehouse') {
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || ''
+    const row = preInboundSeed.find(o => o.inboundOrderNo === id)
+    if (row) showListFeedback(`已打开 ${row.inboundOrderNo} 的更换仓库：当前 ${row.inboundWarehouse}`)
     return true
   }
   if (action === 'open-column-settings') { state.showColumnSettings = true; refreshWorkspace(); return true }
