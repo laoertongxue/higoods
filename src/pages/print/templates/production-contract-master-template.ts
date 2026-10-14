@@ -13,6 +13,12 @@ export const PRODUCTION_CONTRACT_MASTER_ASSETS = [
   '/fcs/contracts/template/production-contract-master-2.png',
 ] as const
 
+// 与母版PNG逐RGBA像素一致的无损编码；原件和追溯地址保持原样。
+export const PRODUCTION_CONTRACT_MASTER_RENDER_ASSETS = [
+  '/fcs/contracts/template/production-contract-master-1.webp',
+  '/fcs/contracts/template/production-contract-master-2.webp',
+] as const
+
 const PDF_WIDTH = 595.303937007874
 const PDF_HEIGHT = 841.889763779528
 const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
@@ -214,12 +220,12 @@ export function renderProductionContractMasterTemplate(contract: ProductionContr
   return `
     <main class="production-contract-master" data-contract-template="${getProductionContractTemplateCode(contract)}" data-contract-pages="2">
       <section class="production-contract-master__page production-contract-master__page--one">
-        <img src="${PRODUCTION_CONTRACT_MASTER_ASSETS[0]}" alt="SPK dan komitmen jadwal pengembalian halaman 1" />
+        <img src="${PRODUCTION_CONTRACT_MASTER_RENDER_ASSETS[0]}" data-contract-master-source="${PRODUCTION_CONTRACT_MASTER_ASSETS[0]}" alt="SPK dan komitmen jadwal pengembalian halaman 1" />
         <div class="production-contract-master__fields">${pageOneFields}</div>
         ${twoNodes ? renderTwoNodeReturnTable(contract) + renderReturnBasisNotes() : ''}
       </section>
       <section class="production-contract-master__page">
-        <img src="${PRODUCTION_CONTRACT_MASTER_ASSETS[1]}" alt="Ketentuan komitmen waktu, pengingat dan sanksi halaman 2" />
+        <img src="${PRODUCTION_CONTRACT_MASTER_RENDER_ASSETS[1]}" data-contract-master-source="${PRODUCTION_CONTRACT_MASTER_ASSETS[1]}" alt="Ketentuan komitmen waktu, pengingat dan sanksi halaman 2" />
         ${twoNodes ? renderTwoNodeRuleTable() + renderReturnCalculationRules() : ''}
       </section>
     </main>

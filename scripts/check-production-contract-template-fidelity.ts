@@ -12,6 +12,7 @@ import { classifyTaskFulfillmentPolicy } from '../src/data/fcs/task-fulfillment-
 import { buildProductionContractPrintDocument, renderProductionContractTemplate } from '../src/pages/print/templates/production-contract-template.ts'
 import {
   PRODUCTION_CONTRACT_MASTER_ASSETS,
+  PRODUCTION_CONTRACT_MASTER_RENDER_ASSETS,
   PRODUCTION_CONTRACT_MASTER_PAGE_COUNT,
   PRODUCTION_CONTRACT_MASTER_SOURCE,
   PRODUCTION_CONTRACT_MASTER_SOURCE_SHA256,
@@ -109,6 +110,12 @@ const rendered = renderProductionContractMasterTemplate(contract, {
 assert(rendered.includes(`data-contract-template="${PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE}"`))
 assert.equal((rendered.match(/production-contract-master__page(?: |")/g) || []).length, 2)
 for (const asset of PRODUCTION_CONTRACT_MASTER_ASSETS) assert(rendered.includes(asset))
+for (let page = 0; page < PRODUCTION_CONTRACT_MASTER_PAGE_COUNT; page += 1) {
+  assert(rendered.includes(`<img src="${PRODUCTION_CONTRACT_MASTER_RENDER_ASSETS[page]}" data-contract-master-source="${PRODUCTION_CONTRACT_MASTER_ASSETS[page]}"`))
+  const encoded = fs.readFileSync(path.join(repoRoot, 'public', PRODUCTION_CONTRACT_MASTER_RENDER_ASSETS[page]))
+  assert.equal(encoded.toString('ascii', 0, 4), 'RIFF')
+  assert.equal(encoded.toString('ascii', 8, 12), 'WEBP')
+}
 for (const requiredValue of ['CV Micro Sewing Jakarta Pusat', 'NON-GABUNGAN', 'JAHIT', 'KALENDER', 'Belum diambil', 'Tidak tersedia', 'Perencana Produksi', '5 Agustus 2026', '8 Agu 2026']) {
   assert(rendered.includes(requiredValue), `合同动态字段缺少印尼文值：${requiredValue}`)
 }
