@@ -122,18 +122,27 @@ function preloadStaticFirstScreenRoutes(): Plugin {
       order: 'post',
       handler(_html, context) {
         if (!context.bundle) return
+        // These are actual read-initialization dependencies, otherwise discovered
+        // only after production/part-ticket restoration has finished. Fetch them
+        // during navigation; the existing initializer still evaluates/restores in order.
+        const returnReadInitialization = [
+          '/src/data/fcs/cutting/part-ticket-records.ts',
+          '/src/data/fcs/production-context-actions.ts',
+          '/src/data/fcs/cutting/cutting-event-repository.ts',
+          '/src/data/fcs/cutting/generated-cut-release.ts',
+        ]
         const entries = [
           ['/fcs/sewing-outsourcing/daily-return-report', routeStaticChunks(context.bundle, [
             '/src/pages/sewing-outsourcing/daily-return-report.ts',
-            '/src/data/fcs/cutting/part-ticket-records.ts',
-          ]), []],
+            ...returnReadInitialization,
+          ]), ['/materials/pcs-reviewed/shirt-black.jpg', '/materials/pcs-reviewed/jacket-black.jpg', '/materials/pcs-reviewed/tee-black.jpg']],
           ['/fcs/sewing-outsourcing/daily-return-summary', routeStaticChunks(context.bundle, [
             '/src/pages/sewing-outsourcing/daily-return-summary.ts',
-            '/src/data/fcs/cutting/part-ticket-records.ts',
+            ...returnReadInitialization,
           ]), []],
           ['/fcs/sewing-outsourcing/returns', routeStaticChunks(context.bundle, [
             '/src/pages/sewing-outsourcing/returns.ts',
-            '/src/data/fcs/cutting/part-ticket-records.ts',
+            ...returnReadInitialization,
           ]), []],
           ['/fcs/pda/auth/login', routeStaticChunks(context.bundle, ['/src/pages/pda-login.ts']), []],
           ['/pms/purchase-suggestions', routeStaticChunks(context.bundle, ['/src/pages/pms/purchase-suggestions.ts']), [

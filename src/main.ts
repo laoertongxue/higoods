@@ -950,7 +950,9 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     || normalizedPathname === '/wls/finished-inbound'
     || (normalizedPathname === '/fcs/print/preview'
       && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
-  if (!postFinishingEntry || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
+  const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
+    '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns'].includes(normalizedPathname)
+  if ((!postFinishingEntry && !dailyReturnReadEntry) || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
     productionSourceEffectsHydration ??= import('./data/fcs/production-context-actions.ts')
       .then(sourceActions => sourceActions.hydrateProductionSourceEffects())
       .catch(error => { productionSourceEffectsHydration = undefined; throw error })
