@@ -421,11 +421,11 @@ function withSavedRelease<T>(operation: () => T, failure: (message: string) => T
 let releaseReadDepth=0
 let releaseReadSynced=false
 /** 同一次同步页面投影只准备一份数量事实；离开作用域后下一动作重新读取。 */
-export function withCutPieceReleaseReadSnapshot<T>(read:()=>T):T {
+export function withCutPieceReleaseReadSnapshot<T>(read:()=>T, syncOnEntry=true):T {
   const outer=releaseReadDepth===0
   if(outer)releaseReadSynced=false
   releaseReadDepth++
-  try {syncGeneratedCutPieceRelease();return read()}finally{releaseReadDepth--;if(outer)releaseReadSynced=false}
+  try {if(syncOnEntry)syncGeneratedCutPieceRelease();return read()}finally{releaseReadDepth--;if(outer)releaseReadSynced=false}
 }
 let syncingGeneratedRelease = false
 let readGeneratedReleaseInputs: (() => ReturnType<typeof buildGeneratedCutReleaseInputs>) | null = null
@@ -496,7 +496,9 @@ function syncGeneratedCutPieceRelease(): void {
         })
       }
     }
-  } finally { syncingGeneratedRelease = false;if(releaseReadDepth>0)releaseReadSynced=true }
+    if(releaseReadDepth>0)releaseReadSynced=true
+  } catch(error) { releaseReadSynced=false;throw error }
+  finally { syncingGeneratedRelease = false }
 }
 
 function clone<T>(value: T): T {

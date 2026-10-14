@@ -193,13 +193,14 @@ function compressedPreviewAssets(): Plugin {
         '/src/components/real-qr.ts', '/src/data/pcs-record-runtime.ts', '/src/data/pcs-record-bootstrap.ts',
       ]))
       for (const item of Object.values(bundle)) {
+        const critical = /^(?:index-|app-shared-|factory-internal-warehouse-|runtime-process-tasks-|transfer-bag-operations-|generated-fei-tickets-|ppic-|daily-return-|cut-piece-release-)/.test(item.fileName.split('/').at(-1) || '')
         const selected = item.type === 'chunk'
-          ? sewingFiles.has(item.fileName) || item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
+          ? critical || sewingFiles.has(item.fileName) || item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
           : item.fileName.endsWith('.css') || /pcs-record-baseline-.*\.json$/.test(item.fileName)
         if (!selected) continue
         const path = resolve(options.dir, item.fileName)
         const source = readFileSync(path)
-        writeFileSync(`${path}.br`, brotliCompressSync(source, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }))
+        writeFileSync(`${path}.br`, brotliCompressSync(source, { params: { [constants.BROTLI_PARAM_QUALITY]: critical ? 11 : 5 } }))
         writeFileSync(`${path}.gz`, gzipSync(source))
       }
     },

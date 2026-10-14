@@ -161,7 +161,8 @@ def main():
           if (item.isDirectory()) walk(path);
           else if (item.isFile() && /\\.(?:html|js|css|json)$/.test(item.name) && item.name !== 'deployment.json') {
             const source = readFileSync(path);
-            writeFileSync(path + '.br', brotliCompressSync(source, { params: { [constants.BROTLI_PARAM_QUALITY]: 7 } }));
+            const critical = /^(?:index-|app-shared-|factory-internal-warehouse-|runtime-process-tasks-|transfer-bag-operations-|generated-fei-tickets-|ppic-|daily-return-|cut-piece-release-)/.test(item.name);
+            writeFileSync(path + '.br', brotliCompressSync(source, { params: { [constants.BROTLI_PARAM_QUALITY]: critical ? 11 : 7 } }));
             writeFileSync(path + '.gz', gzipSync(source, { level: 9 }));
           }
         }

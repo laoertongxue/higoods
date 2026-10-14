@@ -56,6 +56,13 @@ class PrepareReleaseContracts(unittest.TestCase):
                 '</body></html>'
             ).encode(),
             "assets/main.js": "console.log('构建产物');\n".encode(),
+            "assets/ppic-daily-return-fixture.js": (
+                "export const tasks = " + json.dumps([
+                    {"task": index, "factory": index % 7, "quantity": 100 + index,
+                     "milestones": [35, 100], "owner": "PPIC"}
+                    for index in range(200)
+                ]) + ";\n"
+            ).encode(),
             "assets/main.css": b"body { color: #123; }\n",
             "data/settings.json": json.dumps(
                 {"title": "技术包", "enabled": True, "quantity": 12},

@@ -5,6 +5,7 @@ import { listSewingTaskResponsibilityVersions } from './sewing-outsourcing-respo
 import { listSewingOutsourcingReturnTrackingRows } from './sewing-outsourcing-return-tracking.ts'
 import { listPostFinishingReturnConfirmationVersions } from './post-finishing-full-flow.ts'
 import { getPpicReturnQuantityBasis, type PpicReturnQuantityBasis } from './ppic-return-quantity-basis.ts'
+import { withCutPieceReleaseReadSnapshot } from './cut-piece-release.ts'
 import { assertPostFinishingWrite, ensurePostFinishingRecordState, getPostFinishingStorageFailure, registerPostFinishingRepository, registerPostFinishingCommitProjection, runPostFinishingCommand } from './post-finishing-records.ts'
 import { createPpicDailyStore, ppicConfigAt, ppicBusinessDate, ppicInstant, ppicPromiseResult, ppicTaskCapacity, syncPpicReceipts, addPpicPromise, arrangePpicMakeup, recordPpicGapReason, confirmPpicDay, changePpicConfig, amendPpicPromise, type PpicDailyStore, type PpicActor, type PpicTaskContext, type PpicPromise } from './ppic-daily-return.ts'
 
@@ -64,6 +65,9 @@ export interface PpicDailyTaskView {
   responsibilityHistory: Array<{ ppicId: string; ppicName: string; effectiveAt: string; reason?: string }>
 }
 function taskViews(nowAt: string): PpicDailyTaskView[] {
+  return withCutPieceReleaseReadSnapshot(() => readTaskViews(nowAt), false)
+}
+function readTaskViews(nowAt: string): PpicDailyTaskView[] {
   const factories = new Set(listSewingFactoryMasterRecords().filter(f => f.factoryTier === 'THIRD_PARTY' && f.factoryType === 'THIRD_SEWING').map(f => f.id))
   const current: PpicDailyTaskView[] = listSewingOutsourcingReturnTrackingRows(nowAt).filter(r => factories.has(r.assignment.factoryId)).map(r => {
     const basis = getPpicReturnQuantityBasis(r.assignment.assignmentId, nowAt)
