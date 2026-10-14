@@ -1104,7 +1104,13 @@ const buildMaterialTransferSeeds = (): { orders: TransferOrder[]; details: Trans
     });
   });
 
-  return { orders, details };
+  // 原料调拨单演示数据收敛到两页（16 条）；明细按 transfer_no 同步裁剪以保持引用完整，
+  // pdaMaterialTransferOrderSeed 由 orders + details 按 transfer_no 派生，不受损。
+  const keptOrders = orders.slice(0, 16);
+  const keptTransferNos = new Set(keptOrders.map((order) => order.transfer_no));
+  const keptDetails = details.filter((detail) => keptTransferNos.has(detail.transfer_no));
+
+  return { orders: keptOrders, details: keptDetails };
 };
 
 // ============================================================================

@@ -172,7 +172,8 @@ export const stockFlowSeed: StockFlowRecord[] = (() => {
   const fallback = stockRealtimeSeed[0];
   if (!fallback) return [];
 
-  const sampleRows = stockRealtimeSeed.slice(0, 6);
+  // 库存流水查询需要两页演示数据：14 条基础流水 + 2 条特殊流水 = 16 条。
+  const sampleRows = stockRealtimeSeed.slice(0, 14);
   const warehouseName = fallback.warehouseName;
   const operators = ["Ayu", "Rina", "Bayu", "Dian"];
   const buildMetricTriplets = (

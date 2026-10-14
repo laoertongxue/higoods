@@ -7,30 +7,35 @@ import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColu
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
 type PreInboundOrder = {
-  inboundNo: string; productionNo: string; processorName: string; source: string
-  expectedRolls: number; requiredQty: number; receivedQty: number
-  status: '待收货' | '部分收货' | '已收货' | '已失效'; createTime: string
+  inboundNo: string; sourceNo: string; productionNo: string
+  spu: string; sku: string; docType: string; materialSource: string
+  expectedRolls: number; requiredQty: number
+  status: '待收货' | '部分收货' | '收货完成' | '已取消'
+  createTime: string; receiveTime: string
 }
 
 const statusClass: Record<string, string> = {
   '待收货': 'bg-orange-50 text-orange-700', '部分收货': 'bg-blue-50 text-blue-700',
-  '已收货': 'bg-emerald-50 text-emerald-700', '已失效': 'bg-slate-100 text-slate-400',
+  '收货完成': 'bg-emerald-50 text-emerald-700', '已取消': 'bg-slate-100 text-slate-400',
 }
 
+const docTypes = ['申请调拨', '染色交出', '印花交出', '绣花交出']
+
 const seedOrders: PreInboundOrder[] = [
-  { inboundNo: 'TR-IN-20260716-001', productionNo: 'PO14954', processorName: '自有工厂A组', source: '印花厂', expectedRolls: 6, requiredQty: 8, receivedQty: 8, status: '已收货', createTime: '2026-07-16 09:36' },
-  { inboundNo: 'TR-IN-20260716-004', productionNo: 'PO14957', processorName: '自有工厂A组', source: '印花厂', expectedRolls: 7, requiredQty: 7, receivedQty: 7, status: '已收货', createTime: '2026-07-16 09:39' },
-  { inboundNo: 'TR-IN-20260716-005', productionNo: 'PO14958', processorName: '第三方工厂-恒盛', source: '染色厂', expectedRolls: 9, requiredQty: 9, receivedQty: 8, status: '部分收货', createTime: '2026-07-16 09:43' },
-  { inboundNo: 'TR-IN-20260716-002', productionNo: 'PO14955', processorName: '第三方工厂-恒盛', source: '染色厂', expectedRolls: 8, requiredQty: 11, receivedQty: 8, status: '已收货', createTime: '2026-07-16 10:46' },
-  { inboundNo: 'TR-IN-20260716-003', productionNo: 'PO14956', processorName: '自有工厂B组', source: '异地中央仓', expectedRolls: 10, requiredQty: 13, receivedQty: 5, status: '部分收货', createTime: '2026-07-16 11:21' },
-  { inboundNo: 'TR-IN-20260716-006', productionNo: 'PO14959', processorName: '自有工厂C组', source: '印花厂', expectedRolls: 8, requiredQty: 8, receivedQty: 0, status: '待收货', createTime: '2026-07-16 13:10' },
-  { inboundNo: 'TR-IN-20260716-007', productionNo: 'PO14960', processorName: '第三方工厂-恒盛', source: '染色厂', expectedRolls: 10, requiredQty: 10, receivedQty: 0, status: '待收货', createTime: '2026-07-16 13:25' },
-  { inboundNo: 'TR-IN-20260716-008', productionNo: 'PO14961', processorName: '自有工厂C组', source: '其他', expectedRolls: 6, requiredQty: 6, receivedQty: 0, status: '待收货', createTime: '2026-07-16 13:40' },
-  { inboundNo: 'TR-IN-20260716-009', productionNo: 'PO14962', processorName: '自有工厂D组', source: '印花厂', expectedRolls: 8, requiredQty: 8, receivedQty: 8, status: '已收货', createTime: '2026-07-16 15:06' },
-  { inboundNo: 'TR-IN-20260716-010', productionNo: 'PO14963', processorName: '自有工厂D组', source: '染色厂', expectedRolls: 9, requiredQty: 9, receivedQty: 8, status: '部分收货', createTime: '2026-07-16 15:13' },
-  { inboundNo: 'TR-IN-20260715-020', productionNo: 'PO14940', processorName: '自有工厂A组', source: '印花厂', expectedRolls: 5, requiredQty: 5, receivedQty: 5, status: '已失效', createTime: '2026-07-15 08:30' },
+  { inboundNo: 'TR-IN-20260716-001', sourceNo: 'SRC-14954-01', productionNo: 'PO14954', spu: 'FAB-14954', sku: 'FAB-PO14954-A', docType: '印花交出', materialSource: '印花厂', expectedRolls: 6, requiredQty: 8, status: '收货完成', createTime: '2026-07-16 09:36', receiveTime: '2026-07-16 10:05' },
+  { inboundNo: 'TR-IN-20260716-004', sourceNo: 'SRC-14957-01', productionNo: 'PO14957', spu: 'FAB-14957', sku: 'FAB-PO14957-A', docType: '印花交出', materialSource: '印花厂', expectedRolls: 7, requiredQty: 7, status: '收货完成', createTime: '2026-07-16 09:39', receiveTime: '2026-07-16 10:12' },
+  { inboundNo: 'TR-IN-20260716-005', sourceNo: 'SRC-14958-01', productionNo: 'PO14958', spu: 'FAB-14958', sku: 'FAB-PO14958-A', docType: '染色交出', materialSource: '染色厂', expectedRolls: 9, requiredQty: 9, status: '部分收货', createTime: '2026-07-16 09:43', receiveTime: '2026-07-16 11:02' },
+  { inboundNo: 'TR-IN-20260716-002', sourceNo: 'SRC-14955-01', productionNo: 'PO14955', spu: 'FAB-14955', sku: 'FAB-PO14955-A', docType: '染色交出', materialSource: '染色厂', expectedRolls: 8, requiredQty: 11, status: '收货完成', createTime: '2026-07-16 10:46', receiveTime: '2026-07-16 11:30' },
+  { inboundNo: 'TR-IN-20260716-003', sourceNo: 'SRC-14956-01', productionNo: 'PO14956', spu: 'FAB-14956', sku: 'FAB-PO14956-A', docType: '申请调拨', materialSource: '异地中央仓', expectedRolls: 10, requiredQty: 13, status: '部分收货', createTime: '2026-07-16 11:21', receiveTime: '2026-07-16 13:04' },
+  { inboundNo: 'TR-IN-20260716-006', sourceNo: 'SRC-14959-01', productionNo: 'PO14959', spu: 'FAB-14959', sku: 'FAB-PO14959-A', docType: '印花交出', materialSource: '印花厂', expectedRolls: 8, requiredQty: 8, status: '待收货', createTime: '2026-07-16 13:10', receiveTime: '—' },
+  { inboundNo: 'TR-IN-20260716-007', sourceNo: 'SRC-14960-01', productionNo: 'PO14960', spu: 'FAB-14960', sku: 'FAB-PO14960-A', docType: '染色交出', materialSource: '染色厂', expectedRolls: 10, requiredQty: 10, status: '待收货', createTime: '2026-07-16 13:25', receiveTime: '—' },
+  { inboundNo: 'TR-IN-20260716-008', sourceNo: 'SRC-14961-01', productionNo: 'PO14961', spu: 'ACC-14961', sku: 'ACC-PO14961-B', docType: '绣花交出', materialSource: '其他', expectedRolls: 6, requiredQty: 6, status: '待收货', createTime: '2026-07-16 13:40', receiveTime: '—' },
+  { inboundNo: 'TR-IN-20260716-009', sourceNo: 'SRC-14962-01', productionNo: 'PO14962', spu: 'FAB-14962', sku: 'FAB-PO14962-A', docType: '印花交出', materialSource: '印花厂', expectedRolls: 8, requiredQty: 8, status: '收货完成', createTime: '2026-07-16 15:06', receiveTime: '2026-07-16 15:40' },
+  { inboundNo: 'TR-IN-20260716-010', sourceNo: 'SRC-14963-01', productionNo: 'PO14963', spu: 'FAB-14963', sku: 'FAB-PO14963-A', docType: '染色交出', materialSource: '染色厂', expectedRolls: 9, requiredQty: 9, status: '部分收货', createTime: '2026-07-16 15:13', receiveTime: '2026-07-16 16:01' },
+  { inboundNo: 'TR-IN-20260715-020', sourceNo: 'SRC-14940-01', productionNo: 'PO14940', spu: 'FAB-14940', sku: 'FAB-PO14940-A', docType: '印花交出', materialSource: '印花厂', expectedRolls: 5, requiredQty: 5, status: '已取消', createTime: '2026-07-15 08:30', receiveTime: '—' },
 ]
 
 const EVENT_PREFIX = 'wls-transit-receive'
@@ -47,27 +52,28 @@ const state = {
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
+  docTypeFilter: '' as string,
 }
 
 const columns: StandardListColumn<PreInboundOrder>[] = [
-  { key: 'inboundNo', title: '预入库单号', width: 200, required: true, freezeable: true, sortable: true, sortValue: r => r.inboundNo,
-    render: r => `<span class="text-slate-700 font-mono text-xs" title="${escapeHtml(r.inboundNo)}">${escapeHtml(r.inboundNo)}</span>` },
-  { key: 'productionNo', title: '来源单', width: 120, sortable: true, sortValue: r => r.productionNo,
-    render: r => `<span class="text-slate-700">${escapeHtml(r.productionNo)}</span>` },
-  { key: 'source', title: '来源', width: 120, sortable: true, sortValue: r => r.source,
-    render: r => `<span class="text-slate-500">${escapeHtml(r.source)}</span>` },
-  { key: 'processorName', title: '加工方', width: 150, sortable: true, sortValue: r => r.processorName,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.processorName)}</span>` },
-  { key: 'expectedRolls', title: '应收卷数', width: 90, align: 'right', sortable: true, sortValue: r => r.expectedRolls,
-    render: r => `<span class="text-slate-600">${r.expectedRolls}</span>` },
-  { key: 'requiredQty', title: '应收数量', width: 90, align: 'right', sortable: true, sortValue: r => r.requiredQty,
-    render: r => `<span class="text-slate-600">${r.requiredQty}</span>` },
-  { key: 'receivedQty', title: '实收数量', width: 90, align: 'right', sortable: true, sortValue: r => r.receivedQty,
-    render: r => `<span class="text-slate-700 font-medium">${r.receivedQty}</span>` },
-  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+  { key: 'orderNo', title: '单号', width: 250, required: true, freezeable: true, sortable: true, sortValue: r => r.inboundNo,
+    render: r => `<div class="space-y-0.5">
+      <div class="font-mono text-xs font-medium text-blue-600" title="${escapeHtml(r.inboundNo)}">${escapeHtml(r.inboundNo)}</div>
+      <div class="font-mono text-[11px] text-slate-500">来源 ${escapeHtml(r.sourceNo)}</div>
+      <div class="text-[11px] text-slate-500">生产单 ${escapeHtml(r.productionNo)}</div>
+    </div>` },
+  { key: 'fabricInfo', title: '面料信息', width: 170, sortable: true, sortValue: r => r.sku,
+    render: r => `<div class="space-y-0.5"><div class="font-mono text-xs text-slate-700">${escapeHtml(r.spu)}</div><div class="font-mono text-[11px] text-slate-500">${escapeHtml(r.sku)}</div></div>` },
+  { key: 'docType', title: '单据类型', width: 110, sortable: true, sortValue: r => r.docType,
+    render: r => `<span class="text-xs text-slate-600">${escapeHtml(r.docType)}</span>` },
+  { key: 'status', title: '订单状态', width: 100, sortable: true, sortValue: r => r.status,
     render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status]}">${escapeHtml(r.status)}</span>` },
-  { key: 'createTime', title: '创建时间', width: 140, sortable: true, sortValue: r => r.createTime,
-    render: r => `<span class="text-slate-400 text-xs">${escapeHtml(r.createTime)}</span>` },
+  { key: 'materialSource', title: '来料来源', width: 120, sortable: true, sortValue: r => r.materialSource,
+    render: r => `<span class="text-slate-500">${escapeHtml(r.materialSource)}</span>` },
+  { key: 'receivableQty', title: '应收数量 (卷/Yard)', width: 150, align: 'right', sortable: true, sortValue: r => r.requiredQty,
+    render: r => `<span class="tabular-nums text-slate-600">${r.expectedRolls} 卷 / ${r.requiredQty} Yard</span>` },
+  { key: 'time', title: '时间', width: 150, sortable: true, sortValue: r => r.createTime,
+    render: r => `<div class="space-y-0.5 text-[11px] text-slate-400"><div>创建 ${escapeHtml(r.createTime)}</div><div>收货 ${escapeHtml(r.receiveTime)}</div></div>` },
   { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true,
     render: r => `<div class="flex items-center gap-1"><button class="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ seedOrders.indexOf(r) }">查看详情</button></div>` },
 ]
@@ -76,7 +82,7 @@ const columnRules = columns.map(c => ({ key: c.key, required: c.required, freeze
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
   visibleKeys: columns.map(c => c.key),
-  frozenKeys: ['inboundNo'],
+  frozenKeys: ['orderNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
 
@@ -90,15 +96,17 @@ function filteredRows(): PreInboundOrder[] {
   const kw = state.keyword.trim().toLowerCase()
   return seedOrders.filter(o => {
     if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (state.docTypeFilter && o.docType !== state.docTypeFilter) return false
     if (!kw) return true
-    return `${o.inboundNo} ${o.productionNo} ${o.processorName} ${o.source}`.toLowerCase().includes(kw)
+    return `${o.inboundNo} ${o.sourceNo} ${o.productionNo} ${o.spu} ${o.sku} ${o.materialSource}`.toLowerCase().includes(kw)
   })
 }
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="预入库单号 / 来源单 / 加工方" data-${EVENT_PREFIX}-field="keyword"></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="待收货" ${state.statusFilter === '待收货' ? 'selected' : ''}>待收货</option><option value="部分收货" ${state.statusFilter === '部分收货' ? 'selected' : ''}>部分收货</option><option value="已收货" ${state.statusFilter === '已收货' ? 'selected' : ''}>已收货</option><option value="已失效" ${state.statusFilter === '已失效' ? 'selected' : ''}>已失效</option></select></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="预入库单号 / 来源单号 / 生产单号 / SKU" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">单据类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="docType"><option value="">全部</option>${docTypes.map(t => `<option value="${t}" ${state.docTypeFilter === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">订单状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="待收货" ${state.statusFilter === '待收货' ? 'selected' : ''}>待收货</option><option value="部分收货" ${state.statusFilter === '部分收货' ? 'selected' : ''}>部分收货</option><option value="收货完成" ${state.statusFilter === '收货完成' ? 'selected' : ''}>收货完成</option><option value="已取消" ${state.statusFilter === '已取消' ? 'selected' : ''}>已取消</option></select></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -109,13 +117,15 @@ function renderWorkspace(): string {
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
   return renderStandardListPage({
-    title: '中转仓预入库单管理',
+    title: '中转预入库单管理',
+    description: '中转预入库单据列表（独立于中转回货），支持按单号、单据类型、订单状态筛选',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('创建入库单', { prefix: EVENT_PREFIX, action: 'create-inbound' }, 'plus')}${renderSecondaryButton('调拨入库', { prefix: EVENT_PREFIX, action: 'doc-transfer' }, 'package-plus')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${all.length} 条` },
       { label: '待收货', value: `${seedOrders.filter(o => o.status === '待收货').length} 条` },
       { label: '部分收货', value: `${seedOrders.filter(o => o.status === '部分收货').length} 条` },
-      { label: '已收货', value: `${seedOrders.filter(o => o.status === '已收货').length} 条` },
+      { label: '收货完成', value: `${seedOrders.filter(o => o.status === '收货完成').length} 条` },
     ]),
     listTitle: '预入库单列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
@@ -149,6 +159,7 @@ export function handleTransitReceiveManageEvent(target: HTMLElement, event?: Eve
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'docType') { state.docTypeFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -175,10 +186,11 @@ export function handleTransitReceiveManageEvent(target: HTMLElement, event?: Eve
     return true
   }
   if (action === 'apply-filter') {
-    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
-    if (input) state.keyword = input.value
-    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
-    if (select) state.statusFilter = select.value
+    const root = rootElement()
+    const read = (name: string) => root?.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="${name}"]`)?.value ?? ''
+    state.keyword = read('keyword')
+    state.statusFilter = read('status')
+    state.docTypeFilter = read('docType')
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -186,6 +198,7 @@ export function handleTransitReceiveManageEvent(target: HTMLElement, event?: Eve
   if (action === 'reset-filter') {
     state.keyword = ''
     state.statusFilter = ''
+    state.docTypeFilter = ''
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -206,6 +219,8 @@ export function handleTransitReceiveManageEvent(target: HTMLElement, event?: Eve
   }
   if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
   if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
+  if (action === 'create-inbound') { showListFeedback('创建入库单为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'doc-transfer') { showListFeedback('调拨入库为演示入口，测试环境不写入数据', 'info'); return true }
   if (action === 'export') { exportStandardListRows({ fileName: '中转仓预入库单管理', columns, rows: filteredRows() }); return true }
   return false
 }

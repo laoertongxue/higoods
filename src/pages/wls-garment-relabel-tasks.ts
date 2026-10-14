@@ -18,6 +18,7 @@ import { escapeHtml } from '../utils.ts'
 interface RelabelTaskPageState extends ProcessOrderListControllerState {
   keyword: string
   status: '' | GarmentWarehouseRelabelTask['status']
+  tab: string
   detailTaskId: string
   imagePreview: null | { url: string; label: string }
   feedback: string
@@ -34,6 +35,7 @@ const state: RelabelTaskPageState = {
   showColumnSettings: false,
   keyword: '',
   status: '',
+  tab: '全部',
   detailTaskId: '',
   imagePreview: null,
   feedback: '',
@@ -46,8 +48,25 @@ function formatQty(value: number): string {
 
 function statusLabel(status: GarmentWarehouseRelabelTask['status']): string {
   if (status === 'COMPLETED') return '<span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">已完成</span>'
-  if (status === 'PROCESSING') return '<span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">换码中</span>'
-  return '<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">待换码</span>'
+  if (status === 'PROCESSING') return '<span class="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">部分完成</span>'
+  return '<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">待处理</span>'
+}
+
+const RELABEL_TABS = ['全部', '待处理', '部分完成', '已完成'] as const
+
+function relabelTabOf(status: GarmentWarehouseRelabelTask['status']): string {
+  if (status === 'COMPLETED') return '已完成'
+  if (status === 'PROCESSING') return '部分完成'
+  return '待处理'
+}
+
+function renderRelabelTabs(): string {
+  const tasks = listGarmentWarehouseRelabelTasks()
+  const counts: Record<string, number> = {}
+  for (const tab of RELABEL_TABS) {
+    counts[tab] = tab === '全部' ? tasks.length : tasks.filter((t) => relabelTabOf(t.status) === tab).length
+  }
+  return `<div class="flex flex-wrap gap-2">${RELABEL_TABS.map((tab) => `<button type="button" class="rounded-md border px-3 py-1.5 text-sm ${tab === state.tab ? 'border-blue-600 bg-blue-600 text-white' : 'bg-background hover:bg-muted'}" data-wls-garment-relabel-action="switch-tab" data-wls-garment-relabel-tab="${escapeHtml(tab)}" data-skip-page-rerender="true">${escapeHtml(tab)}<span class="ml-1 text-xs opacity-80">${counts[tab]}</span></button>`).join('')}</div>`
 }
 
 function renderImage(url: string, label: string): string {
@@ -58,6 +77,7 @@ function filteredRows(): GarmentWarehouseRelabelTask[] {
   const keyword = state.keyword.trim().toLowerCase()
   return listGarmentWarehouseRelabelTasks().filter((task) => {
     if (state.status && task.status !== state.status) return false
+    if (state.tab && state.tab !== '全部' && relabelTabOf(task.status) !== state.tab) return false
     if (!keyword) return true
     return [task.relabelTaskNo, task.productionOrderNo, task.sourceColor, ...task.lines.flatMap((line) => [line.source.skuCode, line.target.skuCode])]
       .some((value) => value.toLowerCase().includes(keyword))
@@ -92,6 +112,11 @@ const columns: StandardListColumn<GarmentWarehouseRelabelTask>[] = [
     render: (task) => task.lines.map((line) => `<div class="text-xs"><strong>${escapeHtml(line.size)}</strong> · ${escapeHtml(line.sourceInboundBatchId)} · ${formatQty(line.qty)}</div>`).join(''),
   },
   {
+    key: 'time', title: '时间', width: 150, sortable: true,
+    sortValue: (task) => task.createdAt,
+    render: (task) => `<span class="text-xs text-slate-500">${escapeHtml(task.createdAt)}</span>`,
+  },
+  {
     key: 'actions', title: '操作', width: 270, required: true, actionColumn: true,
     render: (task) => {
       const barcodeHref = buildUnifiedPrintPreviewLink({ documentType: 'GARMENT_SKU_BARCODE', sourceType: 'GARMENT_WAREHOUSE_RELABEL_TASK', sourceId: task.relabelTaskId })
@@ -119,7 +144,7 @@ const controller = createProcessOrderListController({
 })
 
 function renderFilters(): string {
-  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-white p-3"><label class="min-w-[18rem] flex-1"><span class="mb-1 block text-xs text-slate-500">任务／生产单／新旧 SKU／颜色</span><input class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.keyword)}" data-wls-garment-relabel-field="keyword" data-skip-page-rerender="true"></label><label class="min-w-40"><span class="mb-1 block text-xs text-slate-500">状态</span><select class="h-9 w-full rounded-md border bg-white px-3 text-sm" data-wls-garment-relabel-field="status" data-skip-page-rerender="true"><option value="">全部</option><option value="PENDING" ${state.status === 'PENDING' ? 'selected' : ''}>待换码</option><option value="PROCESSING" ${state.status === 'PROCESSING' ? 'selected' : ''}>换码中</option><option value="COMPLETED" ${state.status === 'COMPLETED' ? 'selected' : ''}>已完成</option></select></label><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-wls-garment-relabel-action="apply-filters" data-skip-page-rerender="true">查询</button><button class="h-9 rounded-md border px-4 text-sm" data-wls-garment-relabel-action="reset-filters" data-skip-page-rerender="true">重置</button></div>`
+  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-white p-3"><label class="min-w-[18rem] flex-1"><span class="mb-1 block text-xs text-slate-500">任务／生产单／新旧 SKU／颜色</span><input class="h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.keyword)}" data-wls-garment-relabel-field="keyword" data-skip-page-rerender="true"></label><label class="min-w-40"><span class="mb-1 block text-xs text-slate-500">状态</span><select class="h-9 w-full rounded-md border bg-white px-3 text-sm" data-wls-garment-relabel-field="status" data-skip-page-rerender="true"><option value="">全部</option><option value="PENDING" ${state.status === 'PENDING' ? 'selected' : ''}>待处理</option><option value="PROCESSING" ${state.status === 'PROCESSING' ? 'selected' : ''}>部分完成</option><option value="COMPLETED" ${state.status === 'COMPLETED' ? 'selected' : ''}>已完成</option></select></label><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-wls-garment-relabel-action="apply-filters" data-skip-page-rerender="true">查询</button><button class="h-9 rounded-md border px-4 text-sm" data-wls-garment-relabel-action="reset-filters" data-skip-page-rerender="true">重置</button></div>`
 }
 
 function renderDetailDialog(): string {
@@ -149,8 +174,10 @@ function renderInner(): string {
   const view = controller.getView(rows)
   return renderStandardListPage({
     title: '成衣仓换码任务',
-    primaryActionsHtml: '<a class="rounded-md border px-4 py-2 text-sm" href="/wls/garment-spu-replacements" data-nav="/wls/garment-spu-replacements">进入成衣 SPU 替换</a>',
+    description: '查看成衣 SKU 换码任务，可按任务单号、生产单号、SKU 查询；创建时按生产单或源 SKU 搜索成衣仓库存，在明细行填写替换 SKU。',
+    primaryActionsHtml: '<div class="flex flex-wrap items-center gap-2"><a class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white" href="/wls/garment-spu-replacements" data-nav="/wls/garment-spu-replacements">创建任务单</a><a class="rounded-md border px-4 py-2 text-sm" href="/wls/garment-spu-replacements" data-nav="/wls/garment-spu-replacements">进入成衣 SPU 替换</a></div>',
     feedbackHtml: state.feedback ? `<div class="rounded-md border p-3 text-sm ${state.feedbackOk ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(state.feedback)}</div>` : '',
+    statusTabsHtml: renderRelabelTabs(),
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '换码任务', value: rows.length },
@@ -223,7 +250,8 @@ export function handleWlsGarmentRelabelTasksEvent(target: HTMLElement, event?: E
   if (action === 'prev-page' || action === 'next-page') { controller.stepPage(action === 'prev-page' ? -1 : 1); controller.refresh(); return true }
   if (action === 'sort-column') { controller.cycleSort(actionNode.dataset.columnKey || ''); controller.refresh(); return true }
   if (action === 'apply-filters') { state.currentPage = 1; controller.refresh(); return true }
-  if (action === 'reset-filters') { state.keyword = ''; state.status = ''; state.currentPage = 1; refreshAll(); return true }
+  if (action === 'reset-filters') { state.keyword = ''; state.status = ''; state.tab = '全部'; state.currentPage = 1; refreshAll(); return true }
+  if (action === 'switch-tab') { state.tab = actionNode.dataset.wlsGarmentRelabelTab || '全部'; state.currentPage = 1; refreshAll(); return true }
   if (action === 'open-column-settings') state.showColumnSettings = true
   if (action === 'close-column-settings') state.showColumnSettings = false
   if (action === 'restore-column-settings') controller.restorePreferences()

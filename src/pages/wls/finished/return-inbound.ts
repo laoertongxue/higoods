@@ -13,7 +13,7 @@ import { showListFeedback, advanceRowStatus } from '../../../components/ui/list-
 type InboundLine = { sku: string; name: string; spec: string; qty: number; qualityResult: '可售' | '瑕疵' | '报废'; stockDest: string; putawayQty: number; targetLocation: string }
 type InboundOrder = {
   id: string; returnNo: string; orderNo: string; customer: string; reason: string
-  status: string; created: string; qcTime: string; totalQty: number; putawayQty: number; lines: InboundLine[]
+  status: string; created: string; qcTime: string; totalQty: number; putawayQty: number; operatorName: string; returnType: '未知' | '售后' | '拒收'; lines: InboundLine[]
 }
 
 const statusLabel: Record<string, string> = {
@@ -39,22 +39,22 @@ function stockDest(r: string): string {
 }
 
 const seedOrders: InboundOrder[] = [
-  { id: 'RI-001', returnNo: 'RET-20260828-003', orderNo: 'SO-20260822-015', customer: '王五', reason: '不喜欢', status: 'WAIT_PUTAWAY', created: '2026-08-28 11:00', qcTime: '2026-08-28 15:00', totalQty: 1, putawayQty: 0, lines: [
+  { id: 'RI-001', returnNo: 'RET-20260828-003', orderNo: 'SO-20260822-015', customer: '王五', reason: '不喜欢', status: 'WAIT_PUTAWAY', created: '2026-08-28 11:00', qcTime: '2026-08-28 15:00', totalQty: 1, putawayQty: 0, operatorName: '张伟', returnType: '售后', lines: [
     { sku: 'SKU-SKIRT-GRY-M', name: '灰色百褶裙 M', spec: '灰色/M', qty: 1, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 0, targetLocation: 'A01-05' },
   ]},
-  { id: 'RI-002', returnNo: 'RET-20260828-004', orderNo: 'SO-20260823-003', customer: '赵六', reason: '发错商品', status: 'WAIT_PUTAWAY', created: '2026-08-28 13:00', qcTime: '2026-08-28 16:30', totalQty: 4, putawayQty: 0, lines: [
+  { id: 'RI-002', returnNo: 'RET-20260828-004', orderNo: 'SO-20260823-003', customer: '赵六', reason: '发错商品', status: 'WAIT_PUTAWAY', created: '2026-08-28 13:00', qcTime: '2026-08-28 16:30', totalQty: 4, putawayQty: 0, operatorName: '李娜', returnType: '拒收', lines: [
     { sku: 'SKU-HOOD-BLK-M', name: '黑色连帽卫衣 M', spec: '黑色/M', qty: 2, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 0, targetLocation: 'A02-01' },
     { sku: 'SKU-JEAN-BLU-L', name: '蓝色牛仔裤 L', spec: '蓝色/L', qty: 2, qualityResult: '瑕疵', stockDest: stockDest('瑕疵'), putawayQty: 0, targetLocation: 'D01-03' },
   ]},
-  { id: 'RI-003', returnNo: 'RET-20260827-011', orderNo: 'SO-20260819-025', customer: '周八', reason: '质量问题', status: 'PARTIAL_PUTAWAY', created: '2026-08-27 09:30', qcTime: '2026-08-27 14:00', totalQty: 3, putawayQty: 1, lines: [
+  { id: 'RI-003', returnNo: 'RET-20260827-011', orderNo: 'SO-20260819-025', customer: '周八', reason: '质量问题', status: 'PARTIAL_PUTAWAY', created: '2026-08-27 09:30', qcTime: '2026-08-27 14:00', totalQty: 3, putawayQty: 1, operatorName: '王强', returnType: '售后', lines: [
     { sku: 'SKU-DRESS-BLK-S', name: '黑色连衣裙 S', spec: '黑色/S', qty: 1, qualityResult: '瑕疵', stockDest: stockDest('瑕疵'), putawayQty: 1, targetLocation: 'D01-05' },
     { sku: 'SKU-TEE-WHT-M', name: '白色短袖 M', spec: '白色/M', qty: 2, qualityResult: '报废', stockDest: stockDest('报废'), putawayQty: 0, targetLocation: 'E02-01' },
   ]},
-  { id: 'RI-004', returnNo: 'RET-20260827-010', orderNo: 'SO-20260819-022', customer: '孙七', reason: '尺码不符', status: 'COMPLETED', created: '2026-08-27 08:00', qcTime: '2026-08-27 11:00', totalQty: 2, putawayQty: 2, lines: [
+  { id: 'RI-004', returnNo: 'RET-20260827-010', orderNo: 'SO-20260819-022', customer: '孙七', reason: '尺码不符', status: 'COMPLETED', created: '2026-08-27 08:00', qcTime: '2026-08-27 11:00', totalQty: 2, putawayQty: 2, operatorName: '刘洋', returnType: '未知', lines: [
     { sku: 'SKU-CARD-WHT-M', name: '针织开衫 米白 M', spec: '米白/M', qty: 1, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 1, targetLocation: 'A03-02' },
     { sku: 'SKU-VEST-BLK-M', name: '黑色马甲 M', spec: '黑色/M', qty: 1, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 1, targetLocation: 'A03-04' },
   ]},
-  { id: 'RI-005', returnNo: 'RET-20260827-014', orderNo: 'SO-20260821-040', customer: '林三三', reason: '线头多', status: 'WAIT_INBOUND', created: '2026-08-27 15:00', qcTime: '2026-08-27 17:30', totalQty: 2, putawayQty: 0, lines: [
+  { id: 'RI-005', returnNo: 'RET-20260827-014', orderNo: 'SO-20260821-040', customer: '林三三', reason: '线头多', status: 'WAIT_INBOUND', created: '2026-08-27 15:00', qcTime: '2026-08-27 17:30', totalQty: 2, putawayQty: 0, operatorName: '陈静', returnType: '售后', lines: [
     { sku: 'SKU-SHIRT-BLU-M', name: '蓝色衬衫 M', spec: '蓝色/M', qty: 1, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 0, targetLocation: 'A04-01' },
     { sku: 'SKU-SHIRT-BLU-L', name: '蓝色衬衫 L', spec: '蓝色/L', qty: 1, qualityResult: '可售', stockDest: stockDest('可售'), putawayQty: 0, targetLocation: 'A04-02' },
   ]},
@@ -75,6 +75,26 @@ const state = {
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
+  tab: '全部' as string,
+  warehouseFilter: '' as string,
+  returnTypeFilter: '' as string,
+}
+
+const RETURN_TABS = ['全部', '待上架', '部分上架', '上架完成', '异常', '未知'] as const
+
+function returnTabOf(status: string): string {
+  if (status === 'WAIT_INBOUND' || status === 'WAIT_PUTAWAY') return '待上架'
+  if (status === 'PARTIAL_PUTAWAY') return '部分上架'
+  if (status === 'COMPLETED') return '上架完成'
+  return '未知'
+}
+
+function renderReturnTabs(): string {
+  const counts: Record<string, number> = {}
+  for (const tab of RETURN_TABS) {
+    counts[tab] = tab === '全部' ? seedOrders.length : seedOrders.filter(o => returnTabOf(o.status) === tab).length
+  }
+  return `<div class="flex flex-wrap gap-2">${RETURN_TABS.map(tab => `<button type="button" class="rounded-md border px-3 py-1.5 text-sm ${tab === state.tab ? 'border-blue-600 bg-blue-600 text-white' : 'bg-background hover:bg-muted'}" data-${EVENT_PREFIX}-action="switch-tab" data-${EVENT_PREFIX}-tab="${escapeHtml(tab)}">${escapeHtml(tab)}<span class="ml-1 text-xs opacity-80">${counts[tab]}</span></button>`).join('')}</div>`
 }
 
 const columns: StandardListColumn<InboundOrder>[] = [
@@ -84,6 +104,16 @@ const columns: StandardListColumn<InboundOrder>[] = [
     render: r => `<span class="text-slate-600">${escapeHtml(r.orderNo)}</span>` },
   { key: 'customer', title: '客户', width: 100, sortable: true, sortValue: r => r.customer,
     render: r => `<span class="text-slate-600">${escapeHtml(r.customer)}</span>` },
+  { key: 'spu', title: 'SPU', width: 150, sortable: true, sortValue: r => r.lines[0]?.sku ?? '',
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(`SPU-${(r.lines[0]?.sku ?? 'GC').split('-')[1] ?? 'GC'}`)}</span>` },
+  { key: 'sku', title: 'SKU', width: 190,
+    render: r => `<div class="space-y-0.5 text-xs">${r.lines.slice(0, 3).map(l => `<div class="font-mono text-slate-600">${escapeHtml(l.sku)}</div>`).join('')}</div>` },
+  { key: 'putawayQty', title: '上架数量', width: 90, align: 'right', sortable: true, sortValue: r => r.putawayQty,
+    render: r => `<span class="text-slate-600">${r.putawayQty}</span>` },
+  { key: 'returnType', title: '退货类型', width: 100, sortable: true, sortValue: r => r.returnType,
+    render: r => `<span class="text-xs text-slate-600">${escapeHtml(r.returnType)}</span>` },
+  { key: 'operatorName', title: '操作人员', width: 100, sortable: true, sortValue: r => r.operatorName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.operatorName)}</span>` },
   { key: 'status', title: '状态', width: 110, sortable: true, sortValue: r => r.status,
     render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${badgeClass(r.status)}">${escapeHtml(statusLabel[r.status] || r.status)}</span>` },
   { key: 'totalQty', title: '总数量', width: 80, align: 'right', sortable: true, sortValue: r => r.totalQty,
@@ -122,6 +152,10 @@ function filteredRows(): InboundOrder[] {
   const kw = state.keyword.trim().toLowerCase()
   return seedOrders.filter(o => {
     if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (state.tab && state.tab !== '全部' && returnTabOf(o.status) !== state.tab) return false
+    if (state.returnTypeFilter && o.returnType !== state.returnTypeFilter) return false
+    // 成衣退货统一入 A&C WH 成衣仓；F&M WH 无退货记录。
+    if (state.warehouseFilter && state.warehouseFilter !== 'A&C WH') return false
     if (!kw) return true
     return `${o.returnNo} ${o.orderNo} ${o.customer}`.toLowerCase().includes(kw)
   })
@@ -131,6 +165,8 @@ function renderFilters(): string {
   const statuses = Object.entries(statusLabel)
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="退货单号 / 原订单号 / 客户" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库 (F&M WH / A&C WH)</option><option value="F&M WH" ${state.warehouseFilter === 'F&M WH' ? 'selected' : ''}>F&M WH</option><option value="A&C WH" ${state.warehouseFilter === 'A&C WH' ? 'selected' : ''}>A&C WH</option></select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">退货类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="returnType"><option value="">全部退货类型</option>${['未知', '售后', '拒收'].map(t => `<option value="${t}" ${state.returnTypeFilter === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部状态</option>${statuses.map(([k, v]) => `<option value="${escapeHtml(k)}" ${state.statusFilter === k ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}</select></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
@@ -148,10 +184,12 @@ function renderWorkspace(): string {
 
   return renderStandardListPage({
     title: '退货入库列表',
+    description: '处理退货上架。可售入现货，瑕疵入瑕疵库存，报废不入库存。',
     primaryActionsHtml: renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download'),
+    statusTabsHtml: renderReturnTabs(),
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
-      { label: '待入库', value: `${pending}` },
+      { label: '待上架', value: `${pending}` },
       { label: '部分上架', value: `${putting}` },
       { label: '上架完成', value: `${done}` },
       { label: '总入库单', value: `${seedOrders.length}` },
@@ -188,6 +226,8 @@ export function handleReturnInboundEvent(target: HTMLElement, event?: Event): bo
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'returnType') { state.returnTypeFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -218,6 +258,10 @@ export function handleReturnInboundEvent(target: HTMLElement, event?: Event): bo
     if (input) state.keyword = input.value
     const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
     if (select) state.statusFilter = select.value
+    const warehouse = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+    if (warehouse) state.warehouseFilter = warehouse.value
+    const returnType = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="returnType"]`)
+    if (returnType) state.returnTypeFilter = returnType.value
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -225,6 +269,15 @@ export function handleReturnInboundEvent(target: HTMLElement, event?: Event): bo
   if (action === 'reset-filter') {
     state.keyword = ''
     state.statusFilter = ''
+    state.warehouseFilter = ''
+    state.returnTypeFilter = ''
+    state.tab = '全部'
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'switch-tab') {
+    state.tab = actionNode.dataset[`${DATASET_PREFIX}Tab`] || '全部'
     state.currentPage = 1
     refreshWorkspace()
     return true

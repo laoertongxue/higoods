@@ -70,6 +70,17 @@ import {
   renderWlsPrintingPrepPage,
   renderWlsSewingPrepPage,
 } from '../pages/wls/production-prep/allocation'
+import { finishedOnlineWlsRoutes } from '../pages/wls/finished-online/routes'
+import { stockOnlineWlsRoutes } from '../pages/wls/stock-online/routes'
+import { capacityOnlineWlsRoutes } from '../pages/wls/capacity-online/routes'
+import { transitOnlineWlsRoutes } from '../pages/wls/transit-online/routes'
+import { rawOnlineWlsRoutes } from '../pages/wls/raw-online/routes'
+import { garmentInventoryWlsRoutes } from '../pages/wls/garment-inventory/routes'
+
+// 2026-10-14 WLS 全量对齐：把各泳道路由片段（{path, render}）合并进 exactRoutes。
+const onlineRouteEntries = Object.fromEntries(
+  [...finishedOnlineWlsRoutes, ...stockOnlineWlsRoutes, ...capacityOnlineWlsRoutes, ...transitOnlineWlsRoutes, ...rawOnlineWlsRoutes, ...garmentInventoryWlsRoutes].map((route) => [route.path, route.render]),
+)
 
 function placeholder(title: string) {
   return () => `<div class="flex min-h-[60vh] items-center justify-center"><div class="text-center"><p class="text-sm text-slate-400">页面迁移中</p><h2 class="mt-2 text-lg font-semibold text-slate-700">${title}</h2><p class="mt-1 text-xs text-slate-400">该页面正在从 Higood-wms 迁移至 WLS 模块</p></div></div>`
@@ -201,6 +212,9 @@ export const routes: RouteRegistry = {
     '/wls/production-prep/sewing': () => renderWlsSewingPrepPage(),
     '/wls/production-prep/other': () => renderWlsOtherPrepPage(),
     '/wls/production-prep/knitting': () => renderWlsKnittingPrepPage(),
+
+    // ── 2026-10-14 WLS 全量对齐：46 个 /wls/online/* 占位页已迁移为真实页面 ──
+    ...onlineRouteEntries,
   },
   dynamicRoutes: [],
 }

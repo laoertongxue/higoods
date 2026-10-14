@@ -8,6 +8,7 @@ export interface StandardListStatItem {
 
 export interface StandardListPageConfig {
   title: string
+  description?: string
   showHeader?: boolean
   primaryActionsHtml?: string
   feedbackHtml?: string
@@ -76,6 +77,7 @@ export function renderStandardListPage(config: StandardListPageConfig): string {
         <h1 class="text-xl font-semibold">${escapeHtml(config.title)}</h1>
         ${config.primaryActionsHtml ?? ''}
       </header>`}
+      ${config.description ? `<p class="mb-3 text-xs text-muted-foreground">${escapeHtml(config.description)}</p>` : ''}
       ${config.feedbackHtml ?? ''}
       ${config.statusTabsHtml ? `<div data-standard-list-status-tabs>${config.statusTabsHtml}</div>` : ''}
       <div data-standard-list-filters>${config.filtersHtml}</div>

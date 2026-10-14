@@ -2,35 +2,39 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderTabs } from '../../../components/ui/tabs.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderSimpleConfirmDialog } from '../../../components/ui/dialog.ts'
+
+type WorkStatus = '待上架' | '上架完成' | '已释放' | '已出库'
 
 type WorkAreaRow = {
-  inboundNo: string; productionNo: string; sourceNo: string; sku: string; name: string
-  receivedQty: number; allocatedQty: number; putawayQty: number; outboundQty: number
-  exceptionQty: number; remainQty: number; flowStatus: string; clearStatus: '已清空' | '未清空'
+  taskNo: string; receiveNo: string; putawayLocation: string
+  spu: string; sku: string
+  receivedRolls: number; receivedMeters: number; putawayQty: number
+  status: WorkStatus; time: string
 }
+
+const statusClass: Record<string, string> = {
+  '待上架': 'bg-orange-50 text-orange-700', '上架完成': 'bg-emerald-50 text-emerald-700',
+  '已释放': 'bg-slate-100 text-slate-500', '已出库': 'bg-blue-50 text-blue-700',
+}
+
+const TAB_STATUSES: Array<'ALL' | WorkStatus> = ['ALL', '待上架', '上架完成', '已释放', '已出库']
 
 const seedRows: WorkAreaRow[] = [
-  { inboundNo: 'TR-IN-20260716-001', productionNo: 'PO14954', sourceNo: 'TR-RC-20260716-001', sku: 'FAB-PO14954-A', name: '主身面料', receivedQty: 6, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 6, flowStatus: '待上架', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-001', productionNo: 'PO14954', sourceNo: 'TR-RC-20260716-001', sku: 'ACC-PO14954-B', name: '辅料包', receivedQty: 2, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 2, flowStatus: '待上架', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-004', productionNo: 'PO14957', sourceNo: 'TR-RC-20260716-001', sku: 'FAB-PO14957-A', name: '主身面料', receivedQty: 5, allocatedQty: 5, putawayQty: 0, outboundQty: 5, exceptionQty: 0, remainQty: 0, flowStatus: '已出库', clearStatus: '已清空' },
-  { inboundNo: 'TR-IN-20260716-004', productionNo: 'PO14957', sourceNo: 'TR-RC-20260716-001', sku: 'ACC-PO14957-B', name: '辅料包', receivedQty: 2, allocatedQty: 2, putawayQty: 0, outboundQty: 2, exceptionQty: 0, remainQty: 0, flowStatus: '已出库', clearStatus: '已清空' },
-  { inboundNo: 'TR-IN-20260716-005', productionNo: 'PO14958', sourceNo: 'TR-RC-20260716-001', sku: 'FAB-PO14958-A', name: '主身面料', receivedQty: 6, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 6, flowStatus: '待出库', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-005', productionNo: 'PO14958', sourceNo: 'TR-RC-20260716-001', sku: 'ACC-PO14958-B', name: '辅料包', receivedQty: 2, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 2, flowStatus: '待出库', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-002', productionNo: 'PO14955', sourceNo: 'TR-RC-20260716-002', sku: 'FAB-PO14955-A', name: '主身面料', receivedQty: 5, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 5, flowStatus: '待上架', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-002', productionNo: 'PO14955', sourceNo: 'TR-RC-20260716-002', sku: 'ACC-PO14955-B', name: '辅料包', receivedQty: 3, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 3, flowStatus: '待上架', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-003', productionNo: 'PO14956', sourceNo: 'TR-RC-20260716-003', sku: 'FAB-PO14956-A', name: '主身面料', receivedQty: 4, allocatedQty: 0, putawayQty: 0, outboundQty: 0, exceptionQty: 0, remainQty: 4, flowStatus: '待上架', clearStatus: '未清空' },
-  { inboundNo: 'TR-IN-20260716-009', productionNo: 'PO14962', sourceNo: 'TR-RC-20260716-005', sku: 'FAB-PO14962-A', name: '主身面料', receivedQty: 6, allocatedQty: 6, putawayQty: 0, outboundQty: 6, exceptionQty: 0, remainQty: 0, flowStatus: '已出库', clearStatus: '已清空' },
+  { taskNo: 'TR-WK-20260716-001', receiveNo: 'TR-RC-20260716-001', putawayLocation: 'WH-XNKC-001', spu: 'FAB-14954', sku: 'FAB-PO14954-A', receivedRolls: 6, receivedMeters: 120, putawayQty: 0, status: '待上架', time: '2026-07-16 10:20' },
+  { taskNo: 'TR-WK-20260716-002', receiveNo: 'TR-RC-20260716-002', putawayLocation: 'WH-XNKC-001', spu: 'FAB-14955', sku: 'FAB-PO14955-A', receivedRolls: 5, receivedMeters: 100, putawayQty: 0, status: '待上架', time: '2026-07-16 11:30' },
+  { taskNo: 'TR-WK-20260716-003', receiveNo: 'TR-RC-20260716-003', putawayLocation: 'WH-XNKC-001', spu: 'FAB-14956', sku: 'FAB-PO14956-A', receivedRolls: 4, receivedMeters: 80, putawayQty: 0, status: '待上架', time: '2026-07-16 13:10' },
+  { taskNo: 'TR-WK-20260716-004', receiveNo: 'TR-RC-20260716-005', putawayLocation: 'WH-XNKC-001', spu: 'FAB-14964', sku: 'FAB-PO14964-A', receivedRolls: 4, receivedMeters: 60, putawayQty: 0, status: '待上架', time: '2026-07-16 15:20' },
+  { taskNo: 'TR-WK-20260716-005', receiveNo: 'TR-RC-20260716-001', putawayLocation: 'WH-XNKC-001', spu: 'FAB-14957', sku: 'FAB-PO14957-A', receivedRolls: 5, receivedMeters: 90, putawayQty: 5, status: '上架完成', time: '2026-07-16 10:12' },
+  { taskNo: 'TR-WK-20260715-006', receiveNo: 'TR-RC-20260715-001', putawayLocation: 'WH-XNKC-001', spu: 'FAB-14940', sku: 'FAB-PO14940-A', receivedRolls: 5, receivedMeters: 90, putawayQty: 5, status: '上架完成', time: '2026-07-15 09:05' },
 ]
-
-const flowStatusClass: Record<string, string> = {
-  '已出库': 'bg-emerald-50 text-emerald-700', '待出库': 'bg-orange-50 text-orange-700',
-  '已上架': 'bg-blue-50 text-blue-700', '待上架': 'bg-amber-50 text-amber-700', '-': 'bg-slate-100 text-slate-400',
-}
 
 const EVENT_PREFIX = 'wls-transit-work-area'
 const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
@@ -42,48 +46,50 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
+  confirmIdx: -1,
   detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
-  statusFilter: '' as string,
+  skuFilter: '',
+  warehouseFilter: '',
+  tab: 'ALL' as (typeof TAB_STATUSES)[number],
 }
 
 const columns: StandardListColumn<WorkAreaRow>[] = [
-  { key: 'inboundNo', title: '入库单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.inboundNo,
-    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.inboundNo)}</span>` },
-  { key: 'productionNo', title: '需求单', width: 120, sortable: true, sortValue: r => r.productionNo,
-    render: r => `<span class="text-slate-700">${escapeHtml(r.productionNo)}</span>` },
-  { key: 'sourceNo', title: '来源单', width: 180, sortable: true, sortValue: r => r.sourceNo,
-    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.sourceNo)}</span>` },
-  { key: 'sku', title: 'SKU', width: 160, sortable: true, sortValue: r => r.sku,
-    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
-  { key: 'name', title: '物料名称', width: 120, sortable: true, sortValue: r => r.name,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.name)}</span>` },
-  { key: 'receivedQty', title: '收货数量', width: 90, align: 'right', sortable: true, sortValue: r => r.receivedQty,
-    render: r => `<span class="text-slate-600">${r.receivedQty}</span>` },
-  { key: 'allocatedQty', title: '已配料', width: 80, align: 'right', sortable: true, sortValue: r => r.allocatedQty,
-    render: r => `<span class="text-slate-600">${r.allocatedQty}</span>` },
-  { key: 'putawayQty', title: '已上架', width: 80, align: 'right', sortable: true, sortValue: r => r.putawayQty,
-    render: r => `<span class="text-slate-600">${r.putawayQty}</span>` },
-  { key: 'outboundQty', title: '已出库', width: 80, align: 'right', sortable: true, sortValue: r => r.outboundQty,
-    render: r => `<span class="text-slate-600">${r.outboundQty}</span>` },
-  { key: 'exceptionQty', title: '异常暂存', width: 90, align: 'right', sortable: true, sortValue: r => r.exceptionQty,
-    render: r => `<span class="text-right ${r.exceptionQty > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}">${r.exceptionQty > 0 ? r.exceptionQty : '—'}</span>` },
-  { key: 'remainQty', title: '作业区剩余', width: 100, align: 'right', sortable: true, sortValue: r => r.remainQty,
-    render: r => `<span class="text-right font-medium ${r.remainQty > 0 ? 'text-orange-600' : 'text-slate-400'}">${r.remainQty}</span>` },
-  { key: 'flowStatus', title: '状态', width: 100, sortable: true, sortValue: r => r.flowStatus,
-    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${flowStatusClass[r.flowStatus] || flowStatusClass['-']}">${escapeHtml(r.flowStatus)}</span>` },
-  { key: 'clearStatus', title: '清空状态', width: 100, sortable: true, sortValue: r => r.clearStatus,
-    render: r => `<span class="text-xs ${r.clearStatus === '已清空' ? 'text-emerald-600' : 'text-orange-600'}">${escapeHtml(r.clearStatus)}</span>` },
-  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true,
-    render: r => `<div class="flex items-center gap-1"><button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view-destination" data-${EVENT_PREFIX}-idx="${ seedRows.indexOf(r) }">查看去向</button></div>` },
+  { key: 'orderNo', title: '单号', width: 250, required: true, freezeable: true, sortable: true, sortValue: r => r.taskNo,
+    render: r => `<div class="space-y-0.5">
+      <div class="font-mono text-xs font-medium text-blue-600" title="${escapeHtml(r.taskNo)}">${escapeHtml(r.taskNo)}</div>
+      <div class="font-mono text-[11px] text-slate-500">收货 ${escapeHtml(r.receiveNo)}</div>
+    </div>` },
+  { key: 'putawayLocation', title: '上架库位', width: 130, sortable: true, sortValue: r => r.putawayLocation,
+    render: r => `<span class="rounded bg-blue-50 px-2 py-0.5 font-mono text-xs text-blue-700">${escapeHtml(r.putawayLocation)}</span>` },
+  { key: 'fabricInfo', title: '面料信息', width: 170, sortable: true, sortValue: r => r.sku,
+    render: r => `<div class="space-y-0.5"><div class="font-mono text-xs text-slate-700">${escapeHtml(r.spu)}</div><div class="font-mono text-[11px] text-slate-500">${escapeHtml(r.sku)}</div></div>` },
+  { key: 'receivedQty', title: '收货数量 (卷/M)', width: 150, align: 'right', sortable: true, sortValue: r => r.receivedMeters,
+    render: r => `<span class="tabular-nums text-slate-600">${r.receivedRolls} 卷 / ${r.receivedMeters} M</span>` },
+  { key: 'putawayQty', title: '上架数量', width: 100, align: 'right', sortable: true, sortValue: r => r.putawayQty,
+    render: r => `<span class="font-medium text-slate-700">${r.putawayQty}</span>` },
+  { key: 'status', title: '上架状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status]}">${escapeHtml(r.status)}</span>` },
+  { key: 'time', title: '时间', width: 140, sortable: true, sortValue: r => r.time,
+    render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.time)}</span>` },
+  { key: 'actions', title: '操作', width: 230, required: true, actionColumn: true,
+    render: r => {
+      const idx = seedRows.indexOf(r)
+      const buttons = [
+        `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ idx }">查看详情</button>`,
+        `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view-log" data-${EVENT_PREFIX}-idx="${ idx }">查看日志</button>`,
+      ]
+      if (r.status === '待上架') buttons.push(`<button class="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700" data-${EVENT_PREFIX}-action="putaway" data-${EVENT_PREFIX}-idx="${ idx }">一键上架</button>`)
+      return `<div class="flex flex-wrap items-center gap-1">${buttons.join('')}</div>`
+    } },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
   visibleKeys: columns.map(c => c.key),
-  frozenKeys: ['inboundNo'],
+  frozenKeys: ['orderNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
 
@@ -93,19 +99,41 @@ function ensurePreferencesLoaded(): void {
   state.preferencesLoaded = true
 }
 
+function tabMatches(r: WorkAreaRow): boolean {
+  return state.tab === 'ALL' || r.status === state.tab
+}
+
+function renderTabsHtml(): string {
+  return renderTabs({
+    tabs: TAB_STATUSES.map(status => ({
+      key: status,
+      label: status === 'ALL' ? '全部' : status,
+      count: status === 'ALL' ? seedRows.length : seedRows.filter(r => r.status === status).length,
+    })),
+    activeKey: state.tab,
+    variant: 'pills',
+    prefix: EVENT_PREFIX,
+    action: 'switch-tab',
+  })
+}
+
 function filteredRows(): WorkAreaRow[] {
   const kw = state.keyword.trim().toLowerCase()
+  const sku = state.skuFilter.trim().toLowerCase()
   return seedRows.filter(r => {
-    if (state.statusFilter && r.flowStatus !== state.statusFilter) return false
+    if (!tabMatches(r)) return false
+    if (state.warehouseFilter && r.putawayLocation !== state.warehouseFilter) return false
+    if (sku && !r.sku.toLowerCase().includes(sku)) return false
     if (!kw) return true
-    return `${r.inboundNo} ${r.productionNo} ${r.sourceNo} ${r.sku} ${r.name}`.toLowerCase().includes(kw)
+    return `${r.taskNo} ${r.receiveNo}`.toLowerCase().includes(kw)
   })
 }
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="入库单号 / 需求单 / SKU / 物料名称" data-${EVENT_PREFIX}-field="keyword"></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="待上架" ${state.statusFilter === '待上架' ? 'selected' : ''}>待上架</option><option value="待出库" ${state.statusFilter === '待出库' ? 'selected' : ''}>待出库</option><option value="已出库" ${state.statusFilter === '已出库' ? 'selected' : ''}>已出库</option></select></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">单号</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="作业单号 / 收货单号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">SKU</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.skuFilter)}" placeholder="SKU" data-${EVENT_PREFIX}-field="sku"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部</option><option value="WH-XNKC-001" ${state.warehouseFilter === 'WH-XNKC-001' ? 'selected' : ''}>WH-XNKC-001</option></select></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -116,18 +144,28 @@ function renderWorkspace(): string {
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
   return renderStandardListPage({
-    title: '中转仓作业区管理',
+    title: '作业单管理',
+    description: '仅展示虚拟库位 WH-XNKC-001 的上架单，支持按单号、仓库、SKU、状态筛选',
+    statusTabsHtml: renderTabsHtml(),
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${all.length} 条` },
-      { label: '作业区剩余总量', value: `${seedRows.reduce((s, r) => s + r.remainQty, 0)}` },
-      { label: '已清空', value: `${seedRows.filter(r => r.clearStatus === '已清空').length} 条` },
+      { label: '待上架', value: `${seedRows.filter(r => r.status === '待上架').length} 条` },
+      { label: '上架完成', value: `${seedRows.filter(r => r.status === '上架完成').length} 条` },
+      { label: '已出库', value: `${seedRows.filter(r => r.status === '已出库').length} 条` },
     ]),
-    listTitle: '作业区物料列表',
+    listTitle: '作业单列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
-    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无作业区记录' }),
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '未找到符合条件的作业单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '作业区列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedRows[state.detailIdx] ? renderStandardRowDetailDialog({ title: '中转仓作业区管理详情', columns, row: seedRows[state.detailIdx], eventPrefix: EVENT_PREFIX }) : ''].join(''),
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '作业单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedRows[state.detailIdx] ? renderStandardRowDetailDialog({ title: '作业单详情', columns, row: seedRows[state.detailIdx], eventPrefix: EVENT_PREFIX }) : '', state.confirmIdx >= 0 && seedRows[state.confirmIdx] ? renderSimpleConfirmDialog({
+      prefix: EVENT_PREFIX,
+      closeAction: 'cancel-confirm',
+      confirmAction: 'run-confirm',
+      title: '确认上架',
+      description: `确认将作业单 ${seedRows[state.confirmIdx].taskNo} 的 ${seedRows[state.confirmIdx].receivedRolls} 卷 ${seedRows[state.confirmIdx].sku} 上架到 ${seedRows[state.confirmIdx].putawayLocation}？`,
+      confirmLabel: '确认上架',
+    }) : ''].join(''),
   })
 }
 
@@ -154,7 +192,8 @@ export function handleTransitWorkAreaManageEvent(target: HTMLElement, event?: Ev
   if (field) {
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
-    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'sku') { state.skuFilter = field.value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -168,6 +207,12 @@ export function handleTransitWorkAreaManageEvent(target: HTMLElement, event?: Ev
   const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action.startsWith('switch-tab:')) {
+    state.tab = action.slice('switch-tab:'.length) as (typeof TAB_STATUSES)[number]
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
   if (action === 'prev-page' || action === 'next-page') {
     state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
     refreshWorkspace()
@@ -181,17 +226,19 @@ export function handleTransitWorkAreaManageEvent(target: HTMLElement, event?: Ev
     return true
   }
   if (action === 'apply-filter') {
-    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
-    if (input) state.keyword = input.value
-    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
-    if (select) state.statusFilter = select.value
+    const root = rootElement()
+    const read = (name: string) => root?.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="${name}"]`)?.value ?? ''
+    state.keyword = read('keyword')
+    state.skuFilter = read('sku')
+    state.warehouseFilter = read('warehouse')
     state.currentPage = 1
     refreshWorkspace()
     return true
   }
   if (action === 'reset-filter') {
     state.keyword = ''
-    state.statusFilter = ''
+    state.skuFilter = ''
+    state.warehouseFilter = ''
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -210,8 +257,30 @@ export function handleTransitWorkAreaManageEvent(target: HTMLElement, event?: Ev
     refreshWorkspace()
     return true
   }
-  if (action === 'view-destination') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
+  if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
   if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: '中转仓作业区管理', columns, rows: filteredRows() }); return true }
+  if (action === 'view-log') { const row = seedRows[Number(actionNode.dataset[`${DATASET_PREFIX}Idx`])]; if (row) showListFeedback(`作业单 ${row.taskNo} 的操作日志为演示内容`, 'info'); return true }
+  if (action === 'putaway') {
+    state.confirmIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`])
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'cancel-confirm') {
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'run-confirm') {
+    const row = seedRows[state.confirmIdx]
+    if (row && row.status === '待上架') {
+      row.status = '上架完成'
+      row.putawayQty = row.receivedRolls
+      showListFeedback(`作业单 ${row.taskNo} 已完成，${row.sku} 已入位 ${row.putawayLocation}`)
+    }
+    state.confirmIdx = -1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'export') { exportStandardListRows({ fileName: '作业单管理', columns, rows: filteredRows() }); return true }
   return false
 }
