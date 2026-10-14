@@ -236,10 +236,11 @@ function receiptFacts(versions: PostFinishingReturnConfirmationVersion[]): Produ
 
 export function listSewingOutsourcingReturnTrackingRows(
   nowAt: string = formatSewingBusinessWallClock(),
+  includesAssignment: (assignment: EffectiveTaskAssignment) => boolean = () => true,
 ): SewingOutsourcingReturnTrackingRow[] {
   if (/[TZ+]/.test(nowAt.slice(10))) nowAt = formatSewingBusinessWallClock(new Date(ppicInstant(nowAt)))
   ensureSewingOutsourcingReturnTrackingDemo()
-  return listEffectiveTaskAssignments().filter((assignment) => assignment.status === 'EFFECTIVE').filter((assignment) => assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code))).map((assignment) => {
+  return listEffectiveTaskAssignments().filter((assignment) => assignment.status === 'EFFECTIVE').filter((assignment) => assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code))).filter(includesAssignment).map((assignment) => {
     const taskType: PostFinishingSewingTaskType = assignment.processCodes.includes('CUTTING') ? 'CUTTING_TO_IRON_PACK' : assignment.processCodes.includes('IRON_PACK') ? 'SEWING_TO_IRON_PACK' : 'INDEPENDENT_SEWING'
     const techPack = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
     const productionOrder = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((order) => order.assignmentId === assignment.assignmentId) || {

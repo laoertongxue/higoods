@@ -1,7 +1,7 @@
 import { getAvailableOnboardingPpicOptions, getCurrentSewingOutsourcingPpic } from './factory-onboarding-ppic.ts'
 import { listSewingFactoryMasterRecords } from './factory-master-store.ts'
 import { hydrateProductionContextRecords } from './production-context-records.ts'
-import { listSewingTaskResponsibilityVersions } from './sewing-outsourcing-responsibility.ts'
+import { getCurrentSewingTaskResponsibility, listSewingTaskResponsibilityVersions } from './sewing-outsourcing-responsibility.ts'
 import { listSewingOutsourcingReturnTrackingRows } from './sewing-outsourcing-return-tracking.ts'
 import { listPostFinishingReturnConfirmationVersions } from './post-finishing-full-flow.ts'
 import { getPpicReturnQuantityBasis, type PpicReturnQuantityBasis } from './ppic-return-quantity-basis.ts'
@@ -64,12 +64,14 @@ export interface PpicDailyTaskView {
   missingMilestones?: Array<{ ratio: number; deadlineAt: string }>
   responsibilityHistory: Array<{ ppicId: string; ppicName: string; effectiveAt: string; reason?: string }>
 }
-function taskViews(nowAt: string): PpicDailyTaskView[] {
-  return withCutPieceReleaseReadSnapshot(() => readTaskViews(nowAt), false)
+function taskViews(nowAt: string, actorId?: string): PpicDailyTaskView[] {
+  return withCutPieceReleaseReadSnapshot(() => readTaskViews(nowAt, actorId), false)
 }
-function readTaskViews(nowAt: string): PpicDailyTaskView[] {
+function readTaskViews(nowAt: string, actorId?: string): PpicDailyTaskView[] {
   const factories = new Set(listSewingFactoryMasterRecords().filter(f => f.factoryTier === 'THIRD_PARTY' && f.factoryType === 'THIRD_SEWING').map(f => f.id))
-  const current: PpicDailyTaskView[] = listSewingOutsourcingReturnTrackingRows(nowAt).filter(r => factories.has(r.assignment.factoryId)).map(r => {
+  const personalHistory = new Set(store.promises.filter(p => p.actorId === actorId).map(p => p.assignmentId))
+  const current: PpicDailyTaskView[] = listSewingOutsourcingReturnTrackingRows(nowAt, assignment => factories.has(assignment.factoryId)
+    && (!actorId || (getCurrentSewingTaskResponsibility(assignment.runtimeTaskId)?.ppicId || assignment.ppicId || '') === actorId || personalHistory.has(assignment.assignmentId))).map(r => {
     const basis = getPpicReturnQuantityBasis(r.assignment.assignmentId, nowAt)
     const task: PpicTaskContext = { assignmentId: basis.assignmentId, taskId: basis.taskId, factoryId: basis.factoryId, ownerId: r.ppicId,
       expectedQty: basis.expectedQty, status: basis.status, sourceKind: basis.sourceKind || '', sourceRefs: basis.sourceRefs, basisVersion: basis.basisVersion }
@@ -80,7 +82,7 @@ function readTaskViews(nowAt: string): PpicDailyTaskView[] {
       responsibilityHistory: listSewingTaskResponsibilityVersions(task.taskId).map(v => ({ ppicId: v.ppicId, ppicName: v.ppicName, effectiveAt: v.effectiveAt, reason: v.reason })) }
   })
   const ids = new Set(current.map(t => t.task.assignmentId))
-  for (const p of store.promises) if (!ids.has(p.assignmentId)) {
+  for (const p of store.promises) if ((!actorId || p.actorId === actorId) && !ids.has(p.assignmentId)) {
     ids.add(p.assignmentId)
     const basis = getPpicReturnQuantityBasis(p.assignmentId, nowAt)
     const saved = store.bases.find(b => b.assignmentId === p.assignmentId && b.version === p.basisVersion)
@@ -100,7 +102,7 @@ export function getPpicDailyReturnView(input: { date?: string; nowAt?: string } 
   const actor = getCurrentPpicDailyActor(), nowAt = input.nowAt || new Date().toISOString()
   const date = input.date || ppicBusinessDate(nowAt)
   const config = ppicConfigAt(store, date)
-  const all = taskViews(nowAt)
+  const all = taskViews(nowAt, actor.id)
   const tasks = all.filter(t => t.task.ownerId === actor.id && needsDailyTaskConfirmation(t))
     .map(t => ({ ...t, todayHasArrangement: t.promises.some(p => p.actorId === actor.id && p.date === date) || store.makeups.some(m => m.actorId === actor.id && ppicBusinessDate(m.createdAt, config.timeZone) === date && t.promises.some(p => p.promiseId === m.promiseId)) || store.actions.some(a => a.action === '修改安排时间' && a.actorId === actor.id && ppicBusinessDate(a.at, config.timeZone) === date && t.promises.some(p => p.promiseId === a.promiseId)) }))
   const history = all.filter(t => (t.historical || t.task.ownerId !== actor.id) && t.promises.some(p => p.actorId === actor.id))

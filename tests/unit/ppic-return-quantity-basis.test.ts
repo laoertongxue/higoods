@@ -208,6 +208,8 @@ test('R45: current ambiguous source does not erase a historically confirmed 35% 
     assert.equal(getPpicReturnQuantityBasis(assignment.assignmentId, '2026-10-04 23:59:59').expectedQty, 50)
     assert.equal(getPpicReturnQuantityBasis(assignment.assignmentId, '2026-10-07 10:00:00').status, 'AMBIGUOUS')
     const row = listSewingOutsourcingReturnTrackingRows('2026-10-07 10:00:00').find(r => r.assignment.assignmentId === assignment.assignmentId)!
+    assert.deepEqual(listSewingOutsourcingReturnTrackingRows('2026-10-07 10:00:00', item => item.assignmentId === assignment.assignmentId), [row], 'H15 提前按任务限定仍保留全部数量、历史节点和责任事实')
+    assert.deepEqual(listSewingOutsourcingReturnTrackingRows('2026-10-07 10:00:00', () => false), [])
     assert.equal(row.returnProjection.milestones.find(n => n.ratio === .35)?.targetQty, 18)
     assert.deepEqual(row.returnProjection.missingMilestones.map(n => n.ratio), [1])
   })
