@@ -19,6 +19,11 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    if (['renderSewingOutsourcingReturnsPage', 'renderSewingOutsourcingWorkbenchPage',
+      'renderSewingOutsourcingTeamWorkbenchPage', 'renderSewingOutsourcingResponsibilityTransfersPage',
+      'renderSewingProductionOrderDurationPage'].includes(exportName)) {
+      await (await import('../data/fcs/ppic-daily-return-records.ts')).ensurePpicDailyReturnState()
+    }
     if (exportName === 'renderSewingOutsourcingTasksPage') {
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()

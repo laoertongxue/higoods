@@ -67,6 +67,31 @@ async function confirmFromUi(page: Page, fixture: ReceiptFixture, actual = '2026
 
 test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date(nowAt)) })
 
+test('后道确认后新标签直达回货跟进，读取同一实收、承诺和分摊且不落盘种子', async ({ page, context }) => {
+  const fixture = await prepareReceipt(page)
+  await confirmFromUi(page, fixture)
+  const user = await page.evaluate(async id => (await import('/src/data/fcs/factory-onboarding-ppic.ts')).getOnboardingPpicOptionById(id), fixture.actorId)
+  const before = await snapshot(page, fixture)
+  const cold = await context.newPage()
+  await cold.clock.setFixedTime(new Date(nowAt))
+  // 只设置已有登录上下文；此标签不先打开填报页、不导入PPIC记录模块。
+  await cold.route('**/src/data/fcs/factory-onboarding-ppic.ts*', async route => {
+    const response = await route.fetch()
+    const body = await response.text()
+    await route.fulfill({ response, body: body.replace(/^export const SEWING_OUTSOURCING_DEMO_CURRENT_PPIC = .*;$/m, 'export const SEWING_OUTSOURCING_DEMO_CURRENT_PPIC = ' + JSON.stringify(user) + ';') })
+  })
+  await cold.goto('/fcs/sewing-outsourcing/returns')
+  await cold.locator('[data-ppic-return-track-action="switch-tab:OVERDUE"]').click()
+  await cold.locator(`[data-ppic-return-track-action="detail"][data-assignment-id="${fixture.assignmentId}"]`).click()
+  const detail = cold.getByRole('dialog', { name: '回货履约归责详情' })
+  await expect(detail).toContainText(`已确认 ${fixture.priorConfirmedQty + fixture.quantity} 件`)
+  await expect(detail).toContainText('按期兑现')
+  await expect(detail).not.toContainText('尚无每日承诺')
+  await detail.locator('summary').click()
+  await expect(detail).toContainText('正式实收分摊')
+  expect((await snapshot(page, fixture)).durable).toEqual(before.durable)
+})
+
 test('补录原因和未来时刻在页面阻断，按实际确认时刻计算及时量且首次读取不落盘种子', async ({ page }) => {
   await page.goto(report)
   await expect(page.getByRole('heading', { name: '每日回货填报', exact: true })).toBeVisible()

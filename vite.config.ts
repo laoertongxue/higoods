@@ -123,6 +123,18 @@ function preloadStaticFirstScreenRoutes(): Plugin {
       handler(_html, context) {
         if (!context.bundle) return
         const entries = [
+          ['/fcs/sewing-outsourcing/daily-return-report', routeStaticChunks(context.bundle, [
+            '/src/pages/sewing-outsourcing/daily-return-report.ts',
+            '/src/data/fcs/cutting/part-ticket-records.ts',
+          ]), []],
+          ['/fcs/sewing-outsourcing/daily-return-summary', routeStaticChunks(context.bundle, [
+            '/src/pages/sewing-outsourcing/daily-return-summary.ts',
+            '/src/data/fcs/cutting/part-ticket-records.ts',
+          ]), []],
+          ['/fcs/sewing-outsourcing/returns', routeStaticChunks(context.bundle, [
+            '/src/pages/sewing-outsourcing/returns.ts',
+            '/src/data/fcs/cutting/part-ticket-records.ts',
+          ]), []],
           ['/fcs/pda/auth/login', routeStaticChunks(context.bundle, ['/src/pages/pda-login.ts']), []],
           ['/pms/purchase-suggestions', routeStaticChunks(context.bundle, ['/src/pages/pms/purchase-suggestions.ts']), [
             '/thumbnails/tshirt-sample.webp', '/thumbnails/pants-sample.webp',

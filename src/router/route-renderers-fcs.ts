@@ -33,7 +33,13 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       ])
     }
     const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
-    if (postFinishingScope) {
+    const ppicReturnReadScope = [
+      'renderSewingOutsourcingReturnsPage', 'renderSewingOutsourcingWorkbenchPage',
+      'renderSewingOutsourcingTeamWorkbenchPage', 'renderSewingOutsourcingResponsibilityTransfersPage',
+      'renderProgressBoardPage', 'renderProgressTaskDetailPage',
+      'renderProductionOrderProgressTrackingPage', 'renderSewingProductionOrderDurationPage',
+    ].includes(exportName)
+    if (postFinishingScope || ppicReturnReadScope) {
       // 必须在页面和命令可用前注册必要分摊事实；直接后道入口与填报入口一致。
       await import('../data/fcs/ppic-daily-return-records.ts')
     }
@@ -45,6 +51,9 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
+    if (ppicReturnReadScope) {
+      await (await import('../data/fcs/ppic-daily-return-records.ts')).ensurePpicDailyReturnState()
+    }
     if (postFinishingScope) {
       await import('../data/fcs/post-finishing-full-flow.ts')
       await (await import('../data/fcs/post-finishing-records.ts')).ensurePostFinishingRecordState()
