@@ -1,3 +1,4 @@
+import { staticImageThumbnail } from '../utils/static-image-thumbnail.ts'
 import { renderReturnBusinessTimeFields } from './ppic-return-business-time-ui.ts'
 import { handlePostFinishingStorageEvent, showPostFinishingActionFailure } from './process-factory/post-finishing/storage-notice.ts'
 import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
@@ -95,7 +96,7 @@ function image(sku: { imageUrl: string; skuCode: string; spuName: string; colorN
   const label = `${sku.skuCode} ${sku.colorName} ${sku.sizeName}`
   return `
     <button type="button" class="relative flex h-16 w-16 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-xl border bg-white" data-pda-post-action="zoom-image" data-image-url="${escapeHtml(sku.imageUrl)}" data-image-label="${escapeHtml(label)}">
-      <img src="${escapeHtml(sku.imageUrl)}" alt="${escapeHtml(`${sku.spuName} ${sku.colorName} ${sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" />
+      <img src="${escapeHtml(staticImageThumbnail(sku.imageUrl))}" alt="${escapeHtml(`${sku.spuName} ${sku.colorName} ${sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" />
       <span class="px-1 text-center text-[10px] text-slate-500">图片加载中…</span>
     </button>
   `

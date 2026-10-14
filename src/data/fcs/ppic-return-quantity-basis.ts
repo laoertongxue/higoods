@@ -4,7 +4,7 @@ import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack
 import { getSewingCutPieceResponsibilityProjection, listSewingCutPieceHandoverEvents } from './sewing-cut-piece-responsibility.ts'
 import { getCutPieceDispatchReadinessForTask, getCutPieceReleaseSummaryForProductionOrder, listCutPieceReleaseAvailableQtyVersions, withCutPieceReleaseReadSnapshot } from './cut-piece-release.ts'
 import { listManagedCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents, type WholeBagHandoverSubmitPayload } from './cutting/cutting-runtime-event-ledger.ts'
-import { isCompleteSuccessfulWholeBagHandoverEvent } from './cutting/transfer-bag-operations.ts'
+import { isCompleteSuccessfulWholeBagHandoverEvent } from './cutting/whole-bag-handover-read-contract.ts'
 
 export type PpicReturnQuantityBasisStatus = 'READY' | 'WAIT_HANDOVER' | 'AMBIGUOUS' | 'SOURCE_UNAVAILABLE'
 export type PpicReturnQuantitySourceKind = 'ASSIGNMENT' | 'CUT_PIECE_COMPLETE_KIT' | 'CUT_PIECE_RELEASE'

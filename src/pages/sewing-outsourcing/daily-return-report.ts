@@ -1,3 +1,4 @@
+import { staticImageThumbnail } from '../../utils/static-image-thumbnail.ts'
 // @page-pattern: dashboard
 
 import { escapeHtml } from '../../utils.ts'
@@ -49,7 +50,7 @@ export function renderPpicDailyCurrentUser(): string {
 }
 export function renderPpicDailyImage(imageUrl: string, label: string, prefix: string): string {
   if (!imageUrl) return '<span class="inline-flex h-16 w-16 shrink-0 items-center rounded border border-red-200 bg-red-50 p-1 text-center text-xs text-red-700">对应款式图片缺失</span>'
-  return `<button class="relative h-16 w-16 shrink-0 overflow-hidden rounded border" data-${prefix}-action="image" data-image-url="${escapeHtml(imageUrl)}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}高清图"><img class="h-full w-full object-contain" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(label)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 p-1 text-xs text-red-700">图片加载失败</span></button>`
+  return `<button class="relative h-16 w-16 shrink-0 overflow-hidden rounded border" data-${prefix}-action="image" data-image-url="${escapeHtml(imageUrl)}" data-image-label="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}高清图"><img class="h-full w-full object-contain" src="${escapeHtml(staticImageThumbnail(imageUrl))}" alt="${escapeHtml(label)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 flex items-center justify-center bg-red-50 p-1 text-xs text-red-700">图片加载失败</span></button>`
 }
 export function renderPpicDailyImageDialog(imageUrl: string, label: string, prefix: string): string {
   return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4" role="dialog" aria-modal="true" aria-label="${escapeHtml(label)}高清图"><button class="absolute inset-0" data-${prefix}-action="close" aria-label="关闭大图"></button><section class="relative z-10 max-h-[92vh] w-full max-w-4xl overflow-auto rounded bg-white p-4"><header class="mb-3 flex items-center justify-between gap-2"><b>${escapeHtml(label)}</b><button class="${buttonClass}" data-${prefix}-action="close">关闭</button></header><img class="mx-auto max-h-[78vh] max-w-full object-contain" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(label)}高清图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><p hidden class="rounded bg-red-50 p-3 text-red-700">图片加载失败，关闭后可重新打开。</p></section></div>`

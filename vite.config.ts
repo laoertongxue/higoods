@@ -128,7 +128,6 @@ function preloadStaticFirstScreenRoutes(): Plugin {
         const returnReadInitialization = [
           '/src/data/pms/idb-storage.ts',
           '/src/data/fcs/cutting/part-ticket-records.ts',
-          '/src/data/fcs/production-context-actions.ts',
           '/src/data/fcs/cutting/cutting-event-repository.ts',
           '/src/data/fcs/cutting/generated-cut-release.ts',
         ]
@@ -136,7 +135,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/fcs/sewing-outsourcing/daily-return-report', routeStaticChunks(context.bundle, [
             '/src/pages/sewing-outsourcing/daily-return-report.ts',
             ...returnReadInitialization,
-          ]), ['/materials/pcs-reviewed/shirt-black.jpg', '/materials/pcs-reviewed/jacket-black.jpg', '/materials/pcs-reviewed/tee-black.jpg']],
+          ]), ['/thumbnails/materials/pcs-reviewed/shirt-black.webp', '/thumbnails/materials/pcs-reviewed/jacket-black.webp', '/thumbnails/materials/pcs-reviewed/tee-black.webp']],
           ['/fcs/sewing-outsourcing/daily-return-summary', routeStaticChunks(context.bundle, [
             '/src/pages/sewing-outsourcing/daily-return-summary.ts',
             ...returnReadInitialization,
@@ -161,8 +160,8 @@ function preloadStaticFirstScreenRoutes(): Plugin {
             '/src/pages/pda-post-finishing-flow.ts',
             '/src/main-handlers/pda-handlers.ts',
             ...returnReadInitialization,
-          ]), ['/materials/pcs-reviewed/jacket-black.jpg', '/materials/pcs-reviewed/jacket-white.jpg',
-            '/materials/pcs-reviewed/jacket-blue.jpg', '/materials/pcs-reviewed/jacket-khaki.jpg', '/materials/pcs-reviewed/jacket-wine.jpg']],
+          ]), ['/thumbnails/materials/pcs-reviewed/jacket-black.webp', '/thumbnails/materials/pcs-reviewed/jacket-white.webp',
+            '/thumbnails/materials/pcs-reviewed/jacket-blue.webp', '/thumbnails/materials/pcs-reviewed/jacket-khaki.webp', '/thumbnails/materials/pcs-reviewed/jacket-wine.webp']],
           ['/fcs/pda/exec/', routeStaticChunks(context.bundle, [
             '/src/pages/pda-exec-detail.ts',
             ...returnReadInitialization,
@@ -299,6 +298,8 @@ export default defineConfig({
             '/src/data/process-craft-dict.ts',
             '/src/data/pcs-tmf-material-reference-seeds.ts',
           ]
+          if (['sewing-return-calendar', 'task-fulfillment-policy', 'merged-production-task']
+            .some(file => id.endsWith(`/src/data/fcs/${file}.ts`))) return 'sewing-return-policy-shared'
           // PCS must begin its record read without waiting for the unrelated
           // production-source modules to parse. This closure contains only the
           // existing storage codec/runtime; business repositories stay separate.
