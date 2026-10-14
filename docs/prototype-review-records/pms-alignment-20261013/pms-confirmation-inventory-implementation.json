@@ -1,0 +1,478 @@
+{
+  "agent": "procurement_cleanup",
+  "workPackage": "WP-OPS-CONFIRM-INVENTORY",
+  "status": "已实现待验证",
+  "baselineHead": "ee14949905b08b260e9c6309eebc59bfa5b32764",
+  "sourceEnvironment": "test_manage.higood.ai (read-only frozen inventory)",
+  "sourceActions": [
+    {
+      "id": "PMS-OPS-001",
+      "page": "supplier-confirmations",
+      "action": "查询",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881855616-supplier-confirmations-查询.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "query / filteredRows"
+    },
+    {
+      "id": "PMS-OPS-002",
+      "page": "supplier-confirmations",
+      "action": "重置",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881856506-supplier-confirmations-重置.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "reset"
+    },
+    {
+      "id": "PMS-OPS-003",
+      "page": "supplier-confirmations",
+      "action": "查看确认单",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881740255-supplier-confirmations-查看.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "open-view / renderReadOnlyConfirmation"
+    },
+    {
+      "id": "PMS-OPS-004",
+      "page": "supplier-confirmations",
+      "action": "编辑确认单",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "open-rolls / renderRollsOverlay"
+    },
+    {
+      "id": "PMS-OPS-005",
+      "page": "supplier-confirmations",
+      "action": "操作日志",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881819345-supplier-confirmations-操作日志.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "open-logs / listPmsLogs"
+    },
+    {
+      "id": "PMS-OPS-006",
+      "page": "supplier-confirmations",
+      "action": "导出",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881859590-supplier-confirmations-导出.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "exportRows / downloadPmsCsv"
+    },
+    {
+      "id": "PMS-OPS-007",
+      "page": "supplier-confirmations",
+      "action": "批量打印标签空选",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881842685-supplier-confirmations-批量打印标签空选.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "batch-print / empty selection guard"
+    },
+    {
+      "id": "PMS-OPS-008",
+      "page": "supplier-confirmations",
+      "action": "每页条数",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882863392-supplier-confirmations-每页10.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "pageSize / controller.setPageSize"
+    },
+    {
+      "id": "PMS-OPS-009",
+      "page": "supplier-confirmations",
+      "action": "跳转页码",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882864104-supplier-confirmations-跳转1.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "jump-page"
+    },
+    {
+      "id": "PMS-OPS-010",
+      "page": "supplier-confirmations",
+      "action": "同步采购单",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "synchronizePmsSupplierConfirmations"
+    },
+    {
+      "id": "PMS-OPS-011",
+      "page": "supplier-confirmations",
+      "action": "生成卷号",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "generate-rolls / generatePmsConfirmationRolls"
+    },
+    {
+      "id": "PMS-OPS-012",
+      "page": "supplier-confirmations",
+      "action": "保存草稿",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "save-shipment / savePmsConfirmationShipment"
+    },
+    {
+      "id": "PMS-OPS-013",
+      "page": "supplier-confirmations",
+      "action": "保存并确认",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "save-confirm / savePmsConfirmationShipment / commitConfirmation"
+    },
+    {
+      "id": "PMS-OPS-014",
+      "page": "supplier-confirmations",
+      "action": "供应商确认",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "confirm-supplier / confirmPmsSupplierConfirmation"
+    },
+    {
+      "id": "PMS-OPS-015",
+      "page": "supplier-confirmations",
+      "action": "单条打印标签",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "print-single / printPmsConfirmationLabels / openLabelPrint"
+    },
+    {
+      "id": "PMS-OPS-016",
+      "page": "supplier-confirmations",
+      "action": "已选批量打印标签",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791881800895-supplier-confirmations-编辑再次.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "src/data/pms/supplier-confirmations.ts",
+      "handler": "handlePmsSupplierConfirmationsEvent",
+      "implementation": "batch-print / openLabelPrint"
+    },
+    {
+      "id": "PMS-OPS-062",
+      "page": "material-inventory",
+      "action": "SKU搜索",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882360866-material-inventory-SKU搜索.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "query / rows / listPmsMaterialInventory"
+    },
+    {
+      "id": "PMS-OPS-063",
+      "page": "material-inventory",
+      "action": "清除",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882388941-material-inventory-清除.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "reset"
+    },
+    {
+      "id": "PMS-OPS-064",
+      "page": "material-inventory",
+      "action": "第二页",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882359345-material-inventory-第二页.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "next-page / controller.stepPage"
+    },
+    {
+      "id": "PMS-OPS-065",
+      "page": "material-inventory",
+      "action": "每页条数",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882874371-material-inventory-每页10.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "pageSize / controller.setPageSize"
+    },
+    {
+      "id": "PMS-OPS-066",
+      "page": "material-inventory",
+      "action": "跳转页码",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882875589-material-inventory-跳转1.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "jump-page"
+    },
+    {
+      "id": "PMS-OPS-067",
+      "page": "material-inventory",
+      "action": "日志明细",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882331561-material-inventory-日志明细.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "flows / listPmsMaterialInventoryFlows / purchasePostingDetails"
+    },
+    {
+      "id": "PMS-OPS-068",
+      "page": "material-inventory",
+      "action": "在仓数量条码明细",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882357900-material-inventory-库存条码明细实际.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "barcodes / listPmsMaterialInventoryBarcodes / purchasePostingDetails"
+    },
+    {
+      "id": "PMS-OPS-069",
+      "page": "material-inventory",
+      "action": "最新盘点单",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882387697-material-inventory-最新盘点详情.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "counts / listPmsMaterialInventoryCounts"
+    },
+    {
+      "id": "PMS-OPS-070",
+      "page": "material-inventory",
+      "action": "原料图片放大",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882368833-material-inventory-原料图片.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "renderPmsBusinessImage / handlePmsCommonImageEvent"
+    },
+    {
+      "id": "PMS-OPS-071",
+      "page": "material-inventory",
+      "action": "排序与仓库筛选选项",
+      "sourceEvidence": "/tmp/higoods-pms-test-ops-20261013/1791882316920-material-inventory-列表.txt",
+      "status": "已实现待验证",
+      "pageFile": "src/pages/pms/material-inventory.ts",
+      "dataFile": "src/data/pms/material-inventory.ts",
+      "handler": "handlePmsMaterialInventoryEvent",
+      "implementation": "warehouse source / listPmsMaterialInventory"
+    }
+  ],
+  "changes": {
+    "confirmation": [
+      "Remove initialization write into associated MPO",
+      "10 mutable actions async/candidate copy/commit records+log/only publish after transaction",
+      "save shipment main fields + all visible roll rows as one action",
+      "confirmed shipment + associated MPO in same transaction via preparePmsSupplierPurchaseConfirmation and publish",
+      "sync eligible purchase records; source filters including date/person/label",
+      "read-only detail/log view; local overlays/table/stats/pagination; selection and guards; source export",
+      "labels use real QR printable preview; opening preview does not increment physical printed metadata",
+      "6 static confirmation records/default5 gives2pages; no initial whole seed write",
+      "Unsaved input survives subsidiary actions and label preview; record switching checks before discard; readonly detail stays readonly through label preview.",
+      "Confirmed edits revoke this confirmation and associated MPO supplierConfirmed/supplierConfirmedAt in the same transaction; arrived/inbound/closed orders block editing. QR payload changes with saved roll quantities.",
+      "Sync reuses pure MPO eligibility gate.",
+      "Final save confirmation stays inside the existing drawer with object/actual quantity/package count/related order consequence; native window.confirm removed. Dirty close/switch uses shared.confirmPmsAction.",
+      "Label summaries are 已生成 when no physical print count exists; partial print requires a real printed subset. New labels use short deterministic business numbers; previous stored numbers retained."
+    ],
+    "inventory": [
+      "Remove unrequested replenishment/adjustment/fake-purchase/fake-process actions and owned domain APIs",
+      "Read existing WLS getFabricDemandBoardRows 6SKU*2warehouse=12rows/default10",
+      "Same identity images/stock/source warehouse and location; SKU/SPU/name, warehouse/type and stock sort",
+      "Exact barcode query uses existing WLS preInboundSeed roll facts; exact stock flows uses new readonly WLS getter; exact counts use new readonly WLS getter",
+      "No matching barcode/flow/count facts for the current 6SKU gives true empty feedback",
+      "No lock/transit fields in WLS board source: display 未提供 and do not falsely calculate availability",
+      "No own writable inventory fact or browser persistence; old physical user data not cleared",
+      "Read direct local MPO inventoryPosting facts only after awaited hydration, exact SKU/warehouse/unit grouping; static 已入库 alone is not a posting. Show real procurement snapshot and 本地演示 origin, never write WLS. Mixed units are separately summed."
+    ]
+  },
+  "deletedFiles": [
+    "src/data/pms/inventory-monitor.ts",
+    "tests/unit/pms-inventory-monitor.test.ts"
+  ],
+  "sharedOwnerChanges": "root removed main hydrate and active inventory monitor/order stores; old physical stores left untouched",
+  "files": [
+    {
+      "path": "src/data/pms/supplier-confirmations.ts",
+      "sha256": "a0846e59bd7100b738899d441fd9dae2dc53d95b1c66dc07d30660f3d8872059"
+    },
+    {
+      "path": "src/pages/pms/supplier-confirmations.ts",
+      "sha256": "455a525d5e60015cf9bdb8a4111f2b1c908227add5b0f624db064638c05ef034"
+    },
+    {
+      "path": "src/data/pms/material-inventory.ts",
+      "sha256": "afcb09c43fb8b28999a4c508ccfc2f3849366ad8b15c5e916fd6cbce6fec7f52"
+    },
+    {
+      "path": "src/pages/pms/material-inventory.ts",
+      "sha256": "37935e0f1c626487e16efd6404fc07343b89a2064224771e5e50bde9e0ef6656"
+    },
+    {
+      "path": "src/pages/wls/raw/stock-flow.ts",
+      "sha256": "d49647d1e08f9e29531f01d6d4940f95be7b6c760ee2e1d447c6c258e2587abe"
+    },
+    {
+      "path": "src/pages/wls/raw/fabric-inventory-count.ts",
+      "sha256": "5187abb568378610f6392361187049be3ce51e4ad5389af3585014d8cd99cc9e"
+    },
+    {
+      "path": "tests/unit/pms-supplier-confirmations.test.ts",
+      "sha256": "77bdc628c5e08d6cc7b5d14f0ef7b2464223ae8ad23c4f17c2dadea9b0a6f47a"
+    },
+    {
+      "path": "tests/unit/pms-material-inventory.test.ts",
+      "sha256": "db20093e70cf54a355c2f24c875cd2836f3c6aef4458f45346b11b99cb34f486"
+    }
+  ],
+  "checks": [
+    {
+      "command": "node --import tsx --test tests/unit/pms-supplier-confirmations.test.ts tests/unit/pms-material-inventory.test.ts",
+      "result": "5 pass,0 fail",
+      "evidence": "/tmp/pms-confirmation-inventory-unit-results.txt",
+      "scope": "readonly source/count, no imaginary linked facts, no ordinary-read MPO mutation, failed label/roll save preserves data/logs"
+    },
+    {
+      "command": "TypeScript transpileModule of four owned files",
+      "result": "no syntax diagnostic",
+      "evidence": "/tmp/pms-confirmation-inventory-syntax-results.txt",
+      "scope": "syntax only; root integrated type check pending"
+    },
+    {
+      "command": "Combined 4 owned test files",
+      "result": "11 pass / 0 fail",
+      "evidence": "/tmp/pms-cleanup-final-unit-results.txt",
+      "scope": "Pure successful candidates, readonly current facts, unavailable storage and readonly page failure contracts"
+    },
+    {
+      "command": "git diff --check on owned files",
+      "result": "pass"
+    },
+    {
+      "command": "Latest combined owned unit tests",
+      "result": "13 pass / 0 fail",
+      "evidence": "/tmp/pms-cleanup-final-unit-results.txt"
+    },
+    {
+      "command": "Owned file diff --check",
+      "result": "pass"
+    }
+  ],
+  "outstanding": [
+    "Integrated TypeScript/build/list-governance by root",
+    "Actual local confirmation successful save + source MPO readback + abort/conflict/retry/refresh",
+    "Actual 2 pages inventory filters/sort/links and true empty boundaries",
+    "1366x768/1280x720, QR/print/photo view and five response samples",
+    "Existing WLS source provides no lock/transit/available or exact perSKU count details; feature reads and declares absent facts, does not manufacture them"
+  ],
+  "noExternalWrites": true,
+  "noBusinessUserDataReset": true,
+  "generatedAt": "2026-10-13T14:15:41.742Z",
+  "supplementalBindings": [
+    {
+      "page": "material-inventory",
+      "action": "仓库查询",
+      "implementation": "warehouse filter / listPmsMaterialInventory"
+    },
+    {
+      "page": "material-inventory",
+      "action": "库存排序",
+      "implementation": "stock sort / controller.cycleSort"
+    },
+    {
+      "id": "WP-BARCODE-INVENTORY-PROJECTION",
+      "source": "root supplemental barcode contract",
+      "requirement": "Exact SKU/warehouse/unit readonly local MPO barcode projection retains targetArea/movedAt/movedBy without changing stock quantity",
+      "file": "src/data/pms/material-inventory.ts; src/pages/pms/material-inventory.ts",
+      "symbols": "listPmsMaterialInventoryBarcodes; handlePmsMaterialInventoryEvent",
+      "status": "已实现待验证",
+      "automatedEvidence": "/tmp/pms-inventory-barcode-projection-test.txt",
+      "boundary": "Actual own 5246: local MPO received/posted5KG, later1KG barcode area move retained quantity5KG; refresh read same actor/time/region. WLS seed quantity2720Yard unchanged; no WLS writes.",
+      "browserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-inbound.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-after-posting-off-shelf-same-quantity.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.png"
+      ]
+    }
+  ],
+  "sourceFrozenAt": "2026-10-13T22:58:22.637818",
+  "localBrowserVerification": {
+    "origin": "http://127.0.0.1:5246",
+    "server": "Vite createServer hmr:false",
+    "viewportOverride": false,
+    "evidenceDirectory": "/tmp/higoods-pms-cleanup-local-verification-20261013",
+    "confirmation": [
+      "confirmation-confirmed.txt",
+      "confirmation-related-mpo-refresh.txt",
+      "confirmation-view-refresh.txt"
+    ],
+    "inventory": [
+      "inventory-flow-empty.txt",
+      "inventory-barcode-empty.txt",
+      "inventory-count-empty.txt",
+      "inventory-page2.txt",
+      "inventory-photo.png"
+    ],
+    "supply": [
+      "supply-copy-refreshed.txt",
+      "supply-import-refreshed.txt",
+      "supply-import-xlsx-refreshed.txt",
+      "supply-import-duplicate-blocked.txt",
+      "supply-copy-duplicate-blocked.txt"
+    ],
+    "carrier": [
+      "carrier-created.txt",
+      "channel-refreshed.txt",
+      "channel-container-corrected-saved.txt",
+      "channel-stopped.txt"
+    ],
+    "limitations": [
+      "Download-template UI was clicked but browser download-event receipt timed out; no downloaded-file artifact is claimed.",
+      "Named viewport/performance/full build remain root integration gates.",
+      "Local inventoryPosting persist+refresh verification requested from material_ops on the same origin where the upstream action was performed."
+    ],
+    "additionalBarcodeDownstreamEvidence": [
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.png"
+    ]
+  },
+  "displayOnlyCorrections": [
+    "pmsBusinessNumber for local purchase source labels without identity change",
+    "formatPmsTime for posting/movement time without stored value change",
+    "missing WLS barcode status displays 未记录"
+  ]
+}

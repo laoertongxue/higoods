@@ -1,0 +1,83 @@
+{
+  "agent": "/root/procurement_cleanup",
+  "workPackage": "WP-MPO-LEGACY-MIGRATION",
+  "status": "已实现待验证",
+  "sourceFrozenAt": "2026-10-13T23:41:12.982927",
+  "files": [
+    {
+      "path": "src/data/pms/legacy-purchase-migration.ts",
+      "sha256": "08be9a84c738c5dbe23c806a2c15b6a013aea7806f4dea156bd77f1e2196bdc0"
+    },
+    {
+      "path": "tests/unit/pms-legacy-purchase-migration.test.ts",
+      "sha256": "b89605cc709c4f92ebbc15a9757b20cd919747a18256cdeb1a0c077dbd34575c"
+    }
+  ],
+  "allowedWriteScope": [
+    "src/data/pms/legacy-purchase-migration.ts",
+    "tests/unit/pms-legacy-purchase-migration.test.ts",
+    "/tmp/pms-legacy-purchase-migration-report.*"
+  ],
+  "sourceKey": "higood-pms-material-purchase-updates-v1",
+  "targetStores": [
+    "pmsMaterialPurchaseOrderDeltas",
+    "pmsVersionSnapshots",
+    "pmsAttachmentReferences",
+    "pmsOperationLogs",
+    "pmsCommittedOperations"
+  ],
+  "existingFilesReadOnly": [
+    "pmsAttachments"
+  ],
+  "ordinaryOpen": "Module import and detect/backup do not migrate or write business records. Root removed old ordinary LS reads/writes/listener and naive migrator; that integration is separately owned by root.",
+  "exports": {
+    "PMS_LEGACY_MPO_KEY": "alias of canonical old key constant retained by MPO owner",
+    "detectLegacyMaterialPurchaseOrders(storage?)": "Promise<{key,found,count,sourceHash?}>; absent only when getItem truly returns null; invalid/read failure rejects",
+    "readLegacyMaterialPurchaseBackup(storage?)": "Promise<{raw,fileName,sourceHash,count:number|null,validationMessage?}>; exact original raw string, no writes/deletion, even invalid format or Base64 can be backed up; absent/read failure rejects",
+    "migrateLegacyMaterialPurchaseOrders(options)": "Promise<{key,status:no-source|completed|cleanup-pending,sourceHash?,operationId?,total,migrated,skipped,replayed,targetVerified,removed,message}>",
+    "LegacyPurchaseMigrationOptions": "{otherPagesClosed:boolean,expectedSourceHash?:string,storage?:LegacyPurchaseStorage,actor?:{id,name,role}}; otherPagesClosed must equal true"
+  },
+  "protocol": [
+    "Validate complete required ordinary purchase fields, six recognized old statuses, numeric quantities/prices, unique identifiers, versions, known scalar fields and barcode details before writing. PCS 草稿 is not an ordinary record in this old key.",
+    "Reject embedded data/blob content, unknown attachment fields, missing/mismatched Blob entities or ownership; preserve raw.",
+    "Normalize comparison ignoring only _baseVersion and _pmsBaseVersion; preserve all business values and business version fields.",
+    "In one existing pmsTx transaction read all old-record targets, versions, attachment ownership/entities and stable raw-hash receipt before enqueuing any put. Conflict anywhere aborts the batch.",
+    "Equivalent target rows are skipped without puts or version increments. Missing records, fresh managed versions, supported attachment references, one operation log and one stable receipt are committed together.",
+    "Only after transaction complete publish operation log. Independently read every target record, version, attachment and migration receipt/log again.",
+    "Recheck original raw equality immediately before removing only this exact LS key. Read errors, changed raw and removal failure retain cleanup-pending, never imply an uncommitted purchase write.",
+    "Retry identical raw uses its SHA-256 operation ID and existing receipt; no duplicate order/version/log. Other LS keys, shared Blobs/references and retired physical sources are untouched."
+  ],
+  "businessBoundary": "No PCS draft or unknown status is silently mapped. Ordinary purchase snapshots may retain historic material identity; this does not recreate retired catalog masters. No attachment byte conversion or source cleanup of unknown files is attempted.",
+  "storageAtomicityBoundary": "Records/versions/necessary attachment ownership/log/receipt are atomic within PMS IDB. LS cleanup is separate and verified; UI must require old pages closed because LS and IDB have no joint transaction. No cross-store atomicity is claimed.",
+  "tests": {
+    "command": "node --import tsx --test tests/unit/pms-legacy-purchase-migration.test.ts",
+    "result": "15 passed / 0 failed",
+    "evidence": "/tmp/pms-legacy-purchase-migration-report.test.txt",
+    "fixture": "existing tests/helpers/pms-memory-idb.ts; no new infrastructure or dependencies",
+    "cases": [
+      "read-only detect and explicit old-page ack",
+      "normal full-batch record/version/log/receipt commit and readback",
+      "equivalent target skip ignoring storage metadata",
+      "whole-batch conflict without partial insert",
+      "complete abort leaves all stores and raw unchanged",
+      "remove failure then idempotent retry",
+      "invalid JSON/empty raw/duplicate number/quantity/version/status/scalar structure",
+      "read-only exact raw backup including blocked format/files",
+      "post-cleanup read failure remains unconfirmed",
+      "legacy reads fail without fake absent state",
+      "raw change before and after transaction",
+      "expected UI hash mismatch",
+      "orphan/Base64/unknown attachments blocked",
+      "existing shared Blob reference supported without byte copy or old owner deletion",
+      "orphan target version prevents resurrection"
+    ]
+  },
+  "syntaxEvidence": "/tmp/pms-legacy-purchase-migration-report.syntax.json",
+  "diffCheck": "owned paths passed git diff --check",
+  "outstanding": [
+    "Root local-data UI and ordinary runtime integration review",
+    "Root real browser isolated-source normal/cleanup-pending scenario and final compiler/build gate"
+  ],
+  "noExternalWrites": true,
+  "noUserDataReset": true
+}

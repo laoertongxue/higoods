@@ -103,47 +103,6 @@ const PMS_HANDLER_SPECS: PmsHandlerSpec[] = [
     closeExport: 'closePmsSupplyArchiveOverlays',
   },
   {
-    cacheKey: 'pms-material-archives',
-    matches: (pathname) => pathname === '/pms/material-archives',
-    importModule: () => import('../pages/pms/material-archives'),
-    eventExport: 'handlePmsMaterialArchivesEvent',
-    closeExport: 'closePmsMaterialArchiveOverlays',
-  },
-  {
-    cacheKey: 'pms-product-skus',
-    matches: (pathname) => pathname === '/pms/garment-skus' || pathname === '/pms/sample-skus',
-    importModule: () => import('../pages/pms/product-skus'),
-    eventExport: 'handlePmsProductSkusEvent',
-    closeExport: 'closePmsProductSkuOverlays',
-  },
-  {
-    cacheKey: 'pms-warehouses',
-    matches: (pathname) => pathname === '/pms/warehouses',
-    importModule: () => import('../pages/pms/warehouses'),
-    eventExport: 'handlePmsWarehousesEvent',
-    closeExport: 'closePmsWarehouseOverlays',
-  },
-  {
-    cacheKey: 'pms-units',
-    matches: (pathname) => pathname === '/pms/units',
-    importModule: () => import('../pages/pms/units'),
-    eventExport: 'handlePmsUnitsEvent',
-    closeExport: 'closePmsUnitOverlays',
-  },
-  {
-    cacheKey: 'pms-bom-templates',
-    matches: (pathname) => pathname === '/pms/bom-templates',
-    importModule: () => import('../pages/pms/bom-templates'),
-    eventExport: 'handlePmsBomTemplatesEvent',
-    closeExport: 'closePmsBomTemplateOverlays',
-  },
-  {
-    cacheKey: 'pms-bom-detail',
-    matches: (pathname) => /^\/pms\/bom-templates\/[^/]+$/.test(pathname),
-    importModule: () => import('../pages/pms/bom-detail'),
-    eventExport: 'handlePmsBomDetailEvent',
-  },
-  {
     cacheKey: 'pms-payment-requests',
     matches: (pathname) => pathname === '/pms/material-payment-requests' || pathname === '/pms/logistics-payment-requests',
     importModule: () => import('../pages/pms/payment-requests'),
@@ -219,7 +178,9 @@ export async function dispatchPmsPageEvent(target: HTMLElement, event?: Event): 
   const module = await loadHandlerModule(spec)
   const handler = module[spec.eventExport]
   if (typeof handler !== 'function') return false
-  return Boolean((handler as (target: HTMLElement, event?: Event) => unknown)(target, event))
+  const handled = Boolean(await (handler as (target: HTMLElement, event?: Event) => unknown)(target, event))
+  if (handled) target.dataset.pmsEventHandledLocally = 'true'
+  return handled
 }
 
 export async function closePmsDialogsOnEscape(): Promise<boolean> {
@@ -228,5 +189,5 @@ export async function closePmsDialogsOnEscape(): Promise<boolean> {
   const module = await loadHandlerModule(spec)
   const closer = module[spec.closeExport]
   if (typeof closer !== 'function') return false
-  return Boolean((closer as () => unknown)())
+  return Boolean(await (closer as () => unknown)())
 }

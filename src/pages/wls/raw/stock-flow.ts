@@ -224,3 +224,6 @@ export function handleRawStockFlowEvent(target: HTMLElement, event?: Event): boo
   if (action === 'export') { exportStandardListRows({ fileName: '库存流水查询', columns, rows: filteredRows() }); return true }
   return false
 }
+
+/** Read-only shared view for procurement stock tracing; no second writable source. */
+export function listRawMaterialStockFlows() { return seedFlows.map(row => ({ ...row })) }

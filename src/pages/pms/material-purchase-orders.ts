@@ -1,9 +1,12 @@
+import { listPmsFirstLegBatches } from '../../data/pms/first-leg-logistics.ts'
+import { renderMpoBarcodeOverlay, handleMpoBarcodeEvent, closeMpoBarcodeOverlay } from './material-purchase-barcodes.ts'
+import { pmsBusinessNumber } from '../../utils/pms-business-number.ts'
+import { ensurePurchaseCatalogState, listPurchaseGoodsReferences } from '../../data/pms/canonical-purchase-references.ts'
 import { readPcsMaterialHandoff } from '../../data/pcs-material-handoff.ts'
-import { ensurePcsRecordState } from '../../data/pcs-record-runtime.ts'
 import { getMaterialSkuRecordById } from '../../data/pcs-material-archive-repository.ts'
 import { hydratePmsSuppliersFromIdb, listPmsSuppliers } from '../../data/pms/suppliers.ts'
 // @page-pattern: list
-import { getTmfMaterialPurchase, reviseTmfMaterialPurchase, type TmfPurchaseActor } from '../../data/pms/tmf-material-purchases.ts'
+import { hydratePmsTmfPurchaseReferencesFromIdb, getTmfMaterialPurchase, reviseTmfMaterialPurchase, type TmfPurchaseActor } from '../../data/pms/tmf-material-purchases.ts'
 import { renderTmfPurchaseRevision, renderTmfPurchaseRevisionHistory } from './tmf-purchase-revision.ts'
 import { renderTmfTipPurchaseForm, readTmfTipPurchaseForm, updateTmfTipPurchaseSource } from './tmf-tip-purchase-form.ts'
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
@@ -13,6 +16,8 @@ import { createProcessOrderListController, type ProcessOrderListControllerState 
 import type { StandardListColumn } from '../../components/ui/list-table.ts'
 import { resetStandardListEntryTransientStateOnRouteEntry } from '../../components/ui/list-table-model.ts'
 import {
+  convertPmsMaterialPurchaseToRaw, inspectPmsMaterialPurchaseOrder, updatePmsMaterialLogistics,
+  createPmsMaterialPurchaseOrder, updatePmsMaterialPurchaseOrder, copyPmsMaterialPurchaseOrder,
   createPmsTmfTipPurchase, batchAdvancePmsMaterialPurchaseOrders,
   closePmsMaterialPurchaseOrder,
   getPmsMaterialPurchaseOrder,
@@ -22,6 +27,8 @@ import {
   listPmsMaterialPurchaseOrders,
   pmsAllowedMaterialOrderNextStatuses,
   registerPmsMaterialPurchaseArrival,
+  batchUpdatePmsMaterialPurchaseOrders,
+  addPmsMaterialPurchaseAttachment,removePmsMaterialPurchaseAttachment,readPmsMaterialPurchaseAttachment,
   validatePmsLogisticsImportRow,
   getPmsPcsPurchaseUnitOptions, hydratePmsMaterialPurchaseOrdersFromIdb, savePmsPcsMaterialPurchaseDraft,
   type PmsPcsMaterialPurchaseDraftInput, type PmsPcsMaterialPurchaseSource,
@@ -35,6 +42,7 @@ import { downloadPmsCsv, buildPmsHtmlTemplateFile, downloadPmsFile } from '../..
 import { parsePmsExcelRows } from '../../utils/pms-excel-import.ts'
 import { escapeHtml } from '../../utils.ts'
 import {
+  confirmPmsAction,
   formatPmsMoney,
   formatPmsQty,
   formatPmsTime,
@@ -73,6 +81,14 @@ interface PcsPurchaseForm {
 
 type MpoOverlay =
   | null
+  | {kind:'attachment';orderNo:string;category:'物流凭证'|'附加图片';clientActionId:string}
+  | {kind:'barcodes';orderNo:string;clientActionId:string}
+  | {kind:'inspection';orderNo:string;clientActionId:string}
+  | {kind:'logistics-edit';recordNo:string;clientActionId:string}
+  | {kind:'logistics-new';orderNo:string;clientActionId:string}
+  | {kind:'batch-fields';field:string;clientActionId:string}
+  | { kind: 'new'; purchaseKind:'原料'|'面料'|'辅料'|'样衣'; clientActionId:string }
+  | { kind: 'edit-fields'; orderNo:string; clientActionId:string }
   | { kind: 'tmf-revision'; orderNo: string; clientActionId: string }
   | { kind: 'tip-purchase'; clientActionId: string }
   | { kind: 'detail'; orderNo: string; clientActionId: string }
@@ -81,7 +97,14 @@ type MpoOverlay =
   | { kind: 'import'; rows: ImportPreviewRow[]; clientActionId: string }
 
 interface MpoPageState extends ProcessOrderListControllerState {
+  attachmentFile:File|null
+  attachmentPreviewUrl:string
+  attachmentPreviewType:string
   keyword: string
+  keywordField:string
+  multiFilters:Record<string,string[]>
+  dateFilters:Record<string,string>
+  rangeFilters:Record<string,string>
   status: '' | PmsMaterialPurchaseOrderStatus
   logisticsFilter: '' | '未导入' | '已导入'
   selectedOrderNos: string[]
@@ -106,10 +129,11 @@ const ROOT_SELECTOR = '[data-pms-mpo-root]'
 const state: MpoPageState = {
   currentPage: 1,
   sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
+  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 5 },
   preferencesLoaded: false,
   showColumnSettings: false,
-  keyword: '',
+  attachmentFile:null,attachmentPreviewUrl:'',attachmentPreviewType:'',
+  keyword: '',keywordField:'all',multiFilters:{},dateFilters:{},rangeFilters:{},
   status: '',
   logisticsFilter: '',
   selectedOrderNos: [],
@@ -144,19 +168,19 @@ function applyPcsPurchaseEntry(): void {
   const orderNo = params.get('purchaseOrderNo') || ''
   if (orderNo) {
     const order = getPmsMaterialPurchaseOrder(orderNo)
-    if (!order?.pcsSource) throw new Error('采购草稿不存在，请返回采购单列表重新读取。')
-    state.purchaseOrderNo = orderNo; state.purchaseView = 'detail'; state.purchaseTab = 'purchase'; state.purchaseForm = null
+    if (!order) throw new Error('采购单不存在，请返回列表重新读取。')
+    if(order.pcsSource){state.purchaseOrderNo=orderNo;state.purchaseView='detail';state.purchaseTab='purchase';state.purchaseForm=null}else{state.purchaseView='list';state.purchaseForm=null;state.overlay={kind:'detail',orderNo,clientActionId:crypto.randomUUID()}}
   } else if (params.get('pcsIntent') === 'purchase') {
     const handoff = readPcsMaterialHandoff()
     if (!handoff || handoff.kind !== 'PURCHASE') throw new Error('缺少采购物料，请返回物料档案重新发起。')
     beginPcsPurchaseForm(handoff.target.materialSkuId)
-  } else { state.purchaseView = 'list'; state.purchaseForm = null }
+  } else { state.purchaseView = 'list'; state.purchaseForm = null;if(params.has('keyword'))state.keyword=params.get('keyword')||'' }
 }
 
 function loadPurchasePage(force = false): void {
   if (!force && state.readStatus !== 'initial') return
   state.readStatus = 'loading'; state.readError = ''
-  void Promise.all([hydratePmsMaterialPurchaseOrdersFromIdb(force), ensurePcsRecordState(), hydratePmsSuppliersFromIdb()]).then(() => {
+  void Promise.all([hydratePmsMaterialPurchaseOrdersFromIdb(force), hydratePmsTmfPurchaseReferencesFromIdb(force), ensurePurchaseCatalogState(), hydratePmsSuppliersFromIdb()]).then(() => {
     state.readStatus = 'ready'; applyPcsPurchaseEntry(); refreshAll()
   }).catch(error => { state.readStatus = 'error'; state.readError = error instanceof Error ? error.message : '采购资料无法读取。'; refreshAll() })
 }
@@ -233,7 +257,7 @@ function renderPcsPurchaseWorkspace(): string {
   return `<section class="mx-auto max-w-6xl space-y-4" data-pms-pcs-purchase-workspace><header class="flex flex-wrap items-center justify-between gap-3"><div><h1 class="text-xl font-semibold">${editing ? (order ? '编辑采购草稿' : '新建采购草稿') : escapeHtml(order!.purchaseOrderNo)}</h1><p class="mt-1 text-sm text-slate-500">${escapeHtml(sku.materialName)} · ${escapeHtml(sku.materialSkuCode)} · ${editing ? '尚未保存' : '草稿'}</p></div><div class="flex gap-2">${renderSecondaryButton('采购单列表',{prefix:EVENT_PREFIX,action:'pcs-list'})}${!editing ? renderPrimaryButton('编辑草稿',{prefix:EVENT_PREFIX,action:'pcs-edit'}) : ''}</div></header>
     ${renderPmsFeedback(state.feedback, state.feedbackOk)}${renderPmsOverlayError(state.purchaseError)}${state.purchaseError && form?.purchaseOrderNo ? renderSecondaryButton('重新读取草稿', {prefix:EVENT_PREFIX,action:'pcs-read-draft'}) : ''}
     <section class="overflow-hidden rounded-lg border bg-white"><nav class="flex gap-1 border-b px-4" role="tablist">${tabs.map(([id,label]) => `<button type="button" role="tab" aria-selected="${state.purchaseTab === id}" class="border-b-2 px-4 py-3 text-sm ${state.purchaseTab === id ? 'border-blue-600 font-medium text-blue-700' : 'border-transparent text-slate-500'}" data-${EVENT_PREFIX}-action="pcs-tab" data-tab="${id}" data-skip-page-rerender="true">${label}</button>`).join('')}</nav><div class="p-5" role="tabpanel">${body}</div></section>
-    ${editing ? `<footer class="sticky bottom-0 flex items-center justify-between rounded-lg border bg-white p-4 shadow-sm"><span class="text-sm text-slate-500">${state.purchaseSaving ? '正在保存…' : '保存后保留本次采购条件与计量关系'}</span><div class="flex gap-2">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'pcs-cancel'})}${renderPrimaryButton(state.purchaseSaving ? '保存中…' : '保存草稿',{prefix:EVENT_PREFIX,action:'pcs-save'}).replace('<button', `<button ${state.purchaseSaving ? 'disabled' : ''}`)}</div></footer>` : ''}<div data-pms-mpo-overlays>${renderPmsImagePreview()}</div></section>`
+    ${editing ? `<footer class="sticky bottom-0 flex items-center justify-between rounded-lg border bg-white p-4 shadow-sm"><span class="text-sm text-slate-500">${state.purchaseSaving ? '正在保存…' : '保存后保留本次采购条件与计量关系'}</span><div class="flex gap-2">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'pcs-cancel'})}${renderPrimaryButton(state.purchaseSaving ? '保存中…' : '保存草稿',{prefix:EVENT_PREFIX,action:'pcs-save'}).replace('<button', `<button ${state.purchaseSaving ? 'disabled' : ''}`)}</div></footer>` : ''}<div data-pms-mpo-overlays>${renderPmsImagePreview()+renderMpoAttachmentPreview()}</div></section>`
 }
 
 async function savePcsPurchaseForm(): Promise<void> {
@@ -258,12 +282,13 @@ function installPcsPurchaseLeaveGuard(): void {
     if (!rootElement() || (!state.purchaseDirty && !state.purchaseSaving)) return
     event.preventDefault(); event.returnValue = ''
   })
-  document.addEventListener('click', event => {
+  document.addEventListener('click', async event => {
     if (!rootElement() || (!state.purchaseDirty && !state.purchaseSaving) || !(event.target instanceof HTMLElement)) return
     const navigation = event.target.closest<HTMLElement>('a[href], [data-route]')
     if (!navigation) return
-    if (state.purchaseSaving || !window.confirm('当前采购内容尚未保存，确定离开？')) { event.preventDefault(); event.stopImmediatePropagation(); return }
-    state.purchaseDirty = false
+    event.preventDefault();event.stopImmediatePropagation()
+    if(state.purchaseSaving)return
+    if(await confirmPmsAction('当前采购内容尚未保存，离开后将放弃修改。','放弃修改并离开','离开采购表单')){state.purchaseDirty=false;navigation.click()}
   }, true)
 }
 
@@ -275,18 +300,36 @@ function orderLogistics(orderNo: string): PmsMaterialLogisticsRecord[] {
   return listPmsMaterialLogisticsRecords().filter((record) => record.purchaseOrderNo === orderNo)
 }
 
+const filterLabels:Record<string,string>={materialType:'采购类型',purchaseRegion:'采购地区',usageType:'用途',supplierName:'面辅料供应商',buyerName:'采购人',stockProduction:'是否备货生产',arrival:'商家到货状态',placed:'下单状态',priceConfirmed:'是否已确定成本价'}
+const dateLabels:Record<string,string>={create:'创建时间',inbound:'入库时间',purchased:'采购下单时间',sign:'签收时间',ship:'商家发货时间',transfer:'转运时间',warehouse:'到达仓库时间'}
+function filterValue(order:PmsMaterialPurchaseOrder,key:string):string{
+ if(key==='stockProduction')return order.isStockProduction===true?'是':order.isStockProduction===false?'否':'未记录'
+ if(key==='arrival')return order.receivedQty<=0?'未到货':order.receivedQty<order.orderedQty?'部分到货':'全部到货'
+ if(key==='placed')return ['草稿','待采购'].includes(order.status)?'未下单':order.status==='已关闭'?'已关闭':'已下单'
+ if(key==='priceConfirmed')return order.priceConfirmed===true?'已确定':'未记录'
+ return String(order[key as keyof PmsMaterialPurchaseOrder]||'未记录')
+}
+function orderDates(order:PmsMaterialPurchaseOrder,key:string):string[]{
+ const logistics=orderLogistics(order.purchaseOrderNo)
+ if(key==='create')return [order.orderDate]
+ if(key==='inbound')return [order.inventoryPosting?.postedAt||'']
+ if(key==='purchased')return [order.purchasedAt||'']
+ if(key==='sign')return logistics.map(row=>row.domesticSignedAt)
+ if(key==='ship')return logistics.map(row=>row.shipDate)
+ if(key==='transfer')return logistics.filter(row=>row.headBatchNo).map(row=>listPmsFirstLegBatches().find(batch=>batch.batchNo===row.headBatchNo)?.actualShipDate||'')
+ return logistics.map(row=>row.headSignedAt).concat(order.arrivedAt||'')
+}
 function filteredRows(): PmsMaterialPurchaseOrder[] {
-  const keyword = state.keyword.trim().toLowerCase()
-  return listPmsMaterialPurchaseOrders().filter((order) => {
-    if (state.status && order.status !== state.status) return false
-    if (state.logisticsFilter) {
-      const hasLogistics = orderLogistics(order.purchaseOrderNo).length > 0
-      if (state.logisticsFilter === '已导入' && !hasLogistics) return false
-      if (state.logisticsFilter === '未导入' && hasLogistics) return false
-    }
-    if (!keyword) return true
-    return [order.purchaseOrderNo, order.materialName, order.materialCode, order.styleName, order.supplierName, ...orderLogistics(order.purchaseOrderNo).map((record) => record.trackingNo)].some((value) => value.toLowerCase().includes(keyword))
-  })
+ const keywords=state.keyword.trim().toLowerCase().split(/[，,\s]+/).filter(Boolean)
+ return listPmsMaterialPurchaseOrders().filter(order=>{
+  if(state.status && order.status!==state.status)return false
+  if(state.logisticsFilter){const has=orderLogistics(order.purchaseOrderNo).length>0;if(state.logisticsFilter==='已导入'?!has:has)return false}
+  for(const [key,values] of Object.entries(state.multiFilters))if(values.length&&!values.includes(filterValue(order,key)))return false
+  for(const key of Object.keys(dateLabels)){const from=state.dateFilters[key+'From'],to=state.dateFilters[key+'To'];if((from||to)&&!orderDates(order,key).some(date=>date&&(!from||date.slice(0,10)>=from)&&(!to||date.slice(0,10)<=to)))return false}
+  for(const key of ['shipDays','transferDays']){const min=state.rangeFilters[key+'Min'],max=state.rangeFilters[key+'Max'];if(!min&&!max)continue;const values=orderLogistics(order.purchaseOrderNo).map(row=>{const start=key==='shipDays'?order.purchasedAt:row.domesticSignedAt,end=key==='shipDays'?row.shipDate:row.headSignedAt;return start&&end?(Date.parse(end)-Date.parse(start))/86400000:NaN});if(!values.some(value=>Number.isFinite(value)&&(!min||value>=Number(min))&&(!max||value<=Number(max))))return false}
+  const values=state.keywordField==='all'?[order.purchaseOrderNo,pmsBusinessNumber(order.purchaseOrderNo),order.materialName,order.materialCode,order.styleName,order.supplierName,...orderLogistics(order.purchaseOrderNo).map(row=>row.trackingNo)]:state.keywordField==='tracking'?orderLogistics(order.purchaseOrderNo).map(row=>row.trackingNo):[String(order[state.keywordField as keyof PmsMaterialPurchaseOrder]||''),state.keywordField==='purchaseOrderNo'?pmsBusinessNumber(order.purchaseOrderNo):'']
+  return !keywords.length||keywords.some(keyword=>values.some(value=>value.toLowerCase().includes(keyword)))
+ })
 }
 
 function statusTone(status: PmsMaterialPurchaseOrderStatus): 'blue' | 'green' | 'yellow' | 'red' | 'slate' {
@@ -314,7 +357,7 @@ const columns: StandardListColumn<PmsMaterialPurchaseOrder>[] = [
     freezeable: true,
     sortable: true,
     sortValue: (row) => row.purchaseOrderNo,
-    render: (row) => `<div class="font-semibold">${escapeHtml(row.purchaseOrderNo)}</div><div class="mt-1">${renderPmsStatusBadge(row.status, statusTone(row.status))}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.pcsSource ? '来源物料档案' : row.requirementNo ? `来源 ${row.requirementNo}` : '手工采购')}${row.supplierConfirmed ? ' · 供应商已确认' : ''}</div>`,
+    render: (row) => `<div class="font-semibold">${escapeHtml(pmsBusinessNumber(row.purchaseOrderNo))}</div><div class="mt-1">${renderPmsStatusBadge(row.status, statusTone(row.status))}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.pcsSource ? '来源物料档案' : row.requirementNo ? `来源 ${row.requirementNo}` : '手工采购')}${row.supplierConfirmed ? ' · 供应商已确认' : ''}</div>`,
   },
   {
     key: 'material',
@@ -363,7 +406,7 @@ const controller = createProcessOrderListController({
   state,
   columns,
   preferenceKey: 'higood:list:/pms/material-purchase-orders',
-  pageSizeOptions: [10, 20, 50],
+  pageSizeOptions: [5, 10, 20, 50],
   eventPrefix: EVENT_PREFIX,
   rootSelector: ROOT_SELECTOR,
   tableSurfaceSelector: '[data-pms-mpo-table-surface]',
@@ -398,16 +441,20 @@ function renderFilters(): string {
   const statuses: Array<'' | PmsMaterialPurchaseOrderStatus> = ['', '草稿', '待采购', '已采购', '部分到货', '已到货', '已入库', '已关闭']
   const statusOptions = statuses.map((value) => `<option value="${value}" ${state.status === value ? 'selected' : ''}>${value || '全部状态'}</option>`).join('')
   const logisticsOptions = ['', '未导入', '已导入'].map((value) => `<option value="${value}" ${state.logisticsFilter === value ? 'selected' : ''}>${value || '全部物流'}</option>`).join('')
-  const advancedCount = state.logisticsFilter ? 1 : 0
+  const advancedCount = (state.logisticsFilter?1:0)+Object.values(state.multiFilters).filter(values=>values.length).length+Object.values(state.dateFilters).filter(Boolean).length+Object.values(state.rangeFilters).filter(Boolean).length
+  const choices=(key:string)=>[...new Set(listPmsMaterialPurchaseOrders().map(order=>filterValue(order,key)))].sort()
+  const multis=Object.entries(filterLabels).map(([key,label])=>`<div class="min-w-0"><label class="block text-xs text-slate-500" for="mpo-filter-${key}">${label}</label><select id="mpo-filter-${key}" multiple size="3" class="mt-1 w-full rounded border px-2 text-xs" data-pms-mpo-field="multi:${key}">${choices(key).map(value=>`<option value="${escapeHtml(value)}" ${(state.multiFilters[key]||[]).includes(value)?'selected':''}>${escapeHtml(value)}</option>`).join('')}</select><div class="mt-1 flex gap-3 text-xs"><button data-pms-mpo-action="multi-all" data-filter-key="${key}">全选</button><button data-pms-mpo-action="multi-clear" data-filter-key="${key}">清除</button></div></div>`).join('')
+  const dates=Object.entries(dateLabels).map(([key,label])=>`<div class="col-span-2 min-w-0"><span class="text-xs text-slate-500">${label}</span><div class="mt-1 flex items-center gap-1">${['From','To'].map((suffix,index)=>`${index?'—':''}<input aria-label="${label}${index?'结束':'开始'}" type="date" class="h-9 min-w-0 w-full rounded border px-2 text-xs" value="${escapeHtml(state.dateFilters[key+suffix]||'')}" data-pms-mpo-field="date:${key+suffix}">`).join('')}</div></div>`).join('')
+  const ranges=[['shipDays','出货时效（天）'],['transferDays','转运时效（天）']].map(([key,label])=>`<div class="col-span-2"><span class="text-xs text-slate-500">${label}</span><div class="mt-1 flex gap-1">${['Min','Max'].map((suffix,index)=>`<input aria-label="${label}${index?'最大':'最小'}" type="number" min="0" class="h-9 min-w-0 w-full rounded border px-2" value="${escapeHtml(state.rangeFilters[key+suffix]||'')}" data-pms-mpo-field="range:${key+suffix}">`).join('')}</div></div>`).join('')
   return `<div class="rounded-lg border bg-white p-3" data-standard-list-filter-bar><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="min-w-0 sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">关键词</span><input class="h-9 w-full rounded-md border px-3 text-sm" placeholder="采购单号 / 物料 / 供应商 / 物流单号" value="${escapeHtml(state.keyword)}" data-${EVENT_PREFIX}-field="keyword" data-skip-page-rerender="true" /></label>
+    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">检索字段</span><select class="h-9 w-full rounded border px-2 text-sm" data-pms-mpo-field="keywordField">${[['all','全部'],['purchaseOrderNo','采购单号'],['materialCode','SKU'],['styleCode','SPU'],['tracking','物流单号']].map(([key,label])=>`<option value="${key}" ${state.keywordField===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="min-w-0 sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">关键词</span><input class="h-9 w-full rounded-md border px-3 text-sm" placeholder="采购单号 / 物料 / 供应商 / 物流单号" value="${escapeHtml(state.keyword)}" data-${EVENT_PREFIX}-field="keyword" data-skip-page-rerender="true" /></label>
     <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">采购单状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="status" data-skip-page-rerender="true">${statusOptions}</select></label>
     </div><div data-process-advanced ${advancedCount ? '' : 'hidden'}><div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
-    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">物流</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="logisticsFilter" data-skip-page-rerender="true">${logisticsOptions}</select></label>
+    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">物流</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="logisticsFilter" data-skip-page-rerender="true">${logisticsOptions}</select></label>${multis}${dates}${ranges}
     </div></div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>
     ${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'query' }, 'search')}
     ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset' }, 'rotate-ccw')}
-    ${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}
+    <select class="h-9 rounded border px-2 text-sm" aria-label="导出内容" data-mpo-export-kind>${['订单明细','订单','结算单','原料入库'].map(value=>`<option>${value}</option>`).join('')}</select>${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}
     ${renderSecondaryButton('导入快递信息', { prefix: EVENT_PREFIX, action: 'open-import' }, 'upload')}
     ${renderProcessFilterToggle(advancedCount, 'button')}
     </div></div>`
@@ -433,17 +480,19 @@ function renderDetailOverlay(orderNo: string): string {
     .map((status) => renderSecondaryButton(`推进为${status}`, { prefix: EVENT_PREFIX, action: 'advance-status' }, 'arrow-right').replace('<button', `<button data-order-no="${escapeHtml(orderNo)}" data-next-status="${status}"`))
     .join('')
   const recordsHtml = records.length
-    ? records.map((record) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm">${escapeHtml(record.company)}</td><td class="px-3 py-2 text-sm">${escapeHtml(record.trackingNo)}</td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsQty(record.qty, record.unit)}</td><td class="px-3 py-2 text-sm">${escapeHtml(record.shipDate || '—')}</td><td class="px-3 py-2">${record.domesticSigned ? renderPmsStatusBadge('国内已签收', 'green') : renderPmsStatusBadge('国内未签收', 'yellow')}</td><td class="px-3 py-2">${record.headBatchNo ? (record.headSigned ? renderPmsStatusBadge(`头程已签收 ${record.headBatchNo}`, 'green') : renderPmsStatusBadge(`头程 ${record.headBatchNo}`, 'blue')) : renderPmsStatusBadge('未加入头程', 'slate')}</td></tr>`).join('')
+    ? records.map((record) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm">${escapeHtml(record.company)}</td><td class="px-3 py-2 text-sm">${escapeHtml(record.trackingNo)}${!record.domesticSigned&&!record.headBatchNo?`<button class="ml-2 text-xs text-blue-700" data-pms-mpo-action="edit-logistics" data-record-no="${escapeHtml(record.recordNo)}">修改</button>`:''}</td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsQty(record.qty, record.unit)}</td><td class="px-3 py-2 text-sm">${escapeHtml(record.shipDate || '—')}</td><td class="px-3 py-2">${record.domesticSigned ? renderPmsStatusBadge('国内已签收', 'green') : renderPmsStatusBadge('国内未签收', 'yellow')}</td><td class="px-3 py-2">${record.headBatchNo ? (record.headSigned ? renderPmsStatusBadge(`头程已签收 ${record.headBatchNo}`, 'green') : renderPmsStatusBadge(`头程 ${record.headBatchNo}`, 'blue')) : renderPmsStatusBadge('未加入头程', 'slate')}</td></tr>`).join('')
     : '<tr><td class="px-3 py-6 text-center text-sm text-muted-foreground" colspan="6">还没有导入快递信息</td></tr>'
   const logs = listPmsMaterialPurchaseLogs(orderNo)
   const logItems = logs.length
     ? logs.map((log) => `<li class="rounded-md border p-3 text-xs"><div class="flex items-center justify-between"><strong>${escapeHtml(log.action)}</strong><span class="text-slate-500">${formatPmsTime(log.occurredAt)}</span></div><div class="mt-1 text-slate-600">${escapeHtml(log.actorName)}：${escapeHtml(log.beforeValue)} → ${escapeHtml(log.afterValue)}${log.reason ? `（${escapeHtml(log.reason)}）` : ''}</div></li>`).join('')
     : '<li class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">暂无操作日志</li>'
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="面辅料采购单详情" data-pms-mpo-detail-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭详情"></button><section class="relative z-10 flex h-full w-[820px] max-w-[96vw] flex-col overflow-y-auto bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">${escapeHtml(order.purchaseOrderNo)} · ${escapeHtml(order.materialName)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.supplierName)} · ${escapeHtml(order.warehouse)} · ${escapeHtml(order.status)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-5 p-4">
-    <div class="flex items-center gap-4">${renderPmsBusinessImage(order.materialImageUrl, `${order.materialName}（${order.materialCode}）实物图`, 'h-20 w-20')}<div class="w-40 shrink-0"><div class="font-medium">${escapeHtml(order.materialName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(order.materialCode)} · ${escapeHtml(order.unit)}</div></div><dl class="grid flex-1 grid-cols-3 gap-3 text-sm"><div><dt class="text-xs text-muted-foreground">采购数量</dt><dd class="mt-1 font-semibold tabular-nums">${formatPmsQty(order.orderedQty, order.unit)}</dd></div><div><dt class="text-xs text-muted-foreground">已到货</dt><dd class="mt-1 tabular-nums">${formatPmsQty(order.receivedQty, order.unit)}</dd></div><div><dt class="text-xs text-muted-foreground">采购金额</dt><dd class="mt-1 tabular-nums">${formatPmsMoney(order.orderedQty * order.unitPrice)}</dd></div>${getTmfMaterialPurchase(orderNo) && !order.styleCode ? '<div><dt class="text-xs text-muted-foreground">备货用途</dt><dd class="mt-1">基础备货</dd></div>' : `<div><dt class="text-xs text-muted-foreground">款式</dt><dd class="mt-1 flex items-center gap-2">${renderPmsBusinessImage(order.styleImageUrl, `${order.styleName}款式图`, 'h-6 w-6')}<span>${escapeHtml(order.styleName)} · ${escapeHtml(order.styleCode)}</span></dd></div>`}<div><dt class="text-xs text-muted-foreground">交期</dt><dd class="mt-1">${escapeHtml(order.expectedArrivalDate || '待定')}</dd></div><div><dt class="text-xs text-muted-foreground">供应商确认</dt><dd class="mt-1">${order.supplierConfirmed ? renderPmsStatusBadge('已确认', 'green') : renderPmsStatusBadge('待确认', 'yellow')}</dd></div></dl></div>
+  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="面辅料采购单详情" data-pms-mpo-detail-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭详情"></button><section class="relative z-10 flex h-full w-[820px] max-w-[96vw] flex-col overflow-y-auto bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">${escapeHtml(pmsBusinessNumber(order.purchaseOrderNo))} · ${escapeHtml(order.materialName)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.supplierName)} · ${escapeHtml(order.warehouse)} · ${escapeHtml(order.status)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-5 p-4">
+    <div class="flex items-center gap-4">${renderPmsBusinessImage(order.materialImageUrl, `${order.materialName}（${order.materialCode}）实物图`, 'h-20 w-20')}<div class="w-40 shrink-0"><div class="font-medium">${escapeHtml(order.materialName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(order.materialCode)} · ${escapeHtml(order.unit)}</div></div><dl class="grid flex-1 grid-cols-3 gap-3 text-sm"><div><dt class="text-xs text-muted-foreground">采购数量</dt><dd class="mt-1 font-semibold tabular-nums">${formatPmsQty(order.orderedQty, order.unit)}</dd></div><div><dt class="text-xs text-muted-foreground">已到货</dt><dd class="mt-1 tabular-nums">${formatPmsQty(order.receivedQty, order.unit)}</dd></div><div><dt class="text-xs text-muted-foreground">采购金额</dt><dd class="mt-1 tabular-nums">${formatPmsMoney(order.orderedQty * order.unitPrice)}</dd></div>${!order.styleCode ? '<div><dt class="text-xs text-muted-foreground">备货用途</dt><dd class="mt-1">基础备货</dd></div>' : `<div><dt class="text-xs text-muted-foreground">款式</dt><dd class="mt-1 flex items-center gap-2">${renderPmsBusinessImage(order.styleImageUrl, `${order.styleName}款式图`, 'h-6 w-6')}<span>${escapeHtml(order.styleName)} · ${escapeHtml(order.styleCode)}</span></dd></div>`}<div><dt class="text-xs text-muted-foreground">交期</dt><dd class="mt-1">${escapeHtml(order.expectedArrivalDate || '待定')}</dd></div><div><dt class="text-xs text-muted-foreground">供应商确认</dt><dd class="mt-1">${order.supplierConfirmed ? renderPmsStatusBadge('已确认', 'green') : renderPmsStatusBadge('待确认', 'yellow')}</dd></div></dl></div>
     ${order.tmfTipSource ? `<section data-pms-tip-purchase-origin class="rounded-lg border p-4 text-sm"><h3 class="font-semibold">端头辅材采购来源</h3><p>生产单 ${escapeHtml(order.tmfTipSource.productionOrderNo)}；采用版本 ${escapeHtml(order.tmfTipSource.versionId)}</p><p>快照 ${escapeHtml(order.tmfTipSource.snapshotId)}；辅材 BOM ${escapeHtml(order.tmfTipSource.materialBomItemId)}</p><p class="mt-2">到货、入库数量来自仓库实际实收，不能手改累计。<a href="/wls/accessory-receipts" class="text-blue-700 underline">前往辅料仓收货</a>，选择“织带投入料采购”。</p></section>` : ''}
-    <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">可执行动作</h3><div class="mt-3 flex flex-wrap gap-2">${getTmfMaterialPurchase(orderNo) && !['已关闭','已入库'].includes(order.status) ? renderSecondaryButton('变更基础采购数量',{prefix:EVENT_PREFIX,action:'open-tmf-revision'}).replace('<button',`<button data-order-no="${escapeHtml(orderNo)}"`) : ''}${advanceButtons}${renderSecondaryButton('登记到货', { prefix: EVENT_PREFIX, action: 'open-arrival' }, 'package-check').replace('<button', `<button data-order-no="${escapeHtml(orderNo)}" ${order.tmfTipSource || order.status === '已关闭' || order.status === '已入库' ? 'disabled' : ''}`)}${nextStatuses.includes('已关闭') ? renderDangerButton('关闭采购单', { prefix: EVENT_PREFIX, action: 'open-close' }, 'x-circle').replace('<button', `<button data-order-no="${escapeHtml(orderNo)}"`) : ''}</div><p class="mt-2 text-xs text-slate-500">状态顺序：待采购 → 已采购 → 部分到货/已到货 → 已入库；已关闭不可恢复。</p></section>
-    <section><h3 class="mb-2 text-sm font-semibold">物流记录（${records.length}）</h3><div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left" style="min-width: 760px"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物流公司</th><th class="px-3 py-2">物流单号</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">发货日期</th><th class="px-3 py-2">国内签收</th><th class="px-3 py-2">头程</th></tr></thead><tbody>${recordsHtml}</tbody></table></div></section>
+    <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">可执行动作</h3><div class="my-3 flex flex-wrap gap-2">${order.rejectedReason?`<p class="text-sm text-red-700">采购已驳回：${escapeHtml(order.rejectedReason)}</p>`:''}${renderSecondaryButton('修改采购信息',{prefix:EVENT_PREFIX,action:'edit-fields'}).replace('<button',`<button data-order-no="${escapeHtml(orderNo)}"`)}${renderSecondaryButton('复制采购单',{prefix:EVENT_PREFIX,action:'copy-order'}).replace('<button',`<button data-order-no="${escapeHtml(orderNo)}"`)}${renderSecondaryButton('转原料采购',{prefix:EVENT_PREFIX,action:'convert-raw'}).replace('<button',`<button data-order-no="${escapeHtml(orderNo)}" ${['原料','样衣'].includes(order.materialType)||['已入库','已关闭'].includes(order.status)?'disabled':''}`)}${renderSecondaryButton('条码明细',{prefix:EVENT_PREFIX,action:'open-barcodes'},'barcode').replace('<button',`<button data-order-no="${escapeHtml(orderNo)}"`)}${renderSecondaryButton('打印采购单',{prefix:EVENT_PREFIX,action:'print-order'}).replace('<button',`<button data-order-no="${escapeHtml(orderNo)}"`)}</div><div class="mt-3 flex flex-wrap gap-2">${getTmfMaterialPurchase(orderNo) && !['已关闭','已入库'].includes(order.status) ? renderSecondaryButton('变更基础采购数量',{prefix:EVENT_PREFIX,action:'open-tmf-revision'}).replace('<button',`<button data-order-no="${escapeHtml(orderNo)}"`) : ''}${advanceButtons}${renderSecondaryButton('登记质检 / 瑕疵处理',{prefix:EVENT_PREFIX,action:'open-inspection'},'clipboard-check').replace('<button',`<button data-order-no="${escapeHtml(orderNo)}" ${!['部分到货','已到货'].includes(order.status)||order.inventoryPosting?'disabled':''}`)}${renderSecondaryButton('登记到货', { prefix: EVENT_PREFIX, action: 'open-arrival' }, 'package-check').replace('<button', `<button data-order-no="${escapeHtml(orderNo)}" ${order.tmfTipSource || order.status === '已关闭' || order.status === '已入库' ? 'disabled' : ''}`)}${nextStatuses.includes('已关闭') ? renderDangerButton('关闭采购单', { prefix: EVENT_PREFIX, action: 'open-close' }, 'x-circle').replace('<button', `<button data-order-no="${escapeHtml(orderNo)}"`) : ''}</div><p class="mt-2 text-xs text-slate-500">状态顺序：待采购 → 已采购 → 部分到货/已到货 → 已入库；已关闭不可恢复。</p></section>
+    <section class="rounded-lg border p-4"><h3 class="font-semibold">采购图片与物流凭证</h3><div class="my-3 flex flex-wrap gap-2">${[['附加图片','添加图片'],['物流凭证','上传物流凭证']].map(([category,label])=>renderSecondaryButton(label,{prefix:EVENT_PREFIX,action:'open-attachment'},'paperclip').replace('<button',`<button data-order-no="${escapeHtml(orderNo)}" data-file-category="${category}"`)).join('')}</div>${(order.attachments || []).map(file=>`<div class="flex items-center gap-3 border-t py-2"><span class="text-xs text-slate-500">${file.category}</span><button class="flex-1 text-left text-sm text-blue-700" data-pms-mpo-action="preview-attachment" data-file-id="${escapeHtml(file.fileId)}">${escapeHtml(file.name)}</button><button class="text-xs text-red-700" data-pms-mpo-action="delete-attachment" data-order-no="${escapeHtml(orderNo)}" data-file-id="${escapeHtml(file.fileId)}">删除附件</button></div>`).join('')}</section>
+    ${order.inspection?`<section class="rounded border p-3 text-sm"><h3 class="font-semibold">采购质检</h3><p>抽检 ${formatPmsQty(order.inspection.sampleQty,order.unit)}；合格 ${formatPmsQty(order.inspection.qualifiedQty,order.unit)}；瑕疵 ${formatPmsQty(order.inspection.defectQty,order.unit)}</p><p>${escapeHtml(order.inspection.inspector)} · ${formatPmsTime(order.inspection.inspectedAt)} · ${escapeHtml(order.inspection.reason)}${order.inspection.shortageRate!==undefined?` · 空差率 ${order.inspection.shortageRate.toFixed(2)}%`:''}${order.inspection.defectQty?` · 瑕疵仓：${escapeHtml(order.inspection.warehouse)}`:''}</p></section>`:''}
+    <section><div class="mb-2 flex justify-between"><h3 class="text-sm font-semibold">物流记录（${records.length}）</h3>${renderSecondaryButton('添加快递信息',{prefix:EVENT_PREFIX,action:'new-logistics'},'truck').replace('<button',`<button data-order-no="${escapeHtml(orderNo)}" ${['已关闭','已入库'].includes(order.status)?'disabled':''}`)}</div><div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left" style="min-width: 760px"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物流公司</th><th class="px-3 py-2">物流单号</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">发货日期</th><th class="px-3 py-2">国内签收</th><th class="px-3 py-2">头程</th></tr></thead><tbody>${recordsHtml}</tbody></table></div></section>
     ${getTmfMaterialPurchase(orderNo) ? renderTmfPurchaseRevisionHistory(orderNo) : ''}
     <section><h3 class="mb-2 text-sm font-semibold">操作日志</h3><ul class="space-y-2">${logItems}</ul></section>
   </div></section></div>`
@@ -452,7 +501,7 @@ function renderDetailOverlay(orderNo: string): string {
 function renderArrivalOverlay(orderNo: string): string {
   const order = getPmsMaterialPurchaseOrder(orderNo)
   if (!order) return ''
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="登记到货" data-pms-mpo-arrival-root><section class="w-full max-w-lg rounded-xl bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">登记到货 · ${escapeHtml(orderNo)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.materialName)} · 采购 ${formatPmsQty(order.orderedQty, order.unit)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-3 p-4">${renderPmsOverlayError(state.overlayError)}<label class="flex flex-col gap-1 text-xs text-muted-foreground">本次累计到货数量（${escapeHtml(order.unit)}）
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="登记到货" data-pms-mpo-arrival-root><section class="w-full max-w-lg rounded-xl bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">登记到货 · ${escapeHtml(pmsBusinessNumber(orderNo))}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.materialName)} · 采购 ${formatPmsQty(order.orderedQty, order.unit)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-3 p-4">${renderPmsOverlayError(state.overlayError)}<label class="flex flex-col gap-1 text-xs text-muted-foreground">本次累计到货数量（${escapeHtml(order.unit)}）
     <input class="h-9 rounded-md border bg-background px-2 text-sm" type="number" min="0" step="0.01" value="${order.receivedQty > 0 ? order.receivedQty : order.orderedQty}" data-${EVENT_PREFIX}-arrival-qty data-skip-page-rerender="true" />
   </label><p class="text-xs text-slate-500">到货数量小于采购数量记为“部分到货”，等于采购数量记为“已到货”。</p></div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('保存到货', { prefix: EVENT_PREFIX, action: 'submit-arrival' }, 'check-check')}</footer></section></div>`
 }
@@ -462,7 +511,7 @@ function renderImportOverlay(rows: ImportPreviewRow[]): string {
   const previewRows = rows.length
     ? rows.map((item) => `<tr class="border-b last:border-b-0 ${item.error ? 'bg-red-50' : ''}"><td class="px-3 py-2 text-sm">${escapeHtml(item.row.purchaseOrderNo)}</td><td class="px-3 py-2 text-sm">${escapeHtml(item.row.company)}</td><td class="px-3 py-2 text-sm">${escapeHtml(item.row.trackingNo)}</td><td class="px-3 py-2 text-sm">${escapeHtml(item.row.shipDate || '—')}</td><td class="px-3 py-2 text-sm tabular-nums">${item.row.boxCount}</td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsQty(item.row.qty)}</td><td class="px-3 py-2 text-sm tabular-nums">¥${item.row.fee.toFixed(2)}</td><td class="px-3 py-2 text-xs ${item.error ? 'text-red-700' : 'text-emerald-700'}">${escapeHtml(item.error || '校验通过')}</td></tr>`).join('')
     : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">请选择模板文件，或先下载模板填写后上传</td></tr>'
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="导入快递信息" data-pms-mpo-import-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭导入"></button><section class="relative z-10 flex h-full w-[980px] max-w-[96vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">导入快递信息</h2><p class="mt-1 text-xs text-slate-500">支持模板 .xls / .xlsx / CSV；物流单号不可重复，错误行会在确认时阻断</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="flex-1 space-y-4 overflow-y-auto p-4">${renderPmsOverlayError(state.overlayError)}
+  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="导入快递信息" data-pms-mpo-import-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭导入"></button><section class="relative z-10 flex h-full w-[980px] max-w-[96vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">导入快递信息</h2><p class="mt-1 text-xs text-slate-500">支持 .xls / .xlsx / CSV；物流单号不可重复，错误行会在确认时阻断</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="flex-1 space-y-4 overflow-y-auto p-4">${renderPmsOverlayError(state.overlayError)}
     <div class="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 p-3">
       ${renderSecondaryButton('下载导入模板', { prefix: EVENT_PREFIX, action: 'download-template' }, 'download')}
       <label class="flex items-center gap-2 text-sm">选择文件
@@ -477,21 +526,53 @@ function renderImportOverlay(rows: ImportPreviewRow[]): string {
 function renderCloseOverlay(orderNo: string): string {
   const order = getPmsMaterialPurchaseOrder(orderNo)
   if (!order) return ''
-  return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="关闭面辅料采购单" data-pms-mpo-close-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><header class="mb-4 flex items-center justify-between"><div><h2 class="font-semibold">关闭 ${escapeHtml(orderNo)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.materialName)} · ${escapeHtml(order.status)} · 关闭后不可恢复</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header>${renderPmsOverlayError(state.overlayError)}
+  return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="关闭面辅料采购单" data-pms-mpo-close-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><header class="mb-4 flex items-center justify-between"><div><h2 class="font-semibold">关闭 ${escapeHtml(pmsBusinessNumber(orderNo))}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.materialName)} · ${escapeHtml(order.status)} · 关闭后不可恢复</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header>${renderPmsOverlayError(state.overlayError)}
     <label class="flex flex-col gap-1 text-xs text-muted-foreground">关闭原因（必填）<textarea class="min-h-24 rounded-md border bg-background p-2 text-sm" placeholder="如供应商无法交付、终端取消" data-${EVENT_PREFIX}-close-reason data-skip-page-rerender="true"></textarea></label>
     <footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('确认关闭', { prefix: EVENT_PREFIX, action: 'submit-close' }, 'check-check')}</footer></section></div>`
 }
 
-function renderOverlays(): string {
-  const columnSettings = `<div data-pms-mpo-column-overlays>${controller.renderColumnSettings()}</div>`
-  if (!state.overlay) return `${columnSettings}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'tmf-revision') return `${columnSettings}${renderTmfPurchaseRevision(state.overlay.orderNo)}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'tip-purchase') return `${columnSettings}${renderTmfTipPurchaseForm()}`
-  if (state.overlay.kind === 'detail') return `${columnSettings}${renderDetailOverlay(state.overlay.orderNo)}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'arrival') return `${columnSettings}${renderArrivalOverlay(state.overlay.orderNo)}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'close') return `${columnSettings}${renderCloseOverlay(state.overlay.orderNo)}${renderPmsImagePreview()}`
-  return `${columnSettings}${renderImportOverlay(state.overlay.rows)}${renderPmsImagePreview()}`
+function renderPurchaseFieldsOverlay():string {
+  const overlay=state.overlay
+  if(!overlay || (overlay.kind!=='new' && overlay.kind!=='edit-fields')) return ''
+  const row=overlay.kind==='edit-fields'?getPmsMaterialPurchaseOrder(overlay.orderNo):undefined
+  const input=(key:string,label:string,value:unknown,type='text')=>`<label class="block text-xs text-slate-500">${label}<input class="mt-1 h-9 w-full rounded border px-2 text-sm" type="${type}" value="${escapeHtml(String(value??''))}" data-mpo-edit="${key}"></label>`
+  const kind=overlay.kind==='new'?overlay.purchaseKind:''
+  const candidates=listPurchaseGoodsReferences().filter(reference=>reference.active && (kind==='样衣'?reference.category==='成衣':kind==='面料'?reference.category==='面料':kind==='辅料'?reference.category==='辅料':reference.category!=='成衣'))
+  return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="采购单表单"><section class="flex h-full w-[680px] max-w-[96vw] flex-col bg-white"><header class="flex justify-between border-b p-4"><h2 class="font-semibold">${row?'修改采购信息':`添加${kind}采购`}</h2>${renderSecondaryButton('关闭',{prefix:EVENT_PREFIX,action:'close-overlay'})}</header><div class="flex-1 overflow-auto p-4">${renderPmsOverlayError(state.overlayError)}${row?`<div class="mb-4 flex gap-2">${renderPmsBusinessImage(row.materialImageUrl,row.materialName)}<span>${escapeHtml(row.materialName)}<br>${escapeHtml(row.materialCode)}</span></div>`:`<label class="mb-4 block text-sm">选择 SKU<select class="mt-1 h-9 w-full rounded border px-2" data-mpo-edit="materialCode"><option value="">请选择</option>${candidates.map(item=>`<option value="${escapeHtml(item.materialCode)}">${escapeHtml(item.materialCode)} · ${escapeHtml(item.materialName)} · ${escapeHtml(item.unit)}</option>`).join('')}</select></label><div class="mb-4" data-mpo-selected-source></div>`}<div class="grid grid-cols-2 gap-3">${input('orderedQty','采购数量',row?.orderedQty || '', 'number')}${input('unitPrice','实际单价',row?.unitPrice || '', 'number')}<label class="block text-xs text-slate-500">币种<select class="mt-1 h-9 w-full rounded border px-2 text-sm" data-mpo-edit="currency">${['RMB','USD','IDR'].map(currency=>`<option ${row?.currency===currency?'selected':''}>${currency}</option>`).join('')}</select></label>${input('supplierName','供应商',row?.supplierName || '')}${input('purchaseRegion','采购区域',row?.purchaseRegion || '国内')}${input('warehouse','收货仓',row?.warehouse || '')}${input('buyerName','采购员',row?.buyerName || PMS_BUYER_ACTOR.name)}${input('expectedArrivalDate','预计到货',row?.expectedArrivalDate || '','date')}${!row?`<label class="block text-sm">采购用途<select class="mt-1 h-9 w-full rounded border px-2" data-mpo-edit="usageType">${['成衣做货','补采','成衣做货备货','样衣采购'].map(value=>`<option>${value}</option>`).join('')}</select></label>${input('dedicatedSpu','专用SPU（补采必填）','')}${input('supplementReason','补采原因（补采必填）','')}`:''}${row?input('weightKg','重量（kg）',row.weightKg || 0,'number')+input('volumeM3','体积（m³）',row.volumeM3 || 0,'number')+input('dyeFee','染色加工费',row.dyeFee || 0,'number')+input('usageType','用途',row.usageType || '')+input('factoryName','工厂',row.factoryName || '')+input('inspector','质检员',row.inspector || '')+input('inspectionConclusion','质检结论',row.inspectionConclusion || ''):''}${input('remark','采购备注',row?.remark || '')}</div></div><footer class="flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton(row?'保存采购信息':'创建采购单',{prefix:EVENT_PREFIX,action:'submit-fields'})}</footer></section></div>`
 }
+function renderMpoAttachmentPreview():string{return state.attachmentPreviewUrl?`<div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-5" role="dialog" aria-modal="true" aria-label="采购附件预览"><button class="absolute right-5 top-5 rounded bg-white p-3" data-pms-mpo-action="close-file-preview">关闭预览</button>${state.attachmentPreviewType.startsWith('image/')?`<img class="max-h-[90vh] max-w-[90vw] object-contain" src="${state.attachmentPreviewUrl}" alt="已保存采购附件">`:`<iframe class="h-[85vh] w-[90vw] bg-white" src="${state.attachmentPreviewUrl}" title="已保存采购附件"></iframe>`}</div>`:''}
+function renderInspectionOverlay(orderNo:string):string{
+ const order=getPmsMaterialPurchaseOrder(orderNo);if(!order)return '';const old=order.inspection
+ const field=(name:string,label:string,value:string|number,type='text')=>`<label class="block text-sm">${label}<input name="${name}" type="${type}" value="${escapeHtml(value)}" class="mt-1 h-9 w-full rounded border px-3" ${type==='number'?'min="0" step="any"':''}></label>`
+ return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="登记采购质检"><section class="flex h-full w-[640px] max-w-[96vw] flex-col bg-white"><header class="flex justify-between border-b p-4"><h2 class="font-semibold">登记质检 / 瑕疵处理</h2>${renderSecondaryButton('关闭',{prefix:EVENT_PREFIX,action:'close-overlay'})}</header><div class="flex-1 overflow-auto p-4" data-mpo-qc-form>${renderPmsOverlayError(state.overlayError)}<div class="mb-4 flex items-center gap-3">${renderPmsBusinessImage(order.materialImageUrl,order.materialName)}<span>${escapeHtml(order.materialName)} · ${escapeHtml(pmsBusinessNumber(orderNo))}<br>实到 ${formatPmsQty(order.receivedQty,order.unit)}</span></div><div class="grid grid-cols-2 gap-3">${field('sampleQty',`抽检数量（${order.unit}）`,old?.sampleQty||'','number')}${field('qualifiedQty',`合格数量（${order.unit}）`,old?.qualifiedQty||'','number')}${field('defectQty',`瑕疵数量（${order.unit}）`,old?.defectQty||0,'number')}${field('inspector','质检员',old?.inspector||PMS_BUYER_ACTOR.name)}${field('warehouse','瑕疵仓',old?.warehouse||'')}${field('reason','瑕疵原因',old?.reason||'')}${field('labelLength',`标签长度（${order.unit}）`,old?.labelLength||0,'number')}${field('actualLength',`实际长度（${order.unit}）`,old?.actualLength||0,'number')}</div><p class="mt-4 text-xs text-slate-500">合格与瑕疵数量之和须等于抽检数量。只登记本次已观察到的瑕疵数量，不按抽检比例推算整批。保存仅形成本地原型记录。</p></div><footer class="flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('保存质检结果',{prefix:EVENT_PREFIX,action:'submit-inspection'})}</footer></section></div>`
+}
+function renderLogisticsEditOverlay(recordNo:string,orderNo=''):string{
+ const order=getPmsMaterialPurchaseOrder(orderNo),existing=listPmsMaterialLogisticsRecords().find(item=>item.recordNo===recordNo),row=existing||(order?{...order,company:'',trackingNo:'',shipDate:'',estimatedArrival:'',boxCount:0,rolls:0,qty:0,fee:0,transportMethod:'快递',contact:'',sellerBoxNo:'',boxNo:'',lengthCm:0,widthCm:0,heightCm:0,weightKg:0,transferCenter:'',estimatedTransferDays:0}:undefined);if(!row)return ''
+ const fields=[['company','物流公司','text'],['trackingNo','物流单号','text'],['shipDate','发货日期','date'],['estimatedArrival','预计到达日期','date'],['boxCount','箱数','number'],['rolls','卷数','number'],['qty',`数量（${row.unit}）`,'number'],['fee','运费','number'],['remark','备注','text'],['contact','联系人','text'],['sellerBoxNo','商家箱号','text'],['boxNo','自编箱号','text'],['lengthCm','长度（cm）','number'],['widthCm','宽度（cm）','number'],['heightCm','高度（cm）','number'],['weightKg','重量（kg）','number'],['transferCenter','转运中心','text'],['estimatedTransferDays','预计转运天数','number']] as const
+ return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="采购物流信息"><section class="flex h-full w-[640px] max-w-[96vw] flex-col bg-white"><header class="flex justify-between border-b p-4"><h2 class="font-semibold">${existing?'修改':'添加'}采购物流信息</h2>${renderSecondaryButton('关闭',{prefix:EVENT_PREFIX,action:'close-overlay'})}</header><div class="flex-1 overflow-auto p-4" data-mpo-logistics-form>${renderPmsOverlayError(state.overlayError)}<div class="mb-4 flex gap-3">${renderPmsBusinessImage(row.materialImageUrl,row.materialName)}<span>${escapeHtml(row.materialName)} · ${escapeHtml(row.trackingNo)}</span></div><label class="mb-3 block text-sm">货运方式<select name="transportMethod" class="mt-1 h-9 w-full rounded border px-2">${['快递','自提','货拉拉','海运','空运'].map(value=>`<option ${row.transportMethod===value?'selected':''}>${value}</option>`).join('')}</select></label><div class="grid grid-cols-2 gap-3">${fields.map(([name,label,type])=>`<label class="block text-sm">${label}<input name="${name}" type="${type}" class="mt-1 h-9 w-full rounded border px-3" value="${escapeHtml(row[name]??'')}"></label>`).join('')}</div></div><footer class="flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('保存物流信息',{prefix:EVENT_PREFIX,action:'submit-logistics-edit'})}</footer></section></div>`
+}
+function renderOverlays(): string {
+  if(state.overlay?.kind==='attachment')return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label="采购附件表单"><section class="w-full max-w-lg space-y-4 rounded-lg bg-white p-5"><h2 class="font-semibold">上传${state.overlay.category}</h2><p class="text-sm">采购单 ${escapeHtml(pmsBusinessNumber(state.overlay.orderNo))}，支持图片或PDF，最大20MB。</p><label class="block text-sm">选择文件<input class="mt-2 block w-full text-sm" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" data-mpo-attachment-file></label><footer class="flex justify-end gap-2">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('保存附件',{prefix:EVENT_PREFIX,action:'save-attachment'})}</footer></section></div>`+renderMpoAttachmentPreview()
+
+  if(state.overlay?.kind==='batch-fields'){const field=state.overlay.field;const labels:Record<string,string>={buyerName:'采购员',supplierName:'面辅料供应商',purchaseRegion:'采购区域',remark:'采购备注',unitPrice:'实际采购单价',printingFactory:'印花工厂',cuttingFactory:'裁片工厂',printingProcess:'印染工艺',dyeFee:'染色费用',rejectedReason:'驳回原因'};return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label="批量采购操作"><section class="w-full max-w-lg space-y-3 rounded-lg bg-white p-5"><h2 class="font-semibold">设置${labels[field]}</h2><p class="text-sm">共 ${state.selectedOrderNos.length} 张采购单：${state.selectedOrderNos.map(pmsBusinessNumber).map(escapeHtml).join('、')}</p><label class="block text-sm">${labels[field]}<input class="mt-1 h-9 w-full rounded border px-2" data-mpo-batch-value type="${['unitPrice','dyeFee'].includes(field)?'number':'text'}"></label><footer class="flex justify-end gap-2">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton(field==='rejectedReason'?'驳回采购':'保存设置',{prefix:EVENT_PREFIX,action:'save-batch-fields'})}</footer></section></div>${renderPmsImagePreview()+renderMpoAttachmentPreview()}`}
+
+  if(state.overlay?.kind==='new' || state.overlay?.kind==='edit-fields') return renderPurchaseFieldsOverlay()+controller.renderColumnSettings()+renderPmsImagePreview()
+
+  const columnSettings = `<div data-pms-mpo-column-overlays>${controller.renderColumnSettings()}</div>`
+  if (!state.overlay) return `${columnSettings}${renderPmsImagePreview()+renderMpoAttachmentPreview()}`
+  if (state.overlay.kind === 'tmf-revision') return `${columnSettings}${renderTmfPurchaseRevision(state.overlay.orderNo)}${renderPmsImagePreview()+renderMpoAttachmentPreview()}`
+  if (state.overlay.kind === 'tip-purchase') return `${columnSettings}${renderTmfTipPurchaseForm()}`
+  if (state.overlay.kind === 'detail') return `${columnSettings}${renderDetailOverlay(state.overlay.orderNo)}${renderPmsImagePreview()+renderMpoAttachmentPreview()}`
+  if (state.overlay.kind === 'arrival') return `${columnSettings}${renderArrivalOverlay(state.overlay.orderNo)}${renderPmsImagePreview()+renderMpoAttachmentPreview()}`
+  if (state.overlay.kind === 'close') return `${columnSettings}${renderCloseOverlay(state.overlay.orderNo)}${renderPmsImagePreview()+renderMpoAttachmentPreview()}`
+  if(state.overlay.kind==='barcodes')return `${columnSettings}${renderMpoBarcodeOverlay(state.overlay.orderNo)}`
+  if(state.overlay.kind==='inspection')return `${columnSettings}${renderInspectionOverlay(state.overlay.orderNo)}`
+  if(state.overlay.kind==='logistics-edit')return `${columnSettings}${renderLogisticsEditOverlay(state.overlay.recordNo)}`
+  if(state.overlay.kind==='logistics-new')return `${columnSettings}${renderLogisticsEditOverlay('',state.overlay.orderNo)}`
+  return `${columnSettings}${renderImportOverlay(state.overlay.rows)}${renderPmsImagePreview()+renderMpoAttachmentPreview()}`
+}
+
+const barcodeCallbacks={refresh:()=>{refreshAll();refreshOverlays()},close:()=>{state.overlay=null;state.overlayError='';refreshOverlays()},feedback:(message:string,ok:boolean)=>{state.feedback=message;state.feedbackOk=ok}}
 
 function renderInner(): string {
   if (state.readStatus === 'loading' || state.readStatus === 'initial') return '<div class="rounded-lg border bg-white p-6 text-sm text-slate-600" role="status">正在读取采购资料…</div>'
@@ -500,25 +581,35 @@ function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   return renderStandardListPage({
-      showHeader: false,
+      showHeader: true,
     title: '面辅料采购单',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: renderFilters(),
-    statsHtml: renderStats(),
+    primaryActionsHtml: `<div class="flex flex-wrap gap-2">${['原料','面料','辅料','样衣'].map(kind=>renderPrimaryButton(`添加${kind}采购`,{prefix:EVENT_PREFIX,action:'new-order'},'plus').replace('<button',`<button data-purchase-kind="${kind}"`)).join('')}${renderPrimaryButton('创建端头辅材采购', { prefix: EVENT_PREFIX, action: 'open-tip-purchase' }, 'plus')}</div>`,
+    feedbackHtml: `<div data-pms-mpo-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,
+    filtersHtml: `<div data-pms-mpo-filters>${renderFilters()}</div>`,
+    statsHtml: `<div data-pms-mpo-stats>${renderStats()}</div>`,
     listTitle: `共 ${filteredRows().length} 条${state.selectedOrderNos.length ? ` · 已选 ${state.selectedOrderNos.length} 条` : ''}`,
-    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('创建端头辅材采购', { prefix: EVENT_PREFIX, action: 'open-tip-purchase' }, 'plus')}<span class="text-xs text-muted-foreground">快递信息导入后自动同步采购跟踪</span><span class="text-xs text-muted-foreground" data-pms-mpo-selected-count>已选 ${state.selectedOrderNos.length} 张</span>${renderSecondaryButton('标记已采购', { prefix: EVENT_PREFIX, action: 'batch-purchased' }, 'list-checks').replace('<button', `<button ${state.selectedOrderNos.length === 0 ? 'disabled' : ''}`)}${renderSecondaryButton('标记已入库', { prefix: EVENT_PREFIX, action: 'batch-inbound' }, 'list-checks').replace('<button', `<button ${state.selectedOrderNos.length === 0 ? 'disabled' : ''}`)}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    listActionsHtml: `<select class="h-9 rounded border px-2 text-sm" aria-label="批量采购设置" data-mpo-batch-field><option value="">批量设置</option>${[['buyerName','采购员'],['supplierName','面辅料供应商'],['purchaseRegion','采购区域'],['remark','采购备注'],['unitPrice','确认实际采购价'],['printingFactory','印花工厂'],['cuttingFactory','裁片工厂'],['printingProcess','印染工艺'],['dyeFee','染色费用'],['rejectedReason','驳回采购']].map(([key,label])=>`<option value="${key}">${label}</option>`).join('')}</select><div class="flex flex-wrap items-center gap-2"><span class="text-xs text-muted-foreground">快递信息导入后自动同步采购跟踪</span><span class="text-xs text-muted-foreground" data-pms-mpo-selected-count>已选 ${state.selectedOrderNos.length} 张</span>${renderSecondaryButton('标记已采购', { prefix: EVENT_PREFIX, action: 'batch-purchased' }, 'list-checks').replace('<button', `<button ${state.selectedOrderNos.length === 0 ? 'disabled' : ''}`)}${renderSecondaryButton('标记已入库', { prefix: EVENT_PREFIX, action: 'batch-inbound' }, 'list-checks').replace('<button', `<button ${state.selectedOrderNos.length === 0 ? 'disabled' : ''}`)}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-mpo-table-surface>${view.tableHtml}</div>`,
     paginationHtml: `<div data-pms-mpo-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-pms-mpo-overlays>${renderOverlays()}</div>`,
   })
 }
 
-function refreshAll(): void {
-  const root = rootElement()
-  if (!root) return
-  root.innerHTML = renderInner()
-  hydratePmsSurface(root)
-  syncProcessSelectionHeader(root)
+function refreshAll(resetFilters=false):void {
+  const root=rootElement();if(!root) return
+  if(state.purchaseView!=='list' || !root.querySelector('[data-pms-mpo-table-surface]')) {const body=root.querySelector<HTMLElement>('[data-pms-mpo-body]');if(body){body.innerHTML=renderInner();hydratePmsSurface(body)}return}
+  controller.refresh({overlays:false})
+  const update=(part:string,html:string)=>{const region=root.querySelector<HTMLElement>(`[data-pms-mpo-${part}]`);if(region){region.innerHTML=html;hydratePmsSurface(region)}}
+  const title=root.querySelector<HTMLElement>('[data-standard-list-table-section] h2');if(title) title.textContent=`共 ${filteredRows().length} 条`
+  update('stats',renderStats());update('feedback',renderPmsFeedback(state.feedback,state.feedbackOk));if(resetFilters) update('filters',renderFilters())
+  refreshOverlays();syncProcessSelectionHeader(root)
+}
+function preserveEditingError():void {
+  const root=rootElement();if(!root) return
+  const panel=root.querySelector('[role="dialog"] section')
+  let alert=panel?.querySelector<HTMLElement>('[data-pms-edit-error]')
+  if(!alert && panel){alert=document.createElement('p');alert.dataset.pmsEditError='';alert.className='rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700';alert.setAttribute('role','alert');panel.prepend(alert)}
+  if(alert) alert.textContent=state.overlayError
 }
 
 function refreshOverlays(): void {
@@ -534,22 +625,14 @@ function closeOverlay(): void {
   refreshOverlays()
 }
 
-function exportRows(): void {
-  const rows = filteredRows()
-  if (rows.length === 0) {
-    state.feedback = '当前查询条件下没有可导出的面辅料采购单。'
-    state.feedbackOk = false
-    refreshAll()
-    return
-  }
-  downloadPmsCsv(
-    '面辅料采购单.csv',
-    ['采购单号', '来源需求', '物料编码', '物料名称', '款式', '单位', '采购数量', '已到货', '单价', '币种', '金额', '供应商', '仓库', '状态', '交期', '物流单号', '供应商确认'],
-    rows.map((row) => [row.purchaseOrderNo, row.requirementNo, row.materialCode, row.materialName, row.styleName, row.unit, row.orderedQty, row.receivedQty, row.unitPrice, row.currency, (row.orderedQty * row.unitPrice).toFixed(2), row.supplierName, row.warehouse, row.status, row.expectedArrivalDate, orderLogistics(row.purchaseOrderNo).map((record) => record.trackingNo).join('、'), row.supplierConfirmed ? '已确认' : '待确认']),
-  )
-  state.feedback = `已导出 ${rows.length} 张面辅料采购单（当前查询条件全量）。`
-  state.feedbackOk = true
-  refreshAll()
+function exportRows(kind:string):void{
+ const rows=filteredRows();let headers:string[],values:Array<Array<string|number>>
+ if(kind==='原料入库'){headers=['采购单号','SKU','物料名称','仓库','数量','单位','入库时间','操作人'];values=rows.flatMap(order=>[order.inventoryPosting,order.defectInventoryPosting].filter(Boolean).map(post=>[pmsBusinessNumber(order.purchaseOrderNo),post!.materialCode,post!.materialName,post!.warehouse,post!.qty,post!.unit,post!.postedAt,post!.operator]))}
+ else if(kind==='订单'){headers=['采购单号','物料名称','供应商','采购数量','单位','单价','币种','金额','采购人','状态','创建日期','交期'];values=rows.map(row=>[pmsBusinessNumber(row.purchaseOrderNo),row.materialName,row.supplierName,row.orderedQty,row.unit,row.unitPrice,row.currency,(row.orderedQty*row.unitPrice).toFixed(2),row.buyerName,row.status,row.orderDate,row.expectedArrivalDate])}
+ else if(kind==='结算单'){headers=['采购单号','供应商','SKU','采购数量','实到数量','单位','成本单价','币种','采购金额','成本价确认','采购备注'];values=rows.map(row=>[pmsBusinessNumber(row.purchaseOrderNo),row.supplierName,row.materialCode,row.orderedQty,row.receivedQty,row.unit,row.unitPrice,row.currency,(row.orderedQty*row.unitPrice).toFixed(2),row.priceConfirmed?'已确定':'未记录',row.remark])}
+ else{headers=['采购单号','来源需求','SKU','物料名称','SPU','单位','采购数量','已到货','单价','币种','金额','供应商','仓库','状态','交期','物流单号','供应商确认'];values=rows.map(row=>[pmsBusinessNumber(row.purchaseOrderNo),pmsBusinessNumber(row.requirementNo),row.materialCode,row.materialName,row.styleCode,row.unit,row.orderedQty,row.receivedQty,row.unitPrice,row.currency,(row.orderedQty*row.unitPrice).toFixed(2),row.supplierName,row.warehouse,row.status,row.expectedArrivalDate,orderLogistics(row.purchaseOrderNo).map(record=>record.trackingNo).join('、'),row.supplierConfirmed?'已确认':'待确认'])}
+ if(!values.length){state.feedback=`当前查询条件下没有可导出的${kind}`;state.feedbackOk=false;refreshAll();return}
+ downloadPmsCsv(`面辅料采购-${kind}.csv`,headers,values);state.feedback=`已导出当前查询范围全部 ${values.length} 条${kind}`;state.feedbackOk=true;refreshAll()
 }
 
 function downloadTemplate(): void {
@@ -590,25 +673,16 @@ function mapImportRows(rawRows: string[][]): ImportPreviewRow[] {
     })
 }
 
-function handleImportFile(file: File): void {
-  parsePmsExcelRows(file)
-    .then((rows) => {
-      state.overlay = { kind: 'import', rows: mapImportRows(rows), clientActionId: nextPmsActionId('pms-mpo-import') }
-      state.overlayError = ''
-      refreshOverlays()
-    })
-    .catch((error: unknown) => {
-      state.overlayError = error instanceof Error ? error.message : '解析文件失败，请使用导入模板'
-      refreshOverlays()
-    })
+async function handleImportFile(file:File):Promise<void>{
+  try{const rows=await parsePmsExcelRows(file);state.overlay={kind:'import',rows:mapImportRows(rows),clientActionId:nextPmsActionId('pms-mpo-import')};state.overlayError='';refreshOverlays()}catch(error){state.overlayError=error instanceof Error?error.message:'解析文件失败，请使用导入模板';preserveEditingError()}
 }
 
-function submitArrival(orderNo: string): void {
+async function submitArrival(orderNo: string): Promise<void> {
   const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-mpo-arrival-root]')
   if (!surface) return
   const qty = Number.parseFloat(readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-arrival-qty]`))
   try {
-    const order = registerPmsMaterialPurchaseArrival(orderNo, qty, PMS_BUYER_ACTOR)
+    const order = await registerPmsMaterialPurchaseArrival(orderNo, qty, PMS_BUYER_ACTOR,state.overlay?.clientActionId)
     state.feedback = `${orderNo} 已登记到货 ${formatPmsQty(order.receivedQty, order.unit)}，状态为${order.status}。`
     state.feedbackOk = true
     state.overlay = null
@@ -616,13 +690,13 @@ function submitArrival(orderNo: string): void {
     refreshAll()
   } catch (error) {
     state.overlayError = error instanceof PmsDomainError ? error.message : '登记到货失败'
-    refreshOverlays()
+    preserveEditingError()
   }
 }
 
-function submitImport(rows: ImportPreviewRow[]): void {
+async function submitImport(rows: ImportPreviewRow[]): Promise<void> {
   try {
-    const imported = importPmsMaterialLogistics(rows.map((item) => item.row), PMS_BUYER_ACTOR)
+    const imported = await importPmsMaterialLogistics(rows.map((item) => item.row), PMS_BUYER_ACTOR,state.overlay?.clientActionId)
     state.feedback = `已导入 ${imported.length} 条快递信息，采购跟踪已同步。`
     state.feedbackOk = true
     state.overlay = null
@@ -630,14 +704,14 @@ function submitImport(rows: ImportPreviewRow[]): void {
     refreshAll()
   } catch (error) {
     state.overlayError = error instanceof PmsDomainError ? error.message : '导入快递信息失败'
-    refreshOverlays()
+    preserveEditingError()
   }
 }
 
-function batchAdvance(nextStatus: PmsMaterialPurchaseOrderStatus): void {
+async function batchAdvance(nextStatus: PmsMaterialPurchaseOrderStatus): Promise<void> {
   try {
-    const updated = batchAdvancePmsMaterialPurchaseOrders([...state.selectedOrderNos], nextStatus, PMS_BUYER_ACTOR)
-    state.feedback = `已将 ${updated.length} 张采购单推进为${nextStatus}。`
+    const updated = await batchAdvancePmsMaterialPurchaseOrders([...state.selectedOrderNos], nextStatus, PMS_BUYER_ACTOR)
+    state.feedback = nextStatus==='已入库'?`已保存 ${updated.length} 张采购单的本次可入库数量。未到齐的采购单保留部分到货状态。`:`已将 ${updated.length} 张采购单推进为${nextStatus}。`
     state.feedbackOk = true
     state.selectedOrderNos = []
     refreshAll()
@@ -648,16 +722,19 @@ function batchAdvance(nextStatus: PmsMaterialPurchaseOrderStatus): void {
   }
 }
 
-export function renderPmsMaterialPurchaseOrdersPage(): string {
+export async function renderPmsMaterialPurchaseOrdersPage(): Promise<string> {
+  try{await Promise.all([hydratePmsMaterialPurchaseOrdersFromIdb(),hydratePmsTmfPurchaseReferencesFromIdb(),ensurePurchaseCatalogState(),hydratePmsSuppliersFromIdb()]);state.readStatus='ready';applyPcsPurchaseEntry()}catch(error){state.readStatus='error';state.readError=error instanceof Error?error.message:'用户数据不可读'}
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   controller.installColumnDragEvents()
   loadPurchasePage()
   try { applyPcsPurchaseEntry() } catch (error) { state.readStatus = 'error'; state.readError = error instanceof Error ? error.message : '采购来源无法读取。' }
   installPcsPurchaseLeaveGuard()
-  return `<div data-pms-mpo-root data-skip-page-rerender="true"><style>[data-pms-mpo-root] [data-standard-list-scroll] td{vertical-align:top}</style>${renderInner()}</div>`
+  return `<div data-pms-mpo-root data-skip-page-rerender="true"><style>[data-pms-mpo-root] [data-standard-list-scroll] td{vertical-align:top}</style><div data-pms-mpo-body>${renderInner()}</div></div>`
 }
 
-export function closePmsMaterialPurchaseOrderOverlays(): boolean {
+export async function closePmsMaterialPurchaseOrderOverlays(): Promise<boolean> {
+  if (state.overlay?.kind === 'barcodes') return await closeMpoBarcodeOverlay(barcodeCallbacks)
+  if(state.attachmentPreviewUrl){URL.revokeObjectURL(state.attachmentPreviewUrl);state.attachmentPreviewUrl='';refreshOverlays();return true}
   if (state.overlay) {
     state.overlay = null
     state.overlayError = ''
@@ -672,12 +749,13 @@ export function closePmsMaterialPurchaseOrderOverlays(): boolean {
   return false
 }
 
-export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
+  if(state.overlay?.kind==='barcodes' && await handleMpoBarcodeEvent(target,event,barcodeCallbacks))return true
   if (handlePmsCommonImageEvent(target, event, refreshOverlays)) return true
   if (rootElement() && handleProcessFilterPresentation(rootElement()!, target)) return true
   if (event?.type === 'keydown' && event instanceof KeyboardEvent && event.key === 'Escape' && state.overlay) {
-    closeOverlay()
+    if(state.overlay.kind==='barcodes')await closeMpoBarcodeOverlay(barcodeCallbacks);else closeOverlay()
     return true
   }
 
@@ -702,6 +780,10 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
       if (form) updateTmfTipPurchaseSource(form)
       return true
     }
+    if(fieldName==='keywordField'){state.keywordField=field.value;return true}
+    if(fieldName.startsWith('multi:')){state.multiFilters[fieldName.slice(6)]=Array.from((field as HTMLSelectElement).selectedOptions).map(option=>option.value);return true}
+    if(fieldName.startsWith('date:')){state.dateFilters[fieldName.slice(5)]=field.value;return true}
+    if(fieldName.startsWith('range:')){state.rangeFilters[fieldName.slice(6)]=field.value;return true}
     if (fieldName === 'keyword') {
       state.keyword = field.value
       return true
@@ -740,7 +822,7 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
       return true
     }
     if (fieldName === 'import-file') {
-      if (field instanceof HTMLInputElement && field.files?.[0]) handleImportFile(field.files[0])
+      if (field instanceof HTMLInputElement && field.files?.[0]) await handleImportFile(field.files[0])
       return true
     }
     if (fieldName === 'pageSize') {
@@ -751,16 +833,57 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
     return true
   }
 
+  const sourceSelect=target.closest<HTMLSelectElement>('[data-mpo-edit="materialCode"]');if(sourceSelect && event?.type==='change'){const source=listPurchaseGoodsReferences().find(row=>row.materialCode===sourceSelect.value);const holder=rootElement()?.querySelector<HTMLElement>('[data-mpo-selected-source]');if(holder){holder.innerHTML=source?renderPmsBusinessImage(source.imageUrl,source.materialName,'h-20 w-20'):'';hydratePmsSurface(holder)}return true}
+  const batchField=target.closest<HTMLSelectElement>('[data-mpo-batch-field]');if(batchField && event?.type==='change'){if(!state.selectedOrderNos.length){state.feedback='选择要操作的采购单';state.feedbackOk=false;refreshAll();return true}if(batchField.value){state.overlay={kind:'batch-fields',field:batchField.value,clientActionId:crypto.randomUUID()};batchField.value='';refreshOverlays()}return true}
+  const upload=target.closest<HTMLInputElement>('[data-mpo-attachment-file]');if(upload && event?.type==='change'){state.attachmentFile=upload.files?.[0] || null;return true}
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
   const action = actionNode?.dataset.pmsMpoAction
   if (!action) return false
 
+  if(action==='open-attachment'){state.attachmentFile=null;state.overlay={kind:'attachment',orderNo:actionNode?.dataset.orderNo || '',category:actionNode?.dataset.fileCategory as '物流凭证'|'附加图片',clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='save-attachment' && state.overlay?.kind==='attachment'){const overlay=state.overlay;try{if(!state.attachmentFile)throw new Error('选择要保存的文件');await addPmsMaterialPurchaseAttachment(overlay.orderNo,state.attachmentFile,overlay.category,PMS_BUYER_ACTOR,overlay.clientActionId);state.overlay={kind:'detail',orderNo:overlay.orderNo,clientActionId:crypto.randomUUID()};state.attachmentFile=null;state.feedback='采购附件已保存';state.feedbackOk=true;refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'附件未保存';preserveEditingError()}return true}
+  if(action==='preview-attachment'){try{const blob=await readPmsMaterialPurchaseAttachment(actionNode?.dataset.fileId || '');if(state.attachmentPreviewUrl)URL.revokeObjectURL(state.attachmentPreviewUrl);state.attachmentPreviewUrl=URL.createObjectURL(blob);state.attachmentPreviewType=blob.type;refreshOverlays()}catch(error){state.overlayError=error instanceof Error?error.message:'附件不可读';preserveEditingError()}return true}
+  if(action==='close-file-preview'){if(state.attachmentPreviewUrl)URL.revokeObjectURL(state.attachmentPreviewUrl);state.attachmentPreviewUrl='';refreshOverlays();return true}
+  if(action==='delete-attachment'){const orderNo=actionNode?.dataset.orderNo || '',fileId=actionNode?.dataset.fileId || '',file=getPmsMaterialPurchaseOrder(orderNo)?.attachments?.find(row=>row.fileId===fileId);if(file && await confirmPmsAction(`删除采购单 ${pmsBusinessNumber(orderNo)} 的附件 ${file.name}？仍被其它单据引用的文件会保留。`,'删除附件','删除采购附件')){try{await removePmsMaterialPurchaseAttachment(orderNo,fileId,PMS_BUYER_ACTOR,crypto.randomUUID());state.feedback='采购附件已删除';state.feedbackOk=true;refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'附件未删除';preserveEditingError()}}return true}
+  if(action==='multi-all'||action==='multi-clear'){
+    const key=actionNode?.getAttribute('data-filter-key')||'',select=rootElement()?.querySelector<HTMLSelectElement>(`[data-pms-mpo-field="multi:${key}"]`)
+    if(select){Array.from(select.options).forEach(option=>option.selected=action==='multi-all');state.multiFilters[key]=Array.from(select.selectedOptions).map(option=>option.value)}return true
+  }
+  if(action==='open-inspection'){state.overlay={kind:'inspection',orderNo:actionNode?.dataset.orderNo||'',clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='convert-raw'){const no=actionNode?.dataset.orderNo||'';if(await confirmPmsAction(`将 ${pmsBusinessNumber(no)} 调整为原料采购？保留原SKU、单位、数量和历史记录。只修改本地采购分类。`,'转原料采购'))try{await convertPmsMaterialPurchaseToRaw(no,PMS_BUYER_ACTOR,crypto.randomUUID());state.feedback='已转为原料采购';state.feedbackOk=true;refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'分类未保存';preserveEditingError()}return true}
+  if(action==='new-logistics'){state.overlay={kind:'logistics-new',orderNo:actionNode?.dataset.orderNo||'',clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='edit-logistics'){state.overlay={kind:'logistics-edit',recordNo:actionNode?.dataset.recordNo||'',clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='submit-inspection'&&state.overlay?.kind==='inspection'){
+    const overlay=state.overlay,form=rootElement()?.querySelector<HTMLElement>('[data-mpo-qc-form]')
+    if(form)try{const read=(name:string)=>form.querySelector<HTMLInputElement>(`[name="${name}"]`)?.value.trim()||'';await inspectPmsMaterialPurchaseOrder(overlay.orderNo,{sampleQty:Number(read('sampleQty')),qualifiedQty:Number(read('qualifiedQty')),defectQty:Number(read('defectQty')),reason:read('reason'),warehouse:read('warehouse'),inspector:read('inspector'),labelLength:Number(read('labelLength')),actualLength:Number(read('actualLength'))},PMS_BUYER_ACTOR,overlay.clientActionId);state.feedback='质检结果已保存。入库时按已登记数量分到收货仓和瑕疵仓。';state.feedbackOk=true;state.overlay={kind:'detail',orderNo:overlay.orderNo,clientActionId:crypto.randomUUID()};refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'质检未保存';preserveEditingError()}return true
+  }
+  if(action==='submit-logistics-edit'&&(state.overlay?.kind==='logistics-edit'||state.overlay?.kind==='logistics-new')){
+    const overlay=state.overlay,form=rootElement()?.querySelector<HTMLElement>('[data-mpo-logistics-form]')
+    if(form)try{const read=(name:string)=>form.querySelector<HTMLInputElement|HTMLSelectElement>(`[name="${name}"]`)?.value.trim()||'';const input={company:read('company'),trackingNo:read('trackingNo'),shipDate:read('shipDate'),estimatedArrival:read('estimatedArrival'),boxCount:Number(read('boxCount')),rolls:Number(read('rolls')),qty:Number(read('qty')),fee:Number(read('fee')),remark:read('remark'),transportMethod:read('transportMethod'),contact:read('contact'),sellerBoxNo:read('sellerBoxNo'),boxNo:read('boxNo'),lengthCm:Number(read('lengthCm')),widthCm:Number(read('widthCm')),heightCm:Number(read('heightCm')),weightKg:Number(read('weightKg')),transferCenter:read('transferCenter'),estimatedTransferDays:Number(read('estimatedTransferDays'))};const row=overlay.kind==='logistics-new'?(await importPmsMaterialLogistics([{...input,purchaseOrderNo:overlay.orderNo}],PMS_BUYER_ACTOR,overlay.clientActionId))[0]:await updatePmsMaterialLogistics(overlay.recordNo,input,PMS_BUYER_ACTOR,overlay.clientActionId);state.feedback='采购物流信息已保存';state.feedbackOk=true;state.overlay={kind:'detail',orderNo:row.purchaseOrderNo,clientActionId:crypto.randomUUID()};refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'物流信息未保存';preserveEditingError()}return true
+  }
+  if(action==='open-barcodes'){state.overlay={kind:'barcodes',orderNo:actionNode?.dataset.orderNo || '',clientActionId:crypto.randomUUID()};refreshOverlays();return true}
+  if(action==='save-batch-fields' && state.overlay?.kind==='batch-fields'){const overlay=state.overlay,value=rootElement()?.querySelector<HTMLInputElement>('[data-mpo-batch-value]')?.value || '';try{await batchUpdatePmsMaterialPurchaseOrders(state.selectedOrderNos,overlay.field as Parameters<typeof batchUpdatePmsMaterialPurchaseOrders>[1],value,PMS_BUYER_ACTOR,overlay.clientActionId);state.feedback='批量采购设置已保存';state.feedbackOk=true;state.selectedOrderNos=[];state.overlay=null;refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'批量操作未保存';preserveEditingError()}return true}
+  if(action==='new-order'){state.overlay={kind:'new',purchaseKind:actionNode?.dataset.purchaseKind as '原料'|'面料'|'辅料'|'样衣',clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='edit-fields'){state.overlay={kind:'edit-fields',orderNo:actionNode?.dataset.orderNo || '',clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='submit-fields'){
+    const overlay=state.overlay
+    if(!overlay || (overlay.kind!=='new' && overlay.kind!=='edit-fields')) return true
+    const text=(key:string)=>rootElement()?.querySelector<HTMLInputElement|HTMLSelectElement>(`[data-mpo-edit="${key}"]`)?.value || ''
+    const common={orderedQty:Number(text('orderedQty')),unitPrice:Number(text('unitPrice')),currency:text('currency') as 'RMB'|'USD'|'IDR',supplierName:text('supplierName'),purchaseRegion:text('purchaseRegion'),warehouse:text('warehouse'),buyerName:text('buyerName'),expectedArrivalDate:text('expectedArrivalDate'),remark:text('remark')}
+    try {
+      const row=overlay.kind==='new'?await createPmsMaterialPurchaseOrder({...common,kind:overlay.purchaseKind,materialCode:text('materialCode'),quantity:common.orderedQty,usageType:text('usageType') as '成衣做货'|'补采'|'成衣做货备货'|'样衣采购',dedicatedSpu:text('dedicatedSpu'),supplementReason:text('supplementReason')},PMS_BUYER_ACTOR,overlay.clientActionId):await updatePmsMaterialPurchaseOrder(overlay.orderNo,{...common,weightKg:Number(text('weightKg')),volumeM3:Number(text('volumeM3')),dyeFee:Number(text('dyeFee')),usageType:text('usageType'),factoryName:text('factoryName'),inspector:text('inspector'),inspectionConclusion:text('inspectionConclusion')},PMS_BUYER_ACTOR,overlay.clientActionId)
+      state.feedback=`${pmsBusinessNumber(row.purchaseOrderNo)} 已保存`;state.feedbackOk=true;state.overlay=null;refreshAll()
+    }catch(error){state.overlayError=error instanceof Error?error.message:'采购未保存';preserveEditingError()}
+    return true
+  }
+  if(action==='copy-order'){try{const row=await copyPmsMaterialPurchaseOrder(actionNode?.dataset.orderNo || '',PMS_BUYER_ACTOR,crypto.randomUUID());state.feedback=`已复制为 ${pmsBusinessNumber(row.purchaseOrderNo)}`;state.feedbackOk=true;state.overlay=null;refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'复制未保存';preserveEditingError()};return true}
+  if(action==='print-order'){const row=getPmsMaterialPurchaseOrder(actionNode?.dataset.orderNo || '');if(row){const popup=window.open('','_blank');if(popup){popup.document.write(`<html lang="zh-CN"><head><title>采购单 ${escapeHtml(row.purchaseOrderNo)}</title></head><body><h1>面辅料采购单</h1><p>${escapeHtml(pmsBusinessNumber(row.purchaseOrderNo))} · ${escapeHtml(row.materialName)}</p><img src="${escapeHtml(row.materialImageUrl)}" alt="${escapeHtml(row.materialName)}" style="width:160px;height:160px;object-fit:contain"><p>采购数量 ${row.orderedQty} ${escapeHtml(row.unit)} · ${row.currency} ${row.unitPrice} / ${escapeHtml(row.unit)}</p><p>供应商 ${escapeHtml(row.supplierName)}</p><button onclick="window.print()">打印采购单</button></body></html>`);popup.document.close()}}return true}
   if (action === 'pcs-retry') { purchaseEntry = ''; loadPurchasePage(true); refreshAll(); return true }
   if (action === 'pcs-save') { void savePcsPurchaseForm(); return true }
   if (action === 'pcs-read-draft') {
     const form = state.purchaseForm
     if (!form?.purchaseOrderNo || state.purchaseSaving) return true
-    if (state.purchaseDirty && !window.confirm('重新读取会恢复已保存的草稿，当前未保存修改将放弃。确定继续？')) return true
+    if (state.purchaseDirty && !await confirmPmsAction('重新读取会恢复已保存的草稿，当前未保存修改将放弃。','重新读取草稿','放弃未保存修改')) return true
     state.purchaseSaving = true; refreshAll()
     void hydratePmsMaterialPurchaseOrdersFromIdb(true).then(() => {
       const latest = getPmsMaterialPurchaseOrder(form.purchaseOrderNo!)
@@ -778,7 +901,7 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
   }
   if (action === 'pcs-list' || action === 'pcs-cancel') {
     if (state.purchaseSaving) return true
-    if (state.purchaseDirty && !window.confirm('当前采购内容尚未保存，确定放弃修改？')) return true
+    if (state.purchaseDirty && !await confirmPmsAction('当前采购内容尚未保存，放弃后无法恢复这些修改。','放弃修改','放弃采购表单')) return true
     state.purchaseDirty = false; state.purchaseError = ''; state.feedback = ''
     if (action === 'pcs-cancel' && state.purchaseForm?.purchaseOrderNo) {
       state.purchaseOrderNo = state.purchaseForm.purchaseOrderNo; state.purchaseView = 'detail'; state.purchaseTab = 'purchase'; setPurchaseLocation(state.purchaseOrderNo)
@@ -797,7 +920,7 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
     const form = rootElement()?.querySelector('[data-pms-tip-purchase-form]')
     if (!form) return true
     try {
-      const order = createPmsTmfTipPurchase(readTmfTipPurchaseForm(form), PMS_BUYER_ACTOR, state.overlay.clientActionId)
+      const order = await createPmsTmfTipPurchase(readTmfTipPurchaseForm(form), PMS_BUYER_ACTOR, state.overlay.clientActionId)
       state.keyword = order.purchaseOrderNo; state.status = ''; state.logisticsFilter = ''; state.currentPage = 1
       state.overlay = null; state.overlayError = ''
       state.feedback = `${order.purchaseOrderNo} 已创建，物料与生产采用版本关联。请核对后下达采购。`; state.feedbackOk = true
@@ -828,15 +951,15 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
   if (action === 'reset') {
     state.keyword = ''
     state.status = ''
-    state.logisticsFilter = ''
+    state.logisticsFilter = '';state.keywordField='all';state.multiFilters={};state.dateFilters={};state.rangeFilters={}
     state.selectedOrderNos = []
     state.currentPage = 1
     state.feedback = ''
-    refreshAll()
+    refreshAll(true)
     return true
   }
   if (action === 'export') {
-    exportRows()
+    exportRows(rootElement()?.querySelector<HTMLSelectElement>('[data-mpo-export-kind]')?.value || '订单明细')
     return true
   }
   if (action === 'open-column-settings') {
@@ -921,7 +1044,7 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
     const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-mpo-close-root]')
     const reason = surface ? readTextField(surface, `[data-${EVENT_PREFIX}-close-reason]`) : ''
     try {
-      closePmsMaterialPurchaseOrder(state.overlay.orderNo, reason, PMS_BUYER_ACTOR)
+      await closePmsMaterialPurchaseOrder(state.overlay.orderNo, reason, PMS_BUYER_ACTOR,state.overlay.clientActionId)
       state.feedback = `已关闭 ${state.overlay.orderNo}，原因已记录。`
       state.feedbackOk = true
       state.overlay = null
@@ -929,7 +1052,7 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
       refreshAll()
     } catch (error) {
       state.overlayError = error instanceof PmsDomainError ? error.message : '关闭采购单失败'
-      refreshOverlays()
+      preserveEditingError()
     }
     return true
   }
@@ -940,7 +1063,7 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
     return true
   }
   if (action === 'close-overlay') {
-    closeOverlay()
+    if(state.overlay?.kind==='barcodes')await closeMpoBarcodeOverlay(barcodeCallbacks);else closeOverlay()
     return true
   }
   if (action === 'download-template') {
@@ -948,19 +1071,19 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
     return true
   }
   if (action === 'submit-arrival') {
-    if (state.overlay?.kind === 'arrival') submitArrival(state.overlay.orderNo)
+    if (state.overlay?.kind === 'arrival') await submitArrival(state.overlay.orderNo)
     return true
   }
   if (action === 'submit-import') {
-    if (state.overlay?.kind === 'import') submitImport(state.overlay.rows)
+    if (state.overlay?.kind === 'import') await submitImport(state.overlay.rows)
     return true
   }
   if (action === 'batch-purchased') {
-    batchAdvance('已采购')
+    await batchAdvance('已采购')
     return true
   }
   if (action === 'batch-inbound') {
-    batchAdvance('已入库')
+    await batchAdvance('已入库')
     return true
   }
   if (action === 'advance-status') {
@@ -968,13 +1091,13 @@ export function handlePmsMaterialPurchaseOrdersEvent(target: HTMLElement, event?
     const nextStatus = actionNode?.dataset.nextStatus as PmsMaterialPurchaseOrderStatus | undefined
     if (!nextStatus) return true
     try {
-      batchAdvancePmsMaterialPurchaseOrders([orderNo], nextStatus, PMS_BUYER_ACTOR)
-      state.feedback = `${orderNo} 已推进为${nextStatus}。`
+      await batchAdvancePmsMaterialPurchaseOrders([orderNo], nextStatus, PMS_BUYER_ACTOR)
+      state.feedback = nextStatus==='已入库'?`${pmsBusinessNumber(orderNo)} 本次入库数量已保存，当前状态为${getPmsMaterialPurchaseOrder(orderNo)?.status}。`:`${pmsBusinessNumber(orderNo)} 已推进为${nextStatus}。`
       state.feedbackOk = true
       refreshAll()
     } catch (error) {
       state.overlayError = error instanceof PmsDomainError ? error.message : '状态推进失败'
-      refreshOverlays()
+      preserveEditingError()
     }
     return true
   }

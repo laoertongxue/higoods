@@ -206,21 +206,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   ],
   pms: [
     {
-      title: '基础资料',
-      icon: 'Library',
-      items: [
-        { key: 'pms-suppliers', title: '商品供应商管理', icon: 'Building2', href: '/pms/suppliers' },
-        { key: 'pms-supplier-supply-archives', title: '供应商供货档案', icon: 'Handshake', href: '/pms/supplier-supply-archives' },
-        { key: 'pms-first-leg-carriers', title: '头程物流商管理', icon: 'Building2', href: '/pms/first-leg-carriers' },
-        { key: 'pms-material-archives', title: '面辅料列表', icon: 'Layers', href: '/pms/material-archives' },
-        { key: 'pms-garment-skus', title: '成衣列表', icon: 'Shirt', href: '/pms/garment-skus' },
-        { key: 'pms-sample-skus', title: '样衣列表', icon: 'Scissors', href: '/pms/sample-skus' },
-        { key: 'pms-warehouses', title: '仓库管理', icon: 'Warehouse', href: '/pms/warehouses' },
-        { key: 'pms-units', title: '单位管理', icon: 'Ruler', href: '/pms/units' },
-        { key: 'pms-bom-templates', title: 'BOM/样板管理', icon: 'Boxes', href: '/pms/bom-templates' },
-      ],
-    },
-    {
       title: '采购建议',
       icon: 'Sparkles',
       items: [
@@ -248,27 +233,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     },
     {
-      title: 'KOL样衣申请',
-      icon: 'Send',
-      items: [
-        { key: 'pms-kol-sample-stock', title: 'KOL库存', icon: 'Package', href: '/pms/kol-sample-stock' },
-        { key: 'pms-kol-sample-apply', title: '手动寄样申请', icon: 'ClipboardList', href: '/pms/kol-sample-apply' },
-        { key: 'pms-kol-sample-link', title: '对外样品池链接', icon: 'Link', href: '/pms/kol-sample-link' },
-        { key: 'pms-kol-sample-stock-lock-log', title: '锁定操作记录', icon: 'History', href: '/pms/kol-sample-stock/lock-log' },
-      ],
-    },
-    {
       title: '面辅料供应商确认',
       icon: 'BadgeCheck',
       items: [
         { key: 'pms-material-supplier-confirmations', title: '面辅料供应商确认单', icon: 'ClipboardCheck', href: '/pms/material-supplier-confirmations' },
-      ],
-    },
-    {
-      title: '库存查询',
-      icon: 'Search',
-      items: [
-        { key: 'pms-material-inventory', title: '原料仓库存查询', icon: 'Radar', href: '/pms/material-inventory' },
       ],
     },
     {
@@ -279,11 +247,37 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     },
     {
+      title: '库存查询',
+      icon: 'Search',
+      items: [
+        { key: 'pms-material-inventory', title: '原料仓库存查询', icon: 'Radar', href: '/pms/material-inventory' },
+      ],
+    },
+    {
       title: '采购对账',
       icon: 'Calculator',
       items: [
         { key: 'pms-material-payment-requests', title: '面辅料采购请款', icon: 'Banknote', href: '/pms/material-payment-requests' },
         { key: 'pms-logistics-payment-requests', title: '物流费用请款', icon: 'Wallet', href: '/pms/logistics-payment-requests' },
+      ],
+    },
+    {
+      title: 'KOL样衣申请',
+      icon: 'Send',
+      items: [
+        { key: 'pms-kol-sample-stock', title: 'KOL库存', icon: 'Package', href: '/pms/kol-sample-stock' },
+        { key: 'pms-kol-sample-apply', title: '手动寄样申请', icon: 'ClipboardList', href: '/pms/kol-sample-apply' },
+        { key: 'pms-kol-sample-link', title: '对外样品池链接', icon: 'Link', href: '/pms/kol-sample-link' },
+        { key: 'pms-kol-sample-stock-lock-log', title: '锁定操作记录', icon: 'History', href: '/pms/kol-sample-stock/lock-log' },
+      ],
+    },
+    {
+      title: '基础资料',
+      icon: 'Library',
+      items: [
+        { key: 'pms-suppliers', title: '商品供应商管理', icon: 'Building2', href: '/pms/suppliers' },
+        { key: 'pms-supplier-supply-archives', title: '供应商供货档案', icon: 'Handshake', href: '/pms/supplier-supply-archives' },
+        { key: 'pms-first-leg-carriers', title: '头程物流商管理', icon: 'Building2', href: '/pms/first-leg-carriers' },
       ],
     },
   ],

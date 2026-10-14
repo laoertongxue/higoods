@@ -213,3 +213,6 @@ export function handleRawFabricInventoryCountEvent(target: HTMLElement, event?: 
   if (action === 'export') { exportStandardListRows({ fileName: '原料仓面料盘点单', columns, rows: filteredRows() }); return true }
   return false
 }
+
+/** Read-only shared view of actual count records; no inferred SKU assignment. */
+export function listRawFabricInventoryCountRecords() { return seedOrders.map(row => ({ ...row })) }

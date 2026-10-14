@@ -695,6 +695,21 @@ export function hydratePmsTmfPurchaseStateFromIdb(): Promise<void> {
   return tmfHydrationPromise
 }
 
+/** Read procurement references without enabling the unrelated owner's legacy write mode. */
+let procurementReferenceHydration: Promise<void> | null = null
+export function hydratePmsTmfPurchaseReferencesFromIdb(force = false): Promise<void> {
+  if (procurementReferenceHydration && !force) return procurementReferenceHydration
+  return procurementReferenceHydration = (async () => {
+    const sections = await readTmfSectionsFromIdb()
+    const next = emptyState()
+    if (sections.orders || sections.production || sections.scrap || sections.operations) {
+      mergeTmfSectionsIntoState(next, sections as never)
+      validateLegacyTmfState(next)
+    }
+    state = next
+  })().catch(error => { procurementReferenceHydration = null; throw error })
+}
+
 function extractOrdersSection(s: TmfPurchaseState): {
   orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown
   supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown
@@ -2842,7 +2857,7 @@ export async function receiveTmfSupplyPurchase(input:{receiptId:string;purchaseO
   if(!['BASE_MATERIAL','TIP_MATERIAL'].includes(input.purpose)||![input.receiptId,input.lotId,input.location,input.warehouse].every(v=>v.trim()))throw new Error('请填写收货单、批次、仓库库位及实际用途。')
   if(source.materialCode!==snapshot.materialCode||source.unit!==snapshot.unit||source.orderedQty!==snapshot.orderedQty)throw new Error('采购规格或计划已变化，请先处理变更影响。')
   if(input.scannedMaterialCode!==snapshot.materialCode||input.warehouse!==snapshot.warehouse)throw new Error('实物物料编码或目标仓库与采购不符。')
-   const unit=({'公斤':'kg','千克':'kg','kg':'kg','克':'g','g':'g','个':'个'} as Record<string,'kg'|'g'|'个'>)[snapshot.unit]
+   const unit=({'公斤':'kg','千克':'kg','kg':'kg','KG':'kg','克':'g','g':'g','G':'g','个':'个'} as Record<string,'kg'|'g'|'个'>)[snapshot.unit]
    if(!unit||(input.purpose==='BASE_MATERIAL'&&unit==='个'))throw new Error('投入料计量单位不支持；不得把卷、米或件数推算成重量。')
    // 主档映射：端头辅材与基础原料都必须解析到已登记主档，不能凭名称或数量直接入账。
    if(input.purpose==='TIP_MATERIAL')assertTmfTipMaterialMaster(snapshot.materialCode,unit)

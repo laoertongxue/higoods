@@ -1,142 +1,52 @@
-import { getPmsMaterial } from './materials.ts'
-import { getPmsSupplier } from './suppliers.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
-import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
-
-/**
- * 供应商供应档案 IDB hydrate 状态机(同其他 PMS 模块模式)。
- */
-let archiveHydrationStarted = false
-let archiveHydrationPromise: Promise<void> | null = null
-let archiveHydrationReady = false
-const pendingHydrationArchive: PmsSupplyArchive[] = []
-
-export function hydratePmsSupplyArchivesFromIdb(): Promise<void> {
-  if (archiveHydrationStarted) return archiveHydrationPromise ?? Promise.resolve()
-  archiveHydrationStarted = true
-  archiveHydrationPromise = (async () => {
-    try {
-      // 注意:archives 是 const 数组,但元素对象本身可变;按 archiveId Object.assign 即可覆盖种子。
-      const stored = await pmsAll<PmsSupplyArchive>(PMS_STORES.pmsSupplyArchives)
-      for (const saved of stored) {
-        const existing = archives.find((a) => a.archiveId === saved.archiveId)
-        if (existing) Object.assign(existing, saved)
-        else archives.push(saved)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_LOAD_FAILED] 供应商供应档案加载失败', { message })
-    } finally {
-      archiveHydrationReady = true
-      const pending = pendingHydrationArchive.splice(0)
-      for (const item of pending) {
-        try {
-          await pmsPut(PMS_STORES.pmsSupplyArchives, item)
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 供应商供应档案 IDB 写入失败(hydration 后)', { archiveId: item.archiveId, message })
-        }
-      }
-    }
-  })()
-  return archiveHydrationPromise
-}
-
-function persistPmsSupplyArchive(archive: PmsSupplyArchive): void {
-  if (archiveHydrationReady) {
-    pmsPut(PMS_STORES.pmsSupplyArchives, archive).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 供应商供应档案 IDB 写入失败', { archiveId: archive.archiveId, message })
-    })
-  } else {
-    pendingHydrationArchive.push(archive)
-  }
-}
+import { listPurchaseMaterialReferences, getPurchaseGoodsReference } from './canonical-purchase-references.ts'
+import { getPmsSupplier, hydratePmsSuppliersFromIdb } from './suppliers.ts'
+import { PMS_STORES, pmsAll, pmsCommitRecords, pmsGetEntityVersion, pmsGet } from './idb-storage.ts'
+import { PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 export type PmsSupplyArchiveUnit = 'base' | 'package' | 'box'
-
 export interface PmsSupplyArchiveSnapshot {
-  version: number
-  packageUnit: string
-  packageQty: number
-  boxQty: number
-  price: number
-  currency: 'RMB' | 'USD'
-  effectiveFrom: string
-  changedBy: string
+  version: number; packageUnit: string; packageQty: number; boxQty: number; price: number
+  currency: 'RMB' | 'USD' | 'IDR'; effectiveFrom: string; changedBy: string
 }
-
 export interface PmsSupplyArchive {
-  archiveId: string
-  supplierCode: string
-  supplierName: string
-  materialCode: string
-  materialName: string
-  materialImageUrl: string
-  materialCategory: string
-  baseUnit: string
-  purchaseUnit: string
-  packageUnit: string
-  packageQty: number
-  boxQty: number
-  price: number
-  currency: 'RMB' | 'USD'
-  minOrderQty: number
-  leadTimeDays: number
-  isGarment: boolean
-  latestQuoteAt: string
-  version: number
-  status: '有效' | '停用'
-  snapshots: PmsSupplyArchiveSnapshot[]
+  archiveId: string; supplierCode: string; supplierName: string
+  materialCode: string; materialName: string; materialImageUrl: string; materialCategory: string
+  baseUnit: string; purchaseUnit: string; packageUnit: string; boxUnit: string
+  packageQty: number; boxQty: number; price: number; currency: 'RMB' | 'USD' | 'IDR'
+  minOrderQty: number; leadTimeDays: number; isGarment: boolean; latestQuoteAt: string; version: number
+  status: '有效' | '停用'; snapshots: PmsSupplyArchiveSnapshot[]; _pmsBaseVersion?: number
+  purchaseRegion: string; isDefaultSupplier: boolean; requiresQc: boolean; buyer: string; packagingMethod: string
+  packageWeight: number; packageVolume: number; boxWeight: number; boxVolume: number; boxSpec: string
+  allowIrregular: boolean; packagingRemark: string; domesticCarrier: string; deliveryMethod: string
+  deliveryAddress: string; targetWarehouse: string; directOverseas: boolean; firstLegCarrierCode: string; firstLegChannelCode: string
 }
+export type PmsSupplyArchiveInput = Partial<Omit<PmsSupplyArchive, 'archiveId' | 'version' | 'snapshots' | '_pmsBaseVersion' | 'latestQuoteAt'>> & { supplierCode: string; materialCode: string }
+type Actor = { id: string; name: string; role: PmsActorRole }
 
-const seeds: Array<Omit<PmsSupplyArchive, 'materialImageUrl' | 'materialCategory' | 'isGarment' | 'purchaseUnit' | 'status'>> = [
-  { archiveId: 'SA-2026-0001', supplierCode: 'SUP-2026-0001', supplierName: '广州华盛面料有限公司', materialCode: 'FAB-2026-0001', materialName: '180g 纯棉针织布', baseUnit: '米', packageUnit: '卷', packageQty: 100, boxQty: 4, price: 26.5, currency: 'RMB', minOrderQty: 500, leadTimeDays: 12, latestQuoteAt: '2026-05-18', version: 3, snapshots: [] },
-  { archiveId: 'SA-2026-0002', supplierCode: 'SUP-2026-0001', supplierName: '广州华盛面料有限公司', materialCode: 'FAB-2026-0003', materialName: '白色府绸', baseUnit: '米', packageUnit: '卷', packageQty: 120, boxQty: 4, price: 18.5, currency: 'RMB', minOrderQty: 300, leadTimeDays: 11, latestQuoteAt: '2026-05-26', version: 1, snapshots: [] },
-  { archiveId: 'SA-2026-0003', supplierCode: 'SUP-2026-0002', supplierName: '绍兴锦达纺织有限公司', materialCode: 'FAB-2026-0002', materialName: '220g 涤棉卫衣布', baseUnit: '米', packageUnit: '卷', packageQty: 80, boxQty: 5, price: 29.8, currency: 'RMB', minOrderQty: 400, leadTimeDays: 15, latestQuoteAt: '2026-05-21', version: 2, snapshots: [] },
-  { archiveId: 'SA-2026-0004', supplierCode: 'SUP-2026-0002', supplierName: '绍兴锦达纺织有限公司', materialCode: 'FAB-2026-0004', materialName: '涤棉里布', baseUnit: '米', packageUnit: '卷', packageQty: 100, boxQty: 6, price: 12.8, currency: 'RMB', minOrderQty: 300, leadTimeDays: 10, latestQuoteAt: '2026-05-25', version: 1, snapshots: [] },
-  { archiveId: 'SA-2026-0005', supplierCode: 'SUP-2026-0003', supplierName: '东莞宏远辅料有限公司', materialCode: 'ACC-2026-0001', materialName: 'YKK 5号尼龙拉链', baseUnit: '个', packageUnit: '箱', packageQty: 500, boxQty: 1, price: 1.2, currency: 'RMB', minOrderQty: 10000, leadTimeDays: 10, latestQuoteAt: '2026-05-23', version: 2, snapshots: [] },
-  { archiveId: 'SA-2026-0006', supplierCode: 'SUP-2026-0003', supplierName: '东莞宏远辅料有限公司', materialCode: 'ACC-2026-0002', materialName: '黑色四眼纽扣', baseUnit: '个', packageUnit: '盒', packageQty: 1000, boxQty: 20, price: 0.18, currency: 'RMB', minOrderQty: 50000, leadTimeDays: 8, latestQuoteAt: '2026-05-24', version: 1, snapshots: [] },
-  { archiveId: 'SA-2026-0007', supplierCode: 'SUP-2026-0003', supplierName: '东莞宏远辅料有限公司', materialCode: 'ACC-2026-0003', materialName: '白色织唛', baseUnit: '个', packageUnit: '包', packageQty: 200, boxQty: 50, price: 0.23, currency: 'RMB', minOrderQty: 10000, leadTimeDays: 9, latestQuoteAt: '2026-05-26', version: 2, snapshots: [] },
-  { archiveId: 'SA-2026-0008', supplierCode: 'SUP-2026-0003', supplierName: '东莞宏远辅料有限公司', materialCode: 'ACC-2026-0005', materialName: '2.5cm 弹力松紧带', baseUnit: '米', packageUnit: '卷', packageQty: 50, boxQty: 10, price: 0.85, currency: 'RMB', minOrderQty: 500, leadTimeDays: 9, latestQuoteAt: '2026-05-27', version: 1, snapshots: [] },
-  { archiveId: 'SA-2026-0009', supplierCode: 'SUP-2026-0009', supplierName: '泉州瑞达服装辅料有限公司', materialCode: 'ACC-2026-0004', materialName: '涤纶缝纫线', baseUnit: '卷', packageUnit: '箱', packageQty: 120, boxQty: 1, price: 13, currency: 'RMB', minOrderQty: 60, leadTimeDays: 9, latestQuoteAt: '2026-05-17', version: 1, snapshots: [] },
-  { archiveId: 'SA-2026-0010', supplierCode: 'SUP-2026-0010', supplierName: '宁波恒源纱线有限公司', materialCode: 'YAR-2026-0001', materialName: '32S 棉纱', baseUnit: '公斤', packageUnit: '包', packageQty: 25, boxQty: 20, price: 21.2, currency: 'USD', minOrderQty: 200, leadTimeDays: 18, latestQuoteAt: '2026-05-22', version: 1, snapshots: [] },
-  { archiveId: 'SA-2026-0011', supplierCode: 'SUP-2026-0004', supplierName: '佛山成衣加工厂', materialCode: 'GAR-2026-0001', materialName: '女款休闲裤成衣', baseUnit: '件', packageUnit: '箱', packageQty: 50, boxQty: 10, price: 118, currency: 'RMB', minOrderQty: 300, leadTimeDays: 25, latestQuoteAt: '2026-05-25', version: 2, snapshots: [] },
-  { archiveId: 'SA-2026-0012', supplierCode: 'SUP-2026-0007', supplierName: '杭州女装制衣有限公司', materialCode: 'SAM-2026-0001', materialName: '男款圆领T恤样衣', baseUnit: '件', packageUnit: '件', packageQty: 1, boxQty: 20, price: 260, currency: 'RMB', minOrderQty: 1, leadTimeDays: 20, latestQuoteAt: '2026-05-26', version: 1, snapshots: [] },
-]
-
-const archives: PmsSupplyArchive[] = seeds.map((seed) => {
-  const material = getPmsMaterial(seed.materialCode)
-  const supplier = getPmsSupplier(seed.supplierCode)
-  const snapshot: PmsSupplyArchiveSnapshot = {
-    version: seed.version,
-    packageUnit: seed.packageUnit,
-    packageQty: seed.packageQty,
-    boxQty: seed.boxQty,
-    price: seed.price,
-    currency: seed.currency,
-    effectiveFrom: seed.latestQuoteAt,
-    changedBy: '王采购',
-  }
-  return {
-    ...seed,
-    supplierName: supplier?.supplierName ?? seed.supplierName,
-    materialImageUrl: material?.imageUrl ?? '',
-    materialCategory: material?.materialCategory ?? '物料',
-    purchaseUnit: material?.purchaseUnit ?? seed.baseUnit,
-    isGarment: material?.materialCategory === '成衣' || material?.materialCategory === '样衣',
-    status: '有效',
-    snapshots: [snapshot],
-  }
-})
-
-export function listPmsSupplyArchives(): PmsSupplyArchive[] {
-  return archives
+function emptyDetails() {
+  return { boxUnit: '箱', purchaseRegion: '中国', isDefaultSupplier: false, requiresQc: false, buyer: '', packagingMethod: '', packageWeight: 0, packageVolume: 0, boxWeight: 0, boxVolume: 0, boxSpec: '', allowIrregular: false, packagingRemark: '', domesticCarrier: '', deliveryMethod: '', deliveryAddress: '', targetWarehouse: '', directOverseas: false, firstLegCarrierCode: '', firstLegChannelCode: '' }
 }
-
-export function getPmsSupplyArchive(archiveId: string): PmsSupplyArchive | undefined {
-  return archives.find((archive) => archive.archiveId === archiveId)
+// These are supplier quotations for existing PCS identities, not a separate catalog.
+const archives: PmsSupplyArchive[] = listPurchaseMaterialReferences().filter(item => item.active && item.imageUrl).slice(0, 12).map((material, index) => ({
+  ...emptyDetails(), archiveId: `SA-2026-${String(index + 1).padStart(4, '0')}`, supplierCode: 'SUP-2026-0001', supplierName: getPmsSupplier('SUP-2026-0001')?.supplierName || '广州华盛面料有限公司', materialCode: material.materialCode, materialName: material.materialName, materialImageUrl: material.imageUrl, materialCategory: material.category, baseUnit: material.unit, purchaseUnit: material.unit, packageUnit: '卷', packageQty: 100, boxQty: 4, price: material.referencePrice, currency: 'RMB', minOrderQty: 100, leadTimeDays: 12, isGarment: false, latestQuoteAt: '2026-10-13', version: 1, status: index === 11 ? '停用' : '有效', snapshots: []
+}))
+let hydration: Promise<void> | null = null
+export function hydratePmsSupplyArchivesFromIdb(): Promise<void> {
+  if (hydration) return hydration
+  hydration = (async () => {
+    const stored = await pmsAll<PmsSupplyArchive>(PMS_STORES.pmsSupplyArchives)
+    for (const saved of stored) {
+      const complete = { ...emptyDetails(), ...saved }
+      const index = archives.findIndex(item => item.archiveId === saved.archiveId)
+      if (index >= 0) archives[index] = complete
+      else archives.unshift(complete)
+    }
+    for (const archive of archives) archive._pmsBaseVersion = await pmsGetEntityVersion(PMS_STORES.pmsSupplyArchives, archive.archiveId)
+  })()
+  return hydration
 }
+export function listPmsSupplyArchives(): PmsSupplyArchive[] { return archives }
+export function getPmsSupplyArchive(archiveId: string): PmsSupplyArchive | undefined { return archives.find(item => item.archiveId === archiveId) }
 
 export interface PmsSupplyConversion {
   baseQty: number
@@ -164,62 +74,66 @@ export function convertPmsSupplyQty(archive: PmsSupplyArchive, qty: number, from
   return roundPmsQty(toBase / (archive.packageQty * archive.boxQty), 2)
 }
 
-export function updatePmsSupplyArchive(
-  archiveId: string,
-  patch: { packageUnit?: string; packageQty?: number; boxQty?: number; price?: number; currency?: 'RMB' | 'USD'; minOrderQty?: number; leadTimeDays?: number; status?: '有效' | '停用' },
-  actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplyArchive {
+function validateArchive(input: PmsSupplyArchiveInput, existing?: PmsSupplyArchive): PmsSupplyArchive {
+  const supplier = getPmsSupplier(input.supplierCode)
+  if (!supplier) throw new PmsDomainError('SUPPLY_SUPPLIER_REQUIRED', '选择已登记的供应商')
+  const reference = getPurchaseGoodsReference(input.materialCode)
+  if (!reference && (!existing || existing.materialCode !== input.materialCode)) throw new PmsDomainError('SUPPLY_MATERIAL_REQUIRED', '选择已登记的商品或物料身份')
+  if (archives.some(item => item.archiveId !== existing?.archiveId && item.supplierCode === input.supplierCode && item.materialCode === input.materialCode)) throw new PmsDomainError('SUPPLY_ARCHIVE_DUPLICATE', '该供应商与物料的供货档案已存在')
+  const value: PmsSupplyArchive = { ...emptyDetails(), archiveId: `SA-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, materialName: reference?.materialName || '', materialImageUrl: reference?.imageUrl || '', materialCategory: reference?.category || '', baseUnit: reference?.unit || '', purchaseUnit: reference?.unit || '', packageUnit: '卷', packageQty: 1, boxQty: 1, price: reference?.referencePrice || 0, currency: 'RMB', minOrderQty: 0, leadTimeDays: 1, isGarment: false, latestQuoteAt: '', version: 0, status: '有效', snapshots: [], ...existing, ...input, supplierName: supplier.supplierName }
+  if (reference && (!existing || existing.materialCode !== input.materialCode)) { value.materialName = reference.materialName; value.materialImageUrl = reference.imageUrl; value.materialCategory = reference.category; value.isGarment = reference.category === '成衣' || reference.category === '样衣' }
+  for (const key of ['baseUnit', 'purchaseUnit', 'packageUnit', 'boxUnit'] as const) if (!value[key]?.trim()) throw new PmsDomainError('SUPPLY_UNIT_REQUIRED', '基础、采购、包装和箱单位不能为空')
+  for (const key of ['packageQty', 'boxQty', 'leadTimeDays'] as const) if (!Number.isFinite(value[key]) || value[key] <= 0) throw new PmsDomainError('SUPPLY_QTY_INVALID', '每包装数量、每箱包装数和交期必须大于 0')
+  if (!Number.isInteger(value.boxQty) || !Number.isInteger(value.leadTimeDays)) throw new PmsDomainError('SUPPLY_INTEGER_REQUIRED', '每箱包装数与交期天数必须为整数')
+  for (const key of ['price', 'minOrderQty', 'packageWeight', 'packageVolume', 'boxWeight', 'boxVolume'] as const) if (!Number.isFinite(value[key]) || value[key] < 0) throw new PmsDomainError('SUPPLY_VALUE_INVALID', '价格、数量、重量和体积不能为负数')
+  if (!['RMB', 'USD', 'IDR'].includes(value.currency)) throw new PmsDomainError('SUPPLY_CURRENCY_INVALID', '币种不在可选范围内')
+  value.version += 1
+  value.latestQuoteAt = new Date().toISOString().slice(0, 10)
+  value.snapshots = [...value.snapshots, { version: value.version, packageUnit: value.packageUnit, packageQty: value.packageQty, boxQty: value.boxQty, price: value.price, currency: value.currency, effectiveFrom: value.latestQuoteAt, changedBy: '' }]
+  return value
+}
+function archiveBusinessCode(operationId: string): string {
+  const timestamp = operationId.match(/\d{13}/)?.[0]
+  const date = (timestamp ? new Date(Number(timestamp)) : new Date()).toISOString().slice(0, 10).replaceAll('-', '')
+  let hash = 2166136261
+  for (const char of operationId) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  return `SA-${date}-${(hash >>> 0).toString(36).toUpperCase().padStart(6, '0').slice(-6)}`
+}
+async function saveArchive(input: PmsSupplyArchiveInput, actor: Actor, existing?: PmsSupplyArchive, operationId?: string, operationSignature = JSON.stringify(input)): Promise<PmsSupplyArchive> {
+  await Promise.all([hydratePmsSupplyArchivesFromIdb(), hydratePmsSuppliersFromIdb()])
+  const stableId = !existing && operationId ? archiveBusinessCode(operationId) : undefined
+  const previous = stableId ? await pmsGet<PmsSupplyArchive>(PMS_STORES.pmsSupplyArchives, stableId) : undefined
+  const value = validateArchive(input, existing || previous)
+  if (stableId) value.archiveId = stableId
+  value.snapshots.at(-1)!.changedBy = actor.name
+  const result = await pmsCommitRecords([{ store: PMS_STORES.pmsSupplyArchives, value, expectedVersion: existing?._pmsBaseVersion ?? 0 }], { operationId, operationSignature, log: { objectType: 'supply-archive', objectId: value.archiveId, action: existing ? '编辑供货档案' : '新增供货档案', beforeValue: existing ? `V${existing.version}` : '', afterValue: `V${value.version}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role } })
+  const saved = result.values[0] as PmsSupplyArchive
+  const prior = getPmsSupplyArchive(saved.archiveId)
+  if (prior) Object.assign(prior, saved)
+  else archives.unshift(saved)
+  return prior || saved
+}
+export async function createPmsSupplyArchive(input: PmsSupplyArchiveInput, actor: Actor, operationId?: string): Promise<PmsSupplyArchive> { return saveArchive(input, actor, undefined, operationId) }
+export async function updatePmsSupplyArchive(archiveId: string, patch: Partial<PmsSupplyArchiveInput>, actor: Actor, operationId?: string): Promise<PmsSupplyArchive> {
+  await hydratePmsSupplyArchivesFromIdb()
   const archive = getPmsSupplyArchive(archiveId)
-  if (!archive) throw new PmsDomainError('SUPPLY_ARCHIVE_NOT_FOUND', `供货档案 ${archiveId} 不存在`)
-  if (patch.packageUnit !== undefined) {
-    if (!patch.packageUnit.trim()) throw new PmsDomainError('SUPPLY_UNIT_REQUIRED', '包装单位不能为空')
-    archive.packageUnit = patch.packageUnit.trim()
-  }
-  if (patch.packageQty !== undefined) {
-    if (!Number.isFinite(patch.packageQty) || patch.packageQty <= 0) throw new PmsDomainError('SUPPLY_PACKAGE_QTY_INVALID', '每包装数量必须大于 0')
-    archive.packageQty = patch.packageQty
-  }
-  if (patch.boxQty !== undefined) {
-    if (!Number.isInteger(patch.boxQty) || patch.boxQty <= 0) throw new PmsDomainError('SUPPLY_BOX_QTY_INVALID', '每箱包装数必须是大于 0 的整数')
-    archive.boxQty = patch.boxQty
-  }
-  if (patch.price !== undefined) {
-    if (!Number.isFinite(patch.price) || patch.price < 0) throw new PmsDomainError('SUPPLY_PRICE_INVALID', '报价不能为负数')
-    archive.price = patch.price
-  }
-  if (patch.currency !== undefined) archive.currency = patch.currency
-  if (patch.minOrderQty !== undefined) {
-    if (!Number.isFinite(patch.minOrderQty) || patch.minOrderQty < 0) throw new PmsDomainError('SUPPLY_MIN_QTY_INVALID', '最小起订量不能为负数')
-    archive.minOrderQty = patch.minOrderQty
-  }
-  if (patch.leadTimeDays !== undefined) {
-    if (!Number.isInteger(patch.leadTimeDays) || patch.leadTimeDays <= 0) throw new PmsDomainError('SUPPLY_LEAD_TIME_INVALID', '供货周期必须是大于 0 的天数')
-    archive.leadTimeDays = patch.leadTimeDays
-  }
-  if (patch.status !== undefined) archive.status = patch.status
-  archive.version += 1
-  archive.latestQuoteAt = new Date().toISOString().slice(0, 10)
-  archive.snapshots.push({
-    version: archive.version,
-    packageUnit: archive.packageUnit,
-    packageQty: archive.packageQty,
-    boxQty: archive.boxQty,
-    price: archive.price,
-    currency: archive.currency,
-    effectiveFrom: archive.latestQuoteAt,
-    changedBy: actor.name,
-  })
-  appendPmsLog({
-    objectType: 'supply-archive',
-    objectId: archiveId,
-    action: '更新供货档案',
-    beforeValue: `V${archive.version - 1}`,
-    afterValue: `V${archive.version}`,
-    reason: '采购单保存包装快照，档案变化不影响历史采购单',
-    actorId: actor.id,
-    actorName: actor.name,
-    actorRole: actor.role,
-  })
-  persistPmsSupplyArchive(archive)
-  return archive
+  if (!archive) throw new PmsDomainError('SUPPLY_ARCHIVE_NOT_FOUND', '供货档案不存在')
+  return saveArchive({ ...archive, ...patch }, actor, archive, operationId, JSON.stringify({archiveId,patch}))
+}
+export async function copyPmsSupplyArchive(archiveId: string, supplierCode: string, actor: Actor, operationId?: string): Promise<PmsSupplyArchive> {
+  await hydratePmsSupplyArchivesFromIdb()
+  const source = getPmsSupplyArchive(archiveId)
+  if (!source) throw new PmsDomainError('SUPPLY_ARCHIVE_NOT_FOUND', '供货档案不存在')
+  const { archiveId: _id, version: _version, snapshots: _snapshots, _pmsBaseVersion: _base, ...values } = source
+  return saveArchive({ ...values, supplierCode },actor,undefined,operationId,JSON.stringify({archiveId,supplierCode}))
+}
+export async function importPmsSupplyArchives(inputs: PmsSupplyArchiveInput[], actor: Actor, operationId?: string): Promise<PmsSupplyArchive[]> {
+  await Promise.all([hydratePmsSupplyArchivesFromIdb(), hydratePmsSuppliersFromIdb()])
+  if (!inputs.length) throw new PmsDomainError('SUPPLY_IMPORT_EMPTY', '没有可导入的档案')
+  const identities = inputs.map(input => `${input.supplierCode}|${input.materialCode}`)
+  if (new Set(identities).size !== identities.length) throw new PmsDomainError('SUPPLY_IMPORT_DUPLICATE', '导入文件包含重复的供应商与物料')
+  const values = inputs.map((input, index) => { const stableId = operationId ? archiveBusinessCode(`${operationId}:${index + 1}`) : ''; const value = validateArchive(input, stableId ? getPmsSupplyArchive(stableId) : undefined); if (stableId) value.archiveId = stableId; value.snapshots.at(-1)!.changedBy = actor.name; return value })
+  const result = await pmsCommitRecords(values.map(value => ({ store: PMS_STORES.pmsSupplyArchives, value, expectedVersion: 0 })), { operationId, operationSignature:JSON.stringify(inputs), log: { objectType: 'supply-archive', objectId: operationId || 'import', action: '导入供货档案', beforeValue: '', afterValue: `${values.length} 条`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role } })
+  for (const value of result.values as PmsSupplyArchive[]) if (!getPmsSupplyArchive(value.archiveId)) archives.unshift(value)
+  return result.values as PmsSupplyArchive[]
 }

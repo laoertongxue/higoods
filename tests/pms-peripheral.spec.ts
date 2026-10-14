@@ -1,0 +1,263 @@
+import { expect, test, type Page } from '@playwright/test'
+
+type Row = Record<string, any>
+// Evidence reads only. Never initialize, reset or mutate stores from the test.
+async function stored(page: Page, store: string): Promise<Row[]> {
+  return page.evaluate(async (store) => {
+    if (!(await indexedDB.databases()).some(db => db.name === 'higood-pms')) throw new Error('PMS database has not opened')
+    return new Promise<Record<string, any>[]>((resolve, reject) => {
+      const open = indexedDB.open('higood-pms')
+      open.onupgradeneeded = () => { open.transaction?.abort(); reject(new Error('Readonly evidence cannot initialize a database')) }
+      open.onerror = () => reject(open.error)
+      open.onsuccess = () => {
+        const db = open.result, tx = db.transaction(store, 'readonly'), request = tx.objectStore(store).getAll()
+        let rows: Record<string, any>[] = []
+        request.onsuccess = () => { rows = request.result }
+        tx.oncomplete = () => { db.close(); resolve(rows) }
+        tx.onabort = tx.onerror = () => { db.close(); reject(tx.error ?? new Error('Readonly evidence failed')) }
+      }
+    })
+  }, store)
+}
+async function localPage(page: Page, route: string, root: string): Promise<void> {
+  await page.goto(route)
+  expect(['localhost', '127.0.0.1', '[::1]'], 'Business tests must never write to test/production sites').toContain(new URL(page.url()).hostname)
+  await expect(page.locator(root)).toBeVisible()
+}
+const action = (prefix: string, name: string) => `[data-${prefix}-action="${name}"]`
+
+test.describe('PMS 外围业务的保存与门禁', () => {
+  test.beforeEach(async ({ page }) => { await page.setViewportSize({ width: 1366, height: 768 }) })
+
+  test('做货开关取消不落盘；确认后禁止建单，独立刷新可恢复做货', async ({ page }) => {
+    await localPage(page, '/pms/purchase-suggestions', '[data-pms-psk-root]')
+    const button = page.locator(action('pms-psk', 'open-make')).filter({ hasText: '设置不需要做货' }).first()
+    const no = (await button.getAttribute('data-suggestion-no'))!
+    const find = async () => (await stored(page, 'pmsPurchaseSuggestions')).find(row => row.suggestionNo === no)
+    const before = await find()
+    await button.click()
+    await page.locator(action('pms-psk', 'close-overlay')).last().click()
+    expect(await find()).toEqual(before)
+    await button.click()
+    await page.locator(action('pms-psk', 'submit-make')).click()
+    await expect.poll(find).toMatchObject({ needProduction: false })
+    await page.reload()
+    const make = page.locator(`${action('pms-psk', 'open-make')}[data-suggestion-no="${no}"]`)
+    await expect(make).toHaveText('恢复做货')
+    await expect(page.locator(`${action('pms-psk', 'open-generate')}[data-suggestion-no="${no}"]`)).toBeDisabled()
+    await make.click()
+    await page.locator(action('pms-psk', 'submit-make')).click()
+    await expect.poll(find).toMatchObject({ needProduction: true })
+    await page.reload()
+    await expect(make).toHaveText('设置不需要做货')
+  })
+
+  test('新增备货款后排除重复SPU；常备数量无效或取消不写，合法修改刷新读回', async ({ page }) => {
+    await localPage(page, '/pms/reorder', '[data-pms-ros-root]')
+    await page.locator(action('pms-ros', 'open-create')).click()
+    const spu = await page.locator('[data-pms-ros-create-spu] option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value).find(Boolean))
+    expect(spu, 'Existing PCS candidates must provide a new valid SPU').toBeTruthy()
+    await page.locator('[data-pms-ros-create-spu]').selectOption(spu!)
+    await page.locator('[data-pms-ros-create-qty]').fill('12')
+    await page.locator('[data-pms-ros-create-note]').fill('本地自动化备货款')
+    await page.locator(action('pms-ros', 'submit-create')).click()
+    const find = async () => (await stored(page, 'pmsReorderSuggestions')).find(row => row.spu === spu)
+    await expect.poll(find).toMatchObject({ regularRestockQty: 12 })
+    await page.locator(action('pms-ros', 'open-create')).click()
+    await expect(page.locator(`[data-pms-ros-create-spu] option[value="${spu}"]`), 'Duplicate SPU is not offered in the create selector').toHaveCount(0)
+    await page.locator(action('pms-ros', 'close-overlay')).last().click()
+    const regular = page.locator(`${action('pms-ros', 'open-regular')}[data-spu="${spu}"]`)
+    await regular.click()
+    await page.locator('[data-pms-ros-regular-qty]').fill('-1')
+    await page.locator(action('pms-ros', 'submit-regular')).click()
+    await expect(page.locator('[data-pms-ros-regular-qty]')).toHaveValue('-1')
+    expect((await find())!.regularRestockQty).toBe(12)
+    await page.locator('[data-pms-ros-regular-qty]').fill('17')
+    await page.locator(action('pms-ros', 'close-overlay')).last().click()
+    expect((await find())!.regularRestockQty).toBe(12)
+    await regular.click()
+    await page.locator('[data-pms-ros-regular-qty]').fill('17')
+    await page.locator(action('pms-ros', 'submit-regular')).click()
+    await expect.poll(find).toMatchObject({ regularRestockQty: 17 })
+    await page.reload()
+    await regular.click()
+    await expect(page.locator('[data-pms-ros-regular-qty]')).toHaveValue('17')
+    expect((await stored(page, 'pmsReorderSuggestions')).filter(row => row.spu === spu)).toHaveLength(1)
+  })
+
+  test('售后批量驳回保存两单；终结单不能重新推进且整批不半套写入', async ({ page }) => {
+    await localPage(page, '/pms/product-purchase-order-aftersales', '[data-pms-posa-root]')
+    const rows = page.locator('[data-pms-posa-table-surface] tbody tr')
+    const pending = rows.filter({ has: page.locator(action('pms-posa', 'start')) })
+    const ids: string[] = []
+    for (let index = 0; index < 2; index++) {
+      const checkbox = pending.nth(index).locator('[data-pms-posa-field="select-row"]')
+      ids.push((await checkbox.getAttribute('data-id'))!)
+      await checkbox.check()
+    }
+    await page.locator(action('pms-posa', 'batch-status')).click()
+    await page.locator('[data-pms-posa-input="status"]').selectOption('已驳回')
+    await page.locator('[data-pms-posa-input="remark"]').fill('本地演示批量驳回')
+    await page.locator(action('pms-posa', 'submit')).click()
+    await expect.poll(async () => (await stored(page, 'pmsPurchaseOrderAftersales')).filter(row => ids.includes(row.aftersalesNo)).map(row => row.status)).toEqual(['已驳回', '已驳回'])
+    await page.reload()
+    for (const id of ids) {
+      const row = rows.filter({ has: page.locator(`${action('pms-posa', 'detail')}[data-id="${id}"]`) })
+      await expect(row).toContainText('已驳回')
+      await expect(row.locator(action('pms-posa', 'start'))).toHaveCount(0)
+      await expect(row.locator(action('pms-posa', 'status'))).toHaveCount(0)
+      await row.locator('[data-pms-posa-field="select-row"]').check()
+    }
+    const before = (await stored(page, 'pmsPurchaseOrderAftersales')).filter(row => ids.includes(row.aftersalesNo))
+    await page.locator(action('pms-posa', 'batch-status')).click()
+    await page.locator('[data-pms-posa-input="status"]').selectOption('售后中')
+    await page.locator(action('pms-posa', 'submit')).click()
+    await expect(page.locator('[data-pms-posa-input="status"]')).toHaveValue('售后中')
+    expect((await stored(page, 'pmsPurchaseOrderAftersales')).filter(row => ids.includes(row.aftersalesNo))).toEqual(before)
+  })
+
+  test('KOL通过前缺说明阻断；通过后借出、占用释放和日志一起保存且刷新禁止重复审核', async ({ page, context }) => {
+    await localPage(page, '/pms/kol-sample-apply', '[data-pms-kap-root]')
+    const id = 'APPLY-DEMO-1'
+    await page.locator(`${action('pms-kap', 'open-detail')}[data-id="${id}"]`).click()
+    await page.locator(action('pms-kap', 'approve')).click()
+    await page.locator(action('pms-kap', 'submit-review')).click()
+    await expect(page.locator('[data-kol-review-reason]')).toBeVisible()
+    expect((await stored(page, 'pmsKolApplies')).find(row => row.applyNo === id)).toBeUndefined()
+    await page.locator('[data-kol-review-reason]').fill('本地演示审核：确认样品和收货信息')
+    await page.locator(action('pms-kap', 'submit-review')).click()
+    const find = async () => (await stored(page, 'pmsKolApplies')).find(row => row.applyNo === id)
+    await expect.poll(find).toMatchObject({ status: '已通过', totalQty: 1 })
+    const apply = (await find())!
+    expect(apply.borrowOrderNo).not.toBe('-')
+    expect(apply.borrowOrder).toMatchObject({ id: apply.borrowOrderNo, recipientName: apply.recipientName, recipientAddress: apply.recipientAddress, items: apply.samples })
+    expect(apply.auditTrail.at(-1).remark).toBe('本地演示审核：确认样品和收货信息')
+    const stock = (await stored(page, 'pmsKolStock')).find(row => row.sku === apply.samples[0].sku)!
+    expect(stock).toMatchObject({ kolStock: 11, vkolManualLockedPool: 4, lockedOccupied: 0 })
+    const logs = (await stored(page, 'pmsKolLockLogs')).filter(row => row.relatedApplyId === id)
+    expect(logs).toHaveLength(1)
+    expect(logs[0].sku).toBe(apply.samples[0].sku)
+    expect(logs[0]).toMatchObject({ occupiedBefore: 1, occupiedAfter: 0, manualPoolBefore: 5, manualPoolAfter: 4 })
+    const fresh = await context.newPage()
+    await localPage(fresh, `/pms/kol-sample-apply?applyId=${id}`, '[data-pms-kap-root]')
+    await expect(fresh.getByRole('dialog', { name: '手动寄样申请详情' })).toContainText(apply.borrowOrderNo)
+    await expect(fresh.locator(action('pms-kap', 'approve'))).toHaveCount(0)
+    await expect(fresh.locator(action('pms-kap', 'reject'))).toHaveCount(0)
+    expect((await stored(fresh, 'pmsKolApplies')).find(row => row.applyNo === id)).toEqual(apply)
+    await localPage(fresh, '/pms/kol-sample-stock/lock-log', '[data-pms-klk-root]')
+    await expect(fresh.locator('[data-pms-klk-root]')).toContainText(apply.samples[0].sku)
+  })
+
+  test('样品池修改刷新保留；作废后独立申请地址拒绝有效输入且不生成申请', async ({ page, context }) => {
+    await localPage(page, '/pms/kol-sample-link', '[data-pms-kln-root]')
+    const id = 'POOL-DEMO-1', name = `本地样品池-${Date.now()}`
+    await page.locator(`${action('pms-kln', 'modify-pool')}[data-id="${id}"]`).click()
+    await page.locator('[data-pool-name]').fill(name)
+    await page.locator('[data-pool-max]').fill('0')
+    await page.locator(action('pms-kln', 'submit-pool')).click()
+    await expect(page.locator('[data-pool-name]')).toHaveValue(name)
+    expect((await stored(page, 'pmsKolLinks')).find(row => row.linkId === id)).toBeUndefined()
+    await page.locator('[data-pool-max]').fill('1')
+    await page.locator('[data-pool-expiry]').fill('2030-12-31T23:59')
+    await page.locator(action('pms-kln', 'submit-pool')).click()
+    const find = async () => (await stored(page, 'pmsKolLinks')).find(row => row.linkId === id)
+    await expect.poll(find).toMatchObject({ linkName: name, maxSkuSelection: 1, persistedStatus: '待提交' })
+    await page.reload()
+    await page.locator(`${action('pms-kln', 'modify-pool')}[data-id="${id}"]`).click()
+    await expect(page.locator('[data-pool-name]')).toHaveValue(name)
+    await expect(page.locator('[data-pool-max]')).toHaveValue('1')
+    await page.locator(action('pms-kln', 'close-overlay')).last().click()
+    await page.locator(`${action('pms-kln', 'invalidate')}[data-id="${id}"]`).click()
+    await page.locator(action('pms-kln', 'submit-pool')).click()
+    await expect.poll(find).toMatchObject({ persistedStatus: '已作废' })
+    const before = await stored(page, 'pmsKolApplies'), link = (await find())!
+    const fresh = await context.newPage()
+    await localPage(fresh, link.url, '[data-pms-kln-root]')
+    for (const key of ['handle', 'platform', 'contact', 'recipient', 'address']) await fresh.locator(`[data-apply-${key}]`).fill(`本地演示${key}`)
+    await fresh.locator('[data-apply-sku]').first().check()
+    await fresh.locator(action('pms-kln', 'submit-pool')).click()
+    await expect(fresh.locator('[data-pms-kln-feedback]')).toContainText(/不能提交申请|作废/)
+    await expect(fresh.locator('[data-apply-recipient]')).toHaveValue('本地演示recipient')
+    expect(await stored(fresh, 'pmsKolApplies')).toEqual(before)
+    expect((await stored(fresh, 'pmsKolLinks')).find(row => row.linkId === id)!.persistedStatus).toBe('已作废')
+  })
+
+  test('已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认', async ({ page, context }) => {
+    await localPage(page, '/pms/material-supplier-confirmations', '[data-pms-conf-root]')
+    const no = 'CONF-2026-0001'
+    await page.locator(`${action('pms-conf', 'open-rolls')}[data-confirmation-no="${no}"]`).click()
+    await page.locator(action('pms-conf', 'generate-labels')).click()
+    await page.locator(action('pms-conf', 'confirm-supplier')).click()
+    await page.locator(action('pms-conf', 'confirm-supplier')).click()
+    const find = async () => (await stored(page, 'pmsSupplierConfirmations')).find(row => row.confirmationNo === no)
+    await expect.poll(find).toMatchObject({ status: '已确认' })
+    const confirmed = (await find())!, orderNo = confirmed.purchaseOrderNo
+    const findOrder = async () => (await stored(page, 'pmsMaterialPurchaseOrderDeltas')).find(row => row.purchaseOrderNo === orderNo)
+    await expect.poll(findOrder).toMatchObject({ supplierConfirmed: true })
+    const rollNo = confirmed.rolls[0].rollNo, oldQty = confirmed.rolls[0].qty
+    expect(oldQty).toBeGreaterThan(1)
+    const beforeInvalid = await findOrder()
+    // 最终确认成功会关闭抽屉；重新打开已确认记录才能维护本次发货明细。
+    await page.locator(`${action('pms-conf', 'open-rolls')}[data-confirmation-no="${no}"]`).click()
+    await expect(page.locator(`[data-pms-conf-roll-qty="${rollNo}"]`)).toHaveValue(String(oldQty))
+    await page.locator(`[data-pms-conf-roll-qty="${rollNo}"]`).fill('0')
+    await page.locator(action('pms-conf', 'save-rolls')).click()
+    await expect(page.locator(`[data-pms-conf-roll-qty="${rollNo}"]`)).toHaveValue('0')
+    expect(await find()).toEqual(confirmed)
+    expect(await findOrder()).toEqual(beforeInvalid)
+    await page.locator(`[data-pms-conf-roll-qty="${rollNo}"]`).fill(String(oldQty - 1))
+    const total = confirmed.rolls.reduce((sum: number, row: Row) => sum + row.qty, 0) - 1
+    await page.locator('[data-pms-conf-shipment-field="actualShipmentQty"]').fill(String(total))
+    await page.locator(action('pms-conf', 'save-rolls')).click()
+    await expect.poll(find).toMatchObject({ status: '已编辑', actualShipmentQty: total })
+    await expect.poll(findOrder).toMatchObject({ supplierConfirmed: false, supplierConfirmedAt: '' })
+    const fresh = await context.newPage()
+    await localPage(fresh, '/pms/material-supplier-confirmations', '[data-pms-conf-root]')
+    await fresh.locator(`${action('pms-conf', 'open-rolls')}[data-confirmation-no="${no}"]`).click()
+    await expect(fresh.locator(`[data-pms-conf-roll-qty="${rollNo}"]`)).toHaveValue(String(oldQty - 1))
+    await expect(fresh.locator('[data-pms-conf-shipment-field="actualShipmentQty"]')).toHaveValue(String(total))
+    expect((await stored(fresh, 'pmsMaterialPurchaseOrderDeltas')).find(row => row.purchaseOrderNo === orderNo)!.supplierConfirmed).toBe(false)
+  })
+
+  test('供应商必填缺失保留表单；新增与编辑读回，待审核驳回需要原因且保存后刷新一致', async ({ page }) => {
+    await localPage(page, '/pms/suppliers', '[data-pms-sup-root]')
+    const name = `本地自动化供应商-${Date.now()}`
+    await page.locator(action('pms-sup', 'open-create')).click()
+    await page.locator('[data-pms-sup-form-field="supplierName"]').fill(name)
+    await page.locator(action('pms-sup', 'submit-form')).click()
+    await expect(page.locator('[data-pms-sup-form-root]')).toBeVisible()
+    await expect(page.locator('[data-pms-sup-form-field="supplierName"]')).toHaveValue(name)
+    expect((await stored(page, 'pmsSuppliers')).some(row => row.supplierName === name)).toBe(false)
+    for (const [field, value] of [['shortName', '本地演示'], ['wechat', 'local_e2e'], ['contactName', '演示联系人'], ['contactPhone', '13800000009'], ['city', '广东广州']]) await page.locator(`[data-pms-sup-form-field="${field}"]`).fill(value)
+    await page.locator('[data-pms-sup-form-field="defaultDeliveryMethod"]').selectOption('发至中国中转仓')
+    await page.locator(action('pms-sup', 'submit-form')).click()
+    const find = async () => (await stored(page, 'pmsSuppliers')).find(row => row.supplierName === name)
+    await expect.poll(find).toMatchObject({ status: '草稿', contactName: '演示联系人' })
+    const code = (await find())!.supplierCode
+    await page.locator('[data-pms-sup-field="keyword"]').fill(name)
+    await page.getByRole('button', { name: '查询', exact: true }).click()
+    const own = (name: string) => page.locator(`${action('pms-sup', name)}[data-supplier-code="${code}"]`)
+    await own('open-edit').click()
+    await page.locator('[data-pms-sup-form-field="contactName"]').fill('修改后的演示联系人')
+    await page.locator(action('pms-sup', 'submit-form')).click()
+    await expect.poll(find).toMatchObject({ contactName: '修改后的演示联系人' })
+    await page.reload()
+    await own('open-edit').click()
+    await expect(page.locator('[data-pms-sup-form-field="contactName"]')).toHaveValue('修改后的演示联系人')
+    await page.locator(action('pms-sup', 'close-overlay')).last().click()
+    await page.locator(`${action('pms-sup', 'advance')}[data-supplier-code="${code}"][data-next-status="待审核"]`).click()
+    await expect.poll(find).toMatchObject({ status: '待审核' })
+    await page.locator(`${action('pms-sup', 'advance')}[data-supplier-code="${code}"][data-next-status="已驳回"]`).click()
+    const before = await find()
+    await page.locator(action('pms-sup', 'submit-reject')).click()
+    await expect(page.locator('[data-pms-sup-reject-root]')).toBeVisible()
+    expect(await find()).toEqual(before)
+    await page.locator('[data-pms-sup-reject-reason]').fill('演示审核：资料需补充')
+    await page.locator(action('pms-sup', 'submit-reject')).click()
+    await expect.poll(find).toMatchObject({ status: '已驳回', rejectReason: '演示审核：资料需补充' })
+    await page.reload()
+    await own('open-detail').click()
+    await expect(page.getByRole('dialog').last()).toContainText('演示审核：资料需补充')
+    await expect(page.getByRole('dialog').last()).toContainText('修改后的演示联系人')
+  })
+})

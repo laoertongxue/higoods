@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 1,
+  "agent": "procurement_material_ops",
+  "frozenAt": "2026-10-13T19:37:41.582045+00:00",
+  "scope": "Only five specified source/test files; no browser, full-tree build, project dependency or lockfile changes, or child delegation",
+  "sourceFiles": [
+    {
+      "path": "src/utils/pms-excel-import.ts",
+      "bytes": 11577,
+      "sha256": "3bc844ec446efbc56d745f4c3517a43b49a639558c0bba253f0cbfdaa7109f0c"
+    },
+    {
+      "path": "src/utils/pms-excel-binary-import.ts",
+      "bytes": 15228,
+      "sha256": "c48910a6f915aab93bcdd66ad71d89fe9e056fec6f13d64485aaf504d815c17f"
+    },
+    {
+      "path": "src/pages/pms/material-purchase-orders.ts",
+      "bytes": 109808,
+      "sha256": "f2245e725a03af40589e7b0d611c2dc42abe42cbe9efd89e30f0d4c7341f452a"
+    },
+    {
+      "path": "src/pages/pms/first-leg-shipments.ts",
+      "bytes": 79648,
+      "sha256": "0ca637c7090cad5e3f2f65d405fa9def7974b3b1fbc0947ac511e81f3dcaf0bb"
+    },
+    {
+      "path": "tests/unit/pms-excel-import.test.ts",
+      "bytes": 23355,
+      "sha256": "b955ccb351848d5fcf9f680eb19c7da0519340302e61151e759f30aa4eb59cd7"
+    }
+  ],
+  "implemented": [
+    "parsePmsExcelRows(File) recognizes exact CFB signature and only then dynamically imports pms-excel-binary-import.ts; both page-level premature OLE rejection branches removed",
+    "CFB3/CFB4 header, regular FAT and chained DIFAT, directory root workbook lookup, MiniFAT/mini-stream, finite-chain/truncation/duplicate guards",
+    "BIFF8 workbook globals, first ordinary worksheet via BoundSheet8 offset; multiple sheets do not mix",
+    "Shared Unicode SST and rich/extended text; compressed and UTF16LE string characters may change encoding across CONTINUE without corrupting next string",
+    "NUMBER, signed/scaled/float RK, MULRK, BOOLERR, LABELSST/LABEL, saved formula numeric/Boolean/string/blank caches; never execute or recalculate formulas",
+    "1900/1904 Excel dates from XF/custom or built-in number formats return canonical date/time strings required by import fields",
+    "Encrypted CFB/BIFF FilePass, old BIFF, invalid/unhandled cell structure, corrupt chains/records/indices and duplicate cell/format definitions are actionable failures, never binary-to-CSV fallback",
+    "OOXML remains ZIP/DEFLATE reader with first worksheet relationship, rich shared text, numeric/date/style handling, boundary checks; HTML .xls templates and UTF8 CSV remain supported"
+  ],
+  "validation": [
+    {
+      "command": "node --import tsx --test tests/unit/pms-excel-import.test.ts",
+      "result": "10/10 passed",
+      "evidence": "/tmp/higoods-pms-real-xls-20261014/unit-latest.txt"
+    },
+    {
+      "command": "npx tsc --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowImportingTsExtensions --lib ES2022,DOM (two utils + test)",
+      "result": "passed, narrow only",
+      "evidence": "/tmp/higoods-pms-real-xls-20261014/tsc-narrow.txt"
+    },
+    {
+      "command": "TypeScript transpileModule syntax diagnostics of five specified files",
+      "result": "0 syntax errors",
+      "evidence": "/tmp/higoods-pms-real-xls-20261014/syntax-five-files.json"
+    },
+    {
+      "command": "public parsePmsExcelRows(File) for 34 real entry fixtures, independent full-value xlrd comparison",
+      "result": "34 matched, ignoring only absent trailing empty BLANK cells; intentional truncated genuine derivative rejected",
+      "evidence": "/tmp/higoods-pms-real-xls-20261014/public-entry-readback-results.json"
+    },
+    {
+      "command": "git diff --check -- (five specified paths)",
+      "result": "passed"
+    }
+  ],
+  "fixtureSources": {
+    "generator": "PyPI xlwt1.3.0 in /tmp/pms-xls-fixture-tools only; not installed as project dependency",
+    "independentReader": "PyPI xlrd2.0.2",
+    "realGenericFiles": [
+      {
+        "path": "/tmp/higoods-pms-real-xls-20261014/xlwt-20-rows.xls",
+        "bytes": 50688,
+        "headerHex": "d0cf11e0a1b11ae1",
+        "sha256": "cc7bdd3ea5c47a577546d42223139eeacbcf3a58858bf3b060ee1697992bf117",
+        "dataRows": 20,
+        "sheetNames": [
+          "采购导入",
+          "第二张不得混入"
+        ],
+        "longUnicodeChars": 20011
+      },
+      {
+        "path": "/tmp/higoods-pms-real-xls-20261014/xlwt-50-rows.xls",
+        "bytes": 54784,
+        "headerHex": "d0cf11e0a1b11ae1",
+        "sha256": "7360fbbc09778d22021b43d26d7ff0d41f15ead0f1f065ae7b2fae6860af25ac",
+        "dataRows": 50,
+        "sheetNames": [
+          "采购导入",
+          "第二张不得混入"
+        ],
+        "longUnicodeChars": 20011
+      }
+    ],
+    "entryFixturesManifest": "/tmp/higoods-pms-real-xls-20261014/entry-fixture-manifest.json",
+    "entryFixturesCount": 35,
+    "entryFixtureContracts": [
+      "5 supply archives batches each20 actual existing PCS identities and distinct enabled static supplier",
+      "5 MRA quantity files each4 retained snapshot pairs;5 MRA inbound files cumulative1..5 forCGF4; current downstream status must permit",
+      "5 purchase logistics files unique local tracking numbers and true formatted Excel date cells",
+      "5 barcode files each2 unique local codes quantity1/unit米, ordinaryCGF4 within total limit",
+      "5 firstleg box files each2 actual active PCS SKU identities",
+      "4 intentionally valid XLS files with duplicate/negative business data left to existing page guards",
+      "1 intentionally truncated derivative clearly marked invalid, not described as valid XLS"
+    ]
+  },
+  "knownBoundaries": [
+    "Normal BIFF8 .xls import supported; earlier task statement that all binary XLS are unsupported is superseded by this narrow implementation",
+    "No password decryption, old BIFF2–5, arbitrary macro/dialog/chart import or formula recalculation; actionable save/unlock/recalculate instruction is provided",
+    "Only cached formula values are facts read from saved workbook; empty cached value stays empty, no invented numeric result",
+    "Only first ordinary worksheet imported; no worksheet picker or spreadsheet-rendering engine",
+    "Date output is canonical ISO date/time, not arbitrary Excel visual formatting; elapsed-hour number format requires conversion to text/date",
+    "Binary CFB normal/minifat/4096sector and formula cache negative tests use independent handcrafted CFB fixtures; ordinary20/50 files are separately actual xlwt workbooks, verified by xlrd",
+    "OOXML/HTML Node contract uses small fixture-only DOM adapter; final Chrome native DOM and compressed-XLSX UI validation belongs to root",
+    "No browser/viewport/performance/build success prefilled. Root must run final five live local import entries and normal/boundary/persistence outcomes",
+    "MRA third-party premature OLE gate discovered and reported to root, root removed it outside this agent five-file ownership",
+    "All fixtures are local prototype demonstration identities; never submitted to test/production websites or test DB"
+  ],
+  "primarySources": [
+    "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/05060311-bfce-4b12-874d-71fd4ce63aea",
+    "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/b37413bb-f3ef-4adc-b18e-29bddd62c26e",
+    "https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/173d9f51-e5d3-43da-8de2-be7f22e119b9",
+    "https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/04fa5340-122f-49db-93ea-00cc75501efc",
+    "https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/39a0757a-c7bb-4e85-b144-3e7837b059d7",
+    "https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/b9ec509a-235d-424e-871d-f8e721106501",
+    "https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/4a5e900a-0eb0-4355-8fc1-81aab8f46e8b",
+    "https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/cf9ae8d5-4e8c-40a2-95f1-3b31f16b5529"
+  ],
+  "evidenceManifest": [
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/20-actual.json",
+      "bytes": 62137,
+      "sha256": "d2bae0dd162c3b3ace5d8f5d945399d5c1d9cab13c02a6cfe996025e1d0d0292"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/50-actual.json",
+      "bytes": 65152,
+      "sha256": "93c6607cb961aeef80c50d8675e1f1e0201fe5f781ee7d01c2efd852f6239128"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/comparison-initial-difference.json",
+      "bytes": 385,
+      "sha256": "07bd9f55cc40d5994280232af8636322ac4f7ce70c58ed75fcdf451aeb2e0ac2"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/current-active-prototype-supplier-codes.json",
+      "bytes": 81,
+      "sha256": "fa4ebe84390b0e311c2833c94f2db32ff3f0e5f5b43ee641fa008f15ca0cc0fc"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/current-pcs-readonly-reference-identities.json",
+      "bytes": 2330,
+      "sha256": "d712eb111039ce306313d52c51b8cb3206dffe1ff41119cc53d76a60b7ae12b0"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/entry-fixture-manifest.json",
+      "bytes": 20413,
+      "sha256": "bc9128ee4e88f57176957719b3804f2cfe861283f3b2ee7cb79ff46481c1d158"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/entry-xlrd-independent-expected.json",
+      "bytes": 27515,
+      "sha256": "0537cbc6a56732d4f66c0ba4c755beb6e697f32c7b5e7861729cbfede845b99f"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-1.public-parsed.json",
+      "bytes": 125,
+      "sha256": "e55447a15eae7f23ec1f755024cad1ba69842688570b89e4db646e57b5a5c1dd"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-1.xls",
+      "bytes": 5632,
+      "sha256": "2164118d75ea671ba7d5a12fba97a3d18583d1bce6da2cc4e073b1095c9f8c85"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-2.public-parsed.json",
+      "bytes": 120,
+      "sha256": "cc57eb6acf37edfd473a57cdc93b9d0542c5e5bfc884df4a456355f45dab8396"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-2.xls",
+      "bytes": 5632,
+      "sha256": "3ba10f04af5d6c0b8bc84289aafa758b1dadbc9eb92c2c2ca49f62ba1e9f71de"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-3.public-parsed.json",
+      "bytes": 125,
+      "sha256": "a9a1fc8e7b0278baf1b7d646e13701d0508744a6f6bdb630ef47c15224e7e528"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-3.xls",
+      "bytes": 5632,
+      "sha256": "b2949cc944e447f868b65fb275b942ac7346f44848b1104672b0dd4d17299950"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-4.public-parsed.json",
+      "bytes": 128,
+      "sha256": "bdec817a023cf7d611ea3807433aad58ce791afd5f59a5a30a59f60189ce578b"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-4.xls",
+      "bytes": 5632,
+      "sha256": "303b7711ac196649f4aa93a6605fac23d47fefc848ecf64e1938b551d95b51eb"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-5.public-parsed.json",
+      "bytes": 129,
+      "sha256": "a023a12ed1eec4a83e3fa289ddd522b56e358a97f132ac07366fc8c47f2c6623"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-items-batch-5.xls",
+      "bytes": 5632,
+      "sha256": "99b9d741844ce9dd7350f699917eaec8a9b320d789ceb355fbf83d677e84bdd1"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-negative-boundary.public-parsed.json",
+      "bytes": 83,
+      "sha256": "16a076ab49ca0e0ed45d046e1ea9cfcb052b269df8bdb8f6ebee5a7a7f2fb574"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/firstleg-box-negative-boundary.xls",
+      "bytes": 5632,
+      "sha256": "206dcbe519ce070e13ba6803ae803825c645604a1d44c1b91b0c31236150369a"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/fixture-manifest.json",
+      "bytes": 8326,
+      "sha256": "714d672fba2f10182765bd081f8dbb49118fc9d2ccc3126dc67599255027b427"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/generate-entry-fixtures.py",
+      "bytes": 4584,
+      "sha256": "a54737a1ff0667d163d6a3ddc821f055e5a5cc671b14aba5dd0d4a677a3758c1"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/generate-fixtures.py",
+      "bytes": 2261,
+      "sha256": "d4f712beabd36b1acda1edaf5fefe1fd3fdb89ff22e863f08135fbbcfacfbfb6"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-1.public-parsed.json",
+      "bytes": 216,
+      "sha256": "21b5fdb6390dbf5352ed57f356e62874d8309218efb7f9319769b698e33f7354"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-1.xls",
+      "bytes": 5632,
+      "sha256": "962b8a15e37516c547805426fa9d43a463e65cf67b1957e29dbb6fab0c21c861"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-2.public-parsed.json",
+      "bytes": 216,
+      "sha256": "cbfc0ab9524d4cb8261f0123b518d1b6dafceb1305c3627cb946853e4a533dd9"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-2.xls",
+      "bytes": 5632,
+      "sha256": "8798cb03face244731b64d6cbad6d2e729dd22eb35a56c9b557531cf8c71870a"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-3.public-parsed.json",
+      "bytes": 216,
+      "sha256": "44686c3e1e0cea246762f4037e9813535b6d49fcfd32c83a8067de74c540a629"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-3.xls",
+      "bytes": 5632,
+      "sha256": "e4a44f57514ad07507731aae5493ca9b59bb435e823f66a61a32d94702c9949e"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-4.public-parsed.json",
+      "bytes": 216,
+      "sha256": "a585fcce347055699a3f4704786bbfaed7caa7f3e572d77ab643cb43159a1acc"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-4.xls",
+      "bytes": 5632,
+      "sha256": "a458244a9be4363a53e1d3c5d714cf9be92646bf41c16450a36228ae31e9dba7"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-5.public-parsed.json",
+      "bytes": 216,
+      "sha256": "2175dca70c91c9243b30b9a9b7bd9281379f9e406345754ed44ade1946066bc6"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-batch-5.xls",
+      "bytes": 5632,
+      "sha256": "1a911bcfe8ccae6e5c8fd185a4bbe156ccab067247aed2aa115f6a1742ed46f1"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-duplicate-boundary.public-parsed.json",
+      "bytes": 204,
+      "sha256": "89733b37a8a3a3ccb10249fac3f85acafccfabaea72c7b1e47b247ad1cb2ba7b"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-barcodes-duplicate-boundary.xls",
+      "bytes": 5632,
+      "sha256": "4202a7dd514933256cdb344f99580ca7647811602eecd1bde309b899067f7d0d"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-1.public-parsed.json",
+      "bytes": 385,
+      "sha256": "88ea082e31a0cf07ae62899ace45c8a352ccaa46fd2c7b95402d435d11cf77a7"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-1.xls",
+      "bytes": 5632,
+      "sha256": "42fc72a2e268a56ea165904d60c6070b1e229ec6ec42e4f52712730ce1f26110"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-2.public-parsed.json",
+      "bytes": 385,
+      "sha256": "db0e83646a5d973de75c28545e4796a122e78af60c56cd6af9291f83c7d3dbbb"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-2.xls",
+      "bytes": 5632,
+      "sha256": "48643e7b3590758fb3ebbd59caab0e479a109213b238a5ecf56e2f50652f981c"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-3.public-parsed.json",
+      "bytes": 385,
+      "sha256": "cbb78e3771989be43ad9f40bbd4ccd0cc5e8166ee79003cebca691acbdab14b3"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-3.xls",
+      "bytes": 5632,
+      "sha256": "7147c7cdbc893a07cbf1c1a6bbebdc77d7cf78dc740a1b39128b09e3af80abf3"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-4.public-parsed.json",
+      "bytes": 385,
+      "sha256": "abad3dbf1efc0a5c5c71b256c816cdff0e2c11b98c6217a293156f1d138697fa"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-4.xls",
+      "bytes": 5632,
+      "sha256": "1a9d536063b010c30d80a793515feff14116592cefeb848d3b679b8de0225667"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-5.public-parsed.json",
+      "bytes": 385,
+      "sha256": "9c8344b8553627a2ef9866f8bff9858086db7e801f47a51f3fd9478fd2307727"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-batch-5.xls",
+      "bytes": 5632,
+      "sha256": "5ed8e8b8d9afb6a297fb564308aeaff994573bffd7699a37f5e8d0348e0df0df"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-duplicate-boundary.public-parsed.json",
+      "bytes": 476,
+      "sha256": "c80f68df0ed6c12e504df90324c7102ac813462004c94ac2f22743ef720b525b"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mpo-logistics-duplicate-boundary.xls",
+      "bytes": 5632,
+      "sha256": "81ced6471dce0a502feca9927b63064fe5ee472bbd7713135cdbc55228ff8f52"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-1.public-parsed.json",
+      "bytes": 114,
+      "sha256": "485723339039e9a5790e0c4a60fc459b391228d3bcb157c4cf316144c6a901cb"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-1.xls",
+      "bytes": 5632,
+      "sha256": "4c4da89988e9ea5ae2ed4d81fa58ed154d11b280ab301e580749b65b8392a6c5"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-2.public-parsed.json",
+      "bytes": 114,
+      "sha256": "ca94bd1630f039d980c92c717b29ebeed59352fb969b098aa92ebb90cd973d71"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-2.xls",
+      "bytes": 5632,
+      "sha256": "a644374fe7f094e8544a7cb47e034761bfb016125cf10d5ef994ba9263774cb9"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-3.public-parsed.json",
+      "bytes": 114,
+      "sha256": "c54bb719769b9ffc1da0524289fb0ab371be961a7e9c8c2b34a055bd259b5f61"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-3.xls",
+      "bytes": 5632,
+      "sha256": "fecf415481482e2ade14845736c79e79f81b38115e40c1285fedc51d584aa6d9"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-4.public-parsed.json",
+      "bytes": 114,
+      "sha256": "78e2f1bd2f7f0072b7af280edc3e680c42f768ff6f9b46e6559216f0ea7f8964"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-4.xls",
+      "bytes": 5632,
+      "sha256": "65f8ad9f3b2f3a1b3b92e8b9bee28d0c9b747caa80a11e7a5c09f3beeaa2def5"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-5.public-parsed.json",
+      "bytes": 114,
+      "sha256": "2361a4c6ff464c077c5c74472c837d4138f6d22c34eac7184089050e81b230b1"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-inbound-batch-5.xls",
+      "bytes": 5632,
+      "sha256": "a73976b5fc0c32dd62354e826f0744d90d9b78c9fbe43298a04da480946b3a8e"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-1.public-parsed.json",
+      "bytes": 275,
+      "sha256": "c04a005175a1d26f81d8b87594cb5cfe69bc82a7445f06e5f374028fb5de2bf0"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-1.xls",
+      "bytes": 5632,
+      "sha256": "77b28a52e803b8b92084283680ee118276e14f49a035a0761c3899c1fe310882"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-2.public-parsed.json",
+      "bytes": 275,
+      "sha256": "41f5d8a3d271ee0de3c8167cd9edbc30bc5d405a26bfa529343f3344d6689403"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-2.xls",
+      "bytes": 5632,
+      "sha256": "bf9d954b01f0599880e714b243e2c371442e5acb5fa1ebffac114cdfd0a988c4"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-3.public-parsed.json",
+      "bytes": 275,
+      "sha256": "99e126cca55606a78903e386c9e0407d9b4e67e76fbf4e6fba2d0fdbf09d584b"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-3.xls",
+      "bytes": 5632,
+      "sha256": "17c2b00f69f35c932a66d19490b19399c6dae0cc71ed3ce178bfd87dc4db0c16"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-4.public-parsed.json",
+      "bytes": 275,
+      "sha256": "206d684ff00933a675513ea524550a1529f0fc3a7cef032d313c7dde91ad6e54"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-4.xls",
+      "bytes": 5632,
+      "sha256": "a4a94a08b0438b0151212252a47b2324f19782349bc443831d49e3e84e271b45"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-5.public-parsed.json",
+      "bytes": 275,
+      "sha256": "94f1ae83c3cd6d8cca15ca8331e158e7bda10b603c92c7473d3fe5121b1eb27e"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-batch-5.xls",
+      "bytes": 5632,
+      "sha256": "b9bc139f5e974df016830fa64892de829be8c891caf2a2dfa0c3fefe3dcd8702"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-duplicate-boundary.public-parsed.json",
+      "bytes": 165,
+      "sha256": "89354c00e2638f871924208fdaae6d5527d3b3478469ed0e9338017d639b87f8"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/mreq-quantity-duplicate-boundary.xls",
+      "bytes": 5632,
+      "sha256": "493f7e8b519d1988adc6bd8e1f3fdec65095c5194971c9b993516fa39d3e4c6b"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/public-entry-readback-results.json",
+      "bytes": 22273,
+      "sha256": "54ee7b404b09b8fc540714bd163fcc1857cc3b54b309ab87b6efca6fbca00ff8"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-1.public-parsed.json",
+      "bytes": 2315,
+      "sha256": "ab8f99e4de8970a22d0322dab2db72411e593c620a99eea22050eab66fff3e2f"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-1.xls",
+      "bytes": 9728,
+      "sha256": "075461f0a6998626f8dadae404d760422b72fc9e87f10caebbcbb928640c44d4"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-2.public-parsed.json",
+      "bytes": 2315,
+      "sha256": "88f0e13787f6e9af3cacf804a3f9a57eded3e85642caef1b57272b1095ba349a"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-2.xls",
+      "bytes": 9728,
+      "sha256": "e8c43b49e0faf22af52d6ae778dfb6fb29ce787d58f57af0d0392a5f9126052e"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-3.public-parsed.json",
+      "bytes": 2315,
+      "sha256": "d41de047a6912783d90731309c26c89b22e6c6e552ce7d129356bf64d42baf98"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-3.xls",
+      "bytes": 9728,
+      "sha256": "deb0d307eabd3d0a2eb6b6edc3cc28b79c80321f86a7c4e5c775ed5f61091e6e"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-4.public-parsed.json",
+      "bytes": 2315,
+      "sha256": "0992727acad5b84f4ba38698d8fe4a9f051212091c344716fec03647294091b1"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-4.xls",
+      "bytes": 9728,
+      "sha256": "c47247499ec7518b02cb82483ac17b94937f5e96444ea476733a98f00c9f5d2d"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-5.public-parsed.json",
+      "bytes": 2315,
+      "sha256": "8aa2e2b53ee97d3f740c113d4dfe5cadb0521a0031f07c466a8a17217eeb9d12"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/supply-archives-20-batch-5.xls",
+      "bytes": 9728,
+      "sha256": "5acc994f790b1a4006a4c4316f6775e3a02bf4c6aac3528a3bc0752ed3de27ba"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/syntax-five-files.json",
+      "bytes": 419,
+      "sha256": "d3c64c4430f6c6ca328d20554e3290b0f7364a7764e18f36d0df28f4fb104cc4"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/truncated-real-xls-boundary.xls",
+      "bytes": 2048,
+      "sha256": "f9fb0ef15666e620d6c242d30d600d59027aff8f502b687afa16f9b7b6e4058e"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/tsc-narrow.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/unit-first.txt",
+      "bytes": 1184,
+      "sha256": "b890ab7f3bd1ddf7c1a5df4b49fe4063540a7aca332157cd9ff5bc158f79ffb5"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/unit-latest.txt",
+      "bytes": 1183,
+      "sha256": "7ce480587e148572f0ecaefb6574b3604067ba191b400d09095fe77238ce0c08"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/verify-public-import.mjs",
+      "bytes": 1873,
+      "sha256": "5e86aead9bc97f307ac7a159faf15f04cee3cac38447527180be1aa955939433"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/xlwt-20-expected.json",
+      "bytes": 62245,
+      "sha256": "db7bc06e6eda8e59321ee3ee45f4a82957bdd978bd2ba8c879e68071a9d2f283"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/xlwt-20-rows.xls",
+      "bytes": 50688,
+      "sha256": "cc7bdd3ea5c47a577546d42223139eeacbcf3a58858bf3b060ee1697992bf117"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/xlwt-50-expected.json",
+      "bytes": 65410,
+      "sha256": "94c0379523d75693de9ddc36e53982c5aad996264f28cfac12a89aae999e7378"
+    },
+    {
+      "path": "/tmp/higoods-pms-real-xls-20261014/xlwt-50-rows.xls",
+      "bytes": 54784,
+      "sha256": "7360fbbc09778d22021b43d26d7ff0d41f15ead0f1f065ae7b2fae6860af25ac"
+    }
+  ],
+  "codeWritesStopped": true,
+  "productBrowserAcceptance": "not claimed; root owns final integrated build and five import-entry UI validation"
+}

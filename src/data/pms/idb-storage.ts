@@ -3,7 +3,7 @@
  *
  * 依据:AGENTS.md § 2.4.1 (业务数据 → IndexedDB) 与 § 2.4.3 (读写失败处理)
  * 数据库名:higood-pms
- * 当前版本:1
+ * 当前版本:3
  *
  * 设计原则:
  * - 每个 store 的 keyPath 严格对齐 PMS 业务对象的业务主键(详见 STORES)。
@@ -12,17 +12,25 @@
  * - 派生数据(§ 2.4.2 第 3 条)不进 IDB,只在内存缓存。
  */
 
-import { PmsDomainError } from './runtime.ts'
+import { PmsDomainError, createPmsOperationLog, publishPmsOperationLog, type PmsOperationLog } from './runtime.ts'
 
 export const PMS_IDB_DB_NAME = 'higood-pms'
-export const PMS_IDB_VERSION = 1
+export const PMS_IDB_VERSION = 3
 
 export const PMS_STORES = {
   pmsOperationLogs: 'pmsOperationLogs',
+  pmsReorderSuggestions: 'pmsReorderSuggestions',
+  pmsPurchaseOrderAftersales: 'pmsPurchaseOrderAftersales',
+  pmsKolStock: 'pmsKolStock',
+  pmsKolApplies: 'pmsKolApplies',
+  pmsKolLinks: 'pmsKolLinks',
+  pmsKolLockLogs: 'pmsKolLockLogs',
+  pmsFittingTimeliness: 'pmsFittingTimeliness',
+  pmsPurchaseTracking: 'pmsPurchaseTracking',
+  pmsAttachments: 'pmsAttachments',
+  pmsAttachmentReferences: 'pmsAttachmentReferences',
+  pmsCommittedOperations: 'pmsCommittedOperations',
   pmsMaterialPurchaseOrderDeltas: 'pmsMaterialPurchaseOrderDeltas',
-  pmsBomTemplates: 'pmsBomTemplates',
-  pmsBomLogs: 'pmsBomLogs',
-  pmsBomDetails: 'pmsBomDetails',
   pmsFirstLegBatches: 'pmsFirstLegBatches',
   pmsFirstLegCarriers: 'pmsFirstLegCarriers',
   pmsFirstLegChannels: 'pmsFirstLegChannels',
@@ -32,11 +40,10 @@ export const PMS_STORES = {
   pmsMaterialRequirements: 'pmsMaterialRequirements',
   pmsSuppliers: 'pmsSuppliers',
   pmsSupplierConfirmations: 'pmsSupplierConfirmations',
-  pmsInventoryMonitor: 'pmsInventoryMonitor',
-  pmsInventoryOrders: 'pmsInventoryOrders',
   pmsPurchaseSuggestions: 'pmsPurchaseSuggestions',
   pmsKolDemands: 'pmsKolDemands',
   pmsProductPurchaseOrders: 'pmsProductPurchaseOrders',
+  pmsProductStockBalances: 'pmsProductStockBalances',
   pmsSupplyArchives: 'pmsSupplyArchives',
   pmsVersionSnapshots: 'pmsVersionSnapshots',
   pmsTmfOrders: 'pmsTmfOrders',
@@ -47,14 +54,225 @@ export const PMS_STORES = {
 
 export type PmsStoreName = (typeof PMS_STORES)[keyof typeof PMS_STORES]
 
+export interface PmsCommitRecord {
+  store: PmsStoreName
+  value: object
+  /** Version observed when the form was opened. Static records use zero. */
+  expectedVersion?: number
+}
+
+export interface PmsAttachment {
+  id: string
+  name: string
+  type: string
+  size: number
+  blob: Blob
+}
+
+export interface PmsCommitOptions {
+  log?: Omit<PmsOperationLog, 'id' | 'occurredAt' | 'timeZone' | 'source'>
+  /** Keep this identifier unchanged across a retry of the same form submission. */
+  operationId?: string
+  /** Normalized business input, excluding newly computed IDs/timestamps. */
+  operationSignature?: string
+  attachments?: PmsAttachment[]
+  attachmentReferences?: { store: PmsStoreName; key: string | number; fileIds: string[] }[]
+  attachmentDeletes?: string[]
+}
+
+/** Save the records belonging to one procurement action in one transaction. */
+export async function pmsCommitRecords(records: PmsCommitRecord[], options: PmsCommitOptions = {}): Promise<{
+  values: object[]
+  log?: PmsOperationLog
+  replayed: boolean
+}> {
+  const log = options.log ? createPmsOperationLog(options.log) : undefined
+  const entries = records.map((record) => {
+    const value = structuredClone(record.value) as Record<string, unknown>
+    const key = value[STORE_KEYPATHS[record.store]]
+    if (!(typeof key === 'string' && key.trim() || typeof key === 'number' && Number.isFinite(key))) {
+      throw new PmsDomainError('PMS_IDB_KEY_REQUIRED', '记录缺少业务编号，当前修改未保存。')
+    }
+    return { ...record, value, key, version: record.expectedVersion ?? Number(value._pmsBaseVersion ?? 0) }
+  })
+  const canonical = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonical)
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => key !== '_pmsBaseVersion').sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, canonical(item)]))
+    return value
+  }
+  if (new Set(entries.map(({ store, key }) => `${store}::${String(key)}`)).size !== entries.length) {
+    throw new PmsDomainError('PMS_IDB_DUPLICATE_RECORD', '同一操作重复包含相同记录，当前修改未保存。')
+  }
+  const stores = [...new Set<PmsStoreName>([
+    ...entries.map((entry) => entry.store), PMS_STORES.pmsVersionSnapshots,
+    ...(log || options.operationId ? [PMS_STORES.pmsOperationLogs] : []),
+    ...(options.operationId ? [PMS_STORES.pmsCommittedOperations] : []),
+    ...(options.attachments?.length ? [PMS_STORES.pmsAttachments] : []),
+    ...(options.attachmentReferences?.length || options.attachmentDeletes?.length ? [PMS_STORES.pmsAttachments, PMS_STORES.pmsAttachmentReferences] : []),
+  ])]
+  for (const reference of options.attachmentReferences ?? []) {
+    if (!entries.some((entry) => entry.store === reference.store && entry.key === reference.key)) {
+      throw new PmsDomainError('PMS_IDB_ATTACHMENT_OWNER', '附件缺少共同保存的业务记录，当前修改未保存。')
+    }
+  }
+  const suppliedReferences = new Set(options.attachmentReferences?.flatMap((owner) => owner.fileIds))
+  const owners = options.attachmentReferences?.map(owner => `${owner.store}::${String(owner.key)}`) ?? []
+  if (new Set(owners).size !== owners.length) {
+    throw new PmsDomainError('PMS_IDB_ATTACHMENT_DUPLICATE_OWNER', '同一业务记录重复提供附件列表，当前修改未保存。')
+  }
+  if (options.attachments?.some((attachment) => !suppliedReferences.has(attachment.id))) {
+    throw new PmsDomainError('PMS_IDB_ATTACHMENT_UNREFERENCED', '附件尚未关联业务记录，当前修改未保存。')
+  }
+  if (new Set(options.attachments?.map(file => file.id)).size !== (options.attachments?.length ?? 0)
+    || options.attachments?.some(file => !(file.blob instanceof Blob) || file.size !== file.blob.size || !file.id || !file.name)) {
+    throw new PmsDomainError('PMS_IDB_ATTACHMENT_INVALID', '附件编号或文件信息不符，当前修改未保存。请重新选择文件。')
+  }
+  const attachmentSignatures = await Promise.all((options.attachments ?? []).map(async ({ id, name, type, size, blob }) => {
+    // File reads belong before the transaction; equal names and sizes do not prove equal bytes.
+    const digest = options.operationId ? await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()) : undefined
+    return { id, name, type, size, digest: digest ? Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('') : undefined }
+  }))
+  const signature = JSON.stringify({
+    keys: entries.map(({ store, key }) => [store, key]),
+    input: options.operationSignature ?? canonical(entries.map(({ value }) => value)),
+    action: options.log ? { objectType: options.log.objectType, objectId: options.log.objectId, action: options.log.action, reason: options.log.reason, actorId: options.log.actorId } : undefined,
+    attachments: attachmentSignatures,
+    references: canonical(options.attachmentReferences),
+    deletes: options.attachmentDeletes,
+  })
+  let result: { values: object[]; log?: PmsOperationLog; replayed: boolean } = { values: [], replayed: false }
+  await pmsTx(stores, 'readwrite', (tx) => new Promise<void>((resolve, reject) => {
+    const fail = (error: unknown): void => { reject(error); try { tx.abort() } catch { /* already aborted */ } }
+    const save = (): void => {
+      let remaining = entries.length
+      const finish = (): void => {
+        const persist = (): void => {
+        const write = (): void => {
+        for (const attachment of options.attachments ?? []) tx.objectStore(PMS_STORES.pmsAttachments).put(attachment)
+        if (log) tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
+        result = { values: entries.map((entry) => entry.value), log, replayed: false }
+        if (options.operationId) tx.objectStore(PMS_STORES.pmsCommittedOperations).put({ id: options.operationId, signature, logId: log?.id })
+        resolve()
+        }
+        let pendingFiles = options.attachments?.length ?? 0
+        if (!pendingFiles) { write(); return }
+        for (const attachment of options.attachments ?? []) {
+          const existing = tx.objectStore(PMS_STORES.pmsAttachments).get(attachment.id)
+          existing.onerror = () => fail(existing.error)
+          existing.onsuccess = () => {
+            if (existing.result) { fail(new PmsDomainError('PMS_IDB_ATTACHMENT_CONFLICT', '附件编号已存在，当前文件没有替换。请重新选择文件。')); return }
+            pendingFiles -= 1
+            if (!pendingFiles) write()
+          }
+        }
+        }
+        if (!options.attachmentReferences?.length && !options.attachmentDeletes?.length) { persist(); return }
+        const referenceStore = tx.objectStore(PMS_STORES.pmsAttachmentReferences)
+        const read = referenceStore.getAll()
+        read.onerror = () => fail(read.error)
+        read.onsuccess = () => {
+          type FileReference = { id: string; fileIds: string[] }
+          const updated = (options.attachmentReferences ?? []).map((owner) => ({ id: `${owner.store}::${String(owner.key)}`, fileIds: [...new Set(owner.fileIds)] }))
+          const replaced = new Set(updated.map((owner) => owner.id))
+          const retained = (read.result as FileReference[]).filter((owner) => !replaced.has(owner.id))
+          const inUse = new Set([...retained, ...updated].flatMap((owner) => owner.fileIds))
+          const saveReferences = (): void => {
+            for (const owner of updated) {
+              if (owner.fileIds.length) referenceStore.put(owner)
+              else referenceStore.delete(owner.id)
+            }
+            for (const fileId of options.attachmentDeletes ?? []) {
+              if (!inUse.has(fileId)) tx.objectStore(PMS_STORES.pmsAttachments).delete(fileId)
+            }
+            persist()
+          }
+          const newFiles = new Set(options.attachments?.map((attachment) => attachment.id))
+          const required = [...new Set(updated.flatMap((owner) => owner.fileIds))].filter((id) => !newFiles.has(id))
+          let remainingFiles = required.length
+          if (!remainingFiles) { saveReferences(); return }
+          for (const id of required) {
+            const file = tx.objectStore(PMS_STORES.pmsAttachments).get(id)
+            file.onerror = () => fail(file.error)
+            file.onsuccess = () => {
+              if (!file.result) { fail(new PmsDomainError('PMS_IDB_ATTACHMENT_MISSING', '附件文件未能读取，当前修改未保存。请重新选择文件。')); return }
+              remainingFiles -= 1
+              if (!remainingFiles) saveReferences()
+            }
+          }
+        }
+      }
+      if (!remaining) { finish(); return }
+      for (const entry of entries) {
+        const snapshotKey = `${entry.store}::${String(entry.key)}`
+        const request = tx.objectStore(PMS_STORES.pmsVersionSnapshots).get(snapshotKey)
+        request.onerror = () => fail(request.error)
+        request.onsuccess = () => {
+          const current = Number(request.result?.version ?? 0)
+          if (current !== entry.version) {
+            fail(new PmsDomainError('PMS_IDB_VERSION_CONFLICT', '此记录已在其他页面修改。当前输入未保存，请重新读取后重试。'))
+            return
+          }
+          entry.value._pmsBaseVersion = current + 1
+          tx.objectStore(entry.store).put(entry.value)
+          tx.objectStore(PMS_STORES.pmsVersionSnapshots).put({ snapshotKey, version: current + 1, updatedAt: new Date().toISOString(), actor: options.log?.actorName ?? '采购操作' })
+          remaining -= 1
+          if (remaining === 0) finish()
+        }
+      }
+    }
+    if (options.operationId) {
+      const request = tx.objectStore(PMS_STORES.pmsCommittedOperations).get(options.operationId)
+      request.onerror = () => fail(request.error)
+      request.onsuccess = () => {
+        const receipt = request.result as { signature: string; logId?: string } | undefined
+        if (!receipt) { save(); return }
+        if (receipt.signature !== signature) {
+          fail(new PmsDomainError('PMS_IDB_OPERATION_CONFLICT', '此提交已保存其他内容。当前输入未保存，请重新打开表单后重试。'))
+          return
+        }
+        result = { values: [], replayed: true }
+        let remaining = entries.length + (receipt.logId ? 1 : 0)
+        const done = (): void => { remaining -= 1; if (!remaining) resolve() }
+        if (!remaining) { resolve(); return }
+        entries.forEach((entry, index) => {
+          const read = tx.objectStore(entry.store).get(entry.key)
+          read.onerror = () => fail(read.error)
+          read.onsuccess = () => { result.values[index] = read.result; done() }
+        })
+        if (receipt.logId) {
+          const read = tx.objectStore(PMS_STORES.pmsOperationLogs).get(receipt.logId)
+          read.onerror = () => fail(read.error)
+          read.onsuccess = () => { result.log = read.result; done() }
+        }
+      }
+    } else save()
+  }))
+  // Memory and cross-tab notifications follow complete, never request.success.
+  records.forEach((record, index) => Object.assign(record.value, result.values[index]))
+  if (result.log) publishPmsOperationLog(result.log)
+  entries.forEach((entry) => {
+    recordPmsHydratedAtSafely(entry.store, String(entry.key), Date.now())
+    broadcastPmsDataChanged(entry.store, entry.key, options.log?.actorName ?? '采购操作')
+  })
+  return result
+}
+
 // 每个 store 的 keyPath;在 onupgradeneeded 中按此创建。
 // 所有字段名严格对齐业务对象的业务主键,避免冗余 id 列。
 const STORE_KEYPATHS: Record<PmsStoreName, string> = {
   pmsOperationLogs: 'id',
+  pmsReorderSuggestions: 'spu',
+  pmsPurchaseOrderAftersales: 'aftersalesNo',
+  pmsKolStock: 'id',
+  pmsKolApplies: 'applyNo',
+  pmsKolLinks: 'linkId',
+  pmsKolLockLogs: 'id',
+  pmsFittingTimeliness: 'id',
+  pmsPurchaseTracking: 'id',
+  pmsAttachments: 'id',
+  pmsAttachmentReferences: 'id',
+  pmsCommittedOperations: 'id',
   pmsMaterialPurchaseOrderDeltas: 'purchaseOrderNo',
-  pmsBomTemplates: 'spu',
-  pmsBomLogs: 'id',
-  pmsBomDetails: 'spu',
   pmsFirstLegBatches: 'batchNo',
   pmsFirstLegCarriers: 'carrierCode',
   pmsFirstLegChannels: 'channelCode',
@@ -64,11 +282,10 @@ const STORE_KEYPATHS: Record<PmsStoreName, string> = {
   pmsMaterialRequirements: 'requirementNo',
   pmsSuppliers: 'supplierCode',
   pmsSupplierConfirmations: 'confirmationNo',
-  pmsInventoryMonitor: 'id',
-  pmsInventoryOrders: 'orderNo',
   pmsPurchaseSuggestions: 'suggestionNo',
   pmsKolDemands: 'demandNo',
   pmsProductPurchaseOrders: 'purchaseOrderNo',
+  pmsProductStockBalances: 'id',
   pmsSupplyArchives: 'archiveId',
   pmsVersionSnapshots: 'snapshotKey',
   pmsTmfOrders: 'singleton',
@@ -92,6 +309,7 @@ export function getPmsDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(PMS_IDB_DB_NAME, PMS_IDB_VERSION)
+    let blocked = false
     request.onupgradeneeded = (): void => {
       const db = request.result
       for (const storeName of Object.values(PMS_STORES)) {
@@ -102,6 +320,7 @@ export function getPmsDb(): Promise<IDBDatabase> {
     }
     request.onsuccess = (): void => {
       const db = request.result
+      if (blocked) { db.close(); return }
       // 升级被旧连接阻塞时,主代理按 § 2.4.7 验收门禁要求,提示用户关闭旧标签页后刷新。
       db.onversionchange = (): void => {
         db.close()
@@ -119,6 +338,7 @@ export function getPmsDb(): Promise<IDBDatabase> {
       )
     }
     request.onblocked = (): void => {
+      blocked = true
       dbPromise = null
       reject(
         new PmsDomainError(
@@ -148,55 +368,31 @@ export async function pmsTx<T>(
   const db = await getPmsDb()
   const names = Array.isArray(storeNames) ? storeNames : [storeNames]
   const tx = db.transaction(names, mode)
-  let fnResult: T | Promise<T>
+  // Register completion before invoking a callback that may enqueue asynchronous IDB requests.
+  const completed = new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(new PmsDomainError('PMS_IDB_TX_ERROR', '保存失败，当前修改未保存。请重试。'))
+    tx.onabort = () => reject(new PmsDomainError('PMS_IDB_TX_ABORTED', '保存被中止，当前修改未保存。请重试。'))
+  })
+  // A synchronous validation failure can abort before the caller awaits the completion promise.
+  void completed.catch(() => undefined)
+  let result: T
   try {
-    fnResult = fn(tx)
+    result = await fn(tx)
   } catch (error) {
-    // 同步抛错立即 abort,避免事务进入奇怪状态
-    try {
-      tx.abort()
-    } catch {
-      // abort 自身失败忽略(可能已结束)
-    }
+    try { tx.abort() } catch { /* The transaction may already be aborted. */ }
+    await completed.catch(() => undefined)
     throw error
   }
-  const awaited = await fnResult
-  return new Promise<T>((resolve, reject) => {
-    tx.oncomplete = (): void => resolve(awaited)
-    tx.onerror = (): void => {
-      reject(
-        new PmsDomainError(
-          'PMS_IDB_TX_ERROR',
-          `PMS 业务数据保存失败:${tx.error?.message ?? 'unknown error'}。当前状态未改变。`,
-        ),
-      )
-    }
-    tx.onabort = (): void => {
-      reject(
-        new PmsDomainError(
-          'PMS_IDB_TX_ABORTED',
-          `PMS 业务数据保存被中断:${tx.error?.message ?? 'aborted'}。当前状态未改变。`,
-        ),
-      )
-    }
-  })
+  await completed
+  return result
 }
 
 export async function pmsPut<T>(storeName: PmsStoreName, value: T): Promise<void> {
   const keyValue = (value as { [k: string]: unknown })[STORE_KEYPATHS[storeName]]
-  try {
-    await pmsTx(storeName, 'readwrite', (tx) => {
-      tx.objectStore(storeName).put(value)
-    })
-  } catch (error) {
-    if (error instanceof PmsDomainError && error.code === 'PMS_IDB_UNAVAILABLE') {
-      // IDB 不可用(Safari 隐私模式、Node 测试环境等)—— 持久化层静默跳过,内存态保留,
-      // 避免 fire-and-forget 调用点产生 unhandledrejection。hydrate 路径仍会触发 PMS_IDB_HYDRATE_FAILED banner。
-      console.warn('[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存', { store: storeName, key: String(keyValue) })
-      return
-    }
-    throw error
-  }
+  await pmsTx(storeName, 'readwrite', (tx) => {
+    tx.objectStore(storeName).put(value)
+  })
   // 记录本标签页的 entity 写入时间戳,供跨标签页同步 banner 提示判断(§ 2.4.3.6)。
   // 写入后的 entity 在本标签页内被认为有效,其他标签页后到达的更新会被广播 handler 检测到并提示刷新。
   try {
@@ -238,18 +434,10 @@ export async function pmsPersistEntity<T extends { _pmsBaseVersion?: number }>(
  * unhandledrejection 处理器捕获 PMS_IDB_* 错误并以 banner 明确告知用户"未保存"。
  *
  * 之前各模块用 .catch(console.error) 吞掉失败,页面仍显示"已保存",属于虚假成功。
- * 注意:PMS_IDB_UNAVAILABLE 已在 pmsPut / pmsPutWithVersion 内部消化(仅 warn 后返回),
- * 不会走到这里,因此不会在隐私模式等场景下误报。
+ * 打开失败、存储不可用与事务失败均保留未保存状态。
  */
 export function reportPmsSaveFailure(logTag: string, detail: Record<string, unknown>, error: unknown): void {
   const message = error instanceof Error ? error.message : 'unknown'
-  // PMS_IDB_UNAVAILABLE 是**设计内的降级**(Safari 隐私模式、Node 测试环境等):
-  // pmsPut / pmsPutWithVersion 已明确"持久化层静默跳过、内存态保留",此时不算保存失败,
-  // 不应向用户报"未保存",也不能产生 unhandledrejection。其余错误一律抛出,交给 banner 提示。
-  if (error instanceof PmsDomainError && error.code === 'PMS_IDB_UNAVAILABLE') {
-    console.warn(logTag, { ...detail, message, degraded: 'memory-only' })
-    return
-  }
   console.error(logTag, { ...detail, message })
   throw error
 }
@@ -312,7 +500,7 @@ const pmsWriteQueue = new Map<string, Promise<void>>()
 /**
  * 乐观锁写入(§ 2.4.3.6):
  * - 读取 pmsVersionSnapshots 中该 entity 的 lastSyncedVersion
- * - 与本客户端已知版本(pmsKnownVersions,缺失时回退 value._pmsBaseVersion)比较
+ * - 与表单观察到的 value._pmsBaseVersion 比较；无该字段的旧调用才取已知版本
  * - 一致:put entity + snapshot(nextVersion) 在同一 IDB 事务
  * - 不一致:抛 PMS_IDB_VERSION_CONFLICT,提示用户数据已被其他标签页修改
  * - hydrate 时会从 IDB 拉取 snapshot 的 version 并注入 entity._pmsBaseVersion。
@@ -327,8 +515,8 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
 
   // 真正执行一次乐观锁写入;baseVersion 必须在这里读,串行化后才是最新值。
   const writeOnce = async (): Promise<void> => {
-  // 以本客户端集中登记的版本为准,对象副本上的字段仅作首次回退(见 pmsKnownVersions 说明)。
-  const baseVersion = pmsKnownVersions.get(snapshotKey) ?? (value._pmsBaseVersion ?? 0)
+  // A newer read in this tab must not silently promote an older draft's expected version.
+  const baseVersion = value._pmsBaseVersion ?? pmsKnownVersions.get(snapshotKey) ?? 0
   try {
     await new Promise<void>((resolve, reject) => {
     const dbPromise = getPmsDb()
@@ -407,10 +595,6 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
     })
   })
   } catch (error) {
-    if (error instanceof PmsDomainError && error.code === 'PMS_IDB_UNAVAILABLE') {
-      console.warn('[PMS_IDB_UNAVAILABLE] pmsPutWithVersion 跳过,内存态保留', { store: storeName, key: String(keyValue) })
-      return
-    }
     throw error
   }
   }
@@ -487,17 +671,9 @@ export async function pmsAll<T>(storeName: PmsStoreName): Promise<T[]> {
 }
 
 export async function pmsDelete(storeName: PmsStoreName, key: IDBValidKey): Promise<void> {
-  try {
-    await pmsTx(storeName, 'readwrite', (tx) => {
-      tx.objectStore(storeName).delete(key)
-    })
-  } catch (error) {
-    if (error instanceof PmsDomainError && error.code === 'PMS_IDB_UNAVAILABLE') {
-      console.warn('[PMS_IDB_UNAVAILABLE] delete 跳过,内存态保留', { store: storeName, key: String(key) })
-      return
-    }
-    throw error
-  }
+  await pmsTx(storeName, 'readwrite', (tx) => {
+    tx.objectStore(storeName).delete(key)
+  })
 }
 
 export async function pmsClear(storeName: PmsStoreName): Promise<void> {
@@ -521,6 +697,7 @@ export function closePmsDb(): void {
 
 const BROADCAST_CHANNEL_NAME = 'higood-pms-idb'
 let broadcastChannel: BroadcastChannel | null = null
+let broadcastUnavailable = false
 const broadcastSubscribers = new Set<(message: PmsIdbBroadcast) => void>()
 
 export interface PmsIdbBroadcast {
@@ -536,9 +713,15 @@ export interface PmsIdbBroadcast {
  * 不支持 BroadcastChannel 的旧浏览器静默退化,§ 2.4.3.6 允许"提示用户",这种浏览器直接降级为单标签页使用。
  */
 function getBroadcastChannel(): BroadcastChannel | null {
-  if (typeof BroadcastChannel === 'undefined') return null
+  if (typeof BroadcastChannel === 'undefined' || broadcastUnavailable) return null
   if (broadcastChannel) return broadcastChannel
-  broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME)
+  try {
+    broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME)
+  } catch (error) {
+    broadcastUnavailable = true
+    console.warn('[PMS_NOTIFICATION_UNAVAILABLE]', error)
+    return null
+  }
   broadcastChannel.addEventListener('message', (event: MessageEvent<PmsIdbBroadcast>) => {
     const message = event.data
     if (!message || message.type !== 'PMS_DATA_CHANGED') return
@@ -560,13 +743,13 @@ function getBroadcastChannel(): BroadcastChannel | null {
 export function broadcastPmsDataChanged(store: PmsStoreName, key: string | number, actor: string): void {
   const channel = getBroadcastChannel()
   if (!channel) return
-  channel.postMessage({
-    type: 'PMS_DATA_CHANGED',
-    store,
-    key,
-    actor,
-    at: Date.now(),
-  })
+  try {
+    channel.postMessage({ type: 'PMS_DATA_CHANGED', store, key, actor, at: Date.now() })
+  } catch (error) {
+    // Notification cannot reverse an already completed business transaction.
+    if (!broadcastUnavailable) console.warn('[PMS_NOTIFICATION_UNAVAILABLE]', error)
+    broadcastUnavailable = true
+  }
 }
 
 /**
@@ -587,69 +770,128 @@ export function subscribePmsDataChanged(handler: (message: PmsIdbBroadcast) => v
  * 导出 PMS IDB 全量数据为可下载的 JSON 字符串。
  * 用 navigator.storage.estimate() 估算空间占用;逐 store getAll。
  */
-export async function exportPmsDataBundle(): Promise<{ json: string; bytes: number; storeBytes: Record<string, number> }> {
-  const db = await getPmsDb()
+export async function exportPmsDataBundle(): Promise<{ blob: Blob; bytes: number; storeBytes: Record<string, number> }> {
+  const stores = Object.values(PMS_STORES)
+  const snapshot = await pmsTx(stores, 'readonly', (tx) => Promise.all(stores.map((store) => new Promise<{ store: PmsStoreName; records: Record<string, unknown>[] }>((resolve, reject) => {
+    const request = tx.objectStore(store).getAll()
+    request.onsuccess = () => resolve({ store, records: request.result })
+    request.onerror = () => reject(request.error)
+  }))))
+  const files: Blob[] = []
   const storeBytes: Record<string, number> = {}
-  const allEntries: Array<{ store: string; records: unknown[] }> = []
-  for (const storeName of Object.values(PMS_STORES)) {
-    const records = await new Promise<unknown[]>((resolve, reject) => {
-      const tx = db.transaction(storeName, 'readonly')
-      const req = tx.objectStore(storeName).getAll()
-      req.onsuccess = (): void => resolve(req.result as unknown[])
-      req.onerror = (): void => reject(new PmsDomainError('PMS_IDB_READ_ALL_FAILED', `读取 ${storeName} 失败:${req.error?.message ?? 'unknown'}`))
-    })
-    allEntries.push({ store: storeName, records })
-    storeBytes[storeName] = JSON.stringify(records).length
+  let offset = 0
+  for (const entry of snapshot) {
+    if (entry.store === PMS_STORES.pmsAttachments) {
+      entry.records = entry.records.map((record) => {
+        const { blob, ...meta } = record
+        if (!(blob instanceof Blob)) throw new PmsDomainError('PMS_IDB_BACKUP_ATTACHMENT', '附件内容未能读取，备份没有生成。')
+        const descriptor = { ...meta, backupOffset: offset, backupLength: blob.size }
+        files.push(blob); offset += blob.size
+        return descriptor
+      })
+    }
+    storeBytes[entry.store] = new TextEncoder().encode(JSON.stringify(entry.records)).length + (entry.store === PMS_STORES.pmsAttachments ? offset : 0)
   }
-  const bundle = {
-    version: PMS_IDB_VERSION,
-    exportedAt: new Date().toISOString(),
-    stores: allEntries,
-  }
-  const json = JSON.stringify(bundle, null, 2)
-  return { json, bytes: json.length, storeBytes }
+  const manifest = new TextEncoder().encode(JSON.stringify({ format: 'higood-pms', formatVersion: 1, databaseVersion: PMS_IDB_VERSION, exportedAt: new Date().toISOString(), stores: snapshot }))
+  const size = new Uint8Array(4)
+  new DataView(size.buffer).setUint32(0, manifest.length, true)
+  const blob = new Blob(['HGPMS001', size, manifest, ...files], { type: 'application/octet-stream' })
+  return { blob, bytes: blob.size, storeBytes }
 }
 
-/**
- * 从 JSON 字符串导入 PMS IDB 数据。
- * 每个 store 在同一 IDB 事务里 put 所有 records;失败抛 PmsDomainError。
- */
-export async function importPmsDataBundle(json: string): Promise<{ imported: number; storeCounts: Record<string, number> }> {
-  let bundle: { version?: number; stores?: Array<{ store: string; records: unknown[] }> }
-  try {
-    bundle = JSON.parse(json) as { version?: number; stores?: Array<{ store: string; records: unknown[] }> }
-  } catch (error) {
-    throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', `导入数据 JSON 解析失败:${error instanceof Error ? error.message : 'unknown'}`)
-  }
-  if (!bundle.stores || !Array.isArray(bundle.stores)) {
-    throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '导入数据格式不符:缺少 stores 数组')
-  }
-  const db = await getPmsDb()
-  const storeNames = new Set(Object.values(PMS_STORES))
-  let imported = 0
+/** Restore validated records and raw attachment bytes; conflicts abort the entire restore. */
+export async function importPmsDataBundle(file: Blob): Promise<{ imported: number; storeCounts: Record<string, number> }> {
+  if (!(file instanceof Blob) || file.size < 12 || file.size > 128 * 1024 * 1024) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份文件格式或大小不符，当前记录没有改变。')
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+  if (new TextDecoder().decode(header.slice(0, 8)) !== 'HGPMS001') throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '请选择采购备份文件，当前记录没有改变。')
+  const length = new DataView(header.buffer).getUint32(8, true)
+  if (length > file.size - 12) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份内容不完整，当前记录没有改变。')
+  let bundle: { format: string; formatVersion: number; databaseVersion: number; stores: { store: PmsStoreName; records: Record<string, unknown>[] }[] }
+  try { bundle = JSON.parse(await file.slice(12, 12 + length).text()) } catch { throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份内容无法解析，当前记录没有改变。') }
+  if (bundle.format !== 'higood-pms' || bundle.formatVersion !== 1 || bundle.databaseVersion !== PMS_IDB_VERSION || !Array.isArray(bundle.stores)) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份版本不兼容，当前记录没有改变。')
+  const allowed = new Set(Object.values(PMS_STORES))
   const storeCounts: Record<string, number> = {}
-  // 收集所有 store names,逐个 transaction
-  const groupedByStore = new Map<string, unknown[]>()
+  const entries = new Map<PmsStoreName, Record<string, unknown>[]>()
+  const attachmentMetadata = (value: unknown, found: Record<string, unknown>[] = []): Record<string, unknown>[] => {
+    if (typeof value === 'string' && (/^\s*(?:data:|blob:)/i.test(value) || /data:[^\s,;]*;base64,/i.test(value))) {
+      throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份业务记录包含内嵌文件或临时地址，当前记录没有改变。')
+    }
+    if (Array.isArray(value)) value.forEach(item => attachmentMetadata(item, found))
+    else if (value && typeof value === 'object') {
+      const row = value as Record<string, unknown>
+      if ('fileId' in row) {
+        if (typeof row.fileId !== 'string' || !row.fileId.trim()) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份附件编号不完整，当前记录没有改变。')
+        found.push(row)
+      }
+      Object.values(row).forEach(item => attachmentMetadata(item, found))
+    }
+    return found
+  }
   for (const entry of bundle.stores) {
-    if (!storeNames.has(entry.store as PmsStoreName)) continue
-    groupedByStore.set(entry.store, entry.records ?? [])
+    if (!allowed.has(entry.store) || entries.has(entry.store) || !Array.isArray(entry.records)) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份包含未知或重复的数据分类，当前记录没有改变。')
+    const keys = new Set<string | number>()
+    for (let index = 0; index < entry.records.length; index += 1) {
+      const record = entry.records[index]
+      if (!record || typeof record !== 'object') throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份记录格式不符。')
+      const key = record[STORE_KEYPATHS[entry.store]]
+      if ((typeof key !== 'string' && typeof key !== 'number') || keys.has(key)) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份存在缺失编号或重复记录。')
+      keys.add(key)
+      if (entry.store === PMS_STORES.pmsAttachments) {
+        const { backupOffset, backupLength, ...meta } = record
+        const offset = Number(backupOffset); const bytes = Number(backupLength)
+        if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(bytes) || offset < 0 || bytes < 0 || 12 + length + offset + bytes > file.size || bytes !== Number(meta.size)) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '附件内容不完整。')
+        entry.records[index] = { ...meta, blob: file.slice(12 + length + offset, 12 + length + offset + bytes, String(meta.type || '')) }
+      } else attachmentMetadata(record)
+    }
+    entries.set(entry.store, entry.records)
   }
-  for (const [storeName, records] of groupedByStore) {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeName as PmsStoreName, 'readwrite')
-      const store = tx.objectStore(storeName as PmsStoreName)
+  let imported = 0
+  await pmsTx([...allowed], 'readwrite', async (tx) => {
+    const current = new Map<PmsStoreName, Record<string, unknown>[]>()
+    await Promise.all([...allowed].map((store) => new Promise<void>((resolve, reject) => {
+      const request = tx.objectStore(store).getAll()
+      request.onsuccess = () => { current.set(store, request.result); resolve() }
+      request.onerror = () => reject(request.error)
+    })))
+    const files = new Map([...current.get(PMS_STORES.pmsAttachments) ?? [], ...entries.get(PMS_STORES.pmsAttachments) ?? []].map(record => [record.id, record]))
+    const owners = new Map<string, Record<string, unknown>>()
+    for (const store of allowed) if (store !== PMS_STORES.pmsAttachments && store !== PMS_STORES.pmsAttachmentReferences) {
+      for (const row of [...current.get(store) ?? [], ...entries.get(store) ?? []]) owners.set(`${store}::${String(row[STORE_KEYPATHS[store]])}`, row)
+    }
+    const references = new Map([...current.get(PMS_STORES.pmsAttachmentReferences) ?? [], ...entries.get(PMS_STORES.pmsAttachmentReferences) ?? []].map(row => [row.id, row]))
+    for (const reference of entries.get(PMS_STORES.pmsAttachmentReferences) ?? []) {
+      if (!owners.has(String(reference.id)) || !Array.isArray(reference.fileIds) || new Set(reference.fileIds).size !== reference.fileIds.length
+        || reference.fileIds.some(id => typeof id !== 'string' || !id || !files.has(id))) throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份包含缺失附件或业务归属，当前记录没有改变。')
+    }
+    for (const [store, records] of entries) if (store !== PMS_STORES.pmsAttachments && store !== PMS_STORES.pmsAttachmentReferences) for (const row of records) {
+      const metadata = attachmentMetadata(row)
+      if (!metadata.length) continue
+      const reference = references.get(`${store}::${String(row[STORE_KEYPATHS[store]])}`)
+      const ids = new Set(metadata.map(item => item.fileId))
+      if (!reference || !Array.isArray(reference.fileIds) || reference.fileIds.length !== ids.size || reference.fileIds.some(id => !ids.has(id))) {
+        throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份业务附件与引用列表不一致，当前记录没有改变。')
+      }
+      for (const item of metadata) {
+        const fileRecord = files.get(item.fileId)
+        if (!fileRecord || ['name', 'type', 'size'].some(key => key in item && item[key] !== fileRecord[key])) {
+          throw new PmsDomainError('PMS_IDB_IMPORT_INVALID', '备份业务附件缺失或文件信息不符，当前记录没有改变。')
+        }
+      }
+    }
+    for (const [store, records] of entries) {
+      const saved = new Map(current.get(store)?.map((record) => [record[STORE_KEYPATHS[store]], record]))
+      storeCounts[store] = 0
       for (const record of records) {
-        store.put(record)
+        const existing = saved.get(record[STORE_KEYPATHS[store]])
+        if (existing) {
+          if (store === PMS_STORES.pmsAttachments) throw new PmsDomainError('PMS_IDB_IMPORT_CONFLICT', '当前浏览器已有备份中的附件，恢复未保存。请在空白浏览器中恢复并核对。')
+          if (JSON.stringify(existing) !== JSON.stringify(record)) throw new PmsDomainError('PMS_IDB_IMPORT_CONFLICT', '备份与当前记录存在冲突，恢复未保存。请先保留当前备份并使用另一浏览器核对。')
+          continue
+        }
+        tx.objectStore(store).put(record); imported += 1; storeCounts[store] += 1
       }
-      tx.oncomplete = (): void => {
-        storeCounts[storeName] = records.length
-        imported += records.length
-        resolve()
-      }
-      tx.onerror = (): void => reject(new PmsDomainError('PMS_IDB_TX_ERROR', `导入 ${storeName} 失败:${tx.error?.message ?? 'unknown'}`))
-      tx.onabort = (): void => reject(new PmsDomainError('PMS_IDB_TX_ABORTED', `导入 ${storeName} 中断:${tx.error?.message ?? 'aborted'}`))
-    })
-  }
+    }
+  })
   return { imported, storeCounts }
 }
 

@@ -1,16 +1,50 @@
 import { escapeHtml } from '../../utils.ts'
 
+/** A local confirmation keeps the current form intact and does not block other browser tabs. */
+export function confirmPmsAction(message: string, confirmLabel: string, title = '确认操作'): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4'
+    overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-label', title)
+    overlay.innerHTML = `<section class="w-full max-w-lg rounded-xl border bg-background p-5 shadow-2xl"><h2 class="text-lg font-semibold">${escapeHtml(title)}</h2><p class="my-4 whitespace-pre-wrap text-sm">${escapeHtml(message)}</p><footer class="flex justify-end gap-3"><button type="button" data-pms-confirm-cancel class="rounded-md border px-4 py-2 text-sm">取消</button><button type="button" data-pms-confirm-accept class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">${escapeHtml(confirmLabel)}</button></footer></section>`
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const finish = (accepted: boolean): void => {
+      window.removeEventListener('keydown', key, true)
+      overlay.remove(); previousFocus?.focus(); resolve(accepted)
+    }
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); finish(false) }
+      if (event.key === 'Tab') {
+        const buttons = [...overlay.querySelectorAll<HTMLButtonElement>('button')]
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+        event.preventDefault(); buttons[(index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus()
+      }
+    }
+    overlay.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target : null
+      if (event.target === overlay || target?.closest('[data-pms-confirm-cancel]')) finish(false)
+      else if (target?.closest('[data-pms-confirm-accept]')) finish(true)
+    })
+    window.addEventListener('keydown', key, true)
+    document.body.appendChild(overlay)
+    overlay.querySelector<HTMLButtonElement>('[data-pms-confirm-cancel]')?.focus()
+  })
+}
+
 let imagePreview: { src: string; alt: string } | null = null
 let actionSequence = 0
-let activeImageRefresh: (() => void) | null = null
+let imagePreviewElement: HTMLElement | null = null
+let imageReturnFocus: HTMLElement | null = null
 let imageEscapeBound = false
 const boundPmsImages = new WeakSet<HTMLImageElement>()
 
 function closePmsImagePreview(): boolean {
   if (!imagePreview) return false
   imagePreview = null
-  activeImageRefresh?.()
-  activeImageRefresh = null
+  imagePreviewElement?.remove()
+  imagePreviewElement = null
+  if (imageReturnFocus?.isConnected) imageReturnFocus.focus()
+  imageReturnFocus = null
   return true
 }
 
@@ -20,9 +54,16 @@ function ensurePmsImageEscapeBinding(): void {
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || !closePmsImagePreview()) return
-      event.preventDefault()
-      event.stopImmediatePropagation()
+      if (event.key === 'Escape' && closePmsImagePreview()) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        return
+      }
+      if (event.key !== 'Tab' || !imagePreviewElement) return
+      const controls = Array.from(imagePreviewElement.querySelectorAll<HTMLElement>('button:not([disabled])')).filter(control => control.getClientRects().length > 0)
+      const first = controls[0], last = controls.at(-1)
+      if (event.shiftKey && document.activeElement === first && last) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last && first) { event.preventDefault(); first.focus() }
     },
     true,
   )
@@ -90,13 +131,12 @@ export function renderPmsBusinessImage(src: string, alt: string, sizeClass = 'h-
 }
 
 export function renderPmsImagePreview(): string {
-  if (!imagePreview) return ''
+  if (!imagePreview || imagePreviewElement) return ''
   return `<div class="fixed inset-0 z-[90] flex items-center justify-center p-5" role="dialog" aria-modal="true" aria-label="${escapeHtml(imagePreview.alt)}"><button type="button" class="absolute inset-0 bg-slate-950/75" data-pms-common-action="close-image" data-skip-page-rerender="true" aria-label="关闭大图"></button><section class="relative z-10 max-h-[92vh] max-w-[92vw] overflow-auto rounded-xl bg-white p-4 shadow-2xl"><header class="mb-3 flex items-center justify-between gap-4"><h2 class="font-semibold">${escapeHtml(imagePreview.alt)}</h2><button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-pms-common-action="close-image" data-skip-page-rerender="true">关闭</button></header><img class="max-h-[80vh] max-w-[86vw] object-contain" src="${escapeHtml(imagePreview.src)}" alt="${escapeHtml(imagePreview.alt)}" onload="this.parentElement.querySelector('[data-pms-preview-loading]').classList.add('hidden')" onerror="this.classList.add('hidden');this.parentElement.querySelector('[data-pms-preview-loading]').classList.add('hidden');this.parentElement.querySelector('[data-pms-preview-error]').classList.remove('hidden')"><div class="min-w-80 rounded-md border bg-slate-50 px-8 py-16 text-center text-sm text-slate-500" data-pms-preview-loading>图片加载中…</div><div class="hidden min-w-80 rounded-md border border-red-200 bg-red-50 px-8 py-16 text-center text-sm text-red-700" data-pms-preview-error><p>图片加载失败，请核对该业务对象的原图素材。</p><button type="button" class="mt-4 rounded-md border border-red-300 bg-white px-3 py-1.5 font-medium" data-pms-common-action="retry-image" data-image-src="${escapeHtml(imagePreview.src)}" data-skip-page-rerender="true">重试加载</button></div></section></div>`
 }
 
-export function handlePmsCommonImageEvent(target: HTMLElement, event: Event | undefined, refreshOverlays: () => void): boolean {
+export function handlePmsCommonImageEvent(target: HTMLElement, event: Event | undefined, _refreshOverlays: () => void): boolean {
   if (event?.type === 'keydown' && event instanceof KeyboardEvent && event.key === 'Escape' && imagePreview) {
-    activeImageRefresh = refreshOverlays
     closePmsImagePreview()
     return true
   }
@@ -115,8 +155,18 @@ export function handlePmsCommonImageEvent(target: HTMLElement, event: Event | un
       return true
     }
     imagePreview = { src, alt: actionNode?.dataset.imageAlt || '业务对象图片' }
-    activeImageRefresh = refreshOverlays
-    refreshOverlays()
+    imageReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const host = document.createElement('div')
+    host.innerHTML = renderPmsImagePreview()
+    imagePreviewElement = host.firstElementChild as HTMLElement
+    imagePreviewElement.dataset.pmsImagePreview = 'true'
+    imagePreviewElement.addEventListener('click', (previewEvent) => {
+      previewEvent.stopPropagation()
+      if (previewEvent.target instanceof HTMLElement) handlePmsCommonImageEvent(previewEvent.target, previewEvent, () => undefined)
+    })
+    document.body.appendChild(imagePreviewElement)
+    hydratePmsSurface(imagePreviewElement, { icons: false })
+    imagePreviewElement.querySelector<HTMLButtonElement>('section button')?.focus()
     return true
   }
   if (action === 'retry-image') {
@@ -130,7 +180,6 @@ export function handlePmsCommonImageEvent(target: HTMLElement, event: Event | un
     return true
   }
   if (action === 'close-image') {
-    activeImageRefresh = refreshOverlays
     closePmsImagePreview()
     return true
   }
@@ -148,7 +197,7 @@ export function nextPmsClientActionId(prefix: string): string {
   return `${prefix}-${Date.now()}-${actionSequence}`
 }
 
-export function hydratePmsSurface(surface: ParentNode | null | undefined): void {
+export function hydratePmsSurface(surface: ParentNode | null | undefined, options: { icons?: boolean } = {}): void {
   if (!surface) return
   ensurePmsImageEscapeBinding()
   surface.querySelectorAll<HTMLImageElement>('[data-pms-common-action="open-image"] img, section:has([data-pms-preview-loading]) > img').forEach(image => {
@@ -170,9 +219,11 @@ export function hydratePmsSurface(surface: ParentNode | null | undefined): void 
     image.addEventListener('error', settle)
     if (image.complete) settle()
   })
-  void import('../../components/shell.ts')
-    .then(({ hydrateIcons }) => hydrateIcons(surface))
-    .catch(() => undefined)
+  if (options.icons !== false) {
+    void import('../../components/shell.ts')
+      .then(({ hydrateIcons }) => hydrateIcons(surface))
+      .catch(() => undefined)
+  }
 }
 
 export function refreshPmsRoot(selector: string, innerHtml: string): boolean {

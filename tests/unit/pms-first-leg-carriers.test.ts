@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import {installPmsMemoryIdb} from '../helpers/pms-memory-idb.ts'
 
 import {
   advancePmsFirstLegBatchStatus,
+  resetPmsFirstLegRuntimeForTest,
   createPmsFirstLegBatch,
   createPmsFirstLegCarrier,
   createPmsFirstLegChannel,
@@ -18,7 +20,7 @@ import {
   type PmsCreateChannelInput,
   type PmsFirstLegTransportMethod,
 } from '../../src/data/pms/first-leg-logistics.ts'
-import { listPmsLogs, PMS_BUYER_ACTOR, PmsDomainError } from '../../src/data/pms/runtime.ts'
+import { resetPmsRuntimeForTest, listPmsLogs, PMS_BUYER_ACTOR, PmsDomainError } from '../../src/data/pms/runtime.ts'
 
 const baseCarrier: PmsCreateCarrierInput = {
   carrierName: '单元测试物流商',
@@ -33,8 +35,9 @@ const baseCarrier: PmsCreateCarrierInput = {
   remark: '',
 }
 
-test('物流商新增字段保存回显并写入操作日志', () => {
-  const created = createPmsFirstLegCarrier(
+test('物流商新增字段保存回显并写入操作日志', async () => {
+  const memory=installPmsMemoryIdb();resetPmsFirstLegRuntimeForTest();resetPmsRuntimeForTest();try{
+  const created = await createPmsFirstLegCarrier(
     {
       ...baseCarrier,
       carrierName: '单元测试物流商甲',
@@ -69,7 +72,7 @@ test('物流商新增字段保存回显并写入操作日志', () => {
   assert.equal(carrier.supportDelivery, true)
   assert.equal(listPmsLogs('first-leg-carrier', created.carrierCode).length, 1)
 
-  const updated = updatePmsFirstLegCarrier(
+  const updated = await updatePmsFirstLegCarrier(
     created.carrierCode,
     { accountPeriodDays: 60, supportedDestinations: ['欧洲'], supportDelivery: false },
     PMS_BUYER_ACTOR,
@@ -78,26 +81,30 @@ test('物流商新增字段保存回显并写入操作日志', () => {
   assert.deepEqual(updated.supportedDestinations, ['欧洲'])
   assert.equal(updated.supportDelivery, false)
   assert.equal(listPmsLogs('first-leg-carrier', created.carrierCode).length, 2)
+  }finally{memory.restore()}
 })
 
-test('物流商数字字段非负校验与运输方式枚举校验', () => {
-  assert.throws(
+test('物流商数字字段非负校验与运输方式枚举校验', async () => {
+  const memory=installPmsMemoryIdb();resetPmsFirstLegRuntimeForTest();resetPmsRuntimeForTest();try{
+  await assert.rejects(
     () => createPmsFirstLegCarrier({ ...baseCarrier, carrierName: '单元测试物流商乙', accountPeriodDays: -1 }, PMS_BUYER_ACTOR),
     /账期天数必须是非负数字/,
   )
-  assert.throws(
+  await assert.rejects(
     () => createPmsFirstLegCarrier({ ...baseCarrier, carrierName: '单元测试物流商丙', accountPeriodDays: Number.NaN }, PMS_BUYER_ACTOR),
     /账期天数必须是非负数字/,
   )
-  assert.throws(
+  await assert.rejects(
     () => createPmsFirstLegCarrier({ ...baseCarrier, carrierName: '单元测试物流商丁', supportedTransportMethods: ['火箭' as PmsFirstLegTransportMethod] }, PMS_BUYER_ACTOR),
     PmsDomainError,
   )
   assert.equal(listPmsFirstLegCarriers().some((item) => item.carrierName === '单元测试物流商乙'), false)
+  }finally{memory.restore()}
 })
 
-test('渠道新增字段保存回显，条件计费字段按计费方式保留', () => {
-  const created = createPmsFirstLegChannel(
+test('渠道新增字段保存回显，条件计费字段按计费方式保留', async () => {
+  const memory=installPmsMemoryIdb();resetPmsFirstLegRuntimeForTest();resetPmsRuntimeForTest();try{
+  const created = await createPmsFirstLegChannel(
     {
       carrierId: 'FL-CN-001',
       channelName: '单元测试计费重渠道',
@@ -158,7 +165,7 @@ test('渠道新增字段保存回显，条件计费字段按计费方式保留',
   assert.equal(channel.maxBoxVolume, 0.5)
   assert.equal(listPmsLogs('first-leg-channel', created.channelCode).length, 1)
 
-  const updated = updatePmsFirstLegChannel(
+  const updated = await updatePmsFirstLegChannel(
     created.channelCode,
     { firstWeightPrice: 35, additionalWeightPrice: 8, includeDelivery: true, volumeDivisor: 5000 },
     PMS_BUYER_ACTOR,
@@ -168,9 +175,11 @@ test('渠道新增字段保存回显，条件计费字段按计费方式保留',
   assert.equal(updated.includeDelivery, true)
   assert.equal(updated.volumeDivisor, 5000)
   assert.equal(listPmsLogs('first-leg-channel', created.channelCode).length, 2)
+  }finally{memory.restore()}
 })
 
-test('整柜渠道不要求新增计费字段，仍要求四箱型完整配置', () => {
+test('整柜渠道不要求新增计费字段，仍要求四箱型完整配置', async () => {
+  const memory=installPmsMemoryIdb();resetPmsFirstLegRuntimeForTest();resetPmsRuntimeForTest();try{
   const base: PmsCreateChannelInput = {
     carrierId: 'FL-CN-002',
     channelName: '单元测试整柜渠道',
@@ -184,8 +193,8 @@ test('整柜渠道不要求新增计费字段，仍要求四箱型完整配置',
     destinationWarehouse: '印尼雅加达面辅料仓',
     remark: '',
   }
-  assert.throws(() => createPmsFirstLegChannel(base, PMS_BUYER_ACTOR), /整柜计费必须完整配置/)
-  const channel = createPmsFirstLegChannel(
+  await assert.rejects(() => createPmsFirstLegChannel(base, PMS_BUYER_ACTOR), /整柜计费必须完整配置/)
+  const channel = await createPmsFirstLegChannel(
     {
       ...base,
       containerPrices: (['20GP', '40GP', '40HQ', '45HQ'] as const).map((type) => ({ containerType: type, weightLimit: 20000, volumeLimit: 60, price: 28000, currency: 'RMB' as const })),
@@ -198,9 +207,11 @@ test('整柜渠道不要求新增计费字段，仍要求四箱型完整配置',
   assert.equal(channel.chargeWeightFactor, undefined)
   assert.equal(channel.includeTax, false)
   assert.equal(channel.taxRemark, '整柜不含税')
+  }finally{memory.restore()}
 })
 
-test('渠道数字字段非负与时效区间校验', () => {
+test('渠道数字字段非负与时效区间校验', async () => {
+  const memory=installPmsMemoryIdb();resetPmsFirstLegRuntimeForTest();resetPmsRuntimeForTest();try{
   const base: PmsCreateChannelInput = {
     carrierId: 'FL-CN-001',
     channelName: '单元测试校验渠道',
@@ -214,13 +225,15 @@ test('渠道数字字段非负与时效区间校验', () => {
     destinationWarehouse: '印尼雅加达面辅料仓',
     remark: '',
   }
-  assert.throws(() => createPmsFirstLegChannel({ ...base, minTransitDays: 10, maxTransitDays: 5 }, PMS_BUYER_ACTOR), /最短运输天数不能大于最长运输天数/)
-  assert.throws(() => createPmsFirstLegChannel({ ...base, channelName: '单元测试校验渠道B', volumeDivisor: -1 }, PMS_BUYER_ACTOR), /体积重除数必须是非负数字/)
-  assert.throws(() => createPmsFirstLegChannel({ ...base, channelName: '单元测试校验渠道C', firstWeightPrice: -0.5 }, PMS_BUYER_ACTOR), /首重价格必须是非负数字/)
-  assert.throws(() => createPmsFirstLegChannel({ ...base, channelName: '单元测试校验渠道D', maxBoxWeight: -3 }, PMS_BUYER_ACTOR), /最大单箱重量必须是非负数字/)
+  await assert.rejects(() => createPmsFirstLegChannel({ ...base, minTransitDays: 10, maxTransitDays: 5 }, PMS_BUYER_ACTOR), /最短运输天数不能大于最长运输天数/)
+  await assert.rejects(() => createPmsFirstLegChannel({ ...base, channelName: '单元测试校验渠道B', volumeDivisor: -1 }, PMS_BUYER_ACTOR), /体积重除数必须是非负数字/)
+  await assert.rejects(() => createPmsFirstLegChannel({ ...base, channelName: '单元测试校验渠道C', firstWeightPrice: -0.5 }, PMS_BUYER_ACTOR), /首重价格必须是非负数字/)
+  await assert.rejects(() => createPmsFirstLegChannel({ ...base, channelName: '单元测试校验渠道D', maxBoxWeight: -3 }, PMS_BUYER_ACTOR), /最大单箱重量必须是非负数字/)
+  }finally{memory.restore()}
 })
 
-test('头程批次聚合展示总箱数、总重量、总体积与转运天数', () => {
+test('头程批次聚合展示总箱数、总重量、总体积与转运天数', async () => {
+  const memory=installPmsMemoryIdb();resetPmsFirstLegRuntimeForTest();resetPmsRuntimeForTest();try{
   const seeded = listPmsFirstLegBatches().find((batch) => batch.batchNo === 'FL-2026-0001')
   assert.ok(seeded)
   const seededAggregate = pmsFirstLegBatchAggregate(seeded)
@@ -235,7 +248,7 @@ test('头程批次聚合展示总箱数、总重量、总体积与转运天数',
 
   const joinable = listPmsJoinableLogisticsRows()[0]
   assert.ok(joinable)
-  const created = createPmsFirstLegBatch(
+  const created = await createPmsFirstLegBatch(
     {
       batchNo: 'FL-UNIT-9001',
       batchName: '',
@@ -256,12 +269,13 @@ test('头程批次聚合展示总箱数、总重量、总体积与转运天数',
   assert.equal(createdAggregate.totalVolumeM3, null)
   assert.equal(createdAggregate.transitDays, null)
 
-  advancePmsFirstLegBatchStatus(created.batchNo, '已装柜', PMS_BUYER_ACTOR)
-  advancePmsFirstLegBatchStatus(created.batchNo, '头程中', PMS_BUYER_ACTOR)
-  advancePmsFirstLegBatchStatus(created.batchNo, '已到仓', PMS_BUYER_ACTOR)
+  await advancePmsFirstLegBatchStatus(created.batchNo, '已装柜', PMS_BUYER_ACTOR)
+  await advancePmsFirstLegBatchStatus(created.batchNo, '头程中', PMS_BUYER_ACTOR)
+  await advancePmsFirstLegBatchStatus(created.batchNo, '已到仓', PMS_BUYER_ACTOR)
   const batch = getPmsFirstLegBatch(created.batchNo)
   assert.ok(batch)
   const arrivedAggregate = pmsFirstLegBatchAggregate(batch)
   assert.equal(arrivedAggregate.boxCount, joinable.record.boxCount)
   assert.equal(typeof arrivedAggregate.transitDays, 'number')
+  }finally{memory.restore()}
 })

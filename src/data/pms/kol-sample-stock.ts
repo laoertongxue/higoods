@@ -3,9 +3,12 @@
  *
  * mock 字段:商品信息(SPU/SKU/名称/图片)、品牌、商品定位(低价/低价改款/设计款等)、
  * KOL 库存数量、VKOL 当日手动锁定池、锁定已占用、操作(释放)。
- * 操作:批量锁定、批量释放、单条释放 — 仅为内存模拟,刷新页面回到初始状态。
+ * 操作按记录保存，事务完成后发布；刷新从本浏览器 IndexedDB 回读。
  */
-import { PMS_STYLE_IMAGES } from './images.ts'
+import { listSkuArchives } from '../pcs-sku-archive-repository.ts'
+import { PMS_STORES, pmsAll, pmsCommitRecords } from './idb-storage.ts'
+import { appendKolLockRows, makeKolLockRow } from './kol-sample-stock-lock-log.ts'
+import { createPmsKolLink } from './kol-sample-link.ts'
 import { PmsDomainError } from './runtime.ts'
 
 export type PmsKolBrand = '全部' | 'Asaya' | 'Chicmore' | 'FADFAD' | 'Tendblank' | 'LUXME' | 'MODISH' | 'PRIMA'
@@ -24,6 +27,8 @@ export const PmsKolBrandList: PmsKolBrand[] = ['全部', 'Asaya', 'Chicmore', 'F
 export const PmsKolPositioningList: PmsKolPositioning[] = ['低价', '低价改款', '设计款', '基础款', '主推款', '形象款', '联名款', '专题款', '其他']
 
 export interface PmsKolStockRow {
+  id?: string
+  _pmsBaseVersion?: number
   sku: string
   spu: string
   productName: string
@@ -40,232 +45,23 @@ interface KolStockRuntime {
 }
 
 function getRuntime(): KolStockRuntime {
-  return kolStockRuntime
+  return kolStockRuntime ??= { rows: seedStock() }
 }
 
-const kolStockRuntime: KolStockRuntime = {
-  rows: [
-    {
-      sku: 'ASYXL112988-sameasphoto-onesize',
-      spu: 'ASYXL112988',
-      productName: 'SameAsPhoto/OneSize',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 291,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYXL102288-sameasphoto-onesize',
-      spu: 'ASYXL102288',
-      productName: 'SameAsPhoto/OneSize',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 241,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYUU26071001-sameasphoto-l',
-      spu: 'ASYUU26071001',
-      productName: 'SameAsPhoto/L',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 190,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYZZ26063045-sameasphoto-onesize',
-      spu: 'ASYZZ26063045',
-      productName: 'SameAsPhoto/OneSize',
-      imageUrl: PMS_STYLE_IMAGES.tshirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 190,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYYC7226-coffee-m',
-      spu: 'ASYYC7226',
-      productName: 'Coffee/M',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 180,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYSA26060626-black-xl',
-      spu: 'ASYSA26060626',
-      productName: 'Black/XL',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 176,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYQU26070214-sameasphoto-m',
-      spu: 'ASYQU26070214',
-      productName: 'SameAsPhoto/M',
-      imageUrl: PMS_STYLE_IMAGES.tshirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 168,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYQU26070221-sameasphoto-l',
-      spu: 'ASYQU26070221',
-      productName: 'SameAsPhoto/L',
-      imageUrl: PMS_STYLE_IMAGES.tshirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 155,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYQU26070214-sameasphoto-l',
-      spu: 'ASYQU26070214',
-      productName: 'SameAsPhoto/L',
-      imageUrl: PMS_STYLE_IMAGES.tshirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 145,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYUU25062008-apricot-l',
-      spu: 'ASYUU25062008',
-      productName: 'Apricot/L',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 145,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYQU26070102-gray-m',
-      spu: 'ASYQU26070102',
-      productName: 'Gray/M',
-      imageUrl: PMS_STYLE_IMAGES.tshirt,
-      brand: 'Asaya',
-      positioning: '低价',
-      kolStock: 144,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'BTSZIDXX24061313-sameasphoto-s',
-      spu: 'BTSZIDXX24061313',
-      productName: 'SameAsPhoto/S',
-      imageUrl: PMS_STYLE_IMAGES.dress,
-      brand: 'Chicmore',
-      positioning: '设计款',
-      kolStock: 139,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYZC26061905-brown-l',
-      spu: 'ASYZC26061905',
-      productName: 'Brown/L',
-      imageUrl: PMS_STYLE_IMAGES.dress,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 137,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYUU25061369-pink-l',
-      spu: 'ASYUU25061369',
-      productName: 'Pink/L',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 129,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYYC7226-apricot-l',
-      spu: 'ASYYC7226',
-      productName: 'Apricot/L',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 125,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'FADYY25100821-sameasphoto-l',
-      spu: 'FADYY25100821',
-      productName: 'SameAsPhoto/L',
-      imageUrl: PMS_STYLE_IMAGES.cardigan,
-      brand: 'FADFAD',
-      positioning: '设计款',
-      kolStock: 124,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYYC9167-khaki-m',
-      spu: 'ASYYC9167',
-      productName: 'Khaki/M',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 118,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYUU25052102-apricot-xl',
-      spu: 'ASYUU25052102',
-      productName: 'Apricot/XL',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 115,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'ASYXL110799-sameasphoto-onesize',
-      spu: 'ASYXL110799',
-      productName: 'SameAsPhoto/OneSize',
-      imageUrl: PMS_STYLE_IMAGES.shirt,
-      brand: 'Asaya',
-      positioning: '低价改款',
-      kolStock: 115,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-    {
-      sku: 'FADSA26012303-black-2xl',
-      spu: 'FADSA26012303',
-      productName: 'Black/2XL',
-      imageUrl: PMS_STYLE_IMAGES.cardigan,
-      brand: 'FADFAD',
-      positioning: '设计款',
-      kolStock: 115,
-      vkolManualLockedPool: 0,
-      lockedOccupied: 0,
-    },
-  ],
+let kolStockRuntime: KolStockRuntime | null = null
+function seedStock(): PmsKolStockRow[] {
+  return listSkuArchives().filter(row => row.skuImageUrl && row.archiveStatus === 'ACTIVE').slice(0, 20).map((row, index) => ({
+    id: row.skuCode, sku: row.skuCode, spu: row.styleCode, productName: row.styleName,
+    imageUrl: row.skuImageUrl, brand: 'Asaya', positioning: '基础款',
+    kolStock: 12 + index, vkolManualLockedPool: 5, lockedOccupied: index < 3 ? 1 : 0,
+  }))
+}
+let hydration: Promise<void> | null = null
+export function hydratePmsKolStock(): Promise<void> {
+  return hydration ??= pmsAll<PmsKolStockRow>(PMS_STORES.pmsKolStock).then(saved => {
+    const rows = getRuntime().rows
+    for (const row of saved) { const i = rows.findIndex(seed => seed.sku === row.sku); if(i < 0) rows.push(row); else rows[i] = row }
+  }).catch(error => { hydration = null; throw error })
 }
 
 export interface PmsKolStockFilter {
@@ -330,21 +126,19 @@ export interface ReleasePmsKolLockResult {
   failedSkus: string[]
 }
 
-export function releasePmsKolLock(skus: string[]): ReleasePmsKolLockResult {
-  const failed: string[] = []
-  let released = 0
-  for (const sku of skus) {
-    const row = getPmsKolStockRow(sku)
-    if (!row) {
-      failed.push(sku)
-      continue
-    }
-    if (row.vkolManualLockedPool <= 0 && row.lockedOccupied <= 0) continue
-    released += row.vkolManualLockedPool
-    row.vkolManualLockedPool = 0
-    row.lockedOccupied = 0
-  }
-  return { released, failedSkus: failed }
+export async function releasePmsKolLock(skus: string[], operationId: string = crypto.randomUUID()): Promise<ReleasePmsKolLockResult> {
+  await hydratePmsKolStock()
+  if (!skus.length) throw new PmsKolStockEmptySelectionError()
+  const candidates = [...new Set(skus)].map(sku => {
+    const current = getPmsKolStockRow(sku)
+    if (!current) throw new PmsKolStockInvalidSkuError(sku)
+    return { before: current, next: { ...current, id: sku, vkolManualLockedPool: current.lockedOccupied } }
+  })
+  const logs = candidates.map(({ before, next }) => makeKolLockRow(before, next, '手动释放', operationId))
+  await pmsCommitRecords([...candidates.map(({ next }) => ({ store: PMS_STORES.pmsKolStock, value: next })), ...logs.map(value => ({ store: PMS_STORES.pmsKolLockLogs, value }))], { operationId,operationSignature:JSON.stringify(skus) })
+  for (const { before, next } of candidates) Object.assign(before, next)
+  appendKolLockRows(logs)
+  return { released: candidates.reduce((sum, { before }, i) => sum - logs[i].deltaQty, 0), failedSkus: [] }
 }
 
 export interface LockPmsKolStockResult {
@@ -352,24 +146,22 @@ export interface LockPmsKolStockResult {
   insufficient: Array<{ sku: string; requested: number; available: number }>
 }
 
-export function lockPmsKolStockBatch(entries: Array<{ sku: string; qty: number }>): LockPmsKolStockResult {
-  const locked: LockPmsKolStockResult['locked'] = []
-  const insufficient: LockPmsKolStockResult['insufficient'] = []
-  for (const entry of entries) {
-    const row = getPmsKolStockRow(entry.sku)
-    if (!row) {
-      insufficient.push({ sku: entry.sku, requested: entry.qty, available: 0 })
-      continue
-    }
-    const available = row.kolStock - row.vkolManualLockedPool - row.lockedOccupied
-    if (entry.qty > available) {
-      insufficient.push({ sku: entry.sku, requested: entry.qty, available })
-      continue
-    }
-    row.vkolManualLockedPool += entry.qty
-    locked.push({ sku: entry.sku, qty: entry.qty })
-  }
-  return { locked, insufficient }
+/** Entries are the final pool values, not increments. Occupied quantities cannot be released. */
+export async function lockPmsKolStockBatch(entries: Array<{ sku: string; qty: number }>, operationId: string = crypto.randomUUID()): Promise<LockPmsKolStockResult> {
+  await hydratePmsKolStock()
+  if (!entries.length) throw new PmsKolStockEmptySelectionError()
+  if (new Set(entries.map(e => e.sku)).size !== entries.length) throw new PmsDomainError('PMS_KOL_LOCK_DUPLICATE', '同一 SKU 不能重复锁定')
+  const candidates = entries.map(entry => {
+    const before = getPmsKolStockRow(entry.sku)
+    if (!before) throw new PmsKolStockInvalidSkuError(entry.sku)
+    if (!Number.isInteger(entry.qty) || entry.qty < before.lockedOccupied || entry.qty > before.kolStock) throw new PmsDomainError('PMS_KOL_LOCK_QUANTITY', `${entry.sku} 锁定池须为 ${before.lockedOccupied}～${before.kolStock} 件的整数`)
+    return { before, next: { ...before, id: before.sku, vkolManualLockedPool: entry.qty } }
+  })
+  const logs = candidates.map(({ before, next }) => makeKolLockRow(before, next, '手动锁定', operationId))
+  await pmsCommitRecords([...candidates.map(({ next }) => ({ store: PMS_STORES.pmsKolStock, value: next })), ...logs.map(value => ({ store: PMS_STORES.pmsKolLockLogs, value }))], { operationId,operationSignature:JSON.stringify(entries) })
+  for (const { before, next } of candidates) Object.assign(before, next)
+  appendKolLockRows(logs)
+  return { locked: entries, insufficient: [] }
 }
 
 export interface CreateKolLinkResult {
@@ -377,9 +169,9 @@ export interface CreateKolLinkResult {
   url: string
 }
 
-export function generatePmsKolLinkCode(): CreateKolLinkResult {
-  const code = `${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`
-  return { linkCode: code, url: `https://manage.higood.ai/kol_sample/${code}` }
+export async function generatePmsKolLinkCode(skus: string[], options: { name?: string; maxSkuSelection?: number; expiresAt?: string; operationId?: string } = {}): Promise<CreateKolLinkResult> {
+  const row = await createPmsKolLink(skus, options)
+  return { linkCode: row.id, url: row.url }
 }
 
 export class PmsKolStockEmptySelectionError extends PmsDomainError {
@@ -392,4 +184,29 @@ export class PmsKolStockInvalidSkuError extends PmsDomainError {
   constructor(sku: string) {
     super('PMS_KOL_STOCK_INVALID_SKU', `SKU ${sku} 不存在`)
   }
+}
+
+/** Receipt candidates join the upstream purchase/KOL-demand transaction. */
+export function preparePmsKolStockReceipt(entries:Array<{sku:string;quantity:number}>):PmsKolStockRow[] {
+  if(new Set(entries.map(row=>row.sku)).size!==entries.length) throw new PmsDomainError('PMS_KOL_RECEIPT_DUPLICATE','同一入库动作不能重复包含相同 SKU')
+  return entries.map(entry=>{
+    if(!Number.isInteger(entry.quantity)||entry.quantity<=0) throw new PmsDomainError('PMS_KOL_RECEIPT_QUANTITY','入库件数须为正整数')
+    const existing=getPmsKolStockRow(entry.sku)
+    if(existing) return {...structuredClone(existing),id:existing.sku,kolStock:existing.kolStock+entry.quantity}
+    const source=listSkuArchives().find(row=>row.skuCode===entry.sku && row.archiveStatus==='ACTIVE' && row.skuImageUrl)
+    if(!source) throw new PmsDomainError('PMS_KOL_RECEIPT_SOURCE',`${entry.sku} 缺少有效商品档案及对应图片`)
+    return {id:source.skuCode,sku:source.skuCode,spu:source.styleCode,productName:source.styleName,imageUrl:source.skuImageUrl,brand:'Asaya',positioning:'基础款',kolStock:entry.quantity,vkolManualLockedPool:0,lockedOccupied:0,_pmsBaseVersion:0}
+  })
+}
+export function publishPmsKolStock(rows:PmsKolStockRow[]):void {
+  for(const row of rows){const before=getPmsKolStockRow(row.sku);if(before) Object.assign(before,row);else getRuntime().rows.push(row)}
+}
+
+/** Issue candidates preserve occupied samples and bound the remaining pool to real stock. */
+export function preparePmsKolStockIssue(entries:Array<{sku:string;quantity:number}>):PmsKolStockRow[]{
+ if(!entries.length || new Set(entries.map(row=>row.sku)).size!==entries.length)throw new PmsDomainError('PMS_KOL_ISSUE_DUPLICATE','出库 SKU 不可为空或重复')
+ return entries.map(entry=>{const row=getPmsKolStockRow(entry.sku);if(!row)throw new PmsDomainError('PMS_KOL_ISSUE_SOURCE',`${entry.sku} 没有KOL库存，不能出库`);const available=row.kolStock-row.lockedOccupied;if(!Number.isInteger(entry.quantity)||entry.quantity<=0||entry.quantity>available)throw new PmsDomainError('PMS_KOL_ISSUE_QUANTITY',`${entry.sku} 可出库 ${available} 件，申请已占用 ${row.lockedOccupied} 件须保留`);const remaining=row.kolStock-entry.quantity;return {...structuredClone(row),id:row.id || row.sku,kolStock:remaining,vkolManualLockedPool:Math.min(row.vkolManualLockedPool,remaining)}})
+}
+export function preparePmsKolStockIssueLogs(entries:Array<{sku:string;quantity:number}>,operationId:string){
+ const next=preparePmsKolStockIssue(entries);return next.flatMap(row=>{const before=getPmsKolStockRow(row.sku)!;return row.vkolManualLockedPool<before.vkolManualLockedPool?[{...makeKolLockRow(before,row,'手动释放',operationId),remark:'样衣出库后缩减未占用锁定池'}]:[]})
 }

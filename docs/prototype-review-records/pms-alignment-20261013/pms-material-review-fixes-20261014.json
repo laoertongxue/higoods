@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "agent": "procurement_material_ops",
+  "generatedAt": "2026-10-13T20:37:17.210386+00:00",
+  "baseHead": "ee14949905b08b260e9c6309eebc59bfa5b32764",
+  "scope": "Only material-purchase-orders data and existing pms-material-ops-persistence test; no other source, browser, full-tree build or child-agent work",
+  "sourceFrozen": true,
+  "files": [
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/material-purchase-orders.ts",
+      "sha256": "b4c5a7145d26c477a613b0c64b3cd9a82c2e494dfbba9cab1090dbf704901526",
+      "bytes": 93817
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/tests/unit/pms-material-ops-persistence.test.ts",
+      "sha256": "5fcac7140d09e12876c8366015fa5451d77ad481331cd8853d4cc954cf54f62f",
+      "bytes": 20930
+    }
+  ],
+  "beforeSource": {
+    "path": "/tmp/higoods-pms-material-review-fixes-20261014/material-purchase-orders.before.ts",
+    "sha256": "45e303e4f0575d0d41da219d42dd152953a3f42dfa90f5f5e7fe7b5538a60921"
+  },
+  "beforeTest": {
+    "path": "/tmp/higoods-pms-material-review-fixes-20261014/pms-material-ops-persistence.before.test.ts",
+    "sha256": "19627109b6d18d36fdc003dbd46803a7e461a66ac39e19c52751f344ad73878c"
+  },
+  "fixes": [
+    {
+      "id": "P2-MPO-PPO-HYDRATE",
+      "finding": "Direct fresh MRA push read unhydrated product runtime, missing IDB-only parent or cloning edited static parent with version0",
+      "locations": [
+        {
+          "symbol": "pushPmsMaterialRequirement",
+          "line": 1004
+        },
+        {
+          "symbol": "batchPushPmsMaterialRequirements",
+          "line": 1128
+        },
+        {
+          "symbol": "preparePushPmsMaterialRequirement",
+          "line": 596
+        }
+      ],
+      "change": "Both push action wrappers await hydratePmsProductPurchaseOrdersFromIdb before existing prepare/commit. Ordinary list/getters and unrelated commit actions unchanged. Existing related PPO candidate remains in same pmsCommitRecords transaction with MRA/MPO/logs, version marker cloned from durable parent",
+      "contracts": [
+        "Fresh subprocess parent exists only inIDB: three MRA lines become MPOs, parent materialStatus已下推, storage version1->2",
+        "Fresh subprocess edited static parent storage version2 preserved and bumped3 by batch push; saved remark/business version preserved",
+        "Fresh subprocess injected write abort: edited parent, requirement and zero new MPOs remain unchanged; no early changed materialStatus publish"
+      ],
+      "status": "narrow contracts passed; root browser acceptance pending"
+    },
+    {
+      "id": "P2-MPO-CURRENCY",
+      "finding": "Validated input currency was omitted after buildOrder defaultRMB",
+      "locations": [
+        {
+          "symbol": "createPmsMaterialPurchaseOrder",
+          "line": 1100
+        }
+      ],
+      "change": "Assign row.currency=input.currency to candidate before commit; no rate conversion or exchange-rate facts added",
+      "contracts": [
+        "USD andIDR each quantity3/unitPrice12.5 persist in original currency; direct pmsGet gives amount37.5",
+        "Reset MPO runtime andhydrate durable values: USD/IDR unchanged",
+        "Shared CSV serialization from durable original-currency rows contains USD/IDR with37.50, no RMB substitution; actual browser export remains root acceptance"
+      ],
+      "status": "narrow contracts passed; root browser/export acceptance pending"
+    },
+    {
+      "id": "P2-MPO-COPY-RESET",
+      "finding": "Cloned ordinary rejected source carried rejectedReason/closedReason/purchasedAt/arrivedAt into new待采购 order, blocking valid advancement",
+      "locations": [
+        {
+          "symbol": "copyPmsMaterialPurchaseOrder",
+          "line": 1071
+        }
+      ],
+      "change": "Reset four old execution fields alongside existing received/QC/inventory/barcode resets. Preserve source record without mutation and existing copy log beforeValue sourceNo",
+      "contracts": [
+        "Stored rejected ordinary source with previous dates/receipt copied to clean待采购 row, received0 and dates unset",
+        "New copied order may advance已采购 and its new purchasedAt persists",
+        "Independent source IDB record byte-structure unchanged; copy operation log still names original sourceNo"
+      ],
+      "status": "narrow contracts passed; root browser acceptance pending"
+    }
+  ],
+  "verification": [
+    {
+      "command": "node --import tsx --test --test-name-pattern=(five added contracts) tests/unit/pms-material-ops-persistence.test.ts beforefix",
+      "result": "4 failures reproduce exact findings,1 abort-boundary passed",
+      "evidence": "/tmp/higoods-pms-material-review-fixes-20261014/before-failures.txt"
+    },
+    {
+      "command": "same five contracts afterfix",
+      "result": "5/5 passed",
+      "evidence": "/tmp/higoods-pms-material-review-fixes-20261014/after-targeted.txt"
+    },
+    {
+      "command": "node --import tsx --test tests/unit/pms-material-ops-persistence.test.ts tests/unit/pms-material-flow.test.ts tests/unit/pms-first-leg-carriers.test.ts",
+      "result": "27/27 passed",
+      "evidence": "/tmp/higoods-pms-material-review-fixes-20261014/related-regression.txt"
+    },
+    {
+      "command": "TypeScript transpileModule syntax-only checks(two changed files)",
+      "result": "0 syntax errors; full typecheck remains root responsibility",
+      "evidence": "/tmp/higoods-pms-material-review-fixes-20261014/syntax-two-files.json"
+    },
+    {
+      "command": "git diff --check -- two allowed files",
+      "result": "passed"
+    }
+  ],
+  "patches": [
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/material-purchase-orders.patch",
+      "sha256": "603c1bc899cbe6740c7176ae4a47cfda2667f85b46c9e2d1351ca851eea68a88"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/persistence-tests.patch",
+      "sha256": "0199ce0297282d907f8df98b27cc647dd0fe8ff11602bd9e59c59de7cfa04187"
+    }
+  ],
+  "limitations": [
+    "Node memory-IDB contract fixture is reused, not browser IndexedDB acceptance. Separate subprocesses are fresh Node module/runtime isolation, not subagents",
+    "Currency CSV contract verifies durable original values through shared serializer; it does not claim live file download or native UI export acceptance",
+    "Business parent version semantics are preserved; required storage optimistic marker is hydrated and committed correctly",
+    "No source/site database writes, user data clearing, dependencies, other product files, browser or full build performed"
+  ],
+  "artifactManifest": [
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/after-targeted.txt",
+      "bytes": 1006,
+      "sha256": "236152c88ffb7e0f5088bb26ec85b25f08765864f2ce1fe1b529b60e1ad3bfc2"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/before-failures.txt",
+      "bytes": 5246,
+      "sha256": "65eb2ea277c62c0daba3404402dae73cd585ea12138384bd97c34b90cb8690ac"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/material-purchase-orders.before.ts",
+      "bytes": 93577,
+      "sha256": "45e303e4f0575d0d41da219d42dd152953a3f42dfa90f5f5e7fe7b5538a60921"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/material-purchase-orders.patch",
+      "bytes": 6561,
+      "sha256": "603c1bc899cbe6740c7176ae4a47cfda2667f85b46c9e2d1351ca851eea68a88"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/persistence-tests.patch",
+      "bytes": 11305,
+      "sha256": "0199ce0297282d907f8df98b27cc647dd0fe8ff11602bd9e59c59de7cfa04187"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/pms-material-ops-persistence.before.test.ts",
+      "bytes": 11728,
+      "sha256": "19627109b6d18d36fdc003dbd46803a7e461a66ac39e19c52751f344ad73878c"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/related-regression.txt",
+      "bytes": 2896,
+      "sha256": "be027621fd167268e3b60192321f049fc3e53b0ed2dfbbf86963e300fccd0df6"
+    },
+    {
+      "path": "/tmp/higoods-pms-material-review-fixes-20261014/syntax-two-files.json",
+      "bytes": 185,
+      "sha256": "d0f9a55d821f940db96dec992dd3bbd7d451145a7f26de6362decad3cd6c3d0b"
+    }
+  ]
+}

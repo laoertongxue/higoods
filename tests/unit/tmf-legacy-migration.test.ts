@@ -65,7 +65,7 @@ for (const [scenario, description] of scenarios) {
       }
       const migration = withBrowserBusinessStorage(storage, () => migrateTmfPurchaseStateFromLocalStorage())
       if (['invalid-json', 'invalid-state', 'write-abort'].includes(scenario)) {
-        await assert.rejects(migration, scenario === 'write-abort' ? /保存被中断/ : scenario === 'invalid-state' ? /格式不符/ : SyntaxError)
+        await assert.rejects(migration, scenario === 'write-abort' ? /保存被中止/ : scenario === 'invalid-state' ? /格式不符/ : SyntaxError)
         assert.equal(removeCalls, 0, '失败不得尝试删除旧源')
         assert.equal(storedRaw, raw)
         assert.deepEqual(target, beforeTarget)

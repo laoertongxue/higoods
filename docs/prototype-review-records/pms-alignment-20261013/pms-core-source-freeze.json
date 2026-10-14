@@ -1,0 +1,96 @@
+{
+  "owner": "/root/prototype_inventory",
+  "scope": "WP-CORE",
+  "sourceFrozen": true,
+  "frozenAt": "2026-10-13T14:33:51.462934+00:00",
+  "baselineHead": "ee14949905b08b260e9c6309eebc59bfa5b32764",
+  "manifest": [
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/purchase-suggestions.ts",
+      "relativePath": "src/pages/pms/purchase-suggestions.ts",
+      "sha256": "66aca71edce0d04c4a8f8fbd6d7c54e48ea6ccceecbbe536fd5e15fa5a01bcb4",
+      "bytes": 46998
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-demands.ts",
+      "relativePath": "src/pages/pms/kol-demands.ts",
+      "sha256": "96a958c887790e6843a3f972d89abe351165fbde29bc4fdfa545b5468d600a35",
+      "bytes": 56359
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/product-purchase-orders.ts",
+      "relativePath": "src/pages/pms/product-purchase-orders.ts",
+      "sha256": "d765be444f48be76843042bb9edc6c7c299320c10d5009aad0e063d5408dd2ab",
+      "bytes": 56595
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/reorder-suggestions.ts",
+      "relativePath": "src/pages/pms/reorder-suggestions.ts",
+      "sha256": "c76e38e13e7e9597678f828bc98d414ea6b3c5348cb8275b2efb17ad7ae09823",
+      "bytes": 42210
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/purchase-order-aftersales.ts",
+      "relativePath": "src/pages/pms/purchase-order-aftersales.ts",
+      "sha256": "cb8139dae41988f91f63a32bf35a5860d196c37b1c60ee9eb98a36507f1e4188",
+      "bytes": 21827
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/core-interactions.ts",
+      "relativePath": "src/pages/pms/core-interactions.ts",
+      "sha256": "8c1016bd8b5cbf01d131a42eec4afd1afba6e349a37587c463788dcf97f6495c",
+      "bytes": 7088
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/purchase-suggestions.ts",
+      "relativePath": "src/data/pms/purchase-suggestions.ts",
+      "sha256": "61da3ebbcf2ea51525ce1437d2e34dfedb27ee45f507d12a5135df3c2d892c85",
+      "bytes": 31640
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/product-purchase-orders.ts",
+      "relativePath": "src/data/pms/product-purchase-orders.ts",
+      "sha256": "beeff700889486b4860193fb5dedc01c1b956318339d8086b40363dadaf83cc5",
+      "bytes": 51455
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/reorder-suggestions.ts",
+      "relativePath": "src/data/pms/reorder-suggestions.ts",
+      "sha256": "42527226e0e00c407e11cbd44fbd8b04ba1fdf6190a5ca0737ff2d65ca7b89ac",
+      "bytes": 18326
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/purchase-order-aftersales.ts",
+      "relativePath": "src/data/pms/purchase-order-aftersales.ts",
+      "sha256": "7f4d4ee61f63d584af4ec65771df5f2cf8d5d3ef5bcd608487ca9683f6c48935",
+      "bytes": 25592
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/core-write-contract.ts",
+      "relativePath": "src/data/pms/core-write-contract.ts",
+      "sha256": "5a5e6f11eb67cbe25be44c29d37e0c19b9f0f6541f5d28c1036ab57e691259e9",
+      "bytes": 847
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/tests/unit/pms-core-purchase-contracts.test.ts",
+      "relativePath": "tests/unit/pms-core-purchase-contracts.test.ts",
+      "sha256": "554ddfc81420a5c614530ae00227c914c8e55e83e8a42ac68bcf8fdfc3ec1b5c",
+      "bytes": 7437
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/tests/unit/pms-product-purchase-orders.test.ts",
+      "relativePath": "tests/unit/pms-product-purchase-orders.test.ts",
+      "sha256": "654191b6c1ca8c9137c0b3fbaa80b4c68af260c69d13c624c5937aeb31bb4ffe",
+      "bytes": 9461
+    },
+    {
+      "path": "/Users/laoer/.codex/worktrees/7eaf/higoods/tests/unit/pms-purchase-chain.test.ts",
+      "relativePath": "tests/unit/pms-purchase-chain.test.ts",
+      "sha256": "94d1237be447b45123bed7ec1ede105a3d890dc7ad27a3c6ff933abe3a839542",
+      "bytes": 8493
+    }
+  ],
+  "aggregateSha256": "135bd4e2302547247ddf0a006be5a46219da426f3a6277f0569fbb5802edeb84",
+  "supersedesManifestSha256": "be81a6ef3013c2965d4541db15d8005b144bade12936af6f8e909f7e5b03ef9c",
+  "changeAfterPriorFreeze": "root authorized currency export + per-entry source-confirmed boundary wording"
+}

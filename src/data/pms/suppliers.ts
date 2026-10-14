@@ -1,75 +1,24 @@
-import { PMS_STORES, pmsAll, pmsPersistEntity, pmsGetEntityVersion, reportPmsSaveFailure } from './idb-storage.ts'
-import { appendPmsLog, PmsDomainError, type PmsActorRole } from './runtime.ts'
+import { PMS_STORES, pmsAll, pmsCommitRecords, pmsGetEntityVersion, pmsGet } from './idb-storage.ts'
+import { PmsDomainError, type PmsActorRole } from './runtime.ts'
 
-/**
- * 供应商 IDB hydrate 状态机(同其他 PMS 模块模式)。
- * 注意:suppliers 数组保持 let 可写,种子数据来自 seeds,hydrate 后按 supplierCode 覆盖内存。
- * hydrate 完成后从 pmsVersionSnapshots 注入 _pmsBaseVersion 字段,后续写入走乐观锁(§ 2.4.3.6)。
- */
-let supplierHydrationStarted = false
 let supplierHydrationPromise: Promise<void> | null = null
-let supplierHydrationReady = false
-const pendingHydrationSuppliers: PmsSupplier[] = []
-
 export function hydratePmsSuppliersFromIdb(): Promise<void> {
-  if (supplierHydrationStarted) return supplierHydrationPromise ?? Promise.resolve()
-  supplierHydrationStarted = true
+  if (supplierHydrationPromise) return supplierHydrationPromise
   supplierHydrationPromise = (async () => {
-    try {
-      const stored = await pmsAll<PmsSupplier>(PMS_STORES.pmsSuppliers)
-      for (const saved of stored) {
-        const existing = suppliers.find((s) => s.supplierCode === saved.supplierCode)
-        if (existing) Object.assign(existing, saved)
-        else suppliers.unshift(saved)
-      }
-      // § 2.4.3.6 乐观锁 hydrate:为内存中存在的 supplier 注入 _pmsBaseVersion,
-      // 让后续 pmsPersistEntity 自动用 pmsPutWithVersion 检测版本冲突。
-      // 注意:version 为 0(尚无快照)时**也必须注入**,否则该 entity 永远走 pmsPut,
-      // 而 pmsPut 不写快照 → 下次 hydrate 仍读到 0 → 乐观锁永不激活(死锁)。
-      try {
-        for (const supplier of suppliers) {
-          if (supplier._pmsBaseVersion !== undefined) continue
-          const version = await pmsGetEntityVersion(PMS_STORES.pmsSuppliers, supplier.supplierCode)
-          supplier._pmsBaseVersion = version
-        }
-      } catch (versionError) {
-        const message = versionError instanceof Error ? versionError.message : 'unknown'
-        console.warn('[PMS_IDB_VERSION_LOAD_WARN] 供应商乐观锁版本号加载失败,后续保存降级为普通 put', { message })
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_LOAD_FAILED] 供应商加载失败', { message })
-    } finally {
-      supplierHydrationReady = true
-      const pending = pendingHydrationSuppliers.splice(0)
-      for (const item of pending) {
-        try {
-          await pmsPersistEntity(PMS_STORES.pmsSuppliers, item, 'pms-user')
-        } catch (error) {
-          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败(hydration 后)', { supplierCode: item.supplierCode }, error)
-        }
-      }
+    const stored = await pmsAll<PmsSupplier>(PMS_STORES.pmsSuppliers)
+    for (const saved of stored) {
+      const index = suppliers.findIndex(item => item.supplierCode === saved.supplierCode)
+      if (index >= 0) suppliers[index] = saved
+      else suppliers.unshift(saved)
     }
+    for (const supplier of suppliers) supplier._pmsBaseVersion = await pmsGetEntityVersion(PMS_STORES.pmsSuppliers, supplier.supplierCode)
   })()
   return supplierHydrationPromise
 }
 
-function persistPmsSupplier(supplier: PmsSupplier): void {
-  if (supplierHydrationReady) {
-    // § 2.4.3.6 乐观锁:hydrate 后 entity 已注入 _pmsBaseVersion,pmsPersistEntity 自动选 pmsPutWithVersion。
-    // 多标签页同时改同 supplier 时,后到者会抛 PMS_IDB_VERSION_CONFLICT,由 unhandledrejection banner 暴露。
-    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存",不能只进 console。
-    pmsPersistEntity(PMS_STORES.pmsSuppliers, supplier, 'pms-user').catch((error: unknown) => {
-      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败', { supplierCode: supplier.supplierCode }, error)
-    })
-  } else {
-    pendingHydrationSuppliers.push(supplier)
-  }
-}
-
 export type PmsSupplierStatus = '草稿' | '待审核' | '已启用' | '已驳回' | '已停用'
 
-export const PMS_SUPPLIER_TYPES = ['面料供应商', '辅料供应商', '纱线供应商', '包材供应商', '成衣工厂', '样衣工厂', '综合供应商'] as const
+export const PMS_SUPPLIER_TYPES = ['面料供应商', '辅料供应商', '纱线供应商', '耗材供应商', '包材供应商', '成衣工厂', '样衣工厂', '综合供应商'] as const
 export type PmsSupplierCategory = (typeof PMS_SUPPLIER_TYPES)[number]
 
 export const PMS_SUPPLIER_LEVELS = ['A级', 'B级', 'C级', '临时供应商'] as const
@@ -81,10 +30,10 @@ export type PmsSupplierPaymentMethod = (typeof PMS_SUPPLIER_PAYMENT_METHODS)[num
 export const PMS_SUPPLIER_CURRENCIES = ['RMB', 'USD', 'IDR'] as const
 export type PmsSupplierCurrency = (typeof PMS_SUPPLIER_CURRENCIES)[number]
 
-export const PMS_SUPPLIER_DELIVERY_METHODS = ['供应商直发海外仓', '发至中国中转仓', '采购方自提', '货代上门提货'] as const
+export const PMS_SUPPLIER_DELIVERY_METHODS = ['供应商直发海外仓', '发国内仓', '自提', '发至中国中转仓', '采购方自提', '货代上门提货'] as const
 export type PmsSupplierDeliveryMethod = (typeof PMS_SUPPLIER_DELIVERY_METHODS)[number]
 
-export const PMS_SUPPLIER_COUNTRIES = ['中国', '印度尼西亚', '越南', '其他'] as const
+export const PMS_SUPPLIER_COUNTRIES = ['中国', '印尼', '印度尼西亚', '越南', '其他'] as const
 
 export const PMS_SUPPLIER_CITIES = ['广东广州', '广东深圳', '广东东莞', '浙江绍兴', '浙江杭州', '浙江宁波', '福建泉州', '江苏苏州', '山东青岛'] as const
 
@@ -144,7 +93,6 @@ const seeds: PmsSupplier[] = [
 
 const suppliers: PmsSupplier[] = seeds.map((seed) => ({ ...seed })) // eslint-disable-line @typescript-eslint/no-explicit-any -- 保持模块级数组可写,供 hydrate 按 supplierCode 覆盖
 
-let supplierSequence = seeds.length
 
 export function listPmsSuppliers(): PmsSupplier[] {
   return suppliers
@@ -214,7 +162,8 @@ function validateSupplierInput(input: PmsSupplierInput, excludeCode = ''): PmsSu
   if (!shortName) throw new PmsDomainError('SUPPLIER_SHORT_NAME_REQUIRED', '供应商简称不能为空')
   const category = readSupplierOption(input.category, PMS_SUPPLIER_TYPES, '供应商类型', 'SUPPLIER_TYPE')
   const country = readSupplierOption(input.country, PMS_SUPPLIER_COUNTRIES, '国家/地区', 'SUPPLIER_COUNTRY')
-  const city = readSupplierOption(input.city, PMS_SUPPLIER_CITIES, '省市', 'SUPPLIER_CITY')
+  const city = (input.city || '').trim()
+  if (!city) throw new PmsDomainError('SUPPLIER_CITY_REQUIRED', '省市不能为空')
   const level = readSupplierOption(input.level, PMS_SUPPLIER_LEVELS, '供应商等级', 'SUPPLIER_LEVEL')
   const contactName = input.contactName.trim()
   if (!contactName) throw new PmsDomainError('SUPPLIER_CONTACT_REQUIRED', '联系人不能为空')
@@ -253,15 +202,25 @@ function validateSupplierInput(input: PmsSupplierInput, excludeCode = ''): PmsSu
   }
 }
 
-export function createPmsSupplier(input: PmsSupplierInput, actor: { id: string; name: string; role: PmsActorRole }): PmsSupplier {
-  const values = validateSupplierInput(input)
-  supplierSequence += 1
+function supplierBusinessCode(operationId?:string):string {
+  const time=operationId?.match(/\d{13}/)?.[0]
+  const date=(time?new Date(Number(time)):new Date()).toISOString().slice(0,10).replaceAll('-','')
+  let hash=2166136261
+  for(const char of operationId || crypto.randomUUID()) hash=Math.imul(hash^char.charCodeAt(0),16777619)
+  return `SUP-${date}-${(hash>>>0).toString(36).toUpperCase().padStart(6,'0').slice(-6)}`
+}
+
+export async function createPmsSupplier(input: PmsSupplierInput, actor: { id: string; name: string; role: PmsActorRole }, status: '草稿' | '已启用' = '草稿', operationId?: string): Promise<PmsSupplier> {
+  await hydratePmsSuppliersFromIdb()
+  const stableCode = supplierBusinessCode(operationId)
+  const previous = await pmsGet<PmsSupplier>(PMS_STORES.pmsSuppliers, stableCode)
+  const values = validateSupplierInput(input, previous?.supplierCode)
   const now = new Date().toISOString()
   const supplier: PmsSupplier = {
-    supplierCode: `SUP-2026-${String(supplierSequence).padStart(4, '0')}`,
+    supplierCode: stableCode,
     ...values,
     tags: [],
-    status: '草稿',
+    status,
     rejectReason: '',
     materialCount: 0,
     totalPurchaseOrders: 0,
@@ -275,25 +234,24 @@ export function createPmsSupplier(input: PmsSupplierInput, actor: { id: string; 
     updatedBy: actor.name,
     updatedAt: now,
   }
-  suppliers.unshift(supplier)
-  appendPmsLog({ objectType: 'supplier', objectId: supplier.supplierCode, action: '创建', beforeValue: '', afterValue: `${supplier.supplierName} · 草稿`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplier(supplier)
-  return supplier
+  const committed = await pmsCommitRecords([{ store: PMS_STORES.pmsSuppliers, value: supplier, expectedVersion: 0 }], { operationId, operationSignature: JSON.stringify({input,status}), log: { objectType: 'supplier', objectId: supplier.supplierCode, action: '创建', beforeValue: '', afterValue: `${supplier.supplierName} · ${status}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role } })
+  const saved = committed.values[0] as PmsSupplier
+  if (!suppliers.some(item => item.supplierCode === saved.supplierCode)) suppliers.unshift(saved)
+  return saved
 }
 
-export function updatePmsSupplier(supplierCode: string, input: PmsSupplierInput, actor: { id: string; name: string; role: PmsActorRole }): PmsSupplier {
-  const supplier = getPmsSupplier(supplierCode)
-  if (!supplier) throw new PmsDomainError('SUPPLIER_NOT_FOUND', `供应商 ${supplierCode} 不存在`)
-  if (supplier.status === '已启用' || supplier.status === '已停用') {
-    throw new PmsDomainError('SUPPLIER_EDIT_BLOCKED', '已启用/已停用的供应商需先停用或由管理员调整，本原型仅支持草稿与驳回状态编辑')
-  }
+export async function updatePmsSupplier(supplierCode: string, input: PmsSupplierInput, actor: { id: string; name: string; role: PmsActorRole }, operationId?: string): Promise<PmsSupplier> {
+  await hydratePmsSuppliersFromIdb()
+  const existing = getPmsSupplier(supplierCode)
+  if (!existing) throw new PmsDomainError('SUPPLIER_NOT_FOUND', `供应商 ${supplierCode} 不存在`)
+  const supplier = structuredClone(existing)
   const values = validateSupplierInput(input, supplierCode)
   Object.assign(supplier, values)
   supplier.updatedBy = actor.name
   supplier.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier', objectId: supplierCode, action: '编辑', beforeValue: '', afterValue: supplier.supplierName, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplier(supplier)
-  return supplier
+  const committed = await pmsCommitRecords([{ store: PMS_STORES.pmsSuppliers, value: supplier, expectedVersion: existing._pmsBaseVersion ?? 0 }], { operationId, operationSignature: JSON.stringify({input}), log: { objectType: 'supplier', objectId: supplierCode, action: '编辑', beforeValue: '', afterValue: supplier.supplierName, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role } })
+  Object.assign(existing, committed.values[0])
+  return existing
 }
 
 const SUPPLIER_TRANSITIONS: Record<PmsSupplierStatus, PmsSupplierStatus[]> = {
@@ -308,14 +266,17 @@ export function pmsAllowedSupplierNextStatuses(status: PmsSupplierStatus): PmsSu
   return SUPPLIER_TRANSITIONS[status]
 }
 
-export function advancePmsSupplierStatus(
+export async function advancePmsSupplierStatus(
   supplierCode: string,
   nextStatus: PmsSupplierStatus,
   actor: { id: string; name: string; role: PmsActorRole },
   reason = '',
-): PmsSupplier {
-  const supplier = getPmsSupplier(supplierCode)
-  if (!supplier) throw new PmsDomainError('SUPPLIER_NOT_FOUND', `供应商 ${supplierCode} 不存在`)
+  operationId?: string,
+): Promise<PmsSupplier> {
+  await hydratePmsSuppliersFromIdb()
+  const existing = getPmsSupplier(supplierCode)
+  if (!existing) throw new PmsDomainError('SUPPLIER_NOT_FOUND', `供应商 ${supplierCode} 不存在`)
+  const supplier = structuredClone(existing)
   if (!SUPPLIER_TRANSITIONS[supplier.status].includes(nextStatus)) {
     throw new PmsDomainError('SUPPLIER_TRANSITION_BLOCKED', `${supplier.status} 不能直接流转到 ${nextStatus}`)
   }
@@ -326,7 +287,7 @@ export function advancePmsSupplierStatus(
   if (nextStatus === '草稿') supplier.rejectReason = ''
   supplier.updatedBy = actor.name
   supplier.updatedAt = new Date().toISOString()
-  appendPmsLog({
+  const committed = await pmsCommitRecords([{ store: PMS_STORES.pmsSuppliers, value: supplier, expectedVersion: existing._pmsBaseVersion ?? 0 }], { operationId, operationSignature: JSON.stringify({supplierCode,nextStatus,reason}), log: {
     objectType: 'supplier',
     objectId: supplierCode,
     action: `状态流转 · ${nextStatus}`,
@@ -337,7 +298,7 @@ export function advancePmsSupplierStatus(
     actorName: actor.name,
     actorRole: actor.role,
     secondConfirmation: nextStatus === '已停用' || nextStatus === '已驳回',
-  })
-  persistPmsSupplier(supplier)
-  return supplier
+  } })
+  Object.assign(existing, committed.values[0])
+  return existing
 }

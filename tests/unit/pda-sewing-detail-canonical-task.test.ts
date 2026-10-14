@@ -210,6 +210,8 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
             events.push(`direct sewing ${taskId}`)
             return `<article>/fcs/pda/exec/${taskId}</article>`
           } }
+        : path.includes('pms/runtime') ? { hydratePmsLogsFromIdb: async () => { events.push('PMS logs ready') } }
+        : path.includes('canonical-purchase-references') ? { ensurePurchaseCatalogState: async () => { events.push('purchase catalog ready') } }
         : { ensurePcsRecordState: async () => { events.push('PCS ready') } },
       preparePageRouteEntry: async () => { events.push('FCS and part tickets ready') },
       resolvePage: async (pathname: string) => { events.push(`page ${pathname}`); return `<article>${pathname}</article>` },
@@ -232,9 +234,12 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
     'ordinary generated sewing must not evaluate the unrelated cutting/supplement route registry')
   assert.ok(session.events.indexOf('PCS ready') < session.events.indexOf('FCS and part tickets ready'))
   assert.ok(session.events.indexOf('FCS and part tickets ready') < session.events.indexOf('PDA handler ready'))
-  await execute(session.dependencies, '/pms/product-purchase-orders')
+  assert.equal(await execute(session.dependencies, '/pms/product-purchase-orders'), '<article>/pms/product-purchase-orders</article>')
   assert.equal(session.isPmsStarted(), true, 'entering PMS still starts its original initialization')
   assert.equal(session.events.filter(event => event === 'PMS started').length, 1)
+  assert.equal(session.events.filter(event => event === 'PMS logs ready').length, 1)
+  assert.equal(session.events.filter(event => event === 'purchase catalog ready').length, 1)
+  assert.ok(session.events.indexOf('purchase catalog ready') < session.events.indexOf('page /pms/product-purchase-orders'))
 
   for (const pathname of ['/fcs/pda/exec/TASK-PRINT-000714', '/fcs/pda/exec/TASKGEN-202603-0007-001__ORDER', '/fcs/progress/board']) {
     const other = createSession()
@@ -242,4 +247,22 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
     assert.equal(other.isPmsStarted(), true, pathname)
     assert.equal(other.events.filter(event => event === 'PMS started').length, 1)
   }
+})
+
+
+test('ordinary procurement entry does not initialize unrelated production or cutting records', async () => {
+  const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
+  const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
+  const routeFunction = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'preparePageRouteEntry')!
+  const script = routeFunction.getText(ast).replaceAll('import(', 'loadModule(')
+  const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const execute = new Function('dependencies', 'pathname', `with (dependencies) { ${javascript}; return preparePageRouteEntry(pathname) }`)
+  const loaded: string[] = []
+  const dependencies = { previousRenderedPagePathname: '', productionEntryHydration: undefined,
+    loadModule: async (path: string) => { loaded.push(path); throw new Error('unrelated initialization') } }
+  for (const path of ['/pms/product-purchase-orders', '/pms/material-purchase-orders', '/pms/material-inventory']) {
+    await execute(dependencies, path)
+    assert.equal(dependencies.previousRenderedPagePathname, path)
+  }
+  assert.deepEqual(loaded, [])
 })

@@ -1,0 +1,23 @@
+{
+  "environment": "isolated_node_memory_idb",
+  "mode": "postmessage",
+  "realBrowserStorageWritten": false,
+  "productSourceMutation": false,
+  "observations": [
+    {
+      "findingId": "ROOT-FOUNDATION-001",
+      "mode": "postmessage",
+      "result": "closed",
+      "observed": {
+        "resolved": true,
+        "replayed": false,
+        "persisted": {
+          "supplierCode": "CLOSURE-BC-postmessage",
+          "supplierName": "success_after_complete",
+          "_pmsBaseVersion": 1
+        }
+      },
+      "passed": true
+    }
+  ]
+}

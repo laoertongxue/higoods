@@ -1,3 +1,5 @@
+import { listPmsKolStock, type PmsKolStockRow } from './kol-sample-stock.ts'
+import { PMS_STORES, pmsAll } from './idb-storage.ts'
 /**
  * 锁定操作记录(原型 mock,跟随 manage.higood.ai /pms/kol_sample_stock/lock_log)。
  *
@@ -23,6 +25,7 @@ export const PmsKolLockOpTypeList: PmsKolLockOpType[] = [
 
 export interface PmsKolLockLogRow {
   id: string
+  _pmsBaseVersion?: number
   operatedAt: string
   lockDate: string
   opType: PmsKolLockOpType
@@ -45,40 +48,25 @@ function makeId(seq: number): string {
   return `LK-${seq.toString().padStart(6, '0')}`
 }
 
-const ROWS: PmsKolLockLogRow[] = [
-  // 跨日归零 + 手动锁定
-  { id: makeId(1), operatedAt: '2026-08-21 16:55:17', lockDate: '2026-08-21', opType: '手动锁定', sku: 'MODSP26012701-blue-xl', spu: 'MODSP26012701', deltaQty: 2, manualPoolBefore: 0, manualPoolAfter: 2, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 0, freeAfter: 2, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: 'KOL 库存 12' },
-  { id: makeId(2), operatedAt: '2026-08-21 16:55:17', lockDate: '2026-08-21', opType: '手动锁定', sku: 'MODSP26012701-blue-m', spu: 'MODSP26012701', deltaQty: 0, manualPoolBefore: 0, manualPoolAfter: 0, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 0, freeAfter: 0, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: 'KOL 库存 3' },
-  { id: makeId(3), operatedAt: '2026-08-21 16:55:17', lockDate: '2026-08-21', opType: '手动锁定', sku: 'MODSP26012701-blue-l', spu: 'MODSP26012701', deltaQty: 2, manualPoolBefore: 0, manualPoolAfter: 2, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 0, freeAfter: 2, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: 'KOL 库存 13' },
-  { id: makeId(4), operatedAt: '2026-08-21 16:55:17', lockDate: '2026-08-21', opType: '手动锁定', sku: 'MODSP26012701-black-xl', spu: 'MODSP26012701', deltaQty: 2, manualPoolBefore: 0, manualPoolAfter: 2, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 0, freeAfter: 2, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: 'KOL 库存 10' },
-  { id: makeId(5), operatedAt: '2026-08-21 16:55:17', lockDate: '2026-08-21', opType: '手动锁定', sku: 'MODHS25110717-khaki-xl', spu: 'MODHS25110717', deltaQty: 2, manualPoolBefore: 0, manualPoolAfter: 2, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 0, freeAfter: 2, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: 'KOL 库存 12' },
-  { id: makeId(6), operatedAt: '2026-08-21 16:55:17', lockDate: '2026-08-21', opType: '手动锁定', sku: 'MODHS25110717-khaki-l', spu: 'MODHS25110717', deltaQty: 2, manualPoolBefore: 0, manualPoolAfter: 2, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 0, freeAfter: 2, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: 'KOL 库存 10' },
-  // 申请单自动占用
-  { id: makeId(7), operatedAt: '2026-08-21 17:11:56', lockDate: '2026-08-21', opType: '申请单自动占用', sku: 'ASYZZ26052224-red-l', spu: 'ASYZZ26052224', deltaQty: 1, manualPoolBefore: 6, manualPoolAfter: 6, occupiedBefore: 0, occupiedAfter: 1, freeBefore: 6, freeAfter: 5, relatedApplyId: 'KS2NHPI1Z5QF40116248', relatedApplyCode: '31102fefd2b7981657988f44', operator: '系统', remark: '手动寄样申请提交占用' },
-  { id: makeId(8), operatedAt: '2026-08-21 17:11:56', lockDate: '2026-08-21', opType: '申请单自动占用', sku: 'ASYYC7226-coffee-l', spu: 'ASYYC7226', deltaQty: 1, manualPoolBefore: 6, manualPoolAfter: 6, occupiedBefore: 0, occupiedAfter: 1, freeBefore: 6, freeAfter: 5, relatedApplyId: 'KS2NHPI1Z5QF40116248', relatedApplyCode: '31102fefd2b7981657988f44', operator: '系统', remark: '手动寄样申请提交占用' },
-  { id: makeId(9), operatedAt: '2026-08-21 17:11:56', lockDate: '2026-08-21', opType: '申请单自动占用', sku: 'ASYXL110799-sameasphoto-onesize', spu: 'ASYXL110799', deltaQty: 1, manualPoolBefore: 5, manualPoolAfter: 5, occupiedBefore: 0, occupiedAfter: 1, freeBefore: 5, freeAfter: 4, relatedApplyId: 'KS2NHPI1Z5QF40116248', relatedApplyCode: '31102fefd2b7981657988f44', operator: '系统', remark: '手动寄样申请提交占用' },
-  // 驳回释放占用
-  { id: makeId(10), operatedAt: '2026-08-21 17:13:41', lockDate: '2026-08-21', opType: '驳回释放占用', sku: 'ASYZZ26052224-red-l', spu: 'ASYZZ26052224', deltaQty: -1, manualPoolBefore: 6, manualPoolAfter: 6, occupiedBefore: 1, occupiedAfter: 0, freeBefore: 5, freeAfter: 6, relatedApplyId: 'KS2NHPI1Z5QF40116248', relatedApplyCode: '31102fefd2b7981657988f44', operator: '六六', remark: '审核驳回释放占用' },
-  { id: makeId(11), operatedAt: '2026-08-21 17:13:41', lockDate: '2026-08-21', opType: '驳回释放占用', sku: 'ASYYC7226-coffee-l', spu: 'ASYYC7226', deltaQty: -1, manualPoolBefore: 6, manualPoolAfter: 6, occupiedBefore: 1, occupiedAfter: 0, freeBefore: 5, freeAfter: 6, relatedApplyId: 'KS2NHPI1Z5QF40116248', relatedApplyCode: '31102fefd2b7981657988f44', operator: '六六', remark: '审核驳回释放占用' },
-  { id: makeId(12), operatedAt: '2026-08-21 17:13:41', lockDate: '2026-08-21', opType: '驳回释放占用', sku: 'ASYXL110799-sameasphoto-onesize', spu: 'ASYXL110799', deltaQty: -1, manualPoolBefore: 5, manualPoolAfter: 5, occupiedBefore: 1, occupiedAfter: 0, freeBefore: 4, freeAfter: 5, relatedApplyId: 'KS2NHPI1Z5QF40116248', relatedApplyCode: '31102fefd2b7981657988f44', operator: '六六', remark: '审核驳回释放占用' },
-  // 手动释放
-  { id: makeId(13), operatedAt: '2026-08-22 09:20:15', lockDate: '2026-08-22', opType: '手动释放', sku: 'MODSP26012701-blue-xl', spu: 'MODSP26012701', deltaQty: -2, manualPoolBefore: 2, manualPoolAfter: 0, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 2, freeAfter: 0, relatedApplyId: '-', relatedApplyCode: '-', operator: '六六', remark: '手动释放全部锁定' },
-  // 跨日归零
-  { id: makeId(14), operatedAt: '2026-08-23 00:05:01', lockDate: '2026-08-23', opType: '跨日占用归零', sku: 'ASYXL110799-sameasphoto-onesize', spu: 'ASYXL110799', deltaQty: 0, manualPoolBefore: 5, manualPoolAfter: 5, occupiedBefore: 0, occupiedAfter: 0, freeBefore: 5, freeAfter: 5, relatedApplyId: '-', relatedApplyCode: '-', operator: '系统', remark: '跨日占用已自动归零' },
-]
+function seedLockLogs(): PmsKolLockLogRow[] {
+  const stocks=listPmsKolStock()
+  const locks=stocks.slice(0,11).map((stock,index)=>({...makeKolLockRow({...stock,vkolManualLockedPool:0,lockedOccupied:0},{...stock,lockedOccupied:0},'手动锁定',`LOCK-DEMO-${index+1}`),operatedAt:'2026-10-12T08:00:00',lockDate:'2026-10-12'}))
+  const occupies=stocks.slice(0,3).map((stock,index)=>({...makeKolLockRow({...stock,lockedOccupied:0},stock,'申请单自动占用',`OCCUPY-DEMO-${index+1}`,`APPLY-DEMO-${index+1}`),operatedAt:'2026-10-13T08:00:00',lockDate:'2026-10-13'}))
+  return [...occupies,...locks]
+}
 
 interface LockLogRuntime {
   rows: PmsKolLockLogRow[]
 }
 
 function getRuntime(): LockLogRuntime {
-  return lockLogRuntime
+  return lockLogRuntime ??= {rows:seedLockLogs()}
 }
 
-const lockLogRuntime: LockLogRuntime = { rows: ROWS }
+let lockLogRuntime: LockLogRuntime | null = null
 
 export function listPmsKolLockLog(): PmsKolLockLogRow[] {
-  return getRuntime().rows.slice()
+  return getRuntime().rows.slice().sort((a,b)=>b.operatedAt.localeCompare(a.operatedAt))
 }
 
 export interface PmsKolLockLogFilter {
@@ -133,4 +121,20 @@ export function summarizePmsKolLockLog(filter: PmsKolLockLogFilter): PmsKolLockL
     }),
     { total: 0, manualLock: 0, manualRelease: 0, applyOccupy: 0, rejectRelease: 0, dailyReset: 0 },
   )
+}
+
+let hydration: Promise<void> | null = null
+export function hydratePmsKolLockLog(): Promise<void> {
+  return hydration ??= pmsAll<PmsKolLockLogRow>(PMS_STORES.pmsKolLockLogs).then(appendKolLockRows).catch(error => { hydration = null; throw error })
+}
+export function appendKolLockRows(rows: PmsKolLockLogRow[]): void {
+  for (const row of rows) { const index = getRuntime().rows.findIndex(old => old.id === row.id); if(index < 0) getRuntime().rows.unshift(row); else getRuntime().rows[index] = row }
+}
+export function makeKolLockRow(before: PmsKolStockRow, after: PmsKolStockRow, opType: PmsKolLockOpType, operationId: string, relatedApplyId = ''): PmsKolLockLogRow {
+  const at = new Date().toISOString()
+  return { id: `${operationId}:${before.sku}:${opType}`, operatedAt: at, lockDate: at.slice(0,10), opType, sku: before.sku, spu: before.spu,
+    deltaQty: opType === '申请单自动占用' || opType === '驳回释放占用' ? after.lockedOccupied - before.lockedOccupied : after.vkolManualLockedPool - before.vkolManualLockedPool,
+    manualPoolBefore: before.vkolManualLockedPool, manualPoolAfter: after.vkolManualLockedPool, occupiedBefore: before.lockedOccupied, occupiedAfter: after.lockedOccupied,
+    freeBefore: before.vkolManualLockedPool - before.lockedOccupied, freeAfter: after.vkolManualLockedPool - after.lockedOccupied,
+    relatedApplyId, relatedApplyCode: relatedApplyId, operator: '采购管理', remark: '' }
 }

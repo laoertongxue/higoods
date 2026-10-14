@@ -1,0 +1,166 @@
+
+[WebServer] (node:72964) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 31 tests using 1 worker
+
+
+(node:72966) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/31] tests/pms-cold-load.spec.ts:30:3 › PMS 隔离 context 首次访问性能专项 › PMS 21路由隔离context首次访问完整响应均不超过1000ms
+tests/pms-cold-load.spec.ts:30:3 › PMS 隔离 context 首次访问性能专项 › PMS 21路由隔离context首次访问完整响应均不超过1000ms
+{"pmsContextFirstVisitPerf":{"identity":"专用Chromium内隔离context页面首次访问；非每样本新进程冷启动","baseURL":"http://127.0.0.1:5392","browserVersion":"149.0.7827.55","viewport":{"width":1366,"height":768},"thresholdMs":1000,"completion":"目标路由真实表格内容、可见图片decode、字体就绪、2rAF；不清库、不预热、不等待quiet窗口","hostLoadBefore":[4.52880859375,3.8857421875,4.033203125],"hostLoadAfter":[3.93212890625,3.78515625,3.98388671875],"hostLoads":{"/pms/purchase-suggestions":[[4.52880859375,3.8857421875,4.033203125],[4.52880859375,3.8857421875,4.033203125],[4.52880859375,3.8857421875,4.033203125],[4.52880859375,3.8857421875,4.033203125],[4.56640625,3.90380859375,4.03857421875]],"/pms/kol-demands":[[4.56640625,3.90380859375,4.03857421875],[4.56640625,3.90380859375,4.03857421875],[4.56640625,3.90380859375,4.03857421875],[4.56640625,3.90380859375,4.03857421875],[4.56640625,3.90380859375,4.03857421875]],"/pms/product-purchase-orders":[[4.56640625,3.90380859375,4.03857421875],[4.56640625,3.90380859375,4.03857421875],[4.44091796875,3.888671875,4.0322265625],[4.44091796875,3.888671875,4.0322265625],[4.44091796875,3.888671875,4.0322265625]],"/pms/reorder":[[4.44091796875,3.888671875,4.0322265625],[4.44091796875,3.888671875,4.0322265625],[4.44091796875,3.888671875,4.0322265625],[4.44091796875,3.888671875,4.0322265625],[4.1650390625,3.84033203125,4.01416015625]],"/pms/product-purchase-order-aftersales":[[4.1650390625,3.84033203125,4.01416015625],[4.1650390625,3.84033203125,4.01416015625],[4.1650390625,3.84033203125,4.01416015625],[4.1650390625,3.84033203125,4.01416015625],[4.1650390625,3.84033203125,4.01416015625]],"/pms/material-requirements":[[4.1650390625,3.84033203125,4.01416015625],[4.1650390625,3.84033203125,4.01416015625],[3.9912109375,3.8095703125,4.001953125],[3.9912109375,3.8095703125,4.001953125],[3.9912109375,3.8095703125,4.001953125]],"/pms/material-purchase-orders":[[3.9912109375,3.8095703125,4.001953125],[3.9912109375,3.8095703125,4.001953125],[3.9912109375,3.8095703125,4.001953125],[3.9912109375,3.8095703125,4.001953125],[3.9912109375,3.8095703125,4.001953125]],"/pms/material-purchase-tracking":[[3.9912109375,3.8095703125,4.001953125],[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375]],"/pms/fitting-timeliness":[[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375],[3.83154296875,3.779296875,3.98974609375]],"/pms/material-supplier-confirmations":[[3.83154296875,3.779296875,3.98974609375],[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375]],"/pms/first-leg-shipments":[[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375],[3.6845703125,3.74951171875,3.97802734375]],"/pms/first-leg-carriers":[[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875]],"/pms/material-inventory":[[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875]],"/pms/material-payment-requests":[[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875],[3.46923828125,3.70361328125,3.96044921875]],"/pms/logistics-payment-requests":[[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375]],"/pms/kol-sample-stock":[[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375]],"/pms/kol-sample-apply":[[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.431640625,3.69189453125,3.95458984375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375]],"/pms/kol-sample-link":[[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375]],"/pms/kol-sample-stock/lock-log":[[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375]],"/pms/suppliers":[[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375],[3.31689453125,3.66357421875,3.94287109375]],"/pms/supplier-supply-archives":[[3.31689453125,3.66357421875,3.94287109375],[3.93212890625,3.78515625,3.98388671875],[3.93212890625,3.78515625,3.98388671875],[3.93212890625,3.78515625,3.98388671875],[3.93212890625,3.78515625,3.98388671875]]},"samples":{"/pms/purchase-suggestions":[611.5999999642372,498.19999998807907,502.60000002384186,468.5999999642372,470.10000002384186],"/pms/kol-demands":[504.39999997615814,498.89999997615814,500.2000000476837,495.60000002384186,507.30000001192093],"/pms/product-purchase-orders":[456.4000000357628,438.39999997615814,425.60000002384186,425.69999998807907,440.0999999642372],"/pms/reorder":[576.9000000357628,606.4000000357628,563,592.8000000119209,593.8000000119209],"/pms/product-purchase-order-aftersales":[505.80000001192093,501.5,497.5999999642372,502.89999997615814,500.5999999642372],"/pms/material-requirements":[448,442.89999997615814,440.5999999642372,440.89999997615814,443.39999997615814],"/pms/material-purchase-orders":[310.2000000476837,303.5,290,289,289],"/pms/material-purchase-tracking":[304,297.80000001192093,318.39999997615814,300.30000001192093,334.89999997615814],"/pms/fitting-timeliness":[274.69999998807907,299.19999998807907,303.2000000476837,286.7000000476837,292.30000001192093],"/pms/material-supplier-confirmations":[311.80000001192093,301.69999998807907,307.39999997615814,306.4000000357628,307.39999997615814],"/pms/first-leg-shipments":[423.89999997615814,425.7000000476837,415.19999998807907,411.5999999642372,423.80000001192093],"/pms/first-leg-carriers":[124.09999996423721,127.5,126.69999998807907,126.5,128.10000002384186],"/pms/material-inventory":[308.5,288.30000001192093,311,287,284.9000000357628],"/pms/material-payment-requests":[272,269.19999998807907,259.9000000357628,262.30000001192093,260.9000000357628],"/pms/logistics-payment-requests":[275.39999997615814,262.5,273.69999998807907,275.19999998807907,259],"/pms/kol-sample-stock":[256.5,271.60000002384186,276.10000002384186,272.30000001192093,265.0999999642372],"/pms/kol-sample-apply":[262.10000002384186,258.5,262.89999997615814,264.19999998807907,264.80000001192093],"/pms/kol-sample-link":[277.5999999642372,268.69999998807907,277.9000000357628,264.30000001192093,261.19999998807907],"/pms/kol-sample-stock/lock-log":[144.10000002384186,130.69999998807907,145.69999998807907,143.0999999642372,128.9000000357628],"/pms/suppliers":[77.10000002384186,77.19999998807907,76.69999998807907,77.29999995231628,76.69999998807907],"/pms/supplier-supply-archives":[309.10000002384186,305.9000000357628,305.10000002384186,297.60000002384186,300.39999997615814]},"failures":[],"maxima":{"/pms/purchase-suggestions":611.5999999642372,"/pms/kol-demands":507.30000001192093,"/pms/product-purchase-orders":456.4000000357628,"/pms/reorder":606.4000000357628,"/pms/product-purchase-order-aftersales":505.80000001192093,"/pms/material-requirements":448,"/pms/material-purchase-orders":310.2000000476837,"/pms/material-purchase-tracking":334.89999997615814,"/pms/fitting-timeliness":303.2000000476837,"/pms/material-supplier-confirmations":311.80000001192093,"/pms/first-leg-shipments":425.7000000476837,"/pms/first-leg-carriers":128.10000002384186,"/pms/material-inventory":311,"/pms/material-payment-requests":272,"/pms/logistics-payment-requests":275.39999997615814,"/pms/kol-sample-stock":276.10000002384186,"/pms/kol-sample-apply":264.80000001192093,"/pms/kol-sample-link":277.9000000357628,"/pms/kol-sample-stock/lock-log":145.69999998807907,"/pms/suppliers":77.29999995231628,"/pms/supplier-supply-archives":309.10000002384186}}}
+
+[2/31] tests/pms-master-data.spec.ts:10:3 › PMS 保留基础资料页面 › 供应商可新增、提交审核并启用
+  1) tests/pms-master-data.spec.ts:10:3 › PMS 保留基础资料页面 › 供应商可新增、提交审核并启用 ────────────────────────────
+
+    Error: locator.click: Error: strict mode violation: locator('[data-pms-sup-table-surface] tbody tr').filter({ hasText: '端到端供应商1791933184615' }).locator('[data-pms-sup-action="advance"]') resolved to 2 elements:
+        1) <button type="button" data-next-status="已驳回" class="text-xs text-red-700" data-pms-sup-action="advance" data-skip-page-rerender="true" data-supplier-code="SUP-20261013-498GZM">驳回</button> aka getByRole('button', { name: '驳回' })
+        2) <button type="button" data-next-status="已启用" data-pms-sup-action="advance" data-skip-page-rerender="true" data-supplier-code="SUP-20261013-498GZM" class="text-left text-xs text-blue-700 hover:underline">审核通过</button> aka getByRole('button', { name: '审核通过' })
+
+    Call log:
+      - waiting for locator('[data-pms-sup-table-surface] tbody tr').filter({ hasText: '端到端供应商1791933184615' }).locator('[data-pms-sup-action="advance"]')
+
+
+      31 |     await page.locator('[data-pms-sup-table-surface] tbody tr').filter({ hasText: name }).locator('[data-pms-sup-action="advance"]').click()
+      32 |     await expect(page.locator('[data-pms-sup-root]')).toContainText('已变为待审核')
+    > 33 |     await page.locator('[data-pms-sup-table-surface] tbody tr').filter({ hasText: name }).locator('[data-pms-sup-action="advance"]').click()
+         |                                                                                                                                      ^
+      34 |     await expect(page.locator('[data-pms-sup-toggle-root]')).toBeVisible()
+      35 |     await page.locator('[data-pms-sup-action="confirm-toggle"]').click()
+      36 |     await expect(page.locator('[data-pms-sup-root]')).toContainText('已变为已启用')
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/pms-master-data.spec.ts:33:134
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-master-data-PMS-保留基础资料页面-供应商可新增、提交审核并启用/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-master-data-PMS-保留基础资料页面-供应商可新增、提交审核并启用/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../tmp/pms-local-browser-v16-20261014/pms-master-data-PMS-保留基础资料页面-供应商可新增、提交审核并启用/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-master-data-PMS-保留基础资料页面-供应商可新增、提交审核并启用/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../tmp/pms-local-browser-v16-20261014/pms-master-data-PMS-保留基础资料页面-供应商可新增、提交审核并启用/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:73095) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/31] tests/pms-master-data.spec.ts:39:3 › PMS 保留基础资料页面 › 供货档案换算与快照版本更新
+[4/31] tests/pms-material-flow.spec.ts:78:3 › PMS 采购链路 P2 页面 › 六个 P2 路由可访问且不是占位页
+[5/31] tests/pms-material-flow.spec.ts:93:3 › PMS 采购链路 P2 页面 › 面辅料需求可下推生成采购单并回写状态
+[6/31] tests/pms-material-flow.spec.ts:117:3 › PMS 采购链路 P2 页面 › 快递信息导入模板解析、校验与单号唯一阻断
+[7/31] tests/pms-material-flow.spec.ts:139:3 › PMS 采购链路 P2 页面 › 采购跟踪可签收国内物流并加入头程
+[8/31] tests/pms-material-flow.spec.ts:177:3 › PMS 采购链路 P2 页面 › 供应商确认单生成标签后确认并回写采购单
+[9/31] tests/pms-material-flow.spec.ts:192:3 › PMS 采购链路 P2 页面 › 头程物流可装柜推进且双表物流商页可打开渠道表单
+[10/31] tests/pms-material-flow.spec.ts:214:3 › PMS 采购链路 P2 页面 › 面辅料采购单可带原因关闭
+[11/31] tests/pms-material-flow.spec.ts:228:3 › PMS 采购链路 P2 页面 › 头程单可保存提货税费字段并批量装柜出运
+[12/31] tests/pms-material-flow.spec.ts:264:3 › PMS 采购链路 P2 页面 › 供应商确认可生成卷号、维护箱规包装明细并切换上下张
+[13/31] tests/pms-material-flow.spec.ts:300:3 › PMS 采购链路 P2 页面 › P2 页面站内切换与关键交互完整响应不超过 1000ms
+tests/pms-material-flow.spec.ts:300:3 › PMS 采购链路 P2 页面 › P2 页面站内切换与关键交互完整响应不超过 1000ms
+{"pmsMaterialPerf":{"routeSwitch":[53,36,40,23,24,24,24,22,22,26,23,24,25,23,22,23,23,24,23,23,24,24,23,25,24,22,24,24,24,25],"requirements":[26,26,26,29,25,30,24,29,24,28],"materialOrders":[24,41,41,42,42,43,42,43,42,42],"tracking":[27,29,24,29,27,27,26,27,25,28],"confirmations":[26,39,40,42,42],"firstLeg":[26,41,42,40,42,44,43,42,41,45],"carriers":[27,43,43,44,43,43,42,44,41,45]}}
+
+[14/31] tests/pms-peripheral.spec.ts:32:3 › PMS 外围业务的保存与门禁 › 做货开关取消不落盘；确认后禁止建单，独立刷新可恢复做货
+[15/31] tests/pms-peripheral.spec.ts:55:3 › PMS 外围业务的保存与门禁 › 新增备货款后排除重复SPU；常备数量无效或取消不写，合法修改刷新读回
+[16/31] tests/pms-peripheral.spec.ts:88:3 › PMS 外围业务的保存与门禁 › 售后批量驳回保存两单；终结单不能重新推进且整批不半套写入
+[17/31] tests/pms-peripheral.spec.ts:119:3 › PMS 外围业务的保存与门禁 › KOL通过前缺说明阻断；通过后借出、占用释放和日志一起保存且刷新禁止重复审核
+[18/31] tests/pms-peripheral.spec.ts:151:3 › PMS 外围业务的保存与门禁 › 样品池修改刷新保留；作废后独立申请地址拒绝有效输入且不生成申请
+[19/31] tests/pms-peripheral.spec.ts:185:3 › PMS 外围业务的保存与门禁 › 已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认
+  2) tests/pms-peripheral.spec.ts:185:3 › PMS 外围业务的保存与门禁 › 已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认 ──────────
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for locator('[data-pms-conf-roll-qty="CONF-2026-0001-R001"]')
+
+
+      198 |     expect(oldQty).toBeGreaterThan(1)
+      199 |     const beforeInvalid = await findOrder()
+    > 200 |     await page.locator(`[data-pms-conf-roll-qty="${rollNo}"]`).fill('0')
+          |                                                                ^
+      201 |     await page.locator(action('pms-conf', 'save-rolls')).click()
+      202 |     await expect(page.locator(`[data-pms-conf-roll-qty="${rollNo}"]`)).toHaveValue('0')
+      203 |     expect(await find()).toEqual(confirmed)
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/pms-peripheral.spec.ts:200:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-peripheral-PMS-外围业务的保存与门禁-已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-peripheral-PMS-外围业务的保存与门禁-已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../tmp/pms-local-browser-v16-20261014/pms-peripheral-PMS-外围业务的保存与门禁-已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-peripheral-PMS-外围业务的保存与门禁-已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../tmp/pms-local-browser-v16-20261014/pms-peripheral-PMS-外围业务的保存与门禁-已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:73160) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[20/31] tests/pms-peripheral.spec.ts:219:3 › PMS 外围业务的保存与门禁 › 供应商必填缺失保留表单；新增与编辑读回，待审核驳回需要原因且保存后刷新一致
+[21/31] tests/pms-purchase-chain.spec.ts:242:3 › PMS 采购链路 P1 页面 › 三个 P1 路由可直接进入且不是占位页
+[22/31] tests/pms-purchase-chain.spec.ts:255:3 › PMS 采购链路 P1 页面 › 商品采购建议可筛选、查看明细并生成商品采购单
+[23/31] tests/pms-purchase-chain.spec.ts:292:3 › PMS 采购链路 P1 页面 › KOL 需求可入库并记录操作事实
+  3) tests/pms-purchase-chain.spec.ts:292:3 › PMS 采购链路 P1 页面 › KOL 需求可入库并记录操作事实 ────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: undefined
+
+      304 |     expect(received).toMatchObject({ status: '全部入库', inboundQty: received.applyQty })
+      305 |     expect(received.inboundRecords[0]).toMatchObject({ qty: expectedQty, note })
+    > 306 |     expect(received.skuLines?.every(line => line.inboundQty === line.applyQty)).toBe(true)
+          |                                                                                 ^
+      307 |
+      308 |     const rejectButton = page.locator('[data-pms-kol-action="open-reject"]:not([disabled])').first()
+      309 |     const rejectNo = (await rejectButton.getAttribute('data-demand-no'))!
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/pms-purchase-chain.spec.ts:306:81
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-purchase-chain-PMS-采购链路-P1-页面-KOL-需求可入库并记录操作事实/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-purchase-chain-PMS-采购链路-P1-页面-KOL-需求可入库并记录操作事实/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../tmp/pms-local-browser-v16-20261014/pms-purchase-chain-PMS-采购链路-P1-页面-KOL-需求可入库并记录操作事实/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-20261014/pms-purchase-chain-PMS-采购链路-P1-页面-KOL-需求可入库并记录操作事实/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../tmp/pms-local-browser-v16-20261014/pms-purchase-chain-PMS-采购链路-P1-页面-KOL-需求可入库并记录操作事实/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+Testing stopped early after 3 maximum allowed failures.
+
+  3 failed
+    tests/pms-master-data.spec.ts:10:3 › PMS 保留基础资料页面 › 供应商可新增、提交审核并启用 ─────────────────────────────
+    tests/pms-peripheral.spec.ts:185:3 › PMS 外围业务的保存与门禁 › 已确认发货数量修改撤销关联采购确认；无效明细保留输入和原确认 ───────────
+    tests/pms-purchase-chain.spec.ts:292:3 › PMS 采购链路 P1 页面 › KOL 需求可入库并记录操作事实 ─────────────────────
+  8 did not run
+  20 passed (2.4m)
+  1 error was not a part of any test, see above for details

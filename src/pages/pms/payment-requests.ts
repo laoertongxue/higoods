@@ -1,3 +1,6 @@
+import { pmsBusinessNumber } from '../../utils/pms-business-number.ts'
+import { hydratePmsMaterialPurchaseOrdersFromIdb } from '../../data/pms/material-purchase-orders.ts'
+import { hydratePmsFirstLegFromIdb } from '../../data/pms/first-leg-logistics.ts'
 // @page-pattern: list
 import { renderDangerButton, renderPrimaryButton, renderSecondaryButton } from '../../components/ui/button.ts'
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
@@ -7,6 +10,10 @@ import type { StandardListColumn } from '../../components/ui/list-table.ts'
 import { resetStandardListEntryTransientStateOnRouteEntry } from '../../components/ui/list-table-model.ts'
 import {
   addPmsPaymentAttachment,
+  readPmsPaymentAttachment,
+  hydratePmsPaymentFromIdb,
+  listPmsPaymentSourceOptions,
+  preparePmsPaymentDraftFromSources,
   checkPmsPaymentRequestEditScope,
   consumePmsPaymentDraft,
   createPmsPaymentRequestFromDraft,
@@ -23,8 +30,8 @@ import {
   type PmsPaymentRequestInfoInput,
   type PmsPaymentRequestType,
 } from '../../data/pms/payment-requests.ts'
-import { getPmsMaterial } from '../../data/pms/materials.ts'
-import { getPmsMaterialReconciliation } from '../../data/pms/reconciliations.ts'
+import { getPurchaseMaterialReference } from '../../data/pms/canonical-purchase-references.ts'
+import { hydratePmsReconciliationsFromIdb, getPmsMaterialReconciliation } from '../../data/pms/reconciliations.ts'
 import { listPmsLogs, PmsDomainError } from '../../data/pms/runtime.ts'
 import { downloadPmsCsv } from '../../utils/pms-export.ts'
 import { escapeHtml } from '../../utils.ts'
@@ -46,6 +53,10 @@ type PaymentSubOverlay = null | { kind: 'request' } | { kind: 'pay' } | { kind: 
 
 interface PaymentPageState extends ProcessOrderListControllerState {
   type: PmsPaymentRequestType
+  operationId: string
+  choosingSource: boolean
+  attachmentFile: File | null
+  previewUrl: string
   keyword: string
   status: '' | PmsPaymentRequest['status']
   paymentStatus: '' | PmsPaymentRequest['paymentStatus']
@@ -64,9 +75,13 @@ const FINANCE = { id: 'USR-PMS-LIU', name: '刘财务', role: '财务' as const 
 
 const state: PaymentPageState = {
   type: 'material',
+  operationId: '',
+  choosingSource: false,
+  attachmentFile: null,
+  previewUrl: '',
   currentPage: 1,
   sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
+  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 5 },
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
@@ -108,7 +123,7 @@ const columns: StandardListColumn<PmsPaymentRequest>[] = [
     freezeable: true,
     sortable: true,
     sortValue: (row) => row.requestNo,
-    render: (row) => `<div class="font-semibold">${escapeHtml(row.requestNo)}</div><div class="mt-1 flex flex-wrap gap-1">${renderPmsStatusBadge(row.status, statusTone(row.status))}${renderPmsStatusBadge(row.paymentStatus, row.paymentStatus === '已付款' ? 'green' : row.paymentStatus === '部分付款' ? 'yellow' : 'slate')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.createdBy)} · ${formatPmsTime(row.createdAt)}</div>`,
+    render: (row) => `<div class="font-semibold">${escapeHtml(pmsBusinessNumber(row.requestNo))}</div><div class="mt-1 flex flex-wrap gap-1">${renderPmsStatusBadge(row.status, statusTone(row.status))}${renderPmsStatusBadge(row.paymentStatus, row.paymentStatus === '已付款' ? 'green' : row.paymentStatus === '部分付款' ? 'yellow' : 'slate')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.createdBy)} · ${formatPmsTime(row.createdAt)}</div>`,
   },
   {
     key: 'object',
@@ -118,7 +133,7 @@ const columns: StandardListColumn<PmsPaymentRequest>[] = [
     freezeable: true,
     sortable: true,
     sortValue: (row) => row.objectName,
-    render: (row) => `<div class="font-medium">${escapeHtml(row.objectName)}</div><div class="mt-1 text-xs text-slate-500">${row.type === 'material' ? '面辅料采购请款' : '物流费用请款'} · ${escapeHtml(row.currency)}</div><div class="mt-1 text-xs text-slate-500">来源 ${row.sourceRows.length} 条对账</div>`,
+    render: (row) => `<div class="font-medium">${escapeHtml(row.objectName)}</div><div class="mt-1 text-xs text-slate-500">${row.type === 'material' ? '面辅料采购请款' : '物流费用请款'} · ${escapeHtml(row.currency)}</div><div class="mt-1 text-xs text-slate-500">来源 ${row.sourceRows.length} 条来源</div>`,
   },
   {
     key: 'amount',
@@ -127,16 +142,16 @@ const columns: StandardListColumn<PmsPaymentRequest>[] = [
     sortable: true,
     sortValue: (row) => row.payableAmount,
     render: (row) => {
-      const money = (value: number) => formatPmsMoney(value, row.currency === 'USD' ? 'USD' : 'RMB')
+      const money = (value: number) => formatPmsMoney(value, row.currency)
       const pending = Math.max(0, row.payableAmount - row.requestedAmount)
       return `<div class="text-xs text-slate-500">应付 ${money(row.payableAmount)}</div><div class="mt-1 text-sm tabular-nums">已请款 ${money(row.requestedAmount)} · 待请款 ${money(pending)}</div><div class="mt-1 text-sm tabular-nums">已付款 ${money(row.paidAmount)}</div>`
     },
   },
   {
     key: 'source',
-    title: '来源对账',
+    title: '请款来源',
     width: 220,
-    render: (row) => `<div class="space-y-1 text-xs">${row.sourceRows.map((source) => `<div><div>${escapeHtml(source.sourceId)}</div><div class="text-slate-500">${escapeHtml(source.sourceLabel)}</div></div>`).join('')}</div>`,
+    render: (row) => `<div class="space-y-1 text-xs">${row.sourceRows.map((source) => `<div><div>${escapeHtml(source.sourceId.split(':')[0])}</div><div class="text-slate-500">${escapeHtml(source.sourceLabel)}</div></div>`).join('')}</div>`,
   },
   {
     key: 'attachment',
@@ -158,8 +173,8 @@ const columns: StandardListColumn<PmsPaymentRequest>[] = [
 const controller = createProcessOrderListController({
   state,
   columns,
-  preferenceKey: 'higood:list:/pms/payment-requests',
-  pageSizeOptions: [10, 20, 50],
+  get preferenceKey(){return `higood:list:/pms/${state.type==='material'?'material-payment-requests':'logistics-payment-requests'}`},
+  pageSizeOptions: [5, 10, 20, 50],
   eventPrefix: EVENT_PREFIX,
   rootSelector: ROOT_SELECTOR,
   tableSurfaceSelector: '[data-pms-pay-table-surface]',
@@ -183,7 +198,7 @@ function pageTitle(): string {
 
 function sourceMaterialThumbnail(sourceId: string): string {
   const reconciliation = getPmsMaterialReconciliation(sourceId)
-  const material = reconciliation ? getPmsMaterial(reconciliation.materialCode) : undefined
+  const material = reconciliation ? getPurchaseMaterialReference(reconciliation.materialCode) : undefined
   if (!material) return ''
   return renderPmsBusinessImage(material.imageUrl, `${material.materialName}（${material.materialCode}）实物图`, 'h-10 w-10')
 }
@@ -207,11 +222,12 @@ function renderFilters(): string {
 
 function renderStats(): string {
   const rows = filteredRows()
+  const sum=(field:'payableAmount'|'requestedAmount'|'paidAmount')=>['RMB','USD','IDR'].flatMap(currency=>{const group=rows.filter(row=>row.currency===currency);return group.length?[formatPmsMoney(group.reduce((value,row)=>value+row[field],0),currency as PmsPaymentRequest['currency'])]:[]}).join(' · ') || '0'
   return renderProcessOrderStats([
     { label: '请款单', value: rows.length },
-    { label: '应付合计', value: formatPmsMoney(rows.reduce((sum, row) => sum + row.payableAmount, 0)) },
-    { label: '已请款合计', value: formatPmsMoney(rows.reduce((sum, row) => sum + row.requestedAmount, 0)) },
-    { label: '已付款合计', value: formatPmsMoney(rows.reduce((sum, row) => sum + row.paidAmount, 0)) },
+    { label: '应付合计', value: sum('payableAmount') },
+    { label: '已请款合计', value: sum('requestedAmount') },
+    { label: '已付款合计', value: sum('paidAmount') },
   ])
 }
 
@@ -270,8 +286,8 @@ function draftField(name: string, label: string, value: string, options: { type?
 }
 
 function renderDraftOverlay(draft: PmsPaymentDraft): string {
-  const money = (value: number) => formatPmsMoney(value, draft.currency === 'USD' ? 'USD' : 'RMB')
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="创建请款单" data-pms-pay-draft-root><section class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-background p-5 shadow-2xl"><header class="mb-4 flex items-center justify-between"><div><h2 class="font-semibold">创建${state.type === 'material' ? '面辅料' : '物流'}请款单</h2><p class="mt-1 text-xs text-slate-500">由对账页生成草稿，默认金额与收款人，可补充银行与付款信息后创建</p></div>${renderSecondaryButton('放弃', { prefix: EVENT_PREFIX, action: 'discard-draft' }, 'x')}</header>${renderPmsOverlayError(state.overlayError)}
+  const money = (value: number) => formatPmsMoney(value, draft.currency)
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="创建请款单" data-pms-pay-draft-root><section class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-background p-5 shadow-2xl"><header class="mb-4 flex items-center justify-between"><div><h2 class="font-semibold">创建${state.type === 'material' ? '面辅料' : '物流'}请款单</h2><p class="mt-1 text-xs text-slate-500">核对来源、收款人与金额，补充付款说明后创建</p></div>${renderSecondaryButton('放弃', { prefix: EVENT_PREFIX, action: 'discard-draft' }, 'x')}</header>${renderPmsOverlayError(state.overlayError)}
     <dl class="grid grid-cols-3 gap-3 text-sm"><div><dt class="text-xs text-muted-foreground">付款对象</dt><dd class="mt-1">${escapeHtml(draft.objectName)}</dd></div><div><dt class="text-xs text-muted-foreground">币种</dt><dd class="mt-1">${escapeHtml(draft.currency)}</dd></div><div><dt class="text-xs text-muted-foreground">请款金额（大写）</dt><dd class="mt-1 font-semibold tabular-nums">${money(draft.totalAmount)} · ${formatPmsAmountUpper(draft.totalAmount)}</dd></div></dl>
     <section class="mt-4 rounded-lg border p-3"><h3 class="text-xs font-semibold text-muted-foreground">收款人信息</h3><div class="mt-3 grid grid-cols-3 gap-3">
       ${draftField('payeeName', '收款人名称', draft.objectName)}
@@ -299,7 +315,7 @@ function renderDraftOverlay(draft: PmsPaymentDraft): string {
       ${draftField('purpose', '用途说明', '')}
       ${draftField('supplement', '补充说明', '')}
     </div></section>
-    <div class="mt-4 overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">来源对账</th><th class="px-3 py-2">说明</th><th class="px-3 py-2">金额</th></tr></thead><tbody>${draft.rows.map((row) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm"><div class="flex items-center gap-3">${sourceMaterialThumbnail(row.sourceId)}<span>${escapeHtml(row.sourceId)}</span></div></td><td class="px-3 py-2 text-sm">${escapeHtml(row.sourceLabel)}</td><td class="px-3 py-2 text-sm tabular-nums">${money(row.amount)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="mt-4 overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">请款来源</th><th class="px-3 py-2">说明</th><th class="px-3 py-2">金额</th></tr></thead><tbody>${draft.rows.map((row) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm"><div class="flex items-center gap-3">${sourceMaterialThumbnail(row.sourceId)}<span>${escapeHtml(row.sourceId.split(':')[0])}</span></div></td><td class="px-3 py-2 text-sm">${escapeHtml(row.sourceLabel)}</td><td class="px-3 py-2 text-sm tabular-nums">${money(row.amount)}</td></tr>`).join('')}</tbody></table></div>
     <footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'discard-draft' }, 'x')}${renderPrimaryButton('创建请款单', { prefix: EVENT_PREFIX, action: 'create-request' }, 'check-check')}</footer></section></div>`
 }
 
@@ -321,7 +337,7 @@ function renderDetailOverlay(requestNo: string): string {
   if (!request) return ''
   const scope = checkPmsPaymentRequestEditScope(requestNo)
   const editable = scope.level === 'full'
-  const money = (value: number) => formatPmsMoney(value, request.currency === 'USD' ? 'USD' : 'RMB')
+  const money = (value: number) => formatPmsMoney(value, request.currency)
   const pendingRequest = Math.max(0, request.payableAmount - request.requestedAmount)
   const pendingPay = Math.max(0, request.requestedAmount - request.paidAmount)
   const logs = listPmsLogs('payment-request', requestNo)
@@ -335,23 +351,25 @@ function renderDetailOverlay(requestNo: string): string {
     if (scope.level !== 'readonly') actions.push(renderSecondaryButton('添加附件', { prefix: EVENT_PREFIX, action: 'open-attachment' }, 'paperclip'))
     if (request.paidAmount === 0) actions.push(renderDangerButton('作废', { prefix: EVENT_PREFIX, action: 'open-void' }, 'x-circle'))
   }
-  const payeeSection = editable
-    ? `<section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">收款人信息</h3><div class="mt-3 grid grid-cols-3 gap-3">${infoInput('payeeName', '收款人名称', request.payee.name, editable)}${infoInput('payeeShortName', '收款人简称', request.payee.shortName, editable)}${infoInput('payeeBankName', '开户行', request.payee.bankName, editable)}${infoInput('payeeBankAccount', '银行账号', request.payee.bankAccount, editable)}${infoInput('payeeSwiftCode', 'SWIFT Code', request.payee.swiftCode, editable)}${infoInput('payeeContactName', '联系人', request.payee.contactName, editable)}${infoInput('payeeContactPhone', '联系电话', request.payee.contactPhone, editable)}<label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">收款人地址<input class="h-9 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(request.payee.address)}" data-${EVENT_PREFIX}-info-field="payeeAddress" data-skip-page-rerender="true" /></label></div></section>`
+  const payeeSection = scope.level !== 'readonly'
+    ? `<section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">收款人信息</h3><div class="mt-3 grid grid-cols-3 gap-3">${infoInput('payeeName', '收款人名称', request.payee.name, editable)}${infoInput('payeeShortName', '收款人简称', request.payee.shortName, editable)}${infoInput('payeeBankName', '开户行', request.payee.bankName, editable)}${infoInput('payeeBankAccount', '银行账号', request.payee.bankAccount, editable)}${infoInput('payeeSwiftCode', 'SWIFT Code', request.payee.swiftCode, editable)}${infoInput('payeeContactName', '联系人', request.payee.contactName, true)}${infoInput('payeeContactPhone', '联系电话', request.payee.contactPhone, true)}<label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">收款人地址<input class="h-9 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(request.payee.address)}" ${editable ? '' : 'disabled'} data-${EVENT_PREFIX}-info-field="payeeAddress" data-skip-page-rerender="true" /></label></div></section>`
     : `<section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">收款人信息</h3><dl class="mt-3 grid grid-cols-3 gap-3">${infoValue('收款人名称', request.payee.name)}${infoValue('简称', request.payee.shortName)}${infoValue('开户行', request.payee.bankName)}${infoValue('银行账号', request.payee.bankAccount)}${infoValue('SWIFT Code', request.payee.swiftCode)}${infoValue('地址', request.payee.address)}${infoValue('联系人', request.payee.contactName)}${infoValue('联系电话', request.payee.contactPhone)}</dl></section>`
+  const contactAction=scope.level==='attachment-only'?`<section class="rounded-lg border p-4">${infoInput('purpose','用途说明',request.narrative.purpose,true)}<div class="mt-3">${renderSecondaryButton('保存联系人与说明',{prefix:EVENT_PREFIX,action:'save-contacts'},'check').replace('<button',`<button data-request-no="${escapeHtml(requestNo)}"`)}</div></section>`:''
   const paymentSection = editable
     ? `<section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">付款信息</h3><div class="mt-3 grid grid-cols-3 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款类型<select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-info-field="paymentType" data-skip-page-rerender="true">${['全款', '部分付款'].map((value) => `<option value="${value}" ${value === request.paymentInfo.paymentType ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款方式<select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-info-field="paymentMethod" data-skip-page-rerender="true">${['银行转账', '承兑', '现金'].map((value) => `<option value="${value}" ${value === request.paymentInfo.method ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">款项性质<select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-info-field="paymentNature" data-skip-page-rerender="true">${['材料款', '物流费', '其他'].map((value) => `<option value="${value}" ${value === request.paymentInfo.nature ? 'selected' : ''}>${value}</option>`).join('')}</select></label>${infoInput('payerEntity', '付款主体', request.paymentInfo.payerEntity, editable)}${infoInput('applicant', '申请人', request.paymentInfo.applicant, editable)}${infoInput('applicantDept', '申请部门', request.paymentInfo.applicantDept, editable)}${infoInput('paymentNote', '付款备注', request.paymentInfo.note, editable)}</div><div class="mt-3 grid grid-cols-3 gap-3">${infoInput('exchangeRate', '汇率', String(request.amountInfo.exchangeRate), editable, 'number')}${infoInput('baseCurrencyAmount', '折算本位币金额', String(request.amountInfo.baseCurrencyAmount), editable, 'number')}${infoInput('purpose', '用途说明', request.narrative.purpose, editable)}</div><div class="mt-3">${renderSecondaryButton('保存请款信息', { prefix: EVENT_PREFIX, action: 'save-info' }, 'check-check').replace('<button', `<button data-request-no="${escapeHtml(requestNo)}"`)}</div></section>`
     : `<section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">付款信息与金额</h3><dl class="mt-3 grid grid-cols-3 gap-3">${infoValue('付款类型', request.paymentInfo.paymentType)}${infoValue('付款主体', request.paymentInfo.payerEntity)}${infoValue('付款方式', request.paymentInfo.method)}${infoValue('款项性质', request.paymentInfo.nature)}${infoValue('申请人 / 部门', `${request.paymentInfo.applicant} · ${request.paymentInfo.applicantDept}`)}${infoValue('汇率 / 本位币', `${request.amountInfo.exchangeRate} · ${request.amountInfo.baseCurrencyAmount}`)}${infoValue('用途说明', request.narrative.purpose)}${infoValue('费用明细说明', request.narrative.feeDetail)}${infoValue('补充说明', request.narrative.supplement)}</dl><p class="mt-2 text-xs text-slate-500">${request.currency === 'RMB' ? `金额大写：${escapeHtml(formatPmsAmountUpper(request.payableAmount))}` : `金额大写仅对 RMB 展示（当前 ${escapeHtml(request.currency)}）`}</p></section>`
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="请款单详情" data-pms-pay-detail-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭详情"></button><section class="relative z-10 flex h-full w-[820px] max-w-[95vw] flex-col overflow-y-auto bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">${escapeHtml(request.requestNo)} · ${escapeHtml(request.objectName)}</h2><p class="mt-1 flex flex-wrap gap-1">${renderPmsStatusBadge(request.status, statusTone(request.status))}${renderPmsStatusBadge(request.paymentStatus, request.paymentStatus === '已付款' ? 'green' : request.paymentStatus === '部分付款' ? 'yellow' : 'slate')}<span class="text-xs text-slate-500">${escapeHtml(request.currency)} · 编辑范围：${scope.level === 'full' ? '可修改' : scope.level === 'attachment-only' ? '仅附件备注' : '只读'}</span></p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-4 p-4">${renderPmsOverlayError(state.overlayError)}
+  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="请款单详情" data-pms-pay-detail-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭详情"></button><section class="relative z-10 flex h-full w-[820px] max-w-[95vw] flex-col overflow-y-auto bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">${escapeHtml(pmsBusinessNumber(request.requestNo))} · ${escapeHtml(request.objectName)}</h2><p class="mt-1 flex flex-wrap gap-1">${renderPmsStatusBadge(request.status, statusTone(request.status))}${renderPmsStatusBadge(request.paymentStatus, request.paymentStatus === '已付款' ? 'green' : request.paymentStatus === '部分付款' ? 'yellow' : 'slate')}<span class="text-xs text-slate-500">${escapeHtml(request.currency)} · 编辑范围：${scope.level === 'full' ? '可修改' : scope.level === 'attachment-only' ? '联系人、说明和附件' : '只读'}</span></p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-4 p-4">${renderPmsOverlayError(state.overlayError)}
     <section class="grid grid-cols-4 gap-3 rounded-lg border p-3 text-sm"><div><dt class="text-xs text-muted-foreground">应付</dt><dd class="mt-1 tabular-nums">${money(request.payableAmount)}</dd></div><div><dt class="text-xs text-muted-foreground">已请款</dt><dd class="mt-1 tabular-nums">${money(request.requestedAmount)}</dd></div><div><dt class="text-xs text-muted-foreground">已付款</dt><dd class="mt-1 tabular-nums">${money(request.paidAmount)}</dd></div><div><dt class="text-xs text-muted-foreground">待请款 / 未付</dt><dd class="mt-1 tabular-nums">${money(pendingRequest)} / ${money(pendingPay)}</dd></div></section>
     ${request.voidReason ? `<p class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">已作废：${escapeHtml(request.voidReason)}</p>` : ''}
     ${actions.length > 0 ? `<section class="flex flex-wrap items-center gap-2 rounded-lg border p-4">${actions.join('')}</section>` : ''}
     ${payeeSection}
     ${paymentSection}
+    ${contactAction}
     ${request.narrative.feeDetail ? `<section class="rounded-lg border p-4 text-sm"><h3 class="text-sm font-semibold">费用明细说明</h3><p class="mt-2 text-slate-600">${escapeHtml(request.narrative.feeDetail)}</p></section>` : ''}
-    <section><h3 class="mb-2 text-sm font-semibold">来源对账</h3><div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">对账记录</th><th class="px-3 py-2">说明</th><th class="px-3 py-2">金额</th></tr></thead><tbody>${request.sourceRows.map((row) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm"><div class="flex items-center gap-3">${sourceMaterialThumbnail(row.sourceId)}<span>${escapeHtml(row.sourceId)}</span></div></td><td class="px-3 py-2 text-sm">${escapeHtml(row.sourceLabel)}</td><td class="px-3 py-2 text-sm tabular-nums">${money(row.amount)}</td></tr>`).join('')}</tbody></table></div></section>
+    <section><h3 class="mb-2 text-sm font-semibold">请款来源</h3><div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">对账记录</th><th class="px-3 py-2">说明</th><th class="px-3 py-2">金额</th></tr></thead><tbody>${request.sourceRows.map((row) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm"><div class="flex items-center gap-3">${sourceMaterialThumbnail(row.sourceId)}<span>${escapeHtml(row.sourceId.split(':')[0])}</span></div></td><td class="px-3 py-2 text-sm">${escapeHtml(row.sourceLabel)}</td><td class="px-3 py-2 text-sm tabular-nums">${money(row.amount)}</td></tr>`).join('')}</tbody></table></div></section>
     <section><h3 class="mb-2 text-sm font-semibold">请款记录（${request.requestRecords.length}）</h3><div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">时间</th><th class="px-3 py-2">金额</th><th class="px-3 py-2">方式</th><th class="px-3 py-2">操作人 / 备注</th></tr></thead><tbody>${recordRows(request.requestRecords, money, false)}</tbody></table></div></section>
     <section><h3 class="mb-2 text-sm font-semibold">付款记录（${request.paymentRecords.length}）</h3><div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">时间</th><th class="px-3 py-2">金额</th><th class="px-3 py-2">方式</th><th class="px-3 py-2">凭证号</th><th class="px-3 py-2">操作人 / 备注</th></tr></thead><tbody>${recordRows(request.paymentRecords, money, true)}</tbody></table></div></section>
-    <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">备注与附件</h3><label class="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">备注<input class="h-9 rounded-md border bg-background px-2 text-sm ${scope.level === 'readonly' ? 'bg-slate-100' : ''}" value="${escapeHtml(request.remark)}" ${scope.level === 'readonly' ? 'disabled' : ''} data-${EVENT_PREFIX}-remark data-skip-page-rerender="true" /></label>${scope.level === 'readonly' ? '' : `<div class="mt-2">${renderSecondaryButton('保存备注', { prefix: EVENT_PREFIX, action: 'save-remark' }, 'check-check').replace('<button', `<button data-request-no="${escapeHtml(requestNo)}"`)}</div>`}<ul class="mt-3 space-y-1 text-xs">${request.attachments.length > 0 ? request.attachments.map((attachment, index) => `<li class="flex items-center justify-between gap-2 rounded-md border px-3 py-2"><span>${escapeHtml(attachment.name)}${attachment.description ? `<span class="ml-2 text-slate-500">${escapeHtml(attachment.description)}</span>` : ''}</span><span class="flex items-center gap-2 text-slate-500">${escapeHtml(attachment.uploadedBy)} · ${formatPmsTime(attachment.uploadedAt)}${scope.level === 'readonly' ? '' : `<button type="button" class="text-left text-xs text-red-700 hover:underline" data-${EVENT_PREFIX}-action="remove-attachment" data-request-no="${escapeHtml(requestNo)}" data-index="${index}" data-skip-page-rerender="true">${state.armedAttachmentIndex === index ? '确认删除附件' : '删除'}</button>`}</span></li>`).join('') : '<li class="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground">暂无附件</li>'}</ul></section>
+    <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">备注与附件</h3><label class="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">备注<input class="h-9 rounded-md border bg-background px-2 text-sm ${scope.level === 'readonly' ? 'bg-slate-100' : ''}" value="${escapeHtml(request.remark)}" ${scope.level === 'readonly' ? 'disabled' : ''} data-${EVENT_PREFIX}-remark data-skip-page-rerender="true" /></label>${scope.level === 'readonly' ? '' : `<div class="mt-2">${renderSecondaryButton('保存备注', { prefix: EVENT_PREFIX, action: 'save-remark' }, 'check-check').replace('<button', `<button data-request-no="${escapeHtml(requestNo)}"`)}</div>`}<ul class="mt-3 space-y-1 text-xs">${request.attachments.length > 0 ? request.attachments.map((attachment, index) => `<li class="flex items-center justify-between gap-2 rounded-md border px-3 py-2"><span>${attachment.fileId?`<button type="button" class="text-blue-700 hover:underline" data-${EVENT_PREFIX}-action="preview-attachment" data-file-id="${escapeHtml(attachment.fileId)}">${escapeHtml(attachment.name)}</button>`:`${escapeHtml(attachment.name)}<span class="ml-2 text-amber-700">原文件未导入</span>`}${attachment.description ? `<span class="ml-2 text-slate-500">${escapeHtml(attachment.description)}</span>` : ''}</span><span class="flex items-center gap-2 text-slate-500">${escapeHtml(attachment.uploadedBy)} · ${formatPmsTime(attachment.uploadedAt)}${scope.level === 'readonly' ? '' : `<button type="button" class="text-left text-xs text-red-700 hover:underline" data-${EVENT_PREFIX}-action="remove-attachment" data-request-no="${escapeHtml(requestNo)}" data-index="${index}" data-skip-page-rerender="true">${state.armedAttachmentIndex === index ? '确认删除附件' : '删除'}</button>`}</span></li>`).join('') : '<li class="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground">暂无附件</li>'}</ul></section>
     <section><h3 class="mb-2 text-sm font-semibold">操作日志</h3><ul class="space-y-2">${logItems}</ul></section>
   </div></section></div>`
 }
@@ -360,25 +378,27 @@ function renderSubOverlay(): string {
   if (!state.subOverlay || !state.detailNo) return ''
   const request = getPmsPaymentRequest(state.detailNo)
   if (!request) return ''
-  const money = (value: number) => formatPmsMoney(value, request.currency === 'USD' ? 'USD' : 'RMB')
+  const money = (value: number) => formatPmsMoney(value, request.currency)
   if (state.subOverlay.kind === 'request') {
     const pending = Math.max(0, request.payableAmount - request.requestedAmount)
-    return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="提交请款" data-pms-pay-request-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">提交请款 · ${escapeHtml(request.requestNo)}</h2><p class="mt-1 text-xs text-slate-500">待请款 ${money(pending)}；累计已请款不得超过应付金额</p>${renderPmsOverlayError(state.overlayError)}<div class="mt-3 grid grid-cols-2 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">本次请款金额<input class="h-9 rounded-md border bg-background px-2 text-sm" type="number" min="0.01" step="0.01" value="${pending}" data-${EVENT_PREFIX}-request-amount data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款日期<input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="2026-06-20" data-${EVENT_PREFIX}-request-date data-skip-page-rerender="true" /></label><label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">财务备注<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填，如请款说明" data-${EVENT_PREFIX}-request-note data-skip-page-rerender="true" /></label></div><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('确认请款', { prefix: EVENT_PREFIX, action: 'submit-request' }, 'check-check')}</footer></section></div>`
+    return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="提交请款" data-pms-pay-request-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">提交请款 · ${escapeHtml(pmsBusinessNumber(request.requestNo))}</h2><p class="mt-1 text-xs text-slate-500">待请款 ${money(pending)}；累计已请款不得超过应付金额</p>${renderPmsOverlayError(state.overlayError)}<div class="mt-3 grid grid-cols-2 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">本次请款金额<input class="h-9 rounded-md border bg-background px-2 text-sm" type="number" min="0.01" step="0.01" value="${pending}" data-${EVENT_PREFIX}-request-amount data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款日期<input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="${new Date().toISOString().slice(0,10)}" data-${EVENT_PREFIX}-request-date data-skip-page-rerender="true" /></label><label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">财务备注<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填，如请款说明" data-${EVENT_PREFIX}-request-note data-skip-page-rerender="true" /></label></div><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('确认请款', { prefix: EVENT_PREFIX, action: 'submit-request' }, 'check-check')}</footer></section></div>`
   }
   if (state.subOverlay.kind === 'pay') {
     const pending = Math.max(0, request.requestedAmount - request.paidAmount)
-    return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="付款登记" data-pms-pay-register-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">付款登记 · ${escapeHtml(request.requestNo)}</h2><p class="mt-1 text-xs text-slate-500">未付金额 ${money(pending)}；付款金额不得超过未付金额</p>${renderPmsOverlayError(state.overlayError)}<div class="mt-3 grid grid-cols-2 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款金额<input class="h-9 rounded-md border bg-background px-2 text-sm" type="number" min="0.01" step="0.01" value="${pending}" data-${EVENT_PREFIX}-pay-amount data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款方式<select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-pay-method data-skip-page-rerender="true">${['银行转账', '承兑', '现金'].map((value) => `<option value="${value}">${value}</option>`).join('')}</select></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款日期<input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="2026-06-20" data-${EVENT_PREFIX}-pay-date data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">凭证号<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="如 BK-20260620-001" data-${EVENT_PREFIX}-pay-voucher data-skip-page-rerender="true" /></label><label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">付款备注<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填" data-${EVENT_PREFIX}-pay-note data-skip-page-rerender="true" /></label></div><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('确认付款', { prefix: EVENT_PREFIX, action: 'submit-pay' }, 'check-check')}</footer></section></div>`
+    return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="付款登记" data-pms-pay-register-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">付款登记 · ${escapeHtml(pmsBusinessNumber(request.requestNo))}</h2><p class="mt-1 text-xs text-slate-500">未付金额 ${money(pending)}；付款金额不得超过未付金额</p>${renderPmsOverlayError(state.overlayError)}<div class="mt-3 grid grid-cols-2 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款金额<input class="h-9 rounded-md border bg-background px-2 text-sm" type="number" min="0.01" step="0.01" value="${pending}" data-${EVENT_PREFIX}-pay-amount data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款方式<select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-pay-method data-skip-page-rerender="true">${['银行转账', '承兑', '现金'].map((value) => `<option value="${value}">${value}</option>`).join('')}</select></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">付款日期<input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="${new Date().toISOString().slice(0,10)}" data-${EVENT_PREFIX}-pay-date data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">凭证号<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="如 BK-20260620-001" data-${EVENT_PREFIX}-pay-voucher data-skip-page-rerender="true" /></label><label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">付款备注<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填" data-${EVENT_PREFIX}-pay-note data-skip-page-rerender="true" /></label></div><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('确认付款', { prefix: EVENT_PREFIX, action: 'submit-pay' }, 'check-check')}</footer></section></div>`
   }
   if (state.subOverlay.kind === 'void') {
-    return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="作废请款单" data-pms-pay-void-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">作废 ${escapeHtml(request.requestNo)}</h2><p class="mt-1 text-xs text-slate-500">作废后释放来源对账，可重新生成请款单；已有付款记录不能作废。</p>${renderPmsOverlayError(state.overlayError)}<label class="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">作废原因（必填）<textarea class="min-h-24 rounded-md border bg-background p-2 text-sm" data-${EVENT_PREFIX}-void-reason data-skip-page-rerender="true"></textarea></label><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('确认作废', { prefix: EVENT_PREFIX, action: 'submit-void' }, 'check-check')}</footer></section></div>`
+    return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="作废请款单" data-pms-pay-void-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">作废 ${escapeHtml(pmsBusinessNumber(request.requestNo))}</h2><p class="mt-1 text-xs text-slate-500">作废后释放请款来源，可重新生成请款单；已有付款记录不能作废。</p>${renderPmsOverlayError(state.overlayError)}<label class="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">作废原因（必填）<textarea class="min-h-24 rounded-md border bg-background p-2 text-sm" data-${EVENT_PREFIX}-void-reason data-skip-page-rerender="true"></textarea></label><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('确认作废', { prefix: EVENT_PREFIX, action: 'submit-void' }, 'check-check')}</footer></section></div>`
   }
-  return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="添加附件" data-pms-pay-attachment-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">添加附件 · ${escapeHtml(request.requestNo)}</h2><p class="mt-1 text-xs text-slate-500">原型仅登记附件名称与上传人时间，不保存真实文件。</p>${renderPmsOverlayError(state.overlayError)}<div class="mt-3 grid grid-cols-2 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">附件名称<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="如 付款回单-0616.jpg" data-${EVENT_PREFIX}-attachment-name data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">附件说明<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填" data-${EVENT_PREFIX}-attachment-description data-skip-page-rerender="true" /></label></div><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('保存附件', { prefix: EVENT_PREFIX, action: 'submit-attachment' }, 'check-check')}</footer></section></div>`
+  return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="添加附件" data-pms-pay-attachment-root><section class="w-full max-w-lg rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">添加附件 · ${escapeHtml(pmsBusinessNumber(request.requestNo))}</h2><p class="mt-1 text-xs text-slate-500">文件保存在本浏览器，可刷新后查看。支持 PDF、图片和表格，最大 20 MB。</p>${renderPmsOverlayError(state.overlayError)}<div class="mt-3 grid grid-cols-2 gap-3"><label class="flex flex-col gap-1 text-xs text-muted-foreground">选择附件<input class="h-9 rounded-md border bg-background px-2 text-sm" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.xls,.xlsx,.csv" data-${EVENT_PREFIX}-field="attachment-file" data-skip-page-rerender="true" /></label><label class="flex flex-col gap-1 text-xs text-muted-foreground">附件说明<input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填" data-${EVENT_PREFIX}-attachment-description data-skip-page-rerender="true" /></label></div><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-sub' }, 'x')}${renderPrimaryButton('保存附件', { prefix: EVENT_PREFIX, action: 'submit-attachment' }, 'check-check')}</footer></section></div>`
 }
 
 function renderOverlays(): string {
   const columnSettings = `<div data-pms-pay-column-overlays>${controller.renderColumnSettings()}</div>`
   const parts = [columnSettings]
+  if(state.choosingSource) parts.push(renderSourceOverlay())
   if (state.draft) parts.push(renderDraftOverlay(state.draft))
+  if(state.previewUrl) parts.push(`<div class="fixed inset-0 z-[70] flex flex-col bg-black/70 p-5" role="dialog" aria-modal="true" aria-label="附件预览"><div class="mb-2 flex justify-end">${renderSecondaryButton('关闭预览',{prefix:EVENT_PREFIX,action:'close-preview'})}</div><iframe class="h-full w-full rounded bg-white" src="${escapeHtml(state.previewUrl)}" title="附件原文件"></iframe></div>`)
   if (state.detailNo) parts.push(renderDetailOverlay(state.detailNo))
   parts.push(renderSubOverlay())
   parts.push(renderPmsImagePreview())
@@ -389,24 +409,38 @@ function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   return renderStandardListPage({
-      showHeader: false,
+      showHeader: true,
     title: pageTitle(),
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: renderFilters(),
-    statsHtml: renderStats(),
+    primaryActionsHtml: `${renderPrimaryButton('新增请款单',{prefix:EVENT_PREFIX,action:'choose-source'},'plus')}`,
+    feedbackHtml: `<div data-pms-pay-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,
+    filtersHtml: `<div data-pms-pay-filters>${renderFilters()}</div>`,
+    statsHtml: `<div data-pms-pay-stats>${renderStats()}</div>`,
     listTitle: `共 ${filteredRows().length} 条`,
-    listActionsHtml: `<div class="flex flex-wrap items-center gap-2"><span class="text-xs text-muted-foreground">未请款可修改备注与附件；部分/已请款仅可补充附件备注；已完成/已作废只读</span>${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2"><span class="text-xs text-muted-foreground">已请款后金额与账户锁定，联系人、说明和附件仍可补充</span>${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-pay-table-surface>${view.tableHtml}</div>`,
     paginationHtml: `<div data-pms-pay-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-pms-pay-overlays>${renderOverlays()}</div>`,
   })
 }
 
-function refreshAll(): void {
-  const root = rootElement()
-  if (!root) return
-  root.innerHTML = renderInner()
-  hydratePmsSurface(root)
+function refreshAll(resetFilters=false): void {
+  controller.refresh({overlays:false})
+  const root=rootElement()
+  const update=(name:string,html:string)=>{const surface=root?.querySelector<HTMLElement>(`[data-pms-pay-${name}]`);if(surface){surface.innerHTML=html;hydratePmsSurface(surface)}}
+  const title=root?.querySelector<HTMLElement>('[data-standard-list-table-section] h2');if(title) title.textContent=`共 ${filteredRows().length} 条`
+  update('stats',renderStats());update('feedback',renderPmsFeedback(state.feedback,state.feedbackOk))
+  if(resetFilters) update('filters',renderFilters())
+  refreshOverlays()
+}
+function preserveInputError():void {
+  const root=rootElement()
+  let alert=root?.querySelector<HTMLElement>('[data-pms-payment-error]')
+  if(!alert && root){alert=document.createElement('p');alert.dataset.pmsPaymentError='';alert.setAttribute('role','alert');alert.className='rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700';const panels=root.querySelectorAll('[role="dialog"] section');panels[panels.length-1]?.prepend(alert)}
+  if(alert) alert.textContent=state.overlayError
+}
+function renderSourceOverlay():string {
+  const rows=listPmsPaymentSourceOptions(state.type)
+  return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="选择请款来源"><section class="flex h-full w-[620px] max-w-[95vw] flex-col bg-white"><header class="border-b p-4 font-semibold">选择请款来源</header><div class="flex-1 space-y-3 overflow-auto p-4">${rows.map(row=>`<label class="flex items-start gap-2 rounded border p-3 text-sm"><input type="checkbox" data-payment-source="${escapeHtml(row.id)}"><span>${escapeHtml(row.label)}<br>${escapeHtml(row.objectName)} · ${formatPmsMoney(row.amount,row.currency)}</span></label>`).join('') || '<p>当前没有可选择的来源。</p>'}</div><footer class="flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-source'})}${renderPrimaryButton('填写请款信息',{prefix:EVENT_PREFIX,action:'adopt-source'})}</footer></section></div>`
 }
 
 function refreshOverlays(): void {
@@ -416,7 +450,7 @@ function refreshOverlays(): void {
   hydratePmsSurface(surface)
 }
 
-function handleSubAction(action: string): boolean {
+async function handleSubAction(action: string): Promise<boolean> {
   const requestNo = state.detailNo
   if (!requestNo) return true
   const overlaySelector = state.subOverlay?.kind === 'request'
@@ -430,12 +464,13 @@ function handleSubAction(action: string): boolean {
   try {
     if (action === 'submit-request') {
       if (!surface) return true
-      const request = submitPmsPaymentRequest(
+      const request = await submitPmsPaymentRequest(
         requestNo,
         readNumberField(surface, `[data-${EVENT_PREFIX}-request-amount]`),
         FINANCE,
         readTextField(surface, `[data-${EVENT_PREFIX}-request-note]`),
         readTextField(surface, `[data-${EVENT_PREFIX}-request-date]`),
+        state.operationId,
       )
       state.feedback = `${requestNo} 已提交请款，当前状态 ${request.status}。`
       state.feedbackOk = true
@@ -446,30 +481,33 @@ function handleSubAction(action: string): boolean {
       const note = readTextField(surface, `[data-${EVENT_PREFIX}-pay-note]`)
       const voucherNo = readTextField(surface, `[data-${EVENT_PREFIX}-pay-voucher]`)
       const paidAt = readTextField(surface, `[data-${EVENT_PREFIX}-pay-date]`)
-      const request = registerPmsPayment(requestNo, { amount, method, note, voucherNo, paidAt }, FINANCE)
+      const request = await registerPmsPayment(requestNo, { amount, method, note, voucherNo, paidAt }, FINANCE,state.operationId)
       state.feedback = `${requestNo} 付款登记成功，付款状态 ${request.paymentStatus}。`
       state.feedbackOk = true
     } else if (action === 'submit-void') {
       if (!surface) return true
       const reason = readTextField(surface, `[data-${EVENT_PREFIX}-void-reason]`)
-      voidPmsPaymentRequest(requestNo, reason, FINANCE)
-      state.feedback = `${requestNo} 已作废，来源对账已释放。`
+      await voidPmsPaymentRequest(requestNo, reason, FINANCE,state.operationId)
+      state.feedback = `${requestNo} 已作废，请款来源已释放。`
       state.feedbackOk = true
       state.detailNo = ''
     } else if (action === 'submit-attachment') {
       if (!surface) return true
-      const name = readTextField(surface, `[data-${EVENT_PREFIX}-attachment-name]`)
+      const file = state.attachmentFile
+      if(!file) throw new Error('选择要保存的附件')
+      const name=file.name
       const description = readTextField(surface, `[data-${EVENT_PREFIX}-attachment-description]`)
-      addPmsPaymentAttachment(requestNo, name, FINANCE, description)
+      await addPmsPaymentAttachment(requestNo, file, FINANCE, description,state.operationId)
       state.feedback = `${requestNo} 已添加附件 ${name}。`
       state.feedbackOk = true
     }
     state.subOverlay = null
+    state.operationId=crypto.randomUUID()
     state.overlayError = ''
     refreshAll()
   } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '操作失败'
-    refreshOverlays()
+    state.overlayError = error instanceof Error ? error.message : '操作未保存'
+    preserveInputError()
   }
   return true
 }
@@ -511,18 +549,18 @@ function readDraftInfo(): PmsPaymentRequestInfoInput {
   }
 }
 
-function createFromDraft(): void {
+async function createFromDraft(): Promise<void> {
   if (!state.draft) return
   try {
-    const request = createPmsPaymentRequestFromDraft(state.draft, FINANCE, readDraftInfo())
+    const request = await createPmsPaymentRequestFromDraft(state.draft, FINANCE, readDraftInfo(),state.operationId)
     state.feedback = `已创建请款单 ${request.requestNo}（${request.objectName} · ${request.payableAmount} ${request.currency}），状态为未请款。`
     state.feedbackOk = true
     state.draft = null
     state.overlayError = ''
     refreshAll()
   } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '创建请款单失败'
-    refreshOverlays()
+    state.overlayError = error instanceof Error ? error.message : '创建请款单未保存'
+    preserveInputError()
   }
 }
 
@@ -536,7 +574,7 @@ function exportRows(): void {
   }
   downloadPmsCsv(
     state.type === 'material' ? '面辅料采购请款.csv' : '物流费用请款.csv',
-    ['请款单', '付款对象', '币种', '应付金额', '已请款', '待请款', '已付款', '请款状态', '付款状态', '来源对账', '附件数', '创建人', '创建时间'],
+    ['请款单', '付款对象', '币种', '应付金额', '已请款', '待请款', '已付款', '请款状态', '付款状态', '请款来源', '附件数', '创建人', '创建时间'],
     rows.map((row) => [row.requestNo, row.objectName, row.currency, row.payableAmount, row.requestedAmount, Math.max(0, row.payableAmount - row.requestedAmount), row.paidAmount, row.status, row.paymentStatus, row.sourceRows.map((source) => source.sourceId).join('、'), row.attachments.length, row.createdBy, row.createdAt]),
   )
   state.feedback = `已导出 ${rows.length} 张请款单（当前查询条件全量）。`
@@ -544,14 +582,14 @@ function exportRows(): void {
   refreshAll()
 }
 
-function renderPage(type: PmsPaymentRequestType): string {
+async function renderPage(type: PmsPaymentRequestType): Promise<string> {
+  try {await Promise.all([hydratePmsPaymentFromIdb(),hydratePmsReconciliationsFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb(),hydratePmsFirstLegFromIdb()])} catch(error) {state.feedback=error instanceof Error?error.message:'用户数据不可读';state.feedbackOk=false}
+  if(state.type!==type){state.keyword='';state.status='';state.paymentStatus='';state.currentPage=1;state.preferencesLoaded=false}
   state.type = type
   state.detailNo = ''
   state.subOverlay = null
   state.armedAttachmentIndex = -1
   state.overlayError = ''
-  state.feedback = ''
-  state.feedbackOk = true
   const consumedDraft = consumePmsPaymentDraft(type)
   if (consumedDraft) state.draft = consumedDraft
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
@@ -559,11 +597,11 @@ function renderPage(type: PmsPaymentRequestType): string {
   return `<div data-pms-pay-root data-skip-page-rerender="true"><style>[data-pms-pay-root] [data-standard-list-scroll] td{vertical-align:top}</style>${renderInner()}</div>`
 }
 
-export function renderPmsMaterialPaymentRequestsPage(): string {
+export function renderPmsMaterialPaymentRequestsPage(): Promise<string> {
   return renderPage('material')
 }
 
-export function renderPmsLogisticsPaymentRequestsPage(): string {
+export function renderPmsLogisticsPaymentRequestsPage(): Promise<string> {
   return renderPage('logistics')
 }
 
@@ -595,7 +633,7 @@ export function closePmsPaymentRequestOverlays(): boolean {
   return false
 }
 
-export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
   if (handlePmsCommonImageEvent(target, event, refreshOverlays)) return true
   if (rootElement() && handleProcessFilterPresentation(rootElement()!, target)) return true
@@ -606,6 +644,7 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   const fieldName = field?.dataset.pmsPayField
   if (field && fieldName) {
+    if(fieldName==='attachment-file'){state.attachmentFile=(field as HTMLInputElement).files?.[0] || null;return true}
     if (fieldName === 'keyword') {
       state.keyword = field.value
       return true
@@ -629,6 +668,11 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
   const action = actionNode?.dataset.pmsPayAction
   if (!action) return false
   if (action !== 'remove-attachment') state.armedAttachmentIndex = -1
+  if (action === 'choose-source'){state.choosingSource=true;state.operationId=crypto.randomUUID();refreshOverlays();return true}
+  if(action==='close-source'){state.choosingSource=false;refreshOverlays();return true}
+  if(action==='adopt-source'){try{const ids=Array.from(rootElement()?.querySelectorAll<HTMLInputElement>('[data-payment-source]:checked') || []).map(row=>row.dataset.paymentSource || '');state.draft=preparePmsPaymentDraftFromSources(state.type,ids);state.choosingSource=false;refreshOverlays()} catch(error){state.overlayError=error instanceof Error?error.message:'来源不可用';preserveInputError()};return true}
+  if(action==='preview-attachment'){try{const attachment=await readPmsPaymentAttachment(actionNode?.dataset.fileId || '');if(!attachment) throw new Error('原文件不可读');if(state.previewUrl) URL.revokeObjectURL(state.previewUrl);state.previewUrl=URL.createObjectURL(attachment.blob);refreshOverlays()}catch(error){state.overlayError=error instanceof Error?error.message:'原文件不可读';preserveInputError()};return true}
+  if(action==='close-preview'){URL.revokeObjectURL(state.previewUrl);state.previewUrl='';refreshOverlays();return true}
   if (action === 'query') {
     state.currentPage = 1
     state.feedback = ''
@@ -641,19 +685,20 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
     state.paymentStatus = ''
     state.currentPage = 1
     state.feedback = ''
-    refreshAll()
+    refreshAll(true)
     return true
   }
   if (action === 'export') {
     exportRows()
     return true
   }
+  if(action==='save-contacts'){const surface=rootElement()?.querySelector<HTMLElement>('[data-pms-pay-detail-root]');if(!surface)return true;const read=(key:string)=>readTextField(surface,`[data-${EVENT_PREFIX}-info-field="${key}"]`);try{await updatePmsPaymentRequestInfo(actionNode?.dataset.requestNo || '',{payee:{contactName:read('payeeContactName'),contactPhone:read('payeeContactPhone')},narrative:{purpose:read('purpose')}},FINANCE,state.operationId);state.feedback='联系人与说明已保存';state.feedbackOk=true;state.operationId=crypto.randomUUID();refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'信息未保存';preserveInputError()}return true}
   if (action === 'save-info') {
     const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-pay-detail-root]')
     if (!surface) return true
     const read = (name: string) => readTextField(surface, `[data-${EVENT_PREFIX}-info-field="${name}"]`)
     try {
-      updatePmsPaymentRequestInfo(actionNode?.dataset.requestNo || '', {
+      await updatePmsPaymentRequestInfo(actionNode?.dataset.requestNo || '', {
         payee: {
           name: read('payeeName'),
           shortName: read('payeeShortName'),
@@ -678,14 +723,15 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
           baseCurrencyAmount: readNumberField(surface, `[data-${EVENT_PREFIX}-info-field="baseCurrencyAmount"]`),
         },
         narrative: { purpose: read('purpose') },
-      }, FINANCE)
+      }, FINANCE,state.operationId)
+      state.operationId=crypto.randomUUID()
       state.feedback = `${actionNode?.dataset.requestNo} 请款信息已保存。`
       state.feedbackOk = true
       state.overlayError = ''
       refreshAll()
     } catch (error) {
-      state.overlayError = error instanceof PmsDomainError ? error.message : '保存请款信息失败'
-      refreshOverlays()
+      state.overlayError = error instanceof Error ? error.message : '请款信息未保存'
+      preserveInputError()
     }
     return true
   }
@@ -699,7 +745,7 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
       return true
     }
     try {
-      removePmsPaymentAttachment(requestNo, index, FINANCE)
+      await removePmsPaymentAttachment(requestNo, index, FINANCE,state.operationId)
       state.feedback = `${requestNo} 附件已删除。`
       state.feedbackOk = true
       state.armedAttachmentIndex = -1
@@ -746,6 +792,7 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
     return true
   }
   if (action === 'open-detail') {
+    state.operationId=crypto.randomUUID()
     state.detailNo = actionNode?.dataset.requestNo || ''
     state.subOverlay = null
     state.overlayError = ''
@@ -753,7 +800,7 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
     return true
   }
   if (action === 'create-request') {
-    createFromDraft()
+    await createFromDraft()
     return true
   }
   if (action === 'discard-draft') {
@@ -763,6 +810,8 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
     return true
   }
   if (action === 'open-request' || action === 'open-pay' || action === 'open-void' || action === 'open-attachment') {
+    state.operationId=crypto.randomUUID()
+    state.attachmentFile=null
     state.subOverlay = { kind: action === 'open-request' ? 'request' : action === 'open-pay' ? 'pay' : action === 'open-void' ? 'void' : 'attachment' }
     state.overlayError = ''
     refreshOverlays()
@@ -778,14 +827,14 @@ export function handlePmsPaymentRequestsEvent(target: HTMLElement, event?: Event
     const root = rootElement()
     if (!root) return true
     try {
-      updatePmsPaymentRemark(actionNode?.dataset.requestNo || '', readTextField(root, `[data-${EVENT_PREFIX}-remark]`), FINANCE)
+      await updatePmsPaymentRemark(actionNode?.dataset.requestNo || '', readTextField(root, `[data-${EVENT_PREFIX}-remark]`), FINANCE,state.operationId)
       state.feedback = `${actionNode?.dataset.requestNo} 备注已保存。`
       state.feedbackOk = true
       state.overlayError = ''
       refreshAll()
     } catch (error) {
-      state.overlayError = error instanceof PmsDomainError ? error.message : '保存备注失败'
-      refreshOverlays()
+      state.overlayError = error instanceof Error ? error.message : '备注未保存'
+      preserveInputError()
     }
     return true
   }

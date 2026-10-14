@@ -1,0 +1,18 @@
+{
+  "changedPaths": [
+    "tests/helpers/pms-memory-idb.ts",
+    "tests/pms-cold-load.spec.ts",
+    "tests/pms-interaction-audit.spec.ts",
+    "tests/pms-style-screenshots.spec.ts"
+  ],
+  "fastChecks": [
+    "npm test",
+    "node --experimental-strip-types --test tests/workflow-governance/pms-retired-test-routes.test.ts"
+  ],
+  "governanceChecks": [],
+  "fullChecks": [
+    "CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/pms-cold-load.spec.ts tests/pms-purchase-chain.spec.ts tests/pms-material-flow.spec.ts tests/pms-master-data.spec.ts tests/pms-settlement-flow.spec.ts tests/pms-peripheral.spec.ts --workers=1 --reporter=line"
+  ],
+  "unknownPaths": [],
+  "escalationReasons": []
+}

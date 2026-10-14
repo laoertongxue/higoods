@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "title": "原独立基础审查3条问题修复闭环",
+  "reviewer": "/root/prototype_inventory",
+  "requestedBy": "/root",
+  "completedAt": "2026-10-13T14:56:07.819920+00:00",
+  "scope": "原ROOT-FOUNDATION-001/002/003的原复现闭环；不构成第二个新审查",
+  "result": "3 findings closed by source and isolated replay",
+  "originalReview": {
+    "path": "/tmp/pms-root-foundation-review.json",
+    "sha256": "9c855973a77b2fff338a40005f86d82192174524a68a20516ebd05f7cfaa2585",
+    "bytes": 18591
+  },
+  "sourceWritten": false,
+  "workspaceDocsWritten": false,
+  "subagentsSpawned": false,
+  "externalSiteAccessed": false,
+  "realBrowserStorageWritten": false,
+  "findingClosures": [
+    {
+      "findingId": "ROOT-FOUNDATION-001",
+      "status": "closed",
+      "verifiedBy": "same independent reviewer /root/prototype_inventory",
+      "verification": "current source + isolated original reproduction replay",
+      "observations": [
+        {
+          "findingId": "ROOT-FOUNDATION-001",
+          "mode": "constructor",
+          "result": "closed",
+          "observed": {
+            "resolved": true,
+            "replayed": false,
+            "persisted": {
+              "supplierCode": "CLOSURE-BC-constructor",
+              "supplierName": "success_after_complete",
+              "_pmsBaseVersion": 1
+            }
+          },
+          "passed": true
+        },
+        {
+          "findingId": "ROOT-FOUNDATION-001",
+          "mode": "postmessage",
+          "result": "closed",
+          "observed": {
+            "resolved": true,
+            "replayed": false,
+            "persisted": {
+              "supplierCode": "CLOSURE-BC-postmessage",
+              "supplierName": "success_after_complete",
+              "_pmsBaseVersion": 1
+            }
+          },
+          "passed": true
+        }
+      ],
+      "productionBrowserAcceptance": false
+    },
+    {
+      "findingId": "ROOT-FOUNDATION-002",
+      "status": "closed",
+      "verifiedBy": "same independent reviewer /root/prototype_inventory",
+      "verification": "current source + isolated original reproduction replay",
+      "observations": [
+        {
+          "findingId": "ROOT-FOUNDATION-002",
+          "result": "closed",
+          "observed": {
+            "staleVersion": 1,
+            "staleRejected": true,
+            "persisted": {
+              "supplierCode": "CLOSURE-STALE",
+              "supplierName": "fresh_saved_A",
+              "_pmsBaseVersion": 2
+            }
+          },
+          "passed": true
+        }
+      ],
+      "productionBrowserAcceptance": false
+    },
+    {
+      "findingId": "ROOT-FOUNDATION-003",
+      "status": "closed",
+      "verifiedBy": "same independent reviewer /root/prototype_inventory",
+      "verification": "current source + isolated original reproduction replay",
+      "observations": [
+        {
+          "findingId": "ROOT-FOUNDATION-003",
+          "result": "closed",
+          "observed": {
+            "duplicateOwnerRejected": true,
+            "files": 0,
+            "references": 0,
+            "ownerAbsent": true,
+            "receiptAbsent": true
+          },
+          "passed": true
+        }
+      ],
+      "productionBrowserAcceptance": false
+    }
+  ],
+  "additionalRegressionChecks": [
+    {
+      "id": "BLOB-REGRESSION",
+      "sameBytesReplay": true,
+      "changedSameNameSameSizeBytesRejected": true,
+      "originalBytesRetained": "AB",
+      "passed": true
+    },
+    {
+      "id": "IDENTITY-REGRESSION",
+      "emptyWhitespaceNonfiniteKeysRejected": true,
+      "passed": true
+    }
+  ],
+  "verificationSummary": {
+    "originalFindings": 3,
+    "closed": 3,
+    "replayAssertionsGroups": 6,
+    "replayPass": 6,
+    "replayFail": 0,
+    "nodeProcesses": 2,
+    "optionalNotificationConstructorAndPostMessageTested": true,
+    "rootProvidedSharedContracts": {
+      "passed": 8,
+      "failed": 0,
+      "log": "/tmp/pms-storage-foundation-review-fixes.log"
+    },
+    "sameReviewerNotNewDelegation": true
+  },
+  "sourceFixSummary": {
+    "notification": "getBroadcastChannel catches construction; broadcastPmsDataChanged catches postMessage after completed writes without rejecting save.",
+    "legacyVersion": "pmsPutWithVersion takes explicit value._pmsBaseVersion before known version fallback; stale v1 now rejects and fresh v2 remains.",
+    "duplicateOwner": "pmsCommitRecords rejects repeated attachment owner before transaction via PMS_IDB_ATTACHMENT_DUPLICATE_OWNER; owner/receipt/Blob/ref all remain absent.",
+    "identity": "empty/whitespace/nonfinite business keys rejected; normal linked Blob replay and changed-byte rejection preserved."
+  },
+  "sourceManifest": [
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/idb-storage.ts",
+      "sha256": "9e923269de87d055610794db9523d39400d3aa7e0d7526c93e6577dcfb966d13",
+      "bytes": 41916,
+      "changedSinceOriginalReview": true
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/runtime.ts",
+      "sha256": "b4bd6dbf5cf6581caf18b628b417e2322944741e51ef6199408685c091a66523",
+      "bytes": 6483,
+      "changedSinceOriginalReview": false
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/main-handlers/pms-handlers.ts",
+      "sha256": "e1fc0c7616948c41a63482b8fe04ab24f74190f8eb8013d8f341d0947baf1da3",
+      "bytes": 7655,
+      "changedSinceOriginalReview": false
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/main.ts",
+      "sha256": "daa695aa125615832b05e16710108310e7569dd99e143d9f29cba2f40df9ff02",
+      "bytes": 116894,
+      "changedSinceOriginalReview": false
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/shared.ts",
+      "sha256": "2c1e9355de0d732ceec18176c2e0bdfca9dad7100e6c9f3eb35e188e207fb40e",
+      "bytes": 13758,
+      "changedSinceOriginalReview": false
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/components/pms-storage-panel.ts",
+      "sha256": "85bc68198642a9ca1d8cccc1792c43bf5bcf85fe4dfa9e2d9cf25e1e31ab8c32",
+      "bytes": 6777,
+      "changedSinceOriginalReview": false
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/components/shell.ts",
+      "sha256": "155067ce456ff90f5c94803517baac4aee93d57f968f3bbc6101fb787cb0e6ca",
+      "bytes": 15290,
+      "changedSinceOriginalReview": false
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/icons/shell-icons.ts",
+      "sha256": "465e7475d852d25074b134330402fc7ebe97cbef5c448e2bb1114eab140d9e3f",
+      "bytes": 4765,
+      "changedSinceOriginalReview": false
+    }
+  ],
+  "evidenceManifest": [
+    {
+      "path": "/tmp/pms-root-foundation-review.json",
+      "sha256": "9c855973a77b2fff338a40005f86d82192174524a68a20516ebd05f7cfaa2585",
+      "bytes": 18591
+    },
+    {
+      "path": "/tmp/pms-root-foundation-closure-repro.mts",
+      "sha256": "54504871e3358fa2b9fad18ba7db485b903e3f04144d39c09fcd7c22f1c4ca24",
+      "bytes": 5633
+    },
+    {
+      "path": "/tmp/pms-root-foundation-closure-constructor.json",
+      "sha256": "89b125058f1e3259cf55cce8402eabfa52dc442c42b9eb1ce2f7ffc851527737",
+      "bytes": 1470
+    },
+    {
+      "path": "/tmp/pms-root-foundation-closure-postmessage.json",
+      "sha256": "a979476417923f118a86342de90ce79534d7bcf8c1725bc38802f9efed7bf51e",
+      "bytes": 550
+    },
+    {
+      "path": "/tmp/pms-root-foundation-closure-constructor.log",
+      "sha256": "f1bf7b5b11b0a511d304171727623d5a7c016cc1bb9e38cb8405f79410d74bb9",
+      "bytes": 816
+    },
+    {
+      "path": "/tmp/pms-root-foundation-closure-postmessage.log",
+      "sha256": "411179bee2fa6d3e43784a1b944092d17ccc84830b3f9425640567850fdfc5d0",
+      "bytes": 715
+    },
+    {
+      "path": "/tmp/pms-storage-foundation-review-fixes.log",
+      "sha256": "f6903c884a9cb5ee3d18f016c9a96b11c82cad1eca9e8b2220949e0c2890f7a1",
+      "bytes": 1906
+    }
+  ],
+  "limitations": [
+    "Node内存IDB只证明隔离API契约，不替代root最终Chrome、生产preview、设备或性能验收。",
+    "没有修改原始review JSON/MD及其SHA；它们保留原发现版本身份，本closure另行绑定最新root 8文件SHA。",
+    "PMS下载helper变更不属于原3条审查；appendDOM/1500ms延迟的真实下载仍由root现场验证，本报告不宣称下载成功。"
+  ],
+  "harnessRepairNote": "闭环脚本首次对重复owner错误码名称的猜测与实际声明不同；据当前源码更正断言至PMS_IDB_ATTACHMENT_DUPLICATE_OWNER后原重放全部通过，产品源码未修改。"
+}

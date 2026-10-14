@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-10-13T14:31:03.059761+00:00",
+  "dbVersion": 3,
+  "environment": "Chrome actual IndexedDB, local development diagnostic, 127.0.0.1:5250 sender /5253 blank restore /5254 legacy upgrade, HMR false restarted before byte-guard checks",
+  "scope": "shared persistence only; frozen production page acceptance separately",
+  "source": {
+    "src/data/pms/idb-storage.ts": "8ba6ece2cdae9e9266439b7f793b5247747a9117e3da90021c17c79225ea29b2",
+    "src/data/pms/runtime.ts": "b4bd6dbf5cf6581caf18b628b417e2322944741e51ef6199408685c091a66523",
+    "pms-storage-checks.html": "b9822f6c043073a448165a5461c191e23edc2c0b9d0b4bc5d3a9ed572f6502ed"
+  },
+  "artifacts": {
+    "storage-final-backup-errors.json": "9daf185f165e0ce90737027c824cb152c8f5b2fd62b955704e8c25c83fde6b15",
+    "storage-contract-fixture-after-file-guard.html": "b9822f6c043073a448165a5461c191e23edc2c0b9d0b4bc5d3a9ed572f6502ed",
+    "storage-reopen.json": "fab7adbb9ff0372d700b512e443d6ca2b542064abb310178ab17dd79ad6298b1",
+    "storage-final-restore.json": "976f1d018c0f4f04cf93e4e99247dfc91772ac3f15bfd982d69ffd8ab4edf5e0",
+    "storage-final-upgrade.json": "d2ae23d373ac5ec64748dfbb37fb7b0eaf5126e2a5f01536ed61eee96bbf08f4",
+    "storage-after-byte-guard.json": "539e44480e8c1fbedeac823ed786990aa2140860447a7bec5c43121e3f4045df",
+    "storage-after-byte-guard.png": "e9de5ed7957e5a771adc7478132aac20b9ace4fa6a294308e0f98b819269b7cb",
+    "storage-backup.json": "9daf185f165e0ce90737027c824cb152c8f5b2fd62b955704e8c25c83fde6b15",
+    "storage-contracts.json": "c3c6d28441fbea930dd03355cb6218d175271425aeb4bd911bc29d85cfaacaad",
+    "storage-contracts.png": "5667fafe1e35da34de4b5568035de1dfd47ed73ea7ff28b655e8c1ceac9c8682",
+    "storage-final-reload.json": "33f7ba22ccfe54e12eb9c212463f2ae078725faa07b299aa53a9e0db44407e42",
+    "storage-restored.json": "976f1d018c0f4f04cf93e4e99247dfc91772ac3f15bfd982d69ffd8ab4edf5e0",
+    "storage-contract-fixture.html": "e2d67f8b2e5e647736102e10f4529df91d6c1627120d05ffcc4a84a59819e73f",
+    "storage-upgrade.json": "d2ae23d373ac5ec64748dfbb37fb7b0eaf5126e2a5f01536ed61eee96bbf08f4",
+    "storage-reload.json": "33f7ba22ccfe54e12eb9c212463f2ae078725faa07b299aa53a9e0db44407e42"
+  }
+}

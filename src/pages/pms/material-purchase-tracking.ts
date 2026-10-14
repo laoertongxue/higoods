@@ -1,3 +1,4 @@
+import { pmsBusinessNumber } from '../../utils/pms-business-number.ts'
 // @page-pattern: list
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
 import { handleProcessFilterPresentation, renderProcessFilterToggle, renderProcessOrderStats, renderProcessSelectionHeader, syncProcessSelectionHeader } from '../../components/ui/process-order-list-presentation.ts'
@@ -7,12 +8,15 @@ import type { StandardListColumn } from '../../components/ui/list-table.ts'
 import { resetStandardListEntryTransientStateOnRouteEntry } from '../../components/ui/list-table-model.ts'
 import {
   listPmsMaterialLogisticsRecords,
+  hydratePmsMaterialPurchaseOrdersFromIdb,
   signPmsMaterialLogistics,
   type PmsMaterialLogisticsRecord,
 } from '../../data/pms/material-purchase-orders.ts'
-import { getPmsMaterial } from '../../data/pms/materials.ts'
+import { getPurchaseMaterialReference } from '../../data/pms/canonical-purchase-references.ts'
 import {
   createPmsFirstLegBatch,
+  addPmsFirstLegBatchAllocations,
+  hydratePmsFirstLegFromIdb,
   isPmsLogisticsJoinable,
   listPmsFirstLegBatches,
   listPmsFirstLegCarriers,
@@ -37,7 +41,7 @@ import {
   renderPmsStatusBadge,
 } from './shared.ts'
 
-type TrackingOverlay = null | { kind: 'join'; recordNos: string[]; clientActionId: string }
+type TrackingOverlay = null | { kind: 'join'|'sign'; recordNos: string[]; clientActionId: string }
 
 interface TrackingPageState extends ProcessOrderListControllerState {
   keyword: string
@@ -56,7 +60,7 @@ const ROOT_SELECTOR = '[data-pms-mtrk-root]'
 const state: TrackingPageState = {
   currentPage: 1,
   sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
+  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 5 },
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
@@ -109,7 +113,7 @@ const columns: StandardListColumn<PmsMaterialLogisticsRecord>[] = [
     width: 260,
     required: true,
     freezeable: true,
-    render: (row) => `<div class="flex items-center gap-3">${renderPmsBusinessImage(row.materialImageUrl, `${row.materialName}（${row.materialCode}）实物图`, 'h-11 w-11')}<div><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="text-xs text-slate-500">${escapeHtml(row.purchaseOrderNo)} · ${escapeHtml(row.unit)}</div><div class="mt-1 flex items-center gap-2 text-xs text-slate-500">${renderPmsBusinessImage(row.styleImageUrl, `${row.styleName}款式图`, 'h-6 w-6')}<span>${escapeHtml(row.styleName)}</span></div></div></div>`,
+    render: (row) => `<div class="flex items-center gap-3">${renderPmsBusinessImage(row.materialImageUrl, `${row.materialName}（${row.materialCode}）实物图`, 'h-11 w-11')}<div><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="text-xs text-slate-500">${escapeHtml(pmsBusinessNumber(row.purchaseOrderNo))} · ${escapeHtml(row.unit)}</div><div class="mt-1 flex items-center gap-2 text-xs text-slate-500">${row.styleName && row.styleImageUrl?renderPmsBusinessImage(row.styleImageUrl, `${row.styleName}款式图`, 'h-6 w-6'):''}<span>${escapeHtml(row.styleName)}</span></div></div></div>`,
   },
   {
     key: 'domestic',
@@ -146,7 +150,7 @@ const controller = createProcessOrderListController({
   state,
   columns,
   preferenceKey: 'higood:list:/pms/material-purchase-tracking',
-  pageSizeOptions: [10, 20, 50],
+  pageSizeOptions: [5, 10, 20, 50],
   eventPrefix: EVENT_PREFIX,
   rootSelector: ROOT_SELECTOR,
   tableSurfaceSelector: '[data-pms-mtrk-table-surface]',
@@ -178,7 +182,7 @@ function syncBatchButtons(): void {
 }
 
 function materialThumbnailUrl(record: PmsMaterialLogisticsRecord): string {
-  return getPmsMaterial(record.materialCode)?.imageUrl ?? record.materialImageUrl
+  return getPurchaseMaterialReference(record.materialCode)?.imageUrl ?? record.materialImageUrl
 }
 
 function renderFilters(): string {
@@ -220,16 +224,17 @@ function renderJoinOverlay(recordNos: string[]): string {
     .map((record) => {
       const remainingQty = Math.max(0, record.qty - record.headLogisticsQty)
       const remainingRolls = Math.max(0, record.rolls - record.headLogisticsRolls)
-      return `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm">${escapeHtml(record.trackingNo)}</td><td class="px-3 py-2 text-sm"><div class="flex items-center gap-3">${renderPmsBusinessImage(materialThumbnailUrl(record), `${record.materialName}（${record.materialCode}）实物图`, 'h-10 w-10')}<div><div class="font-medium">${escapeHtml(record.materialName)}</div><div class="text-xs text-slate-500">${escapeHtml(record.purchaseOrderNo)}</div></div></div></td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsQty(remainingQty, record.unit)}</td><td class="px-3 py-2 text-sm tabular-nums">${remainingRolls}</td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="0" step="0.01" value="${remainingQty}" data-${EVENT_PREFIX}-join-qty="${escapeHtml(record.recordNo)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2"><input class="h-8 w-20 rounded-md border px-2 text-sm" type="number" min="0" step="1" value="${remainingRolls}" data-${EVENT_PREFIX}-join-rolls="${escapeHtml(record.recordNo)}" data-skip-page-rerender="true" /></td></tr>`
+      return `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm">${escapeHtml(record.trackingNo)}</td><td class="px-3 py-2 text-sm"><div class="flex items-center gap-3">${renderPmsBusinessImage(materialThumbnailUrl(record), `${record.materialName}（${record.materialCode}）实物图`, 'h-10 w-10')}<div><div class="font-medium">${escapeHtml(record.materialName)}</div><div class="text-xs text-slate-500">${escapeHtml(pmsBusinessNumber(record.purchaseOrderNo))}</div></div></div></td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsQty(remainingQty, record.unit)}</td><td class="px-3 py-2 text-sm tabular-nums">${remainingRolls}</td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="0" step="0.01" value="${remainingQty}" data-${EVENT_PREFIX}-join-qty="${escapeHtml(record.recordNo)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2"><input class="h-8 w-20 rounded-md border px-2 text-sm" type="number" min="0" step="1" value="${remainingRolls}" data-${EVENT_PREFIX}-join-rolls="${escapeHtml(record.recordNo)}" data-skip-page-rerender="true" /></td></tr>`
     })
     .join('')
   return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="加入头程" data-pms-mtrk-join-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭加入头程"></button><section class="relative z-10 flex h-full w-[880px] max-w-[96vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">加入头程物流单</h2><p class="mt-1 text-xs text-slate-500">已选 ${records.length} 条国内物流；加入数量必须在 0 到剩余数量之间，卷数必须是非负整数</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="flex-1 space-y-4 overflow-y-auto p-4">${renderPmsOverlayError(state.overlayError)}
+    <label class="block text-sm">已有待起运批次<select class="mt-1 h-9 w-full rounded border px-2" data-pms-mtrk-existing-batch><option value="">创建新批次</option>${listPmsFirstLegBatches().filter(batch=>batch.status==='待起运').map(batch=>`<option value="${escapeHtml(batch.batchNo)}">${escapeHtml(batch.batchNo)} · ${escapeHtml(batch.batchName)}</option>`).join('')}</select></label>
     <div class="grid grid-cols-2 gap-3">
       <label class="flex flex-col gap-1 text-xs text-muted-foreground">头程物流单号
         <input class="h-9 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(defaultBatchNo)}" data-${EVENT_PREFIX}-join-field="batchNo" data-skip-page-rerender="true" />
       </label>
       <label class="flex flex-col gap-1 text-xs text-muted-foreground">计划起运日期
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="2026-06-20" data-${EVENT_PREFIX}-join-field="plannedShipDate" data-skip-page-rerender="true" />
+        <input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="${new Date().toISOString().slice(0,10)}" data-${EVENT_PREFIX}-join-field="plannedShipDate" data-skip-page-rerender="true" />
       </label>
       <label class="flex flex-col gap-1 text-xs text-muted-foreground">头程物流商
         <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-join-field="carrierId" data-skip-page-rerender="true">${carrierOptions}</select>
@@ -245,12 +250,13 @@ function renderJoinOverlay(recordNos: string[]): string {
       </label>
     </div>
     <div class="overflow-x-auto rounded-lg border"><table class="w-full table-fixed text-left" style="min-width: 760px"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物流单号</th><th class="px-3 py-2">物料 / 采购单</th><th class="px-3 py-2">剩余数量</th><th class="px-3 py-2">剩余卷数</th><th class="px-3 py-2">加入数量</th><th class="px-3 py-2">加入卷数</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-  </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('创建头程单', { prefix: EVENT_PREFIX, action: 'submit-join' }, 'check-check')}</footer></section></div>`
+  </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('确认加入头程', { prefix: EVENT_PREFIX, action: 'submit-join' }, 'check-check')}</footer></section></div>`
 }
 
 function renderOverlays(): string {
   const columnSettings = `<div data-pms-mtrk-column-overlays>${controller.renderColumnSettings()}</div>`
   if (!state.overlay) return `${columnSettings}${renderPmsImagePreview()}`
+  if(state.overlay.kind==='sign')return `${columnSettings}<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label="国内物流签收"><section class="w-full max-w-lg space-y-4 rounded-lg bg-white p-5"><h2 class="font-semibold">签收 ${state.overlay.recordNos.length} 条国内物流</h2><p class="text-sm">核对物流单与实收后登记签收公司及日期，签收后可加入头程。</p><label class="block text-sm">签收公司<input class="mt-1 h-9 w-full rounded border px-2" data-sign-company></label><label class="block text-sm">签收日期<input type="date" value="${new Date().toISOString().slice(0,10)}" class="mt-1 h-9 w-full rounded border px-2" data-sign-date></label><footer class="flex justify-end gap-2">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('确认签收',{prefix:EVENT_PREFIX,action:'submit-sign'})}</footer></section></div>${renderPmsImagePreview()}`
   return `${columnSettings}${renderJoinOverlay(state.overlay.recordNos)}${renderPmsImagePreview()}`
 }
 
@@ -258,11 +264,11 @@ function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   return renderStandardListPage({
-      showHeader: false,
+      showHeader: true,
     title: '面辅料采购跟踪',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: renderFilters(),
-    statsHtml: renderStats(),
+    feedbackHtml: `<div data-pms-mtrk-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,
+    filtersHtml: `<div data-pms-mtrk-filters>${renderFilters()}</div>`,
+    statsHtml: `<div data-pms-mtrk-stats>${renderStats()}</div>`,
     listTitle: `共 ${filteredRows().length} 条${state.selectedRecordNos.length ? ` · 已选 ${state.selectedRecordNos.length} 条` : ''}`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2"><span class="text-xs text-muted-foreground">国内物流签收后才能加入头程；头程到仓自动签收</span><span class="text-xs text-muted-foreground" data-pms-mtrk-selected-count>已选 ${state.selectedRecordNos.length} 条</span>${renderSecondaryButton('批量签收（国内）', { prefix: EVENT_PREFIX, action: 'batch-sign' }, 'list-checks').replace('<button', `<button ${state.selectedRecordNos.length === 0 ? 'disabled' : ''}`)}${renderPrimaryButton('加入头程', { prefix: EVENT_PREFIX, action: 'open-join' }, 'check-check').replace('<button', `<button ${state.selectedRecordNos.length === 0 ? 'disabled' : ''}`)}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-mtrk-table-surface>${view.tableHtml}</div>`,
@@ -271,12 +277,20 @@ function renderInner(): string {
   })
 }
 
-function refreshAll(): void {
-  const root = rootElement()
-  if (!root) return
-  root.innerHTML = renderInner()
-  hydratePmsSurface(root)
-  syncProcessSelectionHeader(root)
+function refreshAll(resetFilters=false):void {
+  const root=rootElement();if(!root) return
+  controller.refresh({overlays:false})
+  const update=(part:string,html:string)=>{const region=root.querySelector<HTMLElement>(`[data-pms-mtrk-${part}]`);if(region){region.innerHTML=html;hydratePmsSurface(region)}}
+  const title=root.querySelector<HTMLElement>('[data-standard-list-table-section] h2');if(title) title.textContent=`共 ${filteredRows().length} 条`
+  update('stats',renderStats());update('feedback',renderPmsFeedback(state.feedback,state.feedbackOk));if(resetFilters) update('filters',renderFilters())
+  refreshOverlays();syncProcessSelectionHeader(root)
+}
+function preserveEditingError():void {
+  const root=rootElement();if(!root) return
+  const panel=root.querySelector('[role="dialog"] section')
+  let alert=panel?.querySelector<HTMLElement>('[data-pms-edit-error]')
+  if(!alert && panel){alert=document.createElement('p');alert.dataset.pmsEditError='';alert.className='rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700';alert.setAttribute('role','alert');panel.prepend(alert)}
+  if(alert) alert.textContent=state.overlayError
 }
 
 function refreshOverlays(): void {
@@ -322,7 +336,7 @@ function exportRows(): void {
   refreshAll()
 }
 
-function submitJoin(recordNos: string[]): void {
+async function submitJoin(recordNos: string[]): Promise<void> {
   const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-mtrk-join-root]')
   if (!surface) return
   const batchNo = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-join-field="batchNo"]`)
@@ -337,7 +351,8 @@ function submitJoin(recordNos: string[]): void {
     rolls: readNumberField(surface as ParentNode, `[data-${EVENT_PREFIX}-join-rolls="${recordNo}"]`),
   }))
   try {
-    const batch = createPmsFirstLegBatch(
+    const existingBatch=surface.querySelector<HTMLSelectElement>('[data-pms-mtrk-existing-batch]')?.value || ''
+    const batch = existingBatch?await addPmsFirstLegBatchAllocations(existingBatch,allocations,PMS_BUYER_ACTOR,state.overlay!.clientActionId):await createPmsFirstLegBatch(
       {
         batchNo,
         batchName: '',
@@ -351,6 +366,7 @@ function submitJoin(recordNos: string[]): void {
         allocations,
       },
       PMS_BUYER_ACTOR,
+      state.overlay?.clientActionId,
     )
     state.feedback = `已创建头程物流单 ${batch.batchNo}（${batch.records.length} 条物流），可在“头程物流”继续装柜与出运。`
     state.feedbackOk = true
@@ -360,11 +376,12 @@ function submitJoin(recordNos: string[]): void {
     refreshAll()
   } catch (error) {
     state.overlayError = error instanceof PmsDomainError ? error.message : '创建头程物流单失败'
-    refreshOverlays()
+    preserveEditingError()
   }
 }
 
-export function renderPmsMaterialPurchaseTrackingPage(): string {
+export async function renderPmsMaterialPurchaseTrackingPage(): Promise<string> {
+  try{await Promise.all([hydratePmsMaterialPurchaseOrdersFromIdb(),hydratePmsFirstLegFromIdb()])}catch(error){state.feedback=error instanceof Error?error.message:'用户数据不可读';state.feedbackOk=false}
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   controller.installColumnDragEvents()
   return `<div data-pms-mtrk-root data-skip-page-rerender="true"><style>[data-pms-mtrk-root] [data-standard-list-scroll] td{vertical-align:top}</style>${renderInner()}</div>`
@@ -385,7 +402,7 @@ export function closePmsMaterialPurchaseTrackingOverlays(): boolean {
   return false
 }
 
-export function handlePmsMaterialPurchaseTrackingEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePmsMaterialPurchaseTrackingEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
   if (handlePmsCommonImageEvent(target, event, refreshOverlays)) return true
   if (rootElement() && handleProcessFilterPresentation(rootElement()!, target)) return true
@@ -476,7 +493,7 @@ export function handlePmsMaterialPurchaseTrackingEvent(target: HTMLElement, even
     state.selectedRecordNos = []
     state.currentPage = 1
     state.feedback = ''
-    refreshAll()
+    refreshAll(true)
     return true
   }
   if (action === 'export') {
@@ -516,34 +533,8 @@ export function handlePmsMaterialPurchaseTrackingEvent(target: HTMLElement, even
     controller.refresh()
     return true
   }
-  if (action === 'sign-domestic') {
-    const recordNo = actionNode?.dataset.recordNo || ''
-    try {
-      signPmsMaterialLogistics([recordNo], 'domestic', PMS_BUYER_ACTOR)
-      state.feedback = `物流记录 ${recordNo} 已国内签收。`
-      state.feedbackOk = true
-      refreshAll()
-    } catch (error) {
-      state.feedback = error instanceof PmsDomainError ? error.message : '签收失败'
-      state.feedbackOk = false
-      refreshAll()
-    }
-    return true
-  }
-  if (action === 'batch-sign') {
-    try {
-      const signed = signPmsMaterialLogistics([...state.selectedRecordNos], 'domestic', PMS_BUYER_ACTOR)
-      state.feedback = `已批量签收 ${signed.length} 条国内物流。`
-      state.feedbackOk = true
-      state.selectedRecordNos = []
-      refreshAll()
-    } catch (error) {
-      state.feedback = error instanceof PmsDomainError ? error.message : '批量签收失败'
-      state.feedbackOk = false
-      refreshAll()
-    }
-    return true
-  }
+  if(action==='sign-domestic' || action==='batch-sign'){const ids=action==='sign-domestic'?[actionNode?.dataset.recordNo || '']:[...state.selectedRecordNos];const rows=ids.map(id=>listPmsMaterialLogisticsRecords().find(row=>row.recordNo===id));if(!ids.length || rows.some(row=>!row || row.domesticSigned)){state.feedback='选择全部未签收的国内物流';state.feedbackOk=false;refreshAll();return true}state.overlay={kind:'sign',recordNos:ids,clientActionId:crypto.randomUUID()};state.overlayError='';refreshOverlays();return true}
+  if(action==='submit-sign' && state.overlay?.kind==='sign'){const overlay=state.overlay,company=rootElement()?.querySelector<HTMLInputElement>('[data-sign-company]')?.value || '',signedDate=rootElement()?.querySelector<HTMLInputElement>('[data-sign-date]')?.value || '';try{await signPmsMaterialLogistics(overlay.recordNos,'domestic',PMS_BUYER_ACTOR,overlay.clientActionId,{company,signedDate});state.feedback=`已签收 ${overlay.recordNos.length} 条国内物流`;state.feedbackOk=true;state.selectedRecordNos=[];state.overlay=null;refreshAll()}catch(error){state.overlayError=error instanceof Error?error.message:'签收未保存';preserveEditingError()}return true}
   if (action === 'join-head') {
     state.overlay = { kind: 'join', recordNos: [actionNode?.dataset.recordNo || ''], clientActionId: nextPmsActionId('pms-mtrk-join') }
     state.overlayError = ''
@@ -562,7 +553,7 @@ export function handlePmsMaterialPurchaseTrackingEvent(target: HTMLElement, even
     return true
   }
   if (action === 'submit-join') {
-    if (state.overlay?.kind === 'join') submitJoin(state.overlay.recordNos)
+    if (state.overlay?.kind === 'join') await submitJoin(state.overlay.recordNos)
     return true
   }
   return false

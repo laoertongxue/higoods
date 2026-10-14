@@ -1,0 +1,58 @@
+{
+  "createdAt": "2026-10-13T23:22:02.961433+00:00",
+  "scope": "仅 tests/pms-purchase-chain.spec.ts 的 V16 第4/5失败；未改 src/配置/其他测试，未派下级",
+  "file": "/Users/laoer/.codex/worktrees/7eaf/higoods/tests/pms-purchase-chain.spec.ts",
+  "beforeTaskSha256": "4d8c423f2cf9fbaf4b9ffb4da69c8dbfc826936c026a3c31e647fb77cb41c97f",
+  "afterSha256": "e04d4d55c9bd8fa87dbf68ca632d69ff6d3e866d3b8dfa0cc2e43a0cc6ac02f2",
+  "incrementalDiff": "/tmp/pms-v16-structure-status-test-fixes-20261014.diff",
+  "incrementalDiffSha256": "72883a3d8f69a6886c2b171e3f7a8a1af72ea1b60e7a21bb421baf605913f08c",
+  "findings": [
+    {
+      "case": "正常拆分与合并保持SKU数量金额守恒并持久追溯原单",
+      "cause": "测试对 merged.sourceOrderNos 调用原地 sort()，修改了后来用于 wholeobject 精确比较的 expected 快照；IDB仍保留真实来源顺序",
+      "fix": "集合比较用副本 sort；expectFreshDetail raw持久完整对象 toEqual 原样保留",
+      "productBug": false
+    },
+    {
+      "case": "两选批量字段、审核和驳回均直接回读；禁止状态保持原对象",
+      "cause": "首次批量保存后列表操作 details 仍展开；第二次 helper 无条件点击 summary 将其收起，按钮存在但不可见",
+      "fix": "仅无 open 属性时展开；新增按钮可见断言后正常 click，不 force，不跳过",
+      "productBug": false
+    }
+  ],
+  "preservedAssertions": [
+    "SKU数量与金额守恒",
+    "子单/合并来源与原单关闭事实",
+    "wholeobject raw持久刷新精确一致",
+    "两对象批量字段各自保存与共同操作事实",
+    "审核/理由驳回/状态",
+    "禁止状态持久数据和日志不变"
+  ],
+  "environment": {
+    "origin": "http://127.0.0.1:5395",
+    "frozenPreviewOutDir": "/tmp/pms-final-prod-v16-20261014",
+    "workers": 1,
+    "preview": true,
+    "reuseServer": false,
+    "noParallelPerformance": true
+  },
+  "execution": {
+    "commandGrep": "正常拆分与合并保持SKU数量金额守恒|两选批量字段、审核和驳回",
+    "passed": 2,
+    "failed": 0,
+    "durationSeconds": 13.1,
+    "log": "/tmp/pms-v16-recheck-5395-structure-status.log",
+    "logSha256": "d848d5a915a9fc12239b5989aa577c5f603d24bdf9d776200b4dc2614142d45a",
+    "artifacts": "/tmp/pms-v16-recheck-5395-structure-status"
+  },
+  "checks": [
+    "git diff --check 通过",
+    "两个失败case真实重跑通过；未重跑其它已通过项或剩余3项"
+  ],
+  "priorFailurePreserved": "/tmp/pms-final-local-browser-v16-remaining-20261014.log",
+  "previousReportsPreserved": [
+    "/tmp/pms-v16-two-case-fix-report-20261014.json",
+    "/tmp/pms-purchase-chain-spec-authoring-20261014.json"
+  ],
+  "stop": "浏览器运行结束，停止写入；root继续剩余3项"
+}

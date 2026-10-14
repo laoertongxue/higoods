@@ -1,0 +1,61 @@
+
+[WebServer] (node:74691) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+
+(node:74693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/3] tests/pms-purchase-chain.spec.ts:457:3 › PMS 采购链路 P1 页面 › 样衣质检与重开保留实收，复制及两种转类清除旧执行事实
+[2/3] tests/pms-purchase-chain.spec.ts:502:3 › PMS 采购链路 P1 页面 › P1 页面首次访问与关键交互完整响应不超过1000ms
+tests/pms-purchase-chain.spec.ts:502:3 › PMS 采购链路 P1 页面 › P1 页面首次访问与关键交互完整响应不超过1000ms
+{"pmsPerf":{"thresholdMs":1000,"identity":"隔离context首次访问/真实SPA点击/查询和局部弹窗","completion":"完整目标DOM、必要图片decode、字体、2rAF；不覆盖业务保存性能或新浏览器进程冷启动","environment":{"origin":"http://127.0.0.1:5394","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36","timeZone":"Asia/Shanghai","viewport":{"width":1366,"height":768},"navigation":[{"name":"http://127.0.0.1:5394/pms/purchase-suggestions","entryType":"navigation","startTime":0,"duration":16.30000001192093,"initiatorType":"navigation","deliveryType":"","nextHopProtocol":"http/1.1","renderBlockingStatus":"non-blocking","contentType":"text/html","contentEncoding":"gzip","workerStart":0,"workerRouterEvaluationStart":0,"workerCacheLookupStart":0,"workerMatchedSourceType":"","workerFinalSourceType":"","redirectStart":0,"redirectEnd":0,"fetchStart":0.10000002384185791,"domainLookupStart":0.3999999761581421,"domainLookupEnd":0.3999999761581421,"connectStart":0.3999999761581421,"secureConnectionStart":0,"connectEnd":0.6000000238418579,"requestStart":0.6000000238418579,"responseStart":1.199999988079071,"firstInterimResponseStart":0,"finalResponseHeadersStart":1.199999988079071,"responseEnd":1.300000011920929,"transferSize":3477,"encodedBodySize":3177,"decodedBodySize":12850,"responseStatus":200,"serverTiming":[],"unloadEventStart":0,"unloadEventEnd":0,"domInteractive":4.600000023841858,"domContentLoadedEventStart":15.5,"domContentLoadedEventEnd":15.5,"domComplete":16.30000001192093,"loadEventStart":16.30000001192093,"loadEventEnd":16.30000001192093,"type":"navigate","redirectCount":0,"activationStart":0,"criticalCHRestart":0,"notRestoredReasons":null,"confidence":{"randomizedTriggerRate":0.4994798,"value":"high"}}]},"coldSamples":{"/pms/purchase-suggestions":[495.5,504.39999997615814,489,521.3000000119209,525.8999999761581],"/pms/kol-demands":[513.2999999523163,505.89999997615814,521.8000000119209,509.4000000357628,531.6000000238419],"/pms/product-purchase-orders":[531.1999999880791,507.5,544.6999999880791,557,540.8999999761581]},"samples":{"suggestions-to-kol":[51.09999996423721,46.69999998807907,46.799999952316284,46.19999998807907,46.80000001192093],"kol-to-suggestions":[46.19999998807907,46.40000003576279,44.39999997615814,46.5,46.30000001192093],"suggestions-query":[46.5,47.40000003576279,47.10000002384186,48,47.30000001192093],"suggestions-columns":[44.69999998807907,46.80000001192093,47.30000001192093,47.40000003576279,47.40000003576279],"suggestions-detail":[47,46.80000001192093,45.700000047683716,46.19999998807907,47],"kol-query":[46.5,47,47.40000003576279,46.69999998807907,47.10000002384186],"kol-detail":[47,47.39999997615814,47.30000001192093,47.10000002384186,47.59999996423721],"ppo-detail":[44.40000003576279,45.80000001192093,44.40000003576279,45.59999996423721,45.700000047683716],"ppo-create":[43.80000001192093,44.19999998807907,46.19999998807907,46.09999996423721,46.39999997615814]},"maxima":{"/pms/purchase-suggestions":525.8999999761581,"/pms/kol-demands":531.6000000238419,"/pms/product-purchase-orders":557,"suggestions-to-kol":51.09999996423721,"kol-to-suggestions":46.5,"suggestions-query":48,"suggestions-columns":47.40000003576279,"suggestions-detail":47,"kol-query":47.40000003576279,"kol-detail":47.59999996423721,"ppo-detail":45.80000001192093,"ppo-create":46.39999997615814}}}
+
+[3/3] tests/pms-settlement-flow.spec.ts:38:3 › PMS 物流来源与请付款守恒 › 新建 USD 物流来源→请款80→付款30；超余款被阻断且独立入口读回50未付
+  1) tests/pms-settlement-flow.spec.ts:38:3 › PMS 物流来源与请付款守恒 › 新建 USD 物流来源→请款80→付款30；超余款被阻断且独立入口读回50未付 
+
+    Error: expect(received).toMatchObject(expected)
+
+    Matcher error: received value must be a non-null object
+
+    Received has value: undefined
+
+    Call Log:
+    - Timeout 10000ms exceeded while waiting on the predicate
+
+      46 |     await page.locator('[data-pms-fls-create-field="remark"]').fill('自动化本地演示物流来源')
+      47 |     await page.locator('[data-pms-fls-action="submit-create"]').click()
+    > 48 |     await expect.poll(async () => (await stored<{ batchNo: string; fee: number; feeCurrency: string }>(page, 'pmsFirstLegBatches')).find(row => row.batchNo === batchNo)).toMatchObject({ batchNo, fee: 100, feeCurrency: 'USD' })
+         |                                                                                                                                                                           ^
+      49 |
+      50 |     await localPage(page, '/pms/logistics-payment-requests', '[data-pms-pay-root]')
+      51 |     await page.locator('[data-pms-pay-action="choose-source"]').click()
+        at /Users/laoer/.codex/worktrees/7eaf/higoods/tests/pms-settlement-flow.spec.ts:48:171
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-last-20261014/pms-settlement-flow-PMS-物流-1b65d-请款80→付款30；超余款被阻断且独立入口读回50未付/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-last-20261014/pms-settlement-flow-PMS-物流-1b65d-请款80→付款30；超余款被阻断且独立入口读回50未付/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../tmp/pms-local-browser-v16-last-20261014/pms-settlement-flow-PMS-物流-1b65d-请款80→付款30；超余款被阻断且独立入口读回50未付/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../tmp/pms-local-browser-v16-last-20261014/pms-settlement-flow-PMS-物流-1b65d-请款80→付款30；超余款被阻断且独立入口读回50未付/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../tmp/pms-local-browser-v16-last-20261014/pms-settlement-flow-PMS-物流-1b65d-请款80→付款30；超余款被阻断且独立入口读回50未付/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+Testing stopped early after 1 maximum allowed failures.
+
+  1 failed
+    tests/pms-settlement-flow.spec.ts:38:3 › PMS 物流来源与请付款守恒 › 新建 USD 物流来源→请款80→付款30；超余款被阻断且独立入口读回50未付 
+  2 passed (34.0s)
+  1 error was not a part of any test, see above for details

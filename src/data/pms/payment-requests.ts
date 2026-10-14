@@ -1,112 +1,29 @@
+import { listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
+import { listPmsFirstLegBatches } from './first-leg-logistics.ts'
 import {
   checkPmsLogisticsReconciliationGenerate,
   checkPmsMaterialReconciliationGenerate,
-  markPmsMaterialReconciliationPaymentRequest,
+  publishPmsPaymentReconciliationRows,
+  hydratePmsReconciliationsFromIdb,
   pmsApplyPaymentRequestNoToLogistics,
   pmsApplyPaymentRequestNoToMaterial,
+  getPmsMaterialReconciliation, getPmsLogisticsReconciliation,
 } from './reconciliations.ts'
-import { PMS_STORES, pmsAll, pmsDelete, pmsPersistEntity, pmsPut, pmsTx, reportPmsSaveFailure } from './idb-storage.ts'
-import { appendPmsLog, appendPmsLogInMemory, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+import { PMS_STORES, pmsAll, pmsGet, pmsCommitRecords, type PmsAttachment } from './idb-storage.ts'
+import { createPmsOperationLog, publishPmsOperationLog, type PmsOperationLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
-/**
- * 请款单 IDB hydrate 状态机(race-condition 防御同 runtime.ts):
- * - 启动期 hydrate 未就绪时,业务写入的草稿/请求进入 pending 队列,等 hydrate 完成后由 hydrate 接管 put。
- * - hydrate 完成后业务写入 fire-and-forget put,pmsPut 内部事务 oncomplete 后 broadcast 通知多标签页。
- */
-let paymentHydrationStarted = false
-let paymentHydrationPromise: Promise<void> | null = null
-let paymentHydrationReady = false
-type PendingPaymentWrite =
-  | { kind: 'request'; entity: PmsPaymentRequest }
-  | { kind: 'draft'; draftKey: 'material' | 'logistics'; entity: PmsPaymentDraft }
-  | { kind: 'delete-draft'; draftKey: 'material' | 'logistics' }
-const pendingHydrationPayment: PendingPaymentWrite[] = []
-
-/**
- * 启动期加载:从 IDB 把已保存的请款单与草稿搬回内存。
- * 加载未完成时 listPmsPaymentRequests/getPmsPaymentRequest 返回种子;hydrate 后用 IDB 数据覆盖内存。
- */
-export function hydratePmsPaymentFromIdb(): Promise<void> {
-  if (paymentHydrationStarted) return paymentHydrationPromise ?? Promise.resolve()
-  paymentHydrationStarted = true
-  paymentHydrationPromise = (async () => {
-    try {
-      const [storedRequests, storedDrafts] = await Promise.all([
-        pmsAll<PmsPaymentRequest>(PMS_STORES.pmsPaymentRequests),
-        pmsAll<PmsPaymentDraft & { draftKey: 'material' | 'logistics' }>(PMS_STORES.pmsPaymentDrafts),
-      ])
-      // 收集 hydrate 期间已声明要删除的草稿键,避免从 IDB 拉回覆盖内存(已消费)状态。
-      const deletedDraftKeys = new Set<'material' | 'logistics'>()
-      for (const pending of pendingHydrationPayment) {
-        if (pending.kind === 'delete-draft') deletedDraftKeys.add(pending.draftKey)
-      }
-      const rt = getRuntime()
-      for (const saved of storedRequests) {
-        const existing = rt.requests.find((r) => r.requestNo === saved.requestNo)
-        if (existing) Object.assign(existing, saved)
-        else rt.requests.push(saved)
-      }
-      for (const saved of storedDrafts) {
-        if (deletedDraftKeys.has(saved.draftKey)) continue
-        const { draftKey, ...draft } = saved
-        if (draftKey === 'material') materialDraft = draft
-        else if (draftKey === 'logistics') logisticsDraft = draft
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_LOAD_FAILED] 请款加载失败', { message })
-    } finally {
-      paymentHydrationReady = true
-      const pending = pendingHydrationPayment.splice(0)
-      for (const item of pending) {
-        try {
-          if (item.kind === 'request') {
-            await pmsPut(PMS_STORES.pmsPaymentRequests, item.entity)
-          } else if (item.kind === 'draft') {
-            await pmsPut(PMS_STORES.pmsPaymentDrafts, { ...item.entity, draftKey: item.draftKey })
-          } else {
-            await pmsDelete(PMS_STORES.pmsPaymentDrafts, item.draftKey)
-          }
-        } catch (error) {
-          // § 2.4.3.5:失败必须重新抛出,由 unhandledrejection banner 明确告知"未保存"。
-          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款 IDB 写入失败(hydration 后)', { kind: item.kind }, error)
-        }
-      }
-    }
-  })()
-  return paymentHydrationPromise
+/** User overrides are read without writing seeds or unfinished drafts. */
+let paymentHydrationPromise:Promise<void>|null=null
+export function hydratePmsPaymentFromIdb():Promise<void> {
+  return paymentHydrationPromise ??= pmsAll<PmsPaymentRequest>(PMS_STORES.pmsPaymentRequests).then(rows=>{for(const row of rows){const old=getRuntime().requests.find(r=>r.requestNo===row.requestNo);if(old) Object.assign(old,row);else getRuntime().requests.push(row)}}).catch(error=>{paymentHydrationPromise=null;throw error})
 }
-
-function persistPmsPaymentRequest(request: PmsPaymentRequest): void {
-  if (paymentHydrationReady) {
-    pmsPut(PMS_STORES.pmsPaymentRequests, request).catch((error: unknown) => {
-      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款单 IDB 写入失败', { requestNo: request.requestNo }, error)
-    })
-  } else {
-    pendingHydrationPayment.push({ kind: 'request', entity: request })
-  }
-}
-
-function persistPmsPaymentDraft(draftKey: 'material' | 'logistics', draft: PmsPaymentDraft): void {
-  if (paymentHydrationReady) {
-    pmsPut(PMS_STORES.pmsPaymentDrafts, { ...draft, draftKey }).catch((error: unknown) => {
-      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 写入失败', { draftKey }, error)
-    })
-  } else {
-    pendingHydrationPayment.push({ kind: 'draft', draftKey, entity: draft })
-  }
-}
-
-function deletePmsPaymentDraftFromIdb(draftKey: 'material' | 'logistics'): void {
-  if (paymentHydrationReady) {
-    pmsDelete(PMS_STORES.pmsPaymentDrafts, draftKey).catch((error: unknown) => {
-      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 删除失败', { draftKey }, error)
-    })
-  } else {
-    // race condition 防御:hydrate 未就绪就消费草稿,必须记录删除意图,
-    // 防止 hydrate 完成后从 IDB 拉回旧的 draft 覆盖内存中的"已消费"状态。
-    pendingHydrationPayment.push({ kind: 'delete-draft', draftKey })
-  }
+async function persistPmsPaymentRequest(request:PmsPaymentRequest,log:PmsOperationLog,operationId:string,attachments:PmsAttachment[]=[],attachmentDeletes:string[]=[],operationSignature=''):Promise<void> {
+  log.id=`${operationId}:log:payment`
+  await pmsCommitRecords([{store:PMS_STORES.pmsPaymentRequests,value:request},{store:PMS_STORES.pmsOperationLogs,value:log}],{
+    operationId,operationSignature,attachments,attachmentDeletes,attachmentReferences:[{store:PMS_STORES.pmsPaymentRequests,key:request.requestNo,fileIds:request.attachments.flatMap(a=>a.fileId?[a.fileId]:[])}],
+  })
+  const old=getPmsPaymentRequest(request.requestNo);if(old) Object.assign(old,request);else getRuntime().requests.unshift(request)
+  publishPmsOperationLog(log)
 }
 
 export type PmsPaymentRequestType = 'material' | 'logistics'
@@ -120,6 +37,9 @@ export interface PmsPaymentSourceRow {
 }
 
 export interface PmsPaymentAttachment {
+  fileId?: string
+  type?: string
+  size?: number
   name: string
   description: string
   uploadedBy: string
@@ -176,6 +96,8 @@ export interface PmsPaymentRecord {
 }
 
 export interface PmsPaymentRequest {
+  sourceKind?: PmsPaymentDraft['sourceKind']
+  _pmsBaseVersion?: number
   requestNo: string
   type: PmsPaymentRequestType
   objectName: string
@@ -201,6 +123,7 @@ export interface PmsPaymentRequest {
 }
 
 export interface PmsPaymentDraft {
+  sourceKind?: 'purchase' | 'first-leg' | 'reconciliation'
   type: PmsPaymentRequestType
   objectName: string
   currency: 'RMB' | 'USD' | 'IDR'
@@ -335,6 +258,7 @@ function buildInitialRuntime(): PmsPaymentRuntime {
     }),
     buildRequest('PAY-M-2026-0004', 'material', '中山针织制衣有限公司', 'RMB', [{ sourceId: 'MR-2026-0005', sourceLabel: '涤纶缝纫线（CGF-2026-0005）', amount: 780 }], 780, 0, 0, { createdAt: '2026-06-16 09:00:00', remark: '待提交请款' }),
     buildRequest('PAY-M-2026-0005', 'material', '苏州恒润包装材料有限公司', 'RMB', [{ sourceId: 'MR-2026-0008', sourceLabel: '40×60cm 透明胶袋（CGF-2026-0008）', amount: 2400 }], 2400, 0, 0, { createdAt: '2026-06-12 09:00:00', voidReason: '供应商账单金额有误，已撤回重开' }),
+    buildRequest('PAY-M-2026-0006', 'material', '宁波恒源纱线有限公司', 'RMB', [{sourceId:'CGF-2026-0007',sourceLabel:'针织棉纱 · 白色（CGF-2026-0007）',amount:6360}],6360,0,0,{remark:'采购数量300 × 单价21.2',createdAt:'2026-06-16 10:00:00'}),
     buildRequest('PAY-L-2026-0001', 'logistics', '广州市洋帆国际货运代理有限公司', 'RMB', [{ sourceId: 'LR-2026-0001', sourceLabel: '广州-雅加达 海运整柜（FL-2026-0002）', amount: 29020 }], 29020, 29020, 0, { createdAt: '2026-06-15 14:00:00' }),
     buildRequest('PAY-L-2026-0002', 'logistics', '深圳市迅达国际物流有限公司', 'RMB', [{ sourceId: 'LR-2026-0002', sourceLabel: '深圳-雅加达 海派专线（FL-2026-0001）', amount: 5430 }], 5430, 3000, 1500, {
       createdAt: '2026-06-15 15:00:00',
@@ -343,7 +267,9 @@ function buildInitialRuntime(): PmsPaymentRuntime {
       paymentRecords: [{ at: '2026-06-16 10:00:00', amount: 1500, method: '银行转账', voucherNo: 'BK-20260616-002', note: '首笔付款 1500', operator: '刘财务' }],
     }),
   ]
-  markPmsMaterialReconciliationPaymentRequest(['MR-2026-0005'], 'PAY-M-2026-0004')
+  const estimatedFeeRows=[['freight','运费',780],['customsDuty','关税',50],['clearance','清关费',20],['vat','增值税',10]] as const
+  estimatedFeeRows.forEach(([key,label,amount],index)=>requests.push(buildRequest(`PAY-L-2026-000${index+3}`,'logistics','义乌市陆港供应链管理有限公司','USD',[{sourceId:`LR-2026-0003:${key}`,sourceLabel:`${label}预估（FL-2026-0003 / LR-2026-0003）`,amount}],amount,0,0,{remark:'来源为费用预估，尚未提交请款',createdAt:'2026-06-16 10:00:00'})))
+
   return { requests }
 }
 
@@ -379,7 +305,7 @@ export function setPmsMaterialPaymentDraft(ids: string[]): PmsPaymentDraft {
     totalAmount: roundPmsQty(rows.reduce((sum, row) => sum + row.finalPayable, 0), 2),
     createdAt: new Date().toISOString(),
   }
-  persistPmsPaymentDraft('material', materialDraft)
+
   return materialDraft
 }
 
@@ -395,7 +321,7 @@ export function setPmsLogisticsPaymentDraft(ids: string[]): PmsPaymentDraft {
     totalAmount: roundPmsQty(rows.reduce((sum, row) => sum + (row.actualTotal || row.estimatedTotal), 0), 2),
     createdAt: new Date().toISOString(),
   }
-  persistPmsPaymentDraft('logistics', logisticsDraft)
+
   return logisticsDraft
 }
 
@@ -403,12 +329,12 @@ export function consumePmsPaymentDraft(type: PmsPaymentRequestType): PmsPaymentD
   if (type === 'material') {
     const draft = materialDraft
     materialDraft = null
-    if (draft) deletePmsPaymentDraftFromIdb('material')
+
     return draft
   }
   const draft = logisticsDraft
   logisticsDraft = null
-  if (draft) deletePmsPaymentDraftFromIdb('logistics')
+
   return draft
 }
 
@@ -419,12 +345,11 @@ export interface PmsPaymentRequestInfoInput {
   narrative?: Partial<PmsPaymentNarrative>
 }
 
-export function createPmsPaymentRequestFromDraft(draft: PmsPaymentDraft, actor: { id: string; name: string; role: PmsActorRole }, info: PmsPaymentRequestInfoInput = {}): PmsPaymentRequest {
+export async function createPmsPaymentRequestFromDraft(draft: PmsPaymentDraft, actor: { id: string; name: string; role: PmsActorRole }, info: PmsPaymentRequestInfoInput = {}, operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await Promise.all([hydratePmsPaymentFromIdb(),hydratePmsReconciliationsFromIdb()])
   if (draft.rows.length === 0) throw new PmsDomainError('PAYMENT_DRAFT_EMPTY', '请款草稿没有对账明细')
   if (draft.totalAmount <= 0) throw new PmsDomainError('PAYMENT_AMOUNT_INVALID', '请款金额必须大于 0')
-  const requestNo = draft.type === 'material'
-    ? `PAY-M-2026-${String((materialSequence += 1)).padStart(4, '0')}`
-    : `PAY-L-2026-${String((logisticsSequence += 1)).padStart(4, '0')}`
+  const requestNo = `PAY-${draft.type==='material'?'M':'L'}-${operationId}`
   const request = buildRequest(requestNo, draft.type, draft.objectName, draft.currency, draft.rows, draft.totalAmount, 0, 0, {
     createdAt: new Date().toISOString(),
     payee: info.payee,
@@ -433,23 +358,20 @@ export function createPmsPaymentRequestFromDraft(draft: PmsPaymentDraft, actor: 
     narrative: info.narrative,
   })
   request.createdBy = actor.name
-  getRuntime().requests.unshift(request)
+  request.sourceKind=draft.sourceKind || 'reconciliation'
+  if(new Set(draft.rows.map(row=>row.sourceId)).size!==draft.rows.length || Math.abs(draft.totalAmount-draft.rows.reduce((sum,row)=>sum+row.amount,0))>0.005 || draft.rows.some(row=>!Number.isFinite(row.amount)||row.amount<=0)) throw new PmsDomainError('PAYMENT_SOURCE_INVALID','来源不能重复，金额须大于0且合计一致')
+  if(getRuntime().requests.some(old=>old.requestNo!==requestNo && old.status!=='已作废' && old.sourceRows.some(source=>draft.rows.some(row=>row.sourceId===source.sourceId)))) throw new PmsDomainError('PAYMENT_SOURCE_DUPLICATE','来源已生成请款单，重新读取原单')
+  if(draft.sourceKind && draft.sourceKind!=='reconciliation'){const fresh=preparePmsPaymentDraftFromSources(draft.type,draft.rows.map(row=>row.sourceId));if(fresh.objectName!==draft.objectName || fresh.currency!==draft.currency || Math.abs(fresh.totalAmount-draft.totalAmount)>0.005) throw new PmsDomainError('PAYMENT_SOURCE_CHANGED','来源金额或收款对象已变更，重新选择来源')} else {const check=draft.type==='material'?checkPmsMaterialReconciliationGenerate(draft.rows.map(row=>row.sourceId)):checkPmsLogisticsReconciliationGenerate(draft.rows.map(row=>row.sourceId));if(!check.ok) throw new PmsDomainError('PAYMENT_SOURCE_BLOCKED',check.reason)}
   const ids = draft.rows.map((row) => row.sourceId)
   // § 2.4.3.3 原子提交:同一 IDB 事务内 put request + 关联 reconciliations + log。
-  const modifiedReconciliations = draft.type === 'material'
+  const modifiedReconciliations = draft.sourceKind && draft.sourceKind!=='reconciliation' ? [] : draft.type === 'material'
     ? pmsApplyPaymentRequestNoToMaterial(ids, requestNo)
     : pmsApplyPaymentRequestNoToLogistics(ids, requestNo)
-  const log = appendPmsLogInMemory({ objectType: 'payment-request', objectId: requestNo, action: '创建请款单', beforeValue: '', afterValue: `${draft.objectName} · ${draft.currency} ${draft.totalAmount}`, reason: '由对账明细生成', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  // § 2.4.3.3 原子提交:fire-and-forget 异步 IDB 事务,内存态已同步,失败由 unhandledrejection banner 暴露。
-  void pmsTx([PMS_STORES.pmsPaymentRequests, PMS_STORES.pmsReconciliations, PMS_STORES.pmsOperationLogs], 'readwrite', (tx) => {
-    tx.objectStore(PMS_STORES.pmsPaymentRequests).put(request)
-    for (const row of modifiedReconciliations) {
-      tx.objectStore(PMS_STORES.pmsReconciliations).put(row)
-    }
-    tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
-  }).catch((error: unknown) => {
-    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 创建请款单 IDB 写入失败', { requestNo }, error)
-  })
+  const log = createPmsOperationLog({ objectType: 'payment-request', objectId: requestNo, action: '创建请款单', beforeValue: '', afterValue: `${draft.objectName} · ${draft.currency} ${draft.totalAmount}`, reason: '由对账明细生成', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  log.id=`${operationId}:log:payment`
+  await pmsCommitRecords([{store:PMS_STORES.pmsPaymentRequests,value:request},...modifiedReconciliations.map(value=>({store:PMS_STORES.pmsReconciliations,value})),{store:PMS_STORES.pmsOperationLogs,value:log}],{operationId,operationSignature:JSON.stringify([draft,actor,info])})
+  getRuntime().requests.unshift(request);publishPmsPaymentReconciliationRows(modifiedReconciliations);publishPmsOperationLog(log)
+
   return request
 }
 
@@ -463,18 +385,25 @@ export function checkPmsPaymentRequestEditScope(requestNo: string): PmsPaymentEd
   if (!request) return { level: 'readonly', reason: '请款单不存在' }
   if (request.status === '已完成' || request.status === '已作废') return { level: 'readonly', reason: `${request.status}的请款单不允许修改` }
   if (request.status === '未请款') return { level: 'full', reason: '' }
-  return { level: 'attachment-only', reason: '部分请款/已请款的请款单只能补充附件与备注' }
+  return { level: 'attachment-only', reason: '已请款后金额和账户锁定，可修改联系人、说明和附件' }
 }
 
-export function updatePmsPaymentRequestInfo(
+export async function updatePmsPaymentRequestInfo(
   requestNo: string,
   patch: PmsPaymentRequestInfoInput,
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
+  operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before = getPmsPaymentRequest(requestNo)
+  const request = before ? structuredClone(before) : undefined
   if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
   const scope = checkPmsPaymentRequestEditScope(requestNo)
-  if (scope.level !== 'full') throw new PmsDomainError('PAYMENT_LOCKED', scope.reason || '当前状态不允许修改请款信息')
+  if (scope.level === 'readonly') throw new PmsDomainError('PAYMENT_LOCKED', scope.reason || '当前状态不允许修改请款信息')
+  if(scope.level==='attachment-only') {
+    const allowed=['contactName','contactPhone']
+    const forbidden=patch.payee && Object.entries(patch.payee).some(([key,value])=>!allowed.includes(key) && value!==request.payee[key as keyof PmsPaymentPayee])
+    if(forbidden || patch.paymentInfo || patch.amountInfo) throw new PmsDomainError('PAYMENT_FINANCE_LOCKED','已请款后收款账户、金额、币种和付款信息锁定，只能修改联系人与说明')
+  }
   if (patch.payee) {
     if (patch.payee.name !== undefined && !patch.payee.name.trim()) throw new PmsDomainError('PAYMENT_PAYEE_REQUIRED', '收款人名称不能为空')
     request.payee = { ...request.payee, ...patch.payee }
@@ -492,13 +421,15 @@ export function updatePmsPaymentRequestInfo(
   }
   if (patch.narrative) request.narrative = { ...request.narrative, ...patch.narrative }
   request.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '更新请款信息', beforeValue: '', afterValue: `${request.payee.name} · ${request.paymentInfo.paymentType}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsPaymentRequest(request)
+  const log = createPmsOperationLog({ objectType: 'payment-request', objectId: requestNo, action: '更新请款信息', beforeValue: '', afterValue: `${request.payee.name} · ${request.paymentInfo.paymentType}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  await persistPmsPaymentRequest(request,log,operationId,[],[],JSON.stringify([requestNo,patch,actor]))
   return request
 }
 
-export function submitPmsPaymentRequest(requestNo: string, amount: number, actor: { id: string; name: string; role: PmsActorRole }, note = '', at = ''): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
+export async function submitPmsPaymentRequest(requestNo: string, amount: number, actor: { id: string; name: string; role: PmsActorRole }, note = '', at = '', operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before = getPmsPaymentRequest(requestNo)
+  const request = before ? structuredClone(before) : undefined
   if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
   if (request.status === '已完成' || request.status === '已作废') throw new PmsDomainError('PAYMENT_LOCKED', `${request.status}的请款单不能提交请款`)
   if (!Number.isFinite(amount) || amount <= 0) throw new PmsDomainError('PAYMENT_AMOUNT_INVALID', '请款金额必须大于 0')
@@ -508,17 +439,19 @@ export function submitPmsPaymentRequest(requestNo: string, amount: number, actor
   request.requestRecords.unshift({ at: at.trim() ? at.trim() : new Date().toISOString(), amount: roundPmsQty(amount, 2), note: note.trim(), operator: actor.name })
   request.updatedAt = new Date().toISOString()
   refresh(request)
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '提交请款', beforeValue: `已请款 ${request.requestedAmount - amount}`, afterValue: `已请款 ${request.requestedAmount} · ${request.status}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsPaymentRequest(request)
+  const log = createPmsOperationLog({ objectType: 'payment-request', objectId: requestNo, action: '提交请款', beforeValue: `已请款 ${request.requestedAmount - amount}`, afterValue: `已请款 ${request.requestedAmount} · ${request.status}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  await persistPmsPaymentRequest(request,log,operationId,[],[],JSON.stringify([requestNo,amount,actor,note,at]))
   return request
 }
 
-export function registerPmsPayment(
+export async function registerPmsPayment(
   requestNo: string,
   patch: { amount: number; method: '银行转账' | '承兑' | '现金'; note?: string; voucherNo?: string; paidAt?: string },
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
+  operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before = getPmsPaymentRequest(requestNo)
+  const request = before ? structuredClone(before) : undefined
   if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
   if (request.voidReason) throw new PmsDomainError('PAYMENT_VOIDED', '已作废的请款单不能付款')
   if (request.status === '未请款') throw new PmsDomainError('PAYMENT_NOT_REQUESTED', '请先提交请款再登记付款')
@@ -536,7 +469,7 @@ export function registerPmsPayment(
   })
   request.updatedAt = new Date().toISOString()
   refresh(request)
-  appendPmsLog({
+  const log = createPmsOperationLog({
     objectType: 'payment-request',
     objectId: requestNo,
     action: '付款登记',
@@ -548,71 +481,87 @@ export function registerPmsPayment(
     actorRole: actor.role,
     secondConfirmation: true,
   })
-  persistPmsPaymentRequest(request)
+  await persistPmsPaymentRequest(request,log,operationId,[],[],JSON.stringify([requestNo,patch,actor]))
   return request
 }
 
-export function voidPmsPaymentRequest(requestNo: string, reason: string, actor: { id: string; name: string; role: PmsActorRole }): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
+export async function voidPmsPaymentRequest(requestNo: string, reason: string, actor: { id: string; name: string; role: PmsActorRole }, operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before = getPmsPaymentRequest(requestNo)
+  const request = before ? structuredClone(before) : undefined
   if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
   if (!reason.trim()) throw new PmsDomainError('PAYMENT_REASON_REQUIRED', '作废必须填写原因')
   if (request.paidAmount > 0) throw new PmsDomainError('PAYMENT_VOID_BLOCKED', '已有付款记录，不能作废')
-  const before = request.status
+  const beforeStatus = request.status
   request.voidReason = reason.trim()
   request.updatedAt = new Date().toISOString()
   refresh(request)
-  const ids = request.sourceRows.map((row) => row.sourceId)
-  // § 2.4.3.3 原子提交:同一 IDB 事务内 put request + unmark reconciliations + log。
-  const modifiedReconciliations = request.type === 'material'
-    ? pmsApplyPaymentRequestNoToMaterial(ids, '')
-    : pmsApplyPaymentRequestNoToLogistics(ids, '')
-  const log = appendPmsLogInMemory({ objectType: 'payment-request', objectId: requestNo, action: '作废', beforeValue: before, afterValue: '已作废', reason: reason.trim(), actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
-  void pmsTx([PMS_STORES.pmsPaymentRequests, PMS_STORES.pmsReconciliations, PMS_STORES.pmsOperationLogs], 'readwrite', (tx) => {
-    tx.objectStore(PMS_STORES.pmsPaymentRequests).put(request)
-    for (const row of modifiedReconciliations) {
-      tx.objectStore(PMS_STORES.pmsReconciliations).put(row)
-    }
-    tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
-  }).catch((error: unknown) => {
-    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 作废请款单 IDB 写入失败', { requestNo }, error)
-  })
+  await hydratePmsReconciliationsFromIdb()
+  const related=request.sourceRows.flatMap(source=>{const row=request.type==='material'?getPmsMaterialReconciliation(source.sourceId):getPmsLogisticsReconciliation(source.sourceId);return row?.paymentRequestNo===requestNo?[{...structuredClone(row),paymentRequestNo:''}]:[]})
+  const log = createPmsOperationLog({ objectType: 'payment-request', objectId: requestNo, action: '作废', beforeValue: beforeStatus, afterValue: '已作废', reason: reason.trim(), actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  log.id=`${operationId}:log:payment`
+  await pmsCommitRecords([{store:PMS_STORES.pmsPaymentRequests,value:request},...related.map(value=>({store:PMS_STORES.pmsReconciliations,value})),{store:PMS_STORES.pmsOperationLogs,value:log}],{operationId,operationSignature:JSON.stringify([requestNo,reason,actor])})
+  Object.assign(before!,request);publishPmsPaymentReconciliationRows(related);publishPmsOperationLog(log)
+
   return request
 }
 
-export function addPmsPaymentAttachment(requestNo: string, name: string, actor: { id: string; name: string; role: PmsActorRole }, description = ''): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
-  if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
-  const scope = checkPmsPaymentRequestEditScope(requestNo)
-  if (scope.level === 'readonly') throw new PmsDomainError('PAYMENT_LOCKED', scope.reason)
-  if (!name.trim()) throw new PmsDomainError('PAYMENT_ATTACHMENT_REQUIRED', '附件名称不能为空')
-  request.attachments.unshift({ name: name.trim(), description: description.trim(), uploadedBy: actor.name, uploadedAt: new Date().toISOString() })
-  request.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '添加附件', beforeValue: '', afterValue: name.trim(), reason: description.trim(), actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsPaymentRequest(request)
+export async function addPmsPaymentAttachment(requestNo:string,file:File,actor:{id:string;name:string;role:PmsActorRole},description='',operationId:string=crypto.randomUUID()):Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before=getPmsPaymentRequest(requestNo)
+  if(!before) throw new PmsDomainError('PAYMENT_NOT_FOUND','请款单不存在')
+  const scope=checkPmsPaymentRequestEditScope(requestNo)
+  if(scope.level==='readonly') throw new PmsDomainError('PAYMENT_LOCKED',scope.reason)
+  if(!(file instanceof Blob) || file.size===0 || file.size>20*1024*1024 || !/\.(pdf|png|jpe?g|webp|xlsx?|csv)$/i.test(file.name)) throw new PmsDomainError('PAYMENT_ATTACHMENT_INVALID','选择 PDF、图片或表格文件，大小须为 1 字节～20 MB')
+  const fileHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))).map(value=>value.toString(16).padStart(2,'0')).join('')
+  const request=structuredClone(before),fileId=`PAY-FILE-${operationId}`
+  if(!request.attachments.some(attachment=>attachment.fileId===fileId))request.attachments.unshift({fileId,name:file.name,type:file.type,size:file.size,description:description.trim(),uploadedBy:actor.name,uploadedAt:new Date().toISOString()})
+  request.updatedAt=new Date().toISOString()
+  const log=createPmsOperationLog({objectType:'payment-request',objectId:requestNo,action:'添加附件',beforeValue:'',afterValue:file.name,reason:description.trim(),actorId:actor.id,actorName:actor.name,actorRole:actor.role})
+  await persistPmsPaymentRequest(request,log,operationId,[{id:fileId,name:file.name,type:file.type,size:file.size,blob:file}],[],JSON.stringify([requestNo,file.name,file.type,file.size,fileHash,description,actor]))
   return request
 }
+export async function readPmsPaymentAttachment(fileId:string):Promise<PmsAttachment|undefined> {return pmsGet<PmsAttachment>(PMS_STORES.pmsAttachments,fileId)}
 
-export function removePmsPaymentAttachment(requestNo: string, index: number, actor: { id: string; name: string; role: PmsActorRole }): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
+export async function removePmsPaymentAttachment(requestNo: string, index: number, actor: { id: string; name: string; role: PmsActorRole }, operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before = getPmsPaymentRequest(requestNo)
+  const request = before ? structuredClone(before) : undefined
   if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
   const scope = checkPmsPaymentRequestEditScope(requestNo)
   if (scope.level === 'readonly') throw new PmsDomainError('PAYMENT_LOCKED', scope.reason)
   if (!Number.isInteger(index) || index < 0 || index >= request.attachments.length) throw new PmsDomainError('PAYMENT_ATTACHMENT_NOT_FOUND', '附件不存在或已删除')
   const [removed] = request.attachments.splice(index, 1)
   request.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '删除附件', beforeValue: removed.name, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsPaymentRequest(request)
+  const log = createPmsOperationLog({ objectType: 'payment-request', objectId: requestNo, action: '删除附件', beforeValue: removed.name, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  await persistPmsPaymentRequest(request,log,operationId,[],removed.fileId?[removed.fileId]:[],JSON.stringify([requestNo,index,actor]))
   return request
 }
 
-export function updatePmsPaymentRemark(requestNo: string, remark: string, actor: { id: string; name: string; role: PmsActorRole }): PmsPaymentRequest {
-  const request = getPmsPaymentRequest(requestNo)
+export async function updatePmsPaymentRemark(requestNo: string, remark: string, actor: { id: string; name: string; role: PmsActorRole }, operationId:string=crypto.randomUUID()): Promise<PmsPaymentRequest> {
+  await hydratePmsPaymentFromIdb()
+  const before = getPmsPaymentRequest(requestNo)
+  const request = before ? structuredClone(before) : undefined
   if (!request) throw new PmsDomainError('PAYMENT_NOT_FOUND', `请款单 ${requestNo} 不存在`)
   const scope = checkPmsPaymentRequestEditScope(requestNo)
   if (scope.level === 'readonly') throw new PmsDomainError('PAYMENT_LOCKED', scope.reason)
   request.remark = remark.trim()
   request.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '更新备注', beforeValue: '', afterValue: request.remark, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsPaymentRequest(request)
+  const log = createPmsOperationLog({ objectType: 'payment-request', objectId: requestNo, action: '更新备注', beforeValue: '', afterValue: request.remark, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  await persistPmsPaymentRequest(request,log,operationId,[],[],JSON.stringify([requestNo,remark,actor]))
   return request
+}
+
+export function listPmsPaymentSourceOptions(type:PmsPaymentRequestType):Array<{id:string;label:string;objectName:string;currency:'RMB'|'USD'|'IDR';amount:number}> {
+  return type==='material'?listPmsMaterialPurchaseOrders().filter(row=>row.status!=='已关闭' && row.orderedQty*row.unitPrice>0 && !getRuntime().requests.some(request=>request.status!=='已作废' && request.sourceRows.some(source=>source.sourceId===row.purchaseOrderNo || source.sourceLabel.includes(row.purchaseOrderNo)))).map(row=>({id:row.purchaseOrderNo,label:`${row.purchaseOrderNo} · ${row.materialName}`,objectName:row.supplierName,currency:row.currency,amount:row.orderedQty*row.unitPrice})):
+    listPmsFirstLegBatches().filter(row=>row.fee>0 && !getRuntime().requests.some(request=>request.status!=='已作废' && request.sourceRows.some(source=>source.sourceLabel.includes(row.batchNo)))).map(row=>({id:row.batchNo,label:`${row.batchNo} · ${row.channelName}`,objectName:row.carrierName,currency:row.feeCurrency,amount:row.fee}))
+}
+export function preparePmsPaymentDraftFromSources(type:PmsPaymentRequestType,ids:string[]):PmsPaymentDraft {
+  if(!ids.length) throw new PmsDomainError('PAYMENT_SOURCE_REQUIRED','选择请款来源')
+  const all=listPmsPaymentSourceOptions(type),sources=ids.map(id=>all.find(row=>row.id===id))
+  if(sources.some(row=>!row)) throw new PmsDomainError('PAYMENT_SOURCE_UNAVAILABLE','来源不可用，重新选择')
+  const rows=sources as Array<NonNullable<typeof sources[number]>>
+  if(rows.some(row=>row.objectName!==rows[0].objectName || row.currency!==rows[0].currency)) throw new PmsDomainError('PAYMENT_SOURCE_MIXED','同一请款单须为相同收款对象与币种')
+  if(getRuntime().requests.some(request=>request.status!=='已作废' && request.sourceRows.some(row=>ids.includes(row.sourceId)))) throw new PmsDomainError('PAYMENT_SOURCE_DUPLICATE','所选来源已生成请款单，先查看原单')
+  return {type,sourceKind:type==='material'?'purchase':'first-leg',objectName:rows[0].objectName,currency:rows[0].currency,rows:rows.map(row=>({sourceId:row.id,sourceLabel:row.label,amount:row.amount})),totalAmount:roundPmsQty(rows.reduce((sum,row)=>sum+row.amount,0),2),createdAt:new Date().toISOString()}
 }

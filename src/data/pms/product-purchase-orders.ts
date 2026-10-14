@@ -1,56 +1,25 @@
-import { getPmsBomTemplate } from './bom-templates.ts'
+import { appendKolLockRows } from './kol-sample-stock-lock-log.ts'
+import { hydratePmsMaterialPurchaseOrdersFromIdb } from './material-purchase-orders.ts'
+import { hydratePmsKolStock, preparePmsKolStockReceipt, preparePmsKolStockIssue, preparePmsKolStockIssueLogs, publishPmsKolStock } from './kol-sample-stock.ts'
+import { pmsCoreOperationSignature, assertPmsCoreDraftVersion } from './core-write-contract.ts'
+import { getPublishedPurchaseMaterials } from './canonical-purchase-references.ts'
+import { listSkuArchives } from '../pcs-sku-archive-repository.ts'
 import { PMS_STYLE_IMAGES } from './images.ts'
-import { PMS_STORES, pmsAll, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
-import { appendPmsLog, listPmsLogs, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
-import { createPmsMaterialRequirementFromOrder, type PmsMaterialRequirementLine } from './material-requirements.ts'
+import { PMS_STORES, pmsAll, pmsCommitRecords, type PmsCommitRecord } from './idb-storage.ts'
+import { listPmsLogs, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
+import { preparePmsMaterialRequirementFromOrder, publishPmsMaterialRequirements, type PmsMaterialRequirementLine } from './material-requirements.ts'
 
 /**
  * 商品采购单 IDB hydrate 状态机(同其他 PMS 模块模式)。
  */
-let ppoHydrationStarted = false
 let ppoHydrationPromise: Promise<void> | null = null
-let ppoHydrationReady = false
-const pendingHydrationPpo: PmsProductPurchaseOrder[] = []
 
 export function hydratePmsProductPurchaseOrdersFromIdb(): Promise<void> {
-  if (ppoHydrationStarted) return ppoHydrationPromise ?? Promise.resolve()
-  ppoHydrationStarted = true
-  ppoHydrationPromise = (async () => {
-    try {
-      const stored = await pmsAll<PmsProductPurchaseOrder>(PMS_STORES.pmsProductPurchaseOrders)
-      const rt = getRuntime()
-      for (const saved of stored) {
-        const existing = rt.orders.find((o) => o.purchaseOrderNo === saved.purchaseOrderNo)
-        if (existing) Object.assign(existing, saved)
-        else rt.orders.push(saved)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_LOAD_FAILED] 商品采购单加载失败', { message })
-    } finally {
-      ppoHydrationReady = true
-      const pending = pendingHydrationPpo.splice(0)
-      for (const item of pending) {
-        try {
-          await pmsPut(PMS_STORES.pmsProductPurchaseOrders, item)
-        } catch (error) {
-          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败(hydration 后)', { purchaseOrderNo: item.purchaseOrderNo }, error)
-        }
-      }
-    }
-  })()
+  if (ppoHydrationPromise) return ppoHydrationPromise
+  ppoHydrationPromise = pmsAll<PmsProductPurchaseOrder>(PMS_STORES.pmsProductPurchaseOrders)
+    .then(publishPmsProductPurchaseOrders)
+    .catch((error: unknown) => { ppoHydrationPromise = null; throw error })
   return ppoHydrationPromise
-}
-
-function persistPmsProductPurchaseOrder(order: PmsProductPurchaseOrder): void {
-  if (ppoHydrationReady) {
-    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
-    pmsPut(PMS_STORES.pmsProductPurchaseOrders, order).catch((error: unknown) => {
-      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败', { purchaseOrderNo: order.purchaseOrderNo }, error)
-    })
-  } else {
-    pendingHydrationPpo.push(order)
-  }
 }
 
 export type PmsProductPurchaseOrderStatus =
@@ -69,6 +38,9 @@ export type PmsMaterialGenerationStatus = '不需要' | '未生成' | '已生成
 export type PmsPurchaseRegion = '国内' | '印尼' | '其他'
 
 export type PmsYesNo = '是' | '否'
+export type PmsProductPurchaseType = '做货' | '成衣' | '样衣' | '达人寄样' | '烫画'
+export interface PmsProductExpress { carrier: string; trackingNo: string; shippedAt: string; receivedAt: string; remark: string }
+export interface PmsPurchaseActionHistory { actionId: string; action: string; actorName: string; occurredAt: string; remark: string }
 
 export type PmsBomMatchStatus = '已匹配' | '未匹配'
 
@@ -98,7 +70,7 @@ export interface PmsProductPurchaseOrder {
   spu: string
   productName: string
   imageUrl: string
-  purchaseType: '做货' | '成衣' | '样衣'
+  purchaseType: PmsProductPurchaseType
   area: PmsPurchaseRegion
   productionArea?: PmsPurchaseRegion
   supplierName: string
@@ -115,6 +87,34 @@ export interface PmsProductPurchaseOrder {
   remark: string
   sourceSuggestionNo: string
   closedReason: string
+  purchaseAddress?: string
+  saleType?: string
+  recipientName?: string
+  partnerName?: string
+  currency?: 'CNY' | 'IDR' | 'USD'
+  exchangeRate?: number
+  expressRecords?: PmsProductExpress[]
+  outboundRecords?: Array<{ sku: string; qty: number; occurredAt: string; actorName: string; remark: string }>
+  operationHistory?: PmsPurchaseActionHistory[]
+  qualityResult?: string
+  barcodeQuantities?: Record<string, number>
+  templateConfirmed?: boolean
+  sourceReorderSpu?: string
+  sourceOrderNos?: string[]
+  aftersaleIds?: string[]
+  stockMovements?: Array<{operationId:string;sku:string;warehouse:string;direction:'入库'|'出库';qty:number;occurredAt:string;actorName:string}>
+  reviewOutcome?: string
+  auditedAt?: string
+  receivedAt?: string
+  inboundBy?: string
+  inboundReopened?: boolean
+  mergedInto?: string
+  combinedOrderNo?: string
+  platform?: string
+  transferRequired?: string
+  transferHistory?: boolean
+  insertOrder?: boolean
+  _pmsBaseVersion?: number
 }
 
 interface PmsPpoRuntime {
@@ -168,17 +168,24 @@ function buildLine(
 }
 
 function normalizeSeedOrders(orders: PmsProductPurchaseOrder[]): PmsProductPurchaseOrder[] {
-  return orders.map((order, index) => ({
+  const catalog = listPmsCoreDemoProducts()
+  return orders.map((order, index) => {
+    const product = catalog[index % Math.min(catalog.length, 8)]
+    const references = product?.skus.slice(0, Math.max(1, order.lines.length)) ?? []
+    return ({
     ...order,
+    ...(product ? { spu: product.spu, productName: product.productName, imageUrl: product.imageUrl } : {}),
     productionArea: order.productionArea ?? order.area,
     purchaser: order.purchaser ?? (index % 2 === 0 ? '王采购' : '陈采购'),
     isUrgent: order.isUrgent ?? (index % 4 === 3 ? '是' : '否'),
     isFirstOrder: order.isFirstOrder ?? (index % 5 === 4 ? '是' : '否'),
-    lines: order.lines.map((line, lineIndex) => ({
-      ...line,
-      bomNo: line.needBom ? `BOM-${order.spu}-${String(lineIndex + 1).padStart(2, '0')}` : '',
+    lines: (references.length ? references : order.lines).map((reference, lineIndex) => ({
+      ...order.lines[Math.min(lineIndex, order.lines.length - 1)],
+      ...('price' in reference ? { sku: reference.sku, color: reference.color, size: reference.size, imageUrl: reference.imageUrl, standardPrice: reference.price, actualPrice: reference.price, weight: reference.weight } : {}),
+      lineId: `${order.purchaseOrderNo}-L${lineIndex + 1}`,
+      bomNo: '',
     })),
-  }))
+  })})
 }
 
 function buildInitialRuntime(): PmsPpoRuntime {
@@ -294,6 +301,8 @@ const SPU_STANDARD_PRICE: Record<string, number> = {
 }
 
 export function defaultPmsSkuPrice(sku: string): number {
+  const reference = listSkuArchives().find(item => item.skuCode === sku)
+  if (reference) return reference.costPrice
   const spu = sku.split('-').slice(0, 3).join('-')
   return SPU_STANDARD_PRICE[spu] ?? 0
 }
@@ -355,7 +364,7 @@ export interface PmsCreatePurchaseOrderInput {
   spu: string
   productName: string
   imageUrl: string
-  purchaseType: '做货' | '成衣' | '样衣'
+  purchaseType: PmsProductPurchaseType
   area: PmsPurchaseRegion
   productionArea?: PmsPurchaseRegion | ''
   supplierName: string
@@ -367,6 +376,11 @@ export interface PmsCreatePurchaseOrderInput {
   isUrgent?: PmsYesNo
   isFirstOrder?: PmsYesNo
   lines: PmsPurchaseOrderLineInput[]
+  purchaseAddress?: string
+  saleType?: string
+  recipientName?: string
+  currency?: 'CNY' | 'IDR' | 'USD'
+  exchangeRate?: number
 }
 
 function validateLineInput(line: PmsPurchaseOrderLineInput, index: number): PmsPurchaseOrderLineInput {
@@ -383,294 +397,323 @@ function validateLineInput(line: PmsPurchaseOrderLineInput, index: number): PmsP
   return line
 }
 
-export function createPmsProductPurchaseOrders(
+export interface PmsPurchaseProductCandidate {
+  spu: string
+  productName: string
+  imageUrl: string
+  skus: Array<{ sku: string; color: string; size: string; imageUrl: string; price: number; weight: number }>
+}
+
+export function listPmsPurchaseProductCandidates(keyword = ''): PmsPurchaseProductCandidate[] {
+  const needle = keyword.trim().toLowerCase()
+  const grouped = new Map<string, PmsPurchaseProductCandidate>()
+  for (const sku of listSkuArchives()) {
+    if (sku.archiveStatus !== 'ACTIVE' || !sku.skuImageUrl) continue
+    let group = grouped.get(sku.styleCode)
+    if (!group) {
+      group = { spu: sku.styleCode, productName: sku.styleName, imageUrl: sku.skuImageUrl, skus: [] }
+      grouped.set(sku.styleCode, group)
+    }
+    group.skus.push({ sku: sku.skuCode, color: sku.colorName, size: sku.sizeName, imageUrl: sku.skuImageUrl, price: sku.costPrice, weight: sku.weightKg })
+  }
+  return [...grouped.values()].filter(row => !needle || [row.spu, row.productName, ...row.skus.map(sku => sku.sku)].some(value => value.toLowerCase().includes(needle)))
+}
+
+export function listPmsCoreDemoProducts(): PmsPurchaseProductCandidate[] {
+  const catalog = listPmsPurchaseProductCandidates()
+  return [...catalog.filter(row => getPublishedPurchaseMaterials(row.spu)), ...catalog.filter(row => !getPublishedPurchaseMaterials(row.spu))]
+}
+
+function stablePurchaseSuffix(value: string): string {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619)
+  return (hash >>> 0).toString(36).toUpperCase().padStart(7, '0')
+}
+
+function addPurchaseHistory(order: PmsProductPurchaseOrder, action: string, actorName: string, remark: string, operationId: string): void {
+  order.operationHistory = [{ actionId: operationId, action, actorName, occurredAt: new Date().toISOString(), remark }, ...(order.operationHistory ?? [])]
+}
+
+/** Pure draft preparation. Callers may include source suggestions/reorder records in the same commit. */
+export function preparePmsProductPurchaseOrders(
   inputs: PmsCreatePurchaseOrderInput[],
   actor: { id: string; name: string; role: PmsActorRole },
+  operationId: string,
 ): PmsProductPurchaseOrder[] {
-  if (inputs.length === 0) throw new PmsDomainError('PPO_EMPTY', '请至少选择一个款式生成采购单')
-  const created: PmsProductPurchaseOrder[] = []
-  inputs.forEach((input) => {
+  if (!inputs.length) throw new PmsDomainError('PPO_EMPTY', '请至少选择一个款式生成采购单')
+  if (!operationId) throw new PmsDomainError('PPO_OPERATION_REQUIRED', '采购表单已失效，请重新打开')
+  return inputs.map((input, index) => {
+    const canonical=listPmsPurchaseProductCandidates().find(row=>row.spu===input.spu)
+    if(!canonical||input.lines.some(line=>!canonical.skus.some(sku=>sku.sku===line.sku)))throw new PmsDomainError('PPO_CANONICAL_SKU_REQUIRED','请选择商品中心当前有效SPU及其SKU；历史采购快照仍可查看')
+    if (!input.spu.trim() || !input.productName.trim()) throw new PmsDomainError('PPO_PRODUCT_REQUIRED', '请选择商品')
     if (!input.supplierName.trim()) throw new PmsDomainError('PPO_SUPPLIER_REQUIRED', `${input.productName} 未选择供应商`)
     if (!input.warehouse.trim()) throw new PmsDomainError('PPO_WAREHOUSE_REQUIRED', `${input.productName} 未选择目标仓库`)
-    if (input.lines.length === 0) throw new PmsDomainError('PPO_LINE_EMPTY', `${input.productName} 没有可采购的 SKU`)
-    const purchaser = input.purchaser === undefined ? actor.name.trim() : input.purchaser.trim()
-    if (!purchaser) throw new PmsDomainError('PPO_PURCHASER_REQUIRED', `${input.productName} 未填写采购专员`)
-    if (input.purchaseType === '做货' && input.productionArea === '') {
-      throw new PmsDomainError('PPO_PRODUCTION_AREA_REQUIRED', `${input.productName} 的做货采购必须选择采购区域`)
-    }
-    const productionArea = input.productionArea === undefined || input.productionArea === '' ? input.area : input.productionArea
-    const bomTemplate = getPmsBomTemplate(input.spu)
-    const needBom = input.purchaseType === '做货'
-    const bomMatched = bomTemplate?.status === '已发布'
-    orderSequence += 1
-    const purchaseOrderNo = `CG-2026-${String(orderSequence).padStart(4, '0')}`
-    const order: PmsProductPurchaseOrder = {
-      purchaseOrderNo,
-      spu: input.spu,
-      productName: input.productName,
-      imageUrl: input.imageUrl,
-      purchaseType: input.purchaseType,
-      area: input.area,
-      productionArea,
-      supplierName: input.supplierName.trim(),
-      warehouse: input.warehouse.trim(),
-      status: '待采购',
-      version: 1,
-      lines: input.lines.map((line, index) => {
-        const valid = validateLineInput(line, index)
-        return buildLine(
-          `L-${purchaseOrderNo.slice(-4)}-${String(index + 1).padStart(2, '0')}`,
-          valid.sku,
-          valid.color,
-          valid.size,
-          input.imageUrl,
-          valid.standardPrice,
-          valid.actualPrice,
-          valid.qty,
-          0,
-          needBom,
-          bomMatched,
-          needBom ? '未生成' : '不需要',
-          {
-            bomNo: needBom ? valid.bomNo?.trim() || `BOM-${input.spu}-${String(index + 1).padStart(2, '0')}` : '',
-            bomVersion: needBom ? valid.bomVersion?.trim() || 'V1.0' : '',
-            bomStatus: needBom ? (bomMatched ? '已匹配' : '未匹配') : '未匹配',
-            applicant: valid.applicant?.trim() || '张三',
-            creator: valid.creator?.trim() || '李四',
-            weight: valid.weight ?? 0.35,
-          },
-        )
-      }),
-      orderedAt: new Date().toISOString(),
-      expectedDeliveryDate: input.expectedDeliveryDate,
-      creator: actor.name,
-      purchaser,
-      isUrgent: input.isUrgent ?? '否',
-      isFirstOrder: input.isFirstOrder ?? '否',
-      remark: input.remark?.trim() ?? '',
-      sourceSuggestionNo: input.sourceSuggestionNo ?? '',
-      closedReason: '',
-    }
-    getRuntime().orders.unshift(order)
-    created.push(order)
-    persistPmsProductPurchaseOrder(order)
-    appendPmsLog({
-      objectType: 'product-purchase-order',
-      objectId: purchaseOrderNo,
-      action: '创建',
-      beforeValue: '',
-      afterValue: `${order.productName} · ${order.lines.length} 个 SKU · 待采购`,
-      reason: input.sourceSuggestionNo ? `由采购建议 ${input.sourceSuggestionNo} 生成` : '手工创建',
-      actorId: actor.id,
-      actorName: actor.name,
-      actorRole: actor.role,
-      relatedPurchaseOrderNo: purchaseOrderNo,
+    if (!input.lines.length) throw new PmsDomainError('PPO_LINE_EMPTY', `${input.productName} 没有可采购的SKU`)
+    const purchaser = (input.purchaser ?? actor.name).trim()
+    if (!purchaser) throw new PmsDomainError('PPO_PURCHASER_REQUIRED', '请填写采购员')
+    if (input.purchaseType === '做货' && input.productionArea === '') throw new PmsDomainError('PPO_PRODUCTION_AREA_REQUIRED', '请选择做货区域')
+    const seen = new Set<string>()
+    input.lines.forEach((line, lineIndex) => {
+      validateLineInput(line, lineIndex)
+      if (seen.has(line.sku)) throw new PmsDomainError('PPO_SKU_DUPLICATE', `${line.sku} 重复，请合并数量`)
+      seen.add(line.sku)
     })
+    const template = getPublishedPurchaseMaterials(input.spu)
+    const needBom = input.purchaseType === '做货' || input.purchaseType === '烫画'
+    const purchaseOrderNo = `CG-2026-${stablePurchaseSuffix(`${operationId}:${index}`)}`
+    const order: PmsProductPurchaseOrder = {
+      purchaseOrderNo, spu: input.spu, productName: input.productName, imageUrl: input.imageUrl,
+      purchaseType: input.purchaseType, area: input.area, productionArea: input.productionArea || input.area,
+      supplierName: input.supplierName.trim(), warehouse: input.warehouse.trim(), status: '待采购', version: 1,
+      lines: input.lines.map((line, lineIndex) => buildLine(`${purchaseOrderNo}-L${lineIndex + 1}`, line.sku, line.color, line.size, canonical.skus.find(sku=>sku.sku===line.sku)!.imageUrl, line.standardPrice, line.actualPrice, line.qty, 0, needBom, needBom && Boolean(template), needBom ? '未生成' : '不需要', {
+        bomNo: line.bomNo || '', bomVersion: needBom ? line.bomVersion || template?.version || '' : '', bomStatus: needBom && template ? '已匹配' : '未匹配', applicant: line.applicant || actor.name, creator: line.creator || actor.name, weight: line.weight ?? canonical.skus.find(sku=>sku.sku===line.sku)!.weight,
+      })),
+      orderedAt: new Date().toISOString(), expectedDeliveryDate: input.expectedDeliveryDate, creator: actor.name,
+      purchaser, isUrgent: input.isUrgent ?? '否', isFirstOrder: input.isFirstOrder ?? '否', remark: input.remark?.trim() ?? '',
+      sourceSuggestionNo: input.sourceSuggestionNo ?? '', closedReason: '', purchaseAddress: input.purchaseAddress ?? '',
+      saleType: input.saleType ?? '', recipientName: input.recipientName ?? '', currency: input.currency ?? 'CNY', exchangeRate: input.exchangeRate ?? 1,
+      expressRecords: [], outboundRecords: [], _pmsBaseVersion: 0,
+    }
+    addPurchaseHistory(order, '创建采购单', actor.name, input.sourceSuggestionNo ? `来源采购建议 ${input.sourceSuggestionNo}` : order.remark, operationId)
+    return order
   })
-  return created
 }
 
-export function updatePmsProductPurchaseOrder(
-  purchaseOrderNo: string,
-  patch: {
-    supplierName?: string
-    warehouse?: string
-    expectedDeliveryDate?: string
-    remark?: string
-    purchaser?: string
-    isUrgent?: PmsYesNo
-    isFirstOrder?: PmsYesNo
-    productionArea?: PmsPurchaseRegion | ''
-    lines?: Array<{ lineId: string; qty: number; actualPrice: number; weight?: number }>
-  },
+export function publishPmsProductPurchaseOrders(orders: PmsProductPurchaseOrder[]): void {
+  const list = getRuntime().orders
+  for (const order of orders) {
+    const index = list.findIndex(item => item.purchaseOrderNo === order.purchaseOrderNo)
+    if (index >= 0) list[index] = order
+    else list.unshift(order)
+  }
+}
+
+export async function commitPmsProductPurchaseOrders(
+  orders: PmsProductPurchaseOrder[],
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsProductPurchaseOrder {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) throw new PmsDomainError('PPO_NOT_FOUND', `商品采购单 ${purchaseOrderNo} 不存在`)
-  if (!EDITABLE_STATUSES.includes(order.status)) {
-    throw new PmsDomainError('PPO_STATUS_BLOCKED', `${order.status} 状态不可编辑，请先确认或关闭`)
-  }
-  if (patch.supplierName !== undefined) {
-    if (!patch.supplierName.trim()) throw new PmsDomainError('PPO_SUPPLIER_REQUIRED', '供应商不能为空')
-    order.supplierName = patch.supplierName.trim()
-  }
-  if (patch.warehouse !== undefined) order.warehouse = patch.warehouse.trim()
-  if (patch.expectedDeliveryDate !== undefined) order.expectedDeliveryDate = patch.expectedDeliveryDate
-  if (patch.remark !== undefined) order.remark = patch.remark.trim()
-  if (patch.purchaser !== undefined) {
-    const purchaser = patch.purchaser.trim()
-    if (!purchaser) throw new PmsDomainError('PPO_PURCHASER_REQUIRED', '采购专员不能为空')
-    order.purchaser = purchaser
-  }
-  if (patch.isUrgent !== undefined) order.isUrgent = patch.isUrgent
-  if (patch.isFirstOrder !== undefined) order.isFirstOrder = patch.isFirstOrder
-  if (patch.productionArea !== undefined) {
-    if (order.purchaseType === '做货' && !patch.productionArea) {
-      throw new PmsDomainError('PPO_PRODUCTION_AREA_REQUIRED', '做货采购必须选择采购区域')
-    }
-    if (patch.productionArea) order.productionArea = patch.productionArea
-  }
-  patch.lines?.forEach((linePatch) => {
-    const line = order.lines.find((item) => item.lineId === linePatch.lineId)
-    if (!line) throw new PmsDomainError('PPO_LINE_NOT_FOUND', `采购明细 ${linePatch.lineId} 不存在`)
-    if (!Number.isInteger(linePatch.qty) || linePatch.qty <= 0) {
-      throw new PmsDomainError('PPO_QTY_INVALID', `${line.sku} 的采购数量必须是大于 0 的整数`)
-    }
-    if (!Number.isFinite(linePatch.actualPrice) || linePatch.actualPrice < 0) {
-      throw new PmsDomainError('PPO_PRICE_INVALID', `${line.sku} 的采购单价不能为负数`)
-    }
-    if (linePatch.weight !== undefined && (!Number.isFinite(linePatch.weight) || linePatch.weight < 0)) {
-      throw new PmsDomainError('PPO_WEIGHT_INVALID', `${line.sku} 的单件重量必须是大于等于 0 的数字`)
-    }
-    line.qty = linePatch.qty
-    line.actualPrice = linePatch.actualPrice
-    if (linePatch.weight !== undefined) line.weight = linePatch.weight
-  })
-  order.version += 1
-  appendPmsLog({
-    objectType: 'product-purchase-order',
-    objectId: purchaseOrderNo,
-    action: '编辑',
-    beforeValue: `V${order.version - 1}`,
-    afterValue: `V${order.version}`,
-    reason: patch.remark ?? '',
-    actorId: actor.id,
-    actorName: actor.name,
-    actorRole: actor.role,
-    relatedPurchaseOrderNo: purchaseOrderNo,
-  })
-  persistPmsProductPurchaseOrder(order)
-  return order
+  action: string,
+  operationId: string,
+  relatedRecords: PmsCommitRecord[] = [],
+  operationSignature?: string,
+): Promise<PmsProductPurchaseOrder[]> {
+  const committed = await pmsCommitRecords([
+    ...orders.map(value => ({ store: PMS_STORES.pmsProductPurchaseOrders, value })), ...relatedRecords,
+  ], { operationId, operationSignature: operationSignature ?? pmsCoreOperationSignature(action, orders.map(({ operationHistory, orderedAt, version, _pmsBaseVersion, ...business }) => business)), log: { objectType: 'product-purchase-order', objectId: orders[0]?.purchaseOrderNo ?? operationId,
+    action, beforeValue: '', afterValue: `${orders.length}张采购单`, reason: orders.map(order => order.remark).filter(Boolean).join('；'),
+    actorId: actor.id, actorName: actor.name, actorRole: actor.role, relatedPurchaseOrderNo: orders[0]?.purchaseOrderNo } })
+  const saved = committed.values.slice(0, orders.length) as PmsProductPurchaseOrder[]
+  publishPmsProductPurchaseOrders(saved)
+  return saved
 }
 
-export function advancePmsProductPurchaseOrderStatus(
-  purchaseOrderNo: string,
-  nextStatus: PmsProductPurchaseOrderStatus,
-  actor: { id: string; name: string; role: PmsActorRole },
-): PmsProductPurchaseOrder {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) throw new PmsDomainError('PPO_NOT_FOUND', `商品采购单 ${purchaseOrderNo} 不存在`)
-  if (!STATUS_TRANSITIONS[order.status].includes(nextStatus)) {
-    throw new PmsDomainError('PPO_TRANSITION_BLOCKED', `${order.status} 不能直接流转到 ${nextStatus}`)
+export async function createPmsProductPurchaseOrders(inputs: PmsCreatePurchaseOrderInput[], actor: { id: string; name: string; role: PmsActorRole }, operationId = `ppo-${crypto.randomUUID()}`): Promise<PmsProductPurchaseOrder[]> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  return commitPmsProductPurchaseOrders(preparePmsProductPurchaseOrders(inputs, actor, operationId), actor, '创建采购单', operationId, [], pmsCoreOperationSignature('创建采购单', inputs))
+}
+
+export interface PmsPurchaseOrderPatch {
+  supplierName?: string; warehouse?: string; expectedDeliveryDate?: string; remark?: string; purchaser?: string
+  isUrgent?: PmsYesNo; isFirstOrder?: PmsYesNo; productionArea?: PmsPurchaseRegion | ''
+  purchaseAddress?: string; saleType?: string; recipientName?: string; partnerName?: string
+  purchaseType?: PmsProductPurchaseType; currency?: 'CNY' | 'IDR' | 'USD'; exchangeRate?: number
+  qualityResult?: string; templateConfirmed?: boolean; barcodeQuantities?: Record<string, number>
+  expressRecords?: PmsProductExpress[]
+  lines?: Array<{ lineId: string; qty: number; actualPrice: number; weight?: number }>
+}
+
+export function preparePmsProductPurchaseOrderPatch(purchaseOrderNo: string, patch: PmsPurchaseOrderPatch, actorName: string, operationId: string, allowConfirmed = false, expectedVersion?: number): PmsProductPurchaseOrder {
+  const old = getPmsProductPurchaseOrder(purchaseOrderNo)
+  if (!old) throw new PmsDomainError('PPO_NOT_FOUND', `商品采购单 ${purchaseOrderNo} 不存在`)
+  if (!allowConfirmed && !EDITABLE_STATUSES.includes(old.status)) throw new PmsDomainError('PPO_STATUS_BLOCKED', `${old.status}状态不能编辑采购数量与价格`)
+  assertPmsCoreDraftVersion(old, expectedVersion)
+  const next = structuredClone(old)
+  const { lines, ...fields } = patch
+  Object.assign(next, fields)
+  if (!next.supplierName.trim() || !next.warehouse.trim() || !(next.purchaser || next.creator).trim()) throw new PmsDomainError('PPO_REQUIRED', '供应商、仓库和采购员不能为空')
+  if (next.exchangeRate !== undefined && (!Number.isFinite(next.exchangeRate) || next.exchangeRate <= 0)) throw new PmsDomainError('PPO_EXCHANGE_INVALID', '汇率必须大于0')
+  if ((next.purchaseType === '做货' || next.purchaseType === '烫画') && !next.productionArea) throw new PmsDomainError('PPO_PRODUCTION_AREA_REQUIRED', '请选择做货区域')
+  for (const linePatch of lines ?? []) {
+    const line = next.lines.find(item => item.lineId === linePatch.lineId)
+    if (!line) throw new PmsDomainError('PPO_LINE_NOT_FOUND', '采购明细不存在')
+    validateLineInput({ ...line, ...linePatch }, 0)
+    if (linePatch.qty < line.deliveredQty) throw new PmsDomainError('PPO_QTY_BELOW_DELIVERED', `${line.sku}采购数量不能小于已到货数量`)
+    Object.assign(line, linePatch)
   }
-  const beforeStatus = order.status
-  order.status = nextStatus
-  appendPmsLog({
-    objectType: 'product-purchase-order',
-    objectId: purchaseOrderNo,
-    action: '状态流转',
-    beforeValue: beforeStatus,
-    afterValue: nextStatus,
-    reason: '',
-    actorId: actor.id,
-    actorName: actor.name,
-    actorRole: actor.role,
-    relatedPurchaseOrderNo: purchaseOrderNo,
-  })
-  persistPmsProductPurchaseOrder(order)
-  return order
+  next.version += 1
+  addPurchaseHistory(next, '编辑采购单', actorName, patch.remark ?? '', operationId)
+  return next
 }
 
-export function closePmsProductPurchaseOrder(
-  purchaseOrderNo: string,
-  reason: string,
-  actor: { id: string; name: string; role: PmsActorRole },
-): PmsProductPurchaseOrder {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) throw new PmsDomainError('PPO_NOT_FOUND', `商品采购单 ${purchaseOrderNo} 不存在`)
-  if (!reason.trim()) throw new PmsDomainError('PPO_REASON_REQUIRED', '关闭采购单必须填写原因')
-  if (order.status === '已完成') throw new PmsDomainError('PPO_COMPLETED_BLOCKED', '已完成的采购单不可关闭')
-  if (order.status === '已关闭') throw new PmsDomainError('PPO_CLOSED_BLOCKED', '该采购单已经关闭')
-  const beforeStatus = order.status
-  order.status = '已关闭'
-  order.closedReason = reason.trim()
-  appendPmsLog({
-    objectType: 'product-purchase-order',
-    objectId: purchaseOrderNo,
-    action: '关闭',
-    beforeValue: beforeStatus,
-    afterValue: '已关闭',
-    reason: reason.trim(),
-    actorId: actor.id,
-    actorName: actor.name,
-    actorRole: actor.role,
-    relatedPurchaseOrderNo: purchaseOrderNo,
-    secondConfirmation: true,
-  })
-  persistPmsProductPurchaseOrder(order)
-  return order
+export async function updatePmsProductPurchaseOrder(purchaseOrderNo: string, patch: PmsPurchaseOrderPatch, actor: { id: string; name: string; role: PmsActorRole }, operationId = `edit-${crypto.randomUUID()}`, expectedVersion?: number): Promise<PmsProductPurchaseOrder> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  return (await commitPmsProductPurchaseOrders([preparePmsProductPurchaseOrderPatch(purchaseOrderNo, patch, actor.name, operationId, false, expectedVersion)], actor, '编辑采购单', operationId, [], pmsCoreOperationSignature('编辑采购单', { purchaseOrderNo, patch })))[0]
 }
 
-export interface PmsGenerateRequirementResult {
-  purchaseOrderNo: string
-  requirementNo: string
-  lines: PmsMaterialRequirementLine[]
+export async function advancePmsProductPurchaseOrderStatus(purchaseOrderNo: string, nextStatus: PmsProductPurchaseOrderStatus, actor: { id: string; name: string; role: PmsActorRole }, operationId = `status-${crypto.randomUUID()}`): Promise<PmsProductPurchaseOrder> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  const old = getPmsProductPurchaseOrder(purchaseOrderNo)
+  if (!old) throw new PmsDomainError('PPO_NOT_FOUND', '采购单不存在')
+  if (!STATUS_TRANSITIONS[old.status].includes(nextStatus)) throw new PmsDomainError('PPO_TRANSITION_BLOCKED', `${old.status}不能直接变为${nextStatus}`)
+  const next = structuredClone(old)
+  next.status = nextStatus; next.version += 1
+  addPurchaseHistory(next, '状态变更', actor.name, `${old.status}→${nextStatus}`, operationId)
+  return (await commitPmsProductPurchaseOrders([next], actor, '状态变更', operationId, [], pmsCoreOperationSignature('状态变更', { purchaseOrderNo, nextStatus })))[0]
 }
 
-export function syncPmsProductPurchaseOrderBomMatched(purchaseOrderNo: string): void {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) return
-  const template = getPmsBomTemplate(order.spu)
-  const matched = template?.status === '已发布'
-  order.lines.forEach((line) => {
-    if (line.needBom) {
-      line.bomMatched = matched
-      line.bomStatus = matched ? '已匹配' : '未匹配'
-    }
-  })
+export function preparePmsProductPurchaseOrderClose(purchaseOrderNo:string,reason:string,actor:{name:string},operationId:string):PmsProductPurchaseOrder {
+  const old = getPmsProductPurchaseOrder(purchaseOrderNo)
+  if (!old) throw new PmsDomainError('PPO_NOT_FOUND', '采购单不存在')
+  if (!reason.trim()) throw new PmsDomainError('PPO_REASON_REQUIRED', '请填写关闭原因')
+  if (old.status === '已完成' || old.status === '已关闭') throw new PmsDomainError('PPO_CLOSED_BLOCKED', `${old.status}采购单不能关闭`)
+  const next = structuredClone(old); next.status = '已关闭'; next.closedReason = reason.trim(); next.version += 1
+  addPurchaseHistory(next, '关闭采购单', actor.name, reason.trim(), operationId)
+  return next
+}
+export async function closePmsProductPurchaseOrder(purchaseOrderNo:string,reason:string,actor:{id:string;name:string;role:PmsActorRole},operationId=`close-${crypto.randomUUID()}`):Promise<PmsProductPurchaseOrder>{
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  const next=preparePmsProductPurchaseOrderClose(purchaseOrderNo,reason,actor,operationId)
+  return (await commitPmsProductPurchaseOrders([next],actor,'关闭采购单',operationId,[],pmsCoreOperationSignature('关闭采购单',{purchaseOrderNo,reason})))[0]
+}
+
+export interface PmsGenerateRequirementResult { purchaseOrderNo: string; requirementNo: string; lines: PmsMaterialRequirementLine[] }
+
+/** Explicit refresh commits the purchase snapshot; ordinary reads never perform this action. */
+export async function syncPmsProductPurchaseOrderBomMatched(purchaseOrderNo: string): Promise<void> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  const old = getPmsProductPurchaseOrder(purchaseOrderNo)
+  if (!old) throw new PmsDomainError('PPO_NOT_FOUND', '采购单不存在')
+  const next = structuredClone(old)
+  const matched = Boolean(getPublishedPurchaseMaterials(old.spu))
+  for (const line of next.lines) if (line.needBom) { line.bomMatched = matched; line.bomStatus = matched ? '已匹配' : '未匹配' }
+  await pmsCommitRecords([{ store: PMS_STORES.pmsProductPurchaseOrders, value: next }])
+  publishPmsProductPurchaseOrders([next])
 }
 
 export function checkPmsGenerateMaterialRequirement(purchaseOrderNo: string): { ok: boolean; reason: string } {
-  syncPmsProductPurchaseOrderBomMatched(purchaseOrderNo)
   const order = getPmsProductPurchaseOrder(purchaseOrderNo)
   if (!order) return { ok: false, reason: '采购单不存在' }
-  if (order.purchaseType !== '做货') return { ok: false, reason: '只有“做货”类采购单才能生成面辅料需求' }
-  if (order.status === '草稿') return { ok: false, reason: '草稿采购单不能生成面辅料需求，请先提交' }
-  if (order.status === '已关闭') return { ok: false, reason: '已关闭采购单不能生成面辅料需求' }
-  if (order.lines.some((line) => line.qty <= 0)) return { ok: false, reason: '存在数量为 0 的 SKU，请先补齐数量' }
-  if (order.lines.some((line) => line.needBom && !line.bomMatched)) return { ok: false, reason: 'BOM 未匹配的 SKU 不能生成面辅料需求' }
-  if (order.lines.every((line) => line.materialStatus !== '未生成')) return { ok: false, reason: '该采购单的面辅料需求已经生成，不能重复生成' }
+  if (order.purchaseType !== '做货' && order.purchaseType !== '烫画') return { ok: false, reason: '只有做货或烫画采购能生成面辅料需求' }
+  if (order.status === '草稿' || order.status === '已关闭') return { ok: false, reason: `${order.status}采购单不能生成需求` }
+  if (!getPublishedPurchaseMaterials(order.spu)) return { ok: false, reason: '该款没有可用的已发布技术包用料，请先在商品中心完善' }
+  if (order.lines.every(line => !line.needBom || line.materialStatus !== '未生成')) return { ok: false, reason: '面辅料需求已经生成，不能重复生成' }
   return { ok: true, reason: '' }
 }
 
-export function generatePmsMaterialRequirement(
-  purchaseOrderNo: string,
-  actor: { id: string; name: string; role: PmsActorRole },
-): PmsGenerateRequirementResult {
+export async function generatePmsMaterialRequirement(purchaseOrderNo: string, actor: { id: string; name: string; role: PmsActorRole }, operationId = `material-${crypto.randomUUID()}`): Promise<PmsGenerateRequirementResult> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  await hydratePmsMaterialPurchaseOrdersFromIdb()
   const check = checkPmsGenerateMaterialRequirement(purchaseOrderNo)
   if (!check.ok) throw new PmsDomainError('PPO_REQUIREMENT_BLOCKED', check.reason)
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) throw new PmsDomainError('PPO_NOT_FOUND', `商品采购单 ${purchaseOrderNo} 不存在`)
-  syncPmsProductPurchaseOrderBomMatched(purchaseOrderNo)
-  const result = createPmsMaterialRequirementFromOrder(order)
-  order.lines.forEach((line) => {
-    if (line.needBom) line.materialStatus = '已生成'
-  })
-  appendPmsLog({
-    objectType: 'product-purchase-order',
-    objectId: purchaseOrderNo,
-    action: '生成面辅料需求',
-    beforeValue: '未生成',
-    afterValue: `已生成 ${result.requirementNo}`,
-    reason: `按 BOM 拆解 ${result.lines.length} 条物料需求`,
-    actorId: actor.id,
-    actorName: actor.name,
-    actorRole: actor.role,
-    relatedPurchaseOrderNo: purchaseOrderNo,
-  })
-  persistPmsProductPurchaseOrder(order)
-  return { purchaseOrderNo, requirementNo: result.requirementNo, lines: result.lines }
+  const order = structuredClone(getPmsProductPurchaseOrder(purchaseOrderNo)!)
+  const requirement = preparePmsMaterialRequirementFromOrder(order, operationId)
+  for (const line of order.lines) if (line.needBom) { line.materialStatus = '已生成'; line.bomMatched = true; line.bomStatus = '已匹配' }
+  addPurchaseHistory(order, '生成面辅料需求', actor.name, requirement.requirementNo, operationId)
+  await commitPmsProductPurchaseOrders([order], actor, '生成面辅料需求', operationId, [{ store: PMS_STORES.pmsMaterialRequirements, value: requirement }], pmsCoreOperationSignature('生成面辅料需求', { purchaseOrderNo }))
+  publishPmsMaterialRequirements([requirement])
+  return { purchaseOrderNo, requirementNo: requirement.requirementNo, lines: requirement.lines }
 }
 
 export function listPmsPpoLogs(purchaseOrderNo: string): PmsOperationLog[] {
-  return listPmsLogs('product-purchase-order', purchaseOrderNo)
+  const stored = listPmsLogs('product-purchase-order', purchaseOrderNo)
+  const history = getPmsProductPurchaseOrder(purchaseOrderNo)?.operationHistory ?? []
+  const reflected: PmsOperationLog[] = history.map(entry => ({ id: entry.actionId, objectType: 'product-purchase-order', objectId: purchaseOrderNo, action: entry.action, actorId: entry.actorName, actorName: entry.actorName, actorRole: '采购员', beforeValue: '', afterValue: '', reason: entry.remark, occurredAt: entry.occurredAt, timeZone: 'Asia/Jakarta', source: 'PMS', relatedPurchaseOrderNo: purchaseOrderNo }))
+  return [...reflected, ...stored.filter(log => !history.some(entry => entry.actionId === log.id))]
 }
 
-export function markPmsProductPurchaseOrderMaterialPushed(purchaseOrderNo: string): void {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) throw new PmsDomainError('PPO_NOT_FOUND', `商品采购单 ${purchaseOrderNo} 不存在`)
-  order.lines.forEach((line) => {
-    if (line.needBom && line.materialStatus === '已生成') line.materialStatus = '已下推'
-  })
-  persistPmsProductPurchaseOrder(order)
+export async function markPmsProductPurchaseOrderMaterialPushed(purchaseOrderNo: string): Promise<void> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  const old = getPmsProductPurchaseOrder(purchaseOrderNo)
+  if (!old) throw new PmsDomainError('PPO_NOT_FOUND', '采购单不存在')
+  const next = structuredClone(old)
+  for (const line of next.lines) if (line.needBom && line.materialStatus === '已生成') line.materialStatus = '已下推'
+  await pmsCommitRecords([{ store: PMS_STORES.pmsProductPurchaseOrders, value: next }])
+  publishPmsProductPurchaseOrders([next])
+}
+
+export type PmsPurchaseLocalAction = '审核采购'|'驳回采购'|'设置采购员'|'修改售卖类型'|'更改采购类型'|'采购备注'|'完善快递信息'|'确认模板'|'开启入库'|'样衣质检'|'手动出库'|'运单入库'|'复制采购单'|'现货采购'|'样衣转做货'|'拆分采购单'|'合并采购单'|'组合生产采购单'
+export interface PmsPurchaseActionFields { remark?: string; purchaser?: string; saleType?: string; purchaseType?: PmsProductPurchaseType; carrier?: string; trackingNo?: string; shippedAt?: string; weight?: number; skuQty?: Record<string, number> }
+export async function performPmsProductPurchaseAction(orderNos: string[], action: PmsPurchaseLocalAction, fields: PmsPurchaseActionFields, actor: {id:string;name:string;role:PmsActorRole}, operationId: string, expectedVersions?: Record<string, number>): Promise<PmsProductPurchaseOrder[]> {
+  await hydratePmsProductPurchaseOrdersFromIdb()
+  await hydratePmsProductStockBalancesFromIdb()
+  const balances=new Map<string,PmsProductStockBalance>()
+  const originals=[...new Set(orderNos)].map(no=>{const row=getPmsProductPurchaseOrder(no);if(!row)throw new PmsDomainError('PPO_NOT_FOUND','采购单不存在');assertPmsCoreDraftVersion(row,expectedVersions?.[no]);return row})
+  if(!originals.length)throw new PmsDomainError('PPO_EMPTY','请先选择采购单')
+  const rows=originals.map(row=>structuredClone(row)),created:PmsProductPurchaseOrder[]=[]
+  const copying=['复制采购单','现货采购','样衣转做货','拆分采购单','合并采购单'].includes(action)
+  for(const row of rows){
+    if(row.status==='已关闭'&&!copying)throw new PmsDomainError('PPO_STATUS_BLOCKED',`${row.purchaseOrderNo}已关闭，不能${action}`)
+    if(action==='审核采购') {if(!['待采购','待确认','草稿'].includes(row.status))throw new PmsDomainError('PPO_STATUS_BLOCKED',`${row.purchaseOrderNo}当前状态不可审核`);row.status='已确认';row.reviewOutcome='已通过';row.auditedAt=new Date().toISOString()}
+    else if(action==='驳回采购'){if(!fields.remark?.trim())throw new PmsDomainError('PPO_REASON_REQUIRED','请填写驳回原因');if(['已入库','已完成'].includes(row.status))throw new PmsDomainError('PPO_STATUS_BLOCKED','已入库或完成采购单不能驳回');row.status='已关闭';row.reviewOutcome=originals.find(old=>old.purchaseOrderNo===row.purchaseOrderNo)?.status==='已确认'?'采购驳回':'审核驳回';row.closedReason=fields.remark.trim()}
+    else if(action==='设置采购员'){if(!fields.purchaser?.trim())throw new PmsDomainError('PPO_REQUIRED','请填写采购员');row.purchaser=fields.purchaser.trim()}
+    else if(action==='修改售卖类型'){if(!fields.saleType)throw new PmsDomainError('PPO_REQUIRED','请选择售卖类型');row.saleType=fields.saleType}
+    else if(action==='更改采购类型'){if(!fields.purchaseType)throw new PmsDomainError('PPO_REQUIRED','请选择采购类型');if(row.lines.some(line=>line.materialStatus==='已生成'||line.materialStatus==='已下推'))throw new PmsDomainError('PPO_MATERIAL_EXISTS','已生成用料需求，不能改变采购类型');row.purchaseType=fields.purchaseType;for(const line of row.lines){line.needBom=['做货','烫画'].includes(row.purchaseType);line.materialStatus=line.needBom?'未生成':'不需要'}}
+    else if(action==='采购备注')row.remark=fields.remark?.trim()??''
+    else if(action==='完善快递信息'){if(!fields.carrier?.trim()||!fields.trackingNo?.trim()||!fields.shippedAt)throw new PmsDomainError('PPO_EXPRESS_REQUIRED','请填写快递公司、运单号和发货时间');if(row.expressRecords?.some(item=>item.trackingNo===fields.trackingNo!.trim()))throw new PmsDomainError('PPO_EXPRESS_DUPLICATE','运单号已登记');row.expressRecords=[...(row.expressRecords??[]),{carrier:fields.carrier.trim(),trackingNo:fields.trackingNo.trim(),shippedAt:fields.shippedAt,receivedAt:'',remark:fields.remark??''}]}
+    else if(action==='确认模板'){if(!getPublishedPurchaseMaterials(row.spu))throw new PmsDomainError('PPO_TEMPLATE_MISSING',`${row.spu}没有已发布技术包`);row.templateConfirmed=true}
+    else if(action==='开启入库'){if(!['已入库','已完成'].includes(row.status))throw new PmsDomainError('PPO_STATUS_BLOCKED','仅已结束入库的采购单可重新开启');row.status='已确认';row.inboundReopened=true}
+    else if(action==='样衣质检'||action==='运单入库'||action==='手动出库'){
+      if(action==='样衣质检'&&!['样衣','达人寄样'].includes(row.purchaseType))throw new PmsDomainError('PPO_TYPE_BLOCKED','样衣质检只适用于样衣或达人寄样采购')
+      if(action!=='手动出库'&&['草稿','待采购','待确认'].includes(row.status))throw new PmsDomainError('PPO_STATUS_BLOCKED','采购单须先通过审核再入库')
+      let total=0
+      for(const line of row.lines){const qty=fields.skuQty?.[line.sku]??0;if(!Number.isInteger(qty)||qty<0)throw new PmsDomainError('PPO_QTY_INVALID','实际数量必须为非负整数');total+=qty;if(action==='手动出库'){const issued=(row.outboundRecords??[]).filter(entry=>entry.sku===line.sku).reduce((sum,entry)=>sum+entry.qty,0);if(qty>line.deliveredQty-issued)throw new PmsDomainError('PPO_OUTBOUND_OVER','出库数量不能超过已入库可出库数量');if(qty)row.outboundRecords=[...(row.outboundRecords??[]),{sku:line.sku,qty,occurredAt:new Date().toISOString(),actorName:actor.name,remark:fields.remark??''}]}else{if(qty>line.qty-line.deliveredQty)throw new PmsDomainError('PPO_INBOUND_OVER','入库数量不能超过待入库数量');line.deliveredQty+=qty;if(fields.weight!==undefined){if(!Number.isFinite(fields.weight)||fields.weight<0)throw new PmsDomainError('PPO_WEIGHT_INVALID','重量不能小于0');line.weight=fields.weight}}}
+      for(const line of row.lines){const qty=fields.skuQty?.[line.sku]??0;if(!qty)continue;const oldBalance=getPmsProductStockBalance(line.sku,row.warehouse),balance=balances.get(oldBalance.id)||structuredClone(oldBalance);if(action==='手动出库'&&qty>balance.qty)throw new PmsDomainError('PPO_STOCK_OVER','出库数量不能超过此仓库本地可用库存');balance.qty+=action==='手动出库'?-qty:qty;balance.updatedAt=new Date().toISOString();balance.sourcePurchaseOrderNos=[...new Set([...balance.sourcePurchaseOrderNos,row.purchaseOrderNo])];balances.set(balance.id,balance);row.stockMovements=[...(row.stockMovements||[]),{operationId,sku:line.sku,warehouse:row.warehouse,direction:action==='手动出库'?'出库':'入库',qty,occurredAt:balance.updatedAt,actorName:actor.name}]}
+      if(!total)throw new PmsDomainError('PPO_QTY_EMPTY','请填写本次实际数量')
+      if(action!=='手动出库'){row.status=row.lines.every(line=>line.deliveredQty===line.qty)?'已入库':'已确认';row.inboundBy=actor.name;row.receivedAt=new Date().toISOString();if(action==='样衣质检')row.qualityResult=fields.remark?.trim()||'已质检';for(const express of row.expressRecords??[])if(!express.receivedAt)express.receivedAt=row.receivedAt}
+    }
+    if(!copying){row.version+=1;addPurchaseHistory(row,action,actor.name,fields.remark??'',operationId)}
+  }
+  const makeCopy=(source:PmsProductPurchaseOrder,index:number,type?:PmsProductPurchaseType)=>{const copy=structuredClone(source);copy.purchaseOrderNo=`CG-2026-${stablePurchaseSuffix(`${operationId}:copy:${index}`)}`;copy.status='待采购';copy.version=1;copy._pmsBaseVersion=0;copy.purchaseType=type??source.purchaseType;copy.sourceOrderNos=[source.purchaseOrderNo];copy.closedReason='';copy.reviewOutcome='';copy.qualityResult='';copy.auditedAt='';copy.inboundReopened=false;copy.mergedInto='';copy.aftersaleIds=[];copy.expressRecords=[];copy.outboundRecords=[];copy.stockMovements=[];copy.receivedAt='';copy.inboundBy='';copy.operationHistory=[];copy.orderedAt=new Date().toISOString();copy.lines=copy.lines.map((line,i)=>({...line,lineId:`${copy.purchaseOrderNo}-L${i+1}`,deliveredQty:0,needBom:['做货','烫画'].includes(copy.purchaseType),materialStatus:['做货','烫画'].includes(copy.purchaseType)?'未生成':'不需要'}));addPurchaseHistory(copy,action,actor.name,source.purchaseOrderNo,operationId);return copy}
+  if(['复制采购单','现货采购','样衣转做货'].includes(action))rows.forEach((row,index)=>created.push(makeCopy(row,index,action==='现货采购'?'成衣':action==='样衣转做货'?'做货':undefined)))
+  if(action==='拆分采购单'){
+    if(rows.length!==1||!EDITABLE_STATUSES.includes(rows[0].status))throw new PmsDomainError('PPO_SPLIT_STATE','只可拆分一张未审核采购单')
+    const old=rows[0],copy=makeCopy(old,0);let total=0
+    for(const line of old.lines){const qty=fields.skuQty?.[line.sku]??0;if(!Number.isInteger(qty)||qty<0||qty>line.qty-line.deliveredQty)throw new PmsDomainError('PPO_SPLIT_QTY','拆分数量不得超过未入库数量');total+=qty;line.qty-=qty;copy.lines.find(item=>item.sku===line.sku)!.qty=qty}
+    if(!total||old.lines.every(line=>line.qty===0))throw new PmsDomainError('PPO_SPLIT_EMPTY','拆分后原单和新单都须保留采购数量')
+    old.lines=old.lines.filter(line=>line.qty>0);copy.lines=copy.lines.filter(line=>line.qty>0);old.version+=1;addPurchaseHistory(old,action,actor.name,copy.purchaseOrderNo,operationId);created.push(copy)
+  }
+  if(action==='合并采购单'){
+    const first=rows[0];if(rows.length<2||rows.some(row=>!EDITABLE_STATUSES.includes(row.status)||row.spu!==first.spu||row.purchaseType!==first.purchaseType||row.supplierName!==first.supplierName||row.warehouse!==first.warehouse||row.lines.some(line=>line.deliveredQty>0)))throw new PmsDomainError('PPO_MERGE_INCOMPATIBLE','请选择至少两张未审核、未入库且同款、同采购类型、同供应商和同仓库的采购单')
+    if(rows.some(row=>(row.currency||'CNY')!==(first.currency||'CNY')||(row.exchangeRate??1)!==(first.exchangeRate??1)))throw new PmsDomainError('PPO_MERGE_CURRENCY','采购单币种或汇率不一致，不能合并；请分别保留原单')
+    const copy=makeCopy(first,0);copy.sourceOrderNos=rows.map(row=>row.purchaseOrderNo);const lines=new Map<string,PmsProductPurchaseOrderLine>();for(const row of rows)for(const line of row.lines){const prior=lines.get(line.sku);if(prior){if(prior.actualPrice!==line.actualPrice)throw new PmsDomainError('PPO_MERGE_PRICE','相同SKU采购单价不一致，不能合并');prior.qty+=line.qty}else lines.set(line.sku,structuredClone(line))}copy.lines=[...lines.values()].map((line,index)=>({...line,lineId:`${copy.purchaseOrderNo}-L${index+1}`,deliveredQty:0}));created.push(copy);for(const row of rows){row.status='已关闭';row.mergedInto=copy.purchaseOrderNo;row.closedReason=`已合并至 ${copy.purchaseOrderNo}`;row.version+=1;addPurchaseHistory(row,action,actor.name,copy.purchaseOrderNo,operationId)}
+  }
+  if(action==='组合生产采购单'){if(rows.length<2||rows.some(row=>row.purchaseType!=='做货'||!EDITABLE_STATUSES.includes(row.status)))throw new PmsDomainError('PPO_COMBINE_STATE','请选择至少两张未审核的做货采购单');const group=`ZHC-${stablePurchaseSuffix(operationId)}`;for(const row of rows)row.combinedOrderNo=group}
+  await hydratePmsKolStock()
+  const kolEntries=new Map<string,number>()
+  if(action==='样衣质检'||action==='运单入库'||action==='手动出库')for(const row of rows)if(['样衣','达人寄样'].includes(row.purchaseType))for(const line of row.lines){const quantity=fields.skuQty?.[line.sku]??0;if(quantity>0)kolEntries.set(line.sku,(kolEntries.get(line.sku)??0)+quantity)}
+  const kolInput=[...kolEntries].map(([sku,quantity])=>({sku,quantity}))
+  const kolStock=kolEntries.size?(action==='手动出库'?preparePmsKolStockIssue(kolInput):preparePmsKolStockReceipt(kolInput)):[]
+  const kolLogs=kolEntries.size&&action==='手动出库'?preparePmsKolStockIssueLogs(kolInput,operationId):[]
+  const candidates=copying&&!['拆分采购单','合并采购单'].includes(action)?created:[...rows,...created]
+  const result=await commitPmsProductPurchaseOrders(candidates,actor,action,operationId,[...[...balances.values()].map(value=>({store:PMS_STORES.pmsProductStockBalances,value})),...kolStock.map(value=>({store:PMS_STORES.pmsKolStock,value})),...kolLogs.map(value=>({store:PMS_STORES.pmsKolLockLogs,value}))],pmsCoreOperationSignature(action,{orderNos:[...new Set(orderNos)],fields}))
+  publishPmsKolStock(kolStock)
+  appendKolLockRows(kolLogs)
+  for(const balance of balances.values())productStockBalances.set(balance.id,balance)
+  return result
+}
+export function pmsProductPurchaseDisplayStatus(order:PmsProductPurchaseOrder):string {
+  if(order.mergedInto)return '合并已删除'
+  if(order.reviewOutcome==='采购驳回'||order.reviewOutcome==='审核驳回')return order.reviewOutcome
+  if(order.status==='草稿')return '草稿'
+  if(order.status==='待采购')return '等待采购'
+  if(order.status==='待确认')return '待审核'
+  if(order.status==='已确认')return order.lines.some(line=>line.deliveredQty>0)?'部分入库':'采购中'
+  if(order.status==='已发货')return '待发货'
+  if(order.status==='已入库')return '全部入库'
+  return order.status
+}
+
+export interface PmsProductStockBalance { id:string; sku:string; warehouse:string; qty:number; sourcePurchaseOrderNos:string[]; updatedAt:string; _pmsBaseVersion?:number }
+const productStockBalances=new Map<string,PmsProductStockBalance>()
+let productStockHydration:Promise<void>|null=null
+export function hydratePmsProductStockBalancesFromIdb():Promise<void>{return productStockHydration??=pmsAll<PmsProductStockBalance>(PMS_STORES.pmsProductStockBalances).then(rows=>rows.forEach(row=>productStockBalances.set(row.id,row))).catch(error=>{productStockHydration=null;throw error})}
+export function getPmsProductStockBalance(sku:string,warehouse:string):PmsProductStockBalance{
+ const id=`${sku}@${warehouse}`,saved=productStockBalances.get(id);if(saved)return saved
+ const orders=listPmsProductPurchaseOrders().filter(order=>order.warehouse===warehouse&&order.lines.some(line=>line.sku===sku))
+ const qty=orders.reduce((sum,order)=>sum+order.lines.filter(line=>line.sku===sku).reduce((value,line)=>value+line.deliveredQty,0)-(order.outboundRecords||[]).filter(entry=>entry.sku===sku).reduce((value,entry)=>value+entry.qty,0),0)
+ return{id,sku,warehouse,qty:Math.max(0,qty),sourcePurchaseOrderNos:orders.filter(order=>order.lines.some(line=>line.sku===sku&&line.deliveredQty>0)).map(order=>order.purchaseOrderNo),updatedAt:'',_pmsBaseVersion:0}
+}
+
+export function pmsProductPurchaseExportTable(orders:PmsProductPurchaseOrder[],skuDetail=false):{headers:string[];rows:Array<Array<string|number>>}{
+  if(skuDetail)return{headers:['采购单','SPU','SKU','颜色','尺码','数量','币种','采购单价（原币）','汇率','已入库'],rows:orders.flatMap(order=>order.lines.map(line=>[order.purchaseOrderNo,order.spu,line.sku,line.color,line.size,line.qty,order.currency??'CNY',line.actualPrice,order.exchangeRate??'',line.deliveredQty]))}
+  return{headers:['采购单','SPU','商品','类型','状态','供应商','采购员','数量','币种','采购金额（原币）','汇率'],rows:orders.map(order=>[order.purchaseOrderNo,order.spu,order.productName,order.purchaseType,pmsProductPurchaseDisplayStatus(order),order.supplierName,order.purchaser||order.creator,order.lines.reduce((sum,line)=>sum+line.qty,0),order.currency??'CNY',pmsProductPurchaseOrderAmount(order),order.exchangeRate??''])}
 }

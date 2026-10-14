@@ -343,3 +343,35 @@ test('后道两项 Native 变更绑定真实独立服务 E2E，其他未知测�
   assert.deepEqual(result.unknownPaths, ['tests/unregistered-post-finishing.spec.ts'])
   assert.equal(result.fullChecks.filter((command) => command === expected).length, 1)
 })
+
+
+test('PMS cold browser test selects the executed six-suite aggregate without an unknown runner', () => {
+  const result = routeAffectedChecks(['tests/pms-cold-load.spec.ts'])
+  assert.deepEqual(result.unknownPaths, [])
+  assert.equal(result.fullChecks.length, 1)
+  const command = result.fullChecks[0]
+  for (const name of ['cold-load','purchase-chain','material-flow','master-data','settlement-flow','peripheral']) assert(command.includes(`tests/pms-${name}.spec.ts`))
+  assert(command.includes('CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false'))
+  assert(command.endsWith('--workers=1 --reporter=line'))
+})
+
+test('shared PMS memory IDB fixture runs npm test for all real unit consumers', () => {
+  const result = routeAffectedChecks(['tests/helpers/pms-memory-idb.ts'])
+  assert.deepEqual(result.unknownPaths, [])
+  assert.deepEqual(result.fastChecks, ['npm test'])
+  assert.deepEqual(result.fullChecks, [])
+  assert.deepEqual(routeAffectedChecks(['tests/helpers/unregistered-idb.ts']).unknownPaths, ['tests/helpers/unregistered-idb.ts'])
+})
+
+test('legacy PMS audit and screenshot route-only retirement selects its explicit source contract', () => {
+  const paths = ['tests/pms-interaction-audit.spec.ts', 'tests/pms-style-screenshots.spec.ts']
+  const result = routeAffectedChecks(paths)
+  assert.deepEqual(result.unknownPaths, [])
+  assert.deepEqual(result.fastChecks, ['node --experimental-strip-types --test tests/workflow-governance/pms-retired-test-routes.test.ts'])
+  assert.deepEqual(result.fullChecks, [])
+  // A similarly named future browser test remains unregistered and blocks the receipt.
+  assert.deepEqual(routeAffectedChecks([...paths, 'tests/pms-future-audit.spec.ts']).unknownPaths, ['tests/pms-future-audit.spec.ts'])
+  const governance = routeAffectedChecks(['tests/workflow-governance/pms-retired-test-routes.test.ts'])
+  assert(governance.fastChecks.includes('npm run test:workflow-governance'))
+  assert.deepEqual(governance.unknownPaths, [])
+})

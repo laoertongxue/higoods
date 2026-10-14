@@ -1,0 +1,224 @@
+{
+  "agent": "/root/procurement_cleanup",
+  "workPackage": "WP-MPO-BARCODE",
+  "status": "已实现待验证",
+  "baselineHead": "ee14949905b08b260e9c6309eebc59bfa5b32764",
+  "implementationFile": "src/pages/pms/material-purchase-barcodes.ts",
+  "sha256": "fbd417652d6b7f1f06a67fdbe4845078ed5dfe8ebdead1b7a14c8224efc2c163",
+  "sourceInventory": "docs/prototype-review-records/pms-alignment-20261013/inventory/inventory-test-material-tail.json",
+  "exports": [
+    "renderMpoBarcodeOverlay",
+    "handleMpoBarcodeEvent",
+    "closeMpoBarcodeOverlay"
+  ],
+  "bindings": [
+    {
+      "id": "PMS-TEST-TAIL-MPO-BARCODE-MODIFY",
+      "event": "batch-edit / save-form",
+      "implementation": "handleMpoBarcodeEvent",
+      "saveAPI": "saveMpoDetailBarcodes",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-batch-saved.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-refresh-readback.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-BARCODE-PRINT",
+      "event": "print-selected / print-one / download-print",
+      "implementation": "handleMpoBarcodeEvent",
+      "saveAPI": "readonly Code128 preview/download",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-print-preview.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-print-preview.png"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-BARCODE-SUPPLEMENT",
+      "event": "create / save-form",
+      "implementation": "handleMpoBarcodeEvent",
+      "saveAPI": "saveMpoDetailBarcodes",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-over-quantity-blocked.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-created.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-refresh-readback.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-BARCODE-DELETE",
+      "event": "delete-selected / delete-one",
+      "implementation": "handleMpoBarcodeEvent",
+      "saveAPI": "saveMpoDetailBarcodes",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-local-test-deleted.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-BARCODE-IMPORT",
+      "event": "import / import-file / save-import",
+      "implementation": "handleMpoBarcodeEvent",
+      "saveAPI": "saveMpoDetailBarcodes",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-import-saved.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-import-duplicate-blocked.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-refresh-readback.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-BARCODE-OFFSHELF",
+      "event": "offshelf",
+      "implementation": "handleMpoBarcodeEvent",
+      "saveAPI": "saveMpoDetailBarcodes",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-off-shelf-saved.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-repeat-off-shelf-blocked.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-refresh-readback.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-4cf8ca8296",
+      "event": "query",
+      "implementation": "filteredRows + renderLedger",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-filtered-date-qty-status.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-2b01498f61",
+      "event": "reset",
+      "implementation": "filteredRows + renderLedger",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-initial.txt",
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-page2.txt"
+      ]
+    },
+    {
+      "id": "MPO-BARCODE-READONLY-CONTROLS",
+      "event": "createdFrom/createdTo/pageSize/prev-page/next-page",
+      "implementation": "filteredRows + paginateStandardListRows + renderTablePagination",
+      "status": "已实现待验证"
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-7d6f437226",
+      "event": "pageSize",
+      "implementation": "handleMpoBarcodeEvent / closeMpoBarcodeOverlay",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-initial.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-349762f782",
+      "event": "createdFrom",
+      "implementation": "handleMpoBarcodeEvent / closeMpoBarcodeOverlay",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-filtered-date-qty-status.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-519190d92c",
+      "event": "createdTo",
+      "implementation": "handleMpoBarcodeEvent / closeMpoBarcodeOverlay",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-filtered-date-qty-status.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-139d8bddeb",
+      "event": "close",
+      "implementation": "handleMpoBarcodeEvent / closeMpoBarcodeOverlay",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-dirty-close-cancel.txt"
+      ]
+    },
+    {
+      "id": "PMS-TEST-TAIL-MPO-8220b64057",
+      "event": "close",
+      "implementation": "handleMpoBarcodeEvent / closeMpoBarcodeOverlay",
+      "status": "已实现待验证",
+      "functionalBrowserEvidence": [
+        "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-dirty-close-cancel.txt"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "path": "/tmp/pms-mpo-barcode-syntax.txt",
+      "result": "0 syntax diagnostics"
+    },
+    {
+      "path": "/tmp/pms-mpo-barcode-render-contract.txt",
+      "result": "6 rows/default5/two pages/all named actions/exact canonical yarn image source"
+    }
+  ],
+  "storage": "saveMpoDetailBarcodes same MPO record/log complete then publish; module inputs in memory until submit; stable operation ID and creation time per form; no WLS write",
+  "semantics": "下架到待出库区 persists local barcode region and actor/time; never subtracts same-warehouse quantity. Print preview/download do not claim physical printed facts. Source dates filter actual createdAt; missing old date is not invented.",
+  "outstanding": [
+    "Root final named-device/performance/build/full-diff acceptance",
+    "Actual download receipt/artifact verification if feasible; no physical printing fact is claimed"
+  ],
+  "noExternalWrites": true,
+  "noBusinessUserDataReset": true,
+  "sourceFrozenAt": "2026-10-13T22:58:22.639682",
+  "localBrowserVerification": {
+    "origin": "http://127.0.0.1:5246",
+    "browser": "Chrome",
+    "viewportOverride": false,
+    "actual": [
+      "6 static rows/default5/two pages",
+      "empty selection blocked",
+      "batch50→45 saved",
+      "create10 exceeds305/300 retainsinput then2 saves",
+      "template.xls actual import2KG saved",
+      "single2→1 saved",
+      "offshelf valid→已下架/待出库区/王采购/time persists",
+      "repeatoffshelf blocked",
+      "refresh create/import/move readback",
+      "date+qty+status filter1 and matching stats",
+      "real Code12870rect with exact same cotton-yarn-cone image",
+      "duplicateimport rejected and clear restores0",
+      "cancel deletion keepsrecord; delete own importedtestcode yields0",
+      "dirty close cancellation keeps form; explicit discard closes",
+      "MPO5KG local posting downstream inventory read, later1KG barcode move leaves5KG, refreshsamefacts"
+    ],
+    "limitations": [
+      "No named-size/performance claim; root final devices/build/diff gates remain.",
+      "Print/CSV generation clicks observed but download receipt timed out; file was not found in Home Downloads, so actual disk download remains unverified.",
+      "The two unlabelled numeric source controls had no verified semantic label. Prototype explicitly labels quantity bounds; no claim of confirmed source ID/quantity semantics.",
+      "Source external mutation actions were not executed under SAFE01; local demonstration only."
+    ],
+    "evidencePaths": [
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-repeat-off-shelf-blocked.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-off-shelf-saved.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-over-quantity-blocked.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-filtered-date-qty-status.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-empty-selection-blocked.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-related-mpo-inbound.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-local-test-deleted.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-batch-saved.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-print-preview.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-initial.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-page2.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-created.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-import-saved.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-refresh-readback.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-import-duplicate-blocked.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-print-preview.png",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-refresh-readback.png",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.txt",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/inventory-barcode-after-refresh.png",
+      "/tmp/higoods-pms-cleanup-local-verification-20261013/barcode-dirty-close-cancel.txt"
+    ]
+  }
+}

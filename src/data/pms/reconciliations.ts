@@ -563,37 +563,14 @@ export function unmarkPmsMaterialReconciliationPaymentRequest(ids: string[]): vo
  * 调用方负责把这些 rows 与其它业务写入放到同一个 IDB 事务里。
  * 用于 createPmsPaymentRequestFromDraft / voidPmsPaymentRequest 的跨 store 原子提交。
  */
-export function pmsApplyPaymentRequestNoToMaterial(
-  ids: string[],
-  requestNo: string,
-): PmsMaterialReconciliation[] {
-  const modified: PmsMaterialReconciliation[] = []
-  ids.forEach((id) => {
-    const row = getPmsMaterialReconciliation(id)
-    if (row) {
-      row.paymentRequestNo = requestNo
-      modified.push(row)
-    }
-  })
-  return modified
+export function pmsApplyPaymentRequestNoToMaterial(ids:string[],requestNo:string):PmsMaterialReconciliation[] {
+  return ids.map(id=>{const row=getPmsMaterialReconciliation(id);if(!row) throw new PmsDomainError('RECONCILIATION_NOT_FOUND',`对账 ${id} 不存在`);return {...structuredClone(row),paymentRequestNo:requestNo}})
 }
-
-/**
- * 同上,logistics 版本。
- */
-export function pmsApplyPaymentRequestNoToLogistics(
-  ids: string[],
-  requestNo: string,
-): PmsLogisticsReconciliation[] {
-  const modified: PmsLogisticsReconciliation[] = []
-  ids.forEach((id) => {
-    const row = getPmsLogisticsReconciliation(id)
-    if (row) {
-      row.paymentRequestNo = requestNo
-      modified.push(row)
-    }
-  })
-  return modified
+export function pmsApplyPaymentRequestNoToLogistics(ids:string[],requestNo:string):PmsLogisticsReconciliation[] {
+  return ids.map(id=>{const row=getPmsLogisticsReconciliation(id);if(!row) throw new PmsDomainError('RECONCILIATION_NOT_FOUND',`对账 ${id} 不存在`);return {...structuredClone(row),paymentRequestNo:requestNo}})
+}
+export function publishPmsPaymentReconciliationRows(rows:Array<PmsMaterialReconciliation|PmsLogisticsReconciliation>):void {
+  for(const row of rows){const old='materialCode' in row?getPmsMaterialReconciliation(row.id):getPmsLogisticsReconciliation(row.id);if(old) Object.assign(old,row)}
 }
 
 function recalcLogisticsRow(row: PmsLogisticsReconciliation): void {

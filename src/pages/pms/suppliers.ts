@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { confirmPmsAction } from './shared.ts'
 import { handleProcessFilterPresentation, renderProcessFilterToggle, renderProcessOrderStats } from '../../components/ui/process-order-list-presentation.ts'
 import { renderDangerButton, renderPrimaryButton, renderSecondaryButton } from '../../components/ui/button.ts'
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
@@ -8,11 +9,11 @@ import { resetStandardListEntryTransientStateOnRouteEntry } from '../../componen
 import {
   advancePmsSupplierStatus,
   createPmsSupplier,
+  hydratePmsSuppliersFromIdb,
   getPmsSupplier,
   listPmsSuppliers,
   pmsAllowedSupplierNextStatuses,
   updatePmsSupplier,
-  PMS_SUPPLIER_CITIES,
   PMS_SUPPLIER_COUNTRIES,
   PMS_SUPPLIER_CURRENCIES,
   PMS_SUPPLIER_DELIVERY_METHODS,
@@ -28,7 +29,7 @@ import {
   type PmsSupplierPaymentMethod,
   type PmsSupplierStatus,
 } from '../../data/pms/suppliers.ts'
-import { listPmsLogs, PmsDomainError, type PmsActorRole } from '../../data/pms/runtime.ts'
+import { listPmsLogs, nextPmsActionId, PmsDomainError, type PmsActorRole } from '../../data/pms/runtime.ts'
 import { downloadPmsCsv } from '../../utils/pms-export.ts'
 import { escapeHtml } from '../../utils.ts'
 import {
@@ -53,6 +54,7 @@ interface SupplierPageState extends ProcessOrderListControllerState {
   keyword: string
   status: '' | PmsSupplierStatus
   category: '' | PmsSupplierCategory
+  levelFilter: string
   overlay: SupplierOverlay
   overlayError: string
   feedback: string
@@ -63,6 +65,10 @@ const EVENT_PREFIX = 'pms-sup'
 const ROOT_SELECTOR = '[data-pms-sup-root]'
 const BUYER = { id: 'USR-PMS-WANG', name: '王采购', role: '采购员' as PmsActorRole }
 
+let formOperationId = nextPmsActionId('supplier')
+let saving = false
+let dirty = false
+
 const state: SupplierPageState = {
   currentPage: 1,
   sort: null,
@@ -72,6 +78,7 @@ const state: SupplierPageState = {
   keyword: '',
   status: '',
   category: '',
+  levelFilter: '',
   overlay: null,
   overlayError: '',
   feedback: '',
@@ -83,6 +90,7 @@ function filteredRows(): PmsSupplier[] {
   return listPmsSuppliers().filter((supplier) => {
     if (state.status && supplier.status !== state.status) return false
     if (state.category && supplier.category !== state.category) return false
+    if (state.levelFilter && supplier.level !== state.levelFilter) return false
     if (!keyword) return true
     return [supplier.supplierCode, supplier.supplierName, supplier.shortName, supplier.contactName, supplier.contactPhone].some((value) => value.toLowerCase().includes(keyword))
   })
@@ -149,11 +157,12 @@ const columns: StandardListColumn<PmsSupplier>[] = [
     render: (row) => {
       const nextStatuses = pmsAllowedSupplierNextStatuses(row.status)
       const next = nextStatuses.find((status) => status !== '已驳回')
-      const editable = row.status === '草稿' || row.status === '已驳回'
+      const editable = true
       return `<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <button type="button" class="text-left text-xs text-blue-700 hover:underline" data-${EVENT_PREFIX}-action="open-detail" data-supplier-code="${escapeHtml(row.supplierCode)}" data-skip-page-rerender="true">详情</button>
         <button type="button" class="text-left text-xs text-blue-700 hover:underline" data-${EVENT_PREFIX}-action="open-edit" data-supplier-code="${escapeHtml(row.supplierCode)}" data-skip-page-rerender="true" ${editable ? '' : 'disabled'}>编辑</button>
-        ${next ? `<button type="button" class="text-left text-xs text-blue-700 hover:underline" data-${EVENT_PREFIX}-action="advance" data-supplier-code="${escapeHtml(row.supplierCode)}" data-next-status="${next}" data-skip-page-rerender="true">${STATUS_ACTION_LABELS[next]}</button>` : ''}
+        ${nextStatuses.includes('已驳回') ? `<button type="button" class="text-xs text-red-700" data-${EVENT_PREFIX}-action="advance" data-supplier-code="${escapeHtml(row.supplierCode)}" data-next-status="已驳回" data-skip-page-rerender="true">驳回</button>` : ''}
+        ${next ? `<button type="button" class="text-left text-xs text-blue-700 hover:underline" data-${EVENT_PREFIX}-action="advance" data-supplier-code="${escapeHtml(row.supplierCode)}" data-next-status="${next}" data-skip-page-rerender="true">${STATUS_ACTION_LABELS[row.status]}</button>` : ''}
       </div>`
     },
   },
@@ -167,7 +176,7 @@ const controller = createProcessOrderListController({
   eventPrefix: EVENT_PREFIX,
   rootSelector: ROOT_SELECTOR,
   tableSurfaceSelector: '[data-pms-sup-table-surface]',
-  paginationSurfaceSelector: '[data-pms-sup-pagination-surface]',
+  paginationSurfaceSelector: '[data-pms-sup-pagination-content]',
   overlaysSurfaceSelector: '[data-pms-sup-overlays]',
   defaultFrozenKeys: ['supplier'],
   columnSettingsTitle: '供应商列设置',
@@ -186,17 +195,17 @@ function renderFilters(): string {
   const statusOptions = statuses.map((value) => `<option value="${value}" ${state.status === value ? 'selected' : ''}>${value || '全部状态'}</option>`).join('')
   const categories: Array<'' | PmsSupplierCategory> = ['', ...PMS_SUPPLIER_TYPES]
   const categoryOptions = categories.map((value) => `<option value="${value}" ${state.category === value ? 'selected' : ''}>${value || '全部类型'}</option>`).join('')
-  const advancedCount = state.category ? 1 : 0
+  const advancedCount = Number(Boolean(state.category)) + Number(Boolean(state.levelFilter))
   return `<div class="rounded-lg border bg-white p-3" data-standard-list-filter-bar><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="min-w-0 sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">关键词</span><input class="h-9 w-full rounded-md border px-3 text-sm" placeholder="编码 / 名称 / 联系人 / 电话" value="${escapeHtml(state.keyword)}" data-${EVENT_PREFIX}-field="keyword" data-skip-page-rerender="true" /></label>
     <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="status" data-skip-page-rerender="true">${statusOptions}</select></label>
     </div><div data-process-advanced ${advancedCount ? '' : 'hidden'}><div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
     <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">类型</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="category" data-skip-page-rerender="true">${categoryOptions}</select></label>
+    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">等级</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="levelFilter" data-skip-page-rerender="true">${['',...PMS_SUPPLIER_LEVELS].map(value => `<option value="${value}" ${state.levelFilter === value ? 'selected' : ''}>${value || '全部等级'}</option>`).join('')}</select></label>
     </div></div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>
     ${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'query' }, 'search')}
     ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset' }, 'rotate-ccw')}
     ${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}
-    ${renderPrimaryButton('新增供应商', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus')}
     ${renderProcessFilterToggle(advancedCount, 'button')}
     </div></div>`
 }
@@ -230,7 +239,7 @@ function supplierForm(supplier?: PmsSupplier): string {
     ${formField('供应商简称', 'shortName', supplier?.shortName ?? '')}
     ${formSelect('供应商类型', 'category', supplier?.category ?? '面料供应商', PMS_SUPPLIER_TYPES)}
     ${formSelect('国家/地区', 'country', supplier?.country ?? '中国', PMS_SUPPLIER_COUNTRIES)}
-    ${formSelect('省市', 'city', supplier?.city ?? '广东广州', PMS_SUPPLIER_CITIES)}
+    ${formField('省市', 'city', supplier?.city ?? '')}
     ${formSelect('供应商等级', 'level', supplier?.level ?? 'B级', PMS_SUPPLIER_LEVELS)}
     ${formSectionTitle('二、联系人信息')}
     ${formField('联系人', 'contactName', supplier?.contactName ?? '')}
@@ -255,7 +264,7 @@ function renderFormOverlay(supplierCode: string): string {
   const supplier = supplierCode ? getPmsSupplier(supplierCode) : undefined
   return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="供应商表单" data-pms-sup-form-root><section class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-background p-5 shadow-2xl"><header class="mb-4 flex items-center justify-between"><h2 class="font-semibold">${supplier ? `编辑 ${escapeHtml(supplier.supplierCode)}` : '新增供应商'}</h2>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header>${renderPmsOverlayError(state.overlayError)}
     ${supplierForm(supplier)}
-    <footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${supplier ? renderPrimaryButton('保存修改', { prefix: EVENT_PREFIX, action: 'submit-form' }, 'check-check') : renderPrimaryButton('创建供应商', { prefix: EVENT_PREFIX, action: 'submit-form' }, 'plus')}</footer></section></div>`
+    <footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${supplier ? renderPrimaryButton('保存修改', { prefix: EVENT_PREFIX, action: 'submit-form' }, 'check-check') : renderSecondaryButton('保存草稿', { prefix: EVENT_PREFIX, action: 'submit-form' }, 'save') + renderPrimaryButton('保存并启用', { prefix: EVENT_PREFIX, action: 'submit-enable' }, 'check')}</footer></section></div>`
 }
 
 function detailItem(label: string, value: string, raw = false): string {
@@ -330,7 +339,7 @@ function renderRejectOverlay(supplierCode: string): string {
 
 function renderToggleOverlay(supplierCode: string, nextStatus: PmsSupplierStatus): string {
   const supplier = getPmsSupplier(supplierCode)
-  return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="供应商状态确认" data-pms-sup-toggle-root><section class="w-full max-w-md rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">${escapeHtml(STATUS_ACTION_LABELS[supplier!.status])}</h2><p class="mt-2 text-sm text-slate-600">确认将 <strong>${escapeHtml(supplier?.supplierName ?? supplierCode)}</strong> 变为${escapeHtml(nextStatus)}？停用不影响历史采购单与供货档案。</p><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${nextStatus === '已停用' ? renderDangerButton(`确认${nextStatus}`, { prefix: EVENT_PREFIX, action: 'confirm-toggle' }, 'check-check') : renderPrimaryButton(`确认${nextStatus}`, { prefix: EVENT_PREFIX, action: 'confirm-toggle' }, 'check-check')}</footer></section></div>`
+  return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-label="供应商状态确认" data-pms-sup-toggle-root><section class="w-full max-w-md rounded-xl bg-background p-5 shadow-2xl"><h2 class="font-semibold">${escapeHtml(STATUS_ACTION_LABELS[supplier!.status])}</h2><p class="mt-2 text-sm text-slate-600">确认将 <strong>${escapeHtml(supplier?.supplierName ?? supplierCode)}</strong> 变为${escapeHtml(nextStatus)}？停用不影响历史采购单与供货档案。</p><footer class="mt-4 flex items-center justify-end gap-2">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${nextStatus === '已停用' ? renderDangerButton('停用供应商', { prefix: EVENT_PREFIX, action: 'confirm-toggle' }, 'check-check') : renderPrimaryButton(nextStatus === '已启用' ? '启用供应商' : STATUS_ACTION_LABELS[supplier!.status], { prefix: EVENT_PREFIX, action: 'confirm-toggle' }, 'check-check')}</footer></section></div>`
 }
 
 function renderOverlays(): string {
@@ -346,15 +355,16 @@ function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   return renderStandardListPage({
-      showHeader: false,
+      showHeader: true,
     title: '商品供应商管理',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
+    primaryActionsHtml: renderPrimaryButton('新增供应商',{prefix:EVENT_PREFIX,action:'open-create'},'plus'),
+    feedbackHtml: `<div data-pms-sup-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
     filtersHtml: renderFilters(),
-    statsHtml: renderStats(),
+    statsHtml: `<div data-pms-sup-stats>${renderStats()}</div>`,
     listTitle: `共 ${filteredRows().length} 条`,
-    listActionsHtml: `<div class="flex flex-wrap items-center gap-2"><span class="text-xs text-muted-foreground">状态机：草稿 → 待审核 → 已启用 / 已驳回；已启用可停用</span>${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-sup-table-surface>${view.tableHtml}</div>`,
-    paginationHtml: `<div data-pms-sup-pagination-surface>${view.paginationHtml}</div>`,
+    paginationHtml: `<div data-pms-sup-pagination-surface><div data-pms-sup-pagination-content>${view.paginationHtml}</div><div class="mt-2 flex items-center justify-end gap-2 text-xs"><label>跳转到<input type="number" min="1" class="ml-2 h-8 w-16 rounded border px-2" aria-label="跳转页码" data-pms-sup-jump value="${state.currentPage}"></label>${renderSecondaryButton('跳转',{prefix:EVENT_PREFIX,action:'jump-page'},'arrow-right')}</div></div>`,
     overlaysHtml: `<div data-pms-sup-overlays>${renderOverlays()}</div>`,
   })
 }
@@ -362,8 +372,16 @@ function renderInner(): string {
 function refreshAll(): void {
   const root = rootElement()
   if (!root) return
-  root.innerHTML = renderInner()
-  hydratePmsSurface(root)
+  const filters = root.querySelector<HTMLElement>('[data-standard-list-filters]')
+  if (filters) { filters.innerHTML = renderFilters(); hydratePmsSurface(filters) }
+  const stats = root.querySelector<HTMLElement>('[data-pms-sup-stats]')
+  if (stats) stats.innerHTML = renderStats()
+  const feedback = root.querySelector<HTMLElement>('[data-pms-sup-feedback]')
+  if (feedback) feedback.innerHTML = renderPmsFeedback(state.feedback, state.feedbackOk)
+  const title = root.querySelector<HTMLElement>('[data-standard-list-table-section] > header h2')
+  if (title) title.textContent = `共 ${filteredRows().length} 条`
+  controller.refresh({ overlays: false })
+  refreshOverlays()
 }
 
 function refreshOverlays(): void {
@@ -396,31 +414,37 @@ function readForm(surface: HTMLElement): PmsSupplierInput {
   }
 }
 
-function submitForm(supplierCode: string): void {
+async function submitForm(supplierCode: string, enable = false): Promise<void> {
+  if (saving) return
+  saving = true
   const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-sup-form-root]')
-  if (!surface) return
+  if (!surface) { saving = false; return }
   try {
     if (supplierCode) {
-      updatePmsSupplier(supplierCode, readForm(surface), BUYER)
+      await updatePmsSupplier(supplierCode, readForm(surface), BUYER, formOperationId)
       state.feedback = `已保存供应商 ${supplierCode}。`
     } else {
-      const supplier = createPmsSupplier(readForm(surface), BUYER)
-      state.feedback = `已创建供应商 ${supplier.supplierCode}（草稿）。`
+      const supplier = await createPmsSupplier(readForm(surface), BUYER, enable ? '已启用' : '草稿', formOperationId)
+      state.feedback = `已创建供应商 ${supplier.supplierCode}（${supplier.status}）。`
     }
+    dirty = false
     state.feedbackOk = true
     state.overlay = null
     state.overlayError = ''
     refreshAll()
   } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '保存供应商失败，请检查填写内容'
-    refreshOverlays()
-  }
+    const message = error instanceof Error ? error.message : '保存失败'
+    state.overlayError = `未保存：${message}`
+    surface.querySelector('[data-pms-sup-save-error]')?.remove()
+    surface.querySelector('header')?.insertAdjacentHTML('afterend', `<div data-pms-sup-save-error>${renderPmsOverlayError(state.overlayError)}</div>`)
+  } finally { saving = false }
 }
 
-function advanceStatus(supplierCode: string, nextStatus: PmsSupplierStatus, reason = ''): void {
+async function advanceStatus(supplierCode: string, nextStatus: PmsSupplierStatus, reason = ''): Promise<void> {
   try {
-    advancePmsSupplierStatus(supplierCode, nextStatus, BUYER, reason)
+    await advancePmsSupplierStatus(supplierCode, nextStatus, BUYER, reason, formOperationId)
     state.feedback = `${supplierCode} 已变为${nextStatus}。`
+    dirty = false
     state.feedbackOk = true
     state.overlay = null
     state.overlayError = ''
@@ -449,13 +473,17 @@ function exportRows(): void {
   refreshAll()
 }
 
-export function renderPmsSuppliersPage(): string {
+export async function renderPmsSuppliersPage(): Promise<string> {
+  try { await hydratePmsSuppliersFromIdb() } catch (error) { state.feedback = `用户资料未读取：${error instanceof Error ? error.message : '读取失败'}。当前显示固定演示资料，保存不可用。`; state.feedbackOk = false }
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   controller.installColumnDragEvents()
   return `<div data-pms-sup-root data-skip-page-rerender="true"><style>[data-pms-sup-root] [data-standard-list-scroll] td{vertical-align:top}</style>${renderInner()}</div>`
 }
 
-export function closePmsSupplierOverlays(): boolean {
+export async function closePmsSupplierOverlays(): Promise<boolean> {
+  if (saving) return false
+  if (dirty && state.overlay?.kind === 'form' && !await confirmPmsAction('供应商表单尚未保存。关闭会丢弃本次填写。','放弃填写并关闭','供应商表单未保存')) return true
+  dirty = false
   if (state.overlay) {
     state.overlay = null
     state.overlayError = ''
@@ -470,7 +498,7 @@ export function closePmsSupplierOverlays(): boolean {
   return false
 }
 
-export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (!rootElement() && typeof window !== 'undefined') return false
   if (rootElement() && handleProcessFilterPresentation(rootElement()!, target)) return true
   if (event?.type === 'keydown' && event instanceof KeyboardEvent && event.key === 'Escape' && state.overlay) {
@@ -482,6 +510,7 @@ export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boo
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   const fieldName = field?.dataset.pmsSupField
   if (field && fieldName) {
+    if (fieldName === 'levelFilter') { state.levelFilter = field.value; return true }
     if (fieldName === 'keyword') {
       state.keyword = field.value
       return true
@@ -501,6 +530,7 @@ export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boo
     }
     return true
   }
+  if (target.closest('[data-pms-sup-form-field]')) { if (event?.type === 'input' || event?.type === 'change') dirty = true; return true }
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
   const action = actionNode?.dataset.pmsSupAction
   if (!action) return false
@@ -513,7 +543,7 @@ export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boo
   if (action === 'reset') {
     state.keyword = ''
     state.status = ''
-    state.category = ''
+    state.category = ''; state.levelFilter = ''
     state.currentPage = 1
     state.feedback = ''
     refreshAll()
@@ -546,6 +576,7 @@ export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boo
     controller.refresh()
     return true
   }
+  if (action === 'jump-page') { const value = Number(rootElement()?.querySelector<HTMLInputElement>('[data-pms-sup-jump]')?.value); if (Number.isInteger(value) && value > 0) { state.currentPage = Math.min(value, Math.max(1,Math.ceil(filteredRows().length / state.preferences.pageSize))); controller.refresh({overlays:false}) } return true }
   if (action === 'prev-page' || action === 'next-page') {
     controller.stepPage(action === 'next-page' ? 1 : -1)
     controller.refresh({ overlays: false })
@@ -563,18 +594,21 @@ export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boo
     return true
   }
   if (action === 'open-create') {
+    formOperationId = nextPmsActionId('supplier'); dirty = false
     state.overlay = { kind: 'form', supplierCode: '' }
     state.overlayError = ''
     refreshOverlays()
     return true
   }
   if (action === 'open-edit') {
+    formOperationId = nextPmsActionId('supplier'); dirty = false
     state.overlay = { kind: 'form', supplierCode: actionNode?.dataset.supplierCode || '' }
     state.overlayError = ''
     refreshOverlays()
     return true
   }
   if (action === 'advance') {
+    formOperationId = nextPmsActionId('supplier-status')
     const supplierCode = actionNode?.dataset.supplierCode || ''
     const nextStatus = actionNode?.dataset.nextStatus as PmsSupplierStatus | undefined
     if (!nextStatus) return true
@@ -590,29 +624,27 @@ export function handlePmsSuppliersEvent(target: HTMLElement, event?: Event): boo
       refreshOverlays()
       return true
     }
-    advanceStatus(supplierCode, nextStatus)
+    await advanceStatus(supplierCode, nextStatus)
     return true
   }
-  if (action === 'submit-form') {
-    if (state.overlay?.kind === 'form') submitForm(state.overlay.supplierCode)
+  if (action === 'submit-form' || action === 'submit-enable') {
+    if (state.overlay?.kind === 'form') await submitForm(state.overlay.supplierCode, action === 'submit-enable')
     return true
   }
   if (action === 'submit-reject') {
     if (state.overlay?.kind !== 'reject') return true
     const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-sup-reject-root]')
     const reason = surface ? readTextField(surface, `[data-${EVENT_PREFIX}-reject-reason]`) : ''
-    advanceStatus(state.overlay.supplierCode, '已驳回', reason)
+    await advanceStatus(state.overlay.supplierCode, '已驳回', reason)
     return true
   }
   if (action === 'confirm-toggle') {
     if (state.overlay?.kind !== 'toggle') return true
-    advanceStatus(state.overlay.supplierCode, state.overlay.nextStatus)
+    await advanceStatus(state.overlay.supplierCode, state.overlay.nextStatus)
     return true
   }
   if (action === 'close-overlay') {
-    state.overlay = null
-    state.overlayError = ''
-    refreshOverlays()
+    await closePmsSupplierOverlays()
     return true
   }
   return false

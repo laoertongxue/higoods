@@ -1,0 +1,12 @@
+
+[WebServer] (node:73431) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+
+(node:73436) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/pms-master-data.spec.ts:10:3 › PMS 保留基础资料页面 › 供应商可新增、提交审核并启用
+  1 passed (2.1s)

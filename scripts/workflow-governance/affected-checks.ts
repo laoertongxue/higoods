@@ -25,6 +25,21 @@ const DISPATCH_BROWSER_PATHS = new Set([
   'tests/dispatch-assignment-granularity-preview.spec.ts',
   'tests/fcs-unified-dispatch-preparation-return-preview.spec.ts',
 ])
+const PMS_BROWSER_TESTS = new Set([
+  'tests/pms-cold-load.spec.ts',
+  'tests/pms-purchase-chain.spec.ts',
+  'tests/pms-material-flow.spec.ts',
+  'tests/pms-master-data.spec.ts',
+  'tests/pms-settlement-flow.spec.ts',
+  'tests/pms-peripheral.spec.ts',
+])
+const PMS_BROWSER_CHECK = 'CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/pms-cold-load.spec.ts tests/pms-purchase-chain.spec.ts tests/pms-material-flow.spec.ts tests/pms-master-data.spec.ts tests/pms-settlement-flow.spec.ts tests/pms-peripheral.spec.ts --workers=1 --reporter=line'
+const PMS_ROUTE_RETIREMENT_TESTS = new Set([
+  'tests/pms-interaction-audit.spec.ts',
+  'tests/pms-style-screenshots.spec.ts',
+])
+const PMS_ROUTE_RETIREMENT_CHECK = 'node --experimental-strip-types --test tests/workflow-governance/pms-retired-test-routes.test.ts'
+
 const RETIRED_DISPATCH_TESTS = new Set([
   'tests/dispatch-board-assignment.spec.ts',
   'tests/capacity-dynamic-status.spec.ts',
@@ -58,6 +73,17 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/helpers/pms-memory-idb.ts') {
+      // Shared by PMS and TMF unit consumers; execute all unit tests, not the fixture as a test.
+      add(fastChecks, 'npm test')
+      continue
+    }
+    if (PMS_ROUTE_RETIREMENT_TESTS.has(path)) {
+      // This contract rejects any change outside ROUTES or beyond the six retired objects.
+      // It proves route retirement only, never execution of the unchanged legacy browser driver.
+      add(fastChecks, PMS_ROUTE_RETIREMENT_CHECK)
+      continue
+    }
     if (path === 'tests/pcs-r1-product-rules.test.ts' || path === 'tests/browser-contracts/pcs-product-reference-removal.test.ts') {
       add(fastChecks, `node --import tsx --test ${shellQuote(path)}`)
       continue
@@ -164,14 +190,8 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       handled = true
     }
 
-    if (
-      path === 'tests/pms-purchase-chain.spec.ts'
-      || path === 'tests/pms-material-flow.spec.ts'
-      || path === 'tests/pms-master-data.spec.ts'
-      || path === 'tests/pms-settlement-flow.spec.ts'
-      || path === 'tests/pms-peripheral.spec.ts'
-    ) {
-      add(fullChecks, 'CUTTING_E2E_USE_PREVIEW=true PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/pms-cold-load.spec.ts tests/pms-purchase-chain.spec.ts tests/pms-material-flow.spec.ts tests/pms-master-data.spec.ts tests/pms-settlement-flow.spec.ts tests/pms-peripheral.spec.ts --workers=1 --reporter=line')
+    if (PMS_BROWSER_TESTS.has(path)) {
+      add(fullChecks, PMS_BROWSER_CHECK)
       handled = true
     }
 
@@ -253,7 +273,7 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
 
     if (path.startsWith('tests/')
       && !path.startsWith('tests/workflow-governance/')
-      && !/^tests\/pms-(?:purchase-chain|material-flow|master-data|settlement-flow|peripheral)\.spec\.ts$/.test(path)
+      && !PMS_BROWSER_TESTS.has(path)
       && path !== 'tests/wool-management-fact-workflow.spec.ts'
       && !isPostFinishingNativeTest) {
       unknownPaths.push(path)

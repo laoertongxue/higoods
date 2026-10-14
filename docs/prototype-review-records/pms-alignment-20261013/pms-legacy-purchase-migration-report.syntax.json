@@ -1,0 +1,10 @@
+[
+  {
+    "file": "src/data/pms/legacy-purchase-migration.ts",
+    "diagnostics": []
+  },
+  {
+    "file": "tests/unit/pms-legacy-purchase-migration.test.ts",
+    "diagnostics": []
+  }
+]

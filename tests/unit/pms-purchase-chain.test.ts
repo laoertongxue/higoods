@@ -1,135 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-
-import {
-  inboundPmsKolDemand,
-  listPmsSuggestionViews,
-  markSuggestionConverted,
-  rejectPmsKolDemand,
-} from '../../src/data/pms/purchase-suggestions.ts'
-import {
-  checkPmsGenerateMaterialRequirement,
-  closePmsProductPurchaseOrder,
-  createPmsProductPurchaseOrders,
-  generatePmsMaterialRequirement,
-  getPmsProductPurchaseOrder,
-} from '../../src/data/pms/product-purchase-orders.ts'
-import { listPmsMaterialRequirements } from '../../src/data/pms/material-requirements.ts'
-import { PMS_BUYER_ACTOR, PMS_MANAGER_ACTOR, PmsDomainError } from '../../src/data/pms/runtime.ts'
-
-test('采购建议按缺口公式与折扣计算，并计入有效 KOL 申请', () => {
-  const suggestion = listPmsSuggestionViews().find((row) => row.suggestionNo === 'PSG-2026-0001')
-  assert.ok(suggestion)
-  const whiteM = suggestion.skuItems.find((sku) => sku.sku === 'HG-TS-2601-WH-M')
-  assert.ok(whiteM)
-  assert.equal(whiteM.kolApplyQty, 600)
-  assert.equal(whiteM.gapQty, 1800)
-  assert.equal(whiteM.discount, 0.7)
-  assert.equal(whiteM.suggestedQty, 1260)
-  assert.equal(suggestion.totalSuggestedQty, 3780)
-})
-
-test('KOL 草稿与已驳回不计入建议缺口', () => {
-  const draftSku = listPmsSuggestionViews()
-    .flatMap((row) => row.skuItems)
-    .find((sku) => sku.sku === 'HG-HD-2603-GY-M')
-  assert.ok(draftSku)
-  assert.equal(draftSku.kolApplyQty, 0)
-})
-
-test('建议转采购单后写回已转数量与部分生成状态', () => {
-  const suggestion = listPmsSuggestionViews().find((row) => row.suggestionNo === 'PSG-2026-0002')
-  assert.ok(suggestion)
-  const firstSku = suggestion.skuItems[0]
-  const [order] = createPmsProductPurchaseOrders(
-    [
-      {
-        spu: suggestion.spu,
-        productName: suggestion.productName,
-        imageUrl: suggestion.imageUrl,
-        purchaseType: suggestion.purchaseType,
-        area: suggestion.area,
-        supplierName: '佛山成衣加工厂',
-        warehouse: '印尼雅加达成品仓',
-        expectedDeliveryDate: '2026-07-30',
-        sourceSuggestionNo: suggestion.suggestionNo,
-        lines: [{ sku: firstSku.sku, color: firstSku.color, size: firstSku.size, qty: firstSku.availableQty, standardPrice: 58.6, actualPrice: 58.6 }],
-      },
-    ],
-    PMS_BUYER_ACTOR,
-  )
-  markSuggestionConverted(suggestion.suggestionNo, order.purchaseOrderNo, [{ sku: firstSku.sku, qty: firstSku.availableQty }], PMS_BUYER_ACTOR)
-  const converted = listPmsSuggestionViews().find((row) => row.suggestionNo === 'PSG-2026-0002')
-  assert.ok(converted)
-  assert.equal(converted.status, '部分生成')
-  assert.equal(converted.skuItems.find((sku) => sku.sku === firstSku.sku)?.availableQty, 0)
-})
-
-test('面辅料需求按 BOM 用量与损耗扣减库存和采购中', () => {
-  const result = generatePmsMaterialRequirement('CG-2026-0016', PMS_BUYER_ACTOR)
-  const fabric = result.lines.find((line) => line.materialCode === 'FAB-2026-0001')
-  assert.ok(fabric)
-  assert.equal(fabric.plannedUsage, 0.3675)
-  assert.equal(fabric.bomDemand, 2241.75)
-  assert.equal(fabric.suggestedQty, 441.75)
-  assert.equal(getPmsProductPurchaseOrder('CG-2026-0016')?.lines[0].materialStatus, '已生成')
-  assert.ok(listPmsMaterialRequirements().some((requirement) => requirement.requirementNo === result.requirementNo))
-})
-
-test('重复生成、草稿采购单与非做货采购单均被阻断', () => {
-  const repeated = checkPmsGenerateMaterialRequirement('CG-2026-0016')
-  assert.equal(repeated.ok, false)
-  assert.match(repeated.reason, /已经生成/)
-  const draft = checkPmsGenerateMaterialRequirement('CG-2026-0019')
-  assert.equal(draft.ok, false)
-  assert.match(draft.reason, /草稿/)
-  const garment = checkPmsGenerateMaterialRequirement('CG-2026-0022')
-  assert.equal(garment.ok, false)
-  assert.match(garment.reason, /做货/)
-})
-
-test('KOL 单条超量需要二次确认，超过申请量直接阻断', () => {
-  assert.throws(
-    () => inboundPmsKolDemand('KOL-2026-0002', { qty: 260, note: '' }, PMS_BUYER_ACTOR),
-    (error: unknown) => error instanceof PmsDomainError && error.code === 'KOL_OVER_CONFIRM_REQUIRED',
-  )
-  assert.throws(
-    () => inboundPmsKolDemand('KOL-2026-0002', { qty: 999, note: '', overConfirm: true }, PMS_BUYER_ACTOR),
-    (error: unknown) => error instanceof PmsDomainError && error.code === 'KOL_OVER_APPLY',
-  )
-})
-
-test('驳回 KOL 需求后不再计入建议缺口', () => {
-  rejectPmsKolDemand('KOL-2026-0006', '直播档期取消', PMS_BUYER_ACTOR)
-  const sku = listPmsSuggestionViews()
-    .flatMap((row) => row.skuItems)
-    .find((item) => item.sku === 'HG-SK-2604-NV-M')
-  assert.ok(sku)
-  assert.equal(sku.kolApplyQty, 0)
-})
-
-test('关闭采购单必须填写原因且已关闭不可重复关闭', () => {
-  const [order] = createPmsProductPurchaseOrders(
-    [
-      {
-        spu: 'HG-SH-2607',
-        productName: '商务衬衫',
-        imageUrl: '/shirt-sample.jpg',
-        purchaseType: '做货',
-        area: '印尼',
-        supplierName: '宁波衬衫制造有限公司',
-        warehouse: '印尼雅加达成品仓',
-        expectedDeliveryDate: '2026-08-10',
-        lines: [{ sku: 'HG-SH-2607-WH-M', color: '白色', size: 'M', qty: 500, standardPrice: 49, actualPrice: 49 }],
-      },
-    ],
-    PMS_BUYER_ACTOR,
-  )
-  assert.throws(() => closePmsProductPurchaseOrder(order.purchaseOrderNo, '', PMS_MANAGER_ACTOR), PmsDomainError)
-  closePmsProductPurchaseOrder(order.purchaseOrderNo, '终端取消', PMS_MANAGER_ACTOR)
-  assert.equal(getPmsProductPurchaseOrder(order.purchaseOrderNo)?.status, '已关闭')
-  assert.throws(
-    () => closePmsProductPurchaseOrder(order.purchaseOrderNo, '再次关闭', PMS_MANAGER_ACTOR),
-    (error: unknown) => error instanceof PmsDomainError && error.code === 'PPO_CLOSED_BLOCKED',
-  )
-})
+import { installPmsMemoryIdb } from '../helpers/pms-memory-idb.ts'
+import { inboundPmsKolDemand, listPmsSuggestionViews, listPmsKolDemands, getPmsKolDemand, preparePmsSuggestionConversion, generatePmsSuggestionPurchases, preparePmsKolDemandBatch, rejectPmsKolDemand, computeGapQty, computeSuggestedQty } from '../../src/data/pms/purchase-suggestions.ts'
+import { checkPmsGenerateMaterialRequirement, preparePmsProductPurchaseOrderClose, closePmsProductPurchaseOrder, generatePmsMaterialRequirement, getPmsProductPurchaseOrder } from '../../src/data/pms/product-purchase-orders.ts'
+import { getPublishedPurchaseMaterials } from '../../src/data/pms/canonical-purchase-references.ts'
+import { listPmsMaterialRequirements, preparePmsMaterialRequirementFromOrder } from '../../src/data/pms/material-requirements.ts'
+import { getPmsKolStockRow, hydratePmsKolStock } from '../../src/data/pms/kol-sample-stock.ts'
+import { PMS_BUYER_ACTOR, PMS_MANAGER_ACTOR, PmsDomainError, roundPmsQty } from '../../src/data/pms/runtime.ts'
+const idb=installPmsMemoryIdb();test.after(()=>idb.restore())
+test('建议按缺口与折扣计算，有效KOL需求按canonical SKU计入',()=>{const suggestion=listPmsSuggestionViews().find(row=>row.suggestionNo==='PSG-2026-0001')!;const first=suggestion.skuItems[0];assert.equal(first.kolApplyQty,600);assert.equal(first.gapQty,1800);assert.equal(first.discount,0.7);assert.equal(first.suggestedQty,1260);assert.equal(suggestion.totalSuggestedQty,suggestion.skuItems.reduce((sum,line)=>sum+computeSuggestedQty(computeGapQty(line,line.kolApplyQty),line.discount),0));assert.ok(listPmsKolDemands().find(row=>row.demandNo==='KOL-2026-0001')?.sku===first.sku)})
+test('KOL草稿和驳回不计建议，纯候选保留数量规则与原记录',()=>{for(const demand of listPmsKolDemands().filter(row=>['草稿','已驳回'].includes(row.status))){const sku=listPmsSuggestionViews().flatMap(row=>row.skuItems).find(line=>line.sku===demand.sku)!;assert.equal(sku.kolApplyQty,0)}const before=getPmsKolDemand('KOL-2026-0002')!;assert.throws(()=>preparePmsKolDemandBatch([{demandNo:before.demandNo,qty:251}],'确认入库','',PMS_BUYER_ACTOR,'over'),error=>error instanceof PmsDomainError&&error.code==='KOL_QTY_INVALID');assert.equal(getPmsKolDemand(before.demandNo)?.inboundQty,150)})
+test('建议与采购单同事务成功、关联数量回读；同内容重试去重，改内容冲突',async()=>{const suggestion=listPmsSuggestionViews().find(row=>row.suggestionNo==='PSG-2026-0002')!;const first=suggestion.skuItems[0];const input={spu:suggestion.spu,productName:suggestion.productName,imageUrl:suggestion.imageUrl,purchaseType:suggestion.purchaseType,area:suggestion.area,supplierName:'佛山成衣加工厂',warehouse:'中央总仓-成衣仓',expectedDeliveryDate:'2026-10-30',sourceSuggestionNo:suggestion.suggestionNo,lines:[{sku:first.sku,color:first.color,size:first.size,qty:first.availableQty,standardPrice:58.6,actualPrice:58.6}]};const pure=preparePmsSuggestionConversion(suggestion.suggestionNo,'CG-pure',[{sku:first.sku,qty:first.availableQty}]);assert.equal(pure.skuItems[0].convertedQty,first.availableQty);assert.equal(listPmsSuggestionViews().find(row=>row.suggestionNo===suggestion.suggestionNo)?.skuItems[0].convertedQty,0);const [order]=await generatePmsSuggestionPurchases([input],PMS_BUYER_ACTOR,'suggestion-atomic');const converted=listPmsSuggestionViews().find(row=>row.suggestionNo===suggestion.suggestionNo)!;assert.equal(converted.status,'部分生成');assert.equal(converted.skuItems[0].availableQty,0);assert.ok(converted.convertedOrderNos.includes(order.purchaseOrderNo));assert.ok(getPmsProductPurchaseOrder(order.purchaseOrderNo));const [retry]=await generatePmsSuggestionPurchases([input],PMS_BUYER_ACTOR,'suggestion-atomic');assert.equal(retry.purchaseOrderNo,order.purchaseOrderNo);assert.equal(listPmsSuggestionViews().find(row=>row.suggestionNo===suggestion.suggestionNo)?.skuItems[0].convertedQty,first.availableQty);await assert.rejects(generatePmsSuggestionPurchases([{...input,remark:'changed'}],PMS_BUYER_ACTOR,'suggestion-atomic'),/不同|冲突|重复|内容|操作/);assert.equal(getPmsProductPurchaseOrder(order.purchaseOrderNo)?.remark,'')})
+test('当前发布技术包用料、损耗、已知库存与在购共同决定需求，原子保存关联',async()=>{const order=getPmsProductPurchaseOrder('CG-2026-0016')!;const published=getPublishedPurchaseMaterials(order.spu)!;const pure=preparePmsMaterialRequirementFromOrder(order,'material-pure');assert.ok(pure.lines.length);for(const line of pure.lines){const ref=published.materials.find(item=>item.materialCode===line.materialCode)!;assert.equal(line.plannedUsage,roundPmsQty(ref.usagePerPiece*(1+ref.lossRate)));assert.equal(line.bomDemand,roundPmsQty(line.plannedUsage*line.skuQty));assert.equal(line.suggestedQty,Math.max(0,roundPmsQty(line.bomDemand-line.stockQty-line.purchasingQty)));assert.ok(line.imageUrl)}const result=await generatePmsMaterialRequirement(order.purchaseOrderNo,PMS_BUYER_ACTOR,'material-atomic');assert.ok(listPmsMaterialRequirements().some(row=>row.requirementNo===result.requirementNo));assert.ok(getPmsProductPurchaseOrder(order.purchaseOrderNo)?.lines.every(line=>line.materialStatus==='已生成'))})
+test('重复生成、草稿和非做货的前置门禁保留，普通读取不再刷新BOM事实',()=>{assert.equal(checkPmsGenerateMaterialRequirement('CG-2026-0016').ok,false);assert.match(checkPmsGenerateMaterialRequirement('CG-2026-0016').reason,/已经生成/);assert.equal(checkPmsGenerateMaterialRequirement('CG-2026-0019').ok,false);assert.match(checkPmsGenerateMaterialRequirement('CG-2026-0019').reason,/草稿/);assert.equal(checkPmsGenerateMaterialRequirement('CG-2026-0022').ok,false);assert.match(checkPmsGenerateMaterialRequirement('CG-2026-0022').reason,/做货|烫画/)})
+test('KOL入库不能超过未入库余量，不允许超量确认；有效入库与KOL库存共同成功',async()=>{const before=getPmsKolDemand('KOL-2026-0002')!;await assert.rejects(inboundPmsKolDemand(before.demandNo,{qty:260,note:''},PMS_BUYER_ACTOR),/不能超过|待入库/);await assert.rejects(inboundPmsKolDemand(before.demandNo,{qty:999,note:'',overConfirm:true},PMS_BUYER_ACTOR),/不能超过|待入库/);await hydratePmsKolStock();const stockBefore=getPmsKolStockRow(before.sku)?.kolStock||0;const saved=await inboundPmsKolDemand(before.demandNo,{qty:1,note:'到货1件'},PMS_BUYER_ACTOR,'kol-inbound');assert.equal(saved.inboundQty,151);assert.equal(getPmsKolStockRow(before.sku)?.kolStock,stockBefore+1);idb.setFailWrites(true);try{await assert.rejects(inboundPmsKolDemand(before.demandNo,{qty:1,note:'失败'},PMS_BUYER_ACTOR,'kol-abort'));assert.equal(getPmsKolDemand(before.demandNo)?.inboundQty,151);assert.equal(getPmsKolStockRow(before.sku)?.kolStock,stockBefore+1)}finally{idb.setFailWrites(false)}})
+test('驳回保存原因后不再计入建议缺口，失败不改变原需求',async()=>{const demand=getPmsKolDemand('KOL-2026-0006')!;const before=demand.status;idb.setFailWrites(true);try{await assert.rejects(rejectPmsKolDemand(demand.demandNo,'失败原因',PMS_BUYER_ACTOR,'kol-reject-failed'));assert.equal(getPmsKolDemand(demand.demandNo)?.status,before)}finally{idb.setFailWrites(false)}await rejectPmsKolDemand(demand.demandNo,'直播档期取消',PMS_BUYER_ACTOR,'kol-reject');const sku=listPmsSuggestionViews().flatMap(row=>row.skuItems).find(line=>line.sku===demand.sku)!;assert.equal(sku.kolApplyQty,0);assert.equal(getPmsKolDemand(demand.demandNo)?.rejectReason,'直播档期取消')})
+test('关闭必须填写原因，正常关闭与已关闭重复门禁保留；事务失败不关闭',async()=>{const no='CG-2026-0017';assert.throws(()=>preparePmsProductPurchaseOrderClose(no,'',PMS_MANAGER_ACTOR,'empty'),/关闭原因/);await assert.rejects(closePmsProductPurchaseOrder(no,'',PMS_MANAGER_ACTOR),/关闭原因/);idb.setFailWrites(true);try{await assert.rejects(closePmsProductPurchaseOrder(no,'失败',PMS_MANAGER_ACTOR,'close-abort'));assert.notEqual(getPmsProductPurchaseOrder(no)?.status,'已关闭')}finally{idb.setFailWrites(false)}await closePmsProductPurchaseOrder(no,'终端取消',PMS_MANAGER_ACTOR,'close');assert.equal(getPmsProductPurchaseOrder(no)?.status,'已关闭');await assert.rejects(closePmsProductPurchaseOrder(no,'再次关闭',PMS_MANAGER_ACTOR),error=>error instanceof PmsDomainError&&error.code==='PPO_CLOSED_BLOCKED')})

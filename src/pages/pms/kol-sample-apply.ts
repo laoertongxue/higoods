@@ -1,3 +1,5 @@
+import { pmsBusinessNumber } from '../../utils/pms-business-number.ts'
+import { createPmsLocalListInteractions } from './local-list-interactions.ts'
 // @page-pattern: list
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
 import type { StandardListColumn } from '../../components/ui/list-table.ts'
@@ -9,6 +11,8 @@ import {
   type PmsKolApplyStatus,
   filterPmsKolApply,
   getPmsKolApply,
+  hydratePmsKolApplies,
+  reviewPmsKolApply,
   summarizePmsKolApply,
 } from '../../data/pms/kol-sample-apply.ts'
 import { downloadPmsCsv } from '../../utils/pms-export.ts'
@@ -24,6 +28,8 @@ interface KolApplyPageState extends ProcessOrderListControllerState {
   submittedAtFrom: string
   submittedAtTo: string
   detailId: string
+  reviewKind: '' | 'approve' | 'reject'
+  reviewOperationId: string
   feedback: string
   feedbackOk: boolean
 }
@@ -31,7 +37,7 @@ interface KolApplyPageState extends ProcessOrderListControllerState {
 const state: KolApplyPageState = {
   currentPage: 1,
   sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
+  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 5 },
   preferencesLoaded: false,
   showColumnSettings: false,
   search: '',
@@ -39,6 +45,8 @@ const state: KolApplyPageState = {
   submittedAtFrom: '',
   submittedAtTo: '',
   detailId: '',
+  reviewKind: '',
+  reviewOperationId: '',
   feedback: '',
   feedbackOk: true,
 }
@@ -75,7 +83,7 @@ const columns: StandardListColumn<PmsKolApplyRow>[] = [
     title: '申请信息',
     width: 220,
     required: true,
-    render: (row) => `<div class="font-mono text-xs font-medium text-blue-700">${escapeHtml(row.id)}</div><div class="mt-0.5 text-[11px] text-slate-500">提交: ${escapeHtml(row.submittedAt)}</div><div class="text-[11px] text-slate-500">code: <span class="font-mono">${escapeHtml(row.linkCode)}</span></div>`,
+    render: (row) => `<div class="font-mono text-xs font-medium text-blue-700">${escapeHtml(pmsBusinessNumber(row.id))}</div><div class="mt-0.5 text-[11px] text-slate-500">提交: ${escapeHtml(row.submittedAt)}</div><div class="text-[11px] text-slate-500">code: <span class="font-mono">${escapeHtml(row.linkCode)}</span></div>`,
   },
   {
     key: 'applicantInfo',
@@ -146,7 +154,7 @@ const controller = createProcessOrderListController({
   state,
   columns,
   preferenceKey: 'higood:list:/pms/kol-sample-apply',
-  pageSizeOptions: [10, 20, 50, 100],
+  pageSizeOptions: [5, 10, 20, 50, 100],
   eventPrefix: EVENT_PREFIX,
   rootSelector: ROOT_SELECTOR,
   tableSurfaceSelector: '[data-pms-kap-table-surface]',
@@ -202,14 +210,17 @@ function renderDetailOverlay(id: string): string {
   const borrowBlock = row.borrowOrderNo === '-'
     ? '<span class="text-xs text-slate-400">尚未生成</span>'
     : `<span class="font-mono text-sm">${escapeHtml(row.borrowOrderNo)}</span>`
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="手动寄样申请详情"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-detail" data-skip-page-rerender="true" aria-label="关闭"></button><section class="relative z-10 flex h-full w-[560px] max-w-[95vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">手动寄样申请详情</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(row.id)} · ${escapeHtml(row.status)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-detail' }, 'x')}</header><div class="space-y-4 overflow-y-auto p-4">
-    <section><h3 class="mb-2 text-sm font-semibold text-slate-700">申请信息</h3><div class="rounded-md border bg-slate-50 p-3 text-sm"><div>申请单号: <span class="font-mono">${escapeHtml(row.id)}</span></div><div class="mt-1">提交时间: ${escapeHtml(row.submittedAt)}</div><div class="mt-1">code: <span class="font-mono">${escapeHtml(row.linkCode)}</span></div></div></section>
+  const review = state.reviewKind ? `<section class="rounded border border-amber-200 p-3"><h3 class="font-semibold">${state.reviewKind==='approve'?'通过审核并确认借出':'驳回并释放占用'}</h3><p class="my-2 text-sm">${row.totalQty} 件。${state.reviewKind==='approve'?'确认后扣减寄样库存并生成借出记录。':'确认后申请变为已驳回，释放该申请占用。'}</p><textarea class="w-full rounded border p-2" data-kol-review-reason aria-label="审核说明"></textarea>${renderPrimaryButton(state.reviewKind==='approve'?'通过审核':'驳回申请',{prefix:EVENT_PREFIX,action:'submit-review'})}</section>` : ''
+  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="手动寄样申请详情"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-detail" data-skip-page-rerender="true" aria-label="关闭"></button><section class="relative z-10 flex h-full w-[560px] max-w-[95vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">手动寄样申请详情</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(pmsBusinessNumber(row.id))} · ${escapeHtml(row.status)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-detail' }, 'x')}</header><div class="space-y-4 overflow-y-auto p-4">
+    <section><h3 class="mb-2 text-sm font-semibold text-slate-700">申请信息</h3><div class="rounded-md border bg-slate-50 p-3 text-sm"><div>申请单号: <span class="font-mono">${escapeHtml(pmsBusinessNumber(row.id))}</span></div><div class="mt-1">提交时间: ${escapeHtml(row.submittedAt)}</div><div class="mt-1">code: <span class="font-mono">${escapeHtml(row.linkCode)}</span></div></div></section>
     <section><h3 class="mb-2 text-sm font-semibold text-slate-700">达人信息</h3><div class="rounded-md border bg-slate-50 p-3 text-sm"><div>${escapeHtml(row.applicantHandle)}</div><div class="mt-1 text-xs text-slate-500">平台: ${escapeHtml(row.applicantPlatform)} · 联系方式: ${escapeHtml(row.applicantContact)}</div></div></section>
     <section><h3 class="mb-2 text-sm font-semibold text-slate-700">收货信息</h3><div class="rounded-md border bg-slate-50 p-3 text-sm"><div>${escapeHtml(row.recipientName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.recipientAddress)}</div></div></section>
     <section><h3 class="mb-2 text-sm font-semibold text-slate-700">申请样品(${row.totalQty} 件)</h3><div class="grid grid-cols-1 gap-2">${renderSampleList(row.samples)}</div></section>
     <section><h3 class="mb-2 text-sm font-semibold text-slate-700">审核记录</h3><div class="space-y-2">${renderAuditTrail(row)}</div></section>
-    <section><h3 class="mb-2 text-sm font-semibold text-slate-700">借出单号</h3><div class="rounded-md border bg-slate-50 p-3 text-sm">${borrowBlock}</div></section>
+    ${review}
+    <section><h3 class="mb-2 text-sm font-semibold text-slate-700">借出单号</h3><div class="rounded-md border bg-slate-50 p-3 text-sm">${borrowBlock}${row.borrowOrder?`<div class="mt-2 border-t pt-2"><div>${escapeHtml(row.borrowOrder.recipientName)} · ${escapeHtml(row.borrowOrder.recipientAddress)}</div><div>${row.borrowOrder.items.map(item=>`${escapeHtml(item.sku)} × ${item.qty} 件`).join(' / ')}</div><div>${escapeHtml(row.borrowOrder.createdAt)}</div></div>`:''}</div></section>
   </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">
+    ${row.status==='待审核'?renderPrimaryButton('通过审核',{prefix:EVENT_PREFIX,action:'approve'})+renderSecondaryButton('驳回',{prefix:EVENT_PREFIX,action:'reject'}):''}
     ${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-detail' }, 'x')}
   </footer></section></div>`
 }
@@ -232,11 +243,11 @@ function renderBody(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   return renderStandardListPage({
-    showHeader: false,
+    showHeader: true,
     title: '手动寄样申请',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: `<div class="space-y-2">${renderTopNav()}${renderFilters()}</div>`,
-    statsHtml: stats,
+    feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+    filtersHtml: `<div data-${EVENT_PREFIX}-filters>${`<div class="space-y-2">${renderTopNav()}${renderFilters()}</div>`}</div>`,
+    statsHtml: `<div data-${EVENT_PREFIX}-stats>${stats}</div>`,
     listTitle: `共 ${filteredRows().length} 条手动寄样申请`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-kap-table-surface>${view.tableHtml}</div>`,
@@ -246,7 +257,7 @@ function renderBody(): string {
 }
 
 function handleFieldEvent(target: HTMLElement): void {
-  const field = target.dataset[`${EVENT_PREFIX}Field`]
+  const field = target.getAttribute(`data-${EVENT_PREFIX}-field`)
   if (!field) return
   const value = (target as HTMLInputElement).value
   switch (field) {
@@ -257,8 +268,8 @@ function handleFieldEvent(target: HTMLElement): void {
   }
 }
 
-function handleActionEvent(target: HTMLElement): void {
-  const action = target.dataset[`${EVENT_PREFIX}Action`]
+async function handleActionEvent(target: HTMLElement): Promise<void> {
+  const action = target.getAttribute(`data-${EVENT_PREFIX}-action`)
   if (!action) return
   switch (action) {
     case 'query':
@@ -301,34 +312,64 @@ function handleActionEvent(target: HTMLElement): void {
     case 'open-detail':
       state.detailId = target.dataset.id ?? ''
       break
+    case 'approve':
+    case 'reject':state.reviewKind=action==='approve'?'approve':'reject';state.reviewOperationId=crypto.randomUUID();break
+    case 'submit-review': {
+      if(!state.reviewKind) return
+      const reason=rootElement()?.querySelector<HTMLTextAreaElement>('[data-kol-review-reason]')?.value || ''
+      const row=await reviewPmsKolApply(state.detailId,state.reviewKind==='approve',reason,state.reviewOperationId)
+      state.feedback=`申请 ${row.id} ${row.status}`;state.feedbackOk=true;state.reviewKind='';break
+    }
     case 'close-detail':
+      state.reviewKind=''
       state.detailId = ''
       break
   }
 }
 
-export function renderPmsKolApplyPage(): string {
+export async function renderPmsKolApplyPage(): Promise<string> {
+  try { ; await hydratePmsKolApplies() } catch(error) { state.feedback=error instanceof Error?error.message:"用户数据不可读";state.feedbackOk=false }
+  if(typeof window!=='undefined') state.detailId=new URLSearchParams(window.location.search).get('applyId') || state.detailId
   resetStandardListEntryTransientStateOnRouteEntry(state, false)
-  const html = renderBody()
+  const html = `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true">${renderBody()}</div>`
   queueMicrotask(() => {
     const root = rootElement()
     hydratePmsSurface(root)
+    local.mount()
   })
   return html
 }
 
-export function handlePmsKolApplyEvent(event: Event): void {
-  const target = event.target as HTMLElement
-  if (!target || typeof target.closest !== 'function') return
+const local = createPmsLocalListInteractions({
+  prefix: EVENT_PREFIX, state, controller,
+  listTitle: () => `共 ${filteredRows().length} 条`,
+  filters: () => `<div class="space-y-2">${renderTopNav()}${renderFilters()}</div>`, stats: renderStats,
+  feedback: () => renderPmsFeedback(state.feedback, state.feedbackOk), overlays: renderOverlays,
+})
+
+export async function handlePmsKolApplyEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (!rootElement()?.contains(target)) return false
+  if (local.handle(target, event)) return true
   const actionable = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-field], [data-${EVENT_PREFIX}-action]`)
-  if (!actionable || !rootElement()?.contains(actionable)) return
-  if (actionable.dataset[`${EVENT_PREFIX}Action`]) {
-    handleActionEvent(actionable)
-  } else if (actionable.dataset[`${EVENT_PREFIX}Field`]) {
+  if (!actionable) return false
+  const action = actionable.getAttribute(`data-${EVENT_PREFIX}-action`)
+  if (action) {
+    if (event && event.type !== 'click') return true
+    try { await handleActionEvent(actionable) } catch (error) {
+      state.feedback = error instanceof Error ? error.message : '操作未保存'
+      state.feedbackOk = false
+      local.refresh(false,true);return true
+    }
+    local.refresh(action === 'reset')
+  } else {
     handleFieldEvent(actionable)
   }
+  return true
 }
 
 export function closePmsKolApplyOverlays(): void {
   state.detailId = ''
+  state.reviewKind=''
+  state.showColumnSettings=false
+  local.overlays()
 }

@@ -1,0 +1,183 @@
+{
+  "reportId": "PMS-FINAL-POST-REVIEW-CLOSURE-20261014",
+  "createdAt": "2026-10-13T23:31:46.703619+00:00",
+  "mode": "唯一原独立审查的5文件增量补充，非第二轮全量审查",
+  "scope": "只读V12→当前V16产品增量。未写产品/test/docs，未跑browser/test/build，未派下级。",
+  "parentReview": {
+    "path": "/tmp/pms-final-independent-review-20261014.json",
+    "sha256": "5c7f0b27c88ca3d9c05255d41f38e8d10380be289f99311bd433a86f6ad4a5ed",
+    "meaning": "沿用原101文件语义审查、6P2修复与原独立性/运行接受边界"
+  },
+  "versionIdentity": {
+    "v12Manifest": "/tmp/pms-final-production-v12-manifest.json",
+    "v12ManifestSha256": "37ec37583ee7338c92e9ccde6551d9885886073e2a8dd3fdf55e0b886fe19c93",
+    "v12Digest": "91189ce2f6806ae1a7a66051004922d6c082b1f9bc9e03801d727935707e68f1",
+    "v16Manifest": "/tmp/pms-final-production-v16-manifest.json",
+    "v16ManifestSha256": "061037d01d9d752b20b8c1eaa0e33a26300f5a0d0e04bdb910590d1d4043e915",
+    "v16Digest": "3279d61646e0e47bd4be447eb2e26e3ed2c92758ddc508f61f51a58d3f232c28",
+    "baselineRecovery": "原审查diff+HEAD原文重建5文件；每份SHA与V12manifest完全一致，当前SHA与V16完全一致，非猜测历史。",
+    "allCurrentProductSourceMatchesV16": true,
+    "productDeltaCount": 5,
+    "deletedMarker": "manifest DELETED 与实际文件不存在一致；不当hash不符",
+    "testsBoundary": "合法后续测试修正不纳入产品source相等结论"
+  },
+  "files": [
+    {
+      "path": "src/data/pms/product-purchase-orders.ts",
+      "v12Sha256": "15323a7f97dd405cdf7492321242d18e5bb6ebdfe21c9b256103d9ded868e6aa",
+      "v16Sha256": "90a463485ff6ff2957718fa10781c536b7138b77758377fdd94e77a39c104de9",
+      "baselineRecoveredFrom": "原独立审查diff + HEAD原文，重建SHA与V12manifest完全一致",
+      "rootCause": "structuredClone 新单曾继承旧质检结论、审核时间、重开标记。",
+      "change": "makeCopy 清 qualityResult/auditedAt 为空串及 inboundReopened=false。",
+      "assessment": "只重置新候选执行事实；原单、SKU数量/单价/图、来源关系、稳定身份、待采购状态及同事务提交不变；拆合共享helper亦无新入库/库存写入。",
+      "line": 664,
+      "reuseBoundary": "原保存/守恒审查复用，已有QC源复制/转类需新现场接受。root报告10单测+5native+QC转类UI；本旁路未重跑。",
+      "conclusion": "未发现阻断性增量错误"
+    },
+    {
+      "path": "src/main.ts",
+      "v12Sha256": "cb9bd02854ba2abc655887eab992d313650c1e57160b241e2726a84738134c2e",
+      "v16Sha256": "9d4da6986f23090b3483367305dd653f33daba02a6779eb21c3e596ecb38f584",
+      "baselineRecoveredFrom": "原独立审查diff + HEAD原文，重建SHA与V12manifest完全一致",
+      "rootCause": "MPO实际首屏7图此前在Document/模块后才请求，影响真实完整响应。",
+      "change": "仅MPO入口现有静态图片预取数组加7张对应图。",
+      "assessment": "沿用new Image/decode.catch，不写业务或附件，不换对象图，不改路由/目录hydrate/初始化。预取成功本身不证明完整页面性能。",
+      "line": 1077,
+      "reuseBoundary": "原业务目录回读复用；加载时序改变须新性能接受。root报告15复测，原慢样本保留；本旁路未采样。",
+      "conclusion": "未发现阻断性增量错误"
+    },
+    {
+      "path": "src/pages/pms/first-leg-shipments.ts",
+      "v12Sha256": "0ca637c7090cad5e3f2f65d405fa9def7974b3b1fbc0947ac511e81f3dcaf0bb",
+      "v16Sha256": "1e15383f9197f337deb66848cd0b28f77d5bb817cf4ffde585d076ea477463be",
+      "baselineRecoveredFrom": "原独立审查diff + HEAD原文，重建SHA与V12manifest完全一致",
+      "rootCause": "固定RMB文字不符已有渠道币种；刷新未同步批量按钮。",
+      "change": "选项显示渠道币种，费用标注按渠道币种；refreshAll末尾syncBatchButtons。",
+      "assessment": "channelCode/carrierId身份、费用读值、数量/状态/保存不变；sync只更新disabled、标题和表头，不改选择数组/数据，不触发业务动作。",
+      "lines": [
+        125,
+        309,
+        320,
+        439,
+        497
+      ],
+      "reuseBoundary": "原头程币种/数量/保存审查复用；币种显示和选中/清空按钮需当前UI验收。root报告5native，本旁路未操作。",
+      "conclusion": "未发现阻断性增量错误"
+    },
+    {
+      "path": "src/pages/pms/material-purchase-orders.ts",
+      "v12Sha256": "892c5ef7bafc51b2b7bb96877222fa389ae65ece47c9f4bdc608c3c904795b5f",
+      "v16Sha256": "da1502b304ead6aaa38e9bb501c6487b3d7e8856012931410ada305cde3a3597",
+      "baselineRecoveredFrom": "原独立审查diff + HEAD原文，重建SHA与V12manifest完全一致",
+      "rootCause": "新增/编辑/复制提示露内部复合采购身份。",
+      "change": "仅两处feedback使用既有pmsBusinessNumber。",
+      "assessment": "原orderNo、dataset、存储身份与API实参未变；格式函数纯字符串、无持久映射，正式数字号原样保留。",
+      "lines": [
+        875,
+        879
+      ],
+      "reuseBoundary": "原原子保存/刷新证据复用；短显示码不是新持久身份。",
+      "conclusion": "未发现阻断性增量错误"
+    },
+    {
+      "path": "src/pages/pms/material-requirements.ts",
+      "v12Sha256": "fc547405d0d7057692b7c487a6dc6074abf978344b616cf3e5eeed7dcc4f27e2",
+      "v16Sha256": "054bba54f1b1ef1b92cd273b3c6fcbfc089bd9d18898cadd275d492e58951e66",
+      "baselineRecoveredFrom": "原独立审查diff + HEAD原文，重建SHA与V12manifest完全一致",
+      "rootCause": "下推反馈露内部采购身份。",
+      "change": "仅created订单反馈映射pmsBusinessNumber。",
+      "assessment": "requirementNo、inputs、源PPO/MRA/MPO候选及同事务关联不变，无SKU/数量/金额/状态新推导。",
+      "line": 374,
+      "reuseBoundary": "原fresh父单下推和三对象回读闭环证据复用，仅接受显示变更。",
+      "conclusion": "未发现阻断性增量错误"
+    }
+  ],
+  "deltaArtifact": {
+    "path": "/tmp/pms-post-review-v12-v16-delta-20261014.diff",
+    "sha256": "b23098a9319481db61e553866f46cfca6a05bc91b4580c705e9fdafb79c28c20"
+  },
+  "originalSixFindings": [
+    {
+      "id": "PMS-FINAL-REV-01",
+      "title": "采购入口不应无范围加载 FCS 生产记录",
+      "originalStatus": "source-fix-verified",
+      "closure": "原源码守卫保留；上述5增量未撤销原修复。",
+      "currentSourceHashes": {
+        "src/data/pms/canonical-purchase-references.ts": "13a0eba0da8fd320ceec473bf205e15e2516e11c09b3ecc55ab86333ae948003",
+        "src/main.ts": "9d4da6986f23090b3483367305dd653f33daba02a6779eb21c3e596ecb38f584",
+        "src/pages/pms/material-purchase-orders.ts": "da1502b304ead6aaa38e9bb501c6487b3d7e8856012931410ada305cde3a3597"
+      },
+      "runtimeClosure": "root报告6P2 native补证；本追加只核对源码身份/增量，不冒充现场执行。"
+    },
+    {
+      "id": "PMS-FINAL-REV-02",
+      "title": "商品采购合并须校验币种及汇率",
+      "originalStatus": "source-fix-verified",
+      "closure": "原源码守卫保留；上述5增量未撤销原修复。",
+      "currentSourceHashes": {
+        "src/data/pms/product-purchase-orders.ts": "90a463485ff6ff2957718fa10781c536b7138b77758377fdd94e77a39c104de9"
+      },
+      "runtimeClosure": "root报告6P2 native补证；本追加只核对源码身份/增量，不冒充现场执行。"
+    },
+    {
+      "id": "PMS-FINAL-REV-03",
+      "title": "需求下推直达须先读取关联商品采购持久覆盖",
+      "originalStatus": "source-fix-verified",
+      "closure": "原源码守卫保留；上述5增量未撤销原修复。",
+      "currentSourceHashes": {
+        "src/data/pms/material-purchase-orders.ts": "b4c5a7145d26c477a613b0c64b3cd9a82c2e494dfbba9cab1090dbf704901526"
+      },
+      "runtimeClosure": "root报告6P2 native补证；本追加只核对源码身份/增量，不冒充现场执行。"
+    },
+    {
+      "id": "PMS-FINAL-REV-04",
+      "title": "新增面辅料采购须保存表单选择的币种",
+      "originalStatus": "source-fix-verified",
+      "closure": "原源码守卫保留；上述5增量未撤销原修复。",
+      "currentSourceHashes": {
+        "src/data/pms/material-purchase-orders.ts": "b4c5a7145d26c477a613b0c64b3cd9a82c2e494dfbba9cab1090dbf704901526"
+      },
+      "runtimeClosure": "root报告6P2 native补证；本追加只核对源码身份/增量，不冒充现场执行。"
+    },
+    {
+      "id": "PMS-FINAL-REV-05",
+      "title": "复制采购单须清理旧驳回及执行事实",
+      "originalStatus": "source-fix-verified",
+      "closure": "原源码守卫保留；上述5增量未撤销原修复。",
+      "currentSourceHashes": {
+        "src/data/pms/material-purchase-orders.ts": "b4c5a7145d26c477a613b0c64b3cd9a82c2e494dfbba9cab1090dbf704901526"
+      },
+      "runtimeClosure": "root报告6P2 native补证；本追加只核对源码身份/增量，不冒充现场执行。"
+    },
+    {
+      "id": "PMS-FINAL-REV-06",
+      "title": "备份恢复须核验业务附件及归属并拒绝内嵌文件地址",
+      "originalStatus": "source-fix-verified",
+      "closure": "原源码守卫保留；上述5增量未撤销原修复。",
+      "currentSourceHashes": {
+        "src/data/pms/idb-storage.ts": "4881f8e6cd3b0090e957d40b43f9b18f2cdc1aab2efc7a21efb47ca7a1908d44"
+      },
+      "runtimeClosure": "root报告6P2 native补证；本追加只核对源码身份/增量，不冒充现场执行。"
+    }
+  ],
+  "reviewerExistingRuntimeEvidence": [
+    {
+      "path": "/tmp/pms-v16-structure-status-fix-report-20261014.json",
+      "meaning": "此前5395正常拆合/两选状态2case实际通过，精确回读/守恒/来源/状态保留；不替代QC复制或15次性能。"
+    },
+    {
+      "path": "/tmp/pms-v16-two-case-fix-report-20261014.json",
+      "meaning": "此前V16 KOL/供应确认2case实际通过，不扩为全站接受。"
+    }
+  ],
+  "findings": [],
+  "conclusion": {
+    "blockingErrors": 0,
+    "p0": 0,
+    "p1": 0,
+    "p2": 0,
+    "statement": "这5项实际产品增量未引入已识别状态、业务身份、数量守恒或存储错误；原6P2源码修复保持，追加源码审查无阻断。",
+    "boundary": "root提供的10单测/5native/15复测/6P2native属于主代理报告来源；原始现场证据、矩阵、设备/性能/发布接受由主代理整合。本旁路不重跑、不预填结果。"
+  },
+  "stop": "追加报告冻结，停止。原全量审查报告保留不改。"
+}

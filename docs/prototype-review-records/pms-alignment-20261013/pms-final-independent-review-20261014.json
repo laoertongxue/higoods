@@ -1,0 +1,851 @@
+{
+  "reportId": "PMS-FINAL-INDEPENDENT-REVIEW-20261014",
+  "createdAt": "2026-10-13T20:41:57.502523+00:00",
+  "repository": "/Users/laoer/.codex/worktrees/7eaf/higoods",
+  "head": "ee14949905b08b260e9c6309eebc59bfa5b32764",
+  "branch": "codex/pms-test-alignment-20261013",
+  "mode": "read-only semantic review; report files only",
+  "taskBoundary": {
+    "userScope": "采购管理 21 页逐项对齐；6 对象完整代码退役；按当前 AGENTS.md 做 UI、交互、保存与适用证据；正式站不操作，测试站核查不写数据库。",
+    "scope": "当前完整 src/scripts/tests 任务差异及新文件，菜单/路由/处理器、直接事实源、业务候选及原子保存、目录直达、Excel 门禁、相关测试断言与既有实施报告。",
+    "prohibitedActions": [
+      "产品源码编辑",
+      "浏览器操作",
+      "构建",
+      "测试运行",
+      "下级代理"
+    ],
+    "independenceLimit": "此审查与主代理并行只读；审查者此前实现过任务的部分对象，不能等同于另一个未参与实现者的外部审查。主代理仍须审最终完整 diff。"
+  },
+  "reviewedVersion": {
+    "manifestCount": 101,
+    "trackedCount": 83,
+    "newFileCount": 18,
+    "diffArtifact": "/tmp/pms-final-independent-reviewed-20261014.diff",
+    "diffSha256": "4822fb8132a0ccd0c3268ecc838496c653cbefd9bc56b0f287c68aabd3afc60e",
+    "sourceManifest": [
+      {
+        "path": "scripts/check-pms-purchase-chain.ts",
+        "gitStatus": " M",
+        "sha256": "d413e28c1c159e9a55dcb691710b8ea9045a60a1580464cacc7ea28fafa68ac3",
+        "bytes": 3317
+      },
+      {
+        "path": "src/components/pms-storage-panel.ts",
+        "gitStatus": "??",
+        "sha256": "0bd4dae0e822ffeff6f61b44abb518e5c503ebc2a58ce31f09e34771569ef945",
+        "bytes": 10109
+      },
+      {
+        "path": "src/components/shell.ts",
+        "gitStatus": " M",
+        "sha256": "155067ce456ff90f5c94803517baac4aee93d57f968f3bbc6101fb787cb0e6ca",
+        "bytes": 15290
+      },
+      {
+        "path": "src/data/app-shell-config.ts",
+        "gitStatus": " M",
+        "sha256": "a613639a88e57322bbca63c7168021f5c8ad72a27e08cd1ce7f6d1b3c29943d4",
+        "bytes": 50582
+      },
+      {
+        "path": "src/data/pms/bom-detail.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "6e7e6d33b4e4e95d0c07fef4b0491e4095750247d0824b1dc4dcb2f934794fd8",
+        "baselineBytes": 22111
+      },
+      {
+        "path": "src/data/pms/bom-templates.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "cd570f5ab5228507aad3b1a4da38af9f87f0b03d65c499303b87c5af5a64aef2",
+        "baselineBytes": 16881
+      },
+      {
+        "path": "src/data/pms/canonical-purchase-references.ts",
+        "gitStatus": "??",
+        "sha256": "13a0eba0da8fd320ceec473bf205e15e2516e11c09b3ecc55ab86333ae948003",
+        "bytes": 5663
+      },
+      {
+        "path": "src/data/pms/core-write-contract.ts",
+        "gitStatus": "??",
+        "sha256": "5a5e6f11eb67cbe25be44c29d37e0c19b9f0f6541f5d28c1036ab57e691259e9",
+        "bytes": 847
+      },
+      {
+        "path": "src/data/pms/first-leg-logistics.ts",
+        "gitStatus": " M",
+        "sha256": "7f88bdb36c74376eeb9be6547b8d7b68bfc2a1a22e12d82e655ec3f777aed4bf",
+        "bytes": 81600
+      },
+      {
+        "path": "src/data/pms/fitting-timeliness.ts",
+        "gitStatus": " M",
+        "sha256": "1e89290915ed9c39a67bc8d7850e1320c6daf2538bf279543e993e20caf1591c",
+        "bytes": 16199
+      },
+      {
+        "path": "src/data/pms/idb-storage.ts",
+        "gitStatus": " M",
+        "sha256": "4881f8e6cd3b0090e957d40b43f9b18f2cdc1aab2efc7a21efb47ca7a1908d44",
+        "bytes": 44584
+      },
+      {
+        "path": "src/data/pms/inventory-monitor.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "bfe1b4bd429faba531775cb731ed25325aa2911475f1f0db4875ea1ddeaf4ef9",
+        "baselineBytes": 25895
+      },
+      {
+        "path": "src/data/pms/kol-sample-apply.ts",
+        "gitStatus": " M",
+        "sha256": "3f17ceb4f27eb0c16f14ac3efb3ea3216ac37bb32d95ec803e7f037a046b69bd",
+        "bytes": 10122
+      },
+      {
+        "path": "src/data/pms/kol-sample-link.ts",
+        "gitStatus": " M",
+        "sha256": "70351e83ab30565b53c7872602f8a3864da262efa792226c955372df75a654e5",
+        "bytes": 8670
+      },
+      {
+        "path": "src/data/pms/kol-sample-stock-lock-log.ts",
+        "gitStatus": " M",
+        "sha256": "c0cea5da4198edaba62859af20a8807c938036454c2fa98173ab70680a363b58",
+        "bytes": 5755
+      },
+      {
+        "path": "src/data/pms/kol-sample-stock.ts",
+        "gitStatus": " M",
+        "sha256": "790b061e83303d20312f8692c0565b8ca3119013263130688744bf9487ae780d",
+        "bytes": 11013
+      },
+      {
+        "path": "src/data/pms/legacy-purchase-migration.ts",
+        "gitStatus": "??",
+        "sha256": "726aebe554a2c409d0f36f1eb25ab4c5e425249f0a1beecf0e19d256d214d19e",
+        "bytes": 20497
+      },
+      {
+        "path": "src/data/pms/material-inventory.ts",
+        "gitStatus": "??",
+        "sha256": "afcb09c43fb8b28999a4c508ccfc2f3849366ad8b15c5e916fd6cbce6fec7f52",
+        "bytes": 4124
+      },
+      {
+        "path": "src/data/pms/material-purchase-orders.ts",
+        "gitStatus": " M",
+        "sha256": "b4c5a7145d26c477a613b0c64b3cd9a82c2e494dfbba9cab1090dbf704901526",
+        "bytes": 93817
+      },
+      {
+        "path": "src/data/pms/material-requirements.ts",
+        "gitStatus": " M",
+        "sha256": "5912cd5f060252751c2de6f6945d11aa7ebb77c766ac75bb55cf2fc08d034e67",
+        "bytes": 36962
+      },
+      {
+        "path": "src/data/pms/materials.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "f57e7312bdcf2f50b719b9e39a39c871acab91daf2d2d1650f36daa14cd93b81",
+        "baselineBytes": 28358
+      },
+      {
+        "path": "src/data/pms/payment-requests.ts",
+        "gitStatus": " M",
+        "sha256": "9401b5a70d8912f1e471337924daa4a326cccfb0df4c8895628103b5a769dfa8",
+        "bytes": 34002
+      },
+      {
+        "path": "src/data/pms/product-purchase-orders.ts",
+        "gitStatus": " M",
+        "sha256": "15323a7f97dd405cdf7492321242d18e5bb6ebdfe21c9b256103d9ded868e6aa",
+        "bytes": 51697
+      },
+      {
+        "path": "src/data/pms/product-skus.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "39cc84abb0d4cc149c9b528b62e59e137fb31b2f0e4177d89803157d20d80869",
+        "baselineBytes": 4517
+      },
+      {
+        "path": "src/data/pms/purchase-order-aftersales.ts",
+        "gitStatus": " M",
+        "sha256": "7f4d4ee61f63d584af4ec65771df5f2cf8d5d3ef5bcd608487ca9683f6c48935",
+        "bytes": 25592
+      },
+      {
+        "path": "src/data/pms/purchase-suggestions.ts",
+        "gitStatus": " M",
+        "sha256": "61da3ebbcf2ea51525ce1437d2e34dfedb27ee45f507d12a5135df3c2d892c85",
+        "bytes": 31640
+      },
+      {
+        "path": "src/data/pms/reconciliations.ts",
+        "gitStatus": " M",
+        "sha256": "c11a3348315197dc48892fb4af123b40c56e683deeb60eac24d9087764a6f382",
+        "bytes": 46484
+      },
+      {
+        "path": "src/data/pms/reorder-suggestions.ts",
+        "gitStatus": " M",
+        "sha256": "42527226e0e00c407e11cbd44fbd8b04ba1fdf6190a5ca0737ff2d65ca7b89ac",
+        "bytes": 18326
+      },
+      {
+        "path": "src/data/pms/runtime.ts",
+        "gitStatus": " M",
+        "sha256": "b4bd6dbf5cf6581caf18b628b417e2322944741e51ef6199408685c091a66523",
+        "bytes": 6483
+      },
+      {
+        "path": "src/data/pms/supplier-confirmations.ts",
+        "gitStatus": " M",
+        "sha256": "a0846e59bd7100b738899d441fd9dae2dc53d95b1c66dc07d30660f3d8872059",
+        "bytes": 40253
+      },
+      {
+        "path": "src/data/pms/supplier-supply-archives.ts",
+        "gitStatus": " M",
+        "sha256": "3bea194b66e1c61c6aa775f6996704526fa86540a9fa08fc4513da3495605d13",
+        "bytes": 12902
+      },
+      {
+        "path": "src/data/pms/suppliers.ts",
+        "gitStatus": " M",
+        "sha256": "76c71ffca36b5b60027b0bd2a0298f7ec0d8464a914108bdc2179baa7ef81f5e",
+        "bytes": 26253
+      },
+      {
+        "path": "src/data/pms/tmf-master-registry.ts",
+        "gitStatus": " M",
+        "sha256": "8e7d859f52cce21f967ede40cc9d3d3a422f1688b438a38bfa2760ba94ee302b",
+        "bytes": 9140
+      },
+      {
+        "path": "src/data/pms/tmf-material-purchases.ts",
+        "gitStatus": " M",
+        "sha256": "3a337c2ffd842e6b55079a842608aca6a2bebe5182038c4e89f02b2b8de8d846",
+        "bytes": 199855
+      },
+      {
+        "path": "src/data/pms/units.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "f2d2d6078b4072a8e7c89b7cb9bac7e9b24ec96a9042ae64b122dc78a71abb48",
+        "baselineBytes": 8599
+      },
+      {
+        "path": "src/data/pms/warehouses.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "f6cb80fc650fb06153b3c53e437b281d1bc3229bb89c1ae41726fc0a0f2dfa4a",
+        "baselineBytes": 10909
+      },
+      {
+        "path": "src/icons/shell-icons.ts",
+        "gitStatus": " M",
+        "sha256": "465e7475d852d25074b134330402fc7ebe97cbef5c448e2bb1114eab140d9e3f",
+        "bytes": 4765
+      },
+      {
+        "path": "src/main-handlers/pms-handlers.ts",
+        "gitStatus": " M",
+        "sha256": "e1fc0c7616948c41a63482b8fe04ab24f74190f8eb8013d8f341d0947baf1da3",
+        "bytes": 7655
+      },
+      {
+        "path": "src/main.ts",
+        "gitStatus": " M",
+        "sha256": "cb9bd02854ba2abc655887eab992d313650c1e57160b241e2726a84738134c2e",
+        "bytes": 118394
+      },
+      {
+        "path": "src/pages/pms/bom-detail.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "df3e7e7a077268d63893299a1e59cb9c36f04653081603ba18575332ccb14304",
+        "baselineBytes": 25407
+      },
+      {
+        "path": "src/pages/pms/bom-templates.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "8c997da806ad744f0377aeefb8e00ca8f6fb542df877a2ea91c73296b5f09ba5",
+        "baselineBytes": 13618
+      },
+      {
+        "path": "src/pages/pms/core-interactions.ts",
+        "gitStatus": "??",
+        "sha256": "8c1016bd8b5cbf01d131a42eec4afd1afba6e349a37587c463788dcf97f6495c",
+        "bytes": 7088
+      },
+      {
+        "path": "src/pages/pms/first-leg-carriers.ts",
+        "gitStatus": " M",
+        "sha256": "83958695e4c53d13e716dfd2ae5a4adf50ad9abec8a0a41eb1927a59ec14d8d3",
+        "bytes": 60915
+      },
+      {
+        "path": "src/pages/pms/first-leg-shipments.ts",
+        "gitStatus": " M",
+        "sha256": "0ca637c7090cad5e3f2f65d405fa9def7974b3b1fbc0947ac511e81f3dcaf0bb",
+        "bytes": 79648
+      },
+      {
+        "path": "src/pages/pms/fitting-timeliness.ts",
+        "gitStatus": " M",
+        "sha256": "ce02a7ad16a37513d7b2b3719fbccb3691e78f4233430dfdce1bfc6b13b293c7",
+        "bytes": 28697
+      },
+      {
+        "path": "src/pages/pms/kol-demands.ts",
+        "gitStatus": " M",
+        "sha256": "96a958c887790e6843a3f972d89abe351165fbde29bc4fdfa545b5468d600a35",
+        "bytes": 56359
+      },
+      {
+        "path": "src/pages/pms/kol-sample-apply.ts",
+        "gitStatus": " M",
+        "sha256": "b8640ecebeec4783af937a2d45d16154f07b5610018b6a4e1125ae945e5b8252",
+        "bytes": 19833
+      },
+      {
+        "path": "src/pages/pms/kol-sample-link.ts",
+        "gitStatus": " M",
+        "sha256": "5719c1212a52f00a4d81deb3bc3765e2defcf69c98bf7e1bdc4bdca35d1dca84",
+        "bytes": 20477
+      },
+      {
+        "path": "src/pages/pms/kol-sample-stock-lock-log.ts",
+        "gitStatus": " M",
+        "sha256": "0b4d2c0144f2331c41b5a8beaa70bf7da92bf92ab78d13efabea587ecf21db78",
+        "bytes": 13711
+      },
+      {
+        "path": "src/pages/pms/kol-sample-stock.ts",
+        "gitStatus": " M",
+        "sha256": "85875eaabc8c09a61db6f7ddf13a882ecffe77debd011e8c41844b03413a4626",
+        "bytes": 28632
+      },
+      {
+        "path": "src/pages/pms/local-list-interactions.ts",
+        "gitStatus": "??",
+        "sha256": "4a02518e9bd1ffd609737fdd98ef158450c8db68a992e13ad35129d06afdd872",
+        "bytes": 3764
+      },
+      {
+        "path": "src/pages/pms/material-archives.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "bdadc224597326be53b3264fc96658f0ecd2e0729fe1aa64bc32328d8ded7c55",
+        "baselineBytes": 42723
+      },
+      {
+        "path": "src/pages/pms/material-inventory.ts",
+        "gitStatus": " M",
+        "sha256": "37935e0f1c626487e16efd6404fc07343b89a2064224771e5e50bde9e0ef6656",
+        "bytes": 16172
+      },
+      {
+        "path": "src/pages/pms/material-purchase-barcodes.ts",
+        "gitStatus": "??",
+        "sha256": "fbd417652d6b7f1f06a67fdbe4845078ed5dfe8ebdead1b7a14c8224efc2c163",
+        "bytes": 32789
+      },
+      {
+        "path": "src/pages/pms/material-purchase-orders.ts",
+        "gitStatus": " M",
+        "sha256": "892c5ef7bafc51b2b7bb96877222fa389ae65ece47c9f4bdc608c3c904795b5f",
+        "bytes": 109776
+      },
+      {
+        "path": "src/pages/pms/material-purchase-tracking.ts",
+        "gitStatus": " M",
+        "sha256": "45289a1f7018c104aaa947bbb0f9c0a0c4e3021eed6e78219d78f98e6a29329f",
+        "bytes": 34137
+      },
+      {
+        "path": "src/pages/pms/material-requirements.ts",
+        "gitStatus": " M",
+        "sha256": "fc547405d0d7057692b7c487a6dc6074abf978344b616cf3e5eeed7dcc4f27e2",
+        "bytes": 52202
+      },
+      {
+        "path": "src/pages/pms/payment-requests.ts",
+        "gitStatus": " M",
+        "sha256": "8f711d0a51a3bb4a38a81b102f41a99c4f46b7a174d6bfceed147982ab9ee888",
+        "bytes": 61866
+      },
+      {
+        "path": "src/pages/pms/product-purchase-orders.ts",
+        "gitStatus": " M",
+        "sha256": "d765be444f48be76843042bb9edc6c7c299320c10d5009aad0e063d5408dd2ab",
+        "bytes": 56595
+      },
+      {
+        "path": "src/pages/pms/product-skus.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "6032db561d6d7745f40189ddd922f91afccad7dfa9694d5ae5286458ebfab9a1",
+        "baselineBytes": 16224
+      },
+      {
+        "path": "src/pages/pms/purchase-order-aftersales.ts",
+        "gitStatus": " M",
+        "sha256": "cb8139dae41988f91f63a32bf35a5860d196c37b1c60ee9eb98a36507f1e4188",
+        "bytes": 21827
+      },
+      {
+        "path": "src/pages/pms/purchase-suggestions.ts",
+        "gitStatus": " M",
+        "sha256": "66aca71edce0d04c4a8f8fbd6d7c54e48ea6ccceecbbe536fd5e15fa5a01bcb4",
+        "bytes": 46998
+      },
+      {
+        "path": "src/pages/pms/reorder-suggestions.ts",
+        "gitStatus": " M",
+        "sha256": "c76e38e13e7e9597678f828bc98d414ea6b3c5348cb8275b2efb17ad7ae09823",
+        "bytes": 42210
+      },
+      {
+        "path": "src/pages/pms/shared.ts",
+        "gitStatus": " M",
+        "sha256": "b448cdd308a70b0106ed33d8a40330a78d80b11026a60c1aca53db99ce247068",
+        "bytes": 15071
+      },
+      {
+        "path": "src/pages/pms/supplier-confirmations.ts",
+        "gitStatus": " M",
+        "sha256": "455a525d5e60015cf9bdb8a4111f2b1c908227add5b0f624db064638c05ef034",
+        "bytes": 69585
+      },
+      {
+        "path": "src/pages/pms/supplier-supply-archives.ts",
+        "gitStatus": " M",
+        "sha256": "6e0d3ab251db8ca0d4f789f7cd520cdc91bb2f04502b3137e945a92b9d82ab1f",
+        "bytes": 46282
+      },
+      {
+        "path": "src/pages/pms/suppliers.ts",
+        "gitStatus": " M",
+        "sha256": "f8685e8c6964ddf8bbf9ac64305e3e40e93a8fca61c18bba1e84b176df53c83e",
+        "bytes": 37316
+      },
+      {
+        "path": "src/pages/pms/units.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "4efb422334203bdbf3dc716aa959890ead1d40410ba65c55980a05e4fd586558",
+        "baselineBytes": 21086
+      },
+      {
+        "path": "src/pages/pms/warehouses.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "ea4a92865b3617ca10dec22d713cbe958e97cdd6805570d3b847f774bf5a668c",
+        "baselineBytes": 17440
+      },
+      {
+        "path": "src/pages/wls/raw/fabric-inventory-count.ts",
+        "gitStatus": " M",
+        "sha256": "5187abb568378610f6392361187049be3ce51e4ad5389af3585014d8cd99cc9e",
+        "bytes": 15405
+      },
+      {
+        "path": "src/pages/wls/raw/stock-flow.ts",
+        "gitStatus": " M",
+        "sha256": "d49647d1e08f9e29531f01d6d4940f95be7b6c760ee2e1d447c6c258e2587abe",
+        "bytes": 19668
+      },
+      {
+        "path": "src/router/route-renderers-pms.ts",
+        "gitStatus": " M",
+        "sha256": "9026e12b1b4d3507329fd9ed020f39fb19fa5874c1d39e39bceb2141f57530cc",
+        "bytes": 3176
+      },
+      {
+        "path": "src/router/routes-pms.ts",
+        "gitStatus": " M",
+        "sha256": "4c907f6d51053b616c4764115949debd6b21b16ad250095372f39e7d4263d1a3",
+        "bytes": 2462
+      },
+      {
+        "path": "src/utils/pms-business-number.ts",
+        "gitStatus": "??",
+        "sha256": "a459f77276aeb5e34ba928d53d2f1cdcd863cd45d38429e2ca6fdc6462100cb0",
+        "bytes": 703
+      },
+      {
+        "path": "src/utils/pms-excel-binary-import.ts",
+        "gitStatus": "??",
+        "sha256": "c48910a6f915aab93bcdd66ad71d89fe9e056fec6f13d64485aaf504d815c17f",
+        "bytes": 15228
+      },
+      {
+        "path": "src/utils/pms-excel-import.ts",
+        "gitStatus": " M",
+        "sha256": "3bc844ec446efbc56d745f4c3517a43b49a639558c0bba253f0cbfdaa7109f0c",
+        "bytes": 11577
+      },
+      {
+        "path": "src/utils/pms-export.ts",
+        "gitStatus": " M",
+        "sha256": "43a86b49e94d304dde26104310c6c5f6f4935bb91da10a4f7873e23b23200a00",
+        "bytes": 1656
+      },
+      {
+        "path": "tests/helpers/pms-memory-idb.ts",
+        "gitStatus": "??",
+        "sha256": "dbb11ee99dfc0656b25ff62d8a287a74f983c0276abb1381b7bdcef4bd628886",
+        "bytes": 4964
+      },
+      {
+        "path": "tests/pms-cold-load.spec.ts",
+        "gitStatus": " M",
+        "sha256": "9a872c453f2d66c2ad299918d0cd23fe5ba124003eeaebdec0ea2d7ee1cd4d15",
+        "bytes": 2725
+      },
+      {
+        "path": "tests/pms-interaction-audit.spec.ts",
+        "gitStatus": " M",
+        "sha256": "189e48e91b15b31920a05f76fe18264d091fd6e5a847bf5d80e0a411bc828ba7",
+        "bytes": 10366
+      },
+      {
+        "path": "tests/pms-master-data.spec.ts",
+        "gitStatus": " M",
+        "sha256": "7d96fbdccc2ea9b748797d81a69f0bd237cefc7090a99c6a6cf8d7071510ce46",
+        "bytes": 3200
+      },
+      {
+        "path": "tests/pms-style-screenshots.spec.ts",
+        "gitStatus": " M",
+        "sha256": "2a24a51d22a7378d02ce55e85d7436ff62c425eaedd115e075af1fdc4dcc1819",
+        "bytes": 1902
+      },
+      {
+        "path": "tests/unit/pda-sewing-detail-canonical-task.test.ts",
+        "gitStatus": " M",
+        "sha256": "c96a7fbacfd8d774a4dabea31b9f007f91173ce93661fdaebded42488d994c7c",
+        "bytes": 17874
+      },
+      {
+        "path": "tests/unit/pms-core-purchase-contracts.test.ts",
+        "gitStatus": "??",
+        "sha256": "554ddfc81420a5c614530ae00227c914c8e55e83e8a42ac68bcf8fdfc3ec1b5c",
+        "bytes": 7437
+      },
+      {
+        "path": "tests/unit/pms-excel-import.test.ts",
+        "gitStatus": "??",
+        "sha256": "b955ccb351848d5fcf9f680eb19c7da0519340302e61151e759f30aa4eb59cd7",
+        "bytes": 23355
+      },
+      {
+        "path": "tests/unit/pms-first-leg-carriers.test.ts",
+        "gitStatus": " M",
+        "sha256": "6f74250bf628c84c2774255e22e3906fb8c1e0affb88c55e92e76b7793b7db3f",
+        "bytes": 12018
+      },
+      {
+        "path": "tests/unit/pms-fitting-timeliness.test.ts",
+        "gitStatus": "??",
+        "sha256": "6a9b1da1a5cadbf8a517a8407b07bbaaafd8b3921d5cc7d4140236c0267517a4",
+        "bytes": 10238
+      },
+      {
+        "path": "tests/unit/pms-inventory-monitor.test.ts",
+        "gitStatus": " D",
+        "deleted": true,
+        "baselineSha256": "8aabb8c3eca3b7aac8c736fb8bb7937cc1750d417fad21055e7a0cb6a4361399",
+        "baselineBytes": 7527
+      },
+      {
+        "path": "tests/unit/pms-legacy-purchase-migration.test.ts",
+        "gitStatus": "??",
+        "sha256": "b89605cc709c4f92ebbc15a9757b20cd919747a18256cdeb1a0c077dbd34575c",
+        "bytes": 15265
+      },
+      {
+        "path": "tests/unit/pms-master-data.test.ts",
+        "gitStatus": " M",
+        "sha256": "0fd5e121fe4ac347c9592f8802cc3255cfaa31bf91752250e6ed5f9b23c4a960",
+        "bytes": 1788
+      },
+      {
+        "path": "tests/unit/pms-material-flow.test.ts",
+        "gitStatus": " M",
+        "sha256": "f499855b011cd5c63a67699bac608076021999742a0ebe13a5ef315ce10bd518",
+        "bytes": 5836
+      },
+      {
+        "path": "tests/unit/pms-material-inventory.test.ts",
+        "gitStatus": "??",
+        "sha256": "db20093e70cf54a355c2f24c875cd2836f3c6aef4458f45346b11b99cb34f486",
+        "bytes": 4163
+      },
+      {
+        "path": "tests/unit/pms-material-ops-persistence.test.ts",
+        "gitStatus": "??",
+        "sha256": "5fcac7140d09e12876c8366015fa5451d77ad481331cd8853d4cc954cf54f62f",
+        "bytes": 20930
+      },
+      {
+        "path": "tests/unit/pms-product-purchase-orders.test.ts",
+        "gitStatus": " M",
+        "sha256": "d2237b974bbe75e4680ea1c2fe73c66e9da9672574a1a39394c1477402fbdf7c",
+        "bytes": 11398
+      },
+      {
+        "path": "tests/unit/pms-purchase-chain.test.ts",
+        "gitStatus": " M",
+        "sha256": "94d1237be447b45123bed7ec1ede105a3d890dc7ad27a3c6ff933abe3a839542",
+        "bytes": 8493
+      },
+      {
+        "path": "tests/unit/pms-storage-contract.test.ts",
+        "gitStatus": "??",
+        "sha256": "a94558c4095af6257aedc3a9511454f9f094a9eda124fb6ca8db221e1fa58763",
+        "bytes": 9884
+      },
+      {
+        "path": "tests/unit/pms-supplier-confirmations.test.ts",
+        "gitStatus": " M",
+        "sha256": "77bdc628c5e08d6cc7b5d14f0ef7b2464223ae8ad23c4f17c2dadea9b0a6f47a",
+        "bytes": 3522
+      },
+      {
+        "path": "tests/unit/pms-suppliers.test.ts",
+        "gitStatus": " M",
+        "sha256": "2aaf01425e94d25c8a976bef3842122aeaf30516f1e2e4b5f6faab2f55480af8",
+        "bytes": 1453
+      },
+      {
+        "path": "tests/unit/tmf-legacy-migration.test.ts",
+        "gitStatus": " M",
+        "sha256": "042af4e9cf7e51ab8835ed1b5d2b4221ba5f3c8fd9633c846902610bf5ee39fc",
+        "bytes": 5559
+      },
+      {
+        "path": "tests/unit/tmf-purchase-base-flow.test.ts",
+        "gitStatus": " M",
+        "sha256": "b5ff4e9ca680126a80d077119c9b0ed380baf096db2a966df7f793a38272133c",
+        "bytes": 234792
+      },
+      {
+        "path": "tests/unit/tmf-supply-purchase-receipts.test.ts",
+        "gitStatus": " M",
+        "sha256": "52b05526c5147726b43174ac312495a061c6257496a7a7eac46349bb85a5be4d",
+        "bytes": 9302
+      }
+    ]
+  },
+  "coverage": [
+    {
+      "object": "6 退役业务对象",
+      "evidence": "当前差异删除专属 page/data/Mock；菜单、路由、dynamic detail、handler 注册及 src/scripts/tests 活跃退休 import/符号/地址 literal 审计未发现残留消费者。",
+      "boundary": "保留旧浏览器物理记录与历史证据；未清库或删用户数据。"
+    },
+    {
+      "object": "采购菜单与 21 页面入口",
+      "evidence": "9 菜单分组顺序对齐冻结清单；21 页面路由及 shell icon 注册源码已检查，退休入口删除。",
+      "boundary": "源码结论；最终设备及点击接受由主代理完成。"
+    },
+    {
+      "object": "共享保存与持久回读",
+      "evidence": "pmsCommitRecords 候选、版本、操作标识、文件实体/归属/操作日志同事务；complete 后发布；读失败不写种子；无业务 localStorage 后备。相关页面局部事件与异步保存直接消费者已审。",
+      "boundary": "本轮未重跑运行契约，未声称所有 IndexedDB 故障场景均已现场通过。"
+    },
+    {
+      "object": "直接 PCS 目录来源",
+      "evidence": "canonical 商品/SKU/物料/技术版本来源与普通采购入口 scoped hydrate 已审；不新增可写退休 master；MRA 下推关联 PPO 读入补齐。",
+      "boundary": "18 入口真实刷新回读及性能仍由主代理验收。"
+    },
+    {
+      "object": "采购、需求、样衣、供应确认、头程、付款与时效业务",
+      "evidence": "实际候选准备、门禁、数量单位、上下游同事务、复制/合并、到货/QC/显式入库及来源投影路径语义审查。",
+      "boundary": "未逐条重新操作冻结 UI 清单，未把 Mock 演示解释为生产事实。"
+    },
+    {
+      "object": "库存与 WLS 相邻范围",
+      "evidence": "库存只读 WLS 事实及明确本地 MPO 入库/条码结果；精确 SKU、仓库、单位投影。相邻 WLS 变更仅直接需要的只读 getter。",
+      "boundary": "不改变 WLS 写入流程或以采购条码区域移动扣仓库实物。"
+    },
+    {
+      "object": "xlsx / xls 导入门禁",
+      "evidence": "OOXML ZIP/XML 与 BIFF8/CFB 读取边界、缓存公式/日期处理、错误格式/损坏/encrypted 显式阻断、原有结构校验及原子业务提交源码已读。",
+      "boundary": "本轮未新增解析器运行或浏览器导入测试；不把文本改扩展名等同于真实 XLS。"
+    },
+    {
+      "object": "范围与工程清洁",
+      "evidence": "无依赖、package/lock 或部署配置修改；无普通初始化迁移、业务 Base64 后备、原生确认及无差别清库入口。脚本和测试退休替换对照有效对象检查。",
+      "boundary": "临时验证资料不作为生产能力；性能与原子矩阵待最终接受不记为缺陷。"
+    }
+  ],
+  "findings": [
+    {
+      "id": "PMS-FINAL-REV-01",
+      "priority": "P2",
+      "title": "采购入口不应无范围加载 FCS 生产记录",
+      "originalLocation": {
+        "file": "src/main.ts",
+        "line": 1094
+      },
+      "scenario": "18 个采购目录入口无参调用 ensurePcsRecordState，原实现会同时注册和读取 FCS 集合。",
+      "risk": "无关生产资料读取失败可能阻断采购页面，并扩大普通采购打开的读入范围。",
+      "fix": "新增 ensurePurchaseCatalogState，仅加载当前采购目录直接依赖的 6 个 PCS 集合；采购入口和 MPO 页使用该函数，原 PCS/FCS 分支保持原行为。",
+      "currentBindings": [
+        {
+          "file": "src/data/pms/canonical-purchase-references.ts",
+          "line": 7
+        },
+        {
+          "file": "src/main.ts",
+          "line": 1089
+        },
+        {
+          "file": "src/pages/pms/material-purchase-orders.ts",
+          "line": 4
+        }
+      ],
+      "status": "source-fix-verified"
+    },
+    {
+      "id": "PMS-FINAL-REV-02",
+      "priority": "P2",
+      "title": "商品采购合并须校验币种及汇率",
+      "originalLocation": {
+        "file": "src/data/pms/product-purchase-orders.ts",
+        "line": 675
+      },
+      "scenario": "同 SPU、供应商、仓库且单价数值相等的两单使用不同币种或汇率，原路径允许合并并沿用首单货币属性。",
+      "risk": "关闭原单后合并单金额含义失真，影响采购金额及付款依据。",
+      "fix": "合并准备阶段新增币种和汇率一致性守卫，差异时整次操作阻断。",
+      "currentBindings": [
+        {
+          "file": "src/data/pms/product-purchase-orders.ts",
+          "line": 676
+        }
+      ],
+      "status": "source-fix-verified"
+    },
+    {
+      "id": "PMS-FINAL-REV-03",
+      "priority": "P2",
+      "title": "需求下推直达须先读取关联商品采购持久覆盖",
+      "originalLocation": {
+        "file": "src/data/pms/material-purchase-orders.ts",
+        "line": 452
+      },
+      "scenario": "刷新直达需求页后下推，原路径仅读 MPO/MRA，关联的用户新增或修改 PPO 可能未入内存。",
+      "risk": "新 PPO 会跳过必要状态更新，已改静态 PPO 则可能以旧版本候选冲突，阻断有效下推。",
+      "fix": "pushPmsMaterialRequirement 先 await hydratePmsProductPurchaseOrdersFromIdb，再准备 MRA、MPO、关联 PPO 候选并同事务保存。",
+      "currentBindings": [
+        {
+          "file": "src/data/pms/material-purchase-orders.ts",
+          "line": 1004
+        }
+      ],
+      "status": "source-fix-verified"
+    },
+    {
+      "id": "PMS-FINAL-REV-04",
+      "priority": "P2",
+      "title": "新增面辅料采购须保存表单选择的币种",
+      "originalLocation": {
+        "file": "src/data/pms/material-purchase-orders.ts",
+        "line": 1113
+      },
+      "scenario": "新增表单选择 USD 或 IDR，原 buildOrder 默认 RMB，后续候选未覆盖所选币种。",
+      "risk": "保存后的采购单、导出及付款来源使用错误币种。",
+      "fix": "创建候选明确赋值 row.currency=input.currency。",
+      "currentBindings": [
+        {
+          "file": "src/data/pms/material-purchase-orders.ts",
+          "line": 1114
+        }
+      ],
+      "status": "source-fix-verified"
+    },
+    {
+      "id": "PMS-FINAL-REV-05",
+      "priority": "P2",
+      "title": "复制采购单须清理旧驳回及执行事实",
+      "originalLocation": {
+        "file": "src/data/pms/material-purchase-orders.ts",
+        "line": 1071
+      },
+      "scenario": "复制一张已驳回采购单，原副本显示待采购却保留 rejectedReason 及旧执行日期。",
+      "risk": "副本后续采购、确认或到货受旧驳回守卫阻断，且展示不属于新单的历史执行事实。",
+      "fix": "新副本清空 rejectedReason、closedReason、purchasedAt、arrivedAt，并保持既有数量、供应确认、质检、条码及入库结果重置。",
+      "currentBindings": [
+        {
+          "file": "src/data/pms/material-purchase-orders.ts",
+          "line": 1071
+        }
+      ],
+      "status": "source-fix-verified"
+    },
+    {
+      "id": "PMS-FINAL-REV-06",
+      "priority": "P2",
+      "title": "备份恢复须核验业务附件及归属并拒绝内嵌文件地址",
+      "originalLocation": {
+        "file": "src/data/pms/idb-storage.ts",
+        "line": 847
+      },
+      "scenario": "合法格式备份中业务记录含附件 fileId，但实体或归属被移除；或业务 JSON 含 Base64/data URL/临时 blob URL。原校验只遍历提供的引用表。",
+      "risk": "恢复成功后出现无法回读的附件，或把不允许的业务文件内容/临时地址作为持久事实。",
+      "fix": "导入前扫描 incoming 业务 JSON；事务内组装目标文件、owner、引用图，拒绝缺实体、缺 owner、重复引用及元数据不一致；不对 current-only 无关记录做全量 schema 整改。",
+      "currentBindings": [
+        {
+          "file": "src/data/pms/idb-storage.ts",
+          "line": 803
+        },
+        {
+          "file": "tests/unit/pms-storage-contract.test.ts",
+          "line": 88
+        }
+      ],
+      "status": "source-fix-verified"
+    }
+  ],
+  "openFindings": [],
+  "validationEvidence": [
+    {
+      "source": "parent-produced log, read by reviewer",
+      "path": "/tmp/pms-backup-reference-contract-20261014.log",
+      "sha256": "63c41c5eba0ddd2a89afde73be35243b5417371713e1097ffa5b8eb1e7d90e58",
+      "counts": {
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "note": "实数来自日志末尾；未由本审查者执行。消息中 11/11 与此日志不一致，采用日志。"
+    },
+    {
+      "source": "parent/material owner report",
+      "counts": {
+        "tests": 27,
+        "pass": 27
+      },
+      "note": "主代理报告第 3/4/5 项相关窄契约 27/27；本轮未独立运行或作为新增现场接受证据。"
+    }
+  ],
+  "conclusion": {
+    "p0": 0,
+    "p1": 0,
+    "p2Discovered": 6,
+    "p2SourceFixVerified": 6,
+    "remainingIdentifiedP0P1P2": 0,
+    "meaning": "六项 P2 已在当前源码消除；已审路径中未发现仍未处理的 P0/P1/P2。此为语义及源码闭环结论，不是完整产品接受或部署回执。",
+    "remainingAcceptance": "主代理当前版本完整 diff 审查、必要构建、18 目录入口真实回读、21 页适用设备/功能/性能及矩阵证据确认。"
+  },
+  "stopCondition": "报告冻结后停止源码；后续源码变化需由主代理按影响复核。"
+}

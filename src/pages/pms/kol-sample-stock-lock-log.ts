@@ -1,3 +1,5 @@
+import { pmsBusinessNumber } from '../../utils/pms-business-number.ts'
+import { createPmsLocalListInteractions } from './local-list-interactions.ts'
 // @page-pattern: list
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
 import type { StandardListColumn } from '../../components/ui/list-table.ts'
@@ -11,6 +13,7 @@ import {
   PmsKolLockOpTypeList,
   filterPmsKolLockLog,
   listPmsKolLockLog,
+  hydratePmsKolLockLog,
   summarizePmsKolLockLog,
 } from '../../data/pms/kol-sample-stock-lock-log.ts'
 import { downloadPmsCsv } from '../../utils/pms-export.ts'
@@ -129,7 +132,7 @@ const columns: StandardListColumn<PmsKolLockLogRow>[] = [
     width: 240,
     render: (row) => row.relatedApplyId === '-'
       ? '<span class="text-xs text-slate-400">—</span>'
-      : `<div class="font-mono text-xs">${escapeHtml(row.relatedApplyId)}</div><div class="mt-0.5 font-mono text-[11px] text-slate-500">${escapeHtml(row.relatedApplyCode)}</div>`,
+      : `<div class="font-mono text-xs">${escapeHtml(pmsBusinessNumber(row.relatedApplyId))}</div><div class="mt-0.5 font-mono text-[11px] text-slate-500">${row.relatedApplyCode===row.relatedApplyId?'':escapeHtml(row.relatedApplyCode)}</div>`,
   },
   {
     key: 'operator',
@@ -219,11 +222,11 @@ function renderBody(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   return renderStandardListPage({
-    showHeader: false,
+    showHeader: true,
     title: '锁定操作记录',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: `<div class="space-y-2">${renderTopNav()}${renderFilters()}</div>`,
-    statsHtml: stats,
+    feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+    filtersHtml: `<div data-${EVENT_PREFIX}-filters>${`<div class="space-y-2">${renderTopNav()}${renderFilters()}</div>`}</div>`,
+    statsHtml: `<div data-${EVENT_PREFIX}-stats>${stats}</div>`,
     listTitle: `共 ${filteredRows().length} 条锁定操作记录`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-klk-table-surface>${view.tableHtml}</div>`,
@@ -233,7 +236,7 @@ function renderBody(): string {
 }
 
 function handleFieldEvent(target: HTMLElement): void {
-  const field = target.dataset[`${EVENT_PREFIX}Field`]
+  const field = target.getAttribute(`data-${EVENT_PREFIX}-field`)
   if (!field) return
   const value = (target as HTMLInputElement).value
   switch (field) {
@@ -244,8 +247,8 @@ function handleFieldEvent(target: HTMLElement): void {
   }
 }
 
-function handleActionEvent(target: HTMLElement): void {
-  const action = target.dataset[`${EVENT_PREFIX}Action`]
+async function handleActionEvent(target: HTMLElement): Promise<void> {
+  const action = target.getAttribute(`data-${EVENT_PREFIX}-action`)
   if (!action) return
   switch (action) {
     case 'query':
@@ -263,7 +266,7 @@ function handleActionEvent(target: HTMLElement): void {
       state.feedbackOk = true
       break
     case 'export': {
-      const rows = listPmsKolLockLog()
+      const rows = filteredRows()
       downloadPmsCsv(
         'higood-pms-kol-lock-log.csv',
         ['操作时间', '锁定日期', '操作类型', 'SKU', 'SPU', '变化数量', '手动锁定池(前→后)', '锁定已占用(前→后)', '锁定未占用(前→后)', '关联申请单', '申请code', '操作人', '备注'],
@@ -276,26 +279,42 @@ function handleActionEvent(target: HTMLElement): void {
   }
 }
 
-export function renderPmsKolLockLogPage(): string {
+export async function renderPmsKolLockLogPage(): Promise<string> {
+  try { ; await hydratePmsKolLockLog() } catch(error) { state.feedback=error instanceof Error?error.message:"用户数据不可读";state.feedbackOk=false }
   resetStandardListEntryTransientStateOnRouteEntry(state, false)
-  const html = renderBody()
+  const html = `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true">${renderBody()}</div>`
   queueMicrotask(() => {
     const root = rootElement()
     hydratePmsSurface(root)
+    local.mount()
   })
   return html
 }
 
-export function handlePmsKolLockLogEvent(event: Event): void {
-  const target = event.target as HTMLElement
-  if (!target || typeof target.closest !== 'function') return
+const local = createPmsLocalListInteractions({
+  prefix: EVENT_PREFIX, state, controller,
+  listTitle: () => `共 ${filteredRows().length} 条`,
+  filters: () => `<div class="space-y-2">${renderTopNav()}${renderFilters()}</div>`, stats: renderStats,
+  feedback: () => renderPmsFeedback(state.feedback, state.feedbackOk), overlays: renderOverlays,
+})
+
+export async function handlePmsKolLockLogEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (!rootElement()?.contains(target)) return false
+  if (local.handle(target, event)) return true
   const actionable = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-field], [data-${EVENT_PREFIX}-action]`)
-  if (!actionable || !rootElement()?.contains(actionable)) return
-  if (actionable.dataset[`${EVENT_PREFIX}Action`]) {
-    handleActionEvent(actionable)
-  } else if (actionable.dataset[`${EVENT_PREFIX}Field`]) {
+  if (!actionable) return false
+  const action = actionable.getAttribute(`data-${EVENT_PREFIX}-action`)
+  if (action) {
+    if (event && event.type !== 'click') return true
+    try { await handleActionEvent(actionable) } catch (error) {
+      state.feedback = error instanceof Error ? error.message : '操作未保存'
+      state.feedbackOk = false
+    }
+    local.refresh(action === 'reset')
+  } else {
     handleFieldEvent(actionable)
   }
+  return true
 }
 
 export function closePmsKolLockLogOverlays(): void {

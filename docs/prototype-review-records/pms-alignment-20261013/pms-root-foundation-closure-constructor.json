@@ -1,0 +1,61 @@
+{
+  "environment": "isolated_node_memory_idb",
+  "mode": "constructor",
+  "realBrowserStorageWritten": false,
+  "productSourceMutation": false,
+  "observations": [
+    {
+      "findingId": "ROOT-FOUNDATION-002",
+      "result": "closed",
+      "observed": {
+        "staleVersion": 1,
+        "staleRejected": true,
+        "persisted": {
+          "supplierCode": "CLOSURE-STALE",
+          "supplierName": "fresh_saved_A",
+          "_pmsBaseVersion": 2
+        }
+      },
+      "passed": true
+    },
+    {
+      "findingId": "ROOT-FOUNDATION-003",
+      "result": "closed",
+      "observed": {
+        "duplicateOwnerRejected": true,
+        "files": 0,
+        "references": 0,
+        "ownerAbsent": true,
+        "receiptAbsent": true
+      },
+      "passed": true
+    },
+    {
+      "id": "BLOB-REGRESSION",
+      "sameBytesReplay": true,
+      "changedSameNameSameSizeBytesRejected": true,
+      "originalBytesRetained": "AB",
+      "passed": true
+    },
+    {
+      "id": "IDENTITY-REGRESSION",
+      "emptyWhitespaceNonfiniteKeysRejected": true,
+      "passed": true
+    },
+    {
+      "findingId": "ROOT-FOUNDATION-001",
+      "mode": "constructor",
+      "result": "closed",
+      "observed": {
+        "resolved": true,
+        "replayed": false,
+        "persisted": {
+          "supplierCode": "CLOSURE-BC-constructor",
+          "supplierName": "success_after_complete",
+          "_pmsBaseVersion": 1
+        }
+      },
+      "passed": true
+    }
+  ]
+}

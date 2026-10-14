@@ -1,18 +1,14 @@
 import type { RouteRegistry } from './route-types.ts'
 import {
-  renderPmsBomDetailPage,
-  renderPmsBomTemplatesPage,
   renderPmsFirstLegCarriersPage,
   renderPmsFirstLegShipmentsPage,
   renderPmsFittingTimelinessPage,
-  renderPmsGarmentSkusPage,
   renderPmsKolApplyPage,
   renderPmsKolDemandsPage,
   renderPmsKolLinkPage,
   renderPmsKolLockLogPage,
   renderPmsKolStockPage,
   renderPmsLogisticsPaymentRequestsPage,
-  renderPmsMaterialArchivesPage,
   renderPmsMaterialInventoryPage,
   renderPmsMaterialPaymentRequestsPage,
   renderPmsMaterialPurchaseOrdersPage,
@@ -22,12 +18,9 @@ import {
   renderPmsPurchaseOrderAftersalesPage,
   renderPmsPurchaseSuggestionsPage,
   renderPmsReorderSuggestionsPage,
-  renderPmsSampleSkusPage,
   renderPmsSupplierConfirmationsPage,
   renderPmsSuppliersPage,
   renderPmsSupplyArchivesPage,
-  renderPmsUnitsPage,
-  renderPmsWarehousesPage,
 } from './route-renderers-pms.ts'
 
 export const routes: RouteRegistry = {
@@ -45,28 +38,14 @@ export const routes: RouteRegistry = {
     '/pms/first-leg-shipments': () => renderPmsFirstLegShipmentsPage(),
     '/pms/first-leg-carriers': () => renderPmsFirstLegCarriersPage(),
     '/pms/kol-sample-stock': () => renderPmsKolStockPage(),
+    '/pms/kol-sample-stock/lock-log': () => renderPmsKolLockLogPage(),
     '/pms/kol-sample-apply': () => renderPmsKolApplyPage(),
     '/pms/kol-sample-link': () => renderPmsKolLinkPage(),
     '/pms/suppliers': () => renderPmsSuppliersPage(),
     '/pms/supplier-supply-archives': () => renderPmsSupplyArchivesPage(),
-    '/pms/material-archives': () => renderPmsMaterialArchivesPage(),
-    '/pms/garment-skus': () => renderPmsGarmentSkusPage(),
-    '/pms/sample-skus': () => renderPmsSampleSkusPage(),
-    '/pms/warehouses': () => renderPmsWarehousesPage(),
-    '/pms/units': () => renderPmsUnitsPage(),
-    '/pms/bom-templates': () => renderPmsBomTemplatesPage(),
     '/pms/material-payment-requests': () => renderPmsMaterialPaymentRequestsPage(),
     '/pms/logistics-payment-requests': () => renderPmsLogisticsPaymentRequestsPage(),
     '/pms/material-inventory': () => renderPmsMaterialInventoryPage(),
   },
-  dynamicRoutes: [
-    {
-      pattern: /^\/pms\/bom-templates\/([^/]+)$/,
-      render: (match) => renderPmsBomDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pms\/kol-sample-stock\/lock-log$/,
-      render: () => renderPmsKolLockLogPage(),
-    },
-  ],
+  dynamicRoutes: [],
 }

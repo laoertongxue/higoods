@@ -1,0 +1,4282 @@
+{
+  "merges": [
+    {
+      "sources": [
+        "CG-2026-0D4QLCJ",
+        "CG-2026-1JOF92V"
+      ],
+      "no": "CG-2026-1F1AWC8",
+      "sample": {
+        "label": "v14-PPO-merge-normal-1",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 260854.89999997616,
+        "elapsedMs": 112.19999998807907,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 12,
+        "generatedFile": null,
+        "visibleImages": 2,
+        "shellPreserved": true,
+        "readableText": "合并采购单已保存，CG-2026-0D4QLCJ、CG-2026-1JOF92V、CG-2026-1F1AWC8",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "件\n已入库 0 件\n¥68,000.00\n\t\n暂无运单\n等供应商回签价格\n\t\n详情\n更多操作\n\n\tCG-2026-0026\n已完成\n2026-05-06 10:10 WIB\n\t\n商务修身长袖衬衫\nSPU-SHIRT-086 · 做货\n售卖类型\n\t佛山成衣加工厂\n王采购\n印尼雅加达成品仓\n设置合作商\t3600 件\n已入库 3600 件\n¥291,600.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n\tCG-2026-0027\n已关闭\n2026-05-02 13:00 WIB\n\t\n户外轻量夹克\nSPU-JACKET-085 · 做货\n售卖类型\n\t苏州户外服饰有限公司\n陈采购\n广州原料仓\n设置合作商\t800 件\n已入库 0 件\n¥94,400.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n共 24 条，当前 1-24\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:42:22.472Z"
+      }
+    },
+    {
+      "sources": [
+        "CG-2026-0O5G61B",
+        "CG-2026-06Q5WKG"
+      ],
+      "no": "CG-2026-1GGPIO7",
+      "sample": {
+        "label": "v14-PPO-merge-normal-2",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 262556.59999996424,
+        "elapsedMs": 110.40000003576279,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 13,
+        "generatedFile": null,
+        "visibleImages": 7,
+        "shellPreserved": true,
+        "readableText": "合并采购单已保存，CG-2026-0O5G61B、CG-2026-06Q5WKG、CG-2026-1GGPIO7",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "件\n已入库 0 件\n¥68,000.00\n\t\n暂无运单\n等供应商回签价格\n\t\n详情\n更多操作\n\n\tCG-2026-0026\n已完成\n2026-05-06 10:10 WIB\n\t\n商务修身长袖衬衫\nSPU-SHIRT-086 · 做货\n售卖类型\n\t佛山成衣加工厂\n王采购\n印尼雅加达成品仓\n设置合作商\t3600 件\n已入库 3600 件\n¥291,600.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n\tCG-2026-0027\n已关闭\n2026-05-02 13:00 WIB\n\t\n户外轻量夹克\nSPU-JACKET-085 · 做货\n售卖类型\n\t苏州户外服饰有限公司\n陈采购\n广州原料仓\n设置合作商\t800 件\n已入库 0 件\n¥94,400.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n共 25 条，当前 1-25\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:42:24.172Z"
+      }
+    },
+    {
+      "sources": [
+        "CG-2026-1GHZPJT",
+        "CG-2026-11VR808"
+      ],
+      "no": "CG-2026-1XJZQEV",
+      "sample": {
+        "label": "v14-PPO-merge-normal-3",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 264357.2999999523,
+        "elapsedMs": 174.4000000357628,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 14,
+        "generatedFile": null,
+        "visibleImages": 7,
+        "shellPreserved": true,
+        "readableText": "合并采购单已保存，CG-2026-1GHZPJT、CG-2026-11VR808、CG-2026-1XJZQEV",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "件\n已入库 0 件\n¥68,000.00\n\t\n暂无运单\n等供应商回签价格\n\t\n详情\n更多操作\n\n\tCG-2026-0026\n已完成\n2026-05-06 10:10 WIB\n\t\n商务修身长袖衬衫\nSPU-SHIRT-086 · 做货\n售卖类型\n\t佛山成衣加工厂\n王采购\n印尼雅加达成品仓\n设置合作商\t3600 件\n已入库 3600 件\n¥291,600.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n\tCG-2026-0027\n已关闭\n2026-05-02 13:00 WIB\n\t\n户外轻量夹克\nSPU-JACKET-085 · 做货\n售卖类型\n\t苏州户外服饰有限公司\n陈采购\n广州原料仓\n设置合作商\t800 件\n已入库 0 件\n¥94,400.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n共 26 条，当前 1-26\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:42:26.037Z"
+      }
+    },
+    {
+      "sources": [
+        "CG-2026-1RN9SEF",
+        "CG-2026-0T5EL55"
+      ],
+      "no": "CG-2026-06K17CW",
+      "sample": {
+        "label": "v14-PPO-merge-normal-4",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 266107.7999999523,
+        "elapsedMs": 174.4000000357628,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 15,
+        "generatedFile": null,
+        "visibleImages": 7,
+        "shellPreserved": true,
+        "readableText": "合并采购单已保存，CG-2026-1RN9SEF、CG-2026-0T5EL55、CG-2026-06K17CW",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "件\n已入库 0 件\n¥68,000.00\n\t\n暂无运单\n等供应商回签价格\n\t\n详情\n更多操作\n\n\tCG-2026-0026\n已完成\n2026-05-06 10:10 WIB\n\t\n商务修身长袖衬衫\nSPU-SHIRT-086 · 做货\n售卖类型\n\t佛山成衣加工厂\n王采购\n印尼雅加达成品仓\n设置合作商\t3600 件\n已入库 3600 件\n¥291,600.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n\tCG-2026-0027\n已关闭\n2026-05-02 13:00 WIB\n\t\n户外轻量夹克\nSPU-JACKET-085 · 做货\n售卖类型\n\t苏州户外服饰有限公司\n陈采购\n广州原料仓\n设置合作商\t800 件\n已入库 0 件\n¥94,400.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n共 27 条，当前 1-27\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:42:27.787Z"
+      }
+    },
+    {
+      "sources": [
+        "CG-2026-1WJWV3C",
+        "CG-2026-116LR9Q"
+      ],
+      "no": "CG-2026-0MD8WHH",
+      "sample": {
+        "label": "v14-PPO-merge-normal-5",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 267892.89999997616,
+        "elapsedMs": 107.89999997615814,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 16,
+        "generatedFile": null,
+        "visibleImages": 7,
+        "shellPreserved": true,
+        "readableText": "合并采购单已保存，CG-2026-1WJWV3C、CG-2026-116LR9Q、CG-2026-0MD8WHH",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "件\n已入库 0 件\n¥68,000.00\n\t\n暂无运单\n等供应商回签价格\n\t\n详情\n更多操作\n\n\tCG-2026-0026\n已完成\n2026-05-06 10:10 WIB\n\t\n商务修身长袖衬衫\nSPU-SHIRT-086 · 做货\n售卖类型\n\t佛山成衣加工厂\n王采购\n印尼雅加达成品仓\n设置合作商\t3600 件\n已入库 3600 件\n¥291,600.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n\tCG-2026-0027\n已关闭\n2026-05-02 13:00 WIB\n\t\n户外轻量夹克\nSPU-JACKET-085 · 做货\n售卖类型\n\t苏州户外服饰有限公司\n陈采购\n广州原料仓\n设置合作商\t800 件\n已入库 0 件\n¥94,400.00\n\t\n暂无运单\n\t\n详情\n更多操作\n\n共 28 条，当前 1-28\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:42:29.506Z"
+      }
+    }
+  ],
+  "splits": [
+    {
+      "source": "CG-2026-1F1AWC8",
+      "no": "CG-2026-00CXSPY",
+      "sample": {
+        "label": "v14-PPO-split-normal-1",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 393473.1999999881,
+        "elapsedMs": 59.39999997615814,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 17,
+        "generatedFile": null,
+        "visibleImages": 1,
+        "shellPreserved": true,
+        "readableText": "拆分采购单已保存，CG-2026-1F1AWC8、CG-2026-00CXSPY",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "3 条\n批量操作\n批量审核采购\n批量驳回采购\n批量合并采购单\n批量组合生产采购单\n批量设置采购员\n批量更改采购类型\n批量确认模板\n批量发起售后\n批量设置合作商\n批量一键下单\n批量面辅料签收表\n运单批量入库\n列设置\n▾\n全选本页\n全选筛选结果\n清空选择\n\t\n采购单 / 状态\n\t商品 / SPU\t\n供应商 / 采购员\n\t\n数量 / 金额\n\t快递 / 备注\t操作\n\tCG-2026-1F1AWC8\n等待采购\n2026-10-14 05:42 WIB\n\t\n女式基础圆领短袖\nASYSA26060310 · 做货\n售卖类型\n\t广州华盛制衣有限公司\n王采购\n印尼雅加达成品仓\n设置合作商\t12170 件\n已入库 0 件\n¥875,840.00\n\t\n暂无运单\n618 返场备货\n\t\n详情\n更多操作\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:44:35.039Z"
+      }
+    },
+    {
+      "source": "CG-2026-1GGPIO7",
+      "no": "CG-2026-0ORQAHK",
+      "sample": {
+        "label": "v14-PPO-split-normal-2",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 395390.39999997616,
+        "elapsedMs": 59,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 18,
+        "generatedFile": null,
+        "visibleImages": 1,
+        "shellPreserved": true,
+        "readableText": "拆分采购单已保存，CG-2026-1GGPIO7、CG-2026-0ORQAHK",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "3 条\n批量操作\n批量审核采购\n批量驳回采购\n批量合并采购单\n批量组合生产采购单\n批量设置采购员\n批量更改采购类型\n批量确认模板\n批量发起售后\n批量设置合作商\n批量一键下单\n批量面辅料签收表\n运单批量入库\n列设置\n▾\n全选本页\n全选筛选结果\n清空选择\n\t\n采购单 / 状态\n\t商品 / SPU\t\n供应商 / 采购员\n\t\n数量 / 金额\n\t快递 / 备注\t操作\n\tCG-2026-1GGPIO7\n等待采购\n2026-10-14 05:42 WIB\n\t\n女式基础圆领短袖\nASYSA26060310 · 做货\n售卖类型\n\t广州华盛制衣有限公司\n王采购\n印尼雅加达成品仓\n设置合作商\t12170 件\n已入库 0 件\n¥875,840.00\n\t\n暂无运单\n618 返场备货\n\t\n详情\n更多操作\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:44:36.956Z"
+      }
+    },
+    {
+      "source": "CG-2026-1XJZQEV",
+      "no": "CG-2026-17UL082",
+      "sample": {
+        "label": "v14-PPO-split-normal-3",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 397272.7999999523,
+        "elapsedMs": 76.90000003576279,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 19,
+        "generatedFile": null,
+        "visibleImages": 1,
+        "shellPreserved": true,
+        "readableText": "拆分采购单已保存，CG-2026-1XJZQEV、CG-2026-17UL082",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "3 条\n批量操作\n批量审核采购\n批量驳回采购\n批量合并采购单\n批量组合生产采购单\n批量设置采购员\n批量更改采购类型\n批量确认模板\n批量发起售后\n批量设置合作商\n批量一键下单\n批量面辅料签收表\n运单批量入库\n列设置\n▾\n全选本页\n全选筛选结果\n清空选择\n\t\n采购单 / 状态\n\t商品 / SPU\t\n供应商 / 采购员\n\t\n数量 / 金额\n\t快递 / 备注\t操作\n\tCG-2026-1XJZQEV\n等待采购\n2026-10-14 05:42 WIB\n\t\n女式基础圆领短袖\nASYSA26060310 · 做货\n售卖类型\n\t广州华盛制衣有限公司\n王采购\n印尼雅加达成品仓\n设置合作商\t12170 件\n已入库 0 件\n¥875,840.00\n\t\n暂无运单\n618 返场备货\n\t\n详情\n更多操作\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:44:38.856Z"
+      }
+    },
+    {
+      "source": "CG-2026-06K17CW",
+      "no": "CG-2026-0T3ATUZ",
+      "sample": {
+        "label": "v14-PPO-split-normal-4",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 399172.39999997616,
+        "elapsedMs": 60,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 20,
+        "generatedFile": null,
+        "visibleImages": 1,
+        "shellPreserved": true,
+        "readableText": "拆分采购单已保存，CG-2026-06K17CW、CG-2026-0T3ATUZ",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "3 条\n批量操作\n批量审核采购\n批量驳回采购\n批量合并采购单\n批量组合生产采购单\n批量设置采购员\n批量更改采购类型\n批量确认模板\n批量发起售后\n批量设置合作商\n批量一键下单\n批量面辅料签收表\n运单批量入库\n列设置\n▾\n全选本页\n全选筛选结果\n清空选择\n\t\n采购单 / 状态\n\t商品 / SPU\t\n供应商 / 采购员\n\t\n数量 / 金额\n\t快递 / 备注\t操作\n\tCG-2026-06K17CW\n等待采购\n2026-10-14 05:42 WIB\n\t\n女式基础圆领短袖\nASYSA26060310 · 做货\n售卖类型\n\t广州华盛制衣有限公司\n王采购\n印尼雅加达成品仓\n设置合作商\t12170 件\n已入库 0 件\n¥875,840.00\n\t\n暂无运单\n618 返场备货\n\t\n详情\n更多操作\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:44:40.739Z"
+      }
+    },
+    {
+      "source": "CG-2026-0MD8WHH",
+      "no": "CG-2026-11VV4EZ",
+      "sample": {
+        "label": "v14-PPO-split-normal-5",
+        "route": "/pms/product-purchase-orders",
+        "event": "click",
+        "viewport": [
+          1366,
+          768
+        ],
+        "start": 401141.89999997616,
+        "elapsedMs": 74.30000001192093,
+        "result": "通过",
+        "error": null,
+        "persistentRows": 21,
+        "generatedFile": null,
+        "visibleImages": 1,
+        "shellPreserved": true,
+        "readableText": "拆分采购单已保存，CG-2026-0MD8WHH、CG-2026-11VV4EZ",
+        "layout": {
+          "h1": "商品采购单",
+          "viewport": 1366,
+          "pageWidth": 1366,
+          "bodyWidth": 1366,
+          "mainWidth": 1126,
+          "menu": [
+            {
+              "title": "采购建议",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购建议",
+              "iconCount": 1,
+              "href": "/pms/purchase-suggestions"
+            },
+            {
+              "title": "KOL采购需求",
+              "iconCount": 1,
+              "href": "/pms/kol-demands"
+            },
+            {
+              "title": "商品采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品采购单",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-orders"
+            },
+            {
+              "title": "备货列表",
+              "iconCount": 1,
+              "href": "/pms/reorder"
+            },
+            {
+              "title": "商品采购售后",
+              "iconCount": 1,
+              "href": "/pms/product-purchase-order-aftersales"
+            },
+            {
+              "title": "面辅料采购",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料需求分析",
+              "iconCount": 1,
+              "href": "/pms/material-requirements"
+            },
+            {
+              "title": "面辅料采购单",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-orders"
+            },
+            {
+              "title": "面辅料采购跟踪",
+              "iconCount": 1,
+              "href": "/pms/material-purchase-tracking"
+            },
+            {
+              "title": "面辅料采购时效",
+              "iconCount": 1,
+              "href": "/pms/fitting-timeliness"
+            },
+            {
+              "title": "面辅料供应商确认",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料供应商确认单",
+              "iconCount": 1,
+              "href": "/pms/material-supplier-confirmations"
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "头程物流",
+              "iconCount": 1,
+              "href": "/pms/first-leg-shipments"
+            },
+            {
+              "title": "库存查询",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "原料仓库存查询",
+              "iconCount": 1,
+              "href": "/pms/material-inventory"
+            },
+            {
+              "title": "采购对账",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "面辅料采购请款",
+              "iconCount": 1,
+              "href": "/pms/material-payment-requests"
+            },
+            {
+              "title": "物流费用请款",
+              "iconCount": 1,
+              "href": "/pms/logistics-payment-requests"
+            },
+            {
+              "title": "KOL样衣申请",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "KOL库存",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock"
+            },
+            {
+              "title": "手动寄样申请",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-apply"
+            },
+            {
+              "title": "对外样品池链接",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-link"
+            },
+            {
+              "title": "锁定操作记录",
+              "iconCount": 1,
+              "href": "/pms/kol-sample-stock/lock-log"
+            },
+            {
+              "title": "基础资料",
+              "iconCount": 2,
+              "href": null
+            },
+            {
+              "title": "商品供应商管理",
+              "iconCount": 1,
+              "href": "/pms/suppliers"
+            },
+            {
+              "title": "供应商供货档案",
+              "iconCount": 1,
+              "href": "/pms/supplier-supply-archives"
+            },
+            {
+              "title": "头程物流商管理",
+              "iconCount": 1,
+              "href": "/pms/first-leg-carriers"
+            }
+          ],
+          "footer": "3 条\n批量操作\n批量审核采购\n批量驳回采购\n批量合并采购单\n批量组合生产采购单\n批量设置采购员\n批量更改采购类型\n批量确认模板\n批量发起售后\n批量设置合作商\n批量一键下单\n批量面辅料签收表\n运单批量入库\n列设置\n▾\n全选本页\n全选筛选结果\n清空选择\n\t\n采购单 / 状态\n\t商品 / SPU\t\n供应商 / 采购员\n\t\n数量 / 金额\n\t快递 / 备注\t操作\n\tCG-2026-0MD8WHH\n等待采购\n2026-10-14 05:42 WIB\n\t\n女式基础圆领短袖\nASYSA26060310 · 做货\n售卖类型\n\t广州华盛制衣有限公司\n王采购\n印尼雅加达成品仓\n设置合作商\t12170 件\n已入库 0 件\n¥875,840.00\n\t\n暂无运单\n618 返场备货\n\t\n详情\n更多操作\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\n跳转到 \n跳转",
+          "tables": [
+            {
+              "width": 1044,
+              "scroll": 1204
+            }
+          ]
+        },
+        "finishedAt": "2026-10-13T22:44:42.723Z"
+      }
+    }
+  ],
+  "persisted": {
+    "readAt": "2026-10-13T22:44:43.207Z",
+    "rows": [
+      {
+        "store": "pmsProductPurchaseOrders",
+        "key": null,
+        "value": [
+          {
+            "purchaseOrderNo": "CG-2026-00CXSPY",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 1,
+            "lines": [
+              {
+                "lineId": "CG-2026-00CXSPY-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-00CXSPY-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-00CXSPY-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:44:34.986Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 1,
+            "sourceOrderNos": [
+              "CG-2026-1F1AWC8"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931350527-16",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:34.987Z",
+                "remark": "CG-2026-1F1AWC8"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-06K17CW",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-06K17CW-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 3990,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-06K17CW-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 4390,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-06K17CW-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 3790,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:42:27.618Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-2026-1RN9SEF",
+              "CG-2026-0T5EL55"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931479983-19",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:40.683Z",
+                "remark": "CG-2026-0T3ATUZ"
+              },
+              {
+                "actionId": "ppo-action-1791931346894-14",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:27.618Z",
+                "remark": "CG-2026-1RN9SEF"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-06Q5WKG",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-06Q5WKG-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-06Q5WKG-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-06Q5WKG-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:41:15.992Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-1GGPIO7",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-1GGPIO7",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931343410-12",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:24.068Z",
+                "remark": "CG-2026-1GGPIO7"
+              },
+              {
+                "actionId": "ppo-action-1791931275334-7",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:41:15.992Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-0D4QLCJ",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-0D4QLCJ-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0D4QLCJ-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0D4QLCJ-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:38:10.789Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-1F1AWC8",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-1F1AWC8",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931341676-11",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:22.364Z",
+                "remark": "CG-2026-1F1AWC8"
+              },
+              {
+                "actionId": "ppo-action-1791931090112-1",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:38:10.789Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-0MD8WHH",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-0MD8WHH-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 3990,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0MD8WHH-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 4390,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0MD8WHH-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 3790,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:42:29.406Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-2026-1WJWV3C",
+              "CG-2026-116LR9Q"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931481913-20",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:42.653Z",
+                "remark": "CG-2026-11VV4EZ"
+              },
+              {
+                "actionId": "ppo-action-1791931348711-15",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:29.406Z",
+                "remark": "CG-2026-1WJWV3C"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-0O5G61B",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-0O5G61B-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0O5G61B-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0O5G61B-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:38:16.168Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-1GGPIO7",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-1GGPIO7",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931343410-12",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:24.068Z",
+                "remark": "CG-2026-1GGPIO7"
+              },
+              {
+                "actionId": "ppo-action-1791931095519-5",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:38:16.168Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-0ORQAHK",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 1,
+            "lines": [
+              {
+                "lineId": "CG-2026-0ORQAHK-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0ORQAHK-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0ORQAHK-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:44:36.901Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 1,
+            "sourceOrderNos": [
+              "CG-2026-1GGPIO7"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931476163-17",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:36.901Z",
+                "remark": "CG-2026-1GGPIO7"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-0T3ATUZ",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 1,
+            "lines": [
+              {
+                "lineId": "CG-2026-0T3ATUZ-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0T3ATUZ-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0T3ATUZ-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:44:40.683Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 1,
+            "sourceOrderNos": [
+              "CG-2026-06K17CW"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931479983-19",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:40.683Z",
+                "remark": "CG-2026-06K17CW"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-0T5EL55",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-0T5EL55-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0T5EL55-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0T5EL55-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:41:18.679Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-06K17CW",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-06K17CW",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931346894-14",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:27.618Z",
+                "remark": "CG-2026-06K17CW"
+              },
+              {
+                "actionId": "ppo-action-1791931278028-9",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:41:18.679Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-116LR9Q",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-116LR9Q-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-116LR9Q-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-116LR9Q-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:41:20.083Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-0MD8WHH",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-0MD8WHH",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931348711-15",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:29.406Z",
+                "remark": "CG-2026-0MD8WHH"
+              },
+              {
+                "actionId": "ppo-action-1791931279394-10",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:41:20.083Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-11VR808",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-11VR808-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-11VR808-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-11VR808-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:41:17.320Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-1XJZQEV",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-1XJZQEV",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931345143-13",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:25.867Z",
+                "remark": "CG-2026-1XJZQEV"
+              },
+              {
+                "actionId": "ppo-action-1791931276682-8",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:41:17.320Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-11VV4EZ",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 1,
+            "lines": [
+              {
+                "lineId": "CG-2026-11VV4EZ-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-11VV4EZ-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-11VV4EZ-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:44:42.653Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 1,
+            "sourceOrderNos": [
+              "CG-2026-0MD8WHH"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931481913-20",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:42.653Z",
+                "remark": "CG-2026-0MD8WHH"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-17UL082",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 1,
+            "lines": [
+              {
+                "lineId": "CG-2026-17UL082-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-17UL082-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-17UL082-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 10,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:44:38.785Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 1,
+            "sourceOrderNos": [
+              "CG-2026-1XJZQEV"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931478049-18",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:38.785Z",
+                "remark": "CG-2026-1XJZQEV"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1F1AWC8",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1F1AWC8-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 3990,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1F1AWC8-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 4390,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1F1AWC8-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 3790,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:42:22.364Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-2026-0D4QLCJ",
+              "CG-2026-1JOF92V"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931350527-16",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:34.987Z",
+                "remark": "CG-2026-00CXSPY"
+              },
+              {
+                "actionId": "ppo-action-1791931341676-11",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:22.364Z",
+                "remark": "CG-2026-0D4QLCJ"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1GGPIO7",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1GGPIO7-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 3990,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1GGPIO7-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 4390,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1GGPIO7-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 3790,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:42:24.068Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-2026-0O5G61B",
+              "CG-2026-06Q5WKG"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931476163-17",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:36.901Z",
+                "remark": "CG-2026-0ORQAHK"
+              },
+              {
+                "actionId": "ppo-action-1791931343410-12",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:24.068Z",
+                "remark": "CG-2026-0O5G61B"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1GHZPJT",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1GHZPJT-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1GHZPJT-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1GHZPJT-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:38:13.470Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-1XJZQEV",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-1XJZQEV",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931345143-13",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:25.867Z",
+                "remark": "CG-2026-1XJZQEV"
+              },
+              {
+                "actionId": "ppo-action-1791931092785-3",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:38:13.470Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1JOF92V",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1JOF92V-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1JOF92V-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1JOF92V-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:41:14.600Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-1F1AWC8",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-1F1AWC8",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931341676-11",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:22.364Z",
+                "remark": "CG-2026-1F1AWC8"
+              },
+              {
+                "actionId": "ppo-action-1791931273976-6",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:41:14.600Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1RN9SEF",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1RN9SEF-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1RN9SEF-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1RN9SEF-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:38:14.827Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-06K17CW",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-06K17CW",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931346894-14",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:27.618Z",
+                "remark": "CG-2026-06K17CW"
+              },
+              {
+                "actionId": "ppo-action-1791931094171-4",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:38:14.827Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1WJWV3C",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已关闭",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1WJWV3C-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1WJWV3C-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1WJWV3C-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:38:12.102Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "已合并至 CG-2026-0MD8WHH",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-CHECK-OLD-QC"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "CG-2026-0MD8WHH",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931348711-15",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:29.406Z",
+                "remark": "CG-2026-0MD8WHH"
+              },
+              {
+                "actionId": "ppo-action-1791931091429-2",
+                "action": "复制采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:38:12.102Z",
+                "remark": "CG-CHECK-OLD-QC"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-2026-1XJZQEV",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "待采购",
+            "version": 2,
+            "lines": [
+              {
+                "lineId": "CG-2026-1XJZQEV-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 3990,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-1XJZQEV-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 4390,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-1XJZQEV-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 3790,
+                "deliveredQty": 0,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-10-13T22:42:25.867Z",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "",
+            "auditedAt": "",
+            "inboundReopened": false,
+            "receivedAt": "",
+            "inboundBy": "",
+            "_pmsBaseVersion": 2,
+            "sourceOrderNos": [
+              "CG-2026-1GHZPJT",
+              "CG-2026-11VR808"
+            ],
+            "reviewOutcome": "",
+            "mergedInto": "",
+            "aftersaleIds": [],
+            "expressRecords": [],
+            "outboundRecords": [],
+            "stockMovements": [],
+            "operationHistory": [
+              {
+                "actionId": "ppo-action-1791931478049-18",
+                "action": "拆分采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:44:38.785Z",
+                "remark": "CG-2026-17UL082"
+              },
+              {
+                "actionId": "ppo-action-1791931345143-13",
+                "action": "合并采购单",
+                "actorName": "王采购",
+                "occurredAt": "2026-10-13T22:42:25.867Z",
+                "remark": "CG-2026-1GHZPJT"
+              }
+            ]
+          },
+          {
+            "purchaseOrderNo": "CG-CHECK-OLD-QC",
+            "spu": "ASYSA26060310",
+            "productName": "女式基础圆领短袖",
+            "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+            "purchaseType": "做货",
+            "area": "印尼",
+            "supplierName": "广州华盛制衣有限公司",
+            "warehouse": "印尼雅加达成品仓",
+            "status": "已确认",
+            "version": 1,
+            "lines": [
+              {
+                "lineId": "CG-2026-0016-L1",
+                "sku": "ASYSA26060310-BLACK-M",
+                "color": "Black",
+                "size": "M",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 70,
+                "actualPrice": 70,
+                "qty": 2000,
+                "deliveredQty": 2000,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.4
+              },
+              {
+                "lineId": "CG-2026-0016-L2",
+                "sku": "ASYSA26060310-BLACK-L",
+                "color": "Black",
+                "size": "L",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 72,
+                "actualPrice": 72,
+                "qty": 2200,
+                "deliveredQty": 2200,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.42
+              },
+              {
+                "lineId": "CG-2026-0016-L3",
+                "sku": "ASYSA26060310-BLACK-XL",
+                "color": "Black",
+                "size": "XL",
+                "imageUrl": "/materials/pcs-reviewed/tee-black.jpg",
+                "standardPrice": 74,
+                "actualPrice": 74,
+                "qty": 1900,
+                "deliveredQty": 1900,
+                "needBom": true,
+                "bomMatched": true,
+                "materialStatus": "未生成",
+                "bomNo": "",
+                "bomVersion": "V1.0",
+                "bomStatus": "已匹配",
+                "applicant": "张三",
+                "creator": "李四",
+                "weight": 0.44
+              }
+            ],
+            "orderedAt": "2026-06-07T09:20:00+07:00",
+            "expectedDeliveryDate": "2026-06-30",
+            "creator": "王采购",
+            "remark": "618 返场备货",
+            "sourceSuggestionNo": "PSG-2026-0001",
+            "closedReason": "",
+            "productionArea": "印尼",
+            "purchaser": "王采购",
+            "isUrgent": "否",
+            "isFirstOrder": "否",
+            "qualityResult": "CHECK原单质检合格",
+            "auditedAt": "2026-09-01T03:00:00.000Z",
+            "inboundReopened": true,
+            "receivedAt": "2026-09-02T03:00:00.000Z",
+            "inboundBy": "原仓管"
+          }
+        ]
+      }
+    ],
+    "blobs": []
+  }
+}

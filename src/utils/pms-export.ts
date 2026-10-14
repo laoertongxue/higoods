@@ -19,8 +19,12 @@ export function downloadPmsFile(filename: string, content: string, type = 'appli
   const link = document.createElement('a')
   link.href = url
   link.download = filename
+  link.hidden = true
+  document.body.appendChild(link)
   link.click()
-  URL.revokeObjectURL(url)
+  link.remove()
+  // Allow the browser to consume the Blob before releasing the temporary URL.
+  setTimeout(() => URL.revokeObjectURL(url), 1500)
 }
 
 export function buildPmsHtmlTemplateFile(title: string, headers: string[], rows: Array<Array<string | number>>): string {

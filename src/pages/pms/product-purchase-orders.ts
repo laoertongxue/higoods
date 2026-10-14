@@ -1,798 +1,193 @@
+import { pmsBusinessNumber } from '../../utils/pms-business-number.ts'
+import { renderCode128Barcode } from '../../components/real-barcode.ts'
+import { listSkuArchives } from '../../data/pcs-sku-archive-repository.ts'
 // @page-pattern: list
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
-import { handleProcessFilterPresentation, renderProcessFilterToggle, renderProcessOrderStats } from '../../components/ui/process-order-list-presentation.ts'
-import { renderDangerButton, renderPrimaryButton, renderSecondaryButton } from '../../components/ui/button.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../components/ui/button.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../../components/ui/process-order-list-controller.ts'
+import { renderProcessOrderStats, renderProcessSelectionHeader, handleProcessFilterPresentation } from '../../components/ui/process-order-list-presentation.ts'
 import type { StandardListColumn } from '../../components/ui/list-table.ts'
 import { resetStandardListEntryTransientStateOnRouteEntry } from '../../components/ui/list-table-model.ts'
-import {
-  advancePmsProductPurchaseOrderStatus,
-  checkPmsGenerateMaterialRequirement,
-  closePmsProductPurchaseOrder,
-  createPmsProductPurchaseOrders,
-  defaultPmsSkuPrice,
-  generatePmsMaterialRequirement,
-  getPmsProductPurchaseOrder,
-  listPmsPpoLogs,
-  listPmsProductPurchaseOrders,
-  pmsAllowedNextStatuses,
-  pmsProductPurchaseOrderAmount,
-  pmsProductPurchaseOrderLineAmount,
-  updatePmsProductPurchaseOrder,
-  type PmsProductPurchaseOrder,
-  type PmsProductPurchaseOrderStatus,
-  type PmsPurchaseRegion,
-  type PmsYesNo,
-} from '../../data/pms/product-purchase-orders.ts'
-import { listPmsSuggestionViews, type PmsSuggestionView } from '../../data/pms/purchase-suggestions.ts'
-import { nextPmsActionId, PMS_BUYER_ACTOR, PMS_MANAGER_ACTOR, PmsDomainError } from '../../data/pms/runtime.ts'
-import { downloadPmsCsv } from '../../utils/pms-export.ts'
+import { createPmsProductPurchaseOrders, commitPmsProductPurchaseOrders, getPmsProductPurchaseOrder, listPmsProductPurchaseOrders, listPmsPurchaseProductCandidates, listPmsPpoLogs, hydratePmsProductPurchaseOrdersFromIdb, hydratePmsProductStockBalancesFromIdb, getPmsProductStockBalance, performPmsProductPurchaseAction, preparePmsProductPurchaseOrderPatch, generatePmsMaterialRequirement, checkPmsGenerateMaterialRequirement, pmsProductPurchaseDisplayStatus, pmsProductPurchaseOrderAmount, pmsProductPurchaseExportTable, type PmsCreatePurchaseOrderInput, type PmsPurchaseLocalAction, type PmsProductPurchaseOrder, type PmsProductPurchaseType, type PmsPurchaseOrderPatch, type PmsPurchaseRegion } from '../../data/pms/product-purchase-orders.ts'
+import { createPmsAftersalesFromOrders, hydratePmsPurchaseOrderAftersalesFromIdb, listPmsPurchaseOrderAftersales } from '../../data/pms/purchase-order-aftersales.ts'
+import { listPmsMaterialRequirements, hydratePmsMaterialRequirementsFromIdb } from '../../data/pms/material-requirements.ts'
+import { listPmsSuppliers, hydratePmsSuppliersFromIdb } from '../../data/pms/suppliers.ts'
+import { listPurchaseWarehouses } from '../../data/pms/canonical-purchase-references.ts'
+import { pmsCoreOperationSignature } from '../../data/pms/core-write-contract.ts'
+import { PMS_BUYER_ACTOR, nextPmsActionId } from '../../data/pms/runtime.ts'
 import { escapeHtml } from '../../utils.ts'
-import {
-  formatPmsMoney,
-  formatPmsQty,
-  formatPmsTime,
-  handlePmsCommonImageEvent,
-  hydratePmsSurface,
-  readTextField,
-  renderPmsBusinessImage,
-  renderPmsFeedback,
-  renderPmsImagePreview,
-  renderPmsOverlayError,
-  renderPmsStatusBadge,
-} from './shared.ts'
-
-type PpoOverlay =
-  | null
-  | { kind: 'detail'; purchaseOrderNo: string; clientActionId: string }
-  | { kind: 'create'; clientActionId: string }
-  | { kind: 'edit'; purchaseOrderNo: string; clientActionId: string }
-  | { kind: 'close'; purchaseOrderNo: string; clientActionId: string }
-  | { kind: 'generate'; purchaseOrderNo: string; clientActionId: string }
-
-interface PpoPageState extends ProcessOrderListControllerState {
-  keyword: string
-  status: '' | PmsProductPurchaseOrderStatus
-  purchaseType: '' | PmsProductPurchaseOrder['purchaseType']
-  blockedOnly: boolean
-  overlay: PpoOverlay
-  overlayError: string
-  feedback: string
-  feedbackOk: boolean
+import { downloadPmsCsv } from '../../utils/pms-export.ts'
+import { renderPmsCorePagination, renderPmsCoreMulti, refreshPmsCoreOverlay, refreshPmsCoreRegion, setPmsCoreSavePending, handlePmsCoreListControls } from './core-interactions.ts'
+import { renderPmsBusinessImage, renderPmsImagePreview, handlePmsCommonImageEvent, renderPmsFeedback, renderPmsOverlayError, renderPmsStatusBadge, formatPmsMoney, formatPmsTime, readTextField } from './shared.ts'
+const EVENT_PREFIX='pms-ppo',ROOT_SELECTOR='[data-pms-ppo-root]'
+const TYPES:PmsProductPurchaseType[]=['样衣','达人寄样','做货','烫画','成衣']
+const SALE_TYPES=['预售','备货','shopee备货','KOL样衣','虾皮样品','基础款','JKT复购','SZ复购','国内做货','预售备货','kol样品小单']
+const SOURCE_STATUSES=['草稿','等待采购','采购驳回','采购中','全部入库','部分入库','待审核','审核驳回','合并已删除','发货异常','入库异常','待装箱','待发货','采购中+部分入库','按时转运','需要留样','已完成','已关闭']
+type Overlay={kind:'create';clientActionId:string;type:PmsProductPurchaseType;spu:string;keyword:string}|{kind:'edit';clientActionId:string;orderNo:string;baseVersion:number}|{kind:'view';clientActionId:string;orderNos:string[];view:'detail'|'material'|'logs'|'outlogs'|'aftersales'|'barcode'|'sign'|'boundary'|'barcode-print';message?:string;quantities?:Record<string,number>}|{kind:'action';clientActionId:string;orderNos:string[];action:PmsPurchaseLocalAction|'发起售后'|'生成面辅料需求';versions:Record<string,number>}|{kind:'scan';clientActionId:string}|null
+interface State extends ProcessOrderListControllerState{keyword:string;searchField:string;filters:Record<string,string>;multis:Record<string,string[]>;selected:string[];overlay:Overlay;overlayError:string;feedback:string;feedbackOk:boolean;saving:boolean;advanced:boolean}
+const state:State={currentPage:1,sort:null,preferences:{order:[],visibleKeys:[],frozenKeys:[],pageSize:10},preferencesLoaded:false,showColumnSettings:false,keyword:'',searchField:'order',filters:{},multis:{},selected:[],overlay:null,overlayError:'',feedback:'',feedbackOk:true,saving:false,advanced:false}
+const rootElement=()=>typeof document==='undefined'?null:document.querySelector<HTMLElement>(ROOT_SELECTOR)
+const button=(label:string,action:string,no='',extra='')=>`<button type="button" class="min-h-8 rounded px-2 text-xs text-blue-700 hover:bg-blue-50" data-${EVENT_PREFIX}-action="${action}" data-order-no="${escapeHtml(no)}" ${extra}>${escapeHtml(label)}</button>`
+const purchaseMoney=(order:PmsProductPurchaseOrder)=>new Intl.NumberFormat('zh-CN',{style:'currency',currency:order.currency||'CNY'}).format(pmsProductPurchaseOrderAmount(order))
+function purchaseSourceLink(order:PmsProductPurchaseOrder):string{if(!order.purchaseAddress)return '未填写商品链接';try{const url=new URL(order.purchaseAddress);return ['http:','https:'].includes(url.protocol)?`<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer" class="text-blue-700 underline">查看供应商商品链接</a>`:escapeHtml(order.purchaseAddress)}catch{return escapeHtml(order.purchaseAddress)}}
+const labelInput=(label:string,key:string,value='',type='text')=>`<label class="block text-xs text-muted-foreground">${label}<input class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm" type="${type}" value="${escapeHtml(value)}" data-${EVENT_PREFIX}-input="${key}" /></label>`
+const labelSelect=(label:string,key:string,options:string[],selected='',blank=true)=>`<label class="block text-xs text-muted-foreground">${label}<select class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm" data-${EVENT_PREFIX}-input="${key}">${blank?'<option value="">请选择</option>':''}${options.map(value=>`<option value="${escapeHtml(value)}" ${value===selected?'selected':''}>${escapeHtml(value)}</option>`).join('')}</select></label>`
+function matchesFilters(order:PmsProductPurchaseOrder):boolean{
+ const f=state.filters,m=state.multis,qty=order.lines.reduce((sum,line)=>sum+line.qty,0),status=pmsProductPurchaseDisplayStatus(order)
+ if(f.status&&(f.status==='采购中+部分入库'?!['采购中','部分入库'].includes(status):status!==f.status))return false
+ if(f.type&&order.purchaseType!==f.type)return false
+ if(f.first&&order.isFirstOrder!==f.first||f.urgent&&order.isUrgent!==f.urgent)return false
+ if(f.minQty&&qty<Number(f.minQty)||f.maxQty&&qty>Number(f.maxQty))return false
+ if(f.color&&!order.lines.some(line=>line.color.toLowerCase().includes(f.color.toLowerCase())))return false
+ if(f.platform&&order.platform!==f.platform)return false
+ if(f.express&&Boolean(order.expressRecords?.length)!==(f.express==='是'))return false
+ if(f.combined&&Boolean(order.combinedOrderNo)!==(f.combined==='是'))return false
+ if(f.material&&order.lines.some(line=>['已生成','已下推'].includes(line.materialStatus))!==(f.material==='是'))return false
+ if(f.transfer&&order.transferRequired!==f.transfer)return false
+ if(f.transferHistory&&Boolean(order.transferHistory)!==(f.transferHistory==='是'))return false
+ if(f.insert&&Boolean(order.insertOrder)!==(f.insert==='是'))return false
+ if(f.bom==='未匹配'&&!order.lines.some(line=>line.needBom&&!line.bomMatched))return false
+ const multiValues:Record<string,string>={inbounders:order.inboundBy||'',productionAreas:order.productionArea||order.area,recipients:order.recipientName||'',saleTypes:order.saleType||'',regions:order.area,aftersaleStates:listPmsPurchaseOrderAftersales().find(row=>row.purchaseOrderNo===order.purchaseOrderNo)?.status||'无售后'}
+ for(const [key,selected]of Object.entries(m))if(selected.length&&!selected.includes(multiValues[key]))return false
+ const dateSources:Record<string,string>={created:order.orderedAt,arrived:order.receivedAt||'',expected:order.expectedDeliveryDate,purchased:order.orderedAt,shipped:order.expressRecords?.[0]?.shippedAt||'',audit:order.auditedAt||'',signed:order.expressRecords?.[0]?.receivedAt||''}
+ for(const [key,date]of Object.entries(dateSources)){if(f[key+'From']&&(!date||date.slice(0,10)<f[key+'From']))return false;if(f[key+'To']&&(!date||date.slice(0,10)>f[key+'To']))return false}
+ return true
 }
-
-const EVENT_PREFIX = 'pms-ppo'
-const ROOT_SELECTOR = '[data-pms-ppo-root]'
-const SUPPLIERS = ['广州华盛制衣有限公司', '佛山成衣加工厂', '中山针织制衣有限公司', '苏州户外服饰有限公司', '宁波衬衫制造有限公司', '杭州女装制衣有限公司', '杭州样衣开发中心']
-const WAREHOUSES = ['印尼雅加达成品仓', '广州原料仓', '杭州样衣仓']
-const REGIONS: PmsPurchaseRegion[] = ['国内', '印尼', '其他']
-const DEFAULT_LINE_WEIGHT = 0.35
-
-const state: PpoPageState = {
-  currentPage: 1,
-  sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
-  preferencesLoaded: false,
-  showColumnSettings: false,
-  keyword: '',
-  status: '',
-  purchaseType: '',
-  blockedOnly: false,
-  overlay: null,
-  overlayError: '',
-  feedback: '',
-  feedbackOk: true,
-}
-
-function filteredRows(): PmsProductPurchaseOrder[] {
-  const keyword = state.keyword.trim().toLowerCase()
-  return listPmsProductPurchaseOrders().filter((order) => {
-    if (state.status && order.status !== state.status) return false
-    if (state.purchaseType && order.purchaseType !== state.purchaseType) return false
-    if (state.blockedOnly && !order.lines.some((line) => line.needBom && !line.bomMatched)) return false
-    if (!keyword) return true
-    return [order.purchaseOrderNo, order.spu, order.productName, order.supplierName, purchaserName(order), ...order.lines.map((line) => line.sku)].some((value) => value.toLowerCase().includes(keyword))
-  })
-}
-
-function statusTone(status: PmsProductPurchaseOrderStatus): 'blue' | 'green' | 'yellow' | 'red' | 'slate' {
-  if (status === '待采购' || status === '待确认') return 'yellow'
-  if (status === '已确认' || status === '已发货') return 'blue'
-  if (status === '已完成' || status === '已入库' || status === '已到货') return 'green'
-  if (status === '已关闭') return 'slate'
-  return 'slate'
-}
-
-function materialStatusTone(status: string): 'blue' | 'green' | 'yellow' | 'red' | 'slate' {
-  if (status === '已下推') return 'green'
-  if (status === '已生成') return 'blue'
-  if (status === '未生成') return 'yellow'
-  if (status === '不需要') return 'slate'
-  return 'red'
-}
-
-function purchaserName(order: PmsProductPurchaseOrder): string {
-  return order.purchaser || order.creator
-}
-
-function lineBomStatus(line: PmsProductPurchaseOrder['lines'][number]): '已匹配' | '未匹配' {
-  return line.bomStatus ?? (line.bomMatched ? '已匹配' : '未匹配')
-}
-
-function bomStatusTone(status: '已匹配' | '未匹配'): 'green' | 'red' {
-  return status === '已匹配' ? 'green' : 'red'
-}
-
-function yesNo(value: PmsYesNo | undefined): PmsYesNo {
-  return value === '是' ? '是' : '否'
-}
-
-const columns: StandardListColumn<PmsProductPurchaseOrder>[] = [
-  {
-    key: 'order',
-    title: '采购单 / 状态',
-    width: 210,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    sortValue: (order) => order.purchaseOrderNo,
-    render: (order) => `<div class="font-semibold">${escapeHtml(order.purchaseOrderNo)}</div><div class="mt-1">${renderPmsStatusBadge(order.status, statusTone(order.status))}</div><div class="mt-1 text-xs text-slate-500">V${order.version} · ${escapeHtml(order.creator)}</div>${order.closedReason ? `<div class="mt-1 text-xs text-slate-500">关闭：${escapeHtml(order.closedReason)}</div>` : ''}`,
-  },
-  {
-    key: 'product',
-    title: '款式与 SKU',
-    width: 250,
-    required: true,
-    freezeable: true,
-    render: (order) => `<div class="flex items-center gap-3">${renderPmsBusinessImage(order.imageUrl, `${order.productName}（${order.spu}）款式图`, 'h-12 w-12')}<div><div class="font-medium">${escapeHtml(order.productName)}</div><div class="text-xs text-slate-500">${escapeHtml(order.spu)} · ${escapeHtml(order.purchaseType)} · ${escapeHtml(order.area)}</div><div class="text-xs text-slate-500">${order.lines.length} 个 SKU</div></div></div>`,
-  },
-  {
-    key: 'supplier',
-    title: '供应商 / 仓库',
-    width: 190,
-    sortable: true,
-    sortValue: (order) => order.supplierName,
-    render: (order) => `<div class="font-medium">${escapeHtml(order.supplierName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(order.warehouse)}</div>`,
-  },
-  {
-    key: 'purchaser',
-    title: '采购专员',
-    width: 110,
-    sortable: true,
-    sortValue: (order) => purchaserName(order),
-    render: (order) => `<div class="text-sm">${escapeHtml(purchaserName(order))}</div>${yesNo(order.isUrgent) === '是' ? '<div class="mt-1 text-xs text-red-700">加急</div>' : ''}${yesNo(order.isFirstOrder) === '是' ? '<div class="mt-1 text-xs text-blue-700">首单</div>' : ''}`,
-  },
-  {
-    key: 'delivery',
-    title: '下单 / 期望交期',
-    width: 170,
-    sortable: true,
-    sortValue: (order) => order.orderedAt,
-    render: (order) => `<div class="text-sm">${formatPmsTime(order.orderedAt)}</div><div class="mt-1 text-xs text-slate-500">期望 ${escapeHtml(order.expectedDeliveryDate || '—')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(order.sourceSuggestionNo ? `来源 ${order.sourceSuggestionNo}` : '手工创建')}</div>`,
-  },
-  {
-    key: 'amount',
-    title: '数量 / 金额',
-    width: 180,
-    sortable: true,
-    sortValue: (order) => pmsProductPurchaseOrderAmount(order),
-    render: (order) => `<div class="text-sm tabular-nums">${formatPmsQty(order.lines.reduce((sum, line) => sum + line.qty, 0), '件')}</div><div class="mt-1 text-sm font-semibold tabular-nums">${formatPmsMoney(pmsProductPurchaseOrderAmount(order))}</div>`,
-  },
-  {
-    key: 'material',
-    title: '面辅料状态',
-    width: 150,
-    render: (order) => {
-      const statuses = [...new Set(order.lines.map((line) => (line.needBom ? line.materialStatus : '不需要')))]
-      return `<div class="space-y-1">${statuses.map((status) => renderPmsStatusBadge(status, materialStatusTone(status))).join('')}</div>${order.lines.some((line) => line.needBom && !line.bomMatched) ? '<div class="mt-1 text-xs text-red-700">BOM 未匹配</div>' : ''}`
-    },
-  },
-  {
-    key: 'actions',
-    title: '操作',
-    width: 240,
-    actionColumn: true,
-    render: (order) => {
-      const editable = order.status === '草稿' || order.status === '待采购' || order.status === '待确认'
-      const canGenerate = checkPmsGenerateMaterialRequirement(order.purchaseOrderNo).ok
-      return `<div class="flex items-center justify-end gap-1.5">
-        <button type="button" class="inline-flex min-h-7 items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" data-${EVENT_PREFIX}-action="open-detail" data-order-no="${escapeHtml(order.purchaseOrderNo)}" data-skip-page-rerender="true">详情</button>
-        <button type="button" class="inline-flex min-h-7 items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" data-${EVENT_PREFIX}-action="open-edit" data-order-no="${escapeHtml(order.purchaseOrderNo)}" data-skip-page-rerender="true" ${editable ? '' : 'disabled'}>编辑</button>
-        <button type="button" class="inline-flex min-h-7 items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" data-${EVENT_PREFIX}-action="open-generate" data-order-no="${escapeHtml(order.purchaseOrderNo)}" data-skip-page-rerender="true" ${canGenerate ? '' : 'disabled'}>生成需求</button>
-      </div>`
-    },
-  },
+function filteredRows():PmsProductPurchaseOrder[]{const needle=state.keyword.trim().toLowerCase();return listPmsProductPurchaseOrders().filter(order=>matchesFilters(order)&&(!needle||({order:[order.purchaseOrderNo],spu:[order.spu],sku:order.lines.map(line=>line.sku),name:[order.productName],buyer:[order.purchaser||order.creator],supplier:[order.supplierName],partner:[order.partnerName||''],tracking:(order.expressRecords||[]).map(item=>item.trackingNo),applicant:[order.creator],recipient:[order.recipientName||'']}[state.searchField]||[order.purchaseOrderNo,order.spu,order.productName]).some(value=>value.toLowerCase().includes(needle))))}
+const columns:StandardListColumn<PmsProductPurchaseOrder>[]=[
+ {key:'select',title:'',width:44,required:true,leadingControlColumn:true,renderHeader:rows=>renderProcessSelectionHeader(rows.map(row=>row.purchaseOrderNo),new Set(state.selected),EVENT_PREFIX),render:row=>`<input type="checkbox" data-preserve-native-click="true" aria-label="选择 ${row.purchaseOrderNo}" data-${EVENT_PREFIX}-field="select-row" data-order-no="${row.purchaseOrderNo}" ${state.selected.includes(row.purchaseOrderNo)?'checked':''} />`},
+ {key:'order',title:'采购单 / 状态',width:190,required:true,freezeable:true,sortable:true,sortValue:row=>row.purchaseOrderNo,render:row=>`${button(row.purchaseOrderNo,'view-detail',row.purchaseOrderNo)}<div>${renderPmsStatusBadge(pmsProductPurchaseDisplayStatus(row),row.status==='已关闭'?'slate':row.status==='已入库'?'green':'blue')}</div>${row.combinedOrderNo?`<div class="text-xs">组合 ${escapeHtml(row.combinedOrderNo)}</div>`:''}<div class="mt-1 text-xs text-muted-foreground">${formatPmsTime(row.orderedAt)}</div>`},
+ {key:'product',title:'商品 / SPU',width:240,required:true,freezeable:true,render:row=>`<div class="flex gap-3">${renderPmsBusinessImage(row.imageUrl,row.productName,'h-12 w-12')}<div>${escapeHtml(row.productName)}<div class="text-xs text-muted-foreground">${escapeHtml(row.spu)} · ${row.purchaseType}</div>${button(row.saleType||'售卖类型','修改售卖类型',row.purchaseOrderNo)}</div></div>`},
+ {key:'supplier',title:'供应商 / 采购员',width:190,sortable:true,sortValue:row=>row.supplierName,render:row=>`${escapeHtml(row.supplierName)}<div>${button(row.purchaser||row.creator,'设置采购员',row.purchaseOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.warehouse)}</div>${button(row.partnerName||'设置合作商','boundary-partner',row.purchaseOrderNo)}`},
+ {key:'qty',title:'数量 / 金额',width:140,sortable:true,sortValue:row=>pmsProductPurchaseOrderAmount(row),render:row=>`${button(`${row.lines.reduce((sum,line)=>sum+line.qty,0)} 件`,'view-detail',row.purchaseOrderNo)}<div class="text-xs">已入库 ${row.lines.reduce((sum,line)=>sum+line.deliveredQty,0)} 件</div><div class="font-semibold">${purchaseMoney(row)}</div>`},
+ {key:'remark',title:'快递 / 备注',width:200,render:row=>`${(row.expressRecords||[]).map(item=>`<div class="text-xs">${escapeHtml(item.carrier)} ${escapeHtml(item.trackingNo)}</div>`).join('')||'<div class="text-xs text-muted-foreground">暂无运单</div>'}<div class="text-xs">${escapeHtml(row.remark)}</div>`},
+ {key:'actions',title:'操作',width:200,actionColumn:true,render:row=>`<div class="flex justify-end gap-1">${button('详情','view-detail',row.purchaseOrderNo)}<details class="relative"><summary class="cursor-pointer rounded px-2 py-1.5 text-xs text-blue-700">更多操作</summary><div class="absolute right-0 z-20 grid max-h-80 min-w-48 overflow-auto rounded border bg-white p-2 shadow-lg">${['编辑','审核采购','驳回采购','完善快递信息','采购备注','拆分采购单','复制采购单','开启入库','样衣质检','手动出库','现货采购','样衣转做货','确认模板'].map(action=>button(action,action,row.purchaseOrderNo)).join('')}${button('生成面辅料需求','generate',row.purchaseOrderNo)}${button('查看面辅料需求','view-material',row.purchaseOrderNo)}${button('面料采购','view-material',row.purchaseOrderNo)}${button('发起售后','发起售后',row.purchaseOrderNo)}${button('查看售后','view-aftersales',row.purchaseOrderNo)}${button('日志记录','view-logs',row.purchaseOrderNo)}${button('出货记录','view-outlogs',row.purchaseOrderNo)}${button('打印条码列表','view-barcode',row.purchaseOrderNo)}${button('一键下单','boundary-oneclick',row.purchaseOrderNo)}${button('面辅料样衣','boundary-materialsample',row.purchaseOrderNo)}${button('尾部烫包质检合作商','boundary-tail',row.purchaseOrderNo)}${button('创建工单','boundary-workorder',row.purchaseOrderNo)}</div></details></div>`},
 ]
-
-const controller = createProcessOrderListController({
-  state,
-  columns,
-  preferenceKey: 'higood:list:/pms/product-purchase-orders',
-  pageSizeOptions: [10, 20, 50],
-  eventPrefix: EVENT_PREFIX,
-  rootSelector: ROOT_SELECTOR,
-  tableSurfaceSelector: '[data-pms-ppo-table-surface]',
-  paginationSurfaceSelector: '[data-pms-ppo-pagination-surface]',
-  overlaysSurfaceSelector: '[data-pms-ppo-overlays]',
-  defaultFrozenKeys: ['order', 'product'],
-  columnSettingsTitle: '商品采购单列设置',
-  emptyText: '当前条件下暂无商品采购单',
-  getRows: filteredRows,
-  locallyManagedEvents: true,
-})
-
-function rootElement(): HTMLElement | null {
-  if (typeof window === 'undefined') return null
-  return document.querySelector<HTMLElement>(ROOT_SELECTOR)
+const controller=createProcessOrderListController({state,columns,preferenceKey:'higood:list:/pms/product-purchase-orders',pageSizeOptions:[10,20,50],eventPrefix:EVENT_PREFIX,rootSelector:ROOT_SELECTOR,tableSurfaceSelector:'[data-pms-ppo-table-surface]',paginationSurfaceSelector:'[data-pms-ppo-pagination-surface]',overlaysSurfaceSelector:'[data-pms-ppo-overlays]',defaultFrozenKeys:['order','product'],columnSettingsTitle:'商品采购单列设置',emptyText:'当前条件下暂无采购单',getRows:filteredRows,locallyManagedEvents:true})
+const MULTI_LABELS:Record<string,string>={inbounders:'入库人',productionAreas:'做货区域',recipients:'收件人',saleTypes:'售卖类型',aftersaleStates:'售后状态',regions:'区域'}
+function multiCandidates(key:string):string[]{const rows=listPmsProductPurchaseOrders();return key==='saleTypes'?SALE_TYPES:key==='aftersaleStates'?['无售后','待处理','售后中','已完成','已驳回']:key==='regions'||key==='productionAreas'?['国内','印尼','其他']:[...new Set(rows.map(row=>key==='inbounders'?row.inboundBy||'':row.recipientName||''))].filter(Boolean)}
+function renderFilters():string{
+ const filterSelect=(label:string,key:string,options:string[])=>`<label class="text-xs">${label}<select class="mt-1 h-9 w-full rounded border bg-white px-2 text-sm" data-${EVENT_PREFIX}-filter="${key}"><option value="">全部</option>${options.map(value=>`<option ${state.filters[key]===value?'selected':''}>${value}</option>`).join('')}</select></label>`
+ const input=(label:string,key:string,type='text')=>`<label class="text-xs">${label}<input type="${type}" class="mt-1 h-9 w-full rounded border px-2 text-sm" data-${EVENT_PREFIX}-filter="${key}" value="${escapeHtml(state.filters[key]||'')}" /></label>`
+ return `<div class="rounded-lg border bg-white p-3" data-standard-list-filter-bar><div class="grid gap-2 md:grid-cols-5"><label class="text-xs">检索<select class="mt-1 h-9 w-full rounded border px-2 text-sm" data-${EVENT_PREFIX}-field="searchField">${[['order','采购单号'],['spu','SPU'],['sku','SKU'],['name','商品名称'],['buyer','采购人'],['supplier','供应商名称'],['partner','合作商名称'],['tracking','物流单号'],['applicant','申请人'],['recipient','收件人']].map(([value,label])=>`<option value="${value}" ${state.searchField===value?'selected':''}>${label}</option>`).join('')}</select></label><label class="text-xs">检索内容<input class="mt-1 h-9 w-full rounded border px-2 text-sm" data-${EVENT_PREFIX}-field="keyword" value="${escapeHtml(state.keyword)}" /></label>${filterSelect('状态','status',SOURCE_STATUSES)}${filterSelect('采购类型','type',TYPES)}${input('颜色','color')}</div><details class="mt-3" ${state.advanced?'open':''}><summary class="cursor-pointer text-xs text-blue-700">更多条件</summary><div class="mt-3 grid gap-3 md:grid-cols-4">${Object.entries(MULTI_LABELS).map(([key,label])=>renderPmsCoreMulti(EVENT_PREFIX,key,label,multiCandidates(key),state.multis[key]||[])).join('')}${filterSelect('是否首单','first',['是','否'])}${filterSelect('是否加急','urgent',['是','否'])}${filterSelect('采购平台','platform',['1688','拼多多','天猫','淘宝','小红书','抖音','虾皮','其他'])}${filterSelect('是否转运','transfer',['需要转运','无需转运','自有板房'])}${filterSelect('是否有转运记录','transferHistory',['是','否'])}${filterSelect('是否组合采购单','combined',['是','否'])}${filterSelect('是否有物流信息','express',['是','否'])}${filterSelect('是否插单','insert',['是','否'])}${filterSelect('已生成辅料','material',['是','否'])}${input('商品数量最小','minQty','number')}${input('商品数量最大','maxQty','number')}${[['created','创建'],['arrived','到货'],['expected','预计到仓'],['purchased','采购'],['shipped','发货'],['audit','审核'],['signed','快递签收']].map(([key,label])=>input(label+'开始',key+'From','date')+input(label+'结束',key+'To','date')).join('')}</div></details><div class="mt-3 flex flex-wrap gap-2" data-process-filter-actions>${renderPrimaryButton('查询',{prefix:EVENT_PREFIX,action:'query'},'search')}${renderSecondaryButton('重置',{prefix:EVENT_PREFIX,action:'reset'},'rotate-ccw')}${renderSecondaryButton('导出采购单',{prefix:EVENT_PREFIX,action:'export'},'download')}${renderSecondaryButton('导出商品',{prefix:EVENT_PREFIX,action:'export-sku'},'download')}</div></div>`
 }
-
-function readRouteFilterFromLocation(): void {
-  if (typeof window === 'undefined') return
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('bomMatched') === '未匹配') state.blockedOnly = true
+function renderStats():string{const rows=filteredRows(),totals=new Map<string,number>();rows.forEach(row=>totals.set(row.currency||'CNY',(totals.get(row.currency||'CNY')||0)+pmsProductPurchaseOrderAmount(row)));return renderProcessOrderStats([{label:'采购单数',value:rows.length},{label:'采购数量',value:rows.reduce((sum,row)=>sum+row.lines.reduce((v,line)=>v+line.qty,0),0)},{label:'已入库',value:rows.reduce((sum,row)=>sum+row.lines.reduce((v,line)=>v+line.deliveredQty,0),0)},{label:'采购金额',value:[...totals].map(([currency,amount])=>new Intl.NumberFormat('zh-CN',{style:'currency',currency}).format(amount)).join(' · ')||'¥0.00'}])}
+function renderSkuForm(spu:string,order?:PmsProductPurchaseOrder):string{
+ const product=listPmsPurchaseProductCandidates().find(row=>row.spu===spu),skus=order?order.lines.map(line=>({...line,price:line.actualPrice})):product?.skus||[]
+ return `<div class="mt-3 flex flex-wrap items-center gap-2">${labelInput('采购总量','totalQty','','number')}${button('重新分配采购数量','distribute')}${button('全选SKU','sku-all')}${button('取消全选','sku-none')}</div><div class="mt-3 overflow-auto rounded border"><table class="w-full text-left text-sm"><thead class="bg-muted/40"><tr><th class="p-2">选用</th><th>SKU / 颜色 / 尺码</th><th>数量（件）</th><th>单价</th><th>重量（kg）</th></tr></thead><tbody>${skus.map((sku,index)=>`<tr class="border-t"><td class="p-2"><input type="checkbox" data-preserve-native-click="true" aria-label="选择 ${escapeHtml(sku.sku)}" data-${EVENT_PREFIX}-sku-check="${escapeHtml(sku.sku)}" ${order||index===0?'checked':''} /></td><td class="p-2"><div class="flex items-center gap-2">${renderPmsBusinessImage(sku.imageUrl,`${sku.sku} ${sku.color} ${sku.size}`,'h-10 w-10')}<div>${escapeHtml(sku.sku)}<div class="text-xs text-muted-foreground">${escapeHtml(sku.color)} / ${escapeHtml(sku.size)}</div></div></div></td><td class="p-2"><input class="h-8 w-20 rounded border px-2" type="number" min="0" step="1" data-${EVENT_PREFIX}-sku-qty="${escapeHtml(sku.sku)}" value="${'qty'in sku?sku.qty:index===0?1:0}" /></td><td><input class="h-8 w-20 rounded border px-2" type="number" min="0" step="0.01" data-${EVENT_PREFIX}-sku-price="${escapeHtml(sku.sku)}" value="${sku.price}" /></td><td><input class="h-8 w-20 rounded border px-2" type="number" min="0" step="0.001" data-${EVENT_PREFIX}-sku-weight="${escapeHtml(sku.sku)}" value="${sku.weight??0}" /></td></tr>`).join('')||'<tr><td class="p-5 text-center text-muted-foreground" colspan="5">请搜索并选择SPU</td></tr>'}</tbody></table></div>`
 }
-
-function renderFilters(): string {
-  const statuses: Array<'' | PmsProductPurchaseOrderStatus> = ['', '草稿', '待采购', '待确认', '已确认', '已发货', '已到货', '已入库', '已完成', '已关闭']
-  const statusOptions = statuses.map((value) => `<option value="${value}" ${state.status === value ? 'selected' : ''}>${value || '全部状态'}</option>`).join('')
-  const typeOptions = ['', '做货', '成衣', '样衣'].map((value) => `<option value="${value}" ${state.purchaseType === value ? 'selected' : ''}>${value || '全部采购类型'}</option>`).join('')
-  const advancedCount = (state.purchaseType ? 1 : 0) + (state.blockedOnly ? 1 : 0)
-  return `<div class="rounded-lg border bg-white p-3" data-standard-list-filter-bar><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="min-w-0 sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">关键词</span><input class="h-9 w-full rounded-md border px-3 text-sm" placeholder="采购单号 / 款号 / 供应商 / SKU" value="${escapeHtml(state.keyword)}" data-${EVENT_PREFIX}-field="keyword" data-skip-page-rerender="true" /></label>
-    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">采购单状态</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="status" data-skip-page-rerender="true">${statusOptions}</select></label>
-    </div><div data-process-advanced ${advancedCount ? '' : 'hidden'}><div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
-    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">采购类型</span><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-${EVENT_PREFIX}-field="purchaseType" data-skip-page-rerender="true">${typeOptions}</select></label>
-    <label class="min-w-0"><span class="mb-1 block text-xs text-muted-foreground">BOM 匹配</span><span class="flex h-9 items-center gap-2 text-sm text-slate-700"><input type="checkbox" data-${EVENT_PREFIX}-field="blockedOnly" ${state.blockedOnly ? 'checked' : ''} data-skip-page-rerender="true" />仅看 BOM 未匹配</span></label>
-    </div></div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>
-    ${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'query' }, 'search')}
-    ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset' }, 'rotate-ccw')}
-    ${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}
-    ${renderSecondaryButton('新建采购单', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus')}
-    ${renderProcessFilterToggle(advancedCount, 'button')}
-    </div></div>`
+function renderOrderForm(overlay:Extract<Overlay,{kind:'create'|'edit'}>):string{
+ const order=overlay.kind==='edit'?getPmsProductPurchaseOrder(overlay.orderNo):undefined,spu=order?.spu||(overlay.kind==='create'?overlay.spu:''),type=order?.purchaseType||(overlay.kind==='create'?overlay.type:'成衣')
+ const suppliers=listPmsSuppliers().filter(row=>row.status==='已启用').map(row=>row.supplierName),warehouses=listPurchaseWarehouses().filter(row=>row.businessType==='FINISHED').map(row=>row.name)
+ return `<div class="grid gap-3 md:grid-cols-3">${labelSelect('采购类型','purchaseType',TYPES,type,false)}${labelInput('采购专员','purchaser',order?.purchaser||PMS_BUYER_ACTOR.name)}${labelInput('预计到货时间','expectedDeliveryDate',order?.expectedDeliveryDate||'','date')}${labelSelect('是否加急','isUrgent',['否','是'],order?.isUrgent||'否',false)}${labelSelect('是否首单','isFirstOrder',['否','是'],order?.isFirstOrder||'否',false)}${labelSelect('做货区域','productionArea',['国内','印尼','其他'],order?.productionArea||'国内',false)}${labelSelect('供应商','supplierName',[...new Set([...(order?.supplierName?[order.supplierName]:[]),...suppliers])],order?.supplierName||suppliers[0]||'')}${labelSelect('目标仓库','warehouse',[...new Set([...(order?.warehouse?[order.warehouse]:[]),...warehouses])],order?.warehouse||warehouses[0]||'')}${labelSelect('售卖类型','saleType',SALE_TYPES,order?.saleType||'')}${labelInput('收件人','recipientName',order?.recipientName||'')}${labelInput('采购地址 / 链接','purchaseAddress',order?.purchaseAddress||'')}${labelSelect('货币','currency',['CNY','IDR','USD'],order?.currency||'CNY',false)}${labelInput('汇率','exchangeRate',String(order?.exchangeRate||1),'number')}</div><label class="mt-3 block text-sm">采购备注<textarea class="mt-1 min-h-20 w-full rounded border p-2" data-${EVENT_PREFIX}-input="remark">${escapeHtml(order?.remark||'')}</textarea></label>${overlay.kind==='create'?`<div class="mt-3 flex gap-2">${labelInput('搜索SPU / 商品名称','spuSearch',overlay.keyword)}${button('搜索','search-spu')}</div><div data-pms-ppo-candidates>${renderProductCandidates(overlay.keyword,overlay.spu)}</div>`:`<p class="mt-3 font-medium">${escapeHtml(order?.productName||'')} · ${escapeHtml(spu)}</p>`}<div data-pms-ppo-sku-form>${renderSkuForm(spu,order)}</div>`
 }
-
-function renderStats(): string {
-  const rows = filteredRows()
-  const pending = rows.filter((order) => order.status === '待采购' || order.status === '待确认').length
-  const blocked = rows.filter((order) => order.lines.some((line) => line.needBom && !line.bomMatched)).length
-  const generated = rows.filter((order) => order.lines.some((line) => line.materialStatus === '已生成' || line.materialStatus === '已下推')).length
-  return renderProcessOrderStats([
-    { label: '采购单总数', value: rows.length },
-    { label: '待处理', value: pending },
-    { label: 'BOM 未匹配', value: blocked },
-    { label: '已生成面辅料需求', value: generated },
-  ])
+function renderProductCandidates(keyword:string,selected:string):string {return `<label class="mt-3 block text-sm">SPU<select class="mt-1 h-9 w-full rounded border bg-white px-2" data-${EVENT_PREFIX}-input="spu"><option value="">请选择</option>${listPmsPurchaseProductCandidates(keyword).map(row=>`<option value="${escapeHtml(row.spu)}" ${row.spu===selected?'selected':''}>${escapeHtml(row.spu)} · ${escapeHtml(row.productName)}</option>`).join('')}</select></label>`}
+function renderActionForm(overlay:Extract<Overlay,{kind:'action'}>):string{
+ const row=getPmsProductPurchaseOrder(overlay.orderNos[0])!,action=overlay.action
+ let html=`<p>${overlay.orderNos.map(escapeHtml).join('、')} · ${overlay.orderNos.length} 张</p>`
+ if(action==='设置采购员')html+=labelInput('采购员','purchaser',row.purchaser||row.creator)
+ if(action==='修改售卖类型')html+=labelSelect('售卖类型','saleType',SALE_TYPES,row.saleType||'')
+ if(action==='更改采购类型')html+=labelSelect('采购类型','purchaseType',TYPES,row.purchaseType,false)
+ if(action==='完善快递信息')html+=labelInput('快递公司','carrier')+labelInput('物流单号','trackingNo')+labelInput('发货时间','shippedAt','','datetime-local')+`<p class="text-xs">已有快递：${(row.expressRecords||[]).map(item=>`${escapeHtml(item.carrier)} ${escapeHtml(item.trackingNo)}`).join('、')||'暂无'}</p>`
+ if(action==='样衣质检')html+=labelInput('样品重量（kg）','weight',String(row.lines[0]?.weight||0),'number')
+ if(['拆分采购单','手动出库','样衣质检','运单入库'].includes(action))html+=`<div class="overflow-auto rounded border"><table class="w-full text-sm"><thead><tr><th class="p-2">SKU</th><th>采购 / 已入库</th><th>本次数量（件）</th></tr></thead><tbody>${row.lines.map(line=>`<tr class="border-t"><td class="p-2">${escapeHtml(line.sku)}</td><td>${line.qty} / ${line.deliveredQty}</td><td><input type="number" min="0" step="1" value="0" class="h-8 w-20 rounded border px-2" data-${EVENT_PREFIX}-action-qty="${escapeHtml(line.sku)}" /></td></tr>`).join('')}</tbody></table></div>`
+ const description:Record<string,string>={'审核采购':'通过审核后，采购单进入采购中。','驳回采购':'驳回后该采购单停止继续采购，请填写原因。','复制采购单':'复制商品和SKU数量生成一张新的待采购单，快递、入库、出库和售后记录不复制。','现货采购':'使用当前SKU数量生成一张新的成衣采购单。','样衣转做货':'使用当前SKU数量生成一张新的做货采购单。','拆分采购单':'本次数量移至新采购单；原单和新单的合计数量保持不变。','合并采购单':'合并同款、同供应商、同仓库的未审核采购单，原单关闭并保留来源追溯。','组合生产采购单':'为所选未审核做货采购单建立共同的组合采购编号。','开启入库':'重新开启该采购单的入库操作；已入库数量保持不变。','确认模板':'确认使用当前已发布技术包。','发起售后':'创建待处理售后单，并关联当前采购单。','生成面辅料需求':'使用当前已发布技术包生成物料需求，并关联本采购单。'}
+ if(description[action])html+=`<p class="rounded border bg-muted/20 p-3 text-sm">${description[action]}</p>`
+ return html+`<label class="block text-sm">${['驳回采购','发起售后'].includes(action)?'原因（必填）':'备注'}<textarea class="mt-1 min-h-24 w-full rounded border p-2" data-${EVENT_PREFIX}-input="remark">${action==='采购备注'?escapeHtml(row.remark):''}</textarea></label>`
 }
-
-function renderLineRows(order: PmsProductPurchaseOrder): string {
-  return order.lines
-    .map((line) => {
-      const bomStatus = lineBomStatus(line)
-      return `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm">${escapeHtml(line.sku)}</td><td class="px-3 py-2 text-sm">${escapeHtml(line.color)} / ${escapeHtml(line.size)}</td><td class="px-3 py-2 text-sm">${escapeHtml(line.needBom ? line.bomNo || '—' : '—')}</td><td class="px-3 py-2 text-sm">${escapeHtml(line.needBom ? line.bomVersion || '—' : '—')}</td><td class="px-3 py-2">${line.needBom ? renderPmsStatusBadge(bomStatus, bomStatusTone(bomStatus)) : '—'}</td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsQty(line.qty, '件')}</td><td class="px-3 py-2 text-sm tabular-nums">${line.deliveredQty ? formatPmsQty(line.deliveredQty, '件') : '—'}</td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsMoney(line.standardPrice)}</td><td class="px-3 py-2 text-sm tabular-nums">${formatPmsMoney(line.actualPrice)}</td><td class="px-3 py-2 text-sm font-semibold tabular-nums">${formatPmsMoney(pmsProductPurchaseOrderLineAmount(line))}</td><td class="px-3 py-2 text-sm">${escapeHtml(line.applicant || '—')}</td><td class="px-3 py-2 text-sm">${escapeHtml(line.creator || '—')}</td><td class="px-3 py-2 text-sm tabular-nums">${line.weight === undefined ? '—' : `${line.weight} kg`}</td><td class="px-3 py-2">${line.needBom ? (line.bomMatched ? renderPmsStatusBadge(line.materialStatus, materialStatusTone(line.materialStatus)) : renderPmsStatusBadge('BOM 未匹配', 'red')) : renderPmsStatusBadge('不需要', 'slate')}</td></tr>`
-    })
-    .join('')
+function renderView(overlay:Extract<Overlay,{kind:'view'}>):string{
+ if(overlay.view==='boundary')return `<p class="rounded border bg-amber-50 p-3 text-sm">${escapeHtml(overlay.message||'此入口尚未对接，未执行业务操作。')}</p>`
+ const orders=overlay.orderNos.map(no=>getPmsProductPurchaseOrder(no)).filter((row):row is PmsProductPurchaseOrder=>Boolean(row))
+ if(overlay.view==='sign')return `<table class="w-full text-sm"><thead><tr><th>采购单</th><th>商品</th><th>数量（件）</th><th>签收人</th></tr></thead><tbody>${orders.map(row=>`<tr><td class="p-3">${row.purchaseOrderNo}</td><td>${escapeHtml(row.productName)}</td><td>${row.lines.reduce((sum,line)=>sum+line.qty,0)}</td><td>____________</td></tr>`).join('')}</tbody></table>`
+ const order=orders[0];if(!order)return '<p>采购单不存在</p>'
+ if(overlay.view==='barcode-print'){const labels=order.lines.flatMap(line=>Array.from({length:overlay.quantities?.[line.sku]||0},(_,index)=>({line,index})));return `<style>@media print{body *{visibility:hidden} [data-pms-ppo-print-preview],[data-pms-ppo-print-preview] *{visibility:visible} [data-pms-ppo-print-preview]{position:absolute;inset:0;width:100%;background:white} [data-pms-ppo-print-preview] article{break-inside:avoid}}</style><p>共 ${labels.length} 张条码标签 · ${escapeHtml(order.purchaseOrderNo)}</p>${button('打印','print-preview-confirm')}<div class="grid grid-cols-2 gap-3" data-pms-ppo-print-preview>${labels.map(({line,index})=>{const source=listSkuArchives().find(sku=>sku.skuCode===line.sku);if(!source?.barcode)return `<p>SKU ${escapeHtml(line.sku)} 缺少正式条码来源</p>`;return `<article class="rounded border border-black p-3"><div class="flex gap-2">${renderPmsBusinessImage(line.imageUrl,order.productName,'h-12 w-12')}<div>${escapeHtml(order.productName)}<br>${escapeHtml(line.color)} / ${escapeHtml(line.size)}</div></div>${renderCode128Barcode(source.barcode,`${line.sku} 商品条码`)}<div class="text-center text-xs">${escapeHtml(source.barcode)} · ${escapeHtml(line.sku)} · ${index+1}/${overlay.quantities?.[line.sku]}</div></article>`}).join('')}</div>`}
+ const intro=`<div class="flex items-center gap-3">${renderPmsBusinessImage(order.imageUrl,order.productName,'h-16 w-16')}<div>${escapeHtml(order.purchaseOrderNo)} · ${escapeHtml(order.productName)}<div class="text-sm text-muted-foreground">${order.purchaseType} · ${pmsProductPurchaseDisplayStatus(order)}</div></div></div>`
+ if(overlay.view==='logs')return intro+`<table class="mt-3 w-full text-sm"><thead><tr><th>动作</th><th>操作人</th><th>时间</th><th>说明</th></tr></thead><tbody>${listPmsPpoLogs(order.purchaseOrderNo).map(log=>`<tr><td class="p-2">${escapeHtml(log.action)}</td><td>${escapeHtml(log.actorName)}</td><td>${formatPmsTime(log.occurredAt)}</td><td>${escapeHtml(log.reason)}</td></tr>`).join('')||'<tr><td class="p-4" colspan="4">暂无操作记录</td></tr>'}</tbody></table>`
+ if(overlay.view==='outlogs')return intro+`<table class="mt-3 w-full text-sm"><thead><tr><th>SKU</th><th>出库数量</th><th>操作人</th><th>时间</th></tr></thead><tbody>${(order.outboundRecords||[]).map(item=>`<tr><td class="p-2">${escapeHtml(item.sku)}</td><td>${item.qty}</td><td>${escapeHtml(item.actorName)}</td><td>${formatPmsTime(item.occurredAt)}</td></tr>`).join('')||'<tr><td class="p-4" colspan="4">暂无出库记录</td></tr>'}</tbody></table>`
+ if(overlay.view==='aftersales'){const rows=listPmsPurchaseOrderAftersales().filter(row=>row.purchaseOrderNo===order.purchaseOrderNo);return intro+`<table class="mt-3 w-full text-sm"><thead><tr><th>售后单</th><th>状态</th><th>原因</th></tr></thead><tbody>${rows.map(row=>`<tr><td class="p-2">${escapeHtml(row.id)}</td><td>${row.status}</td><td>${escapeHtml(row.reason)}</td></tr>`).join('')||'<tr><td class="p-4" colspan="3">暂无关联售后单</td></tr>'}</tbody></table><a class="mt-3 inline-block text-sm text-blue-700" href="/pms/purchase-order-aftersales">前往商品采购售后</a>`}
+ if(overlay.view==='material'){const rows=listPmsMaterialRequirements().filter(row=>row.sourcePurchaseOrderNo===order.purchaseOrderNo);return intro+rows.map(req=>`<h3 class="mt-3 font-medium">${escapeHtml(pmsBusinessNumber(req.requirementNo))} · ${req.status}</h3><table class="mt-2 w-full text-sm"><thead><tr><th>物料</th><th>建议采购</th><th>已下推</th></tr></thead><tbody>${req.lines.map(line=>`<tr><td class="p-2"><div class="flex gap-2">${renderPmsBusinessImage(line.imageUrl,line.materialName,'h-10 w-10')}<span>${escapeHtml(line.materialName)}<br>${escapeHtml(line.materialCode)}</span></div></td><td>${line.suggestedQty} ${line.unit}</td><td>${line.pushStatus}</td></tr>`).join('')}</tbody></table>`).join('')+(!rows.length?`<p class="mt-3">暂无关联面辅料需求。${escapeHtml(checkPmsGenerateMaterialRequirement(order.purchaseOrderNo).reason)}</p>`:'')}
+ if(overlay.view==='barcode')return intro+`<p class="mt-3 text-sm">仅生成条码预览，本次不执行入库。</p><table class="mt-3 w-full text-sm"><thead><tr><th>SKU</th><th>采购数量</th><th>打印数量</th><th>操作</th></tr></thead><tbody>${order.lines.map(line=>`<tr><td class="p-2">${escapeHtml(line.sku)}</td><td>${line.qty}</td><td><input type="number" min="0" max="1000" value="${line.qty}" class="h-8 w-20 rounded border px-2" data-${EVENT_PREFIX}-barcode-qty="${escapeHtml(line.sku)}" /></td><td>${button('打印条码','print-barcode',order.purchaseOrderNo,`data-sku="${escapeHtml(line.sku)}"`)}</td></tr>`).join('')}</tbody></table>${button('重置','barcode-reset')}${button('打印预览','print-barcode',order.purchaseOrderNo)}`
+ return intro+`<div class="mt-3 grid gap-2 md:grid-cols-2 text-sm"><p>供应商：${escapeHtml(order.supplierName)}</p><p>采购员：${escapeHtml(order.purchaser||order.creator)}</p><p>仓库：${escapeHtml(order.warehouse)}</p><p>预计到货：${escapeHtml(order.expectedDeliveryDate||'未填写')}</p><p>备注：${escapeHtml(order.remark||'无')}</p><p>商品链接：${purchaseSourceLink(order)}</p><p>采购金额：${purchaseMoney(order)} · 汇率 ${order.exchangeRate??1}</p></div><table class="mt-3 w-full text-sm"><thead><tr><th>SKU / 颜色 / 尺码</th><th>采购数量</th><th>已入库</th><th>本地库存可用</th><th>单价</th><th>物料状态</th></tr></thead><tbody>${order.lines.map(line=>`<tr class="border-t"><td class="p-2"><div class="flex gap-2">${renderPmsBusinessImage(line.imageUrl,`${line.sku} ${line.color} ${line.size}`,'h-10 w-10')}<div>${escapeHtml(line.sku)}<div>${escapeHtml(line.color)} / ${escapeHtml(line.size)}</div></div></div></td><td>${line.qty}</td><td>${line.deliveredQty}</td><td>${getPmsProductStockBalance(line.sku,order.warehouse).sourcePurchaseOrderNos.length?getPmsProductStockBalance(line.sku,order.warehouse).qty:'未关联库存'}</td><td>${line.actualPrice.toFixed(2)}</td><td>${line.materialStatus}</td></tr>`).join('')}</tbody></table><div class="mt-3">${button('查看面辅料需求','view-material',order.purchaseOrderNo)}${button('查看售后','view-aftersales',order.purchaseOrderNo)}</div>`
 }
-
-function renderDetailOverlay(purchaseOrderNo: string): string {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) return ''
-  const logs = listPmsPpoLogs(purchaseOrderNo)
-  const nextStatuses = pmsAllowedNextStatuses(order.status)
-  const check = checkPmsGenerateMaterialRequirement(purchaseOrderNo)
-  const advanceButtons = nextStatuses
-    .map((status) => renderSecondaryButton(`推进为${status}`, { prefix: EVENT_PREFIX, action: 'advance-status' }, 'arrow-right').replace('<button', `<button data-order-no="${escapeHtml(order.purchaseOrderNo)}" data-next-status="${status}"`))
-    .join('')
-  const logItems = logs.length
-    ? logs.map((log) => `<li class="rounded-md border p-3 text-xs"><div class="flex items-center justify-between"><strong>${escapeHtml(log.action)}</strong><span class="text-slate-500">${formatPmsTime(log.occurredAt)}</span></div><div class="mt-1 text-slate-600">${escapeHtml(log.actorName)}：${escapeHtml(log.beforeValue)} → ${escapeHtml(log.afterValue)}${log.reason ? `（${escapeHtml(log.reason)}）` : ''}</div></li>`).join('')
-    : '<li class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">暂无操作日志</li>'
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="商品采购单详情"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭详情"></button><section class="relative z-10 flex h-full w-[920px] max-w-[94vw] flex-col overflow-y-auto bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">${escapeHtml(order.purchaseOrderNo)} · ${escapeHtml(order.productName)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.supplierName)} · ${escapeHtml(order.warehouse)} · V${order.version}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-5 p-4">
-    <div class="flex items-center gap-4">${renderPmsBusinessImage(order.imageUrl, `${order.productName}（${order.spu}）款式图`, 'h-20 w-20')}<dl class="grid flex-1 grid-cols-3 gap-3 text-sm"><div><dt class="text-xs text-muted-foreground">状态</dt><dd class="mt-1">${renderPmsStatusBadge(order.status, statusTone(order.status))}</dd></div><div><dt class="text-xs text-muted-foreground">采购类型</dt><dd class="mt-1">${escapeHtml(order.purchaseType)}</dd></div><div><dt class="text-xs text-muted-foreground">采购区域</dt><dd class="mt-1">${escapeHtml(order.productionArea || order.area)}</dd></div><div><dt class="text-xs text-muted-foreground">采购专员</dt><dd class="mt-1">${escapeHtml(purchaserName(order))}</dd></div><div><dt class="text-xs text-muted-foreground">是否加急</dt><dd class="mt-1">${yesNo(order.isUrgent)}</dd></div><div><dt class="text-xs text-muted-foreground">是否首单</dt><dd class="mt-1">${yesNo(order.isFirstOrder)}</dd></div><div><dt class="text-xs text-muted-foreground">期望交期</dt><dd class="mt-1">${escapeHtml(order.expectedDeliveryDate || '—')}</dd></div><div><dt class="text-xs text-muted-foreground">采购金额</dt><dd class="mt-1 font-semibold tabular-nums">${formatPmsMoney(pmsProductPurchaseOrderAmount(order))}</dd></div><div><dt class="text-xs text-muted-foreground">来源建议</dt><dd class="mt-1">${escapeHtml(order.sourceSuggestionNo || '手工创建')}</dd></div><div class="col-span-3"><dt class="text-xs text-muted-foreground">采购备注</dt><dd class="mt-1 text-slate-600">${escapeHtml(order.remark || '—')}</dd></div></dl></div>
-    <section class="overflow-x-auto rounded-lg border"><table class="w-full min-w-[1180px] table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">颜色 / 尺码</th><th class="px-3 py-2">BOM 编号</th><th class="px-3 py-2">BOM 版本</th><th class="px-3 py-2">BOM 状态</th><th class="px-3 py-2">采购数量</th><th class="px-3 py-2">已交付</th><th class="px-3 py-2">标准采购价</th><th class="px-3 py-2">实际单价</th><th class="px-3 py-2">采购金额</th><th class="px-3 py-2">申请人</th><th class="px-3 py-2">添加人</th><th class="px-3 py-2">重量</th><th class="px-3 py-2">面辅料状态</th></tr></thead><tbody>${renderLineRows(order)}</tbody><tfoot class="border-t bg-muted/30 text-sm"><tr><td class="px-3 py-2 font-semibold" colspan="5">采购金额汇总</td><td class="px-3 py-2 font-semibold tabular-nums">${formatPmsQty(order.lines.reduce((sum, line) => sum + line.qty, 0), '件')}</td><td class="px-3 py-2">—</td><td class="px-3 py-2">—</td><td class="px-3 py-2">—</td><td class="px-3 py-2 font-semibold tabular-nums">${formatPmsMoney(pmsProductPurchaseOrderAmount(order))}</td><td class="px-3 py-2 text-xs text-slate-500" colspan="4">按行采购金额求和</td></tr></tfoot></table></section>
-    <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">可执行动作</h3><div class="mt-3 flex flex-wrap items-center gap-2">${advanceButtons}${renderSecondaryButton('生成面辅料需求', { prefix: EVENT_PREFIX, action: 'open-generate' }, 'file-plus-2').replace('<button', `<button data-order-no="${escapeHtml(order.purchaseOrderNo)}" ${check.ok ? '' : 'disabled'}`)}${renderDangerButton('关闭采购单', { prefix: EVENT_PREFIX, action: 'open-close' }, 'x-circle').replace('<button', `<button data-order-no="${escapeHtml(order.purchaseOrderNo)}"`)}</div>${check.ok ? '' : `<p class="mt-2 text-xs text-amber-700">当前不可生成面辅料需求：${escapeHtml(check.reason)}</p>`}</section>
-    <section><h3 class="mb-2 text-sm font-semibold">操作日志</h3><ul class="space-y-2">${logItems}</ul></section>
-  </div></section></div>`
+function renderOverlay():string{
+ const settings=controller.renderColumnSettings(),overlay=state.overlay;if(!overlay)return settings+renderPmsImagePreview()
+ let title='',body='',footer=''
+ if(overlay.kind==='create'||overlay.kind==='edit'){title=overlay.kind==='edit'?'编辑商品采购单':`新增${overlay.type}采购单`;body=renderOrderForm(overlay);footer=overlay.kind==='create'?renderSecondaryButton('保存草稿',{prefix:EVENT_PREFIX,action:'submit-draft'},'save')+renderPrimaryButton('保存并提交',{prefix:EVENT_PREFIX,action:'submit-create'},'check-check'):renderPrimaryButton('保存修改',{prefix:EVENT_PREFIX,action:'submit-edit'},'check-check')}
+ else if(overlay.kind==='action'){title=overlay.action;body=renderActionForm(overlay);footer=renderPrimaryButton(`确认${overlay.action}`,{prefix:EVENT_PREFIX,action:'submit-action'},'check-check')}
+ else if(overlay.kind==='scan'){title='运单批量入库';body=`${labelInput('物流单号','scanTracking')}<p class="text-sm">扫描或输入运单号后，核对关联采购单与实际到货数量。</p>`;footer=renderPrimaryButton('查询采购单',{prefix:EVENT_PREFIX,action:'scan-lookup'},'search')}
+ else {title={detail:'采购单详情',material:'关联面辅料需求',logs:'日志记录',outlogs:'出货记录',aftersales:'关联售后',barcode:'打印条码列表',sign:'面辅料签收表',boundary:'入口说明','barcode-print':'商品条码打印预览'}[overlay.view];body=renderView(overlay)}
+ return `${settings}<div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="${title}"><button class="absolute inset-0 bg-slate-900/40" aria-label="关闭" data-${EVENT_PREFIX}-action="close-overlay"></button><section class="relative flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl bg-background shadow-xl"><header class="flex justify-between border-b p-4"><h2 class="font-semibold">${title}</h2>${renderSecondaryButton('关闭',{prefix:EVENT_PREFIX,action:'close-overlay'},'x')}</header><div class="space-y-3 overflow-auto p-4">${renderPmsOverlayError(state.overlayError)}${body}</div><footer class="flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'},'x')}${footer}</footer></section></div>${renderPmsImagePreview()}`
 }
-
-function renderSuggestionCatalog(): PmsSuggestionView[] {
-  return listPmsSuggestionViews()
+function refreshOverlay():void{refreshPmsCoreOverlay(rootElement(),'[data-pms-ppo-overlays]',renderOverlay(),state.overlay?.clientActionId||'',state.saving)}
+function refresh():void{refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-filters]',renderFilters());refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-stats]',renderStats());refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-feedback]',renderPmsFeedback(state.feedback,state.feedbackOk));controller.refresh({overlays:false});refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-pagination-surface]',renderPmsCorePagination(controller.getView().paginationHtml,EVENT_PREFIX,state.currentPage));refreshOverlay()}
+export async function renderPmsProductPurchaseOrdersPage():Promise<string>{
+ resetStandardListEntryTransientStateOnRouteEntry(state,Boolean(rootElement()));if(typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('bomMatched')==='未匹配')state.filters.bom='未匹配'
+ try{await Promise.all([hydratePmsProductPurchaseOrdersFromIdb(),hydratePmsPurchaseOrderAftersalesFromIdb(),hydratePmsMaterialRequirementsFromIdb(),hydratePmsSuppliersFromIdb(),hydratePmsProductStockBalancesFromIdb()])}catch(error){state.feedback=`用户记录读取失败：${error instanceof Error?error.message:'请重试'}`;state.feedbackOk=false}
+ controller.ensurePreferencesLoaded();controller.installColumnDragEvents();const view=controller.getView()
+ const newActions=renderPrimaryButton('新增采购单',{prefix:EVENT_PREFIX,action:'open-create'},'plus')+TYPES.map(type=>button(type+'采购','open-create','',`data-type="${type}"`)).join('')
+ const bulk=['审核采购','驳回采购','合并采购单','组合生产采购单','设置采购员','更改采购类型','确认模板','发起售后'].map(action=>button('批量'+action,'bulk','',`data-business-action="${action}"`)).join('')+button('批量设置合作商','boundary-partner-bulk')+button('批量一键下单','boundary-oneclick-bulk')+button('批量面辅料签收表','bulk-sign')+button('运单批量入库','scan')
+ return `<div data-pms-ppo-root data-skip-page-rerender="true"><style>[data-pms-ppo-root] td:has(details[open]){z-index:40}[data-pms-ppo-root] td details[open]>div{z-index:45}</style>${renderStandardListPage({showHeader:true,title:'商品采购单',primaryActionsHtml:`<div class="flex flex-wrap gap-2">${newActions}</div>`,feedbackHtml:`<div data-pms-ppo-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:`<div data-pms-ppo-filters>${renderFilters()}</div>`,statsHtml:`<div data-pms-ppo-stats>${renderStats()}</div>`,listTitle:`共 ${filteredRows().length} 条`,listActionsHtml:`<div class="flex flex-wrap gap-1"><details><summary class="cursor-pointer rounded border px-3 py-2 text-xs">批量操作</summary><div class="absolute z-30 grid max-h-72 overflow-auto rounded border bg-white p-2 shadow-lg">${bulk}</div></details>${renderSecondaryButton('列设置',{prefix:EVENT_PREFIX,action:'open-column-settings'},'settings-2')}</div>`,tableHtml:`<div data-pms-ppo-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-ppo-pagination-surface>${renderPmsCorePagination(view.paginationHtml,EVENT_PREFIX,state.currentPage)}</div>`,overlaysHtml:`<div data-pms-ppo-overlays>${renderOverlay()}</div>`})}</div>`
 }
-
-function renderCreateOverlay(): string {
-  const catalog = renderSuggestionCatalog()
-  const options = catalog.map((row) => `<option value="${escapeHtml(row.spu)}">${escapeHtml(row.productName)} · ${escapeHtml(row.spu)} · ${escapeHtml(row.purchaseType)}</option>`).join('')
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="新建商品采购单" data-pms-ppo-create-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭新建"></button><section class="relative z-10 flex h-full w-[760px] max-w-[94vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">新建商品采购单</h2><p class="mt-1 text-xs text-slate-500">选择款式后勾选 SKU 并填写数量与单价；做货 SKU 需要 BOM 已匹配</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="flex-1 space-y-4 overflow-y-auto p-4">${renderPmsOverlayError(state.overlayError)}
-    <div class="grid grid-cols-2 gap-3">
-      <label class="col-span-2 flex flex-col gap-1 text-xs text-muted-foreground">款式
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-create-field="spu">${options}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">供应商
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-create-field="supplierName">${SUPPLIERS.map((supplier) => `<option value="${escapeHtml(supplier)}">${escapeHtml(supplier)}</option>`).join('')}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">目标仓库
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-create-field="warehouse">${WAREHOUSES.map((warehouse) => `<option value="${escapeHtml(warehouse)}">${escapeHtml(warehouse)}</option>`).join('')}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">采购专员
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(PMS_BUYER_ACTOR.name)}" placeholder="必填" data-${EVENT_PREFIX}-create-field="purchaser" data-skip-page-rerender="true" />
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">采购区域
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-create-field="productionArea"><option value="">请选择采购区域</option>${REGIONS.map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`).join('')}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">期望交期
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="2026-07-31" data-${EVENT_PREFIX}-create-field="expectedDeliveryDate" data-skip-page-rerender="true" />
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">采购备注
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" placeholder="选填" data-${EVENT_PREFIX}-create-field="remark" data-skip-page-rerender="true" />
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">是否加急
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-create-field="isUrgent"><option value="否">否</option><option value="是">是</option></select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">是否首单
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-create-field="isFirstOrder"><option value="否">否</option><option value="是">是</option></select>
-      </label>
-    </div>
-    <div class="overflow-hidden rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="w-16 px-3 py-2">选择</th><th class="w-48 px-3 py-2">SKU</th><th class="w-32 px-3 py-2">颜色 / 尺码</th><th class="w-32 px-3 py-2">数量</th><th class="w-32 px-3 py-2">单价</th><th class="w-28 px-3 py-2">重量(kg)</th></tr></thead><tbody data-${EVENT_PREFIX}-create-sku-body>${catalog[0] ? catalog[0].skuItems.map((sku) => renderCreateSkuRow(sku.sku, sku.color, sku.size, defaultPmsSkuPrice(sku.sku), 0)).join('') : '<tr><td class="px-3 py-6 text-center text-sm text-muted-foreground" colspan="6">暂无可采购 SKU</td></tr>'}</tbody></table></div>
-    <p class="text-xs text-slate-500">新建后采购单进入“待采购”，可继续编辑或推进状态。</p>
-  </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('保存采购单', { prefix: EVENT_PREFIX, action: 'submit-create' }, 'check-check')}</footer></section></div>`
+export function closePmsProductPurchaseOrderOverlays():boolean{if(state.saving)return false;if(state.overlay||state.showColumnSettings){state.overlay=null;state.overlayError='';state.showColumnSettings=false;refreshOverlay();return true}return false}
+function readOrderInput(surface:ParentNode,overlay:Extract<Overlay,{kind:'create'|'edit'}>):{patch:PmsPurchaseOrderPatch;product:ReturnType<typeof listPmsPurchaseProductCandidates>[number]|undefined;lines:Array<PmsCreatePurchaseOrderInput['lines'][number]&{lineId:string}>} {
+ const value=(key:string)=>readTextField(surface,`[data-${EVENT_PREFIX}-input="${key}"]`),spu=overlay.kind==='create'?value('spu'):getPmsProductPurchaseOrder(overlay.orderNo)?.spu||'',product=listPmsPurchaseProductCandidates().find(row=>row.spu===spu),order=overlay.kind==='edit'?getPmsProductPurchaseOrder(overlay.orderNo):undefined
+ const skus=order?.lines||product?.skus||[]
+ const lines=skus.filter(sku=>surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-sku-check="${sku.sku}"]`)?.checked).map(sku=>({sku:sku.sku,color:sku.color,size:sku.size,lineId:'lineId'in sku?sku.lineId:'',qty:Number(readTextField(surface,`[data-${EVENT_PREFIX}-sku-qty="${sku.sku}"]`)),standardPrice:'standardPrice'in sku?sku.standardPrice:sku.price,actualPrice:Number(readTextField(surface,`[data-${EVENT_PREFIX}-sku-price="${sku.sku}"]`)),weight:Number(readTextField(surface,`[data-${EVENT_PREFIX}-sku-weight="${sku.sku}"]`))})).filter(line=>line.qty!==0)
+ const patch:PmsPurchaseOrderPatch={supplierName:value('supplierName'),warehouse:value('warehouse'),purchaser:value('purchaser'),expectedDeliveryDate:value('expectedDeliveryDate'),remark:value('remark'),productionArea:value('productionArea') as PmsPurchaseRegion,purchaseType:value('purchaseType') as PmsProductPurchaseType,isUrgent:value('isUrgent')==='是'?'是':'否',isFirstOrder:value('isFirstOrder')==='是'?'是':'否',saleType:value('saleType'),recipientName:value('recipientName'),purchaseAddress:value('purchaseAddress'),currency:value('currency') as 'CNY'|'IDR'|'USD',exchangeRate:Number(value('exchangeRate')),lines:lines.map(line=>({lineId:line.lineId,qty:line.qty,actualPrice:line.actualPrice,weight:line.weight}))}
+ return{patch,product,lines}
 }
-
-function renderCreateSkuRow(sku: string, color: string, size: string, price: number, qty: number): string {
-  return `<tr class="border-b last:border-b-0"><td class="px-3 py-2"><input type="checkbox" data-${EVENT_PREFIX}-create-check="${escapeHtml(sku)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2 text-sm">${escapeHtml(sku)}</td><td class="px-3 py-2 text-sm">${escapeHtml(color)} / ${escapeHtml(size)}</td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="1" step="1" value="${qty || ''}" data-${EVENT_PREFIX}-create-qty="${escapeHtml(sku)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="0" step="0.1" value="${price}" data-${EVENT_PREFIX}-create-price="${escapeHtml(sku)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="0" step="0.01" value="${DEFAULT_LINE_WEIGHT}" data-${EVENT_PREFIX}-create-weight="${escapeHtml(sku)}" data-skip-page-rerender="true" /></td></tr>`
+async function save(action:string):Promise<void>{
+ const overlay=state.overlay,surface=rootElement()?.querySelector('[role="dialog"]');if(!overlay||!surface)return
+ const value=(key:string)=>readTextField(surface,`[data-${EVENT_PREFIX}-input="${key}"]`)
+ state.saving=true;setPmsCoreSavePending(rootElement(),true)
+ try{
+  let message=''
+  if(overlay.kind==='create'||overlay.kind==='edit'){
+   const {patch,product,lines}=readOrderInput(surface,overlay)
+   if(!lines.length)throw new Error('请选择至少一个SKU并填写大于0的采购数量')
+   if(overlay.kind==='create'){if(!product)throw new Error('请选择有效SPU');const inputs=[{spu:product.spu,productName:product.productName,imageUrl:product.imageUrl,purchaseType:patch.purchaseType!,area:patch.productionArea as PmsPurchaseRegion,productionArea:patch.productionArea,supplierName:patch.supplierName!,warehouse:patch.warehouse!,expectedDeliveryDate:patch.expectedDeliveryDate!,purchaser:patch.purchaser,remark:patch.remark,isUrgent:patch.isUrgent,isFirstOrder:patch.isFirstOrder,recipientName:patch.recipientName,saleType:patch.saleType,purchaseAddress:patch.purchaseAddress,currency:patch.currency,exchangeRate:patch.exchangeRate,lines}];if(action==='submit-draft'){const {preparePmsProductPurchaseOrders}=await import('../../data/pms/product-purchase-orders.ts');const rows=preparePmsProductPurchaseOrders(inputs,PMS_BUYER_ACTOR,overlay.clientActionId);rows.forEach(row=>row.status='草稿');const saved=await commitPmsProductPurchaseOrders(rows,PMS_BUYER_ACTOR,'保存草稿',overlay.clientActionId,[],pmsCoreOperationSignature('保存草稿',inputs));message=`草稿 ${saved[0].purchaseOrderNo} 已保存`}else{const saved=await createPmsProductPurchaseOrders(inputs,PMS_BUYER_ACTOR,overlay.clientActionId);message=`采购单 ${saved[0].purchaseOrderNo} 已创建`}}
+   else{const order=getPmsProductPurchaseOrder(overlay.orderNo)!;if(lines.length!==order.lines.length)throw new Error('编辑须保留全部现有SKU；数量转移请使用拆分采购单');const candidate=preparePmsProductPurchaseOrderPatch(overlay.orderNo,patch,PMS_BUYER_ACTOR.name,overlay.clientActionId,false,overlay.baseVersion);await commitPmsProductPurchaseOrders([candidate],PMS_BUYER_ACTOR,'编辑采购单',overlay.clientActionId,[],pmsCoreOperationSignature('编辑采购单',{orderNo:overlay.orderNo,patch}));message=`${overlay.orderNo} 修改已保存`}
+  }else if(overlay.kind==='action'){
+   if(overlay.action==='生成面辅料需求'){const result=await generatePmsMaterialRequirement(overlay.orderNos[0],PMS_BUYER_ACTOR,overlay.clientActionId);message=`需求 ${pmsBusinessNumber(result.requirementNo)} 已生成，共 ${result.lines.length} 条物料`}
+   else if(overlay.action==='发起售后'){const rows=await createPmsAftersalesFromOrders(overlay.orderNos,value('remark'),PMS_BUYER_ACTOR.name,overlay.clientActionId);message=`已创建 ${rows.length} 张售后单`}
+   else{const skuQty=Object.fromEntries([...surface.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-action-qty]`)].map(input=>[input.getAttribute(`data-${EVENT_PREFIX}-action-qty`)!,Number(input.value)]));const rows=await performPmsProductPurchaseAction(overlay.orderNos,overlay.action,{remark:value('remark'),purchaser:value('purchaser'),saleType:value('saleType'),purchaseType:(value('purchaseType')||undefined) as PmsProductPurchaseType|undefined,carrier:value('carrier'),trackingNo:value('trackingNo'),shippedAt:value('shippedAt'),weight:value('weight')?Number(value('weight')):undefined,skuQty},PMS_BUYER_ACTOR,overlay.clientActionId,overlay.versions);message=`${overlay.action}已保存，${rows.map(row=>row.purchaseOrderNo).join('、')}`}
+  }
+  state.feedback=message;state.feedbackOk=true;state.overlay=null;state.overlayError='';state.selected=[]
+ }catch(error){state.overlayError=error instanceof Error?error.message:'操作未保存，请重试'}finally{state.saving=false;refresh()}
 }
-
-function refreshCreateSkuBody(): void {
-  const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-ppo-create-root]')
-  if (!surface) return
-  const spu = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="spu"]`)
-  const catalogRow = renderSuggestionCatalog().find((row) => row.spu === spu)
-  const body = surface.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-create-sku-body]`)
-  if (!body) return
-  body.innerHTML = catalogRow
-    ? catalogRow.skuItems.map((sku) => renderCreateSkuRow(sku.sku, sku.color, sku.size, defaultPmsSkuPrice(sku.sku), 0)).join('')
-    : '<tr><td class="px-3 py-6 text-center text-sm text-muted-foreground" colspan="6">暂无可采购 SKU</td></tr>'
-  hydratePmsSurface(body)
-}
-
-function renderEditOverlay(purchaseOrderNo: string): string {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) return ''
-  const lineRows = order.lines
-    .map((line) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 text-sm">${escapeHtml(line.sku)}</td><td class="px-3 py-2 text-sm">${escapeHtml(line.color)} / ${escapeHtml(line.size)}</td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="1" step="1" value="${line.qty}" data-${EVENT_PREFIX}-edit-qty="${escapeHtml(line.lineId)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="0" step="0.1" value="${line.actualPrice}" data-${EVENT_PREFIX}-edit-price="${escapeHtml(line.lineId)}" data-skip-page-rerender="true" /></td><td class="px-3 py-2"><input class="h-8 w-24 rounded-md border px-2 text-sm" type="number" min="0" step="0.01" value="${line.weight ?? DEFAULT_LINE_WEIGHT}" data-${EVENT_PREFIX}-edit-weight="${escapeHtml(line.lineId)}" data-skip-page-rerender="true" /></td></tr>`)
-    .join('')
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="编辑商品采购单" data-pms-ppo-edit-root><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭编辑"></button><section class="relative z-10 flex h-full w-[720px] max-w-[94vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">编辑 ${escapeHtml(order.purchaseOrderNo)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.productName)} · 当前 V${order.version} · 保存后版本号 +1</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="flex-1 space-y-4 overflow-y-auto p-4">${renderPmsOverlayError(state.overlayError)}
-    <div class="grid grid-cols-2 gap-3">
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">供应商
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-edit-field="supplierName">${SUPPLIERS.map((supplier) => `<option value="${escapeHtml(supplier)}" ${supplier === order.supplierName ? 'selected' : ''}>${escapeHtml(supplier)}</option>`).join('')}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">目标仓库
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-edit-field="warehouse">${WAREHOUSES.map((warehouse) => `<option value="${escapeHtml(warehouse)}" ${warehouse === order.warehouse ? 'selected' : ''}>${escapeHtml(warehouse)}</option>`).join('')}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">采购专员
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(purchaserName(order))}" data-${EVENT_PREFIX}-edit-field="purchaser" data-skip-page-rerender="true" />
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">采购区域
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-edit-field="productionArea"><option value="">请选择采购区域</option>${REGIONS.map((region) => `<option value="${escapeHtml(region)}" ${region === (order.productionArea || order.area) ? 'selected' : ''}>${escapeHtml(region)}</option>`).join('')}</select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">期望交期
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" type="date" value="${escapeHtml(order.expectedDeliveryDate)}" data-${EVENT_PREFIX}-edit-field="expectedDeliveryDate" data-skip-page-rerender="true" />
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">采购备注
-        <input class="h-9 rounded-md border bg-background px-2 text-sm" value="${escapeHtml(order.remark)}" data-${EVENT_PREFIX}-edit-field="remark" data-skip-page-rerender="true" />
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">是否加急
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-edit-field="isUrgent"><option value="否" ${yesNo(order.isUrgent) === '否' ? 'selected' : ''}>否</option><option value="是" ${yesNo(order.isUrgent) === '是' ? 'selected' : ''}>是</option></select>
-      </label>
-      <label class="flex flex-col gap-1 text-xs text-muted-foreground">是否首单
-        <select class="h-9 rounded-md border bg-background px-2 text-sm" data-${EVENT_PREFIX}-edit-field="isFirstOrder"><option value="否" ${yesNo(order.isFirstOrder) === '否' ? 'selected' : ''}>否</option><option value="是" ${yesNo(order.isFirstOrder) === '是' ? 'selected' : ''}>是</option></select>
-      </label>
-    </div>
-    <div class="overflow-hidden rounded-lg border"><table class="w-full table-fixed text-left"><thead class="border-b bg-muted/50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">颜色 / 尺码</th><th class="px-3 py-2">数量</th><th class="px-3 py-2">单价</th><th class="px-3 py-2">重量(kg)</th></tr></thead><tbody>${lineRows}</tbody></table></div>
-  </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('保存修改', { prefix: EVENT_PREFIX, action: 'submit-edit' }, 'check-check')}</footer></section></div>`
-}
-
-function renderCloseOverlay(purchaseOrderNo: string): string {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) return ''
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="关闭商品采购单" data-pms-ppo-close-root><section class="w-full max-w-lg rounded-xl bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">关闭 ${escapeHtml(purchaseOrderNo)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.productName)} · ${escapeHtml(order.status)} · 关闭后不可恢复</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-3 p-4">${renderPmsOverlayError(state.overlayError)}<label class="flex flex-col gap-1 text-xs text-muted-foreground">关闭原因（必填）
-    <textarea class="min-h-24 rounded-md border bg-background p-2 text-sm" placeholder="如终端取消订单、供应商无法交付" data-${EVENT_PREFIX}-close-reason data-skip-page-rerender="true"></textarea>
-  </label></div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('确认关闭', { prefix: EVENT_PREFIX, action: 'submit-close' }, 'check-check')}</footer></section></div>`
-}
-
-function renderGenerateOverlay(purchaseOrderNo: string): string {
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) return ''
-  const check = checkPmsGenerateMaterialRequirement(purchaseOrderNo)
-  const preview = check.ok ? '将按 BOM 单件用量 × (1 + 损耗) 拆解物料需求，并扣除库存与采购中数量。' : check.reason
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="生成面辅料需求" data-pms-ppo-generate-root><section class="w-full max-w-xl rounded-xl bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">生成面辅料需求</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.purchaseOrderNo)} · ${escapeHtml(order.productName)}</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-3 p-4">${renderPmsOverlayError(state.overlayError)}<p class="rounded-md border bg-muted/30 px-3 py-2 text-sm text-slate-700">${escapeHtml(preview)}</p>${order.lines.some((line) => line.needBom && !line.bomMatched) ? '<p class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">存在 BOM 未匹配的 SKU，必须先完成 BOM/样板维护。</p>' : ''}  </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('确认生成', { prefix: EVENT_PREFIX, action: 'submit-generate' }, 'check-check').replace('<button', `<button ${check.ok ? '' : 'disabled'}`)}</footer></section></div>`
-}
-
-function renderOverlays(): string {
-  const columnSettings = `<div data-pms-ppo-column-overlays>${controller.renderColumnSettings()}</div>`
-  if (!state.overlay) return `${columnSettings}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'detail') return `${columnSettings}${renderDetailOverlay(state.overlay.purchaseOrderNo)}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'create') return `${columnSettings}${renderCreateOverlay()}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'edit') return `${columnSettings}${renderEditOverlay(state.overlay.purchaseOrderNo)}${renderPmsImagePreview()}`
-  if (state.overlay.kind === 'close') return `${columnSettings}${renderCloseOverlay(state.overlay.purchaseOrderNo)}${renderPmsImagePreview()}`
-  return `${columnSettings}${renderGenerateOverlay(state.overlay.purchaseOrderNo)}${renderPmsImagePreview()}`
-}
-
-function renderInner(): string {
-  controller.ensurePreferencesLoaded()
-  const view = controller.getView()
-  return renderStandardListPage({
-      showHeader: false,
-    title: '商品采购单',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: renderFilters(),
-    statsHtml: renderStats(),
-    listTitle: `共 ${filteredRows().length} 条`,
-    listActionsHtml: `<div class="flex flex-wrap items-center gap-2"><span class="text-xs text-muted-foreground">做货 SKU 的 BOM 未匹配时不能生成面辅料需求</span>${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
-    tableHtml: `<div data-pms-ppo-table-surface>${view.tableHtml}</div>`,
-    paginationHtml: `<div data-pms-ppo-pagination-surface>${view.paginationHtml}</div>`,
-    overlaysHtml: `<div data-pms-ppo-overlays>${renderOverlays()}</div>`,
-  })
-}
-
-function refreshAll(): void {
-  const root = rootElement()
-  if (!root) return
-  root.innerHTML = renderInner()
-  hydratePmsSurface(root)
-}
-
-function refreshOverlays(): void {
-  const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-ppo-overlays]')
-  if (!surface) return
-  surface.innerHTML = renderOverlays()
-  hydratePmsSurface(surface)
-}
-
-function closeOverlay(): void {
-  state.overlay = null
-  state.overlayError = ''
-  refreshOverlays()
-}
-
-function exportRows(): void {
-  const rows = filteredRows()
-  if (rows.length === 0) {
-    state.feedback = '当前查询条件下没有可导出的商品采购单。'
-    state.feedbackOk = false
-    refreshAll()
-    return
-  }
-  downloadPmsCsv(
-    '商品采购单.csv',
-    ['采购单号', '款式', 'SPU', '采购类型', '区域', '供应商', '仓库', '状态', '版本', '下单时间', '期望交期', 'SKU数', '采购数量', '采购金额', '面辅料状态'],
-    rows.map((order) => [
-      order.purchaseOrderNo,
-      order.productName,
-      order.spu,
-      order.purchaseType,
-      order.area,
-      order.supplierName,
-      order.warehouse,
-      order.status,
-      order.version,
-      order.orderedAt,
-      order.expectedDeliveryDate,
-      order.lines.length,
-      order.lines.reduce((sum, line) => sum + line.qty, 0),
-      pmsProductPurchaseOrderAmount(order).toFixed(2),
-      [...new Set(order.lines.map((line) => (line.needBom ? line.materialStatus : '不需要')))].join(' / '),
-    ]),
-  )
-  state.feedback = `已导出 ${rows.length} 张商品采购单（当前查询条件全量）。`
-  state.feedbackOk = true
-  refreshAll()
-}
-
-function readPpoRegion(surface: ParentNode, selector: string): PmsPurchaseRegion | '' {
-  const value = readTextField(surface, selector)
-  return value === '国内' || value === '印尼' || value === '其他' ? value : ''
-}
-
-function readPpoYesNo(surface: ParentNode, selector: string): PmsYesNo {
-  return readTextField(surface, selector) === '是' ? '是' : '否'
-}
-
-function submitCreate(): void {
-  const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-ppo-create-root]')
-  if (!surface) return
-  const spu = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="spu"]`)
-  const supplierName = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="supplierName"]`)
-  const warehouse = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="warehouse"]`)
-  const expectedDeliveryDate = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="expectedDeliveryDate"]`)
-  const remark = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="remark"]`)
-  const purchaser = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-create-field="purchaser"]`)
-  const productionArea = readPpoRegion(surface, `[data-${EVENT_PREFIX}-create-field="productionArea"]`)
-  const isUrgent = readPpoYesNo(surface, `[data-${EVENT_PREFIX}-create-field="isUrgent"]`)
-  const isFirstOrder = readPpoYesNo(surface, `[data-${EVENT_PREFIX}-create-field="isFirstOrder"]`)
-  const catalogRow = renderSuggestionCatalog().find((row) => row.spu === spu)
-  if (!catalogRow) {
-    state.overlayError = '请选择有效的款式'
-    refreshOverlays()
-    return
-  }
-  const lines = catalogRow.skuItems
-    .filter((sku) => surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-create-check="${sku.sku}"]`)?.checked)
-    .map((sku) => ({
-      sku: sku.sku,
-      color: sku.color,
-      size: sku.size,
-      qty: Number.parseInt(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-create-qty="${sku.sku}"]`)?.value ?? '', 10),
-      standardPrice: Number.parseFloat(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-create-price="${sku.sku}"]`)?.value ?? '') || 0,
-      actualPrice: Number.parseFloat(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-create-price="${sku.sku}"]`)?.value ?? '') || 0,
-      weight: Number.parseFloat(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-create-weight="${sku.sku}"]`)?.value ?? ''),
-    }))
-  try {
-    const created = createPmsProductPurchaseOrders(
-      [{ spu: catalogRow.spu, productName: catalogRow.productName, imageUrl: catalogRow.imageUrl, purchaseType: catalogRow.purchaseType, area: catalogRow.area, productionArea, supplierName, warehouse, expectedDeliveryDate, purchaser, isUrgent, isFirstOrder, remark, lines }],
-      PMS_BUYER_ACTOR,
-    )
-    state.feedback = `已创建商品采购单 ${created[0]?.purchaseOrderNo ?? ''}，状态为待采购。`
-    state.feedbackOk = true
-    state.overlay = null
-    state.overlayError = ''
-    refreshAll()
-  } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '创建采购单失败，请检查填写内容'
-    refreshOverlays()
-  }
-}
-
-function submitEdit(purchaseOrderNo: string): void {
-  const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-ppo-edit-root]')
-  if (!surface) return
-  const supplierName = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-edit-field="supplierName"]`)
-  const warehouse = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-edit-field="warehouse"]`)
-  const expectedDeliveryDate = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-edit-field="expectedDeliveryDate"]`)
-  const remark = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-edit-field="remark"]`)
-  const purchaser = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-edit-field="purchaser"]`)
-  const productionArea = readPpoRegion(surface, `[data-${EVENT_PREFIX}-edit-field="productionArea"]`)
-  const isUrgent = readPpoYesNo(surface, `[data-${EVENT_PREFIX}-edit-field="isUrgent"]`)
-  const isFirstOrder = readPpoYesNo(surface, `[data-${EVENT_PREFIX}-edit-field="isFirstOrder"]`)
-  const order = getPmsProductPurchaseOrder(purchaseOrderNo)
-  if (!order) return
-  const lines = order.lines.map((line) => ({
-    lineId: line.lineId,
-    qty: Number.parseInt(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit-qty="${line.lineId}"]`)?.value ?? '', 10),
-    actualPrice: Number.parseFloat(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit-price="${line.lineId}"]`)?.value ?? ''),
-    weight: Number.parseFloat(surface.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-edit-weight="${line.lineId}"]`)?.value ?? ''),
-  }))
-  try {
-    updatePmsProductPurchaseOrder(purchaseOrderNo, { supplierName, warehouse, expectedDeliveryDate, remark, purchaser, isUrgent, isFirstOrder, productionArea, lines }, PMS_BUYER_ACTOR)
-    state.feedback = `已保存 ${purchaseOrderNo} 的修改，版本已更新。`
-    state.feedbackOk = true
-    state.overlay = null
-    state.overlayError = ''
-    refreshAll()
-  } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '保存采购单失败，请检查填写内容'
-    refreshOverlays()
-  }
-}
-
-function submitClose(purchaseOrderNo: string): void {
-  const surface = rootElement()?.querySelector<HTMLElement>('[data-pms-ppo-close-root]')
-  if (!surface) return
-  const reason = readTextField(surface as ParentNode, `[data-${EVENT_PREFIX}-close-reason]`)
-  try {
-    closePmsProductPurchaseOrder(purchaseOrderNo, reason, PMS_MANAGER_ACTOR)
-    state.feedback = `已关闭 ${purchaseOrderNo}。`
-    state.feedbackOk = true
-    state.overlay = null
-    state.overlayError = ''
-    refreshAll()
-  } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '关闭采购单失败'
-    refreshOverlays()
-  }
-}
-
-function submitGenerate(purchaseOrderNo: string): void {
-  try {
-    const result = generatePmsMaterialRequirement(purchaseOrderNo, PMS_BUYER_ACTOR)
-    state.feedback = `已生成面辅料需求 ${result.requirementNo}，共 ${result.lines.length} 条物料行，可在面辅料需求分析页下推采购单。`
-    state.feedbackOk = true
-    state.overlay = null
-    state.overlayError = ''
-    refreshAll()
-  } catch (error) {
-    state.overlayError = error instanceof PmsDomainError ? error.message : '生成面辅料需求失败'
-    refreshOverlays()
-  }
-}
-
-export function renderPmsProductPurchaseOrdersPage(): string {
-  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
-  readRouteFilterFromLocation()
-  controller.installColumnDragEvents()
-  return `<div data-pms-ppo-root data-skip-page-rerender="true"><style>[data-pms-ppo-root] [data-standard-list-scroll] td{vertical-align:top}</style>${renderInner()}</div>`
-}
-
-export function closePmsProductPurchaseOrderOverlays(): boolean {
-  if (state.overlay) {
-    state.overlay = null
-    state.overlayError = ''
-    refreshOverlays()
-    return true
-  }
-  if (state.showColumnSettings) {
-    state.showColumnSettings = false
-    refreshOverlays()
-    return true
-  }
-  return false
-}
-
-export function handlePmsProductPurchaseOrdersEvent(target: HTMLElement, event?: Event): boolean {
-  if (!rootElement() && typeof window !== 'undefined') return false
-  if (handlePmsCommonImageEvent(target, event, refreshOverlays)) return true
-  if (rootElement() && handleProcessFilterPresentation(rootElement()!, target)) return true
-  if (event?.type === 'keydown' && event instanceof KeyboardEvent && event.key === 'Escape' && state.overlay) {
-    closeOverlay()
-    return true
-  }
-
-  const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
-  const fieldName = field?.dataset.pmsPpoField
-  if (field && fieldName) {
-    if (fieldName === 'keyword') {
-      state.keyword = field.value
-      return true
-    }
-    if (fieldName === 'status') {
-      state.status = field.value as PpoPageState['status']
-      return true
-    }
-    if (fieldName === 'purchaseType') {
-      state.purchaseType = field.value as PpoPageState['purchaseType']
-      return true
-    }
-    if (fieldName === 'blockedOnly') {
-      state.blockedOnly = field instanceof HTMLInputElement ? field.checked : false
-      return true
-    }
-    if (fieldName === 'pageSize') {
-      controller.setPageSize(Number.parseInt((field as HTMLSelectElement).value, 10))
-      controller.refresh({ overlays: false })
-      return true
-    }
-    return true
-  }
-
-  const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
-  const action = actionNode?.dataset.pmsPpoAction
-  if (!action) {
-    if (target.closest(`[data-${EVENT_PREFIX}-create-field="spu"]`)) {
-      refreshCreateSkuBody()
-      return true
-    }
-    return false
-  }
-
-  if (action === 'query') {
-    state.currentPage = 1
-    state.feedback = ''
-    refreshAll()
-    return true
-  }
-  if (action === 'reset') {
-    state.keyword = ''
-    state.status = ''
-    state.purchaseType = ''
-    state.blockedOnly = false
-    state.currentPage = 1
-    state.feedback = ''
-    refreshAll()
-    return true
-  }
-  if (action === 'export') {
-    exportRows()
-    return true
-  }
-  if (action === 'open-column-settings') {
-    state.showColumnSettings = true
-    refreshOverlays()
-    return true
-  }
-  if (action === 'close-column-settings') {
-    state.showColumnSettings = false
-    refreshOverlays()
-    return true
-  }
-  if (action === 'restore-column-settings') {
-    controller.restorePreferences()
-    refreshOverlays()
-    controller.refresh()
-    return true
-  }
-  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const key = actionNode?.closest<HTMLElement>('[data-pms-ppo-column-key]')?.dataset.pmsPpoColumnKey || ''
-    controller.updateColumnPreference(action, key, actionNode?.closest('input')?.checked)
-    refreshOverlays()
-    controller.refresh()
-    return true
-  }
-  if (action === 'prev-page' || action === 'next-page') {
-    controller.stepPage(action === 'next-page' ? 1 : -1)
-    controller.refresh({ overlays: false })
-    return true
-  }
-  if (action === 'sort-column') {
-    controller.cycleSort(actionNode?.dataset.columnKey || '')
-    controller.refresh()
-    return true
-  }
-  if (action === 'open-detail') {
-    state.overlay = { kind: 'detail', purchaseOrderNo: actionNode?.dataset.orderNo || '', clientActionId: nextPmsActionId('pms-ppo-detail') }
-    state.overlayError = ''
-    refreshOverlays()
-    return true
-  }
-  if (action === 'open-create') {
-    state.overlay = { kind: 'create', clientActionId: nextPmsActionId('pms-ppo-create') }
-    state.overlayError = ''
-    refreshOverlays()
-    return true
-  }
-  if (action === 'open-edit') {
-    state.overlay = { kind: 'edit', purchaseOrderNo: actionNode?.dataset.orderNo || '', clientActionId: nextPmsActionId('pms-ppo-edit') }
-    state.overlayError = ''
-    refreshOverlays()
-    return true
-  }
-  if (action === 'open-close') {
-    state.overlay = { kind: 'close', purchaseOrderNo: actionNode?.dataset.orderNo || '', clientActionId: nextPmsActionId('pms-ppo-close') }
-    state.overlayError = ''
-    refreshOverlays()
-    return true
-  }
-  if (action === 'open-generate') {
-    state.overlay = { kind: 'generate', purchaseOrderNo: actionNode?.dataset.orderNo || '', clientActionId: nextPmsActionId('pms-ppo-generate') }
-    state.overlayError = ''
-    refreshOverlays()
-    return true
-  }
-  if (action === 'advance-status') {
-    const purchaseOrderNo = actionNode?.dataset.orderNo || ''
-    const nextStatus = actionNode?.dataset.nextStatus as PmsProductPurchaseOrderStatus | undefined
-    if (!nextStatus) return true
-    try {
-      advancePmsProductPurchaseOrderStatus(purchaseOrderNo, nextStatus, PMS_MANAGER_ACTOR)
-      state.feedback = `${purchaseOrderNo} 已推进为${nextStatus}。`
-      state.feedbackOk = true
-      refreshAll()
-    } catch (error) {
-      state.overlayError = error instanceof PmsDomainError ? error.message : '状态推进失败'
-      refreshOverlays()
-    }
-    return true
-  }
-  if (action === 'close-overlay') {
-    closeOverlay()
-    return true
-  }
-  if (action === 'submit-create') {
-    submitCreate()
-    return true
-  }
-  if (action === 'submit-edit') {
-    if (state.overlay?.kind === 'edit') submitEdit(state.overlay.purchaseOrderNo)
-    return true
-  }
-  if (action === 'submit-close') {
-    if (state.overlay?.kind === 'close') submitClose(state.overlay.purchaseOrderNo)
-    return true
-  }
-  if (action === 'submit-generate') {
-    if (state.overlay?.kind === 'generate') submitGenerate(state.overlay.purchaseOrderNo)
-    return true
-  }
-  return false
-}
-
-export function getPmsProductPurchaseOrderRowCountForTest(): number {
-  return filteredRows().length
+export async function handlePmsProductPurchaseOrdersEvent(target:HTMLElement,event?:Event):Promise<boolean>{
+ if(!rootElement())return false;if(target.closest('summary'))return true
+ if(state.saving)return true
+ if(handlePmsCommonImageEvent(target,event,refreshOverlay)||handlePmsCoreListControls(target,EVENT_PREFIX,state,controller,refreshOverlay)||handleProcessFilterPresentation(rootElement()!,target))return true
+ if(event instanceof KeyboardEvent&&event.key==='Escape')return closePmsProductPurchaseOrderOverlays()
+ const multi=target.closest<HTMLInputElement>(`[data-${EVENT_PREFIX}-multi]`);if(multi){const key=multi.getAttribute(`data-${EVENT_PREFIX}-multi`)!;state.multis[key]=multi.checked?[...new Set([...(state.multis[key]||[]),multi.value])]:(state.multis[key]||[]).filter(value=>value!==multi.value);return true}
+ const filter=target.closest<HTMLInputElement|HTMLSelectElement>(`[data-${EVENT_PREFIX}-filter]`);if(filter){state.filters[filter.getAttribute(`data-${EVENT_PREFIX}-filter`)!]=filter.value;return true}
+ const field=target.closest<HTMLInputElement|HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`);if(field){const key=field.getAttribute(`data-${EVENT_PREFIX}-field`);if(key==='selection-scope'){const visible=[...rootElement()!.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="select-row"]`)].map(input=>input.dataset.orderNo||'');state.selected=field.value==='all'?filteredRows().map(row=>row.purchaseOrderNo):field.value==='page'?visible:[];controller.refresh({overlays:false});return true}if(key==='keyword')state.keyword=field.value;else if(key==='searchField')state.searchField=field.value;else if(key==='select-row'){const no=field.dataset.orderNo||'';state.selected=(field as HTMLInputElement).checked?[...new Set([...state.selected,no])]:state.selected.filter(value=>value!==no);controller.refresh({overlays:false})}return true}
+ const input=target.closest<HTMLInputElement|HTMLSelectElement>(`[data-${EVENT_PREFIX}-input]`);if(input?.getAttribute(`data-${EVENT_PREFIX}-input`)==='spu'&&state.overlay?.kind==='create'){state.overlay.spu=input.value;refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-sku-form]',renderSkuForm(input.value));return true}
+ const node=target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`),action=node?.getAttribute(`data-${EVENT_PREFIX}-action`),no=node?.dataset.orderNo||'';if(!action)return Boolean(target.closest('[role="dialog"]'))
+ if(action==='select-page'||action==='toggle-page'){const ids=[...rootElement()!.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="select-row"]`)].map(input=>input.dataset.orderNo||'');state.selected=node instanceof HTMLInputElement&&node.checked?[...new Set([...state.selected,...ids])]:state.selected.filter(value=>!ids.includes(value));controller.refresh({overlays:false});return true}
+ if(action==='multi-all'||action==='multi-clear'){const key=node!.dataset.multiKey!;state.multis[key]=action==='multi-all'?multiCandidates(key):[];refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-filters]',renderFilters());return true}
+ if(action==='query'){if(state.filters.minQty&&state.filters.maxQty&&Number(state.filters.minQty)>Number(state.filters.maxQty)){state.feedback='数量最小值不能大于最大值';state.feedbackOk=false}else{state.feedback='';state.currentPage=1;state.selected=[]}refresh();return true}
+ if(action==='reset'){state.keyword='';state.searchField='order';state.filters={};state.multis={};state.selected=[];state.currentPage=1;state.feedback='';refresh();return true}
+ if(action==='export'||action==='export-sku'){const rows=filteredRows();if(!rows.length){state.feedback='当前条件下没有可导出的采购单';state.feedbackOk=false}else{const table=pmsProductPurchaseExportTable(rows,action==='export-sku');downloadPmsCsv(action==='export'?'商品采购单.csv':'采购SKU商品.csv',table.headers,table.rows);state.feedback=`已导出当前条件下 ${rows.length} 张采购单${action==='export-sku'?'的SKU明细':''}`;state.feedbackOk=true}refresh();return true}
+ if(action==='close-overlay'){closePmsProductPurchaseOrderOverlays();return true}
+ if(action==='open-create'){state.overlay={kind:'create',clientActionId:nextPmsActionId('ppo-create'),type:node?.dataset.type as PmsProductPurchaseType||'做货',spu:'',keyword:''};state.overlayError='';refreshOverlay();return true}
+ if(action==='search-spu'&&state.overlay?.kind==='create'){const value=readTextField(rootElement()!,`[data-${EVENT_PREFIX}-input="spuSearch"]`);if(!value.trim()){state.overlayError='请输入SPU或商品名称';refreshOverlay()}else{state.overlay.keyword=value;state.overlayError='';refreshPmsCoreRegion(rootElement(),'[data-pms-ppo-candidates]',renderProductCandidates(value,state.overlay.spu))}return true}
+ if(action==='sku-all'||action==='sku-none'){rootElement()!.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-sku-check]`).forEach(input=>input.checked=action==='sku-all');return true}
+ if(action==='distribute'){const total=Number(readTextField(rootElement()!,`[data-${EVENT_PREFIX}-input="totalQty"]`)),checks=[...rootElement()!.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-sku-check]:checked`)];if(!Number.isInteger(total)||total<=0||!checks.length){state.overlayError='请勾选SKU并填写大于0的整数总量';refreshOverlay();return true}checks.forEach((input,index)=>{const qty=rootElement()!.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-sku-qty="${input.getAttribute(`data-${EVENT_PREFIX}-sku-check`)}"]`);if(qty)qty.value=String(Math.floor(total/checks.length)+(index<total%checks.length?1:0))});state.overlayError='';return true}
+ if(action==='编辑'){const order=getPmsProductPurchaseOrder(no);if(order){state.overlay={kind:'edit',orderNo:no,baseVersion:order._pmsBaseVersion??0,clientActionId:nextPmsActionId('ppo-edit')};state.overlayError='';refreshOverlay()}return true}
+ if(action==='scan'){state.overlay={kind:'scan',clientActionId:nextPmsActionId('ppo-scan')};state.overlayError='';refreshOverlay();return true}
+ if(action==='scan-lookup'){const tracking=readTextField(rootElement()!,`[data-${EVENT_PREFIX}-input="scanTracking"]`),rows=listPmsProductPurchaseOrders().filter(row=>row.expressRecords?.some(entry=>entry.trackingNo===tracking));if(!tracking||!rows.length){state.overlayError='未找到对应运单，请核对单号';refreshOverlay()}else if(rows.length>1){state.overlayError='此运单关联多张采购单，请分别核对实际入库数量';refreshOverlay()}else{state.overlay={kind:'action',action:'运单入库',orderNos:[rows[0].purchaseOrderNo],versions:{[rows[0].purchaseOrderNo]:rows[0]._pmsBaseVersion??0},clientActionId:nextPmsActionId('ppo-inbound')};state.overlayError='';refreshOverlay()}return true}
+ if(action.startsWith('view-')||action==='bulk-sign'){const view=action==='bulk-sign'?'sign':action.slice(5) as Extract<Overlay,{kind:'view'}>['view'],ids=action==='bulk-sign'?state.selected.slice():[no];if(!ids.length){state.feedback='请先勾选采购单';state.feedbackOk=false;refresh();return true}state.overlay={kind:'view',view,orderNos:ids,clientActionId:nextPmsActionId('ppo-view')};state.overlayError='';refreshOverlay();return true}
+ if(action.startsWith('boundary-')){if(action.endsWith('-bulk')&&!state.selected.length){state.feedback='请先勾选采购单';state.feedbackOk=false;refresh();return true}const message=action.includes('partner')?'暂无可选合作商，未更改采购单。':action.includes('tail')?'尾部烫包质检合作商待对接，未更改采购单。':action.includes('oneclick')?'店小秘一键下单待对接，未创建平台订单。':action.includes('materialsample')?'面辅料样衣待对接，未创建样衣业务记录。':'创建工单待对接，未生成工单。';state.overlay={kind:'view',view:'boundary',message,orderNos:no?[no]:state.selected.slice(),clientActionId:nextPmsActionId('ppo-boundary')};state.overlayError='';refreshOverlay();return true}
+ if(action==='generate'){const check=checkPmsGenerateMaterialRequirement(no);state.overlay=check.ok?{kind:'action',action:'生成面辅料需求',orderNos:[no],versions:{[no]:getPmsProductPurchaseOrder(no)?._pmsBaseVersion??0},clientActionId:nextPmsActionId('ppo-material')}:{kind:'view',view:'boundary',orderNos:[no],clientActionId:nextPmsActionId('ppo-material'),message:check.reason};state.overlayError='';refreshOverlay();return true}
+ if(action==='submit-generate'){const op=state.overlay?.clientActionId||nextPmsActionId('ppo-material');state.saving=true;setPmsCoreSavePending(rootElement(),true);try{const result=await generatePmsMaterialRequirement(no,PMS_BUYER_ACTOR,op);state.feedback=`需求 ${pmsBusinessNumber(result.requirementNo)} 已生成，共 ${result.lines.length} 条物料`;state.feedbackOk=true;state.overlay=null}catch(error){state.overlayError=error instanceof Error?error.message:'需求未生成'}finally{state.saving=false;refresh()}return true}
+ if(action==='barcode-reset'){const order=state.overlay?.kind==='view'?getPmsProductPurchaseOrder(state.overlay.orderNos[0]):undefined;order?.lines.forEach(line=>{const input=rootElement()!.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-barcode-qty="${line.sku}"]`);if(input)input.value=String(line.qty)});return true}
+ if(action==='print-barcode'&&state.overlay?.kind==='view'){const sku=node?.dataset.sku;const quantities=Object.fromEntries([...rootElement()!.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-barcode-qty]`)].filter(input=>!sku||input.getAttribute(`data-${EVENT_PREFIX}-barcode-qty`)===sku).map(input=>[input.getAttribute(`data-${EVENT_PREFIX}-barcode-qty`)!,Number(input.value)]));const total=Object.values(quantities).reduce((sum,value)=>sum+value,0);if(!total||Object.values(quantities).some(value=>!Number.isInteger(value)||value<0)||total>2000){state.overlayError='打印数量须为非负整数，合计1至2000张；大批次请分批预览';refreshOverlay();return true}if(Object.keys(quantities).some(code=>!listSkuArchives().find(item=>item.skuCode===code)?.barcode)){state.overlayError='部分SKU缺少正式条码，不能生成打印标签';refreshOverlay();return true}state.overlay={...state.overlay,view:'barcode-print',quantities,clientActionId:nextPmsActionId('ppo-print')};state.overlayError='';refreshOverlay();return true}
+ if(action==='print-preview-confirm'){window.print();return true}
+ const businessAction=action==='bulk'?node?.dataset.businessAction:action
+ const valid=['审核采购','驳回采购','合并采购单','组合生产采购单','设置采购员','修改售卖类型','更改采购类型','采购备注','完善快递信息','确认模板','开启入库','样衣质检','手动出库','复制采购单','现货采购','样衣转做货','拆分采购单','发起售后']
+ if(businessAction&&valid.includes(businessAction)){const ids=action==='bulk'?state.selected.slice():[no];if(!ids.length){state.feedback='请先勾选采购单';state.feedbackOk=false;refresh();return true}state.overlay={kind:'action',action:businessAction as PmsPurchaseLocalAction|'发起售后',orderNos:ids,versions:Object.fromEntries(ids.map(id=>[id,getPmsProductPurchaseOrder(id)?._pmsBaseVersion??0])),clientActionId:nextPmsActionId('ppo-action')};state.overlayError='';refreshOverlay();return true}
+ if(['submit-create','submit-draft','submit-edit','submit-action'].includes(action)){await save(action);return true}
+ return false
 }

@@ -1,54 +1,38 @@
-import { applyPmsSupplierConfirmation, getPmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
-import { PMS_STORES, pmsAll, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
+import { preparePmsSupplierPurchaseConfirmation, publishPmsMaterialPurchaseOrders, getPmsMaterialPurchaseOrder, hydratePmsMaterialPurchaseOrdersFromIdb, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
+import { PMS_STORES, pmsAll, pmsCommitRecords, pmsGetEntityVersion } from './idb-storage.ts'
 import { appendPmsLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
-/**
- * 供应商包装确认单 IDB hydrate 状态机(同其他 PMS 模块模式)。
- */
-let confirmationHydrationStarted = false
 let confirmationHydrationPromise: Promise<void> | null = null
-let confirmationHydrationReady = false
-const pendingHydrationConfirmations: PmsSupplierConfirmation[] = []
-
 export function hydratePmsSupplierConfirmationsFromIdb(): Promise<void> {
-  if (confirmationHydrationStarted) return confirmationHydrationPromise ?? Promise.resolve()
-  confirmationHydrationStarted = true
+  if (confirmationHydrationPromise) return confirmationHydrationPromise
   confirmationHydrationPromise = (async () => {
-    try {
-      const stored = await pmsAll<PmsSupplierConfirmation>(PMS_STORES.pmsSupplierConfirmations)
-      const rt = getRuntime()
-      for (const saved of stored) {
-        const existing = rt.confirmations.find((c) => c.confirmationNo === saved.confirmationNo)
-        if (existing) Object.assign(existing, saved)
-        else rt.confirmations.push(saved)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_LOAD_FAILED] 供应商包装确认单加载失败', { message })
-    } finally {
-      confirmationHydrationReady = true
-      const pending = pendingHydrationConfirmations.splice(0)
-      for (const item of pending) {
-        try {
-          await pmsPut(PMS_STORES.pmsSupplierConfirmations, item)
-        } catch (error) {
-          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败(hydration 后)', { confirmationNo: item.confirmationNo }, error)
-        }
-      }
+    const stored = await pmsAll<PmsSupplierConfirmation>(PMS_STORES.pmsSupplierConfirmations)
+    const rt = getRuntime()
+    for (const saved of stored) {
+      const existing = rt.confirmations.find(item => item.confirmationNo === saved.confirmationNo)
+      if (existing) Object.assign(existing, saved)
+      else rt.confirmations.unshift(saved)
     }
+    for (const row of rt.confirmations) row._pmsBaseVersion = await pmsGetEntityVersion(PMS_STORES.pmsSupplierConfirmations, row.confirmationNo)
   })()
   return confirmationHydrationPromise
 }
-
-function persistPmsSupplierConfirmation(confirmation: PmsSupplierConfirmation): void {
-  if (confirmationHydrationReady) {
-    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
-    pmsPut(PMS_STORES.pmsSupplierConfirmations, confirmation).catch((error: unknown) => {
-      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败', { confirmationNo: confirmation.confirmationNo }, error)
-    })
-  } else {
-    pendingHydrationConfirmations.push(confirmation)
-  }
+async function commitConfirmation(confirmation: PmsSupplierConfirmation, log: Parameters<typeof appendPmsLog>[0], operationId?: string, confirmOrder = false, operationSignature?:string): Promise<void> {
+  const wasConfirmed = getPmsSupplierConfirmation(confirmation.confirmationNo)?.status === '已确认'
+  const reopenOrder = wasConfirmed && confirmation.status !== '已确认'
+  const editsConfirmed = reopenOrder || (wasConfirmed && log.action === '保存并确认')
+  if (confirmOrder || editsConfirmed) await hydratePmsMaterialPurchaseOrdersFromIdb()
+  const currentOrder = editsConfirmed ? getPmsMaterialPurchaseOrder(confirmation.purchaseOrderNo) : undefined
+  if (editsConfirmed && !currentOrder) throw new PmsDomainError('CONF_ORDER_MISSING','关联采购单不存在，发货修改未保存')
+  if (currentOrder && ['已到货','已入库','已关闭'].includes(currentOrder.status)) throw new PmsDomainError('CONF_ORDER_LOCKED',`关联采购单${currentOrder.status}，不能修改已确认发货资料。使用“查看确认单”核对历史资料`)
+  const order = confirmOrder ? preparePmsSupplierPurchaseConfirmation(confirmation.purchaseOrderNo) : reopenOrder && currentOrder ? { ...structuredClone(currentOrder), supplierConfirmed:false, supplierConfirmedAt:'' } : undefined
+  const result = await pmsCommitRecords([{store:PMS_STORES.pmsSupplierConfirmations,value:confirmation},...(order ? [{store:PMS_STORES.pmsMaterialPurchaseOrderDeltas,value:order}] : [])],{operationId,operationSignature:operationSignature || JSON.stringify({action:log.action,beforeValue:log.beforeValue,afterValue:log.afterValue,reason:log.reason}),log})
+  const saved = result.values[0] as PmsSupplierConfirmation
+  const existing = getPmsSupplierConfirmation(saved.confirmationNo)
+  if (existing) Object.assign(existing, saved)
+  else getRuntime().confirmations.unshift(saved)
+  Object.assign(confirmation,saved)
+  if (order) publishPmsMaterialPurchaseOrders([result.values[1] as typeof order])
 }
 
 export type PmsConfirmationStatus = '待确认' | '已编辑' | '已确认'
@@ -109,6 +93,15 @@ export interface PmsSupplierConfirmation {
   rolls: PmsConfirmationRoll[]
   boxSpecs: PmsConfirmationBoxSpec[]
   packageDetails: PmsConfirmationPackageDetail[]
+  actualShipmentQty?: number
+  packageCount?: number
+  totalBoxCount?: number
+  totalWeight?: number
+  totalVolume?: number
+  shipmentDate?: string
+  shipmentRemark?: string
+  purchaseRemark?: string
+  internalRemark?: string
   // § 2.4.3.6 乐观锁
   _pmsBaseVersion?: number
 }
@@ -131,8 +124,8 @@ function qrText(confirmation: PmsSupplierConfirmation, roll: PmsConfirmationRoll
     `包装号：${roll.packageNo}`,
     `箱号：${roll.boxNo}`,
     ...(boxSpec ? [`箱规：${boxSpec.length}×${boxSpec.width}×${boxSpec.height}cm，体积 ${boxSpec.volume}cm³`] : []),
-    `包装数量：${roll.qty}${confirmation.packageUnit}`,
-    `基础数量：${roundPmsQty(roll.qty * confirmation.packageQty, 2)}${confirmation.unit}`,
+    `包装数量：1${confirmation.packageUnit}`,
+    `基础数量：${roll.qty}${confirmation.unit}`,
     ...(roll.weight > 0 ? [`每卷重量：${roll.weight}kg`] : []),
     `供应商：${confirmation.supplierName}`,
     `打印日期：${new Date().toISOString().slice(0, 10)}`,
@@ -242,6 +235,9 @@ function buildInitialRuntime(): PmsConfirmationRuntime {
     confirmations.push(confirmation)
   }
 
+  for (const order of listPmsMaterialPurchaseOrders().filter(order => !confirmations.some(row => row.purchaseOrderNo === order.purchaseOrderNo) && !order.pcsSource && !order.tmfTipSource).slice(0, 2)) {
+    confirmations.push({ confirmationNo:`CONF-2026-${String(confirmations.length + 1).padStart(4,'0')}`,purchaseOrderNo:order.purchaseOrderNo,inboundNo:'',relationNo:'',materialCode:order.materialCode,materialName:order.materialName,materialImageUrl:order.materialImageUrl,styleCode:order.styleCode,styleName:order.styleName,styleImageUrl:order.styleImageUrl,unit:order.unit,packageUnit:'卷',packageQty:100,supplierName:order.supplierName,status:'待确认',editor:'王采购',updatedAt:'2026-10-13T09:00:00+07:00',confirmedBy:'',confirmedAt:'',rolls:[],boxSpecs:[],packageDetails:[] })
+  }
   runtime = { confirmations }
   const fabric = confirmations[0]
   if (fabric) {
@@ -273,14 +269,12 @@ function buildInitialRuntime(): PmsConfirmationRuntime {
     roll.printedBy = '王采购'
     roll.labelStatus = '已打印'
     roll.qrContent = qrText(thread, roll)
-    applyPmsSupplierConfirmation(order3.purchaseOrderNo, { id: 'USR-PMS-CHEN', name: '陈主管', role: '采购主管' })
   }
   return runtime
 }
 
 function getRuntime(): PmsConfirmationRuntime {
   if (!runtime) {
-    getPmsMaterialPurchaseOrder('CGF-2026-0001')
     runtime = buildInitialRuntime()
   }
   return runtime
@@ -295,7 +289,8 @@ export function getPmsSupplierConfirmation(confirmationNo: string): PmsSupplierC
 }
 
 export function derivePmsLabelStatus(roll: PmsConfirmationRoll): PmsLabelStatus {
-  if (!roll.labelNo && roll.labelStatus === '未生成') return '未生成'
+  if (roll.labelStatus === '异常') return '异常'
+  if (!roll.labelNo) return '未生成'
   if (roll.printCount === 0) return '已生成'
   return roll.printCount > 1 ? '已重打' : '已打印'
 }
@@ -303,18 +298,15 @@ export function derivePmsLabelStatus(roll: PmsConfirmationRoll): PmsLabelStatus 
 export function summarizePmsConfirmationLabels(confirmation: PmsSupplierConfirmation): PmsLabelStatus {
   const statuses = confirmation.rolls.map(derivePmsLabelStatus)
   if (statuses.length === 0) return '未生成'
+  if (statuses.some(status=>status==='异常'))return '异常'
   if (statuses.every((status) => status === '未生成')) return '未生成'
-  const generated = statuses.filter((status) => status === '已生成').length
-  const unfinished = statuses.filter((status) => status === '未生成').length
-  if (generated > 0 && unfinished > 0) return '已生成'
-  if (statuses.some((status) => status === '未生成')) return '已生成'
   if (statuses.every((status) => status === '已打印' || status === '已重打')) {
     return statuses.some((status) => status === '已重打') ? '已重打' : '已打印'
   }
-  return '部分打印'
+  return statuses.some(status=>status==='已打印'||status==='已重打') ? '部分打印' : '已生成'
 }
 
-export function generatePmsConfirmationRolls(
+export async function generatePmsConfirmationRolls(
   confirmationNo: string,
   input: {
     rollCount: number
@@ -327,8 +319,11 @@ export function generatePmsConfirmationRolls(
     startSequence?: number
   },
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await Promise.all([hydratePmsSupplierConfirmationsFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb()])
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   if (confirmation.status === '已确认') throw new PmsDomainError('CONF_LOCKED', '已确认的确认单不能重新生成包装明细')
   const numbered = input.rollNoPrefix !== undefined || input.metersPerRoll !== undefined || input.weightPerRoll !== undefined || input.startSequence !== undefined
@@ -337,7 +332,7 @@ export function generatePmsConfirmationRolls(
   const startSequence = input.startSequence
   if (numbered) {
     if (!rollNoPrefix) throw new PmsDomainError('CONF_ROLL_PREFIX_REQUIRED', '卷号前缀不能为空')
-    if (metersPerRoll === undefined || !Number.isFinite(metersPerRoll) || metersPerRoll <= 0) throw new PmsDomainError('CONF_METERS_PER_ROLL_INVALID', '每卷米数必须大于 0')
+    if (metersPerRoll === undefined || !Number.isFinite(metersPerRoll) || metersPerRoll <= 0) throw new PmsDomainError('CONF_METERS_PER_ROLL_INVALID', '每包装基础数量必须大于 0')
     if (startSequence === undefined || !Number.isInteger(startSequence) || startSequence < 1) throw new PmsDomainError('CONF_START_SEQUENCE_INVALID', '起始序号必须是大于等于 1 的整数')
     if (input.weightPerRoll !== undefined && (!Number.isFinite(input.weightPerRoll) || input.weightPerRoll <= 0)) throw new PmsDomainError('CONF_WEIGHT_PER_ROLL_INVALID', '每卷重量必须大于 0')
   } else if (!Number.isInteger(input.rollCount) || input.rollCount <= 0) {
@@ -367,7 +362,7 @@ export function generatePmsConfirmationRolls(
   confirmation.status = '已编辑'
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({
+  await commitConfirmation(confirmation, {
     objectType: 'supplier-confirmation',
     objectId: confirmationNo,
     action: '生成包装明细',
@@ -377,8 +372,7 @@ export function generatePmsConfirmationRolls(
     actorId: actor.id,
     actorName: actor.name,
     actorRole: actor.role,
-  })
-  persistPmsSupplierConfirmation(confirmation)
+  }, operationId, false, JSON.stringify({confirmationNo,input}))
   return confirmation
 }
 
@@ -394,12 +388,15 @@ function markConfirmationPackageEdited(confirmation: PmsSupplierConfirmation): v
   }
 }
 
-export function addPmsConfirmationBoxSpec(
+export async function addPmsConfirmationBoxSpec(
   confirmationNo: string,
   input: { boxNo: string; length: number; width: number; height: number; volume?: number; remark?: string },
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const boxNo = input.boxNo.trim()
   if (!boxNo) throw new PmsDomainError('CONF_BOX_NO_REQUIRED', '箱号不能为空')
@@ -419,17 +416,19 @@ export function addPmsConfirmationBoxSpec(
   markConfirmationPackageEdited(confirmation)
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '新增箱规', beforeValue: '', afterValue: `${boxNo} · ${length}×${width}×${height}cm · ${volume}cm³`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '新增箱规', beforeValue: '', afterValue: `${boxNo} · ${length}×${width}×${height}cm · ${volume}cm³`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,input}))
   return confirmation
 }
 
-export function removePmsConfirmationBoxSpec(
+export async function removePmsConfirmationBoxSpec(
   confirmationNo: string,
   boxNo: string,
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const index = confirmation.boxSpecs.findIndex((spec) => spec.boxNo === boxNo)
   if (index < 0) throw new PmsDomainError('CONF_BOX_SPEC_NOT_FOUND', `箱规 ${boxNo} 不存在`)
@@ -439,17 +438,19 @@ export function removePmsConfirmationBoxSpec(
   markConfirmationPackageEdited(confirmation)
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '删除箱规', beforeValue: `${removed.boxNo} · ${removed.length}×${removed.width}×${removed.height}cm · ${removed.volume}cm³`, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '删除箱规', beforeValue: `${removed.boxNo} · ${removed.length}×${removed.width}×${removed.height}cm · ${removed.volume}cm³`, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,boxNo}))
   return confirmation
 }
 
-export function addPmsConfirmationPackageDetail(
+export async function addPmsConfirmationPackageDetail(
   confirmationNo: string,
   input: { packageMethod: string; qty: number; unit: string; remark?: string },
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const packageMethod = input.packageMethod.trim()
   if (!packageMethod) throw new PmsDomainError('CONF_PACKAGE_METHOD_REQUIRED', '包装方式不能为空')
@@ -461,17 +462,19 @@ export function addPmsConfirmationPackageDetail(
   markConfirmationPackageEdited(confirmation)
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '新增包装明细', beforeValue: '', afterValue: `${packageMethod} · ${qty} ${unit}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '新增包装明细', beforeValue: '', afterValue: `${packageMethod} · ${qty} ${unit}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,input}))
   return confirmation
 }
 
-export function removePmsConfirmationPackageDetail(
+export async function removePmsConfirmationPackageDetail(
   confirmationNo: string,
   packageDetailNo: string,
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const index = confirmation.packageDetails.findIndex((detail) => detail.packageDetailNo === packageDetailNo)
   if (index < 0) throw new PmsDomainError('CONF_PACKAGE_DETAIL_NOT_FOUND', `包装明细 ${packageDetailNo} 不存在`)
@@ -479,34 +482,38 @@ export function removePmsConfirmationPackageDetail(
   markConfirmationPackageEdited(confirmation)
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '删除包装明细', beforeValue: `${removed.packageMethod} · ${removed.qty} ${removed.unit}`, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '删除包装明细', beforeValue: `${removed.packageMethod} · ${removed.qty} ${removed.unit}`, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,packageDetailNo}))
   return confirmation
 }
 
-export function recordPmsConfirmationLabelDownload(
+export async function recordPmsConfirmationLabelDownload(
   confirmationNo: string,
   rollNos: string[],
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const targets = confirmation.rolls.filter((roll) => rollNos.includes(roll.rollNo))
   if (targets.length === 0) throw new PmsDomainError('CONF_ROLL_NOT_FOUND', '请选择要下载标签的包装')
   targets.forEach((roll) => {
     if (!roll.labelNo) throw new PmsDomainError('CONF_LABEL_REQUIRED', `${roll.packageNo} 还没有生成标签`)
   })
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '下载标签 PNG', beforeValue: '', afterValue: `${targets.length} 个包装标签`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '下载标签 PNG', beforeValue: '', afterValue: `${targets.length} 个包装标签`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,rollNos}))
   return confirmation
 }
 
-export function generatePmsConfirmationLabels(
+export async function generatePmsConfirmationLabels(
   confirmationNo: string,
   rollNos: string[],
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   if (confirmation.status === '已确认') throw new PmsDomainError('CONF_LOCKED', '已确认的确认单不能生成标签')
   if (confirmation.rolls.length === 0) throw new PmsDomainError('CONF_ROLLS_REQUIRED', '请先生成包装明细')
@@ -514,7 +521,7 @@ export function generatePmsConfirmationLabels(
   if (targets.length === 0) throw new PmsDomainError('CONF_ROLL_NOT_FOUND', '请选择要生成标签的包装')
   targets.forEach((roll) => {
     if (!roll.labelNo) {
-      roll.labelNo = nextPmsSequence('LAB', 4)
+      roll.labelNo = `LAB-${confirmationNo.replace(/^CONF-/,'')}-${String(confirmation.rolls.findIndex(item=>item.rollNo===roll.rollNo)+1).padStart(3,'0')}`
       roll.labelStatus = '已生成'
       roll.printCount = 0
     }
@@ -522,39 +529,39 @@ export function generatePmsConfirmationLabels(
   })
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '生成标签', beforeValue: '', afterValue: `${targets.length} 个包装标签`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '生成标签', beforeValue: '', afterValue: `${targets.length} 个包装标签`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,rollNos}))
   return confirmation
 }
 
-export function printPmsConfirmationLabels(
+export async function printPmsConfirmationLabels(
   confirmationNo: string,
   rollNos: string[],
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const targets = confirmation.rolls.filter((roll) => rollNos.includes(roll.rollNo))
   if (targets.length === 0) throw new PmsDomainError('CONF_ROLL_NOT_FOUND', '请选择要打印的标签')
   targets.forEach((roll) => {
     if (!roll.labelNo) throw new PmsDomainError('CONF_LABEL_REQUIRED', `${roll.packageNo} 还没有生成标签`)
-    roll.printCount += 1
-    roll.printedAt = new Date().toISOString()
-    roll.printedBy = actor.name
-    roll.labelStatus = derivePmsLabelStatus(roll)
   })
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '打印标签', beforeValue: '', afterValue: `${targets.length} 个包装`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '打开标签打印预览', beforeValue: '', afterValue: `${targets.length} 个包装`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,rollNos}))
   return confirmation
 }
 
-export function updatePmsConfirmationRoll(
+export async function updatePmsConfirmationRoll(
   confirmationNo: string,
   rollNo: string,
   patch: { qty?: number; weight?: number; boxNo?: string; remark?: string },
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   const roll = confirmation.rolls.find((item) => item.rollNo === rollNo)
   if (!roll) throw new PmsDomainError('CONF_ROLL_NOT_FOUND', `包装 ${rollNo} 不存在`)
@@ -576,8 +583,7 @@ export function updatePmsConfirmationRoll(
   }
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '编辑包装明细', beforeValue: '', afterValue: roll.packageNo, reason: confirmation.status === '已编辑' ? '已确认单被修改，需要重新确认' : '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '编辑包装明细', beforeValue: '', afterValue: roll.packageNo, reason: confirmation.status === '已编辑' ? '已确认单被修改，需要重新确认' : '', actorId: actor.id, actorName: actor.name, actorRole: actor.role }, operationId, false, JSON.stringify({confirmationNo,rollNo,patch}))
   return confirmation
 }
 
@@ -590,25 +596,63 @@ export function checkPmsConfirmation(confirmationNo: string): { ok: boolean; rea
   return { ok: true, reason: '' }
 }
 
-export function confirmPmsSupplierConfirmation(
+export async function confirmPmsSupplierConfirmation(
   confirmationNo: string,
   actor: { id: string; name: string; role: PmsActorRole },
-): PmsSupplierConfirmation {
+  operationId?: string,
+): Promise<PmsSupplierConfirmation> {
+  await hydratePmsSupplierConfirmationsFromIdb()
   const check = checkPmsConfirmation(confirmationNo)
   if (!check.ok) throw new PmsDomainError('CONF_BLOCKED', check.reason)
-  const confirmation = getPmsSupplierConfirmation(confirmationNo)
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  const confirmation = source ? structuredClone(source) : undefined
   if (!confirmation) throw new PmsDomainError('CONF_NOT_FOUND', `供应商确认单 ${confirmationNo} 不存在`)
   confirmation.status = '已确认'
   confirmation.confirmedBy = actor.name
   confirmation.confirmedAt = new Date().toISOString()
   confirmation.updatedAt = new Date().toISOString()
-  applyPmsSupplierConfirmation(confirmation.purchaseOrderNo, actor)
-  appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '确认', beforeValue: '待确认', afterValue: '已确认', reason: '确认后回写采购单', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
-  persistPmsSupplierConfirmation(confirmation)
+  await commitConfirmation(confirmation, { objectType: 'supplier-confirmation', objectId: confirmationNo, action: '确认', beforeValue: '待确认', afterValue: '已确认', reason: '确认后回写采购单', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true }, operationId, true, JSON.stringify({confirmationNo}))
   return confirmation
 }
 
 export function resetPmsConfirmationRuntimeForTest(): void {
   runtime = null
   rollSequence = 0
+}
+
+export interface PmsConfirmationShipmentPatch { actualShipmentQty:number;packageCount:number;totalBoxCount:number;totalWeight:number;totalVolume:number;shipmentDate:string;shipmentRemark:string;purchaseRemark:string;internalRemark:string;rolls:Array<{rollNo:string;qty:number;weight:number;boxNo:string;remark:string}> }
+export async function savePmsConfirmationShipment(confirmationNo:string, patch:PmsConfirmationShipmentPatch, actor:{id:string;name:string;role:PmsActorRole}, confirm = false, operationId?:string):Promise<PmsSupplierConfirmation> {
+  await Promise.all([hydratePmsSupplierConfirmationsFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb()])
+  const source = getPmsSupplierConfirmation(confirmationNo)
+  if (!source) throw new PmsDomainError('CONF_NOT_FOUND','供应商确认单不存在')
+  if (![patch.actualShipmentQty,patch.packageCount].every(value => Number.isFinite(value) && value > 0) || !Number.isInteger(patch.packageCount)) throw new PmsDomainError('CONF_SHIPMENT_QTY_INVALID','实际发货数量必须大于 0，包装数量必须为正整数')
+  for (const value of [patch.totalBoxCount,patch.totalWeight,patch.totalVolume]) if (!Number.isFinite(value) || value < 0) throw new PmsDomainError('CONF_SHIPMENT_VALUE_INVALID','箱数、重量、体积不能为负数')
+  if (!Number.isInteger(patch.totalBoxCount)) throw new PmsDomainError('CONF_BOX_INVALID','箱数必须为整数')
+  if (patch.shipmentDate && (!/^\d{4}-\d{2}-\d{2}$/.test(patch.shipmentDate) || !Number.isFinite(Date.parse(patch.shipmentDate)) || new Date(patch.shipmentDate).toISOString().slice(0,10) !== patch.shipmentDate)) throw new PmsDomainError('CONF_SHIPMENT_DATE_INVALID','发货日期格式不正确')
+  const candidate = structuredClone(source)
+  if (patch.rolls.length !== candidate.rolls.length || new Set(patch.rolls.map(roll=>roll.rollNo)).size !== patch.rolls.length) throw new PmsDomainError('CONF_ROLL_SET_INVALID','包装明细已变更，重新打开确认单后填写')
+  for (const roll of patch.rolls) {
+    const target = candidate.rolls.find(item => item.rollNo === roll.rollNo)
+    if (!target || !Number.isFinite(roll.qty) || roll.qty <= 0 || !Number.isFinite(roll.weight) || roll.weight < 0) throw new PmsDomainError('CONF_ROLL_QTY_INVALID','包装数量必须大于 0，重量不能为负数')
+    Object.assign(target,roll)
+    if (target.labelNo) target.qrContent = qrText(candidate,target)
+  }
+  if (candidate.rolls.length && Math.abs(candidate.rolls.reduce((sum,roll) => sum + roll.qty,0) - patch.actualShipmentQty) > 0.01) throw new PmsDomainError('CONF_SHIPMENT_TOTAL_MISMATCH','包装明细基础数量合计与实际发货数量不一致')
+  const {rolls:_rolls,...header} = patch
+  Object.assign(candidate,header,{status:confirm ? '已确认' : '已编辑',editor:actor.name,updatedAt:new Date().toISOString()})
+  if (!confirm) { candidate.confirmedBy='';candidate.confirmedAt='' }
+  if (confirm) { if (!candidate.rolls.length || candidate.rolls.some(roll => !roll.labelNo)) throw new PmsDomainError('CONF_LABEL_REQUIRED','先生成包装明细与全部标签后再确认'); candidate.confirmedBy=actor.name;candidate.confirmedAt=new Date().toISOString() }
+  await commitConfirmation(candidate,{objectType:'supplier-confirmation',objectId:confirmationNo,action:confirm ? '保存并确认' : '保存草稿',beforeValue:source.status,afterValue:candidate.status,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role,secondConfirmation:confirm},operationId,confirm,JSON.stringify({confirmationNo,patch,confirm}))
+  return candidate
+}
+export async function synchronizePmsSupplierConfirmations(actor:{id:string;name:string;role:PmsActorRole},operationId?:string):Promise<number> {
+  await Promise.all([hydratePmsSupplierConfirmationsFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb()])
+  const candidates = listPmsMaterialPurchaseOrders().filter(order => {
+    if(getRuntime().confirmations.some(row => row.purchaseOrderNo === order.purchaseOrderNo))return false
+    try { preparePmsSupplierPurchaseConfirmation(order.purchaseOrderNo);return true } catch(error) { if(error instanceof PmsDomainError && error.code==='MPO_CONFIRM_BLOCKED')return false;throw error }
+  }).map(order => ({confirmationNo:`CONF-${order.purchaseOrderNo}`,purchaseOrderNo:order.purchaseOrderNo,inboundNo:'',relationNo:'',materialCode:order.materialCode,materialName:order.materialName,materialImageUrl:order.materialImageUrl,styleCode:order.styleCode,styleName:order.styleName,styleImageUrl:order.styleImageUrl,unit:order.unit,packageUnit:'卷',packageQty:1,supplierName:order.supplierName,status:'待确认' as const,editor:actor.name,updatedAt:new Date().toISOString(),confirmedBy:'',confirmedAt:'',rolls:[],boxSpecs:[],packageDetails:[]}))
+  if (!candidates.length) return 0
+  const result = await pmsCommitRecords(candidates.map(value => ({store:PMS_STORES.pmsSupplierConfirmations,value,expectedVersion:0})),{operationId,operationSignature:JSON.stringify(candidates.map(row=>row.purchaseOrderNo)),log:{objectType:'supplier-confirmation',objectId:'SYNC',action:'同步采购单',beforeValue:'',afterValue:`${candidates.length} 条`,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role}})
+  getRuntime().confirmations.unshift(...result.values as PmsSupplierConfirmation[])
+  return candidates.length
 }

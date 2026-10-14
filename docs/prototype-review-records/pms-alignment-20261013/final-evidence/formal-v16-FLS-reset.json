@@ -1,0 +1,927 @@
+[
+  {
+    "label": "v16-FLS-reset-0",
+    "route": "/pms/first-leg-shipments",
+    "event": "click",
+    "viewport": [
+      1366,
+      768
+    ],
+    "start": 69285.20000004768,
+    "elapsedMs": 54.59999996423721,
+    "result": "通过",
+    "error": null,
+    "persistentRows": null,
+    "generatedFile": null,
+    "visibleImages": 0,
+    "shellPreserved": true,
+    "readableText": "\n      批量装柜\n    ",
+    "layout": {
+      "h1": "头程物流",
+      "viewport": 1366,
+      "pageWidth": 1366,
+      "bodyWidth": 1366,
+      "mainWidth": 1126,
+      "menu": [
+        {
+          "title": "采购建议",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购建议",
+          "iconCount": 1,
+          "href": "/pms/purchase-suggestions"
+        },
+        {
+          "title": "KOL采购需求",
+          "iconCount": 1,
+          "href": "/pms/kol-demands"
+        },
+        {
+          "title": "商品采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购单",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-orders"
+        },
+        {
+          "title": "备货列表",
+          "iconCount": 1,
+          "href": "/pms/reorder"
+        },
+        {
+          "title": "商品采购售后",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-order-aftersales"
+        },
+        {
+          "title": "面辅料采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料需求分析",
+          "iconCount": 1,
+          "href": "/pms/material-requirements"
+        },
+        {
+          "title": "面辅料采购单",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-orders"
+        },
+        {
+          "title": "面辅料采购跟踪",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-tracking"
+        },
+        {
+          "title": "面辅料采购时效",
+          "iconCount": 1,
+          "href": "/pms/fitting-timeliness"
+        },
+        {
+          "title": "面辅料供应商确认",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料供应商确认单",
+          "iconCount": 1,
+          "href": "/pms/material-supplier-confirmations"
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 1,
+          "href": "/pms/first-leg-shipments"
+        },
+        {
+          "title": "库存查询",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "原料仓库存查询",
+          "iconCount": 1,
+          "href": "/pms/material-inventory"
+        },
+        {
+          "title": "采购对账",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料采购请款",
+          "iconCount": 1,
+          "href": "/pms/material-payment-requests"
+        },
+        {
+          "title": "物流费用请款",
+          "iconCount": 1,
+          "href": "/pms/logistics-payment-requests"
+        },
+        {
+          "title": "KOL样衣申请",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "KOL库存",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock"
+        },
+        {
+          "title": "手动寄样申请",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-apply"
+        },
+        {
+          "title": "对外样品池链接",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-link"
+        },
+        {
+          "title": "锁定操作记录",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock/lock-log"
+        },
+        {
+          "title": "基础资料",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品供应商管理",
+          "iconCount": 1,
+          "href": "/pms/suppliers"
+        },
+        {
+          "title": "供应商供货档案",
+          "iconCount": 1,
+          "href": "/pms/supplier-supply-archives"
+        },
+        {
+          "title": "头程物流商管理",
+          "iconCount": 1,
+          "href": "/pms/first-leg-carriers"
+        }
+      ],
+      "footer": "箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\t\nFL-DEMO-5\n待起运\n王采购 · 2026-06-13 11:00 WIB\n\t\n深圳市迅达国际物流有限公司\n深圳-雅加达 海派专线\n海派 · 12天 · 计费重 · 报税\n\t\n深圳转运中心\n印尼雅加达面辅料仓\n计划起运 2026-06-16\n\t\nSZX2606-0018\nSITC 海丰国际 · 海运\n深圳蛇口仓 · A区 · 预计送达 2026-06-28\n\t\n0 条物流 ·\n¥0.00\n卷数 0\n\t\n总箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\n共 6 条，当前 1-5\n\n5 条/页\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 2\n下一页",
+      "tables": [
+        {
+          "width": 1044,
+          "scroll": 1732
+        }
+      ]
+    },
+    "finishedAt": "2026-10-13T23:18:20.108Z"
+  },
+  {
+    "label": "v16-FLS-reset-1",
+    "route": "/pms/first-leg-shipments",
+    "event": "click",
+    "viewport": [
+      1366,
+      768
+    ],
+    "start": 70300.90000003576,
+    "elapsedMs": 32.89999997615814,
+    "result": "通过",
+    "error": null,
+    "persistentRows": null,
+    "generatedFile": null,
+    "visibleImages": 0,
+    "shellPreserved": true,
+    "readableText": "\n      批量装柜\n    ",
+    "layout": {
+      "h1": "头程物流",
+      "viewport": 1366,
+      "pageWidth": 1366,
+      "bodyWidth": 1366,
+      "mainWidth": 1126,
+      "menu": [
+        {
+          "title": "采购建议",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购建议",
+          "iconCount": 1,
+          "href": "/pms/purchase-suggestions"
+        },
+        {
+          "title": "KOL采购需求",
+          "iconCount": 1,
+          "href": "/pms/kol-demands"
+        },
+        {
+          "title": "商品采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购单",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-orders"
+        },
+        {
+          "title": "备货列表",
+          "iconCount": 1,
+          "href": "/pms/reorder"
+        },
+        {
+          "title": "商品采购售后",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-order-aftersales"
+        },
+        {
+          "title": "面辅料采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料需求分析",
+          "iconCount": 1,
+          "href": "/pms/material-requirements"
+        },
+        {
+          "title": "面辅料采购单",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-orders"
+        },
+        {
+          "title": "面辅料采购跟踪",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-tracking"
+        },
+        {
+          "title": "面辅料采购时效",
+          "iconCount": 1,
+          "href": "/pms/fitting-timeliness"
+        },
+        {
+          "title": "面辅料供应商确认",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料供应商确认单",
+          "iconCount": 1,
+          "href": "/pms/material-supplier-confirmations"
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 1,
+          "href": "/pms/first-leg-shipments"
+        },
+        {
+          "title": "库存查询",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "原料仓库存查询",
+          "iconCount": 1,
+          "href": "/pms/material-inventory"
+        },
+        {
+          "title": "采购对账",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料采购请款",
+          "iconCount": 1,
+          "href": "/pms/material-payment-requests"
+        },
+        {
+          "title": "物流费用请款",
+          "iconCount": 1,
+          "href": "/pms/logistics-payment-requests"
+        },
+        {
+          "title": "KOL样衣申请",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "KOL库存",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock"
+        },
+        {
+          "title": "手动寄样申请",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-apply"
+        },
+        {
+          "title": "对外样品池链接",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-link"
+        },
+        {
+          "title": "锁定操作记录",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock/lock-log"
+        },
+        {
+          "title": "基础资料",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品供应商管理",
+          "iconCount": 1,
+          "href": "/pms/suppliers"
+        },
+        {
+          "title": "供应商供货档案",
+          "iconCount": 1,
+          "href": "/pms/supplier-supply-archives"
+        },
+        {
+          "title": "头程物流商管理",
+          "iconCount": 1,
+          "href": "/pms/first-leg-carriers"
+        }
+      ],
+      "footer": "箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\t\nFL-DEMO-5\n待起运\n王采购 · 2026-06-13 11:00 WIB\n\t\n深圳市迅达国际物流有限公司\n深圳-雅加达 海派专线\n海派 · 12天 · 计费重 · 报税\n\t\n深圳转运中心\n印尼雅加达面辅料仓\n计划起运 2026-06-16\n\t\nSZX2606-0018\nSITC 海丰国际 · 海运\n深圳蛇口仓 · A区 · 预计送达 2026-06-28\n\t\n0 条物流 ·\n¥0.00\n卷数 0\n\t\n总箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\n共 6 条，当前 1-5\n\n5 条/页\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 2\n下一页",
+      "tables": [
+        {
+          "width": 1044,
+          "scroll": 1732
+        }
+      ]
+    },
+    "finishedAt": "2026-10-13T23:18:21.102Z"
+  },
+  {
+    "label": "v16-FLS-reset-2",
+    "route": "/pms/first-leg-shipments",
+    "event": "click",
+    "viewport": [
+      1366,
+      768
+    ],
+    "start": 71336.90000003576,
+    "elapsedMs": 53.30000001192093,
+    "result": "通过",
+    "error": null,
+    "persistentRows": null,
+    "generatedFile": null,
+    "visibleImages": 0,
+    "shellPreserved": true,
+    "readableText": "\n      批量装柜\n    ",
+    "layout": {
+      "h1": "头程物流",
+      "viewport": 1366,
+      "pageWidth": 1366,
+      "bodyWidth": 1366,
+      "mainWidth": 1126,
+      "menu": [
+        {
+          "title": "采购建议",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购建议",
+          "iconCount": 1,
+          "href": "/pms/purchase-suggestions"
+        },
+        {
+          "title": "KOL采购需求",
+          "iconCount": 1,
+          "href": "/pms/kol-demands"
+        },
+        {
+          "title": "商品采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购单",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-orders"
+        },
+        {
+          "title": "备货列表",
+          "iconCount": 1,
+          "href": "/pms/reorder"
+        },
+        {
+          "title": "商品采购售后",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-order-aftersales"
+        },
+        {
+          "title": "面辅料采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料需求分析",
+          "iconCount": 1,
+          "href": "/pms/material-requirements"
+        },
+        {
+          "title": "面辅料采购单",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-orders"
+        },
+        {
+          "title": "面辅料采购跟踪",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-tracking"
+        },
+        {
+          "title": "面辅料采购时效",
+          "iconCount": 1,
+          "href": "/pms/fitting-timeliness"
+        },
+        {
+          "title": "面辅料供应商确认",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料供应商确认单",
+          "iconCount": 1,
+          "href": "/pms/material-supplier-confirmations"
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 1,
+          "href": "/pms/first-leg-shipments"
+        },
+        {
+          "title": "库存查询",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "原料仓库存查询",
+          "iconCount": 1,
+          "href": "/pms/material-inventory"
+        },
+        {
+          "title": "采购对账",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料采购请款",
+          "iconCount": 1,
+          "href": "/pms/material-payment-requests"
+        },
+        {
+          "title": "物流费用请款",
+          "iconCount": 1,
+          "href": "/pms/logistics-payment-requests"
+        },
+        {
+          "title": "KOL样衣申请",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "KOL库存",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock"
+        },
+        {
+          "title": "手动寄样申请",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-apply"
+        },
+        {
+          "title": "对外样品池链接",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-link"
+        },
+        {
+          "title": "锁定操作记录",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock/lock-log"
+        },
+        {
+          "title": "基础资料",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品供应商管理",
+          "iconCount": 1,
+          "href": "/pms/suppliers"
+        },
+        {
+          "title": "供应商供货档案",
+          "iconCount": 1,
+          "href": "/pms/supplier-supply-archives"
+        },
+        {
+          "title": "头程物流商管理",
+          "iconCount": 1,
+          "href": "/pms/first-leg-carriers"
+        }
+      ],
+      "footer": "箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\t\nFL-DEMO-5\n待起运\n王采购 · 2026-06-13 11:00 WIB\n\t\n深圳市迅达国际物流有限公司\n深圳-雅加达 海派专线\n海派 · 12天 · 计费重 · 报税\n\t\n深圳转运中心\n印尼雅加达面辅料仓\n计划起运 2026-06-16\n\t\nSZX2606-0018\nSITC 海丰国际 · 海运\n深圳蛇口仓 · A区 · 预计送达 2026-06-28\n\t\n0 条物流 ·\n¥0.00\n卷数 0\n\t\n总箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\n共 6 条，当前 1-5\n\n5 条/页\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 2\n下一页",
+      "tables": [
+        {
+          "width": 1044,
+          "scroll": 1732
+        }
+      ]
+    },
+    "finishedAt": "2026-10-13T23:18:22.158Z"
+  },
+  {
+    "label": "v16-FLS-reset-3",
+    "route": "/pms/first-leg-shipments",
+    "event": "click",
+    "viewport": [
+      1366,
+      768
+    ],
+    "start": 72371.90000003576,
+    "elapsedMs": 52.69999998807907,
+    "result": "通过",
+    "error": null,
+    "persistentRows": null,
+    "generatedFile": null,
+    "visibleImages": 0,
+    "shellPreserved": true,
+    "readableText": "\n      批量装柜\n    ",
+    "layout": {
+      "h1": "头程物流",
+      "viewport": 1366,
+      "pageWidth": 1366,
+      "bodyWidth": 1366,
+      "mainWidth": 1126,
+      "menu": [
+        {
+          "title": "采购建议",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购建议",
+          "iconCount": 1,
+          "href": "/pms/purchase-suggestions"
+        },
+        {
+          "title": "KOL采购需求",
+          "iconCount": 1,
+          "href": "/pms/kol-demands"
+        },
+        {
+          "title": "商品采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购单",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-orders"
+        },
+        {
+          "title": "备货列表",
+          "iconCount": 1,
+          "href": "/pms/reorder"
+        },
+        {
+          "title": "商品采购售后",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-order-aftersales"
+        },
+        {
+          "title": "面辅料采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料需求分析",
+          "iconCount": 1,
+          "href": "/pms/material-requirements"
+        },
+        {
+          "title": "面辅料采购单",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-orders"
+        },
+        {
+          "title": "面辅料采购跟踪",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-tracking"
+        },
+        {
+          "title": "面辅料采购时效",
+          "iconCount": 1,
+          "href": "/pms/fitting-timeliness"
+        },
+        {
+          "title": "面辅料供应商确认",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料供应商确认单",
+          "iconCount": 1,
+          "href": "/pms/material-supplier-confirmations"
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 1,
+          "href": "/pms/first-leg-shipments"
+        },
+        {
+          "title": "库存查询",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "原料仓库存查询",
+          "iconCount": 1,
+          "href": "/pms/material-inventory"
+        },
+        {
+          "title": "采购对账",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料采购请款",
+          "iconCount": 1,
+          "href": "/pms/material-payment-requests"
+        },
+        {
+          "title": "物流费用请款",
+          "iconCount": 1,
+          "href": "/pms/logistics-payment-requests"
+        },
+        {
+          "title": "KOL样衣申请",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "KOL库存",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock"
+        },
+        {
+          "title": "手动寄样申请",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-apply"
+        },
+        {
+          "title": "对外样品池链接",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-link"
+        },
+        {
+          "title": "锁定操作记录",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock/lock-log"
+        },
+        {
+          "title": "基础资料",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品供应商管理",
+          "iconCount": 1,
+          "href": "/pms/suppliers"
+        },
+        {
+          "title": "供应商供货档案",
+          "iconCount": 1,
+          "href": "/pms/supplier-supply-archives"
+        },
+        {
+          "title": "头程物流商管理",
+          "iconCount": 1,
+          "href": "/pms/first-leg-carriers"
+        }
+      ],
+      "footer": "箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\t\nFL-DEMO-5\n待起运\n王采购 · 2026-06-13 11:00 WIB\n\t\n深圳市迅达国际物流有限公司\n深圳-雅加达 海派专线\n海派 · 12天 · 计费重 · 报税\n\t\n深圳转运中心\n印尼雅加达面辅料仓\n计划起运 2026-06-16\n\t\nSZX2606-0018\nSITC 海丰国际 · 海运\n深圳蛇口仓 · A区 · 预计送达 2026-06-28\n\t\n0 条物流 ·\n¥0.00\n卷数 0\n\t\n总箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\n共 6 条，当前 1-5\n\n5 条/页\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 2\n下一页",
+      "tables": [
+        {
+          "width": 1044,
+          "scroll": 1732
+        }
+      ]
+    },
+    "finishedAt": "2026-10-13T23:18:23.193Z"
+  },
+  {
+    "label": "v16-FLS-reset-4",
+    "route": "/pms/first-leg-shipments",
+    "event": "click",
+    "viewport": [
+      1366,
+      768
+    ],
+    "start": 73366.30000001192,
+    "elapsedMs": 30,
+    "result": "通过",
+    "error": null,
+    "persistentRows": null,
+    "generatedFile": null,
+    "visibleImages": 0,
+    "shellPreserved": true,
+    "readableText": "\n      批量装柜\n    ",
+    "layout": {
+      "h1": "头程物流",
+      "viewport": 1366,
+      "pageWidth": 1366,
+      "bodyWidth": 1366,
+      "mainWidth": 1126,
+      "menu": [
+        {
+          "title": "采购建议",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购建议",
+          "iconCount": 1,
+          "href": "/pms/purchase-suggestions"
+        },
+        {
+          "title": "KOL采购需求",
+          "iconCount": 1,
+          "href": "/pms/kol-demands"
+        },
+        {
+          "title": "商品采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品采购单",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-orders"
+        },
+        {
+          "title": "备货列表",
+          "iconCount": 1,
+          "href": "/pms/reorder"
+        },
+        {
+          "title": "商品采购售后",
+          "iconCount": 1,
+          "href": "/pms/product-purchase-order-aftersales"
+        },
+        {
+          "title": "面辅料采购",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料需求分析",
+          "iconCount": 1,
+          "href": "/pms/material-requirements"
+        },
+        {
+          "title": "面辅料采购单",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-orders"
+        },
+        {
+          "title": "面辅料采购跟踪",
+          "iconCount": 1,
+          "href": "/pms/material-purchase-tracking"
+        },
+        {
+          "title": "面辅料采购时效",
+          "iconCount": 1,
+          "href": "/pms/fitting-timeliness"
+        },
+        {
+          "title": "面辅料供应商确认",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料供应商确认单",
+          "iconCount": 1,
+          "href": "/pms/material-supplier-confirmations"
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "头程物流",
+          "iconCount": 1,
+          "href": "/pms/first-leg-shipments"
+        },
+        {
+          "title": "库存查询",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "原料仓库存查询",
+          "iconCount": 1,
+          "href": "/pms/material-inventory"
+        },
+        {
+          "title": "采购对账",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "面辅料采购请款",
+          "iconCount": 1,
+          "href": "/pms/material-payment-requests"
+        },
+        {
+          "title": "物流费用请款",
+          "iconCount": 1,
+          "href": "/pms/logistics-payment-requests"
+        },
+        {
+          "title": "KOL样衣申请",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "KOL库存",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock"
+        },
+        {
+          "title": "手动寄样申请",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-apply"
+        },
+        {
+          "title": "对外样品池链接",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-link"
+        },
+        {
+          "title": "锁定操作记录",
+          "iconCount": 1,
+          "href": "/pms/kol-sample-stock/lock-log"
+        },
+        {
+          "title": "基础资料",
+          "iconCount": 2,
+          "href": null
+        },
+        {
+          "title": "商品供应商管理",
+          "iconCount": 1,
+          "href": "/pms/suppliers"
+        },
+        {
+          "title": "供应商供货档案",
+          "iconCount": 1,
+          "href": "/pms/supplier-supply-archives"
+        },
+        {
+          "title": "头程物流商管理",
+          "iconCount": 1,
+          "href": "/pms/first-leg-carriers"
+        }
+      ],
+      "footer": "箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\t\nFL-DEMO-5\n待起运\n王采购 · 2026-06-13 11:00 WIB\n\t\n深圳市迅达国际物流有限公司\n深圳-雅加达 海派专线\n海派 · 12天 · 计费重 · 报税\n\t\n深圳转运中心\n印尼雅加达面辅料仓\n计划起运 2026-06-16\n\t\nSZX2606-0018\nSITC 海丰国际 · 海运\n深圳蛇口仓 · A区 · 预计送达 2026-06-28\n\t\n0 条物流 ·\n¥0.00\n卷数 0\n\t\n总箱 6 · 重量 1,380 kg\n体积 5.8 m³\n转运天数 —\n\t\n○ 未装柜\n○ 未出运\n○ 未到仓\n○ 未完成\n\t详情与推进\n\n共 6 条，当前 1-5\n\n5 条/页\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 2\n下一页",
+      "tables": [
+        {
+          "width": 1044,
+          "scroll": 1732
+        }
+      ]
+    },
+    "finishedAt": "2026-10-13T23:18:24.164Z"
+  }
+]

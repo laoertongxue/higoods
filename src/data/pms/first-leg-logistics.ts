@@ -1,12 +1,13 @@
 import {
-  applyPmsLogisticsHeadAllocation,
+  publishPmsMaterialLogisticsRecords,
+  hydratePmsMaterialPurchaseOrdersFromIdb,
   getPmsMaterialLogisticsRecord,
   listPmsMaterialLogisticsRecords,
-  signPmsMaterialLogisticsByBatch,
+
   type PmsMaterialLogisticsRecord,
 } from './material-purchase-orders.ts'
-import { appendPmsLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { createPmsOperationLog, publishPmsOperationLog, type PmsOperationLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+import { PMS_STORES, pmsAll, pmsCommitRecords, type PmsCommitRecord } from './idb-storage.ts'
 
 export type PmsFirstLegTransportMethod = '海卡' | '海派' | '空卡' | '空派' | '铁路' | '快递' | '卡航'
 export type PmsFirstLegBillingMethod = '计费重' | '实重' | '体积' | '整柜'
@@ -195,6 +196,10 @@ export interface PmsFirstLegBatchRecord {
 }
 
 export interface PmsFirstLegBatch {
+  _pmsBaseVersion?:number
+  boxes?:PmsFirstLegBox[]
+  keywords?:Array<{keyword:string;remark:string}>
+  deliveredAt?:string
   batchNo: string
   batchName: string
   transferCenter: string
@@ -313,14 +318,13 @@ function buildInitialRuntime(): PmsFirstLegRuntime {
     allocations.forEach((allocation) => {
       const record = recordMap.get(allocation.recordNo)
       if (!record) return
-      applyPmsLogisticsHeadAllocation(allocation.recordNo, allocation.qty, allocation.rolls, batchNo)
       batch.records.push(toBatchRecord(record, allocation.qty, allocation.rolls))
     })
   }
   join('FL-2026-0001', [{ recordNo: 'LOG-2026-0001', qty: 552, rolls: 6 }])
   join('FL-2026-0002', [{ recordNo: 'LOG-2026-0002', qty: 996, rolls: 0 }, { recordNo: 'LOG-2026-0005', qty: 5000, rolls: 0 }])
   join('FL-2026-0003', [{ recordNo: 'LOG-2026-0003', qty: 500, rolls: 5 }])
-  signPmsMaterialLogisticsByBatch('FL-2026-0003', { id: 'USR-PMS-SYSTEM', name: '系统计算', role: '系统' })
+
   return runtime
 }
 
@@ -339,80 +343,73 @@ function toBatchRecord(record: PmsMaterialLogisticsRecord, qty: number, rolls: n
   }
 }
 
-let firstLegHydrationStarted = false
-let firstLegHydrationReady = false
 let firstLegHydrationPromise: Promise<void> | null = null
-const pendingHydrationFirstLeg: Array<{ kind: 'carrier' | 'channel' | 'batch'; entity: unknown }> = []
-
-/**
- * 启动期加载:从 IDB 读 carriers/channels/batches 到 runtime。
- * 启动期未就绪时返回种子;hydrate 完成后才"等于" IDB 数据。
- */
-export function hydratePmsFirstLegFromIdb(): Promise<void> {
-  if (firstLegHydrationStarted) return firstLegHydrationPromise ?? Promise.resolve()
-  firstLegHydrationStarted = true
-  firstLegHydrationPromise = (async () => {
-    try {
-      const [carriers, channels, batches] = await Promise.all([
-        pmsAll<PmsFirstLegCarrier>(PMS_STORES.pmsFirstLegCarriers),
-        pmsAll<PmsFirstLegChannel>(PMS_STORES.pmsFirstLegChannels),
-        pmsAll<PmsFirstLegBatch>(PMS_STORES.pmsFirstLegBatches),
-      ])
-      const rt = getRuntime()
-      for (const saved of carriers) {
-        const existing = rt.carriers.find((c) => c.carrierCode === saved.carrierCode)
-        if (existing) Object.assign(existing, saved)
-        else rt.carriers.push(saved)
-      }
-      for (const saved of channels) {
-        const existing = rt.channels.find((c) => c.channelCode === saved.channelCode)
-        if (existing) Object.assign(existing, saved)
-        else rt.channels.push(saved)
-      }
-      for (const saved of batches) {
-        const existing = rt.batches.find((b) => b.batchNo === saved.batchNo)
-        if (existing) Object.assign(existing, saved)
-        else rt.batches.push(saved)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_LOAD_FAILED] 头程物流加载失败', { message })
-    } finally {
-      firstLegHydrationReady = true
-      const pending = pendingHydrationFirstLeg.splice(0)
-      for (const item of pending) {
-        const store = item.kind === 'carrier' ? PMS_STORES.pmsFirstLegCarriers : item.kind === 'channel' ? PMS_STORES.pmsFirstLegChannels : PMS_STORES.pmsFirstLegBatches
-        try {
-          await pmsPut(store as typeof PMS_STORES.pmsFirstLegCarriers, item.entity as never)
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 头程物流 IDB 写入失败(hydration 后)', { kind: item.kind, message })
-        }
-      }
-    }
-  })()
-  return firstLegHydrationPromise
+export function hydratePmsFirstLegFromIdb(force=false): Promise<void> {
+  if(force)firstLegHydrationPromise=null
+  return firstLegHydrationPromise ??= Promise.all([
+    pmsAll<PmsFirstLegCarrier>(PMS_STORES.pmsFirstLegCarriers),pmsAll<PmsFirstLegChannel>(PMS_STORES.pmsFirstLegChannels),pmsAll<PmsFirstLegBatch>(PMS_STORES.pmsFirstLegBatches),
+  ]).then(([carriers,channels,batches])=>{
+    const rt=getRuntime()
+    for(const row of carriers) {const old=rt.carriers.find(r=>r.carrierCode===row.carrierCode);if(old) Object.assign(old,row);else rt.carriers.push(row)}
+    for(const row of channels) {const old=rt.channels.find(r=>r.channelCode===row.channelCode);if(old) Object.assign(old,row);else rt.channels.push(row)}
+    for(const row of batches) {const old=rt.batches.find(r=>r.batchNo===row.batchNo);if(old) Object.assign(old,row);else rt.batches.push(row)}
+  }).catch(error=>{firstLegHydrationPromise=null;throw error})
 }
-
-/**
- * 内部:写入头程物流变更时调用。启动期 hydrate 未就绪时进入 pending 队列。
- */
-function persistPmsFirstLeg(kind: 'carrier' | 'channel' | 'batch', entity: unknown): void {
-  if (firstLegHydrationReady) {
-    const store = kind === 'carrier' ? PMS_STORES.pmsFirstLegCarriers : kind === 'channel' ? PMS_STORES.pmsFirstLegChannels : PMS_STORES.pmsFirstLegBatches
-    pmsPut(store as typeof PMS_STORES.pmsFirstLegCarriers, entity as never).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 头程物流 IDB 写入失败', { kind, message })
-    })
-  } else {
-    pendingHydrationFirstLeg.push({ kind, entity })
+let preparingFirstLeg: { records:PmsCommitRecord[]; logs:PmsOperationLog[]; logistics:PmsMaterialLogisticsRecord[];operationId:string } | null = null
+function appendPmsLog(entry: Parameters<typeof createPmsOperationLog>[0]): void {
+  if(!preparingFirstLeg) throw new Error('头程操作必须通过原子提交入口')
+  preparingFirstLeg.logs.push(createPmsOperationLog(entry))
+}
+function persistPmsFirstLeg(kind:'carrier'|'channel'|'batch',entity:unknown):void {
+  if(!preparingFirstLeg) throw new Error('头程操作必须通过原子提交入口')
+  const store=kind==='carrier'?PMS_STORES.pmsFirstLegCarriers:kind==='channel'?PMS_STORES.pmsFirstLegChannels:PMS_STORES.pmsFirstLegBatches
+  preparingFirstLeg.records.push({store,value:entity as object})
+}
+function originalHeadAllocations(row:PmsMaterialLogisticsRecord){return row.headAllocations?structuredClone(row.headAllocations):row.headBatchNo?[{batchNo:row.headBatchNo,qty:row.headLogisticsQty,rolls:row.headLogisticsRolls,signed:row.headSigned}]:[]}
+function putPreparingLogistics(next:PmsMaterialLogisticsRecord):void{const context=preparingFirstLeg!;const index=context.records.findIndex(record=>record.store===PMS_STORES.pmsPurchaseTracking && (record.value as PmsMaterialLogisticsRecord).recordNo===next.recordNo);const record={store:PMS_STORES.pmsPurchaseTracking,value:next};if(index>=0)context.records[index]=record;else context.records.push(record);const at=context.logistics.findIndex(row=>row.recordNo===next.recordNo);if(at>=0)context.logistics[at]=next;else context.logistics.push(next)}
+function applyPmsLogisticsHeadAllocation(recordNo:string,qty:number,rolls:number,batchNo:string):void {
+ if(!preparingFirstLeg)throw new Error('头程操作须通过保存动作')
+ const before=preparingFirstLeg.logistics.find(row=>row.recordNo===recordNo)||getPmsMaterialLogisticsRecord(recordNo);if(!before)throw new PmsDomainError('LOGISTICS_NOT_FOUND','物流记录不可读')
+ const headAllocations=originalHeadAllocations(before),allocation=headAllocations.find(row=>row.batchNo===batchNo);if(allocation){allocation.qty+=qty;allocation.rolls+=rolls;allocation.signed=false}else headAllocations.push({batchNo,qty,rolls,signed:false})
+ putPreparingLogistics({...structuredClone(before),id:recordNo,headAllocations,headLogisticsQty:roundPmsQty(before.headLogisticsQty+qty,2),headLogisticsRolls:before.headLogisticsRolls+rolls,headBatchNo:before.headBatchNo || batchNo,headSigned:false})
+}
+function signPmsMaterialLogisticsByBatch(batchNo:string,_actor:unknown):number {
+ if(!preparingFirstLeg)throw new Error('头程操作须通过保存动作')
+ const rows=listPmsMaterialLogisticsRecords().filter(row=>originalHeadAllocations(row).some(allocation=>allocation.batchNo===batchNo && !allocation.signed))
+ for(const row of rows){const headAllocations=originalHeadAllocations(row);headAllocations.forEach(allocation=>{if(allocation.batchNo===batchNo)allocation.signed=true});const fullySigned=headAllocations.every(allocation=>allocation.signed)&&headAllocations.reduce((sum,allocation)=>sum+allocation.qty,0)>=row.qty;putPreparingLogistics({...structuredClone(row),id:row.recordNo,headAllocations,headSigned:fullySigned,headSignedAt:fullySigned?new Date().toISOString():''})}return rows.length
+}
+function validateHeadAllocations(allocations:PmsFirstLegAllocationInput[]){
+ if(new Set(allocations.map(row=>row.recordNo)).size!==allocations.length)throw new PmsDomainError('BATCH_DUPLICATE_RECORD','同一物流记录不能重复分配')
+ return allocations.map(allocation=>{const record=getPmsMaterialLogisticsRecord(allocation.recordNo);if(!record || !record.domesticSigned || record.headSigned)throw new PmsDomainError('BATCH_SOURCE_BLOCKED','仅国内已签收且头程未全签收的物流可加入');const qty=roundPmsQty(record.qty-record.headLogisticsQty,2),rolls=Math.max(0,record.rolls-record.headLogisticsRolls);if(!Number.isFinite(allocation.qty)||allocation.qty<=0||allocation.qty>qty||!Number.isInteger(allocation.rolls)||allocation.rolls<0||allocation.rolls>rolls)throw new PmsDomainError('BATCH_QTY_INVALID',`${record.trackingNo} 剩余 ${qty} ${record.unit}、${rolls} 卷，加入量不能超过余量`);return {record,qty:roundPmsQty(allocation.qty,2),rolls:allocation.rolls}})
+}
+async function commitFirstLeg<T>(prepare:()=>T,operationId:string,operationSignature:string):Promise<T> {
+  await Promise.all([hydratePmsFirstLegFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb()])
+  const before=getRuntime(), draft=structuredClone(before)
+  const changes={records:[] as PmsCommitRecord[],logs:[] as PmsOperationLog[],logistics:[] as PmsMaterialLogisticsRecord[],operationId}
+  let result:T
+  runtime=draft;preparingFirstLeg=changes
+  try {result=prepare()} finally {runtime=before;preparingFirstLeg=null}
+  changes.logs.forEach((log,index)=>{log.id=`${operationId}:log:${index}`})
+  await pmsCommitRecords([...changes.records,...changes.logs.map(value=>({store:PMS_STORES.pmsOperationLogs,value}))],{operationId,operationSignature})
+  for(const record of changes.records) {
+    if(record.store===PMS_STORES.pmsPurchaseTracking) continue
+    const rows=record.store===PMS_STORES.pmsFirstLegCarriers?before.carriers:record.store===PMS_STORES.pmsFirstLegChannels?before.channels:before.batches
+    const key=record.store===PMS_STORES.pmsFirstLegCarriers?'carrierCode':record.store===PMS_STORES.pmsFirstLegChannels?'channelCode':'batchNo'
+    const values=rows as unknown as Array<Record<string,unknown>>,value=record.value as Record<string,unknown>,old=values.find(row=>row[key]===value[key])
+    if(old) Object.assign(old,value);else values.unshift(value)
   }
+  publishPmsMaterialLogisticsRecords(changes.logistics)
+  changes.logs.forEach(publishPmsOperationLog)
+  return result!
 }
 
 function getRuntime(): PmsFirstLegRuntime {
   if (!runtime) {
     listPmsMaterialLogisticsRecords()
     runtime = buildInitialRuntime()
+    const carrier={...runtime.carriers[0],carrierCode:'FL-C-DEMO-6',carrierName:'演示国际物流',shortName:'演示物流'}
+    if(runtime.carriers.length===5) {runtime.carriers.push(carrier);runtime.channels.push({...runtime.channels[0],channelCode:'FL-CH-DEMO-6',carrierId:carrier.carrierCode,carrierName:carrier.carrierName,channelName:'演示空运渠道'})}
+    if(runtime.batches.length===3) for(let i=4;i<=6;i++) runtime.batches.push({...structuredClone(runtime.batches[0]),batchNo:`FL-DEMO-${i}`,batchName:`待装箱批次 ${i}`,records:[],status:'待起运',containerLoadedAt:'',actualShipDate:'',arrivedAt:'',completedAt:'',fee:0})
   }
   return runtime
 }
@@ -451,9 +448,9 @@ export function pmsFirstLegTransitDays(batch: Pick<PmsFirstLegBatch, 'actualShip
 export function pmsFirstLegBatchAggregate(batch: PmsFirstLegBatch): PmsFirstLegBatchAggregate {
   const recordBoxCount = batch.records.reduce((sum, record) => sum + record.boxCount, 0)
   return {
-    boxCount: batch.records.length > 0 ? recordBoxCount : batch.boxCount ?? null,
-    totalWeightKg: batch.totalWeightKg ?? null,
-    totalVolumeM3: batch.totalVolumeM3 ?? null,
+    boxCount: batch.boxes ? batch.boxes.length : batch.records.length > 0 ? recordBoxCount : batch.boxCount ?? null,
+    totalWeightKg: batch.boxes ? roundPmsQty(batch.boxes.reduce((sum,box)=>sum+box.weightKg,0),2) : batch.totalWeightKg ?? null,
+    totalVolumeM3: batch.boxes ? roundPmsQty(batch.boxes.reduce((sum,box)=>sum+box.lengthCm*box.widthCm*box.heightCm/1_000_000,0),4) : batch.totalVolumeM3 ?? null,
     transitDays: pmsFirstLegTransitDays(batch),
   }
 }
@@ -552,7 +549,7 @@ function normalizePmsCarrierExtras(input: PmsCreateCarrierInput): PmsFirstLegCar
   }
 }
 
-export function createPmsFirstLegCarrier(input: PmsCreateCarrierInput, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegCarrier {
+function prepareCreatePmsFirstLegCarrier(input: PmsCreateCarrierInput, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegCarrier {
   validateCarrierInput(input)
   const extras = normalizePmsCarrierExtras(input)
   if (getRuntime().carriers.some((carrier) => carrier.carrierName === input.carrierName.trim())) {
@@ -561,7 +558,7 @@ export function createPmsFirstLegCarrier(input: PmsCreateCarrierInput, actor: { 
   carrierSequence += 1
   const now = new Date().toISOString()
   const carrier: PmsFirstLegCarrier = {
-    carrierCode: input.carrierCode?.trim() || `FL-2026-${String(carrierSequence).padStart(3, '0')}`,
+    carrierCode: input.carrierCode?.trim() || stableFirstLegBusinessCode('FL',preparingFirstLeg!.operationId),
     carrierName: input.carrierName.trim(),
     shortName: input.shortName.trim() || input.carrierName.trim(),
     countryOrRegion: input.countryOrRegion,
@@ -583,7 +580,7 @@ export function createPmsFirstLegCarrier(input: PmsCreateCarrierInput, actor: { 
   return carrier
 }
 
-export function updatePmsFirstLegCarrier(carrierCode: string, patch: Partial<PmsCreateCarrierInput>, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegCarrier {
+function prepareUpdatePmsFirstLegCarrier(carrierCode: string, patch: Partial<PmsCreateCarrierInput>, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegCarrier {
   const carrier = getRuntime().carriers.find((item) => item.carrierCode === carrierCode)
   if (!carrier) throw new PmsDomainError('CARRIER_NOT_FOUND', `物流商 ${carrierCode} 不存在`)
   if (patch.carrierName !== undefined) {
@@ -617,7 +614,7 @@ export function updatePmsFirstLegCarrier(carrierCode: string, patch: Partial<Pms
   return carrier
 }
 
-export function togglePmsFirstLegCarrierStatus(carrierCode: string, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegCarrier {
+function prepareTogglePmsFirstLegCarrierStatus(carrierCode: string, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegCarrier {
   const carrier = getRuntime().carriers.find((item) => item.carrierCode === carrierCode)
   if (!carrier) throw new PmsDomainError('CARRIER_NOT_FOUND', `物流商 ${carrierCode} 不存在`)
   const before = carrier.status
@@ -739,14 +736,14 @@ function validateChannelInput(input: PmsCreateChannelInput): void {
   }
 }
 
-export function createPmsFirstLegChannel(input: PmsCreateChannelInput, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegChannel {
+function prepareCreatePmsFirstLegChannel(input: PmsCreateChannelInput, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegChannel {
   validateChannelInput(input)
   const extras = normalizePmsChannelExtras(input)
   const carrier = getRuntime().carriers.find((item) => item.carrierCode === input.carrierId)
   if (!carrier) throw new PmsDomainError('CARRIER_NOT_FOUND', `物流商 ${input.carrierId} 不存在`)
   channelSequence += 1
   const channel: PmsFirstLegChannel = {
-    channelCode: input.channelCode?.trim() || `CH-2026-${String(channelSequence).padStart(4, '0')}`,
+    channelCode: input.channelCode?.trim() || stableFirstLegBusinessCode('CH',preparingFirstLeg!.operationId),
     carrierId: carrier.carrierCode,
     carrierName: carrier.carrierName,
     channelName: input.channelName.trim(),
@@ -770,7 +767,7 @@ export function createPmsFirstLegChannel(input: PmsCreateChannelInput, actor: { 
   return channel
 }
 
-export function updatePmsFirstLegChannel(channelCode: string, patch: Partial<PmsCreateChannelInput>, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegChannel {
+function prepareUpdatePmsFirstLegChannel(channelCode: string, patch: Partial<PmsCreateChannelInput>, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegChannel {
   const channel = getRuntime().channels.find((item) => item.channelCode === channelCode)
   if (!channel) throw new PmsDomainError('CHANNEL_NOT_FOUND', `渠道 ${channelCode} 不存在`)
   const merged: PmsCreateChannelInput = {
@@ -834,7 +831,7 @@ export function updatePmsFirstLegChannel(channelCode: string, patch: Partial<Pms
   return channel
 }
 
-export function togglePmsFirstLegChannelStatus(channelCode: string, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegChannel {
+function prepareTogglePmsFirstLegChannelStatus(channelCode: string, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegChannel {
   const channel = getRuntime().channels.find((item) => item.channelCode === channelCode)
   if (!channel) throw new PmsDomainError('CHANNEL_NOT_FOUND', `渠道 ${channelCode} 不存在`)
   const before = channel.status
@@ -882,10 +879,10 @@ export function validatePmsBatchNo(batchNo: string): string {
   return ''
 }
 
-export function createPmsFirstLegBatch(input: PmsCreateBatchInput, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegBatch {
+function prepareCreatePmsFirstLegBatch(input: PmsCreateBatchInput, actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegBatch {
   const batchNoError = validatePmsBatchNo(input.batchNo)
   if (batchNoError) throw new PmsDomainError('BATCH_NO_INVALID', batchNoError)
-  if (input.allocations.length === 0) throw new PmsDomainError('BATCH_ALLOCATION_EMPTY', '请至少选择一条国内物流记录加入头程')
+
   if (!Number.isFinite(input.fee) || input.fee < 0) throw new PmsDomainError('BATCH_FEE_INVALID', '头程费用不能为负数')
   if (input.plannedShipDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.plannedShipDate)) throw new PmsDomainError('BATCH_DATE_INVALID', '计划起运日期格式应为 YYYY-MM-DD')
   const carrier = getRuntime().carriers.find((item) => item.carrierCode === input.carrierId)
@@ -896,19 +893,7 @@ export function createPmsFirstLegBatch(input: PmsCreateBatchInput, actor: { id: 
   if (channel.status !== '启用') throw new PmsDomainError('CHANNEL_DISABLED', `${channel.channelName} 已停用，不能新建头程单`)
   if (channel.carrierId !== carrier.carrierCode) throw new PmsDomainError('CHANNEL_CARRIER_MISMATCH', '渠道与物流商不匹配')
 
-  const allocations = input.allocations.map((allocation) => {
-    const record = getPmsMaterialLogisticsRecord(allocation.recordNo)
-    if (!record) throw new PmsDomainError('LOGISTICS_NOT_FOUND', `物流记录 ${allocation.recordNo} 不存在`)
-    const remainingQty = roundPmsQty(record.qty - record.headLogisticsQty, 2)
-    const remainingRolls = Math.max(0, record.rolls - record.headLogisticsRolls)
-    if (!Number.isFinite(allocation.qty) || allocation.qty <= 0 || allocation.qty > remainingQty) {
-      throw new PmsDomainError('BATCH_QTY_INVALID', `${record.trackingNo} 的加入数量必须在 0 到 ${remainingQty} ${record.unit} 之间`)
-    }
-    if (!Number.isInteger(allocation.rolls) || allocation.rolls < 0 || allocation.rolls > remainingRolls) {
-      throw new PmsDomainError('BATCH_ROLLS_INVALID', `${record.trackingNo} 的卷数必须是 0 到 ${remainingRolls} 的整数`)
-    }
-    return { record, qty: roundPmsQty(allocation.qty, 2), rolls: allocation.rolls }
-  })
+  const allocations = validateHeadAllocations(input.allocations)
 
   const batch: PmsFirstLegBatch = {
     batchNo: input.batchNo.trim(),
@@ -976,7 +961,7 @@ export function pmsAllowedBatchNextStatuses(status: PmsFirstLegBatchStatus): Pms
   return BATCH_TRANSITIONS[status]
 }
 
-export function advancePmsFirstLegBatchStatus(
+function prepareAdvancePmsFirstLegBatchStatus(
   batchNo: string,
   nextStatus: PmsFirstLegBatchStatus,
   actor: { id: string; name: string; role: PmsActorRole },
@@ -1029,7 +1014,7 @@ export interface PmsUpdateFirstLegBatchPatch {
   fees?: Partial<PmsFirstLegFeeBreakdown>
 }
 
-export function updatePmsFirstLegBatch(
+function prepareUpdatePmsFirstLegBatch(
   batchNo: string,
   patch: PmsUpdateFirstLegBatchPatch,
   actor: { id: string; name: string; role: PmsActorRole },
@@ -1093,17 +1078,131 @@ function batchAdvancePmsFirstLegBatches(
       outcome.skipped.push({ batchNo, reason: `当前状态为${batch.status}，不能${label}` })
       return
     }
-    advancePmsFirstLegBatchStatus(batchNo, next, actor, `${label} · 批量操作`)
+    prepareAdvancePmsFirstLegBatchStatus(batchNo, next, actor, `${label} · 批量操作`)
     outcome.updated.push(batchNo)
   })
   if (outcome.updated.length === 0) throw new PmsDomainError('BATCH_ACTION_EMPTY', `选中的头程单都不能${label}，请检查状态`)
   return outcome
 }
 
-export function batchLoadPmsFirstLegBatches(batchNos: string[], actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegBatchActionOutcome {
+function prepareBatchLoadPmsFirstLegBatches(batchNos: string[], actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegBatchActionOutcome {
   return batchAdvancePmsFirstLegBatches(batchNos, '待起运', '已装柜', '装柜', actor)
 }
 
-export function batchShipPmsFirstLegBatches(batchNos: string[], actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegBatchActionOutcome {
+function prepareBatchShipPmsFirstLegBatches(batchNos: string[], actor: { id: string; name: string; role: PmsActorRole }): PmsFirstLegBatchActionOutcome {
   return batchAdvancePmsFirstLegBatches(batchNos, '已装柜', '头程中', '确认出运', actor)
 }
+
+export async function createPmsFirstLegCarrier(...args:[...Parameters<typeof prepareCreatePmsFirstLegCarrier>,operationId?:string]):Promise<ReturnType<typeof prepareCreatePmsFirstLegCarrier>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareCreatePmsFirstLegCarrier(...args as Parameters<typeof prepareCreatePmsFirstLegCarrier>),operationId,JSON.stringify(args))
+}
+
+export async function updatePmsFirstLegCarrier(...args:[...Parameters<typeof prepareUpdatePmsFirstLegCarrier>,operationId?:string]):Promise<ReturnType<typeof prepareUpdatePmsFirstLegCarrier>> {
+  const operationId=args.length>3?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareUpdatePmsFirstLegCarrier(...args as Parameters<typeof prepareUpdatePmsFirstLegCarrier>),operationId,JSON.stringify(args))
+}
+
+export async function togglePmsFirstLegCarrierStatus(...args:[...Parameters<typeof prepareTogglePmsFirstLegCarrierStatus>,operationId?:string]):Promise<ReturnType<typeof prepareTogglePmsFirstLegCarrierStatus>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareTogglePmsFirstLegCarrierStatus(...args as Parameters<typeof prepareTogglePmsFirstLegCarrierStatus>),operationId,JSON.stringify(args))
+}
+
+export async function createPmsFirstLegChannel(...args:[...Parameters<typeof prepareCreatePmsFirstLegChannel>,operationId?:string]):Promise<ReturnType<typeof prepareCreatePmsFirstLegChannel>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareCreatePmsFirstLegChannel(...args as Parameters<typeof prepareCreatePmsFirstLegChannel>),operationId,JSON.stringify(args))
+}
+
+export async function updatePmsFirstLegChannel(...args:[...Parameters<typeof prepareUpdatePmsFirstLegChannel>,operationId?:string]):Promise<ReturnType<typeof prepareUpdatePmsFirstLegChannel>> {
+  const operationId=args.length>3?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareUpdatePmsFirstLegChannel(...args as Parameters<typeof prepareUpdatePmsFirstLegChannel>),operationId,JSON.stringify(args))
+}
+
+export async function togglePmsFirstLegChannelStatus(...args:[...Parameters<typeof prepareTogglePmsFirstLegChannelStatus>,operationId?:string]):Promise<ReturnType<typeof prepareTogglePmsFirstLegChannelStatus>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareTogglePmsFirstLegChannelStatus(...args as Parameters<typeof prepareTogglePmsFirstLegChannelStatus>),operationId,JSON.stringify(args))
+}
+
+export async function createPmsFirstLegBatch(...args:[...Parameters<typeof prepareCreatePmsFirstLegBatch>,operationId?:string]):Promise<ReturnType<typeof prepareCreatePmsFirstLegBatch>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareCreatePmsFirstLegBatch(...args as Parameters<typeof prepareCreatePmsFirstLegBatch>),operationId,JSON.stringify(args))
+}
+
+export async function advancePmsFirstLegBatchStatus(...args:[...Parameters<typeof prepareAdvancePmsFirstLegBatchStatus>,operationId?:string]):Promise<ReturnType<typeof prepareAdvancePmsFirstLegBatchStatus>> {
+  const operationId=args.length>4?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareAdvancePmsFirstLegBatchStatus(...args as Parameters<typeof prepareAdvancePmsFirstLegBatchStatus>),operationId,JSON.stringify(args))
+}
+
+export async function updatePmsFirstLegBatch(...args:[...Parameters<typeof prepareUpdatePmsFirstLegBatch>,operationId?:string]):Promise<ReturnType<typeof prepareUpdatePmsFirstLegBatch>> {
+  const operationId=args.length>3?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareUpdatePmsFirstLegBatch(...args as Parameters<typeof prepareUpdatePmsFirstLegBatch>),operationId,JSON.stringify(args))
+}
+
+export async function batchLoadPmsFirstLegBatches(...args:[...Parameters<typeof prepareBatchLoadPmsFirstLegBatches>,operationId?:string]):Promise<ReturnType<typeof prepareBatchLoadPmsFirstLegBatches>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareBatchLoadPmsFirstLegBatches(...args as Parameters<typeof prepareBatchLoadPmsFirstLegBatches>),operationId,JSON.stringify(args))
+}
+
+export async function batchShipPmsFirstLegBatches(...args:[...Parameters<typeof prepareBatchShipPmsFirstLegBatches>,operationId?:string]):Promise<ReturnType<typeof prepareBatchShipPmsFirstLegBatches>> {
+  const operationId=args.length>2?String(args.pop()):crypto.randomUUID()
+  return commitFirstLeg(()=>prepareBatchShipPmsFirstLegBatches(...args as Parameters<typeof prepareBatchShipPmsFirstLegBatches>),operationId,JSON.stringify(args))
+}
+
+export interface PmsFirstLegBox {
+  boxNo:string
+  cargoType:'普通货箱'|'裁片货箱'|'辅料货箱'
+  weightKg:number
+  lengthCm:number
+  widthCm:number
+  heightCm:number
+  remark:string
+  sealed:boolean
+  items:Array<{code:string;name:string;imageUrl:string;qty:number;unit:string}>
+}
+export function listPmsFirstLegBoxes(batchNo:string):PmsFirstLegBox[] {return getPmsFirstLegBatch(batchNo)?.boxes || []}
+export async function savePmsFirstLegBox(batchNo:string,box:PmsFirstLegBox,previousBoxNo:string,actor:{id:string;name:string;role:PmsActorRole},operationId:string):Promise<PmsFirstLegBox> {
+  const {getPurchaseGoodsReference}=await import('./canonical-purchase-references.ts')
+  if(box.sealed)throw new PmsDomainError('BOX_SEAL_ACTION_REQUIRED','通过确认封箱保存封箱状态')
+  if(!['普通货箱','裁片货箱','辅料货箱'].includes(box.cargoType)||new Set(box.items.map(item=>item.code)).size!==box.items.length)throw new PmsDomainError('BOX_ITEM_DUPLICATE','选择有效货箱类型，每个SKU在同一箱中只能出现一次')
+  if(!box.boxNo.trim()) throw new PmsDomainError('BOX_NUMBER_REQUIRED','填写箱号')
+  for(const value of [box.weightKg,box.lengthCm,box.widthCm,box.heightCm]) if(!Number.isFinite(value)||value<0) throw new PmsDomainError('BOX_NUMBER_INVALID','重量和长宽高须为非负数字')
+  if(box.items.some(item=>!Number.isFinite(item.qty)||item.qty<=0 || (!getPurchaseGoodsReference(item.code)?.active||!getPurchaseGoodsReference(item.code)?.imageUrl||item.unit!==getPurchaseGoodsReference(item.code)?.unit))) throw new PmsDomainError('BOX_ITEM_INVALID','选择有效 SKU，件数须大于0')
+  return commitFirstLeg(()=>{
+    const batch=getPmsFirstLegBatch(batchNo)
+    if(!batch || batch.status!=='待起运') throw new PmsDomainError('BOX_BATCH_LOCKED','仅待起运批次可以编辑货箱')
+    const boxes=batch.boxes ||= [],old=boxes.find(row=>row.boxNo===previousBoxNo)
+    if(previousBoxNo&&!old)throw new PmsDomainError('BOX_NOT_FOUND','货箱已不存在，重新读取批次')
+    if(old?.sealed) throw new PmsDomainError('BOX_SEALED','货箱已封箱，不能修改')
+    if(boxes.some(row=>row.boxNo===box.boxNo && row.boxNo!==previousBoxNo)) throw new PmsDomainError('BOX_DUPLICATE','箱号已存在')
+    const next={...structuredClone(box),boxNo:box.boxNo.trim(),items:box.items.map(item=>{const ref=getPurchaseGoodsReference(item.code)!;return {...item,name:ref.materialName,imageUrl:ref.imageUrl,unit:ref.unit}})}
+    if(old) Object.assign(old,next);else boxes.push(next)
+    persistPmsFirstLeg('batch',batch);appendPmsLog({objectType:'first-leg-batch',objectId:batchNo,action:old?'修改货箱':'新增货箱',beforeValue:previousBoxNo,afterValue:box.boxNo,reason:box.remark,actorId:actor.id,actorName:actor.name,actorRole:actor.role})
+    return next
+  },operationId,JSON.stringify([batchNo,box,previousBoxNo,actor]))
+}
+export async function movePmsFirstLegBox(batchNo:string,boxNo:string,targetBatchNo:string,actor:{id:string;name:string;role:PmsActorRole},operationId:string):Promise<void> {
+  return commitFirstLeg(()=>{
+    const source=getPmsFirstLegBatch(batchNo),target=getPmsFirstLegBatch(targetBatchNo),box=source?.boxes?.find(row=>row.boxNo===boxNo)
+    if(!source || !target || !box || source===target || source.status!=='待起运' || target.status!=='待起运' || box.sealed) throw new PmsDomainError('BOX_MOVE_BLOCKED','选择不同的待起运批次，且货箱尚未封箱')
+    if(source.sourceRegion!==target.sourceRegion || source.destinationWarehouse!==target.destinationWarehouse) throw new PmsDomainError('BOX_MOVE_REGION','批次货源和目的仓须一致')
+    if(target.boxes?.some(row=>row.boxNo===boxNo)) throw new PmsDomainError('BOX_DUPLICATE','目标批次已有相同箱号')
+    source.boxes=source.boxes!.filter(row=>row.boxNo!==boxNo);(target.boxes ||= []).push(box)
+    persistPmsFirstLeg('batch',source);persistPmsFirstLeg('batch',target)
+    appendPmsLog({objectType:'first-leg-batch',objectId:batchNo,action:'货箱换批次',beforeValue:boxNo,afterValue:targetBatchNo,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role})
+  },operationId,JSON.stringify([batchNo,boxNo,targetBatchNo,actor]))
+}
+export async function sealOrDeletePmsFirstLegBox(batchNo:string,boxNo:string,action:'seal'|'delete',actor:{id:string;name:string;role:PmsActorRole},operationId:string):Promise<void> {
+  return commitFirstLeg(()=>{const batch=getPmsFirstLegBatch(batchNo),box=batch?.boxes?.find(row=>row.boxNo===boxNo);if(!batch || !box || batch.status!=='待起运' || box.sealed) throw new PmsDomainError('BOX_ACTION_BLOCKED','当前货箱不能执行此操作');if(action==='delete'){if(box.items.length) throw new PmsDomainError('BOX_NOT_EMPTY','货箱内有商品，先换箱后再删除空箱');batch.boxes=batch.boxes!.filter(row=>row.boxNo!==boxNo)}else {if(!box.items.length) throw new PmsDomainError('BOX_EMPTY','空箱不能封箱');box.sealed=true}persistPmsFirstLeg('batch',batch);appendPmsLog({objectType:'first-leg-batch',objectId:batchNo,action:action==='seal'?'确认封箱':'删除空箱',beforeValue:boxNo,afterValue:action,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role,secondConfirmation:true})},operationId,JSON.stringify([batchNo,boxNo,action,actor]))
+}
+export async function movePmsFirstLegBoxItem(batchNo:string,boxNo:string,code:string,targetBoxNo:string,qty:number,actor:{id:string;name:string;role:PmsActorRole},operationId:string):Promise<void> {
+ return commitFirstLeg(()=>{const batch=getPmsFirstLegBatch(batchNo),source=batch?.boxes?.find(row=>row.boxNo===boxNo),target=batch?.boxes?.find(row=>row.boxNo===targetBoxNo),item=source?.items.find(row=>row.code===code);if(!batch || !source || !target || !item || source===target || source.sealed || target.sealed || batch.status!=='待起运') throw new PmsDomainError('BOX_ITEM_MOVE_BLOCKED','选择同批次另一个未封箱货箱');if(!Number.isFinite(qty)||qty<=0||qty>item.qty) throw new PmsDomainError('BOX_ITEM_QUANTITY',`可换箱 ${item.qty} ${item.unit}`);const to=target.items.find(row=>row.code===code);if(to) to.qty+=qty;else target.items.push({...item,qty});item.qty-=qty;source.items=source.items.filter(row=>row.qty>0);persistPmsFirstLeg('batch',batch);appendPmsLog({objectType:'first-leg-batch',objectId:batchNo,action:'商品换箱',beforeValue:`${boxNo} ${code}`,afterValue:`${targetBoxNo} ${qty} ${item.unit}`,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role})},operationId,JSON.stringify([batchNo,boxNo,code,targetBoxNo,qty,actor]))
+}
+
+export async function updatePmsFirstLegManifest(batchNo:string,patch:{keyword?:string;keywordRemark?:string;deliveredAt?:string;dimensions?:{lengthCm:number;widthCm:number;heightCm:number}},actor:{id:string;name:string;role:PmsActorRole},operationId:string):Promise<void> {
+  return commitFirstLeg(()=>{const batch=getPmsFirstLegBatch(batchNo);if(!batch || batch.status!=='待起运') throw new PmsDomainError('BATCH_MANIFEST_LOCKED','仅待起运批次允许修改装箱信息');if(patch.keyword!==undefined){if(!patch.keyword.trim()) throw new PmsDomainError('BATCH_KEYWORD_REQUIRED','填写标识关键字');(batch.keywords ||= []).push({keyword:patch.keyword.trim(),remark:patch.keywordRemark?.trim() || ''})}if(patch.deliveredAt!==undefined){if(!Number.isFinite(Date.parse(patch.deliveredAt))) throw new PmsDomainError('BATCH_DELIVERY_DATE','填写有效交货日期');if(batch.boxes?.some(box=>!box.sealed)) throw new PmsDomainError('BATCH_UNSEALED','先确认封箱，再确认交货');batch.deliveredAt=patch.deliveredAt;batch.inboundStatus='已交货'}if(patch.dimensions){if(Object.values(patch.dimensions).some(value=>!Number.isFinite(value)||value<0)) throw new PmsDomainError('BOX_DIMENSIONS','长宽高须为非负数');if(batch.boxes?.some(box=>box.sealed)) throw new PmsDomainError('BOX_SEALED','已封箱货箱不能批量修改尺寸');batch.boxes?.forEach(box=>Object.assign(box,patch.dimensions))}persistPmsFirstLeg('batch',batch);appendPmsLog({objectType:'first-leg-batch',objectId:batchNo,action:patch.deliveredAt?'确认交货':patch.keyword?'添加标识':'修改货箱尺寸',beforeValue:'',afterValue:JSON.stringify(patch),reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role,secondConfirmation:!!patch.deliveredAt})},operationId,JSON.stringify([batchNo,patch,actor]))
+}
+
+function stableFirstLegBusinessCode(prefix:string,operationId:string):string{let hash=2166136261;for(const char of operationId){hash^=char.charCodeAt(0);hash=Math.imul(hash,16777619)}return `${prefix}-${(hash>>>0).toString(16).padStart(8,'0').toUpperCase()}`}
+export function resetPmsFirstLegRuntimeForTest():void{runtime=null;firstLegHydrationPromise=null;carrierSequence=0;channelSequence=0;preparingFirstLeg=null}
+
+export async function addPmsFirstLegBatchAllocations(batchNo:string,entries:PmsFirstLegAllocationInput[],actor:{id:string;name:string;role:PmsActorRole},operationId:string):Promise<PmsFirstLegBatch>{return commitFirstLeg(()=>{const batch=getPmsFirstLegBatch(batchNo);if(!batch || batch.status!=='待起运' || !entries.length)throw new PmsDomainError('BATCH_JOIN_STATE','选择待起运批次和待转运记录');const allocations=validateHeadAllocations(entries);for(const entry of allocations){applyPmsLogisticsHeadAllocation(entry.record.recordNo,entry.qty,entry.rolls,batchNo);const previous=batch.records.find(row=>row.recordNo===entry.record.recordNo);if(previous){previous.qty=roundPmsQty(previous.qty+entry.qty,2);previous.rolls+=entry.rolls}else batch.records.push(toBatchRecord(entry.record,entry.qty,entry.rolls))}appendPmsLog({objectType:'first-leg-batch',objectId:batchNo,action:'加入头程转运',beforeValue:'',afterValue:`${entries.length} 条物流`,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role,secondConfirmation:true});persistPmsFirstLeg('batch',structuredClone(batch));return batch},operationId,JSON.stringify([batchNo,entries,actor]))}

@@ -1,3 +1,4 @@
+import { createPmsLocalListInteractions } from './local-list-interactions.ts'
 // @page-pattern: list
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
 import type { StandardListColumn } from '../../components/ui/list-table.ts'
@@ -13,6 +14,8 @@ import {
   PmsKolPositioningList,
   filterPmsKolStock,
   generatePmsKolLinkCode,
+  lockPmsKolStockBatch,
+  hydratePmsKolStock,
   listPmsKolStock,
   releasePmsKolLock,
   summarizePmsKolStock,
@@ -34,7 +37,9 @@ interface KolStockPageState extends ProcessOrderListControllerState {
   selectedSkus: string[]
   overlay:
     | null
-    | { kind: 'lock'; clientActionId: string; qty: number }
+    | { kind: 'lock'; clientActionId: string; qty: number; search?:string }
+    | { kind: 'release'; clientActionId: string; skus: string[] }
+    | { kind: 'link-create'; clientActionId: string }
     | { kind: 'link-result'; clientActionId: string; url: string }
   overlayError: string
   feedback: string
@@ -168,7 +173,7 @@ function rootElement(): HTMLElement | null {
 function syncSelectionButtons(): void {
   const root = rootElement()
   if (!root) return
-  root.querySelectorAll<HTMLButtonElement>(`[data-${EVENT_PREFIX}-action="release-selected"], [data-${EVENT_PREFIX}-action="lock-selected"], [data-${EVENT_PREFIX}-action="create-link-selected"]`).forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>(`[data-${EVENT_PREFIX}-action="release-selected"], [data-${EVENT_PREFIX}-action="create-link-selected"]`).forEach((button) => {
     button.disabled = state.selectedSkus.length === 0
   })
   const titleNode = root.querySelector<HTMLElement>('[data-standard-list-table-section] h2')
@@ -178,7 +183,7 @@ function syncSelectionButtons(): void {
 
 function renderFilters(): string {
   const brandOptions = PmsKolBrandList.map((b) => `<option value="${b}" ${state.brand === b ? 'selected' : ''}>${b}</option>`).join('')
-  const positioningOptions = PmsKolPositioningList.map((p) => `<option value="${p}" ${state.positioning === p ? 'selected' : ''}>${p}</option>`).join('')
+  const positioningOptions = `<option value="" ${state.positioning===''?'selected':''}>全部</option>` + PmsKolPositioningList.map((p) => `<option value="${p}" ${state.positioning === p ? 'selected' : ''}>${p}</option>`).join('')
   const lockedOptions = ['全部SKU', '有锁定']
     .map((opt) => `<option value="${opt}" ${state.lockedStatus === opt ? 'selected' : ''}>${opt}</option>`).join('')
   const advancedCount = [state.positioning, state.stockAtLeast, state.stockAtMost].filter((v) => v !== '' && v !== '全部').length
@@ -202,7 +207,7 @@ function renderFilters(): string {
 function renderStats(): string {
   const stats = summarizePmsKolStock(filter())
   const items = [
-    { label: '本页 SKU 数', value: stats.totalSkus },
+    { label: '筛选 SKU 数', value: stats.totalSkus },
     { label: 'KOL 库存合计', value: stats.totalKolStock },
     { label: 'VKOL 当日手动锁定池', value: stats.totalVkolManualLockedPool },
     { label: '锁定已占用', value: stats.totalLockedOccupied },
@@ -213,24 +218,28 @@ function renderStats(): string {
 function renderTopActions(): string {
   const today = new Date().toISOString().slice(0, 10)
   return `<div class="flex flex-wrap items-center gap-2 rounded-lg border bg-white p-3">
-    <button type="button" class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-300" data-${EVENT_PREFIX}-action="lock-selected" disabled data-skip-page-rerender="true">批量锁定 VKOL 库存</button>
+    <button type="button" class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-300" data-${EVENT_PREFIX}-action="lock-selected" data-skip-page-rerender="true">批量锁定 VKOL 库存</button>
     <button type="button" class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:bg-slate-300" data-${EVENT_PREFIX}-action="release-selected" disabled data-skip-page-rerender="true">批量释放锁定</button>
     <button type="button" class="inline-flex min-h-8 items-center justify-center whitespace-nowrap rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-300" data-${EVENT_PREFIX}-action="create-link-selected" disabled data-skip-page-rerender="true">生成对外样品池链接</button>
     <span class="ml-auto text-xs text-slate-500">当前锁定日期: ${escapeHtml(today)}</span>
   </div>`
 }
 
-function renderLockOverlay(clientActionId: string, qty: number): string {
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="批量锁定 VKOL 库存"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭"></button><section class="relative z-10 flex h-full w-[420px] max-w-[92vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">批量锁定 VKOL 库存</h2><p class="mt-1 text-xs text-slate-500">对所选 SKU 设置本次手动锁定数量</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-4 p-4">
-    ${renderPmsOverlayError(state.overlayError)}
-    <label class="flex flex-col gap-1 text-xs text-muted-foreground">锁定数量(每个 SKU)
-      <input class="h-9 rounded-md border bg-background px-2 text-sm" type="number" min="0" step="1" value="${qty}" data-${EVENT_PREFIX}-overlay-qty="1" data-skip-page-rerender="true" />
-    </label>
-  </div><footer class="flex items-center justify-end gap-2 border-t px-4 py-3" data-pms-kst-lock="${escapeHtml(clientActionId)}">${renderSecondaryButton('取消', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}${renderPrimaryButton('确认锁定', { prefix: EVENT_PREFIX, action: 'submit-lock' }, 'check-check')}</footer></section></div>`
+function renderLockOverlay(clientActionId: string, _qty: number): string {
+  const query=state.overlay?.kind==='lock'?state.overlay.search || '':state.search
+  const rows = listPmsKolStock().filter(row => !query || `${row.sku} ${row.spu}`.toLowerCase().includes(query.toLowerCase())).slice(0,300)
+  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="批量锁定库存"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" aria-label="关闭"></button><section class="relative z-10 flex h-full w-[720px] max-w-[96vw] flex-col bg-white"><header class="border-b p-4 font-semibold">批量锁定库存</header><div class="flex-1 overflow-auto p-4"><p class="mb-3 text-sm">设置最终锁定池，数量不能低于已占用或超过 KOL 库存。</p>${renderPmsOverlayError(state.overlayError)}<div class="mb-3 flex flex-wrap gap-2"><input class="h-9 flex-1 rounded border px-2" aria-label="批量锁定 SKU 查询" value="${escapeHtml(query)}" data-kol-lock-query>${renderSecondaryButton('查询SKU',{prefix:EVENT_PREFIX,action:'query-lock-sku'})}</div><div class="mb-3 flex gap-2"><input class="h-9 w-20 rounded border px-2" type="number" min="0" max="100" value="50" data-kol-lock-ratio aria-label="锁定比例百分比"><span class="self-center text-sm">%</span>${renderSecondaryButton('按比例填充勾选项',{prefix:EVENT_PREFIX,action:'fill-lock-ratio'})}${renderSecondaryButton('勾选项清零',{prefix:EVENT_PREFIX,action:'clear-lock-qty'})}</div><table class="w-full text-sm"><thead><tr><th>选择</th><th>SKU</th><th>库存 / 已占用</th><th>最终锁定池（件）</th></tr></thead><tbody>${rows.map(row=>`<tr class="border-t"><td><input type="checkbox" data-kol-lock-select="${escapeHtml(row.sku)}" ${state.selectedSkus.includes(row.sku)?'checked':''}></td><td class="py-2">${escapeHtml(row.sku)}</td><td>${row.kolStock} / ${row.lockedOccupied}</td><td><input class="h-9 w-24 rounded border px-2" type="number" min="${row.lockedOccupied}" max="${row.kolStock}" step="1" value="${row.vkolManualLockedPool}" data-kol-lock-qty="${escapeHtml(row.sku)}" aria-label="${escapeHtml(row.sku)} 最终锁定池"></td></tr>`).join('')}</tbody></table></div><footer class="flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('确认锁定',{prefix:EVENT_PREFIX,action:'submit-lock'})}</footer></section></div>`
+}
+function renderReleaseOverlay(skus: string[]): string {
+  const quantity = skus.reduce((sum,sku)=>{const row=listPmsKolStock().find(r=>r.sku===sku);return sum+(row?row.vkolManualLockedPool-row.lockedOccupied:0)},0)
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-5" role="dialog" aria-modal="true" aria-label="释放锁定"><section class="w-[440px] max-w-full rounded-lg bg-white p-5"><h2 class="font-semibold">释放锁定</h2><p class="my-4 text-sm">释放 ${skus.length} 个 SKU 的 ${quantity} 件未占用锁定，已占用数量保留。</p>${renderPmsOverlayError(state.overlayError)}<div class="flex justify-end gap-2">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('释放未占用锁定',{prefix:EVENT_PREFIX,action:'submit-release'})}</div></section></div>`
+}
+function renderLinkCreateOverlay(): string {
+  return `<div class="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="创建样品池"><section class="flex h-full w-[480px] max-w-[96vw] flex-col bg-white"><header class="border-b p-4 font-semibold">创建样品池</header><div class="space-y-4 p-4">${renderPmsOverlayError(state.overlayError)}<p class="text-sm">已选择 ${state.selectedSkus.length} 个 SKU</p><label class="block text-sm">样品池名称<input class="mt-1 h-9 w-full rounded border px-2" data-kol-pool-name value="寄样池"></label><label class="block text-sm">最多可选 SKU<input class="mt-1 h-9 w-full rounded border px-2" type="number" min="1" max="${state.selectedSkus.length}" value="${Math.min(3,state.selectedSkus.length)}" data-kol-pool-max></label><label class="block text-sm">有效期<input class="mt-1 h-9 w-full rounded border px-2" type="datetime-local" value="${new Date(Date.now()+7*86400000).toISOString().slice(0,16)}" data-kol-pool-expires></label></div><footer class="mt-auto flex justify-end gap-2 border-t p-4">${renderSecondaryButton('取消',{prefix:EVENT_PREFIX,action:'close-overlay'})}${renderPrimaryButton('创建样品池',{prefix:EVENT_PREFIX,action:'submit-link'})}</footer></section></div>`
 }
 
 function renderLinkResultOverlay(clientActionId: string, url: string): string {
-  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="生成对外样品池链接"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭"></button><section class="relative z-10 flex h-full w-[480px] max-w-[92vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">已生成对外样品池链接</h2><p class="mt-1 text-xs text-slate-500">原型仅记录链接,真实提交由 manage.higood.ai 处理</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-4 p-4">
+  return `<div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="生成对外样品池链接"><button type="button" class="absolute inset-0 bg-slate-900/40" data-${EVENT_PREFIX}-action="close-overlay" data-skip-page-rerender="true" aria-label="关闭"></button><section class="relative z-10 flex h-full w-[480px] max-w-[92vw] flex-col bg-background shadow-2xl"><header class="flex items-center justify-between border-b px-4 py-3"><div><h2 class="font-semibold">已生成对外样品池链接</h2><p class="mt-1 text-xs text-slate-500">样品池已保存，可在本浏览器查看并提交寄样申请</p></div>${renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }, 'x')}</header><div class="space-y-4 p-4">
     <div class="rounded-md border bg-slate-50 p-3 text-sm">
       <div class="text-xs text-slate-500">链接地址</div>
       <div class="mt-1 break-all font-mono">${escapeHtml(url)}</div>
@@ -241,6 +250,8 @@ function renderLinkResultOverlay(clientActionId: string, url: string): string {
 function renderOverlays(): string {
   if (!state.overlay) return ''
   if (state.overlay.kind === 'lock') return renderLockOverlay(state.overlay.clientActionId, state.overlay.qty)
+  if (state.overlay.kind === 'release') return renderReleaseOverlay(state.overlay.skus)
+  if (state.overlay.kind === 'link-create') return renderLinkCreateOverlay()
   return renderLinkResultOverlay(state.overlay.clientActionId, state.overlay.url)
 }
 
@@ -251,11 +262,11 @@ function renderBody(): string {
   const view = controller.getView()
   const listTitle = `共 ${filteredRows().length} 条${state.selectedSkus.length ? ` · 已选 ${state.selectedSkus.length} 条` : ''}`
   return renderStandardListPage({
-    showHeader: false,
+    showHeader: true,
     title: 'KOL 库存',
-    feedbackHtml: renderPmsFeedback(state.feedback, state.feedbackOk),
-    filtersHtml: `<div class="space-y-2">${topActions}${renderFilters()}</div>`,
-    statsHtml: stats,
+    feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+    filtersHtml: `<div data-${EVENT_PREFIX}-filters>${`<div class="space-y-2">${topActions}${renderFilters()}</div>`}</div>`,
+    statsHtml: `<div data-${EVENT_PREFIX}-stats>${stats}</div>`,
     listTitle,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: `<div data-pms-kst-table-surface>${view.tableHtml}</div>`,
@@ -273,7 +284,7 @@ function readOverlayInput(selectorAttr: string): string {
 }
 
 function handleFieldEvent(target: HTMLElement): void {
-  const field = target.dataset[`${EVENT_PREFIX}Field`]
+  const field = target.getAttribute(`data-${EVENT_PREFIX}-field`)
   if (!field) return
   if (field === 'select-row') return
   const value = (target as HTMLInputElement).value
@@ -287,8 +298,8 @@ function handleFieldEvent(target: HTMLElement): void {
   }
 }
 
-function handleActionEvent(target: HTMLElement): void {
-  const action = target.dataset[`${EVENT_PREFIX}Action`]
+async function handleActionEvent(target: HTMLElement): Promise<void> {
+  const action = target.getAttribute(`data-${EVENT_PREFIX}-action`)
   if (!action) return
   switch (action) {
     case 'query':
@@ -310,97 +321,55 @@ function handleActionEvent(target: HTMLElement): void {
     case 'open-column-settings':
       // Handled by controller
       break
-    case 'release-row': {
-      const sku = target.dataset.sku ?? ''
-      const result = releasePmsKolLock([sku])
-      if (result.failedSkus.length) {
-        state.feedback = `释放失败: SKU ${result.failedSkus.join(', ')} 不存在`
-        state.feedbackOk = false
-      } else if (result.released === 0) {
-        state.feedback = '该 SKU 当前没有可释放的锁定'
-        state.feedbackOk = true
-      } else {
-        state.feedback = `已释放 ${sku} 的 ${result.released} 件锁定`
-        state.feedbackOk = true
-      }
-      state.selectedSkus = state.selectedSkus.filter((s) => s !== sku)
-      break
-    }
+    case 'query-lock-sku':if(state.overlay?.kind==='lock') state.overlay.search=rootElement()?.querySelector<HTMLInputElement>('[data-kol-lock-query]')?.value || '';break
+    case 'toggle-page': {const checked=target instanceof HTMLInputElement && target.checked;rootElement()?.querySelectorAll<HTMLInputElement>('tbody [data-pms-kst-field="select-row"]').forEach(input=>{const sku=input.dataset.sku || '';state.selectedSkus=checked?[...new Set([...state.selectedSkus,sku])]:state.selectedSkus.filter(item=>item!==sku)});break}
+    case 'release-row':
     case 'release-selected': {
-      if (state.selectedSkus.length === 0) {
-        state.feedback = '请先选择要释放的 SKU'
-        state.feedbackOk = false
-        return
-      }
-      const result = releasePmsKolLock(state.selectedSkus)
-      if (result.failedSkus.length) {
-        state.feedback = `部分 SKU 不存在: ${result.failedSkus.join(', ')}`
-        state.feedbackOk = false
-      } else if (result.released === 0) {
-        state.feedback = '所选 SKU 当前没有可释放的锁定'
-        state.feedbackOk = true
-      } else {
-        state.feedback = `已释放 ${result.released} 件锁定(共 ${state.selectedSkus.length} 个 SKU)`
-        state.feedbackOk = true
-      }
-      state.selectedSkus = []
-      break
+      const skus = action === 'release-row' ? [target.dataset.sku || ''] : state.selectedSkus.slice()
+      if (!skus.length) throw new Error('请先选择要释放的 SKU')
+      state.overlay = {kind:'release',clientActionId:crypto.randomUUID(),skus};state.overlayError='';break
     }
-    case 'lock-selected': {
-      if (state.selectedSkus.length === 0) {
-        state.feedback = '请先选择要锁定的 SKU'
-        state.feedbackOk = false
-        return
-      }
-      state.overlay = { kind: 'lock', clientActionId: `kst-lock-${Date.now()}`, qty: 1 }
-      state.overlayError = ''
-      break
+    case 'submit-release': {
+      if(state.overlay?.kind !== 'release') return
+      const result = await releasePmsKolLock(state.overlay.skus,state.overlay.clientActionId)
+      state.feedback = `已释放 ${result.released} 件未占用锁定`;state.feedbackOk=true;state.overlay=null;state.selectedSkus=[];break
+    }
+    case 'lock-selected':
+      state.overlay = {kind:'lock',clientActionId:crypto.randomUUID(),qty:1};state.overlayError='';break
+    case 'fill-lock-ratio':
+    case 'clear-lock-qty': {
+      const root = rootElement()
+      const selected = Array.from(root?.querySelectorAll<HTMLInputElement>('[data-kol-lock-select]:checked') || [])
+      if(!selected.length) throw new Error('先勾选需要填充的 SKU')
+      const ratio = Number(root?.querySelector<HTMLInputElement>('[data-kol-lock-ratio]')?.value || 0)
+      if(!Number.isFinite(ratio) || ratio < 0 || ratio > 100) throw new Error('比例须为 0～100')
+      selected.forEach(input=>{const sku=input.dataset.kolLockSelect;const row=listPmsKolStock().find(r=>r.sku===sku);const qty=Array.from(root?.querySelectorAll<HTMLInputElement>('[data-kol-lock-qty]') || []).find(x=>x.dataset.kolLockQty===sku);if(row && qty) qty.value=String(action==='clear-lock-qty'?0:Math.max(row.lockedOccupied,Math.floor(row.kolStock*ratio/100)))})
+      return
     }
     case 'submit-lock': {
-      if (!state.overlay || state.overlay.kind !== 'lock') return
-      const qty = Number(readOverlayInput('overlay-qty'))
-      if (!Number.isFinite(qty) || qty <= 0) {
-        state.overlayError = '请输入大于 0 的锁定数量'
-        return
-      }
-      const ok = releasePmsKolLock(state.selectedSkus)
-      if (ok.failedSkus.length) {
-        state.overlayError = `部分 SKU 不存在: ${ok.failedSkus.join(', ')}`
-        return
-      }
-      // Re-locking uses lockPmsKolStockBatch; here we just demo via direct mutation through selected entries.
-      // Use listPmsKolStock to find rows and adjust.
-      for (const sku of state.selectedSkus) {
-        const row = listPmsKolStock().find((r) => r.sku === sku)
-        if (!row) continue
-        row.vkolManualLockedPool += qty
-      }
-      state.feedback = `已对 ${state.selectedSkus.length} 个 SKU 各锁定 ${qty} 件`
-      state.feedbackOk = true
-      state.overlay = null
-      state.selectedSkus = []
-      break
+      if(state.overlay?.kind !== 'lock') return
+      const root = rootElement()
+      const selected = Array.from(root?.querySelectorAll<HTMLInputElement>('[data-kol-lock-select]:checked') || [])
+      const entries=selected.map(input=>({sku:input.dataset.kolLockSelect || '',qty:Number(Array.from(root?.querySelectorAll<HTMLInputElement>('[data-kol-lock-qty]') || []).find(x=>x.dataset.kolLockQty===input.dataset.kolLockSelect)?.value)}))
+      await lockPmsKolStockBatch(entries,state.overlay.clientActionId)
+      state.feedback=`已保存 ${entries.length} 个 SKU 的锁定池`;state.feedbackOk=true;state.overlay=null;state.selectedSkus=[];break
     }
-    case 'create-link-selected': {
-      if (state.selectedSkus.length === 0) {
-        state.feedback = '请先选择要加入样品池的 SKU'
-        state.feedbackOk = false
-        return
-      }
-      const result = generatePmsKolLinkCode()
-      state.overlay = { kind: 'link-result', clientActionId: `kst-link-${Date.now()}`, url: result.url }
-      state.overlayError = ''
-      state.feedback = `已为 ${state.selectedSkus.length} 个 SKU 生成对外样品池链接,真实提交由 manage.higood.ai 处理`
-      state.feedbackOk = true
-      break
+    case 'create-link-selected':
+      if(!state.selectedSkus.length) throw new Error('先选择样品 SKU')
+      state.overlay={kind:'link-create',clientActionId:crypto.randomUUID()};state.overlayError='';break
+    case 'submit-link': {
+      if(state.overlay?.kind !== 'link-create') return
+      const root=rootElement()
+      const result=await generatePmsKolLinkCode(state.selectedSkus,{name:root?.querySelector<HTMLInputElement>('[data-kol-pool-name]')?.value,maxSkuSelection:Number(root?.querySelector<HTMLInputElement>('[data-kol-pool-max]')?.value),expiresAt:root?.querySelector<HTMLInputElement>('[data-kol-pool-expires]')?.value,operationId:state.overlay.clientActionId})
+      state.overlay={kind:'link-result',clientActionId:result.linkCode,url:result.url};state.feedback='样品池已保存';state.feedbackOk=true;break
     }
     case 'copy-link': {
       if (!state.overlay || state.overlay.kind !== 'link-result') return
       const url = state.overlay.url
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(url).catch(() => undefined)
+        await navigator.clipboard.writeText(new URL(url,window.location.origin).href)
       }
-      state.feedback = '链接已复制(原型模拟)'
+      state.feedback = '链接已复制'
       state.feedbackOk = true
       break
     }
@@ -414,7 +383,8 @@ function handleActionEvent(target: HTMLElement): void {
 }
 
 function handleChangeEvent(target: HTMLElement): void {
-  if (target.dataset[`${EVENT_PREFIX}Field`] === 'select-row') {
+  if(target.getAttribute(`data-${EVENT_PREFIX}-field`)==='selection-scope'){const value=(target as HTMLSelectElement).value;state.selectedSkus=value==='all'?filteredRows().map(row=>row.sku):value==='page'?Array.from(rootElement()?.querySelectorAll<HTMLInputElement>('tbody [data-pms-kst-field="select-row"]') || []).map(input=>input.dataset.sku || ''):[];controller.refresh({overlays:false});syncSelectionButtons();return}
+  if (target.getAttribute(`data-${EVENT_PREFIX}-field`) === 'select-row') {
     const sku = target.dataset.sku ?? ''
     if (target instanceof HTMLInputElement && target.checked) {
       if (!state.selectedSkus.includes(sku)) state.selectedSkus.push(sku)
@@ -425,28 +395,47 @@ function handleChangeEvent(target: HTMLElement): void {
   }
 }
 
-export function renderPmsKolStockPage(): string {
+export async function renderPmsKolStockPage(): Promise<string> {
+  try { ; await hydratePmsKolStock() } catch(error) { state.feedback=error instanceof Error?error.message:"用户数据不可读";state.feedbackOk=false }
   resetStandardListEntryTransientStateOnRouteEntry(state, false)
-  const html = renderBody()
+  const html = `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true">${renderBody()}</div>`
   queueMicrotask(() => {
     const root = rootElement()
     hydratePmsSurface(root)
+    local.mount()
     syncSelectionButtons()
   })
   return html
 }
 
-export function handlePmsKolStockEvent(event: Event): void {
-  const target = event.target as HTMLElement
-  if (!target || typeof target.closest !== 'function') return
+const local = createPmsLocalListInteractions({
+  prefix: EVENT_PREFIX, state, controller,
+  listTitle: () => `共 ${filteredRows().length} 条`,
+  filters: () => `<div class="space-y-2">${renderTopActions()}${renderFilters()}</div>`, stats: renderStats,
+  feedback: () => renderPmsFeedback(state.feedback, state.feedbackOk), overlays: renderOverlays,
+})
+
+export async function handlePmsKolStockEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (!rootElement()?.contains(target)) return false
+  if (local.handle(target, event)) return true
   const actionable = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-field], [data-${EVENT_PREFIX}-action]`)
-  if (!actionable || !rootElement()?.contains(actionable)) return
-  if (actionable.dataset[`${EVENT_PREFIX}Action`]) {
-    handleActionEvent(actionable)
-  } else if (actionable.dataset[`${EVENT_PREFIX}Field`]) {
-    if (event.type === 'change') handleChangeEvent(actionable)
-    else handleFieldEvent(actionable)
+  if (!actionable) return false
+  const action = actionable.getAttribute(`data-${EVENT_PREFIX}-action`)
+  if (action) {
+    if (event && event.type !== 'click') return true
+    if(action === 'fill-lock-ratio' || action === 'clear-lock-qty') { try { await handleActionEvent(actionable) } catch(error) { state.feedback=error instanceof Error?error.message:'填充失败';state.feedbackOk=false;local.refresh(false,true) }; return true }
+    try { await handleActionEvent(actionable) } catch (error) {
+      state.feedback = error instanceof Error ? error.message : '操作未保存'
+      state.feedbackOk = false
+      local.refresh(false,true);return true
+    }
+    local.refresh(action === 'reset')
+    syncSelectionButtons()
+  } else {
+    if (event?.type === 'change') handleChangeEvent(actionable)
+    handleFieldEvent(actionable)
   }
+  return true
 }
 
 export function closePmsKolStockOverlays(): void {

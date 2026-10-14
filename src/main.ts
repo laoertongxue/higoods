@@ -183,16 +183,16 @@ function handlePmsIdbHydrateError(label: string, error: unknown): void {
   const banner = document.createElement('div')
   banner.setAttribute('role', 'alert')
   banner.className = 'fixed top-4 left-1/2 z-50 max-w-2xl -translate-x-1/2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg'
-  banner.textContent = `PMS 业务数据加载失败(${label}):${message}。当前可能显示种子数据,您的修改将无法持久化。请检查浏览器存储或刷新重试。`
+  banner.textContent = `${label}未能读取：${message}。已保存的记录没有被覆盖。请恢复浏览器存储权限后重新读取。`
   document.body.appendChild(banner)
   setTimeout(() => banner.remove(), 12000)
 }
 
-// PMS IDB 启动期加载:把已写入的 PMS 操作日志与业务变更从 IDB 搬到内存缓存。
-// 不阻塞首屏;加载失败时不影响业务数据种子展示,但通过 banner 明确告知用户。
+// Common logs are read once; each procurement page awaits its own direct records.
 let pmsInitializationStarted = false
+let pmsRelatedInitializationStarted = false
 function startPmsInitialization(): void {
-  if (pmsInitializationStarted) return
+  if (!pmsInitializationStarted) {
   pmsInitializationStarted = true
 import('./data/pms/idb-storage.ts').then((mod) => {
   mod.getPmsDb().catch((error: unknown) => handlePmsIdbHydrateError('数据库连接', error))
@@ -200,22 +200,17 @@ import('./data/pms/idb-storage.ts').then((mod) => {
 void import('./data/pms/runtime.ts').then((mod) => {
   mod.hydratePmsLogsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('操作日志', error))
 })
-void import('./data/pms/bom-templates.ts').then((mod) => {
-  mod.hydratePmsBomLogsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('BOM 日志', error))
-  mod.hydratePmsBomTemplatesFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('BOM 模板', error))
-})
-void import('./data/pms/bom-detail.ts').then((mod) => {
-  mod.hydratePmsBomDetailsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('BOM 样板详情', error))
-})
+  }
+  // Procurement pages await their own direct records. Avoid initializing unrelated domains on entry.
+  const path = appStore.getState().pathname
+  if (path.startsWith('/pms/') && !path.startsWith('/pms/tmf-')) return
+  if (pmsRelatedInitializationStarted) return
+  pmsRelatedInitializationStarted = true
 void import('./data/pms/first-leg-logistics.ts').then((mod) => {
   mod.hydratePmsFirstLegFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('头程物流', error))
 })
 void import('./data/pms/material-purchase-orders.ts').then((mod) => {
-  mod.migrateMaterialPurchaseUpdatesFromLocalStorage().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'unknown'
-    console.warn('[PMS_LEGACY_MIGRATION]', { message })
-    handlePmsIdbHydrateError('面辅料采购旧键迁移', error)
-  })
+  mod.hydratePmsMaterialPurchaseOrdersFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('面辅料采购', error))
 })
 void import('./data/pms/payment-requests.ts').then((mod) => {
   mod.hydratePmsPaymentFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('请款单', error))
@@ -232,9 +227,6 @@ void import('./data/pms/suppliers.ts').then((mod) => {
 void import('./data/pms/supplier-confirmations.ts').then((mod) => {
   mod.hydratePmsSupplierConfirmationsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商包装确认单', error))
 })
-void import('./data/pms/inventory-monitor.ts').then((mod) => {
-  mod.hydratePmsInventoryFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('库存监控', error))
-})
 void import('./data/pms/purchase-suggestions.ts').then((mod) => {
   mod.hydratePmsPurchaseSuggestionsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('采购建议', error))
 })
@@ -246,11 +238,7 @@ void import('./data/pms/supplier-supply-archives.ts').then((mod) => {
 })
 void import('./data/pms/tmf-material-purchases.ts').then((mod) => {
   mod.hydratePmsTmfPurchaseStateFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('织带厂状态', error))
-  mod.migrateTmfPurchaseStateFromLocalStorage().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'unknown'
-    console.warn('[TMF_LEGACY_MIGRATION]', { message })
-    handlePmsIdbHydrateError('织带厂旧键迁移', error)
-  })
+
 })
 
 }
@@ -273,7 +261,7 @@ import('./data/pms/idb-storage.ts').then((mod) => {
       const banner = document.createElement('div')
       banner.setAttribute('role', 'alert')
       banner.className = 'fixed top-4 right-4 z-50 max-w-md rounded-md border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-lg'
-      banner.textContent = `PMS 业务数据已被其他标签页修改(${message.store}:${String(message.key)})。请刷新页面以加载最新数据。`
+      banner.textContent = `采购记录已在其他页面修改。请重新读取后继续操作。`
       document.body.appendChild(banner)
       setTimeout(() => banner.remove(), 8000)
     }
@@ -963,6 +951,11 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
   }
 }
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  // Ordinary procurement pages hydrate their own direct sources; they do not load production/cutting records.
+  if (normalizedPathname.startsWith('/pms/') && !normalizedPathname.startsWith('/pms/tmf-')) {
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
   // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
   // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
   if (/^\/los\/live-room(\/|$)/.test(normalizedPathname) || /^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
@@ -1075,14 +1068,31 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
     if (!postFinishingEntry && !cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
+    if (normalizedPathname.startsWith('/pms/')) {
+      await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
+    }
     // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
-    const pcsFirstScreenImages = normalizedPathname === '/pcs/production-preparation/design-revision'
+    const pcsFirstScreenImages = normalizedPathname === '/pms/supplier-supply-archives'
+      ? ['/materials/archive/4595f8e168082d676f32f9b977984a2a.png', '/materials/pcs-reviewed/rib-blue.jpg', '/materials/pcs-reviewed/cotton-white.jpg']
+      : normalizedPathname === '/pms/material-purchase-orders'
+      ? ['/materials/fabric-main.jpg', '/shirt-sample.jpg', '/materials/accessory-button.jpg', '/dress-sample-1.jpg', '/materials/fei-ticket/fog-grey-sweatshirt-fleece.png', '/production-confirmation-demo/grey-zip-hoodie.png', '/materials/yarn-stitching.jpg']
+      : normalizedPathname === '/pcs/production-preparation/design-revision'
       ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
       : normalizedPathname === '/pcs/products/styles' || normalizedPathname === '/pcs/products/specifications'
         ? ['/materials/pcs-reviewed/shirt-black.jpg', ...(normalizedPathname.endsWith('/styles') ? ['/materials/pcs-reviewed/casual-dress-black.jpg'] : [])]
         : []
     for (const src of pcsFirstScreenImages) { const image = new Image(); image.src = src; void image.decode().catch(() => {}) }
     // 改款加工、收货和 PDA 直达页须先读取同一份已提交资料。
+    const procurementCatalogEntry = /^\/pms\/(purchase-suggestions|kol-demands|product-purchase-orders|reorder|product-purchase-order-aftersales|material-requirements|material-purchase-orders|material-purchase-tracking|fitting-timeliness|material-supplier-confirmations|first-leg-shipments|material-inventory|material-payment-requests|logistics-payment-requests|kol-sample-stock|kol-sample-apply|kol-sample-link|supplier-supply-archives)(\/|$)/.test(normalizedPathname)
+      && normalizedPathname !== '/pms/kol-sample-stock/lock-log'
+    // Direct procurement entries must read persisted PCS catalog overrides before
+    // building names, images, units or published BOM candidates. This is read-only.
+    if (procurementCatalogEntry) {
+      try { await (await import('./data/pms/canonical-purchase-references.ts')).ensurePurchaseCatalogState() } catch (error) {
+        const { renderPcsStorageError } = await import('./pages/pcs-storage-error.ts')
+        return renderPcsStorageError(error)
+      }
+    }
     if (/^\/pcs\/production-preparation\/(plate-making|artwork|color|display-sample|first-sample)\/[^/]+$/.test(normalizedPathname) || /^\/fcs\/craft\/(dyeing|printing)(\/|$)/.test(normalizedPathname)
       || /^\/fcs\/production\/changes(\/|$)/.test(normalizedPathname)
       || /^\/fcs\/pda\/(task-receive|exec|handover|factory-receipts)(\/|$)/.test(normalizedPathname)
@@ -1296,6 +1306,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
     }
     console.error('路由模块加载失败，进入降级页', error)
+    if (pathname.startsWith('/pms/')) {
+      const reason = error instanceof Error ? error.message : '采购资料暂时无法读取。'
+      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>采购资料未能读取，当前不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">原记录没有被覆盖。恢复浏览器存储权限后重新读取。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-pms-record-retry>重新读取</button></section>`
+    }
     if (pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
       const reason = error instanceof Error ? error.message : String(error)
       return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
@@ -1320,6 +1334,10 @@ async function render(): Promise<void> {
   }
 
   root.innerHTML = renderAppShell(state, includeTmfStorageWarning(pageContent))
+  if (state.pathname.startsWith('/pms/')) {
+    const pmsSurface = await import('./pages/pms/shared.ts')
+    pmsSurface.hydratePmsSurface(root, { icons: false })
+  }
   if (isPdaPath(state.pathname)) {
     if (!root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
@@ -1953,6 +1971,7 @@ async function renderAfterHandledPageEvent(
   previousPathname: string,
 ): Promise<void> {
   const nextPathname = appStore.getState().pathname
+  if (target.dataset.pmsEventHandledLocally === 'true' && nextPathname === previousPathname) return
   if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
     await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
     return
@@ -2137,8 +2156,22 @@ root.addEventListener('drop', dispatchListColumnDragEvent)
 root.addEventListener('dragend', dispatchListColumnDragEvent)
 
 root.addEventListener('click', async (event) => {
+  const storageTarget = resolveEventElementTarget(event.target)
+  if (storageTarget?.closest('[data-pms-record-retry]')) {
+    event.preventDefault()
+    await render()
+    return
+  }
+  if (storageTarget?.closest('[data-pms-storage-open]')) {
+    event.preventDefault()
+    await (await import('./components/pms-storage-panel.ts')).openPmsStoragePanel()
+    return
+  }
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const nativeSummary = target.closest<HTMLElement>('summary')
+  if (appStore.getState().pathname.startsWith('/pms/') && !appStore.getState().pathname.startsWith('/pms/tmf-')
+    && nativeSummary && ![...nativeSummary.attributes].some((attribute) => attribute.name.startsWith('data-') && attribute.name.endsWith('action'))) return
   // Registered timing source pages own their links; unrelated module dispatch
   // must not consume their source-document navigation.
   if (target.closest('[data-timing-source-detail]')) {
@@ -2284,11 +2317,14 @@ root.addEventListener('click', async (event) => {
   if (pageEventHandled) {
     // Checkbox/radio actions read the browser's already-toggled state. Cancelling
     // that click would roll the native control back after the local handler ran.
-    if (!preserveNativeClick) event.preventDefault()
+    const pmsNativeControl = target.dataset.pmsEventHandledLocally === 'true'
+      && ((target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) || Boolean(target.closest('summary')))
+    if (!preserveNativeClick && !pmsNativeControl) event.preventDefault()
     if ((skipPageRerender || target.closest('[data-post-finishing-preserve-input="true"]')) && appStore.getState().pathname === previousPathname) {
       return
     }
     const nextPathname = appStore.getState().pathname
+    if (target.dataset.pmsEventHandledLocally === 'true' && nextPathname === previousPathname) return
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
       await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
       return
@@ -2481,7 +2517,7 @@ document.addEventListener('keydown', async (event) => {
   const closesLocally = Boolean(document.querySelector('[data-testid="water-soluble-orders-page"], [data-process-dye-orders-root], [data-process-print-orders-root]'))
   if (await closeDialogsOnEscape()) {
     // These handlers already update their overlays; retain the list and scroll position.
-    if (closesLocally) return
+    if (closesLocally || appStore.getState().pathname.startsWith('/pms/')) return
     if (shouldUseScopedRender) {
       await renderPageContentOnly()
     } else {

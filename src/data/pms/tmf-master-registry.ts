@@ -1,14 +1,13 @@
 import { tmfReferenceMaterials, tmfReferenceSkus } from '../pcs-tmf-material-reference-seeds.ts'
-import { getPmsMaterial } from './materials.ts'
+import { getPurchaseMaterialReference, listPurchaseWarehouses } from './canonical-purchase-references.ts'
 import { getPmsSupplier } from './suppliers.ts'
-import { getPmsWarehouse } from './warehouses.ts'
 
 /**
  * TMF 主档映射：采购、端头采购与收货只认原型内建权威主档的稳定身份。
  * 显示名变化不改变 masterId；未登记对象阻断，不得按名称猜测或静默放行。
  */
 export type TmfMasterKind = 'SUPPLIER' | 'MATERIAL_SKU' | 'TIP_MATERIAL' | 'RAW_MATERIAL' | 'WAREHOUSE'
-export type TmfMasterSource = 'PMS供应商主档' | 'PMS仓库主档' | 'PMS物料主档' | '物料档案' | 'TMF原型规范主档'
+export type TmfMasterSource = 'PMS供应商主档' | '仓储仓库档案' | '物料档案' | 'TMF原型规范主档'
 
 export interface TmfMasterReference {
   masterId: string
@@ -71,8 +70,8 @@ export function resolveTmfSupplierMaster(supplierId: string): TmfMasterReference
 export function resolveTmfWarehouseMaster(warehouseId: string): (TmfMasterReference & { warehouseType?: string }) | null {
   const id = warehouseId?.trim()
   if (!id) return null
-  const pms = getPmsWarehouse(id)
-  if (pms) return { masterId: pms.warehouseCode, code: pms.warehouseCode, name: pms.warehouseName, source: 'PMS仓库主档', warehouseType: pms.warehouseType }
+  const warehouse = listPurchaseWarehouses().find(item => item.code === id)
+  if (warehouse) return { masterId: warehouse.code, code: warehouse.code, name: warehouse.name, source: '仓储仓库档案', warehouseType: warehouse.businessType === 'ACCESSORY' ? '辅料仓' : warehouse.businessType === 'FABRIC' ? '面辅料仓' : warehouse.businessType === 'YARN' ? '纱线仓' : '其他仓' }
   const demo = tmfPrototypeWarehouses[id]
   return demo ? { masterId: id, code: id, name: demo.name, source: 'TMF原型规范主档', warehouseType: demo.type } : null
 }
@@ -89,8 +88,8 @@ export function resolveTmfMaterialMaster(materialSkuId: string): TmfMaterialMast
   }
   const prototype = tmfPrototypeMaterials[id]
   if (prototype) return { masterId: id, code: id, name: prototype.name, source: 'TMF原型规范主档', kind: materialKind(prototype.category), category: prototype.category, unit: prototype.unit }
-  const pms = getPmsMaterial(id)
-  if (pms) return { masterId: pms.materialCode, code: pms.materialCode, name: pms.materialName, source: 'PMS物料主档', kind: pms.materialCategory === '辅料' ? 'MATERIAL_SKU' : 'RAW_MATERIAL', category: pms.materialCategory, unit: pms.baseUnit }
+  const material = getPurchaseMaterialReference(id)
+  if (material) return { masterId: material.materialCode, code: material.materialCode, name: material.materialName, source: '物料档案', kind: material.category === '辅料' ? 'MATERIAL_SKU' : 'RAW_MATERIAL', category: material.category, unit: material.unit }
   return null
 }
 

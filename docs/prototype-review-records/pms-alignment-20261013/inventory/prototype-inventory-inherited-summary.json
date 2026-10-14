@@ -1,0 +1,871 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "inherited_prototype_code_inventory_summary",
+  "generatedAt": "2026-10-13T10:41:52.325909+00:00",
+  "referenceHead": "ee14949905b08b260e9c6309eebc59bfa5b32764",
+  "scope": {
+    "alignmentPages": 21,
+    "completeRemovalPages": 6,
+    "persistentUserDataDeletionAuthorized": false
+  },
+  "sourceReadMode": "继承本会话早期已读源码与Mock统计，不再次源码/CodeGraph探索；不作为当前运行验收或实施完成。",
+  "sourceManifest": [
+    {
+      "path": "/tmp/higoods-pms-online-20261013/prototype-mock-counts.json",
+      "sha256": "a1d36cebf784d6aff88217fca1b0371bb4ecdbbaf6631c0cb1c97019176f7a6f"
+    }
+  ],
+  "activePageExports": [
+    {
+      "id": "PMS-MOCK-001",
+      "page": "商品采购建议",
+      "route": "/pms/purchase-suggestions",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/purchase-suggestions.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/purchase-suggestions.ts",
+      "exportFunction": "listPmsSuggestionViews",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "SPU建议行",
+      "staticMockRows": 8,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 3,
+      "additionalRowsToFillTwoPages": 12,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "待生成": 8
+      }
+    },
+    {
+      "id": "PMS-MOCK-002",
+      "page": "KOL采购需求",
+      "route": "/pms/kol-demands",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-demands.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/purchase-suggestions.ts",
+      "exportFunction": "listPmsKolDemands",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "KOL需求单",
+      "staticMockRows": 6,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 5,
+      "additionalRowsToFillTwoPages": 14,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "待入库": 1,
+        "部分入库": 2,
+        "全部入库": 1,
+        "草稿": 1,
+        "已驳回": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-003",
+      "page": "商品采购单",
+      "route": "/pms/product-purchase-orders",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/product-purchase-orders.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/product-purchase-orders.ts",
+      "exportFunction": "listPmsProductPurchaseOrders",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "商品采购单",
+      "staticMockRows": 12,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 8,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {
+        "待采购": 1,
+        "待确认": 2,
+        "已确认": 1,
+        "草稿": 2,
+        "已发货": 1,
+        "已到货": 1,
+        "已入库": 1,
+        "已完成": 2,
+        "已关闭": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-004",
+      "page": "备货列表",
+      "route": "/pms/reorder",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/reorder-suggestions.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/reorder-suggestions.ts",
+      "exportFunction": "listPmsReorderSuggestions",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "SPU备货行",
+      "staticMockRows": 12,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 8,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {}
+    },
+    {
+      "id": "PMS-MOCK-005",
+      "page": "商品采购售后",
+      "route": "/pms/product-purchase-order-aftersales",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/purchase-order-aftersales.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/purchase-order-aftersales.ts",
+      "exportFunction": "listPmsPurchaseOrderAftersales",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "售后单",
+      "staticMockRows": 11,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 9,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {
+        "待处理": 4,
+        "售后中": 7
+      }
+    },
+    {
+      "id": "PMS-MOCK-006",
+      "page": "面辅料需求分析",
+      "route": "/pms/material-requirements",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/material-requirements.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/material-requirements.ts",
+      "exportFunction": "listPmsMaterialRequirements",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "需求分析单",
+      "staticMockRows": 3,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 8,
+      "additionalRowsToFillTwoPages": 17,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "已生成": 3
+      }
+    },
+    {
+      "id": "PMS-MOCK-007",
+      "page": "面辅料采购单",
+      "route": "/pms/material-purchase-orders",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/material-purchase-orders.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/material-purchase-orders.ts",
+      "exportFunction": "listPmsMaterialPurchaseOrders",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "面辅料采购单；无浏览器用户覆盖/草稿或TMF用户采购",
+      "staticMockRows": 8,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 3,
+      "additionalRowsToFillTwoPages": 12,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "已采购": 2,
+        "部分到货": 2,
+        "已入库": 2,
+        "待采购": 1,
+        "已关闭": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-008",
+      "page": "面辅料采购跟踪",
+      "route": "/pms/material-purchase-tracking",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/material-purchase-tracking.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/material-purchase-orders.ts",
+      "exportFunction": "listPmsMaterialLogisticsRecords",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "采购快递/物流记录",
+      "staticMockRows": 6,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 5,
+      "additionalRowsToFillTwoPages": 14,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {}
+    },
+    {
+      "id": "PMS-MOCK-009",
+      "page": "面辅料采购时效",
+      "route": "/pms/fitting-timeliness",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/fitting-timeliness.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/fitting-timeliness.ts",
+      "exportFunction": "listPmsFittingTimelinessRows",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "采购时效行",
+      "staticMockRows": 13,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 7,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {}
+    },
+    {
+      "id": "PMS-MOCK-010",
+      "page": "面辅料供应商确认单",
+      "route": "/pms/material-supplier-confirmations",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/supplier-confirmations.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/supplier-confirmations.ts",
+      "exportFunction": "listPmsSupplierConfirmations",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "供应商确认单",
+      "staticMockRows": 4,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 7,
+      "additionalRowsToFillTwoPages": 16,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "待确认": 3,
+        "已确认": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-011",
+      "page": "头程物流",
+      "route": "/pms/first-leg-shipments",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/first-leg-shipments.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/first-leg-logistics.ts",
+      "exportFunction": "listPmsFirstLegBatches",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "头程批次单",
+      "staticMockRows": 3,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 8,
+      "additionalRowsToFillTwoPages": 17,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "待起运": 1,
+        "已装柜": 1,
+        "已到仓": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-012",
+      "page": "原料仓库存查询",
+      "route": "/pms/material-inventory",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/material-inventory.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/inventory-monitor.ts",
+      "exportFunction": "listPmsInventoryMonitor",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "物料/仓库监控行",
+      "staticMockRows": 5,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 6,
+      "additionalRowsToFillTwoPages": 15,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "待补货": 3,
+        "正常": 1,
+        "规则异常": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-013",
+      "page": "面辅料采购请款",
+      "route": "/pms/material-payment-requests",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/payment-requests.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/payment-requests.ts",
+      "exportFunction": "listPmsPaymentRequests",
+      "arguments": [
+        "material"
+      ],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "type=material请款单",
+      "staticMockRows": 5,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 6,
+      "additionalRowsToFillTwoPages": 15,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "已请款": 1,
+        "部分请款": 1,
+        "已完成": 1,
+        "未请款": 1,
+        "已作废": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-014",
+      "page": "物流费用请款",
+      "route": "/pms/logistics-payment-requests",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/payment-requests.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/payment-requests.ts",
+      "exportFunction": "listPmsPaymentRequests",
+      "arguments": [
+        "logistics"
+      ],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "type=logistics请款单",
+      "staticMockRows": 2,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 9,
+      "additionalRowsToFillTwoPages": 18,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "已请款": 1,
+        "部分请款": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-015",
+      "page": "KOL库存",
+      "route": "/pms/kol-sample-stock",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-stock.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-stock.ts",
+      "exportFunction": "listPmsKolStock",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "SKU库存行",
+      "staticMockRows": 20,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 0,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {}
+    },
+    {
+      "id": "PMS-MOCK-016",
+      "page": "手动寄样申请",
+      "route": "/pms/kol-sample-apply",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-apply.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-apply.ts",
+      "exportFunction": "listPmsKolApply",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "寄样申请单（不按样品明细计数）",
+      "staticMockRows": 4,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 7,
+      "additionalRowsToFillTwoPages": 16,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "已驳回": 2,
+        "待审核": 1,
+        "已通过": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-017",
+      "page": "对外样品池链接",
+      "route": "/pms/kol-sample-link",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-link.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-link.ts",
+      "exportFunction": "listPmsKolLinks",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "样品池链接行（含过期/作废状态）",
+      "staticMockRows": 5,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 6,
+      "additionalRowsToFillTwoPages": 15,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "待提交": 2,
+        "已提交": 2,
+        "已作废": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-018",
+      "page": "锁定操作记录",
+      "route": "/pms/kol-sample-stock/lock-log",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-stock-lock-log.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-stock-lock-log.ts",
+      "exportFunction": "listPmsKolLockLog",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "锁定日志行",
+      "staticMockRows": 14,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 6,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {}
+    },
+    {
+      "id": "PMS-MOCK-019",
+      "page": "商品供应商管理",
+      "route": "/pms/suppliers",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/suppliers.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/suppliers.ts",
+      "exportFunction": "listPmsSuppliers",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "供应商档案",
+      "staticMockRows": 13,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 7,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {
+        "已启用": 9,
+        "已驳回": 1,
+        "待审核": 1,
+        "草稿": 1,
+        "已停用": 1
+      }
+    },
+    {
+      "id": "PMS-MOCK-020",
+      "page": "供应商供货档案",
+      "route": "/pms/supplier-supply-archives",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/supplier-supply-archives.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/supplier-supply-archives.ts",
+      "exportFunction": "listPmsSupplyArchives",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "供应商/物料供货档案行",
+      "staticMockRows": 12,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 2,
+      "exactlyTwoPages": true,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 0,
+      "additionalRowsToFillTwoPages": 8,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "already_two_pages",
+      "stateCounts": {
+        "有效": 12
+      }
+    },
+    {
+      "id": "PMS-MOCK-021",
+      "page": "头程物流商管理",
+      "route": "/pms/first-leg-carriers",
+      "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/first-leg-carriers.ts",
+      "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/first-leg-logistics.ts",
+      "exportFunction": "listPmsFirstLegCarriers",
+      "arguments": [],
+      "filterScope": "仅列表固有type/kind参数，其余关键词/状态/时间条件为空；所有静态演示状态计入",
+      "rowGrain": "物流商档案（不按渠道计数）",
+      "staticMockRows": 5,
+      "defaultPageSize": 10,
+      "computedPagesAtDefault": 1,
+      "exactlyTwoPages": false,
+      "twoPageRowRange": {
+        "minimum": 11,
+        "maximum": 20
+      },
+      "minimumAdditionalRowsToReachSecondPage": 6,
+      "additionalRowsToFillTwoPages": 15,
+      "rowsOverTwoPages": 0,
+      "adjustmentNeeded": "needs_more_static_demo_rows",
+      "stateCounts": {
+        "启用": 4,
+        "停用": 1
+      }
+    }
+  ],
+  "areaSummaries": [
+    {
+      "group": "基础资料",
+      "confirmedModuleExports": [
+        {
+          "page": "商品供应商管理",
+          "route": "/pms/suppliers",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/suppliers.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/suppliers.ts",
+          "exportFunction": "listPmsSuppliers",
+          "arguments": [],
+          "mockRows": 13
+        },
+        {
+          "page": "供应商供货档案",
+          "route": "/pms/supplier-supply-archives",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/supplier-supply-archives.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/supplier-supply-archives.ts",
+          "exportFunction": "listPmsSupplyArchives",
+          "arguments": [],
+          "mockRows": 12
+        },
+        {
+          "page": "头程物流商管理",
+          "route": "/pms/first-leg-carriers",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/first-leg-carriers.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/first-leg-logistics.ts",
+          "exportFunction": "listPmsFirstLegCarriers",
+          "arguments": [],
+          "mockRows": 5
+        }
+      ],
+      "buttonParityStatus": "initial_code_inventory_did_not_preserve_per_button_symbol_catalog; do_not_claim_CRUD_or_exports_fully_aligned",
+      "nextComparisonBasis": "test_basic_inventory_or_test_ops_inventory_per_actual_fields/buttons"
+    },
+    {
+      "group": "库存/付款",
+      "confirmedModuleExports": [
+        {
+          "page": "原料仓库存查询",
+          "route": "/pms/material-inventory",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/material-inventory.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/inventory-monitor.ts",
+          "exportFunction": "listPmsInventoryMonitor",
+          "arguments": [],
+          "mockRows": 5
+        },
+        {
+          "page": "面辅料采购请款",
+          "route": "/pms/material-payment-requests",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/payment-requests.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/payment-requests.ts",
+          "exportFunction": "listPmsPaymentRequests",
+          "arguments": [
+            "material"
+          ],
+          "mockRows": 5
+        },
+        {
+          "page": "物流费用请款",
+          "route": "/pms/logistics-payment-requests",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/payment-requests.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/payment-requests.ts",
+          "exportFunction": "listPmsPaymentRequests",
+          "arguments": [
+            "logistics"
+          ],
+          "mockRows": 2
+        }
+      ],
+      "buttonParityStatus": "initial_code_inventory_did_not_preserve_per_button_symbol_catalog; do_not_claim_CRUD_or_exports_fully_aligned",
+      "nextComparisonBasis": "test_basic_inventory_or_test_ops_inventory_per_actual_fields/buttons"
+    },
+    {
+      "group": "KOL",
+      "confirmedModuleExports": [
+        {
+          "page": "KOL库存",
+          "route": "/pms/kol-sample-stock",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-stock.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-stock.ts",
+          "exportFunction": "listPmsKolStock",
+          "arguments": [],
+          "mockRows": 20
+        },
+        {
+          "page": "手动寄样申请",
+          "route": "/pms/kol-sample-apply",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-apply.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-apply.ts",
+          "exportFunction": "listPmsKolApply",
+          "arguments": [],
+          "mockRows": 4
+        },
+        {
+          "page": "对外样品池链接",
+          "route": "/pms/kol-sample-link",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-link.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-link.ts",
+          "exportFunction": "listPmsKolLinks",
+          "arguments": [],
+          "mockRows": 5
+        },
+        {
+          "page": "锁定操作记录",
+          "route": "/pms/kol-sample-stock/lock-log",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/kol-sample-stock-lock-log.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/kol-sample-stock-lock-log.ts",
+          "exportFunction": "listPmsKolLockLog",
+          "arguments": [],
+          "mockRows": 14
+        }
+      ],
+      "buttonParityStatus": "initial_code_inventory_did_not_preserve_per_button_symbol_catalog; do_not_claim_CRUD_or_exports_fully_aligned",
+      "nextComparisonBasis": "test_basic_inventory_or_test_ops_inventory_per_actual_fields/buttons"
+    },
+    {
+      "group": "物流",
+      "confirmedModuleExports": [
+        {
+          "page": "面辅料采购跟踪",
+          "route": "/pms/material-purchase-tracking",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/material-purchase-tracking.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/material-purchase-orders.ts",
+          "exportFunction": "listPmsMaterialLogisticsRecords",
+          "arguments": [],
+          "mockRows": 6
+        },
+        {
+          "page": "面辅料采购时效",
+          "route": "/pms/fitting-timeliness",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/fitting-timeliness.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/fitting-timeliness.ts",
+          "exportFunction": "listPmsFittingTimelinessRows",
+          "arguments": [],
+          "mockRows": 13
+        },
+        {
+          "page": "头程物流",
+          "route": "/pms/first-leg-shipments",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/first-leg-shipments.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/first-leg-logistics.ts",
+          "exportFunction": "listPmsFirstLegBatches",
+          "arguments": [],
+          "mockRows": 3
+        },
+        {
+          "page": "头程物流商管理",
+          "route": "/pms/first-leg-carriers",
+          "pageFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/pages/pms/first-leg-carriers.ts",
+          "dataFile": "/Users/laoer/.codex/worktrees/7eaf/higoods/src/data/pms/first-leg-logistics.ts",
+          "exportFunction": "listPmsFirstLegCarriers",
+          "arguments": [],
+          "mockRows": 5
+        }
+      ],
+      "buttonParityStatus": "initial_code_inventory_did_not_preserve_per_button_symbol_catalog; do_not_claim_CRUD_or_exports_fully_aligned",
+      "nextComparisonBasis": "test_basic_inventory_or_test_ops_inventory_per_actual_fields/buttons"
+    }
+  ],
+  "findings": [
+    {
+      "id": "PMS-PROTO-NAV-01",
+      "area": "菜单",
+      "confirmedCodeFact": "原型组顺序为基础资料→采购建议→商品采购→面辅料采购→KOL样衣申请→面辅料供应商确认→库存查询→头程物流→采购对账；与测试顺序不同。",
+      "sourceLocation": "src/data/app-shell-config.ts",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "按测试菜单顺序排列保留21叶；6对象全面删除。"
+    },
+    {
+      "id": "PMS-PROTO-NAV-02",
+      "area": "菜单图标",
+      "confirmedCodeFact": "原有27叶均配置Lucide icon，AppShell渲染；不能把菜单顺序差异扩大成全部缺icon。",
+      "sourceLocation": "src/data/app-shell-config.ts",
+      "status": "confirmed_existing",
+      "implementationImplication": "实施后核对21叶图标仍可见。"
+    },
+    {
+      "id": "PMS-PROTO-STRUCT-01",
+      "area": "列表骨架",
+      "confirmedCodeFact": "26个固定路由与2个动态路由已存在；盘点的列表使用标准骨架，默认10条/页。",
+      "sourceLocation": "src/router/routes-pms.ts；src/components/ui/",
+      "status": "confirmed_existing",
+      "implementationImplication": "复用标准组件，按已观察行为补丁；不推倒架构。"
+    },
+    {
+      "id": "PMS-PROTO-REO-01",
+      "area": "备货",
+      "confirmedCodeFact": "新增SPU/备货存在占位或仅内存路径，没有建立完整采购单。",
+      "sourceLocation": "src/pages/pms/reorder-suggestions.ts；src/data/pms/reorder-suggestions.ts",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "补本地可保存的备货数量分配、采购生成与下游直接读取；正常10件与边界验证。"
+    },
+    {
+      "id": "PMS-PROTO-KOL-01",
+      "area": "KOL库存",
+      "confirmedCodeFact": "锁定绕过可用量检查，释放/增减直接操作内存；锁定操作记录为独立固定Mock。",
+      "sourceLocation": "src/pages/pms/；src/data/pms/（KOL库存与操作记录）",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "锁定/释放校验、持久事实和关联操作记录一起保存，统一读取来源。"
+    },
+    {
+      "id": "PMS-PROTO-KOL-02",
+      "area": "KOL样品池链接",
+      "confirmedCodeFact": "创建用随机URL而无可读业务记录；修改仅意图；作废仅内存；剪贴板失败被吞。",
+      "sourceLocation": "src/pages/pms/；src/data/pms/（KOL样品池链接）",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "按已观察对象与生命周期保存记录；失败反馈；刷新与直达回读。"
+    },
+    {
+      "id": "PMS-PROTO-MPO-01",
+      "area": "面辅料图片补充",
+      "confirmedCodeFact": "只有文件校验，没有附件Blob持久化。",
+      "sourceLocation": "src/pages/pms/；src/data/pms/（面辅料采购相关动作）",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "原始Blob/元数据引用同事务，并保留取消/失败输入；不存Base64。"
+    },
+    {
+      "id": "PMS-PROTO-PAY-01",
+      "area": "面辅料/物流付款附件",
+      "confirmedCodeFact": "附件只有名称等元数据，没有Blob实体持久化。",
+      "sourceLocation": "src/pages/pms/；src/data/pms/（两类请款/付款）",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "业务记录+附件引用+Blob同库事务；查看、刷新、失败回读。"
+    },
+    {
+      "id": "PMS-PROTO-STORE-01",
+      "area": "共同保存",
+      "confirmedCodeFact": "多处写入fire-and-forget，内存更新/成功提示先于事务complete；pmsPut遇IDB不可用会捕获后返回成功。",
+      "sourceLocation": "src/data/pms/；符号pmsPut（初始摘要未保留精确文件）",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "await事务complete后发布内存与成功；IDB打开/事务中止必须真实失败，不回退localStorage。"
+    },
+    {
+      "id": "PMS-PROTO-STORE-02",
+      "area": "操作记录",
+      "confirmedCodeFact": "业务主记录与操作日志分别异步保存，日志失败被catch，不能共同成功。",
+      "sourceLocation": "src/data/pms/",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "直接相关业务对象、明细、日志合并到同库同事务。"
+    },
+    {
+      "id": "PMS-PROTO-STORE-03",
+      "area": "缺少持久写入的对象",
+      "confirmedCodeFact": "单位/物料/售后/备货/KOL/时效的若干可写对象缺持久路径。六项删除后不能因此把仍有效的售后、备货、KOL、时效问题当已解决。",
+      "sourceLocation": "src/data/pms/",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "对仍有效21范围按每动作建立直接对象存储；六项旧持久项登记STORE-04，不直接删用户库。"
+    },
+    {
+      "id": "PMS-PROTO-TMF-01",
+      "area": "物流关联",
+      "confirmedCodeFact": "TMF使用单例/整包存储并有localStorage后备；PMS总初始化包含全模块读取/自动迁移。",
+      "sourceLocation": "src/data/pms/；PMS初始化/TMF相关入口",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "按本次动作直接影响登记；不能用静默后备或普通读取迁移冒充原子保存；不扩大到无关TMF。"
+    },
+    {
+      "id": "PMS-PROTO-IMAGE-01",
+      "area": "对象图片",
+      "confirmedCodeFact": "现有演示照片有通用图，未证明与所有对象对应。",
+      "sourceLocation": "src/data/pms/；各物料/SKU引用",
+      "status": "confirmed_unverified_correspondence",
+      "implementationImplication": "使用已观察真实对象图片或登记素材阻塞；缩略图/大图/关闭/Esc/失败状态。"
+    },
+    {
+      "id": "PMS-PROTO-CHECK-01",
+      "area": "专项验证",
+      "confirmedCodeFact": "check:pms-purchase-chain 有12个指向已删文件的陈旧import。",
+      "sourceLocation": "check:pms-purchase-chain",
+      "status": "confirmed_code_gap",
+      "implementationImplication": "修复当前专项检查契约与有效路径，不能把检查未运行当通过。"
+    }
+  ],
+  "validation": "源码未修改；依赖npm ci完成；本旁路未执行产品构建或测试，原Mock计数脚本是无浏览器API只读环境统计，已有副作用调用因无IDB不能落盘。"
+}
