@@ -17,23 +17,23 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderTabs } from '../../../components/ui/tabs.ts'
 
-type Basket = { code: string; qrCode: string; name: string; type: string; warehouse: string; status: 'IDLE' | 'DISABLED' | 'IN_USE'; currentWave?: string; currentOutbound?: string; currentTask?: string; lastBind?: string; lastRelease?: string }
-
-const statusLabel: Record<string, string> = { IDLE: '空闲', DISABLED: '已禁用', IN_USE: '使用中' }
-function statusClass(s: string): string {
-  if (s === 'IDLE') return 'bg-emerald-50 text-emerald-700'
-  if (s === 'IN_USE') return 'bg-amber-50 text-amber-700'
-  return 'bg-slate-100 text-slate-500'
-}
+type Basket = { code: string; type: '拣货篮' | '集货篮'; warehouse: 'F&M WH' | 'A&C WH'; status: '启用' | '停用'; lastPrintedAt: string; createdAt: string }
 
 const seedBaskets: Basket[] = [
-  { code: 'WH-FINISHED-BK-001', qrCode: 'QR-BK-001', name: 'A区拣货篮 01', type: '标准篮', warehouse: '成衣仓', status: 'IN_USE', currentWave: 'JH-WAVE-20260829-004', currentOutbound: 'SO-20260820-018', currentTask: 'PK-20260829-010', lastBind: '2026-08-29 09:10', lastRelease: '2026-08-28 17:30' },
-  { code: 'WH-FINISHED-BK-002', qrCode: 'QR-BK-002', name: 'A区拣货篮 02', type: '标准篮', warehouse: '成衣仓', status: 'IDLE', lastBind: '2026-08-28 16:00', lastRelease: '2026-08-28 16:45' },
-  { code: 'WH-FINISHED-BK-003', qrCode: 'QR-BK-003', name: 'B区拣货篮 03', type: '标准篮', warehouse: '成衣仓', status: 'IDLE', lastBind: '2026-08-28 15:00', lastRelease: '2026-08-28 15:40' },
-  { code: 'WH-FINISHED-BK-004', qrCode: 'QR-BK-004', name: 'C区拣货篮 04', type: '大篮', warehouse: '成衣仓', status: 'IN_USE', currentWave: 'JH-WAVE-20260829-003', currentOutbound: 'SO-20260829-005', currentTask: 'PK-20260829-008', lastBind: '2026-08-29 10:25', lastRelease: '2026-08-28 18:00' },
-  { code: 'WH-FINISHED-BK-005', qrCode: 'QR-BK-005', name: '备用拣货篮 05', type: '标准篮', warehouse: '成衣仓', status: 'DISABLED', lastRelease: '2026-08-27 12:00' },
+  { code: 'FMW-BK-001', type: '拣货篮', warehouse: 'F&M WH', status: '启用', lastPrintedAt: '2026-09-12 09:10', createdAt: '2026-08-01 10:00' },
+  { code: 'FMW-BK-002', type: '拣货篮', warehouse: 'F&M WH', status: '启用', lastPrintedAt: '2026-09-10 14:22', createdAt: '2026-08-01 10:05' },
+  { code: 'FMW-CB-001', type: '集货篮', warehouse: 'F&M WH', status: '启用', lastPrintedAt: '', createdAt: '2026-08-20 11:30' },
+  { code: 'ANC-BK-001', type: '拣货篮', warehouse: 'A&C WH', status: '停用', lastPrintedAt: '2026-09-08 08:40', createdAt: '2026-08-12 09:00' },
+  { code: 'ANC-CB-001', type: '集货篮', warehouse: 'A&C WH', status: '启用', lastPrintedAt: '2026-09-11 16:05', createdAt: '2026-08-25 15:20' },
 ]
+
+const BASKET_TYPES = ['拣货篮', '集货篮'] as const
+const BASKET_TYPE_LABELS: Record<string, string> = { 拣货篮: '拣货篮', 集货篮: '集货篮' }
+const BASKET_WAREHOUSES = ['F&M WH', 'A&C WH'] as const
+type BasketTab = '全部' | (typeof BASKET_TYPES)[number]
 
 const EVENT_PREFIX = 'wls-basic-basket'
 const PREFERENCE_KEY = '/wls/finished/basic-basket:list-columns'
@@ -46,6 +46,9 @@ const state: {
   preferencesLoaded: boolean
   showColumnSettings: boolean
   keyword: string
+  tab: BasketTab
+  warehouseFilter: string
+  statusFilter: string
 } = {
   currentPage: 1,
   sort: null,
@@ -53,33 +56,28 @@ const state: {
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
+  tab: '全部',
+  warehouseFilter: '',
+  statusFilter: '',
 }
 
 const columns: StandardListColumn<Basket>[] = [
-  { key: 'code', title: '拣货篮编号', width: 180, required: true, freezeable: true, sortable: true, sortValue: r => r.code,
+  { key: 'select', title: '勾选', width: 50, required: true,
+    render: () => `<input type="checkbox" class="h-4 w-4 rounded border-slate-300" />` },
+  { key: 'code', title: '编号', width: 160, required: true, freezeable: true, sortable: true, sortValue: r => r.code,
     render: r => `<span class="font-medium text-slate-700">${escapeHtml(r.code)}</span>` },
-  { key: 'qrCode', title: '二维码', width: 120, sortable: true, sortValue: r => r.qrCode,
-    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.qrCode)}</span>` },
-  { key: 'name', title: '名称', width: 140, sortable: true, sortValue: r => r.name,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.name)}</span>` },
-  { key: 'type', title: '类型', width: 80, sortable: true, sortValue: r => r.type,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.type)}</span>` },
-  { key: 'warehouse', title: '所属仓库', width: 100, sortable: true, sortValue: r => r.warehouse,
+  { key: 'type', title: '类型', width: 100, sortable: true, sortValue: r => r.type,
+    render: r => `<span class="text-slate-600">${escapeHtml(BASKET_TYPE_LABELS[r.type] || r.type)}</span>` },
+  { key: 'warehouse', title: '仓库', width: 100, sortable: true, sortValue: r => r.warehouse,
     render: r => `<span class="text-slate-600">${escapeHtml(r.warehouse)}</span>` },
   { key: 'status', title: '状态', width: 90, sortable: true, sortValue: r => r.status,
-    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass(r.status)}">${escapeHtml(statusLabel[r.status])}</span>` },
-  { key: 'currentWave', title: '当前波次', width: 200, sortable: true, sortValue: r => r.currentWave ?? '',
-    render: r => `<span class="text-slate-600">${r.currentWave ? escapeHtml(r.currentWave) : '-'}</span>` },
-  { key: 'currentOutbound', title: '当前出库单', width: 170, sortable: true, sortValue: r => r.currentOutbound ?? '',
-    render: r => `<span class="text-slate-600">${r.currentOutbound ? escapeHtml(r.currentOutbound) : '-'}</span>` },
-  { key: 'currentTask', title: '当前拣货任务', width: 160, sortable: true, sortValue: r => r.currentTask ?? '',
-    render: r => `<span class="text-slate-600">${r.currentTask ? escapeHtml(r.currentTask) : '-'}</span>` },
-  { key: 'lastBind', title: '最近绑定', width: 150, sortable: true, sortValue: r => r.lastBind ?? '',
-    render: r => `<span class="text-slate-500">${r.lastBind ? escapeHtml(r.lastBind) : '-'}</span>` },
-  { key: 'lastRelease', title: '最近释放', width: 150, sortable: true, sortValue: r => r.lastRelease ?? '',
-    render: r => `<span class="text-slate-500">${r.lastRelease ? escapeHtml(r.lastRelease) : '-'}</span>` },
-  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: r => `<button class="text-[var(--link)] hover:underline text-xs">打印</button><button class="${r.status === 'IN_USE' ? 'text-slate-300 cursor-not-allowed text-xs' : 'text-[var(--link)] hover:underline text-xs'} ml-2">${r.status === 'DISABLED' ? '启用' : '禁用'}</button>` },
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${r.status === '启用' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${escapeHtml(r.status)}</span>` },
+  { key: 'lastPrintedAt', title: '最后打印时间', width: 160, sortable: true, sortValue: r => r.lastPrintedAt,
+    render: r => `<span class="text-xs text-slate-500">${r.lastPrintedAt ? escapeHtml(r.lastPrintedAt) : '-'}</span>` },
+  { key: 'createdAt', title: '创建时间', width: 160, sortable: true, sortValue: r => r.createdAt,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.createdAt)}</span>` },
+  { key: 'actions', title: '操作', width: 130, required: true, actionColumn: true,
+    render: r => `<button class="text-[var(--link)] hover:underline text-xs">打印</button><button class="text-[var(--link)] hover:underline text-xs ml-2">${r.status === '启用' ? '停用' : '启用'}</button>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -104,20 +102,39 @@ function ensurePreferencesLoaded(): void {
 
 function filteredRows(): Basket[] {
   const kw = state.keyword.trim().toLowerCase()
-  if (!kw) return [...seedBaskets]
-  return seedBaskets.filter(b =>
-    b.code.toLowerCase().includes(kw)
-    || b.qrCode.toLowerCase().includes(kw)
-    || b.name.toLowerCase().includes(kw)
-    || (b.currentWave ?? '').toLowerCase().includes(kw)
-    || (b.currentOutbound ?? '').toLowerCase().includes(kw)
-  )
+  return seedBaskets.filter(b => {
+    if (state.tab !== '全部' && b.type !== state.tab) return false
+    if (state.warehouseFilter && b.warehouse !== state.warehouseFilter) return false
+    if (state.statusFilter && b.status !== state.statusFilter) return false
+    if (!kw) return true
+    return b.code.toLowerCase().includes(kw)
+  })
 }
 
 function renderFilters(): string {
-  return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索篮号 / 二维码 / 当前波次 / 当前出库单" data-${EVENT_PREFIX}-field="keyword"></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+  return `<div class="rounded-lg border bg-white p-3"><p class="mb-3 text-xs text-slate-500">维护集货标签编号，支持批量添加并打印条码标签</p><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索编号" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">全部仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${BASKET_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">全部状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="启用" ${state.statusFilter === '启用' ? 'selected' : ''}>启用</option><option value="停用" ${state.statusFilter === '停用' ? 'selected' : ''}>停用</option></select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('清除', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
+function renderTypeTabs(): string {
+  const tabs: Array<{ key: BasketTab; label: string }> = [
+    { key: '全部', label: '全部' },
+    ...BASKET_TYPES.map(type => ({ key: type as BasketTab, label: BASKET_TYPE_LABELS[type] })),
+  ]
+  return renderTabs({
+    tabs: tabs.map(tab => ({
+      key: tab.key,
+      label: tab.label,
+      count: tab.key === '全部' ? seedBaskets.length : seedBaskets.filter(b => b.type === tab.key).length,
+    })),
+    activeKey: state.tab,
+    variant: 'pills',
+    prefix: EVENT_PREFIX,
+    action: 'switch-tab',
+  })
 }
 
 function renderWorkspace(): string {
@@ -131,13 +148,15 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
 
   return renderStandardListPage({
-    title: '拣货篮管理',
+    title: '集货标签管理',
+    statusTabsHtml: renderTypeTabs(),
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('批量添加', { prefix: EVENT_PREFIX, action: 'batch-add' }, 'plus')}${renderSecondaryButton('批量打印标签', { prefix: EVENT_PREFIX, action: 'batch-print' }, 'printer')}${renderSecondaryButton('启用', { prefix: EVENT_PREFIX, action: 'batch-enable' }, 'check')}${renderSecondaryButton('停用', { prefix: EVENT_PREFIX, action: 'batch-disable' }, 'ban')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${rows.length} 条` },
-      { label: '使用中', value: `${seedBaskets.filter(b => b.status === 'IN_USE').length} 条` },
-      { label: '空闲', value: `${seedBaskets.filter(b => b.status === 'IDLE').length} 条` },
-      { label: '已禁用', value: `${seedBaskets.filter(b => b.status === 'DISABLED').length} 条` },
+      { label: '拣货篮', value: `${seedBaskets.filter(b => b.type === '拣货篮').length} 条` },
+      { label: '集货篮', value: `${seedBaskets.filter(b => b.type === '集货篮').length} 条` },
+      { label: '停用', value: `${seedBaskets.filter(b => b.status === '停用').length} 条` },
     ]),
     listTitle: `共 ${rows.length} 条`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
@@ -174,6 +193,8 @@ export function handleBasicBasketEvent(target: HTMLElement, event?: Event): bool
   if (field) {
     const name = field.dataset.wlsBasicBasketField
     if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       const pageSize = Number((field as HTMLSelectElement).value)
       state.preferences.pageSize = ([...PAGE_SIZE_OPTIONS] as number[]).includes(pageSize) ? pageSize as (typeof PAGE_SIZE_OPTIONS)[number] : 10
@@ -188,6 +209,7 @@ export function handleBasicBasketEvent(target: HTMLElement, event?: Event): bool
   const action = actionNode?.dataset.wlsBasicBasketAction
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action.startsWith('switch-tab:')) { state.tab = action.slice('switch-tab:'.length) as BasketTab; state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'prev-page' || action === 'next-page') { state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1)); refreshWorkspace(); return true }
   if (action === 'sort-column') {
     const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''
@@ -207,8 +229,12 @@ export function handleBasicBasketEvent(target: HTMLElement, event?: Event): bool
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: '拣货篮管理', columns, rows: filteredRows() }); return true }
+  if (action === 'reset-filter') { state.keyword = ''; state.warehouseFilter = ''; state.statusFilter = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'batch-add') { showListFeedback('批量添加为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'batch-print') { showListFeedback('已生成批量标签打印任务', 'success'); return true }
+  if (action === 'batch-enable') { showListFeedback('已启用所选标签', 'success'); return true }
+  if (action === 'batch-disable') { showListFeedback('已停用所选标签', 'success'); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '集货标签管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

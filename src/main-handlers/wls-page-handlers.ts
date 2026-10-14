@@ -62,6 +62,12 @@ import { handleTransitWorkAreaManageEvent } from '../pages/wls/transit/work-area
 import { handleWaveManageEvent } from '../pages/wls/finished/wave-manage.ts'
 import { handleWlsAccessoryReceiptsEvent } from '../pages/wls-accessory-receipts.ts'
 import { handleWlsProductionPrepEvent } from '../pages/wls/production-prep/allocation.ts'
+import { finishedOnlineWlsEventHandlers } from '../pages/wls/finished-online/routes.ts'
+import { stockOnlineWlsRoutes } from '../pages/wls/stock-online/routes.ts'
+import { capacityOnlineWlsEventHandlers } from '../pages/wls/capacity-online/routes.ts'
+import { transitOnlineWlsRoutes } from '../pages/wls/transit-online/routes.ts'
+import { rawOnlineWlsPageHandlers } from '../pages/wls/raw-online/routes.ts'
+import { handleGarmentInventoryEvent } from '../pages/wls/garment-inventory/page.ts'
 
 type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean
 
@@ -154,6 +160,14 @@ const pageEventHandlers: Record<string, WlsPageEventHandler> = {
   '/wls/transit/receive-manage': handleTransitReceiveManageEvent,
   '/wls/transit/warehouse-transfer': handleTransitWarehouseTransferEvent,
   '/wls/transit/work-area-manage': handleTransitWorkAreaManageEvent,
+
+  // ── 2026-10-14 WLS 全量对齐：/wls/online/* 46 个占位页事件处理器 ──
+  ...finishedOnlineWlsEventHandlers,
+  ...Object.fromEntries(stockOnlineWlsRoutes.map((route) => [route.path, route.handle])),
+  ...capacityOnlineWlsEventHandlers,
+  ...Object.fromEntries(transitOnlineWlsRoutes.map((route) => [route.path, route.handle])),
+  ...rawOnlineWlsPageHandlers,
+  '/wls/online/garment-inventory': handleGarmentInventoryEvent,
 }
 
 export function dispatchWlsPageEvent(pathname: string, target: HTMLElement, event?: Event): boolean {

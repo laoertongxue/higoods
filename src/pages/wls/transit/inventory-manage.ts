@@ -2,33 +2,39 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderTabs } from '../../../components/ui/tabs.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+
+type InventoryStatus = '待上架' | '已上架' | '已出库'
 
 type InventoryRow = {
-  locationCode: string; zone: string; sku: string; name: string
-  qty: number; area: string; lastMoveTime: string
+  productionNo: string; sku: string; zone: string; location: string
+  pendingQty: number; shelfQty: number; outboundQty: number
+  warehouse: string; status: InventoryStatus; updateTime: string
 }
 
-const areaClass: Record<string, string> = {
-  '作业区': 'bg-blue-50 text-blue-700', '货架区': 'bg-emerald-50 text-emerald-700',
-  '暂存区': 'bg-amber-50 text-amber-700', '仓库区': 'bg-slate-100 text-slate-500',
+const statusClass: Record<string, string> = {
+  '待上架': 'bg-orange-50 text-orange-700', '已上架': 'bg-emerald-50 text-emerald-700', '已出库': 'bg-blue-50 text-blue-700',
 }
+
+const TAB_STATUSES: Array<'ALL' | InventoryStatus> = ['ALL', '待上架', '已上架', '已出库']
 
 const seedRows: InventoryRow[] = [
-  { locationCode: 'TR-A-01', zone: '中转仓货架区', sku: 'FAB-PO14954-A', name: '主身面料', qty: 3, area: '货架区', lastMoveTime: '2026-07-16 09:36' },
-  { locationCode: 'TR-A-02', zone: '中转仓货架区', sku: 'FAB-PO14955-A', name: '主身面料', qty: 5, area: '货架区', lastMoveTime: '2026-07-16 10:46' },
-  { locationCode: 'TR-A-03', zone: '中转仓货架区', sku: 'FAB-PO14956-A', name: '主身面料', qty: 4, area: '货架区', lastMoveTime: '2026-07-16 11:21' },
-  { locationCode: 'TR-A-04', zone: '中转仓货架区', sku: 'FAB-PO14963-A', name: '主身面料', qty: 8, area: '货架区', lastMoveTime: '2026-07-16 15:06' },
-  { locationCode: 'TR-A-05', zone: '中转仓货架区', sku: 'FAB-PO14964-A', name: '主身面料', qty: 5, area: '货架区', lastMoveTime: '2026-07-16 15:13' },
-  { locationCode: 'TR-W-01', zone: '中转仓暂存区', sku: 'FAB-PO14958-A', name: '主身面料', qty: 7, area: '暂存区', lastMoveTime: '2026-07-16 09:43' },
-  { locationCode: 'TR-W-02', zone: '中转仓暂存区', sku: 'FAB-PO14956-A', name: '主身面料', qty: 6, area: '暂存区', lastMoveTime: '2026-07-16 11:21' },
-  { locationCode: 'TR-P-01', zone: '中转仓作业区', sku: 'FAB-PO14954-A', name: '主身面料', qty: 6, area: '作业区', lastMoveTime: '2026-07-16 09:36' },
-  { locationCode: 'TR-P-02', zone: '中转仓作业区', sku: 'ACC-PO14954-B', name: '辅料包', qty: 2, area: '作业区', lastMoveTime: '2026-07-16 09:36' },
-  { locationCode: 'TR-P-03', zone: '中转仓作业区', sku: 'FAB-PO14958-A', name: '主身面料', qty: 6, area: '作业区', lastMoveTime: '2026-07-16 09:43' },
+  { productionNo: 'PO14954', sku: 'FAB-PO14954-A', zone: '中转仓货架区', location: 'TR-A-03', pendingQty: 0, shelfQty: 6, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '已上架', updateTime: '2026-07-16 10:20' },
+  { productionNo: 'PO14955', sku: 'FAB-PO14955-A', zone: '中转仓货架区', location: 'TR-A-01', pendingQty: 5, shelfQty: 0, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '待上架', updateTime: '2026-07-16 11:30' },
+  { productionNo: 'PO14956', sku: 'FAB-PO14956-A', zone: '中转仓货架区', location: 'TR-A-02', pendingQty: 4, shelfQty: 0, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '待上架', updateTime: '2026-07-16 13:10' },
+  { productionNo: 'PO14957', sku: 'FAB-PO14957-A', zone: '中转仓货架区', location: 'TR-A-04', pendingQty: 0, shelfQty: 0, outboundQty: 5, warehouse: 'Hilon 中转仓', status: '已出库', updateTime: '2026-07-16 15:06' },
+  { productionNo: 'PO14962', sku: 'FAB-PO14962-A', zone: '中转仓货架区', location: 'TR-A-06', pendingQty: 0, shelfQty: 0, outboundQty: 6, warehouse: 'Hilon 中转仓', status: '已出库', updateTime: '2026-07-16 15:40' },
+  { productionNo: 'PO14963', sku: 'FAB-PO14963-A', zone: '中转仓货架区', location: 'TR-A-07', pendingQty: 0, shelfQty: 8, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '已上架', updateTime: '2026-07-16 16:01' },
+  { productionNo: 'PO14964', sku: 'FAB-PO14964-A', zone: '中转仓货架区', location: 'TR-A-05', pendingQty: 4, shelfQty: 0, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '待上架', updateTime: '2026-07-16 15:20' },
+  { productionNo: 'PO14958', sku: 'FAB-PO14958-A', zone: '中转仓暂存区', location: 'TR-W-01', pendingQty: 7, shelfQty: 0, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '待上架', updateTime: '2026-07-16 09:43' },
+  { productionNo: 'PO14959', sku: 'FAB-PO14959-A', zone: '中转仓暂存区', location: 'TR-W-02', pendingQty: 6, shelfQty: 0, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '待上架', updateTime: '2026-07-16 13:10' },
+  { productionNo: 'PO14940', sku: 'FAB-PO14940-A', zone: '中转仓货架区', location: 'TR-B-03', pendingQty: 0, shelfQty: 5, outboundQty: 0, warehouse: 'Hilon 中转仓', status: '已上架', updateTime: '2026-07-15 09:05' },
 ]
 
 const EVENT_PREFIX = 'wls-transit-inventory'
@@ -44,33 +50,39 @@ const state = {
   detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
-  statusFilter: '' as string,
+  tab: 'ALL' as (typeof TAB_STATUSES)[number],
 }
 
 const columns: StandardListColumn<InventoryRow>[] = [
-  { key: 'locationCode', title: '库位编号', width: 120, required: true, freezeable: true, sortable: true, sortValue: r => r.locationCode,
-    render: r => `<span class="font-mono text-xs text-slate-700 font-medium">${escapeHtml(r.locationCode)}</span>` },
-  { key: 'zone', title: '所属库区', width: 130, sortable: true, sortValue: r => r.zone,
-    render: r => `<span class="text-slate-500 text-xs">${escapeHtml(r.zone)}</span>` },
-  { key: 'sku', title: 'SKU', width: 160, sortable: true, sortValue: r => r.sku,
+  { key: 'productionNo', title: '生产单号', width: 120, required: true, freezeable: true, sortable: true, sortValue: r => r.productionNo,
+    render: r => `<span class="font-medium text-slate-700">${escapeHtml(r.productionNo)}</span>` },
+  { key: 'sku', title: 'SKU', width: 170, sortable: true, sortValue: r => r.sku,
     render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
-  { key: 'name', title: '物料名称', width: 100, sortable: true, sortValue: r => r.name,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.name)}</span>` },
-  { key: 'qty', title: '库存数量', width: 90, align: 'right', sortable: true, sortValue: r => r.qty,
-    render: r => `<span class="font-medium text-slate-700">${r.qty}</span>` },
-  { key: 'area', title: '库存区域', width: 90, sortable: true, sortValue: r => r.area,
-    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${areaClass[r.area] || ''}">${escapeHtml(r.area)}</span>` },
-  { key: 'lastMoveTime', title: '最近变动', width: 140, sortable: true, sortValue: r => r.lastMoveTime,
-    render: r => `<span class="text-slate-400 text-xs">${escapeHtml(r.lastMoveTime)}</span>` },
-  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: (r) => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ seedRows.indexOf(r) }">查看明细</button>` },
+  { key: 'zone', title: '库区', width: 130, sortable: true, sortValue: r => r.zone,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.zone)}</span>` },
+  { key: 'location', title: '库位', width: 100, sortable: true, sortValue: r => r.location,
+    render: r => `<span class="font-mono text-xs text-slate-700">${escapeHtml(r.location)}</span>` },
+  { key: 'pendingQty', title: '待上架数量', width: 100, align: 'right', sortable: true, sortValue: r => r.pendingQty,
+    render: r => `<span class="${r.pendingQty > 0 ? 'font-medium text-orange-600' : 'text-slate-400'}">${r.pendingQty}</span>` },
+  { key: 'shelfQty', title: '货架数量', width: 100, align: 'right', sortable: true, sortValue: r => r.shelfQty,
+    render: r => `<span class="font-medium text-slate-700">${r.shelfQty}</span>` },
+  { key: 'outboundQty', title: '出库数量', width: 100, align: 'right', sortable: true, sortValue: r => r.outboundQty,
+    render: r => `<span class="text-slate-600">${r.outboundQty}</span>` },
+  { key: 'warehouse', title: '仓库', width: 130, sortable: true, sortValue: r => r.warehouse,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.warehouse)}</span>` },
+  { key: 'status', title: '状态', width: 100, sortable: true, sortValue: r => r.status,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${statusClass[r.status]}">${escapeHtml(r.status)}</span>` },
+  { key: 'updateTime', title: '更新时间', width: 140, sortable: true, sortValue: r => r.updateTime,
+    render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.updateTime)}</span>` },
+  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true,
+    render: r => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view-barcode" data-${EVENT_PREFIX}-idx="${ seedRows.indexOf(r) }">查看条码</button>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
 const defaultPreferences = (): StandardListColumnPreferences => ({
   order: columns.map(c => c.key),
   visibleKeys: columns.map(c => c.key),
-  frozenKeys: ['locationCode'],
+  frozenKeys: ['productionNo'],
   pageSize: PAGE_SIZE_OPTIONS[0],
 })
 
@@ -80,19 +92,36 @@ function ensurePreferencesLoaded(): void {
   state.preferencesLoaded = true
 }
 
+function tabMatches(r: InventoryRow): boolean {
+  return state.tab === 'ALL' || r.status === state.tab
+}
+
+function renderTabsHtml(): string {
+  return renderTabs({
+    tabs: TAB_STATUSES.map(status => ({
+      key: status,
+      label: status === 'ALL' ? '全部' : status,
+      count: status === 'ALL' ? seedRows.length : seedRows.filter(r => r.status === status).length,
+    })),
+    activeKey: state.tab,
+    variant: 'pills',
+    prefix: EVENT_PREFIX,
+    action: 'switch-tab',
+  })
+}
+
 function filteredRows(): InventoryRow[] {
   const kw = state.keyword.trim().toLowerCase()
   return seedRows.filter(r => {
-    if (state.statusFilter && r.area !== state.statusFilter) return false
+    if (!tabMatches(r)) return false
     if (!kw) return true
-    return `${r.locationCode} ${r.zone} ${r.sku} ${r.name}`.toLowerCase().includes(kw)
+    return `${r.productionNo} ${r.sku} ${r.zone} ${r.location}`.toLowerCase().includes(kw)
   })
 }
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="库位编号 / 库区 / SKU / 物料名称" data-${EVENT_PREFIX}-field="keyword"></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">库存区域</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="作业区" ${state.statusFilter === '作业区' ? 'selected' : ''}>作业区</option><option value="货架区" ${state.statusFilter === '货架区' ? 'selected' : ''}>货架区</option><option value="暂存区" ${state.statusFilter === '暂存区' ? 'selected' : ''}>暂存区</option><option value="仓库区" ${state.statusFilter === '仓库区' ? 'selected' : ''}>仓库区</option></select></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="生产单号 / SKU / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -103,19 +132,21 @@ function renderWorkspace(): string {
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
   return renderStandardListPage({
-    title: '中转仓库存管理',
+    title: '中转仓库存查询',
+    description: '按生产单、SKU、库位查看中转仓库位库存（独立于旧中转库存）',
+    statusTabsHtml: renderTabsHtml(),
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${all.length} 条` },
-      { label: '库存总量', value: `${seedRows.reduce((s, r) => s + r.qty, 0)}` },
-      { label: '作业区', value: `${seedRows.filter(r => r.area === '作业区').length} 条` },
-      { label: '货架区', value: `${seedRows.filter(r => r.area === '货架区').length} 条` },
+      { label: '待上架', value: `${seedRows.filter(r => r.status === '待上架').length} 条` },
+      { label: '已上架', value: `${seedRows.filter(r => r.status === '已上架').length} 条` },
+      { label: '已出库', value: `${seedRows.filter(r => r.status === '已出库').length} 条` },
     ]),
     listTitle: '库存列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
-    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无库存记录' }),
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '未找到符合条件的库存记录' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '库存列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedRows[state.detailIdx] ? renderStandardRowDetailDialog({ title: '中转仓库存管理详情', columns, row: seedRows[state.detailIdx], eventPrefix: EVENT_PREFIX }) : ''].join(''),
+    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '库存列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedRows[state.detailIdx] ? renderStandardRowDetailDialog({ title: '中转仓库存详情', columns, row: seedRows[state.detailIdx], eventPrefix: EVENT_PREFIX }) : ''].join(''),
   })
 }
 
@@ -142,7 +173,6 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
   if (field) {
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
-    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -156,6 +186,12 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
   const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action.startsWith('switch-tab:')) {
+    state.tab = action.slice('switch-tab:'.length) as (typeof TAB_STATUSES)[number]
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
   if (action === 'prev-page' || action === 'next-page') {
     state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
     refreshWorkspace()
@@ -171,15 +207,12 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
   if (action === 'apply-filter') {
     const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
     if (input) state.keyword = input.value
-    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
-    if (select) state.statusFilter = select.value
     state.currentPage = 1
     refreshWorkspace()
     return true
   }
   if (action === 'reset-filter') {
     state.keyword = ''
-    state.statusFilter = ''
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -198,8 +231,7 @@ export function handleTransitInventoryManageEvent(target: HTMLElement, event?: E
     refreshWorkspace()
     return true
   }
-  if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
-  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: '中转仓库存管理', columns, rows: filteredRows() }); return true }
+  if (action === 'view-barcode') { const row = seedRows[Number(actionNode.dataset[`${DATASET_PREFIX}Idx`])]; if (row) showListFeedback(`SKU ${row.sku} 的条码为演示内容`, 'info'); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '中转仓库存查询', columns, rows: filteredRows() }); return true }
   return false
 }

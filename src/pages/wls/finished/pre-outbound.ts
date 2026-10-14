@@ -1,7 +1,7 @@
 // @page-pattern: list
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
-import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, renderStandardListColumnSettings, renderCapturedRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
@@ -15,6 +15,9 @@ type PreOutboundItem = {
   id: string; outboundOrderNo: string; pickOrderNo: string; relatedOrderNo: string; trackingNo: string
   spu: string; sku: string; skuCount: number
   outboundWarehouse: string; outboundType: string; receivingUnit: string
+  pickType: '一票一件' | '一票多件'
+  brand: string
+  platform: string
   outboundQuantity: number; pickedQuantity: number
   stockStatus: '库存充足' | '库存部分充足' | '库存不足'
   ownerName: string; status: PreOutboundStatus
@@ -46,6 +49,8 @@ const PRE_OUTBOUND_SEED: PreOutboundItem[] = (() => {
   const statuses: PreOutboundStatus[] = ['待处理', '待拣货', '拣货中', '待出库', '部分出库', '已出库']
   const stockStatuses: Array<'库存充足' | '库存部分充足' | '库存不足'> = ['库存充足', '库存部分充足', '库存不足']
   const outboundTypes = ['现货出库', '预售出库', '调拨出库', '退货出库']
+  const brands = ['Chicmore', 'FADFAD', 'Tendblank', 'Asaya', 'LUXME', 'MODISH', 'PRIMA']
+  const platforms = ['Tiktok', 'Shopee', 'Shopxo', 'Shoplazza']
   const warehouses = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01']
   const owners = ['广州总店', '深圳分店', '武汉分店', '杭州分店', '成都分店']
   const items: PreOutboundItem[] = []
@@ -73,6 +78,9 @@ const PRE_OUTBOUND_SEED: PreOutboundItem[] = (() => {
       outboundWarehouse: warehouses[i % warehouses.length],
       outboundType: outboundTypes[i % outboundTypes.length],
       receivingUnit: owners[i % owners.length],
+      pickType: i % 2 === 0 ? '一票一件' : '一票多件',
+      brand: brands[i % brands.length],
+      platform: platforms[i % platforms.length],
       outboundQuantity: outboundQty,
       pickedQuantity: pickedQty,
       stockStatus,
@@ -91,7 +99,12 @@ const STATUS_ORDER: readonly string[] = ['待处理', '待拣货', '拣货中', 
 const EVENT_PREFIX = 'wls-pre-outbound'
 const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 const PREFERENCE_KEY = '/wls/finished/pre-outbound:list-columns'
-const PAGE_SIZE_OPTIONS = [10, 20, 50]
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 50, 100, 200, 300, 500, 1000]
+
+// 勾选列选中行（group10 行10）。
+const selectedRows = new Set<string>()
+
+const TIMEOUT_TABS = ['全部', '今日超时', '明日超时', '3天超时'] as const
 
 const state = {
   currentPage: 1,
@@ -102,9 +115,18 @@ const state = {
   showColumnSettings: false,
   keyword: '',
   statusFilter: '' as string,
+  timeoutTab: '全部' as string,
+  warehouseFilter: '' as string,
+  pickTypeFilter: '' as string,
+  outboundTypeFilter: '' as string,
+  brandFilter: '' as string,
+  stockStatusFilter: '' as string,
+  platformFilter: '' as string,
 }
 
 const columns: StandardListColumn<PreOutboundItem>[] = [
+  { key: 'selection', title: '勾选', width: 56, required: true, freezeable: true,
+    render: r => `<input type="checkbox" class="h-4 w-4 rounded border-slate-300" ${selectedRows.has(r.id) ? 'checked' : ''} data-${EVENT_PREFIX}-action="toggle-select" data-${EVENT_PREFIX}-order-id="${escapeHtml(r.id)}">` },
   { key: 'orderNos', title: '单号', width: 220, required: true, freezeable: true,
     render: r => `<div class="space-y-0.5 text-xs">
       <div><span class="text-slate-400">出库单号：</span><span class="text-slate-700">${escapeHtml(r.outboundOrderNo)}</span></div>
@@ -167,13 +189,49 @@ function ensurePreferencesLoaded(): void {
   state.preferencesLoaded = true
 }
 
+function timeoutBucket(o: PreOutboundItem): string {
+  const deadline = new Date(o.shipDeadline.replace(' ', 'T')).getTime()
+  if (Number.isNaN(deadline)) return '全部'
+  const days = (deadline - Date.now()) / 86400000
+  if (days <= 1) return '今日超时'
+  if (days <= 2) return '明日超时'
+  return '3天超时'
+}
+
 function filteredRows(): PreOutboundItem[] {
   const kw = state.keyword.trim().toLowerCase()
   return PRE_OUTBOUND_SEED.filter(o => {
     if (state.statusFilter && o.status !== state.statusFilter) return false
+    if (state.timeoutTab && state.timeoutTab !== '全部' && timeoutBucket(o) !== state.timeoutTab) return false
+    if (state.warehouseFilter && o.outboundWarehouse !== state.warehouseFilter) return false
+    if (state.pickTypeFilter && o.pickType !== state.pickTypeFilter) return false
+    if (state.outboundTypeFilter && !o.outboundType.includes(state.outboundTypeFilter)) return false
+    if (state.brandFilter && o.brand !== state.brandFilter) return false
+    if (state.stockStatusFilter === '有货' && !o.stockStatus.includes('充足')) return false
+    if (state.stockStatusFilter === '缺货' && !o.stockStatus.includes('不足')) return false
+    if (state.platformFilter && o.platform !== state.platformFilter) return false
     if (!kw) return true
     return `${o.outboundOrderNo} ${o.pickOrderNo} ${o.relatedOrderNo} ${o.trackingNo} ${o.spu} ${o.sku} ${o.outboundWarehouse} ${o.ownerName}`.toLowerCase().includes(kw)
   })
+}
+
+function renderTimeoutTabs(): string {
+  const counts: Record<string, number> = {}
+  for (const tab of TIMEOUT_TABS) {
+    counts[tab] = tab === '全部' ? PRE_OUTBOUND_SEED.length : PRE_OUTBOUND_SEED.filter(o => timeoutBucket(o) === tab).length
+  }
+  return `<div class="flex flex-wrap gap-2">${TIMEOUT_TABS.map(tab => `<button type="button" class="rounded-md border px-3 py-1.5 text-sm ${tab === state.timeoutTab ? 'border-blue-600 bg-blue-600 text-white' : 'bg-background hover:bg-muted'}" data-${EVENT_PREFIX}-action="switch-timeout-tab" data-${EVENT_PREFIX}-tab="${escapeHtml(tab)}">${escapeHtml(tab)}<span class="ml-1 text-xs opacity-80">${counts[tab]}</span></button>`).join('')}<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white" data-${EVENT_PREFIX}-action="generate-wave">批量生成波次拣货</button></div>`
+}
+
+const BRAND_OPTIONS = ['Chicmore', 'FADFAD', 'Tendblank', 'Asaya', 'LUXME', 'MODISH', 'PRIMA']
+const PLATFORM_OPTIONS = ['Tiktok', 'Shopee', 'Shopxo', 'Shoplazza']
+const WAREHOUSE_OPTIONS = ['中央总仓-成衣仓', '成衣仓-深圳仓01', '成衣仓-武汉仓01']
+const PICK_TYPE_OPTIONS = ['一票一件', '一票多件']
+const OUTBOUND_TYPE_OPTIONS = ['现货', '预售']
+const STOCK_STATUS_OPTIONS = ['有货', '缺货']
+
+function selectHtml(name: string, label: string, options: string[], value: string, allLabel: string): string {
+  return `<label><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="${name}"><option value="">${escapeHtml(allLabel)}</option>${options.map(o => `<option value="${escapeHtml(o)}" ${value === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}</select></label>`
 }
 
 function renderFilters(): string {
@@ -181,7 +239,13 @@ function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="出库单号 / 拣货单号 / 关联单号 / 跟踪单号 / SPU / SKU" data-${EVENT_PREFIX}-field="keyword"></label>
     <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部状态</option>${statusOptions.map(s => `<option value="${escapeHtml(s)}" ${state.statusFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderPrimaryButton('生成波次', { prefix: EVENT_PREFIX, action: 'generate-wave' })}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    ${selectHtml('warehouse', '仓库', WAREHOUSE_OPTIONS, state.warehouseFilter, '全部仓库')}
+    ${selectHtml('pickType', '拣货类型', PICK_TYPE_OPTIONS, state.pickTypeFilter, '全部拣货类型')}
+    ${selectHtml('outboundType', '出库类型', OUTBOUND_TYPE_OPTIONS, state.outboundTypeFilter, '全部出库类型')}
+    ${selectHtml('brand', '品牌', BRAND_OPTIONS, state.brandFilter, '全部品牌')}
+    ${selectHtml('stockStatus', '库存状态', STOCK_STATUS_OPTIONS, state.stockStatusFilter, '全部库存状态')}
+    ${selectHtml('platform', '平台', PLATFORM_OPTIONS, state.platformFilter, '全部平台')}
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderPrimaryButton('波次拣货', { prefix: EVENT_PREFIX, action: 'generate-wave' })}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
 function renderWorkspace(): string {
@@ -191,23 +255,17 @@ function renderWorkspace(): string {
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
 
-  const timeoutStats = {
-    todayTimeoutCount: 8,
-    tomorrowTimeoutCount: 15,
-    threeDaysTimeoutCount: 42,
-  }
+  const batchActions = selectedRows.size > 0
+    ? `<span class="text-xs text-muted-foreground">已选 ${selectedRows.size} 条</span>${renderSecondaryButton('更新仓库', { prefix: EVENT_PREFIX, action: 'batch-update-warehouse' }, 'warehouse')}${renderSecondaryButton('批量替换SKU', { prefix: EVENT_PREFIX, action: 'batch-replace-sku' }, 'replace')}${renderSecondaryButton('清除', { prefix: EVENT_PREFIX, action: 'clear-selection' }, 'x')}`
+    : ''
 
   return renderStandardListPage({
     title: '预出库管理',
+    description: '用于查看出库前置单据，包含单号、商品、货主与出库时间等信息。',
+    statusTabsHtml: renderTimeoutTabs(),
     filtersHtml: renderFilters(),
-    statsHtml: renderStandardListStats([
-      { label: '总预出库单', value: `${PRE_OUTBOUND_SEED.length} 条` },
-      { label: '今日超时', value: `${timeoutStats.todayTimeoutCount}` },
-      { label: '明日超时', value: `${timeoutStats.tomorrowTimeoutCount}` },
-      { label: '3天内超时', value: `${timeoutStats.threeDaysTimeoutCount}` },
-    ]),
     listTitle: '预出库单列表',
-    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
+    listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${batchActions}${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无预出库单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
     overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '预出库单列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailHtml].join(''),
@@ -238,6 +296,12 @@ export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Even
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
     if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'pickType') { state.pickTypeFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'outboundType') { state.outboundTypeFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'brand') { state.brandFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'stockStatus') { state.stockStatusFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'platform') { state.platformFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -250,7 +314,7 @@ export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Even
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
   const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
-  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze', 'toggle-select'].includes(action)) return true
   if (action === 'prev-page' || action === 'next-page') {
     state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
     refreshWorkspace()
@@ -264,10 +328,23 @@ export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Even
     return true
   }
   if (action === 'apply-filter') {
-    const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
+    const root = rootElement()
+    const input = root?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
     if (input) state.keyword = input.value
-    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
-    if (select) state.statusFilter = select.value
+    const status = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
+    if (status) state.statusFilter = status.value
+    const warehouse = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
+    if (warehouse) state.warehouseFilter = warehouse.value
+    const pickType = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="pickType"]`)
+    if (pickType) state.pickTypeFilter = pickType.value
+    const outboundType = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="outboundType"]`)
+    if (outboundType) state.outboundTypeFilter = outboundType.value
+    const brand = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="brand"]`)
+    if (brand) state.brandFilter = brand.value
+    const stockStatus = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="stockStatus"]`)
+    if (stockStatus) state.stockStatusFilter = stockStatus.value
+    const platform = root?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="platform"]`)
+    if (platform) state.platformFilter = platform.value
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -275,6 +352,40 @@ export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Even
   if (action === 'reset-filter') {
     state.keyword = ''
     state.statusFilter = ''
+    state.timeoutTab = '全部'
+    state.warehouseFilter = ''
+    state.pickTypeFilter = ''
+    state.outboundTypeFilter = ''
+    state.brandFilter = ''
+    state.stockStatusFilter = ''
+    state.platformFilter = ''
+    selectedRows.clear()
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'toggle-select') {
+    const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || ''
+    if (!id) return true
+    const checked = actionNode instanceof HTMLInputElement ? actionNode.checked : !selectedRows.has(id)
+    if (checked) selectedRows.add(id)
+    else selectedRows.delete(id)
+    refreshWorkspace()
+    return true
+  }
+  if (action === 'clear-selection') { selectedRows.clear(); refreshWorkspace(); return true }
+  if (action === 'batch-update-warehouse') {
+    if (selectedRows.size === 0) { showListFeedback('请先勾选需要更新的单据', 'warning'); return true }
+    showListFeedback(`已选 ${selectedRows.size} 条，更新仓库已受理`)
+    return true
+  }
+  if (action === 'batch-replace-sku') {
+    if (selectedRows.size === 0) { showListFeedback('请先勾选需要替换 SKU 的单据', 'warning'); return true }
+    showListFeedback(`已选 ${selectedRows.size} 条，批量替换 SKU 已受理`)
+    return true
+  }
+  if (action === 'switch-timeout-tab') {
+    state.timeoutTab = actionNode.dataset[`${DATASET_PREFIX}Tab`] || '全部'
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -302,6 +413,10 @@ export function handleFinishedPreOutboundEvent(target: HTMLElement, event?: Even
   if (action === 'close-detail') { state.detailHtml = ''; refreshWorkspace(); return true }
   if (action === 'generate-pick' || action === 'generate-wave') {
     const id = actionNode.dataset[`${DATASET_PREFIX}OrderId`] || actionNode.dataset.orderId || actionNode.dataset[`${DATASET_PREFIX}Id`] || actionNode.dataset.id || ''
+    if (action === 'generate-wave' && !id) {
+      showListFeedback(`已按当前筛选生成波次拣货，共 ${filteredRows().length} 条`)
+      return true
+    }
     const row = filteredRows().find((item) => Object.values(item as Record<string, unknown>).includes(id) || (item as { order?: { id?: string } }).order?.id === id) as object | undefined
     if (!row) { showListFeedback('未找到该记录，请刷新后重试', 'warning'); return true }
     const moved = advanceRowStatus(row, STATUS_ORDER)

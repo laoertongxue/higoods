@@ -250,7 +250,7 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
     return getPmsRoutes()
   }
 
-  if (normalizedPathname.startsWith('/wls/finished') || normalizedPathname.startsWith('/wls/transit') || normalizedPathname.startsWith('/wls/raw') || normalizedPathname.startsWith('/wls/basic') || normalizedPathname.startsWith('/wls/production-prep') || normalizedPathname === '/wls/pda') {
+  if (normalizedPathname.startsWith('/wls/finished') || normalizedPathname.startsWith('/wls/transit') || normalizedPathname.startsWith('/wls/raw') || normalizedPathname.startsWith('/wls/basic') || normalizedPathname.startsWith('/wls/production-prep') || normalizedPathname.startsWith('/wls/online') || normalizedPathname === '/wls/pda') {
     return getWlsRoutes()
   }
 

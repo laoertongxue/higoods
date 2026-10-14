@@ -302,7 +302,7 @@ const isMultiItemBasketOrder = (order: PreOutboundOrder) => {
 // 1. returnOrderSeed
 // ===========================================================================
 
-export const returnOrderSeed: ReturnOrder[] = Array.from({ length: 24 }, (_, index) => {
+export const returnOrderSeed: ReturnOrder[] = Array.from({ length: 16 }, (_, index) => {
   const warehouses = ["成衣仓库", "雅加达中心仓", "万隆成品仓", "泗水电商仓"];
   const relatedPrefixes = ["XS", "TH", "YS"];
   const owner = subjectSeed[index % subjectSeed.length]?.name || "系统货主";
@@ -368,11 +368,7 @@ export const returnOrderSeed: ReturnOrder[] = Array.from({ length: 24 }, (_, ind
   };
 }).flatMap((item, index) => {
   const multiSpuSkuOrderLinePlan: Record<number, number> = {
-    0: 6,
-    5: 5,
-    10: 6,
-    15: 5,
-    20: 7,
+    0: 5,
   };
   const lineCount = multiSpuSkuOrderLinePlan[index];
   if (!lineCount) {
@@ -421,7 +417,7 @@ export const returnOrderSeed: ReturnOrder[] = Array.from({ length: 24 }, (_, ind
 // 2. preOutboundAutoSeed
 // ===========================================================================
 
-export const preOutboundAutoSeed: PreOutboundOrder[] = Array.from({ length: 24 }, (_, index) => {
+export const preOutboundAutoSeed: PreOutboundOrder[] = Array.from({ length: 16 }, (_, index) => {
   const receivingUnits = ["Jakarta Live Store", "Bandung Retail Hub", "Surabaya Distribution", "Batam Partner DC"];
   const orderPrefix = ["XS", "TH", "DB", "YS"];
   const courierCodes = ["JNE", "JNT", "SICEPAT", "ANTERAJA"] as const;
@@ -854,7 +850,7 @@ export const preOutboundTestSeed: PreOutboundOrder[] = (() => {
   };
 
   const insufficientQty = Math.max(80, skuA.spotStock + skuA.transitStock + 40);
-  const waveBulkOrders: PreOutboundOrder[] = Array.from({ length: 20 }, (_, index) => {
+  const waveBulkOrders: PreOutboundOrder[] = Array.from({ length: 6 }, (_, index) => {
     const suffix = String(index + 1).padStart(2, "0");
     return makeOrder(
       `WAVE-BULK-${suffix}`,
@@ -1352,7 +1348,7 @@ export const materialCategoryOutboundDemoSeed: PreOutboundOrder[] = ([
     { suffix: "203", status: "待出库" as PreOutboundStatus, pickedRatio: 0.65, shippedRatio: 0, stockStatus: "库存部分充足" as const },
     { suffix: "204", status: "待出库" as PreOutboundStatus, pickedRatio: 1, shippedRatio: 0, stockStatus: "库存充足" as const },
     { suffix: "205", status: "已出库" as PreOutboundStatus, pickedRatio: 1, shippedRatio: 1, stockStatus: "库存充足" as const },
-  ]).map((item, itemIndex) => {
+  ]).slice(0, configIndex === 0 ? 5 : configIndex === 4 ? 2 : 3).map((item, itemIndex) => {
     const code = warehouseTypeCodeMap[config.warehouseType];
     const outboundOrderStatus: OutboundOrderStatus =
       item.status === "已出库" ? "已出库" : item.status === "待出库" ? "待出库" : "待复核";

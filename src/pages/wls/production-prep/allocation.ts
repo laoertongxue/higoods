@@ -22,6 +22,18 @@ const KIND_META: Record<ProductionPrepKind, { title: string; config: string; pat
 const PACK_LOCATIONS = ['库位1', '库位2', '库位3', '库位4', '库位5', '库位6', '库位7', '库位8', '库位9']
 const SEWING_OPERATORS = ['辅料1', '辅料2', '辅料3', '辅料4']
 
+const SALE_TYPES = ['预售备货', 'shopee备货', 'KOL样衣', '虾皮样品', '基础款', 'JKT复购', 'SZ复购', '国内做货', 'kol样品', '小单']
+const PROCESS_NEEDS = ['无染印需求', '有染印需求', '有染色需求', '有印花需求', '无染色需求', '无印花需求', '印花完成', '染色完成']
+const OPERATION_OPTIONS = ['织带', '水溶', '烫包', '毛织', '后道质检', '熨烫', '包装', '开扣眼', '钉扣', '裁片', '车缝', '缩水', '特殊工艺', '印花', '染色']
+const CRAFT_OPTIONS = [
+  '普通染色', '活性染色', '分散染色', '酸性染色', '涂料染色', '牛仔水洗', '酵素洗', '石磨洗',
+  '数码印花', '活性印花', '涂料印花', '转移印花', '拔印', '胶浆印花', '水浆印花', '厚板印花',
+  '烫钻', '压花', '植绒', '绣花', '贴布绣', '激光切割', '打孔', '打枣', '锁眼', '钉扣',
+  '包边', '压线', '明线', '暗线', '折边', '拼接', '褶皱', '抽绳', '拉链安装', '烫画',
+  '整烫', '定型', '洗水', '做旧', '磨破', '扎染', '蜡染',
+]
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200, 300, 500, 1000]
+
 interface PrepFilters {
   keywordType: string
   keyword: string
@@ -30,13 +42,23 @@ interface PrepFilters {
   processNeed: string
   includeSupplement: string
   hasStock: string
+  cuttingFactory: string
+  operation: string
   prepStatus: string
   pickStatus: string
   materialReady: string
   craft: string
-  operator: string
+  sort: string
   dateFrom: string
   dateTo: string
+  prepDateFrom: string
+  prepDateTo: string
+  pickDateFrom: string
+  pickDateTo: string
+  demandDateFrom: string
+  demandDateTo: string
+  productionDateFrom: string
+  productionDateTo: string
   pageSize: number
   page: number
 }
@@ -85,13 +107,23 @@ function defaultFilters(): PrepFilters {
     processNeed: '',
     includeSupplement: '',
     hasStock: '',
+    cuttingFactory: '',
+    operation: '',
     prepStatus: '',
     pickStatus: '',
     materialReady: '',
     craft: '',
-    operator: '',
+    sort: '',
     dateFrom: '',
     dateTo: '',
+    prepDateFrom: '',
+    prepDateTo: '',
+    pickDateFrom: '',
+    pickDateTo: '',
+    demandDateFrom: '',
+    demandDateTo: '',
+    productionDateFrom: '',
+    productionDateTo: '',
     pageSize: 20,
     page: 1,
   }
@@ -226,23 +258,42 @@ function listCards(kind: ProductionPrepKind): PrepCard[] {
     .sort((left, right) => right.projection.order.createdAt.localeCompare(left.projection.order.createdAt, 'zh-CN'))
 }
 
+function splitList(value: string): string[] {
+  return value.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
 function applyFilters(kind: ProductionPrepKind, cards: PrepCard[]): PrepCard[] {
   const filters = filtersOf(kind)
   const keyword = filters.keyword.trim().toLowerCase()
   return cards.filter((card) => {
     const order = card.projection.order
-    const session = sessions.get(order.prepOrderId)
     if (keyword) {
       const haystack = filters.keywordType === '生产单号' ? order.productionOrderNo
         : filters.keywordType === 'SPU' ? `${order.spu} ${order.styleNo}`
-          : filters.keywordType === '需求单号' ? card.lines.map((line) => line.upstreamDocumentNo).join(' ')
-            : filters.keywordType === '任务单号' ? card.lines.flatMap((line) => line.taskLinks.map((task) => task.taskNo)).join(' ')
-              : order.prepOrderNo
+          : filters.keywordType === '面料spu' ? `${order.spu} ${order.styleNo}`
+            : filters.keywordType === '面辅料SKU/spu' ? card.lines.map((line) => `${line.materialSku} ${line.materialName}`).join(' ')
+              : filters.keywordType === '需求单号' ? card.lines.map((line) => line.upstreamDocumentNo).join(' ')
+                : filters.keywordType === '任务单号' ? card.lines.flatMap((line) => line.taskLinks.map((task) => task.taskNo)).join(' ')
+                  : order.prepOrderNo
       if (!haystack.toLowerCase().includes(keyword)) return false
     }
     if (filters.factory && card.factory !== filters.factory) return false
-    if (filters.saleType === '预售') return false
-    if (filters.processNeed && !card.lines.some((line) => line.upstreamSourceType === filters.processNeed || line.upstreamProgressStatus.includes(filters.processNeed))) return false
+    if (filters.cuttingFactory && card.factory !== filters.cuttingFactory) return false
+    const wants = splitList(filters.processNeed)
+    if (wants.length) {
+      const hasDye = card.lines.some((line) => line.upstreamSourceType === '染色' || line.upstreamProgressStatus.includes('染色'))
+      const hasPrint = card.lines.some((line) => line.upstreamSourceType === '印花' || line.upstreamProgressStatus.includes('印花'))
+      const matched = wants.some((need) => {
+        if (need === '有染色需求' || need === '染色完成') return hasDye
+        if (need === '有印花需求' || need === '印花完成') return hasPrint
+        if (need === '无染色需求') return !hasDye
+        if (need === '无印花需求') return !hasPrint
+        if (need === '有染印需求') return hasDye || hasPrint
+        if (need === '无染印需求') return !hasDye && !hasPrint
+        return true
+      })
+      if (!matched) return false
+    }
     if (filters.includeSupplement === '是' && !card.lines.some(isSupplement)) return false
     if (filters.includeSupplement === '否' && card.lines.some(isSupplement)) return false
     if (filters.hasStock === '有' && !card.hasStock) return false
@@ -251,8 +302,8 @@ function applyFilters(kind: ProductionPrepKind, cards: PrepCard[]): PrepCard[] {
     if (filters.pickStatus && card.pickStatus !== filters.pickStatus) return false
     if (filters.materialReady === '齐全' && !card.materialReady) return false
     if (filters.materialReady === '不齐' && card.materialReady) return false
-    if (filters.craft && !card.craft.includes(filters.craft)) return false
-    if (filters.operator && (session?.operator || '') !== filters.operator) return false
+    const crafts = splitList(filters.craft)
+    if (crafts.length && !crafts.some((craft) => card.craft.includes(craft))) return false
     const createdDate = order.createdAt.slice(0, 10)
     if (filters.dateFrom && createdDate < filters.dateFrom) return false
     if (filters.dateTo && createdDate > filters.dateTo) return false
@@ -268,21 +319,35 @@ function selectField(name: string, label: string, value: string, options: Array<
   return `<label class="flex min-w-[140px] flex-1 flex-col gap-1 text-xs text-slate-500">${label}<select data-skip-page-rerender="true" data-wls-prep-field="${name}" class="h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-800">${options.map(([optionValue, text]) => `<option value="${escapeHtml(optionValue)}"${optionValue === value ? ' selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`
 }
 
+function multiSelectField(name: string, label: string, value: string, options: string[]): string {
+  const selected = new Set(splitList(value))
+  return `<label class="flex min-w-[140px] flex-1 flex-col gap-1 text-xs text-slate-500">${label}<select multiple data-skip-page-rerender="true" data-wls-prep-field="${name}" class="h-20 rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800">${options.map((option) => `<option value="${escapeHtml(option)}"${selected.has(option) ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select></label>`
+}
+
 function actionButton(action: string, label: string, orderId = '', disabled = false): string {
   return `<button type="button" class="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300" data-wls-prep-action="${action}" data-order-id="${escapeHtml(orderId)}"${disabled ? ' disabled' : ''}>${escapeHtml(label)}</button>`
 }
 
 function renderLines(kind: ProductionPrepKind, card: PrepCard): string {
   const orderId = card.projection.order.prepOrderId
-  const header = showsRolls(kind)
-    ? ['图片', 'SPU', '名称', '来源', '印染状态', '库存', '计划数量', '配料数量', '配料卷数', '领取数量', '领取卷数', '待配数量']
-    : ['图片', kind === 'sewing' ? '辅料 SKU' : 'SKU', '名称', '来源', '状态', '库存', '计划数量', '配料数量', '领取数量', '待配数量']
+  const rolls = showsRolls(kind)
+  const header = rolls
+    ? ['图片', kind === 'sewing' ? 'SKU' : kind === 'other' ? 'SKU' : 'SPU', '名称', '来源', '印染状态', '库存', '计划数量', '配料数量', '配料卷数', '领取数量', '领取卷数', '待配数量']
+    : kind === 'sewing'
+      ? ['图片', 'SKU', '物料类型', '名称', '来源', '印染状态', '库存', '计划数量', '配料数量', '领取数量', '待配数量']
+      : ['图片', 'SKU', '名称', '来源', '印染状态', '库存', '计划数量', '配料数量', '领取数量', '待配数量']
   const rows = card.lines.map((line) => {
     const allocated = allocatedQty(orderId, line)
     const remaining = Math.max(line.requiredQty - allocated, 0)
-    const cells = showsRolls(kind)
-      ? [line.materialSku, line.materialName, isSupplement(line) ? '补料' : line.upstreamSourceType, line.upstreamProgressStatus, formatQty(line.availableStockQty, line.unit), formatQty(line.requiredQty, line.unit), formatQty(allocated, line.unit), rollText(allocated, line.unit) || '—', formatQty(line.pickedQty, line.unit), rollText(line.pickedQty, line.unit) || '—', formatQty(remaining, line.unit)]
-      : [line.materialSku, line.materialName, isSupplement(line) ? '补料' : line.upstreamSourceType, line.upstreamProgressStatus, formatQty(line.availableStockQty, line.unit), formatQty(line.requiredQty, line.unit), formatQty(allocated, line.unit), formatQty(line.pickedQty, line.unit), formatQty(remaining, line.unit)]
+    const source = isSupplement(line) ? '补料' : line.upstreamSourceType
+    let cells: string[]
+    if (rolls) {
+      cells = [line.materialSku, line.materialName, source, line.upstreamProgressStatus, formatQty(line.availableStockQty, line.unit), formatQty(line.requiredQty, line.unit), formatQty(allocated, line.unit), rollText(allocated, line.unit) || '—', formatQty(line.pickedQty, line.unit), rollText(line.pickedQty, line.unit) || '—', formatQty(remaining, line.unit)]
+    } else if (kind === 'sewing') {
+      cells = [line.materialSku, line.materialType, line.materialName, source, line.upstreamProgressStatus, formatQty(line.availableStockQty, line.unit), formatQty(line.requiredQty, line.unit), formatQty(allocated, line.unit), formatQty(line.pickedQty, line.unit), formatQty(remaining, line.unit)]
+    } else {
+      cells = [line.materialSku, line.materialName, source, line.upstreamProgressStatus, formatQty(line.availableStockQty, line.unit), formatQty(line.requiredQty, line.unit), formatQty(allocated, line.unit), formatQty(line.pickedQty, line.unit), formatQty(remaining, line.unit)]
+    }
     return `<div class="grid items-center gap-2 border-t border-slate-100 px-3 py-2 text-xs text-slate-700" style="grid-template-columns: 52px repeat(${cells.length}, minmax(0, 1fr))"><button type="button" data-wls-prep-action="open-image" data-image-url="${escapeHtml(line.materialImageUrl)}" data-image-label="${escapeHtml(line.materialName)}" class="h-10 w-10 overflow-hidden rounded border bg-slate-50"><img src="${escapeHtml(line.materialImageUrl)}" alt="${escapeHtml(line.materialName)}" class="h-full w-full object-cover" /></button>${cells.map((cell) => `<span class="truncate">${escapeHtml(cell)}</span>`).join('')}</div>`
   }).join('')
   return `<div class="overflow-x-auto"><div class="min-w-[920px]"><div class="grid gap-2 bg-slate-50 px-3 py-2 text-xs text-slate-500" style="grid-template-columns: 52px repeat(${header.length - 1}, minmax(0, 1fr))">${header.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>${rows}</div></div>`
@@ -328,23 +393,38 @@ function renderCard(kind: ProductionPrepKind, card: PrepCard): string {
 function renderFilters(kind: ProductionPrepKind, cards: PrepCard[]): string {
   const filters = filtersOf(kind)
   const factories = [...new Set(cards.map((card) => card.factory))]
-  const crafts = [...new Set(cards.map((card) => card.craft))]
+  const keywordTypes = kind === 'knitting'
+    ? ['SPU']
+    : kind === 'sewing' || kind === 'other'
+      ? ['配料单号', '任务单号', '生产单号', '需求单号', 'SPU', '面料spu', '面辅料SKU/spu']
+      : ['配料单号', '任务单号', '生产单号', '需求单号', 'SPU', '面料spu']
+  const cuttingFactories = [...new Set(['Sea Cutting', ...factories])]
   return `<form class="rounded-md border border-slate-200 bg-white p-4" data-wls-prep-form="filters">
     <div class="flex flex-wrap gap-3">
-      ${selectField('keywordType', '单号类型', filters.keywordType, [['配料单号', '配料单号'], ['任务单号', '任务单号'], ['生产单号', '生产单号'], ['需求单号', '需求单号'], ['SPU', 'SPU']])}
+      ${selectField('keywordType', '单号类型', filters.keywordType, keywordTypes.map((type) => [type, type] as [string, string]))}
       ${field('keyword', filters.keyword, '关键字')}
       ${selectField('factory', '工厂', filters.factory, [['', '全部工厂'], ...factories.map((name) => [name, name] as [string, string])])}
-      ${selectField('saleType', '售卖类型', filters.saleType, [['', '全部'], ['现货', '现货'], ['预售', '预售']])}
-      ${selectField('processNeed', '染印需求', filters.processNeed, [['', '全部'], ['染色', '染色'], ['印花', '印花']])}
+      ${kind === 'sewing' ? selectField('cuttingFactory', '裁床工厂', filters.cuttingFactory, [['', '全部裁床工厂'], ...cuttingFactories.map((name) => [name, name] as [string, string])]) : ''}
+      ${multiSelectField('saleType', '售卖类型', filters.saleType, SALE_TYPES)}
+      ${multiSelectField('processNeed', '染印需求', filters.processNeed, PROCESS_NEEDS)}
       ${selectField('includeSupplement', '是否包含补料', filters.includeSupplement, [['', '全部'], ['是', '是'], ['否', '否']])}
-      ${selectField('hasStock', '待加工仓是否有库存', filters.hasStock, [['', '全部'], ['有', '有'], ['无', '无']])}
+      ${kind === 'dyeing' ? selectField('hasStock', 'GTG待加工仓是否有库存', filters.hasStock, [['', '全部'], ['有', '有'], ['无', '无']]) : ''}
+      ${kind === 'other' ? multiSelectField('operation', '工序', filters.operation, OPERATION_OPTIONS) : ''}
+      ${kind === 'other' ? multiSelectField('craft', '工艺', filters.craft, CRAFT_OPTIONS) : ''}
+      ${kind === 'sewing' ? selectField('materialReady', '物料是否齐全', filters.materialReady, [['', '全部'], ['齐全', '齐全'], ['不齐', '不齐']]) : ''}
       ${selectField('prepStatus', '配料状态', filters.prepStatus, [['', '全部'], ['待配料', '待配料'], ['部分配料', '部分配料'], ['已配料', '已配料']])}
       ${selectField('pickStatus', '领料状态', filters.pickStatus, [['', '全部'], ['待领料', '待领料'], ['部分领料', '部分领料'], ['已领料', '已领料']])}
-      ${kind === 'sewing' ? selectField('materialReady', '物料是否齐全', filters.materialReady, [['', '全部'], ['齐全', '齐全'], ['不齐', '不齐']]) : ''}
-      ${kind === 'sewing' ? selectField('operator', '配料人', filters.operator, [['', '全部'], ...SEWING_OPERATORS.map((name) => [name, name] as [string, string])]) : ''}
-      ${kind === 'other' ? selectField('craft', '工艺', filters.craft, [['', '全部工艺'], ...crafts.map((name) => [name, name] as [string, string])]) : ''}
+      ${selectField('sort', '排序', filters.sort, [['', '默认（创建时间降序）'], ['demand-asc', '需求单创建时间升序'], ['demand-desc', '需求单创建时间降序']])}
       ${field('dateFrom', filters.dateFrom, '创建时间起', 'date')}
       ${field('dateTo', filters.dateTo, '创建时间止', 'date')}
+      ${field('prepDateFrom', filters.prepDateFrom, '首次配料时间起', 'date')}
+      ${field('prepDateTo', filters.prepDateTo, '首次配料时间止', 'date')}
+      ${field('pickDateFrom', filters.pickDateFrom, '首次领料时间起', 'date')}
+      ${field('pickDateTo', filters.pickDateTo, '首次领料时间止', 'date')}
+      ${field('demandDateFrom', filters.demandDateFrom, '需求单创建时间起', 'date')}
+      ${field('demandDateTo', filters.demandDateTo, '需求单创建时间止', 'date')}
+      ${field('productionDateFrom', filters.productionDateFrom, '生产单创建时间起', 'date')}
+      ${field('productionDateTo', filters.productionDateTo, '生产单创建时间止', 'date')}
     </div>
     <div class="mt-3 flex flex-wrap items-center gap-2">
       <button type="button" class="rounded bg-blue-600 px-3 py-1.5 text-sm text-white" data-wls-prep-action="search">搜索</button>
@@ -357,28 +437,32 @@ function renderFilters(kind: ProductionPrepKind, cards: PrepCard[]): string {
 
 function renderAllocate(kind: ProductionPrepKind, card: PrepCard): string {
   const orderId = card.projection.order.prepOrderId
+  const rolls = showsRolls(kind)
   const rows = card.lines.map((line, index) => {
     const allocated = allocatedQty(orderId, line)
     const remaining = Math.max(line.requiredQty - allocated, 0)
     const draft = qtyDrafts.get(`${orderId}:${line.prepLineId}`) ?? (remaining > 0 ? String(remaining) : '')
-    return `<div class="grid items-center gap-2 border-t border-slate-100 px-3 py-2 text-xs" style="grid-template-columns: 40px 52px repeat(7, minmax(0, 1fr)) 140px">
+    return `<div class="grid items-center gap-2 border-t border-slate-100 px-3 py-2 text-xs" style="grid-template-columns: 36px 40px 52px repeat(9, minmax(0, 1fr)) 140px">
+      <input type="checkbox" data-skip-page-rerender="true" data-wls-prep-check="${escapeHtml(line.prepLineId)}" ${remaining > 0 ? 'checked' : ''} ${remaining <= 0 ? 'disabled' : ''} />
       <span>${index + 1}</span>
       <img src="${escapeHtml(line.materialImageUrl)}" alt="${escapeHtml(line.materialName)}" class="h-10 w-10 rounded border object-cover" />
       <span class="truncate">${escapeHtml(line.materialSku)}</span>
       <span>${escapeHtml(isSupplement(line) ? '补料' : line.upstreamSourceType)}</span>
       <span>${escapeHtml(formatQty(line.requiredQty, line.unit))}</span>
       <span>${escapeHtml(formatQty(allocated, line.unit))}</span>
+      <span>${escapeHtml(rollText(allocated, line.unit) || '—')}</span>
       <span>${escapeHtml(formatQty(line.pickedQty, line.unit))}</span>
+      <span>${escapeHtml(rollText(line.pickedQty, line.unit) || '—')}</span>
       <span>${escapeHtml(formatQty(remaining, line.unit))}</span>
-      <span>${escapeHtml(line.stockWarehouseName)} ${escapeHtml(formatQty(line.availableStockQty, line.unit))}${showsRolls(kind) ? ` / ${escapeHtml(rollText(line.availableStockQty, line.unit) || '0')} 卷` : ''}</span>
       <input data-skip-page-rerender="true" data-wls-prep-qty="${escapeHtml(line.prepLineId)}" value="${escapeHtml(draft)}" class="h-8 rounded border border-slate-300 px-2" ${remaining <= 0 ? 'disabled' : ''} />
+      <span class="truncate">${escapeHtml(line.stockWarehouseName)} ${escapeHtml(formatQty(line.availableStockQty, line.unit))}${rolls ? ` / ${escapeHtml(rollText(line.availableStockQty, line.unit) || '0')} 卷` : ''}</span>
     </div>`
   }).join('')
-  const headers = ['序号', '图片', kind === 'sewing' ? '辅料 SKU' : 'SPU', '来源', '需求', '已配', '已领', '未配', '仓库库存', '本次配料数量']
+  const headers = ['勾选', '序号', '图片', kind === 'sewing' ? 'SKU' : 'SPU', '来源', '需求数量', '已配料数量', '配料卷数', '已领取数量', '领取卷数', '未配料数量', '本次配料数量', '仓库 / 库存']
   return `<div class="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/40 p-6" data-wls-prep-dialog="allocate">
     <div class="mt-8 w-full max-w-6xl rounded-md bg-white shadow-lg">
       <div class="flex items-center justify-between border-b px-4 py-3"><h2 class="text-base font-semibold">配料 ${escapeHtml(card.projection.order.prepOrderNo)}</h2><button type="button" class="text-sm text-slate-500" data-wls-prep-action="close-dialog">关闭</button></div>
-      <div class="overflow-x-auto p-4"><div class="min-w-[980px]"><div class="grid gap-2 px-3 py-2 text-xs text-slate-500" style="grid-template-columns: 40px 52px repeat(7, minmax(0, 1fr)) 140px">${headers.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>${rows}</div></div>
+      <div class="overflow-x-auto p-4"><div class="min-w-[1120px]"><div class="grid gap-2 px-3 py-2 text-xs text-slate-500" style="grid-template-columns: 36px 40px 52px repeat(9, minmax(0, 1fr)) 140px">${headers.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>${rows}</div></div>
       ${dialogError ? `<p class="px-4 text-sm text-red-600">${escapeHtml(dialogError)}</p>` : ''}
       <div class="flex justify-end gap-2 border-t px-4 py-3"><button type="button" class="rounded bg-blue-600 px-3 py-1.5 text-sm text-white" data-wls-prep-action="submit-allocate" data-order-id="${escapeHtml(orderId)}">提交配料</button><button type="button" class="rounded border px-3 py-1.5 text-sm" data-wls-prep-action="close-dialog">关闭</button></div>
     </div>
@@ -465,8 +549,10 @@ function renderDialog(kind: ProductionPrepKind, cards: PrepCard[]): string {
 function renderPrep(kind: ProductionPrepKind): string {
   const meta = KIND_META[kind]
   const allCards = listCards(kind)
-  const filtered = applyFilters(kind, allCards)
+  const filtered = [...applyFilters(kind, allCards)]
   const filters = filtersOf(kind)
+  if (filters.sort === 'demand-asc') filtered.sort((left, right) => left.projection.order.createdAt.localeCompare(right.projection.order.createdAt, 'zh-CN'))
+  else if (filters.sort === 'demand-desc') filtered.sort((left, right) => right.projection.order.createdAt.localeCompare(left.projection.order.createdAt, 'zh-CN'))
   const pageCount = Math.max(1, Math.ceil(filtered.length / filters.pageSize))
   const page = Math.min(filters.page, pageCount)
   filters.page = page
@@ -480,7 +566,7 @@ function renderPrep(kind: ProductionPrepKind): string {
       <button type="button" class="rounded border px-2 py-1" data-wls-prep-action="page" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button>
       <span>第 ${page} / ${pageCount} 页</span>
       <button type="button" class="rounded border px-2 py-1" data-wls-prep-action="page" data-page="${page + 1}" ${page >= pageCount ? 'disabled' : ''}>下一页</button>
-      <label>每页 <select data-wls-prep-action="page-size" class="h-8 rounded border px-1">${[20, 50, 100].map((size) => `<option value="${size}"${size === filters.pageSize ? ' selected' : ''}>${size}</option>`).join('')}</select></label>
+      <label>每页 <select data-wls-prep-action="page-size" class="h-8 rounded border px-1">${PAGE_SIZE_OPTIONS.map((size) => `<option value="${size}"${size === filters.pageSize ? ' selected' : ''}>${size}</option>`).join('')}</select></label>
     </div>
     ${renderDialog(kind, allCards)}
   </div>`
@@ -499,6 +585,10 @@ function readFields(root: ParentNode): void {
     const name = node.dataset.wlsPrepField
     if (!name || name === 'remark' || name === 'packLocation') return
     if (name === 'pageSize') return
+    if (node instanceof HTMLSelectElement && node.multiple) {
+      ;(filters as unknown as Record<string, string | number>)[name] = [...node.selectedOptions].map((option) => option.value).join(',')
+      return
+    }
     ;(filters as unknown as Record<string, string | number>)[name] = node.value
   })
 }
@@ -546,6 +636,8 @@ function submitAllocate(kind: ProductionPrepKind, orderId: string, root: ParentN
   for (const input of inputs) {
     const line = card.lines.find((item) => item.prepLineId === input.dataset.wlsPrepQty)
     if (!line || input.disabled) continue
+    const checkbox = root.querySelector<HTMLInputElement>(`[data-wls-prep-check="${line.prepLineId}"]`)
+    if (checkbox && !checkbox.checked) continue
     const raw = input.value.trim()
     if (!raw) continue
     const qty = Number(raw)
@@ -631,7 +723,7 @@ export function handleWlsProductionPrepEvent(target: HTMLElement, event?: Event)
   }
   if (action === 'page-size') {
     const size = Number((actionNode as HTMLSelectElement).value)
-    filtersOf(kind).pageSize = [20, 50, 100].includes(size) ? size : 20
+    filtersOf(kind).pageSize = PAGE_SIZE_OPTIONS.includes(size) ? size : 20
     filtersOf(kind).page = 1
     return true
   }

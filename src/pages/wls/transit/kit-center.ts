@@ -2,37 +2,35 @@
 import { escapeHtml } from '../../../utils.ts'
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
-import { renderStandardListTable, renderStandardListColumnSettings, renderStandardRowDetailDialog, type StandardListColumn } from '../../../components/ui/list-table.ts'
+import { renderTabs } from '../../../components/ui/tabs.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, resetStandardListEntryTransientStateOnRouteEntry, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
 type KitLine = {
-  productionNo: string; receiveNo: string; inboundNo: string; sku: string; name: string
+  productionNo: string; sku: string; name: string; fabricType: string
   requiredQty: number; workQty: number; shelfQty: number; availableQty: number
-  missingQty: number; outboundQty: number; remainNeed: number
-  receiveStatus: '缺货' | '未收齐' | '已收齐'; pickupStatus: string
-}
-
-const receiveStatusClass: Record<string, string> = {
-  '缺货': 'bg-red-50 text-red-700', '未收齐': 'bg-amber-50 text-amber-700', '已收齐': 'bg-emerald-50 text-emerald-700',
+  missingQty: number; putawayLocation: string; updateTime: string
 }
 
 const seedLines: KitLine[] = [
-  { productionNo: 'PO14954', receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-001', sku: 'FAB-PO14954-A', name: '主身面料', requiredQty: 6, workQty: 6, shelfQty: 0, availableQty: 6, missingQty: 0, outboundQty: 0, remainNeed: 6, receiveStatus: '已收齐', pickupStatus: '待领料' },
-  { productionNo: 'PO14954', receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-001', sku: 'ACC-PO14954-B', name: '辅料包', requiredQty: 2, workQty: 2, shelfQty: 0, availableQty: 2, missingQty: 0, outboundQty: 0, remainNeed: 2, receiveStatus: '已收齐', pickupStatus: '待领料' },
-  { productionNo: 'PO14957', receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-004', sku: 'FAB-PO14957-A', name: '主身面料', requiredQty: 5, workQty: 5, shelfQty: 0, availableQty: 5, missingQty: 0, outboundQty: 5, remainNeed: 0, receiveStatus: '已收齐', pickupStatus: '已领料' },
-  { productionNo: 'PO14957', receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-004', sku: 'ACC-PO14957-B', name: '辅料包', requiredQty: 2, workQty: 2, shelfQty: 0, availableQty: 2, missingQty: 0, outboundQty: 2, remainNeed: 0, receiveStatus: '已收齐', pickupStatus: '已领料' },
-  { productionNo: 'PO14958', receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-005', sku: 'FAB-PO14958-A', name: '主身面料', requiredQty: 7, workQty: 6, shelfQty: 1, availableQty: 7, missingQty: 0, outboundQty: 0, remainNeed: 7, receiveStatus: '未收齐', pickupStatus: '待领料' },
-  { productionNo: 'PO14958', receiveNo: 'TR-RC-20260716-001', inboundNo: 'TR-IN-20260716-005', sku: 'ACC-PO14958-B', name: '辅料包', requiredQty: 2, workQty: 2, shelfQty: 0, availableQty: 2, missingQty: 0, outboundQty: 0, remainNeed: 2, receiveStatus: '已收齐', pickupStatus: '待领料' },
-  { productionNo: 'PO14955', receiveNo: 'TR-RC-20260716-002', inboundNo: 'TR-IN-20260716-002', sku: 'FAB-PO14955-A', name: '主身面料', requiredQty: 8, workQty: 5, shelfQty: 0, availableQty: 5, missingQty: 3, outboundQty: 0, remainNeed: 8, receiveStatus: '未收齐', pickupStatus: '待领料' },
-  { productionNo: 'PO14955', receiveNo: 'TR-RC-20260716-002', inboundNo: 'TR-IN-20260716-002', sku: 'ACC-PO14955-B', name: '辅料包', requiredQty: 3, workQty: 3, shelfQty: 0, availableQty: 3, missingQty: 0, outboundQty: 0, remainNeed: 3, receiveStatus: '已收齐', pickupStatus: '待领料' },
-  { productionNo: 'PO14956', receiveNo: 'TR-RC-20260716-003', inboundNo: 'TR-IN-20260716-003', sku: 'FAB-PO14956-A', name: '主身面料', requiredQty: 10, workQty: 4, shelfQty: 0, availableQty: 4, missingQty: 6, outboundQty: 0, remainNeed: 10, receiveStatus: '缺货', pickupStatus: '待领料' },
-  { productionNo: 'PO14956', receiveNo: 'TR-RC-20260716-003', inboundNo: 'TR-IN-20260716-003', sku: 'ACC-PO14956-B', name: '辅料包', requiredQty: 3, workQty: 1, shelfQty: 0, availableQty: 1, missingQty: 2, outboundQty: 0, remainNeed: 3, receiveStatus: '缺货', pickupStatus: '待领料' },
-  { productionNo: 'PO14962', receiveNo: 'TR-RC-20260716-005', inboundNo: 'TR-IN-20260716-009', sku: 'FAB-PO14962-A', name: '主身面料', requiredQty: 6, workQty: 6, shelfQty: 0, availableQty: 6, missingQty: 0, outboundQty: 6, remainNeed: 0, receiveStatus: '已收齐', pickupStatus: '已领料' },
-  { productionNo: 'PO14962', receiveNo: 'TR-RC-20260716-005', inboundNo: 'TR-IN-20260716-009', sku: 'ACC-PO14962-B', name: '辅料包', requiredQty: 2, workQty: 2, shelfQty: 0, availableQty: 2, missingQty: 0, outboundQty: 2, remainNeed: 0, receiveStatus: '已收齐', pickupStatus: '已领料' },
+  { productionNo: 'PO14954', sku: 'FAB-PO14954-A', name: '主身面料', fabricType: '针织', requiredQty: 6, workQty: 6, shelfQty: 0, availableQty: 6, missingQty: 0, putawayLocation: 'TR-A-03', updateTime: '2026-07-16 10:20' },
+  { productionNo: 'PO14954', sku: 'ACC-PO14954-B', name: '辅料包', fabricType: '辅料', requiredQty: 2, workQty: 2, shelfQty: 0, availableQty: 2, missingQty: 0, putawayLocation: 'TR-A-03', updateTime: '2026-07-16 10:20' },
+  { productionNo: 'PO14957', sku: 'FAB-PO14957-A', name: '主身面料', fabricType: '梭织', requiredQty: 5, workQty: 5, shelfQty: 0, availableQty: 5, missingQty: 0, putawayLocation: 'TR-A-04', updateTime: '2026-07-16 15:06' },
+  { productionNo: 'PO14958', sku: 'FAB-PO14958-A', name: '主身面料', fabricType: '针织', requiredQty: 7, workQty: 6, shelfQty: 1, availableQty: 7, missingQty: 0, putawayLocation: 'TR-W-01', updateTime: '2026-07-16 09:43' },
+  { productionNo: 'PO14955', sku: 'FAB-PO14955-A', name: '主身面料', fabricType: '针织', requiredQty: 8, workQty: 5, shelfQty: 0, availableQty: 5, missingQty: 3, putawayLocation: 'TR-A-01', updateTime: '2026-07-16 11:30' },
+  { productionNo: 'PO14955', sku: 'ACC-PO14955-B', name: '辅料包', fabricType: '辅料', requiredQty: 3, workQty: 3, shelfQty: 0, availableQty: 3, missingQty: 0, putawayLocation: 'TR-A-01', updateTime: '2026-07-16 11:30' },
+  { productionNo: 'PO14956', sku: 'FAB-PO14956-A', name: '主身面料', fabricType: '梭织', requiredQty: 10, workQty: 4, shelfQty: 0, availableQty: 4, missingQty: 6, putawayLocation: 'TR-A-02', updateTime: '2026-07-16 13:10' },
+  { productionNo: 'PO14956', sku: 'ACC-PO14956-B', name: '辅料包', fabricType: '辅料', requiredQty: 3, workQty: 1, shelfQty: 0, availableQty: 1, missingQty: 2, putawayLocation: 'TR-A-02', updateTime: '2026-07-16 13:10' },
+  { productionNo: 'PO14962', sku: 'FAB-PO14962-A', name: '主身面料', fabricType: '针织', requiredQty: 6, workQty: 6, shelfQty: 0, availableQty: 6, missingQty: 0, putawayLocation: 'TR-A-06', updateTime: '2026-07-16 15:40' },
+  { productionNo: 'PO14963', sku: 'FAB-PO14963-A', name: '主身面料', fabricType: '针织', requiredQty: 9, workQty: 8, shelfQty: 0, availableQty: 8, missingQty: 1, putawayLocation: 'TR-A-07', updateTime: '2026-07-16 16:01' },
 ]
+
+const isSatisfied = (r: KitLine): boolean => r.missingQty === 0
+const shortageRatio = (r: KitLine): number => r.requiredQty > 0 ? Math.round((r.missingQty / r.requiredQty) * 100) : 0
 
 const EVENT_PREFIX = 'wls-transit-kit'
 const DATASET_PREFIX = EVENT_PREFIX.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())
@@ -44,43 +42,38 @@ const state = {
   sort: null as StandardListSortState | null,
   preferences: { order: [] as string[], visibleKeys: [] as string[], frozenKeys: [] as string[], pageSize: 10 } as StandardListColumnPreferences,
   preferencesLoaded: false,
-  detailIdx: -1,
   showColumnSettings: false,
   keyword: '',
-  statusFilter: '' as string,
+  tab: 'ALL' as 'ALL' | '满足' | '不满足',
 }
 
 const columns: StandardListColumn<KitLine>[] = [
+  { key: 'select', title: '勾选', width: 50, required: true, leadingControlColumn: true,
+    render: () => `<input type="checkbox" class="h-4 w-4 rounded border-slate-300" />` },
   { key: 'productionNo', title: '生产单号', width: 120, required: true, freezeable: true, sortable: true, sortValue: r => r.productionNo,
-    render: r => `<span class="text-slate-700 font-medium">${escapeHtml(r.productionNo)}</span>` },
-  { key: 'receiveNo', title: '收货单号', width: 180, sortable: true, sortValue: r => r.receiveNo,
-    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.receiveNo)}</span>` },
-  { key: 'inboundNo', title: '预入库单号', width: 180, sortable: true, sortValue: r => r.inboundNo,
-    render: r => `<span class="font-mono text-xs text-slate-500">${escapeHtml(r.inboundNo)}</span>` },
-  { key: 'sku', title: 'SKU', width: 160, sortable: true, sortValue: r => r.sku,
+    render: r => `<span class="font-medium text-slate-700">${escapeHtml(r.productionNo)}</span>` },
+  { key: 'satisfied', title: '是否满足', width: 100, sortable: true, sortValue: r => isSatisfied(r) ? 1 : 0,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${isSatisfied(r) ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}">${isSatisfied(r) ? '满足' : '不满足'}</span>` },
+  { key: 'sku', title: 'SKU', width: 170, sortable: true, sortValue: r => r.sku,
     render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.sku)}</span>` },
   { key: 'name', title: '物料信息', width: 100, sortable: true, sortValue: r => r.name,
     render: r => `<span class="text-slate-600">${escapeHtml(r.name)}</span>` },
+  { key: 'fabricType', title: '面料类型', width: 90, sortable: true, sortValue: r => r.fabricType,
+    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.fabricType)}</span>` },
   { key: 'requiredQty', title: '原始需求', width: 90, align: 'right', sortable: true, sortValue: r => r.requiredQty,
     render: r => `<span class="text-slate-600">${r.requiredQty}</span>` },
-  { key: 'workQty', title: '本批作业区', width: 100, align: 'right', sortable: true, sortValue: r => r.workQty,
+  { key: 'workQty', title: '作业区', width: 80, align: 'right', sortable: true, sortValue: r => r.workQty,
     render: r => `<span class="text-slate-600">${r.workQty}</span>` },
   { key: 'shelfQty', title: '货架可用', width: 90, align: 'right', sortable: true, sortValue: r => r.shelfQty,
     render: r => `<span class="text-slate-600">${r.shelfQty}</span>` },
   { key: 'availableQty', title: '合计可用', width: 90, align: 'right', sortable: true, sortValue: r => r.availableQty,
-    render: r => `<span class="text-slate-700 font-medium">${r.availableQty}</span>` },
-  { key: 'missingQty', title: '缺口数量', width: 90, align: 'right', sortable: true, sortValue: r => r.missingQty,
-    render: r => `<span class="${r.missingQty > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}">${r.missingQty > 0 ? r.missingQty : '—'}</span>` },
-  { key: 'outboundQty', title: '已出库', width: 80, align: 'right', sortable: true, sortValue: r => r.outboundQty,
-    render: r => `<span class="text-slate-600">${r.outboundQty}</span>` },
-  { key: 'remainNeed', title: '未出库', width: 80, align: 'right', sortable: true, sortValue: r => r.remainNeed,
-    render: r => `<span class="text-slate-600">${r.remainNeed}</span>` },
-  { key: 'receiveStatus', title: '收货状态', width: 100, sortable: true, sortValue: r => r.receiveStatus,
-    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${receiveStatusClass[r.receiveStatus]}">${escapeHtml(r.receiveStatus)}</span>` },
-  { key: 'pickupStatus', title: '领料状态', width: 90, sortable: true, sortValue: r => r.pickupStatus,
-    render: r => `<span class="text-xs text-slate-500">${escapeHtml(r.pickupStatus)}</span>` },
-  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
-    render: (r) => `<button class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50" data-${EVENT_PREFIX}-action="view" data-${EVENT_PREFIX}-idx="${ seedLines.indexOf(r) }">出入库详情</button>` },
+    render: r => `<span class="font-medium text-slate-700">${r.availableQty}</span>` },
+  { key: 'shortageRatio', title: '短缺比例', width: 90, align: 'right', sortable: true, sortValue: r => shortageRatio(r),
+    render: r => `<span class="${shortageRatio(r) > 0 ? 'font-medium text-red-600' : 'text-slate-400'}">${shortageRatio(r) > 0 ? `${shortageRatio(r)}%` : '—'}</span>` },
+  { key: 'putawayLocation', title: '上架库位', width: 110, sortable: true, sortValue: r => r.putawayLocation,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.putawayLocation)}</span>` },
+  { key: 'updateTime', title: '更新时间', width: 140, sortable: true, sortValue: r => r.updateTime,
+    render: r => `<span class="text-xs text-slate-400">${escapeHtml(r.updateTime)}</span>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -97,19 +90,37 @@ function ensurePreferencesLoaded(): void {
   state.preferencesLoaded = true
 }
 
+function tabMatches(r: KitLine): boolean {
+  if (state.tab === 'ALL') return true
+  return isSatisfied(r) === (state.tab === '满足')
+}
+
+function renderTabsHtml(): string {
+  return renderTabs({
+    tabs: [
+      { key: 'ALL', label: '全部', count: seedLines.length },
+      { key: '满足', label: '满足', count: seedLines.filter(isSatisfied).length },
+      { key: '不满足', label: '不满足', count: seedLines.filter(r => !isSatisfied(r)).length },
+    ],
+    activeKey: state.tab,
+    variant: 'pills',
+    prefix: EVENT_PREFIX,
+    action: 'switch-tab',
+  })
+}
+
 function filteredRows(): KitLine[] {
   const kw = state.keyword.trim().toLowerCase()
   return seedLines.filter(l => {
-    if (state.statusFilter && l.receiveStatus !== state.statusFilter) return false
+    if (!tabMatches(l)) return false
     if (!kw) return true
-    return `${l.productionNo} ${l.receiveNo} ${l.sku} ${l.name}`.toLowerCase().includes(kw)
+    return `${l.productionNo} ${l.sku} ${l.name}`.toLowerCase().includes(kw)
   })
 }
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="生产单号 / 收货单号 / SKU" data-${EVENT_PREFIX}-field="keyword"></label>
-    <label><span class="mb-1 block text-xs text-muted-foreground">收货状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="缺货" ${state.statusFilter === '缺货' ? 'selected' : ''}>缺货</option><option value="未收齐" ${state.statusFilter === '未收齐' ? 'selected' : ''}>未收齐</option><option value="已收齐" ${state.statusFilter === '已收齐' ? 'selected' : ''}>已收齐</option></select></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">搜索</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="生产单号 / SKU / 物料信息" data-${EVENT_PREFIX}-field="keyword"></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -120,19 +131,21 @@ function renderWorkspace(): string {
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
   return renderStandardListPage({
-    title: '中转仓齐套校验中心',
+    title: '生产单校验',
+    description: '读取已落库的生产单校验数据；收货完成/上架完成后自动同步更新',
+    statusTabsHtml: renderTabsHtml(),
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('生成配料单', { prefix: EVENT_PREFIX, action: 'generate-allocation' }, 'file-plus')}${renderSecondaryButton('更新校验', { prefix: EVENT_PREFIX, action: 'refresh-check' }, 'refresh-cw')}${renderSecondaryButton('批量确认满足', { prefix: EVENT_PREFIX, action: 'batch-confirm' }, 'check-check')}${renderSecondaryButton('生产单合并处理', { prefix: EVENT_PREFIX, action: 'merge-production' }, 'combine')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${all.length} 条` },
-      { label: '缺货', value: `${seedLines.filter(l => l.receiveStatus === '缺货').length} 条` },
-      { label: '未收齐', value: `${seedLines.filter(l => l.receiveStatus === '未收齐').length} 条` },
-      { label: '已收齐', value: `${seedLines.filter(l => l.receiveStatus === '已收齐').length} 条` },
+      { label: '满足', value: `${seedLines.filter(isSatisfied).length} 条` },
+      { label: '不满足', value: `${seedLines.filter(r => !isSatisfied(r)).length} 条` },
     ]),
-    listTitle: '齐套校验列表',
+    listTitle: '生产单校验列表',
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
-    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无齐套校验记录' }),
+    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '未找到符合条件的生产单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: [...PAGE_SIZE_OPTIONS] }),
-    overlaysHtml: [state.showColumnSettings ? renderStandardListColumnSettings({ title: '齐套校验列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '', state.detailIdx >= 0 && seedLines[state.detailIdx] ? renderStandardRowDetailDialog({ title: '中转仓齐套校验中心详情', columns, row: seedLines[state.detailIdx], eventPrefix: EVENT_PREFIX }) : ''].join(''),
+    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '生产单校验列设置', columns, preferences: state.preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: 400 }) : '',
   })
 }
 
@@ -159,7 +172,6 @@ export function handleTransitKitCenterEvent(target: HTMLElement, event?: Event):
   if (field) {
     const name = field.dataset[`${DATASET_PREFIX}Field`]
     if (name === 'keyword') { state.keyword = field.value; return true }
-    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       state.preferences.pageSize = Number((field as HTMLSelectElement).value)
       state.currentPage = 1
@@ -173,6 +185,12 @@ export function handleTransitKitCenterEvent(target: HTMLElement, event?: Event):
   const action = actionNode?.dataset[`${DATASET_PREFIX}Action`]
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action.startsWith('switch-tab:')) {
+    state.tab = action.slice('switch-tab:'.length) as 'ALL' | '满足' | '不满足'
+    state.currentPage = 1
+    refreshWorkspace()
+    return true
+  }
   if (action === 'prev-page' || action === 'next-page') {
     state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
     refreshWorkspace()
@@ -188,15 +206,12 @@ export function handleTransitKitCenterEvent(target: HTMLElement, event?: Event):
   if (action === 'apply-filter') {
     const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
     if (input) state.keyword = input.value
-    const select = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="status"]`)
-    if (select) state.statusFilter = select.value
     state.currentPage = 1
     refreshWorkspace()
     return true
   }
   if (action === 'reset-filter') {
     state.keyword = ''
-    state.statusFilter = ''
     state.currentPage = 1
     refreshWorkspace()
     return true
@@ -215,8 +230,10 @@ export function handleTransitKitCenterEvent(target: HTMLElement, event?: Event):
     refreshWorkspace()
     return true
   }
-  if (action === 'view') { state.detailIdx = Number(actionNode.dataset[`${DATASET_PREFIX}Idx`]); refreshWorkspace(); return true }
-  if (action === 'close-detail') { state.detailIdx = -1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: '中转仓齐套校验中心', columns, rows: filteredRows() }); return true }
+  if (action === 'generate-allocation') { showListFeedback('生成配料单为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'refresh-check') { showListFeedback('生产单校验已更新为最新数据'); return true }
+  if (action === 'batch-confirm') { showListFeedback(`已批量确认满足 ${seedLines.filter(isSatisfied).length} 条校验记录`); return true }
+  if (action === 'merge-production') { showListFeedback('生产单合并处理为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '生产单校验', columns, rows: filteredRows() }); return true }
   return false
 }

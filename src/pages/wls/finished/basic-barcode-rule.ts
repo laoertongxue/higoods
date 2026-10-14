@@ -17,8 +17,11 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
 type BarcodeRule = { id: string; name: string; objectType: string; prefix: string; dateFormat: string; serialLength: number; enabled: boolean; example: string }
+
+const BARCODE_OBJECTS = ['商品SKU', '收货单', '上架单', '入库单', '出库单', '拣货单', '成衣盘点单', '成衣调拨单', '原料盘点单', '退货单', '质检单', '退件入库单', '原料入库单', '中转入库单', '波次']
 
 const seedRules: BarcodeRule[] = [
   { id: 'BR-001', name: '出库单号规则', objectType: '出库单', prefix: 'SO', dateFormat: 'YYYYMMDD', serialLength: 4, enabled: true, example: 'SO-20260829-0001' },
@@ -40,6 +43,8 @@ const state: {
   preferencesLoaded: boolean
   showColumnSettings: boolean
   keyword: string
+  objectTypeFilter: string
+  statusFilter: string
 } = {
   currentPage: 1,
   sort: null,
@@ -47,6 +52,8 @@ const state: {
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
+  objectTypeFilter: '',
+  statusFilter: '',
 }
 
 const columns: StandardListColumn<BarcodeRule>[] = [
@@ -90,18 +97,23 @@ function ensurePreferencesLoaded(): void {
 
 function filteredRows(): BarcodeRule[] {
   const kw = state.keyword.trim().toLowerCase()
-  if (!kw) return [...seedRules]
-  return seedRules.filter(r =>
-    r.name.toLowerCase().includes(kw)
-    || r.objectType.toLowerCase().includes(kw)
-    || r.prefix.toLowerCase().includes(kw)
-    || r.example.toLowerCase().includes(kw)
-  )
+  return seedRules.filter(r => {
+    if (state.objectTypeFilter && r.objectType !== state.objectTypeFilter) return false
+    if (state.statusFilter === '启用' && !r.enabled) return false
+    if (state.statusFilter === '停用' && r.enabled) return false
+    if (!kw) return true
+    return r.name.toLowerCase().includes(kw)
+      || r.objectType.toLowerCase().includes(kw)
+      || r.prefix.toLowerCase().includes(kw)
+      || r.example.toLowerCase().includes(kw)
+  })
 }
 
 function renderFilters(): string {
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
     <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索规则名称 / 条码对象 / 编码前缀" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">条码对象</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="objectType"><option value="">全部</option>${BARCODE_OBJECTS.map(o => `<option value="${escapeHtml(o)}" ${state.objectTypeFilter === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="status"><option value="">全部</option><option value="启用" ${state.statusFilter === '启用' ? 'selected' : ''}>启用</option><option value="停用" ${state.statusFilter === '停用' ? 'selected' : ''}>停用</option></select></label>
     </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
@@ -116,7 +128,8 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
 
   return renderStandardListPage({
-    title: '条码规则管理',
+    title: '编码生成规则管理',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('新增规则', { prefix: EVENT_PREFIX, action: 'create' }, 'plus')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${rows.length} 条` },
@@ -158,6 +171,8 @@ export function handleBasicBarcodeRuleEvent(target: HTMLElement, event?: Event):
   if (field) {
     const name = field.dataset.wlsBasicBarcodeRuleField
     if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'objectType') { state.objectTypeFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'status') { state.statusFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       const pageSize = Number((field as HTMLSelectElement).value)
       state.preferences.pageSize = ([...PAGE_SIZE_OPTIONS] as number[]).includes(pageSize) ? pageSize as (typeof PAGE_SIZE_OPTIONS)[number] : 10
@@ -191,8 +206,9 @@ export function handleBasicBarcodeRuleEvent(target: HTMLElement, event?: Event):
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: '条码规则管理', columns, rows: filteredRows() }); return true }
+  if (action === 'reset-filter') { state.keyword = ''; state.objectTypeFilter = ''; state.statusFilter = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'create') { showListFeedback('新增规则为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '编码生成规则管理', columns, rows: filteredRows() }); return true }
   return false
 }
 

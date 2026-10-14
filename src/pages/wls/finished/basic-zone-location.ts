@@ -17,19 +17,23 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
-type ZoneLocation = { warehouseCode: string; warehouseName: string; zoneName: string; zoneId: string; locationName: string; locationId: string; enabled: boolean }
+type ZoneRow = { id: string; zoneName: string; warehouseName: string; locationCount: number; zoneType: string; enabled: boolean }
 
-const seedData: ZoneLocation[] = [
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'A区', zoneId: 'ZONE-A', locationName: 'A01-01', locationId: 'LOC-A01-01', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'A区', zoneId: 'ZONE-A', locationName: 'A01-02', locationId: 'LOC-A01-02', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'A区', zoneId: 'ZONE-A', locationName: 'A02-01', locationId: 'LOC-A02-01', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'B区', zoneId: 'ZONE-B', locationName: 'B01-01', locationId: 'LOC-B01-01', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'B区', zoneId: 'ZONE-B', locationName: 'B01-02', locationId: 'LOC-B01-02', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'C区-大件', zoneId: 'ZONE-C', locationName: 'C01-01', locationId: 'LOC-C01-01', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'D区-瑕疵', zoneId: 'ZONE-D', locationName: 'D01-01', locationId: 'LOC-D01-01', enabled: true },
-  { warehouseCode: 'WH-FINISHED', warehouseName: '成衣仓', zoneName: 'E区-报损', zoneId: 'ZONE-E', locationName: 'E01-01', locationId: 'LOC-E01-01', enabled: false },
+const seedData: ZoneRow[] = [
+  { id: 'ZONE-A', zoneName: 'A区', warehouseName: '成衣仓', locationCount: 24, zoneType: '存储', enabled: true },
+  { id: 'ZONE-B', zoneName: 'B区', warehouseName: '成衣仓', locationCount: 18, zoneType: '拣货', enabled: true },
+  { id: 'ZONE-C', zoneName: 'C区-大件', warehouseName: '成衣仓', locationCount: 12, zoneType: '打包', enabled: true },
+  { id: 'ZONE-D', zoneName: 'D区-瑕疵', warehouseName: '成衣仓', locationCount: 8, zoneType: '退货', enabled: true },
+  { id: 'ZONE-E', zoneName: 'E区-报损', warehouseName: '成衣仓', locationCount: 6, zoneType: '暂存', enabled: false },
+  { id: 'ZONE-T1', zoneName: '存储区', warehouseName: '中转仓', locationCount: 16, zoneType: '存储', enabled: true },
+  { id: 'ZONE-T2', zoneName: '拣货区', warehouseName: '中转仓', locationCount: 10, zoneType: '拣货', enabled: true },
+  { id: 'ZONE-K1', zoneName: 'KOL区', warehouseName: '成衣仓', locationCount: 4, zoneType: 'kol', enabled: true },
 ]
+
+const ZONE_TYPES = ['拣货', '存储', '打包', '退货', 'kol', '暂存']
+const ZONE_TYPE_LABELS: Record<string, string> = { 拣货: '拣货区', 存储: '存储区', 打包: '打包区', 退货: '退货区', kol: 'KOL区', 暂存: '暂存区' }
 
 const EVENT_PREFIX = 'wls-basic-zone-location'
 const PREFERENCE_KEY = '/wls/finished/basic/zone-location:list-columns'
@@ -42,6 +46,8 @@ const state: {
   preferencesLoaded: boolean
   showColumnSettings: boolean
   keyword: string
+  warehouseFilter: string
+  typeFilter: string
 } = {
   currentPage: 1,
   sort: null,
@@ -49,23 +55,27 @@ const state: {
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
+  warehouseFilter: '',
+  typeFilter: '',
 }
 
-const columns: StandardListColumn<ZoneLocation>[] = [
-  { key: 'warehouseName', title: '仓库名称', width: 120, required: true, freezeable: true, sortable: true, sortValue: r => r.warehouseName,
-    render: r => `<span class="text-slate-700">${escapeHtml(r.warehouseName)}</span>` },
-  { key: 'warehouseCode', title: '仓库编码', width: 130, sortable: true, sortValue: r => r.warehouseCode,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.warehouseCode)}</span>` },
-  { key: 'zoneName', title: '库区名称', width: 120, sortable: true, sortValue: r => r.zoneName,
+const columns: StandardListColumn<ZoneRow>[] = [
+  { key: 'select', title: '勾选', width: 50, required: true,
+    render: () => `<input type="checkbox" class="h-4 w-4 rounded border-slate-300" />` },
+  { key: 'id', title: 'ID', width: 100, required: true, freezeable: true, sortable: true, sortValue: r => r.id,
+    render: r => `<span class="font-mono text-xs text-slate-600">${escapeHtml(r.id)}</span>` },
+  { key: 'zoneName', title: '库区名称', width: 130, sortable: true, sortValue: r => r.zoneName,
     render: r => `<span class="text-slate-700">${escapeHtml(r.zoneName)}</span>` },
-  { key: 'zoneId', title: '库区ID', width: 100, sortable: true, sortValue: r => r.zoneId,
-    render: r => `<span class="text-slate-600">${escapeHtml(r.zoneId)}</span>` },
-  { key: 'locationName', title: '库位名称', width: 120, sortable: true, sortValue: r => r.locationName,
-    render: r => `<span class="text-slate-700">${escapeHtml(r.locationName)}</span>` },
-  { key: 'enabled', title: '启用状态', width: 90, sortable: true, sortValue: r => r.enabled,
+  { key: 'warehouseName', title: '所属仓库', width: 120, sortable: true, sortValue: r => r.warehouseName,
+    render: r => `<span class="text-slate-600">${escapeHtml(r.warehouseName)}</span>` },
+  { key: 'locationCount', title: '库位总数', width: 100, align: 'right', sortable: true, sortValue: r => r.locationCount,
+    render: r => `<span class="text-slate-600">${r.locationCount}</span>` },
+  { key: 'zoneType', title: '库区类型', width: 100, sortable: true, sortValue: r => r.zoneType,
+    render: r => `<span class="text-slate-600">${escapeHtml(ZONE_TYPE_LABELS[r.zoneType] || r.zoneType)}</span>` },
+  { key: 'enabled', title: '是否启用', width: 90, sortable: true, sortValue: r => r.enabled,
     render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${r.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${r.enabled ? '启用' : '停用'}</span>` },
-  { key: 'actions', title: '操作', width: 200, required: true, actionColumn: true,
-    render: () => `<button class="text-[var(--link)] hover:underline text-xs">编辑</button><button class="text-red-500 hover:underline text-xs ml-2">删除库位</button><button class="text-red-500 hover:underline text-xs ml-2">删除库区</button>` },
+  { key: 'actions', title: '操作', width: 240, required: true, actionColumn: true,
+    render: () => `<button class="text-[var(--link)] hover:underline text-xs">查看库位</button><button class="text-[var(--link)] hover:underline text-xs ml-2">编辑类型</button><button class="text-[var(--link)] hover:underline text-xs ml-2">编辑</button><button class="text-red-500 hover:underline text-xs ml-2">删除</button>` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -88,23 +98,25 @@ function ensurePreferencesLoaded(): void {
     : loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaults, [...PAGE_SIZE_OPTIONS])
 }
 
-function filteredRows(): ZoneLocation[] {
+function filteredRows(): ZoneRow[] {
   const kw = state.keyword.trim().toLowerCase()
-  if (!kw) return [...seedData]
-  return seedData.filter(d =>
-    d.warehouseName.toLowerCase().includes(kw)
-    || d.warehouseCode.toLowerCase().includes(kw)
-    || d.zoneName.toLowerCase().includes(kw)
-    || d.zoneId.toLowerCase().includes(kw)
-    || d.locationName.toLowerCase().includes(kw)
-    || d.locationId.toLowerCase().includes(kw)
-  )
+  return seedData.filter(d => {
+    if (state.warehouseFilter && d.warehouseName !== state.warehouseFilter) return false
+    if (state.typeFilter && d.zoneType !== state.typeFilter) return false
+    if (!kw) return true
+    return d.warehouseName.toLowerCase().includes(kw)
+      || d.id.toLowerCase().includes(kw)
+      || d.zoneName.toLowerCase().includes(kw)
+  })
 }
 
 function renderFilters(): string {
+  const warehouses = [...new Set(seedData.map(d => d.warehouseName))]
   return `<div class="rounded-lg border bg-white p-3"><div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索仓库 / 库区 / 库位" data-${EVENT_PREFIX}-field="keyword"></label>
-    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+    <label class="sm:col-span-2"><span class="mb-1 block text-xs text-muted-foreground">综合查询</span><input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value="${escapeHtml(state.keyword)}" placeholder="搜索仓库 / 库区" data-${EVENT_PREFIX}-field="keyword"></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">全部仓库</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="warehouse"><option value="">全部仓库</option>${warehouses.map(w => `<option value="${escapeHtml(w)}" ${state.warehouseFilter === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}</select></label>
+    <label><span class="mb-1 block text-xs text-muted-foreground">全部类型</span><select class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" data-${EVENT_PREFIX}-field="type"><option value="">全部类型</option>${ZONE_TYPES.map(t => `<option value="${escapeHtml(t)}" ${state.typeFilter === t ? 'selected' : ''}>${escapeHtml(ZONE_TYPE_LABELS[t] || t)}</option>`).join('')}</select></label>
+    </div><div class="mt-3 flex w-full flex-wrap items-center gap-2">${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('清除', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}</div></div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
 }
 
 function renderWorkspace(): string {
@@ -118,15 +130,16 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
 
   const warehouseCount = new Set(rows.map(d => d.warehouseName)).size
-  const zoneCount = new Set(rows.map(d => d.zoneId)).size
+  const locationCount = rows.reduce((sum, d) => sum + d.locationCount, 0)
 
   return renderStandardListPage({
     title: '库区库位管理',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('添加库区', { prefix: EVENT_PREFIX, action: 'add-zone' }, 'plus')}${renderPrimaryButton('添加库位', { prefix: EVENT_PREFIX, action: 'add-location' }, 'plus')}${renderSecondaryButton('库位导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderSecondaryButton('打印库位标签', { prefix: EVENT_PREFIX, action: 'print-labels' }, 'printer')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '仓库数', value: warehouseCount },
-      { label: '库区数', value: zoneCount },
-      { label: '库位数', value: rows.length },
+      { label: '库区数', value: rows.length },
+      { label: '库位总数', value: locationCount },
     ]),
     listTitle: `共 ${rows.length} 条`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
@@ -163,6 +176,8 @@ export function handleBasicZoneLocationEvent(target: HTMLElement, event?: Event)
   if (field) {
     const name = field.dataset.wlsBasicZoneLocationField
     if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
+    if (name === 'type') { state.typeFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
       const pageSize = Number((field as HTMLSelectElement).value)
       state.preferences.pageSize = ([...PAGE_SIZE_OPTIONS] as number[]).includes(pageSize) ? pageSize as (typeof PAGE_SIZE_OPTIONS)[number] : 10
@@ -196,7 +211,10 @@ export function handleBasicZoneLocationEvent(target: HTMLElement, event?: Event)
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'reset-filter') { state.keyword = ''; state.warehouseFilter = ''; state.typeFilter = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'add-zone') { showListFeedback('添加库区为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'add-location') { showListFeedback('添加库位为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'print-labels') { showListFeedback('已生成库位标签打印任务', 'success'); return true }
   if (action === 'export') { exportStandardListRows({ fileName: '库区库位管理', columns, rows: filteredRows() }); return true }
   return false
 }

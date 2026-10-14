@@ -17,14 +17,12 @@ import {
 } from '../../../components/ui/list-table-model.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
+import { showListFeedback } from '../../../components/ui/list-feedback.ts'
 
-type Subject = { id: string; name: string; type: string; taxNo: string; bankAccount: string; contact: string; phone: string }
+type Subject = { id: string; name: string; type: string; taxNo: string; bankAccount: string; contact: string; phone: string; enabled: boolean }
 
-const seedSubjects: Subject[] = [
-  { id: 'SUB-001', name: 'HiGood 中国', type: '企业', taxNo: '91310000MA1FL8XX2N', bankAccount: '招商银行 1219XXXX1234', contact: '张总', phone: '138-0000-0001' },
-  { id: 'SUB-002', name: 'PT HiGood Indonesia', type: '企业', taxNo: 'NPWP-01.234.567.8-901.000', bankAccount: 'BCA 1234567890', contact: 'Budi', phone: '+62-21-555-0001' },
-  { id: 'SUB-003', name: '顺达物流', type: '企业', taxNo: '91440300MA5FXX123A', bankAccount: '工商银行 4000XXXX5678', contact: '李经理', phone: '139-0000-0002' },
-]
+// 测试环境当前无数据，种子保留为空。
+const seedSubjects: Subject[] = []
 
 const EVENT_PREFIX = 'wls-basic-subject'
 const PREFERENCE_KEY = '/wls/finished/basic-subject:list-columns'
@@ -61,6 +59,8 @@ const columns: StandardListColumn<Subject>[] = [
     render: r => `<span class="text-slate-600">${escapeHtml(r.contact)}</span>` },
   { key: 'phone', title: '电话', width: 150, sortable: true, sortValue: r => r.phone,
     render: r => `<span class="text-slate-600">${escapeHtml(r.phone)}</span>` },
+  { key: 'enabled', title: '是否启用', width: 90, sortable: true, sortValue: r => r.enabled,
+    render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${r.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${r.enabled ? '启用' : '停用'}</span>` },
   { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true,
     render: () => `<button class="text-[var(--link)] hover:underline text-xs">修改</button><button class="text-red-500 hover:underline text-xs ml-2">删除</button>` },
 ]
@@ -113,7 +113,8 @@ function renderWorkspace(): string {
   state.currentPage = paging.currentPage
 
   return renderStandardListPage({
-    title: '主体管理',
+    title: '仓库主体管理',
+    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderPrimaryButton('新增主体', { prefix: EVENT_PREFIX, action: 'create' }, 'plus')}</div>`,
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${rows.length} 条` },
@@ -187,7 +188,8 @@ export function handleBasicSubjectEvent(target: HTMLElement, event?: Event): boo
   }
   if (action === 'apply-filter') { state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'export') { exportStandardListRows({ fileName: '主体管理', columns, rows: filteredRows() }); return true }
+  if (action === 'create') { showListFeedback('新增主体为演示入口，测试环境不写入数据', 'info'); return true }
+  if (action === 'export') { exportStandardListRows({ fileName: '仓库主体管理', columns, rows: filteredRows() }); return true }
   return false
 }
 
