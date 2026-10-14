@@ -1,0 +1,35 @@
+{
+  "base": "12a1820b0b2fbcb121534fd1913a27d9063bbd55",
+  "sourceHashes": {
+    "src/components/shell.ts": "ae4d9f68d80e9c3f71e40b75e76028f6d08b2de74f61de2f5057a42cfc4c3839",
+    "src/main.ts": "67f878b9f0ac645f24784a82b1489121b620b6736ee7d25c074867675b4abb07",
+    "src/pages/pms/product-purchase-orders.ts": "b8e44398328a30b6e8a1e72e2557443ed546d82ed3eebbbbf4a80424d47f08ad",
+    "tests/pms-purchase-chain.spec.ts": "57435c9259d870b1bf7ab4f87963b05d45473519c6cf06d4c3ec35c3a681f48f"
+  },
+  "deleted": "src/components/pms-storage-panel.ts",
+  "retiredRuntimeReferences": 0,
+  "origin": "http://127.0.0.1:5408",
+  "assets": "/tmp/pms-remove-extra-controls-preview-20261014",
+  "nativeEvidence": {
+    "viewports": [
+      [
+        1366,
+        768
+      ],
+      [
+        1280,
+        720
+      ]
+    ],
+    "bodyOverflow": false,
+    "rowAndBulkRetiredActions": 0,
+    "maintenanceOpenButtons": 0,
+    "rowAndBulkMenusOpened": true,
+    "unexpectedDialogs": 0
+  },
+  "currentBrowserCases": 2,
+  "perfSamples": 60,
+  "maximumMs": 535.5999999642372,
+  "storage": "Existing records and attachments preserved; data read/write/backup contracts untouched, maintenance UI fully removed",
+  "acceptance": "Codex technical validation; user requested removal, not product acceptance"
+}

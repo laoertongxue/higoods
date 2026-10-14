@@ -39,7 +39,6 @@ function renderTopBar(state: AppState): string {
         </div>
       </div>
 
-      ${currentSystem.id === 'pms' ? '<button type="button" data-pms-storage-open class="ml-4 rounded-md border px-3 py-1.5 text-sm">本地资料</button>' : ''}
       <div class="mx-4 flex-1 overflow-hidden">
         <div class="flex items-center gap-1 overflow-x-auto whitespace-nowrap">
           ${systems

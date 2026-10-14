@@ -365,6 +365,11 @@ test.describe('PMS 采购链路 P1 页面', () => {
 
   test('商品采购单详情展示采购员、金额、SKU与关联用料入口', async ({ page }) => {
     await page.goto(PPO)
+    await expect(page.locator('[data-pms-ppo-root]')).toBeVisible()
+    await expect(page.getByRole('button', { name: '本地资料', exact: true, includeHidden: true })).toHaveCount(0)
+    await expect(page.locator('[data-pms-storage-open]')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^(批量)?一键下单$/, includeHidden: true })).toHaveCount(0)
+    await expect(page.locator('[data-pms-ppo-action="boundary-oneclick"], [data-pms-ppo-action="boundary-oneclick-bulk"]')).toHaveCount(0)
     await openOrderAction(page, 'CG-2026-0016', 'view-detail')
     const dialog = page.locator(PPO_DIALOG)
     await expect(dialog).toContainText('采购员：')
@@ -373,6 +378,9 @@ test.describe('PMS 采购链路 P1 页面', () => {
     await expect(dialog).toContainText('SKU / 颜色 / 尺码')
     await expect(dialog).toContainText('物料状态')
     await expect(dialog.locator('[data-pms-ppo-action="view-material"]')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await openOrderAction(page, 'CG-2026-0016', 'boundary-partner')
+    await expect(page.locator(PPO_DIALOG)).toContainText('暂无可选合作商，未更改采购单。')
     await page.keyboard.press('Escape')
   })
 

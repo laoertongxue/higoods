@@ -2178,15 +2178,10 @@ root.addEventListener('drop', dispatchListColumnDragEvent)
 root.addEventListener('dragend', dispatchListColumnDragEvent)
 
 root.addEventListener('click', async (event) => {
-  const storageTarget = resolveEventElementTarget(event.target)
-  if (storageTarget?.closest('[data-pms-record-retry]')) {
+  const retryTarget = resolveEventElementTarget(event.target)
+  if (retryTarget?.closest('[data-pms-record-retry]')) {
     event.preventDefault()
     await render()
-    return
-  }
-  if (storageTarget?.closest('[data-pms-storage-open]')) {
-    event.preventDefault()
-    await (await import('./components/pms-storage-panel.ts')).openPmsStoragePanel()
     return
   }
   const target = resolveEventElementTarget(event.target)
