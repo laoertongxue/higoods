@@ -64,7 +64,15 @@ export const FACTORY_ONBOARDING_PPIC_OPTIONS: FactoryOnboardingPpicOption[] = [
  */
 export const DEFAULT_FACTORY_ONBOARDING_PPIC = FACTORY_ONBOARDING_PPIC_OPTIONS.find((item) => item.ppicId === 'PPIC-ACTIVE-004')!
 
-export const SEWING_OUTSOURCING_DEMO_CURRENT_PPIC = FACTORY_ONBOARDING_PPIC_OPTIONS.find((item) => item.ppicId === 'PPIC-ACTIVE-006')!
+export const SEWING_OUTSOURCING_DEMO_CURRENT_PPIC = { ...FACTORY_ONBOARDING_PPIC_OPTIONS.find((item) => item.ppicId === 'PPIC-ACTIVE-006')! }
+
+/** 车缝模块现有的当前登录上下文；业务页面不能自行选择操作身份。 */
+export function getCurrentSewingOutsourcingPpic(): FactoryOnboardingPpicOption {
+  const current = SEWING_OUTSOURCING_DEMO_CURRENT_PPIC
+  const member = getOnboardingPpicOptionById(current.ppicId)
+  if (current.status !== '启用' || member?.status !== '启用') throw new Error('当前登录PPIC未启用，无法读取或保存。')
+  return { ...member, ppicName: current.ppicName }
+}
 
 export function getAvailableOnboardingPpicOptions(): FactoryOnboardingPpicOption[] {
   return FACTORY_ONBOARDING_PPIC_OPTIONS.filter((item) => item.status === '启用').map((item) => ({ ...item }))

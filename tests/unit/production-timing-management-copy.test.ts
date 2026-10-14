@@ -57,10 +57,10 @@ test('completed late work and unfinished overdue work remain different in manage
 })
 
 test('a late reached contract is a ended node, and future unreached targets are not current debt', () => {
-  const order = source.getTimingCaseByScene('reachedLate'), h = management([order]); h.render('teams')
+  const order = structuredClone(source.getTimingCaseByScene('reachedLate')); order.tasks.find(task => task.factory === 'B厂').receipts[0].qty = 175; const h = management([order]); h.render('teams')
   const bTask = h.tables.get('timing-factories')!.rows.find(row => row.factory === 'B厂')
-  const first = bTask.nodes.find((node: any) => node.title.endsWith('30%回货'))
-  const next = bTask.nodes.find((node: any) => node.title.endsWith('70%回货'))
+  const first = bTask.nodes.find((node: any) => node.title.endsWith('35%回货'))
+  const next = bTask.nodes.find((node: any) => node.title.endsWith('100%回货'))
   assert.equal(first.state, '已达标 · 晚12小时')
   assert.ok(first.endedAt)
   assert.match(first.quantity, /本节点已达标/)
@@ -75,7 +75,7 @@ test('missing allocation date or factory actual pickup keeps unknown distinct fr
   copy.tasks[0].assigned = null; copy.tasks[0].held = null
   const h = management([copy]); const html = h.render('teams')
   const rows = h.tables.get('timing-factories')!.rows.find(row => row.id === copy.tasks[0].id).nodes
-  assert.equal(rows.length, 3)
+  assert.equal(rows.length, 2)
   for (const row of rows) {
     assert.match(row.state, /业务分配日期缺失；工厂实领量缺失 · 合同节点无法判定/)
     assert.equal(row.deadline, null); assert.equal(row.endedAt, null); assert.equal(row.gap, null)
@@ -87,9 +87,9 @@ test('missing allocation date or factory actual pickup keeps unknown distinct fr
 
 test('source contract deadline uses allocation day as day 1 even when business date contains a clock time', () => {
   const { order, document } = sourceDocument('reachedLate', 'taskdoc-SWT-B-01-0096')
-  const task = order.tasks.find(task => task.id === 'SWT-B-01-0096')!, before = task.assigned
+  const task = order.tasks.find(task => task.id === 'SWT-B-01-0096')!, before = task.assigned, beforeQty = task.receipts[0].qty
   try {
-    task.assigned = '2026-10-01 09:00'
+    task.assigned = '2026-10-01 09:00'; task.receipts[0].qty = 175
     const html = resolveTimingSourceDetail(source.timingDocumentHref(document.id))!
     assert.match(html, /2026-10-04 23:59/)
     assert.match(html, /已达标 · 晚12小时/)
@@ -97,7 +97,7 @@ test('source contract deadline uses allocation day as day 1 even when business d
     const h = management([order]); h.render('teams')
     const node = h.tables.get('timing-factories')!.rows.find(row => row.id === task.id).nodes[0]
     assert.equal(new Date(node.deadline).toISOString(), '2026-10-04T15:59:59.999Z')
-  } finally { task.assigned = before }
+  } finally { task.assigned = before; task.receipts[0].qty = beforeQty }
 })
 
 test('full warehouse quantities without last receipt time never imply an on-time result or enter the rate denominator', () => {

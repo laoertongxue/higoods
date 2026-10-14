@@ -8,8 +8,7 @@ import { renderTablePagination } from '../../components/ui/pagination.ts'
 import { renderTabs as renderUiTabs } from '../../components/ui/tabs.ts'
 import {
   getAvailableOnboardingPpicOptions,
-  PPIC_TEAM_LEADER_JIEGE,
-  PPIC_TEAM_LEADER_LINGYUN,
+  getCurrentSewingOutsourcingPpic,
 } from '../../data/fcs/factory-onboarding-ppic.ts'
 import { getRuntimeTaskById } from '../../data/fcs/runtime-process-tasks.ts'
 import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sla.ts'
@@ -33,7 +32,6 @@ type DialogState =
   | null
 
 const state = {
-  managerPpicId: PPIC_TEAM_LEADER_LINGYUN.ppicId,
   keyword: '',
   draftKeyword: '',
   historyTab: 'ALL' as TransferHistoryTab,
@@ -52,10 +50,10 @@ const transferHistoryTabLabels: Record<TransferHistoryTab, string> = {
   NO_HISTORY: '尚无移交历史',
 }
 
-const managers = [PPIC_TEAM_LEADER_LINGYUN, PPIC_TEAM_LEADER_JIEGE]
-
 function currentManager() {
-  return managers.find((item) => item.ppicId === state.managerPpicId) || PPIC_TEAM_LEADER_LINGYUN
+  const current = getCurrentSewingOutsourcingPpic()
+  if (current.role !== 'TEAM_LEADER') throw new Error('责任移交由PPIC组长操作。')
+  return current
 }
 
 function baseRows(): SewingOutsourcingWorkbenchTaskRow[] {
@@ -126,10 +124,12 @@ function renderDialog(): string {
     return `<div class="fixed inset-0 z-50 overflow-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="任务PPIC责任历史"><button class="fixed inset-0" data-ppic-transfer-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 mx-auto my-8 w-full max-w-3xl rounded-lg bg-white shadow-xl"><header class="flex justify-between border-b p-5"><div><h2 class="text-lg font-semibold">${escapeHtml(row.taskNo)} · 责任历史</h2><p class="mt-1 text-xs text-slate-500">工厂档案后续换PPIC不会自动改写这里。</p></div><button class="rounded border px-3 py-1 text-sm" data-ppic-transfer-action="close-dialog">关闭</button></header><div class="space-y-3 p-5">${versions.map((version) => `<article class="rounded border p-4 ${version.status === 'CURRENT' ? 'border-blue-300 bg-blue-50' : 'bg-slate-50'}"><div class="flex justify-between gap-3"><b>${escapeHtml(version.ppicName)} · ${version.status === 'CURRENT' ? '当前责任' : '历史责任'}</b><span class="text-xs text-slate-500">${escapeHtml(version.effectiveAt)}</span></div><p class="mt-2 text-xs text-slate-600">${version.source === 'FACTORY_ASSIGNMENT' ? '分配时冻结工厂PPIC' : `PPIC管理人员明确移交；原PPIC ${escapeHtml(version.previousPpicName || '')}`}</p>${version.reason ? `<p class="mt-2 text-sm">原因：${escapeHtml(version.reason)}</p>` : ''}${version.remainingItems.length ? `<ul class="mt-2 list-disc pl-5 text-sm">${version.remainingItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}</article>`).join('')}</div></section></div>`
   }
   const targets = getAvailableOnboardingPpicOptions().filter((option) => option.role === 'MEMBER' && option.ppicId !== current?.ppicId)
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="明确移交任务PPIC责任"><button class="absolute inset-0" data-ppic-transfer-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 w-full max-w-2xl rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">明确移交任务责任</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(row.taskNo)} · 当前${escapeHtml(current?.ppicName || row.ppicName)} · 操作负责人${escapeHtml(currentManager().ppicName)}</p></header><div class="space-y-4 p-5">${state.dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(state.dialog.error)}</div>` : ''}<div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">尚未完成的任务不能随工厂档案PPIC变更自动转人；本动作建立新责任版本，保留原PPIC、移交时间和剩余事项。</div><label class="block text-sm">新PPIC<select class="mt-1 h-10 w-full rounded border px-3" data-ppic-transfer-field="targetPpicId"><option value="">请选择启用中的PPIC</option>${targets.map((option) => `<option value="${escapeHtml(option.ppicId)}">${escapeHtml(option.ppicName)}</option>`).join('')}</select></label><label class="block text-sm">移交原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-ppic-transfer-field="reason" placeholder="说明为什么需要移交"></textarea></label><label class="block text-sm">剩余事项（每行一项）<textarea class="mt-1 min-h-28 w-full rounded border p-3" data-ppic-transfer-field="remainingItems" placeholder="例如：\n跟进批版建议反馈\n跟进70%回货节点\n核对裁片退仓结果"></textarea></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-ppic-transfer-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-ppic-transfer-action="submit-transfer" data-row-id="${escapeHtml(row.rowId)}">确认移交</button></footer></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="明确移交任务PPIC责任"><button class="absolute inset-0" data-ppic-transfer-action="close-dialog" aria-label="关闭"></button><section class="relative z-10 w-full max-w-2xl rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">明确移交任务责任</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(row.taskNo)} · 当前${escapeHtml(current?.ppicName || row.ppicName)} · 操作负责人${escapeHtml(currentManager().ppicName)}</p></header><div class="space-y-4 p-5">${state.dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(state.dialog.error)}</div>` : ''}<div class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">尚未完成的任务不能随工厂档案PPIC变更自动转人；本动作建立新责任版本，保留原PPIC、移交时间和剩余事项。</div><label class="block text-sm">新PPIC<select class="mt-1 h-10 w-full rounded border px-3" data-ppic-transfer-field="targetPpicId"><option value="">请选择启用中的PPIC</option>${targets.map((option) => `<option value="${escapeHtml(option.ppicId)}">${escapeHtml(option.ppicName)}</option>`).join('')}</select></label><label class="block text-sm">移交原因<textarea class="mt-1 min-h-20 w-full rounded border p-3" data-ppic-transfer-field="reason" placeholder="说明为什么需要移交"></textarea></label><label class="block text-sm">剩余事项（每行一项）<textarea class="mt-1 min-h-28 w-full rounded border p-3" data-ppic-transfer-field="remainingItems" placeholder="例如：\n跟进批版建议反馈\n跟进35%回货节点\n核对裁片退仓结果"></textarea></label></div><footer class="flex justify-end gap-2 border-t p-4"><button class="rounded border px-4 py-2 text-sm" data-ppic-transfer-action="close-dialog">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-ppic-transfer-action="submit-transfer" data-row-id="${escapeHtml(row.rowId)}">确认移交</button></footer></section></div>`
 }
 
 export function renderSewingOutsourcingResponsibilityTransfersPage(): string {
+  const current = getCurrentSewingOutsourcingPpic()
+  if (current.role !== 'TEAM_LEADER') return `<main class="space-y-4 p-4" data-ppic-transfer-page><h1 class="text-xl font-semibold">责任移交</h1><p class="rounded bg-amber-50 p-3 text-sm text-amber-800">当前登录：${escapeHtml(current.ppicName)}。责任移交由PPIC组长操作。</p><a class="text-blue-700" href="/fcs/sewing-outsourcing/workbench" data-nav="/fcs/sewing-outsourcing/workbench">打开我的工作台</a></main>`
   const completeRows = baseRows()
   const allRows = rows()
   const totalPages = Math.max(1, Math.ceil(allRows.length / state.pageSize))
@@ -138,7 +138,7 @@ export function renderSewingOutsourcingResponsibilityTransfersPage(): string {
   const pageRows = allRows.slice(start, start + state.pageSize)
   return `<div data-ppic-transfer-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '责任移交',
-    primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2"><label class="text-sm">管理人员<select class="ml-2 h-9 rounded border bg-white px-3" data-ppic-transfer-field="managerPpicId">${managers.map((manager) => `<option value="${escapeHtml(manager.ppicId)}"${manager.ppicId === state.managerPpicId ? ' selected' : ''}>${escapeHtml(manager.ppicName)}</option>`).join('')}</select></label><span class="rounded bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-800">当前操作身份：${escapeHtml(currentManager().ppicName)}（团队负责人）</span></div>`,
+    primaryActionsHtml: `<span class="rounded bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-800">当前登录：${escapeHtml(currentManager().ppicName)}（PPIC组长）</span>`,
     feedbackHtml: state.feedback ? `<div class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">${escapeHtml(state.feedback)}</div>` : '',
     statusTabsHtml: renderUiTabs({
       tabs: (Object.keys(transferHistoryTabLabels) as TransferHistoryTab[]).map((tab) => ({ key: tab, label: transferHistoryTabLabels[tab], count: tab === 'ALL' ? completeRows.length : completeRows.filter((row) => tab === 'HAS_HISTORY' ? hasTransferHistory(row) : !hasTransferHistory(row)).length })),
@@ -174,14 +174,10 @@ export function closeSewingOutsourcingResponsibilityTransferDialog(): boolean {
 }
 
 export async function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTMLElement): Promise<boolean> {
+  if (getCurrentSewingOutsourcingPpic().role !== 'TEAM_LEADER') return false
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-ppic-transfer-field]')
   if (field && !state.dialog) {
     if (field.dataset.ppicTransferField === 'keyword') state.draftKeyword = field.value
-    else if (field.dataset.ppicTransferField === 'managerPpicId') {
-      state.managerPpicId = field.value
-      state.page = 1
-      refresh()
-    }
     else if (field.dataset.ppicTransferField === 'pageSize') {
       state.pageSize = Number(field.value) || 20
       state.page = 1

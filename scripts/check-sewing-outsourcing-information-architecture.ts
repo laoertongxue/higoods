@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { menusBySystem } from '../src/data/app-shell-config.ts'
 import {
   FACTORY_ONBOARDING_PPIC_OPTIONS,
+  SEWING_OUTSOURCING_DEMO_CURRENT_PPIC,
   PPIC_TEAM_LEADER_LINGYUN,
 } from '../src/data/fcs/factory-onboarding-ppic.ts'
 import { listSewingOutsourcingWorkbenchRows } from '../src/data/fcs/sewing-outsourcing-workbench.ts'
@@ -26,11 +27,13 @@ const expectedMenu = [
   ['交出与欠片', '/fcs/sewing-outsourcing/cut-piece-handover'],
   ['批版建议', '/fcs/sewing-outsourcing/sample-approval-suggestions'],
   ['回货跟进', '/fcs/sewing-outsourcing/returns'],
+  ['每日回货填报', '/fcs/sewing-outsourcing/daily-return-report'],
+  ['每日回货汇总', '/fcs/sewing-outsourcing/daily-return-summary'],
   ['补料跟进', '/fcs/sewing-outsourcing/supplements'],
   ['裁片退仓', '/fcs/sewing-outsourcing/cut-piece-returns'],
   ['责任移交', '/fcs/sewing-outsourcing/responsibility-transfers'],
 ]
-assert.deepEqual(group!.items.map((item) => [item.title, item.href]), expectedMenu, '一级菜单必须严格保留九个当前入口')
+assert.deepEqual(group!.items.map((item) => [item.title, item.href]), expectedMenu, '一级菜单必须严格保留十一个当前入口')
 assert.ok(!group!.items.some((item) => item.title === 'PPIC管理'), '一级菜单不能命名为PPIC管理')
 assert.ok(!group!.items.some((item) => item.title === '综合查询'), '独立综合查询菜单必须删除')
 assert.ok(!group!.items.some((item) => item.title === '对数与结算跟进'), '对数与结算跟进必须完整删除')
@@ -66,22 +69,29 @@ assert.ok(!existsSync('src/data/fcs/sewing-outsourcing-settlement-readiness.ts')
 assert.ok(!existsSync('scripts/check-sewing-outsourcing-settlement-readiness.ts'))
 
 const taskHtml = renderSewingOutsourcingTasksPage()
-const personalWorkbenchHtml = renderSewingOutsourcingWorkbenchPage()
-const managerWorkbenchHtml = renderSewingOutsourcingTeamWorkbenchPage()
+const personalWorkbenchHtml = await renderSewingOutsourcingWorkbenchPage()
+assert.ok((await renderSewingOutsourcingTeamWorkbenchPage()).includes('团队工作台由PPIC组长查看'))
+assert.ok(renderSewingOutsourcingResponsibilityTransfersPage().includes('责任移交由PPIC组长操作'))
+const current = { ...SEWING_OUTSOURCING_DEMO_CURRENT_PPIC }
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, PPIC_TEAM_LEADER_LINGYUN)
+const managerWorkbenchHtml = await renderSewingOutsourcingTeamWorkbenchPage()
+const transferHtml = renderSewingOutsourcingResponsibilityTransfersPage()
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, current)
 const handoverHtml = renderSewingCutPieceHandoverPage()
 const sampleHtml = renderSampleApprovalSuggestionsPage()
 const returnHtml = renderSewingOutsourcingCutPieceReturnsPage()
 const returnSource = readFileSync('src/pages/sewing-outsourcing/cut-piece-returns.ts', 'utf8')
-const transferHtml = renderSewingOutsourcingResponsibilityTransfersPage()
 assert.ok(!taskHtml.includes('>专业来源<'))
 assert.ok(taskHtml.includes('批版建议') && taskHtml.includes('全链详情'))
 assert.ok(personalWorkbenchHtml.includes('我的工作台') && personalWorkbenchHtml.includes('车缝任务还未交出'))
 assert.ok(!personalWorkbenchHtml.includes('<table') && !personalWorkbenchHtml.includes('任务时间线'), '我的工作台不得再渲染车缝任务列表')
-assert.ok(managerWorkbenchHtml.includes('婕哥') && managerWorkbenchHtml.includes('凌云') && managerWorkbenchHtml.includes('整个PPIC团队'))
+assert.ok(managerWorkbenchHtml.includes('凌云') && managerWorkbenchHtml.includes('整个PPIC团队'))
+assert.ok(!managerWorkbenchHtml.includes('managerPpicId'))
 for (const label of ['未交出', '已交出不欠片', '已交出且欠片']) assert.ok(handoverHtml.includes(label), `交出与欠片缺少${label}Tab`)
 assert.ok(sampleHtml.includes('data-sample-approval-action="receive-sample"'))
 assert.ok(returnHtml.includes('data-ppic-return-action="create"') && returnSource.includes('操作角色：任务PPIC'))
 assert.ok(returnHtml.includes('待仓库接收') && returnHtml.includes('接收异常') && returnHtml.includes('已入仓'))
-assert.ok(transferHtml.includes('团队负责人'))
+assert.ok(transferHtml.includes('PPIC组长'))
+assert.ok(!transferHtml.includes('managerPpicId'))
 
 console.log('check-sewing-outsourcing-information-architecture: ok')

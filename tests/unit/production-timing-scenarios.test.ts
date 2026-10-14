@@ -141,16 +141,16 @@ test('SCENE-06 / 16 / 18: quantity positions conserve pieces while missing posit
 })
 
 test('CONTRACT-002 / SCENE-13: three return contracts use calendar days including Sunday and their actual held quantities', () => {
-  assert.deepEqual(SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING, [4, 8, 9])
-  assert.deepEqual(SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK, [5, 9, 10])
-  assert.deepEqual(SEWING_RETURN_COUNTING_DAYS.CUTTING_TO_IRON_PACK, [6, 9, 12])
+  assert.deepEqual(SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING, [4, 9])
+  assert.deepEqual(SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK, [5, 10])
+  assert.deepEqual(SEWING_RETURN_COUNTING_DAYS.CUTTING_TO_IRON_PACK, [6, 12])
   assert.equal(calculateSewingReturnDeadlineDate('2026-09-30', 5), '2026-10-04', 'Sunday remains a counted calendar day')
   assert.equal(calculateSewingReturnDeadlineDate('2026-10-03', 4), '2026-10-06')
   const record = getTimingCaseByScene('fullContract')
   assert.deepEqual(record.tasks.map(task => [task.type, task.held]), [['combined', 800], ['full', 500], ['sewing', 200]])
   const html = render('fullContract')
-  for (const expected of ['累计目标240件', '累计目标150件', '累计目标60件', '截止2026-10-04 23:59', '截止2026-10-06 23:59', '截止2026-10-12 23:59']) assert.ok(html.includes(expected), expected)
-  assert.ok(!html.includes('累计目标450件'), '30% must not use the whole 1500-piece procurement denominator')
+  for (const expected of ['累计目标280件', '累计目标175件', '累计目标70件', '截止2026-10-04 23:59', '截止2026-10-06 23:59', '截止2026-10-12 23:59']) assert.ok(html.includes(expected), expected)
+  assert.ok(!html.includes('累计目标525件'), '35% must not use the whole 1500-piece procurement denominator')
 })
 
 test('SCENE-19: B factory total 40% cannot cover the independently overdue B01 task', () => {
@@ -163,25 +163,30 @@ test('SCENE-19: B factory total 40% cannot cover the independently overdue B01 t
   assert.equal(timingReceiptTotal(b02), 200)
   const current = getTimingIssues(record).filter(issue => issue.category === 'work' && issue.tone === 'bad')
   assert.equal(current.length, 1)
-  assert.match(current[0].title, /SWT-B-01.*30%节点欠90件/)
+  assert.match(current[0].title, /SWT-B-01.*35%节点欠105件/)
   const html = render('sameFactory')
   assert.ok(html.includes('B厂汇总200／500＝40%'), 'sameFactory: expected factory 200/500 = 40% context missing from the diagram')
-  assert.ok(html.includes('欠90件'), 'sameFactory: B01 individual 90-piece gap missing')
+  assert.ok(html.includes('欠105件'), 'sameFactory: B01 individual 105-piece gap missing')
   assert.ok(html.includes('不能冲抵其他任务'), 'sameFactory: independent-task warning missing')
 })
 
-test('SCENE-02 / 08: timely returns and late reached milestone differ from a currently overdue unmet milestone', () => {
+test('SCENE-02 / 08: the new 35% rule does not turn 150/500 actual receipts into a reached node', () => {
   const normal = getTimingCaseByScene('normal'), lateReached = getTimingCaseByScene('reachedLate')
   assert.equal(normal.warehouse, 750)
   assert.equal(lateReached.warehouse, 750)
-  assert.ok(getTimingIssues(normal).every(issue => issue.category !== 'work' || issue.tone !== 'bad'))
-  assert.ok(getTimingIssues(lateReached).every(issue => issue.category !== 'work' || issue.tone !== 'bad'))
+  for (const record of [normal, lateReached]) assert.ok(getTimingIssues(record).some(issue => /35%节点欠25件/.test(issue.title)))
   const html = render('reachedLate')
-  assert.match(html, /class="history-band"/)
-  assert.match(html, /class="history-actual"/)
-  assert.match(html, /晚12小时.*该节点差额0件/)
-  assert.match(html, /已达标 · 晚于截止/)
-  assert.ok(!html.includes('B厂 SWT-B-01-0096 · 30%节点欠150件'))
+  assert.match(html, /35% 未达标，已超时，差25件/)
+  assert.doesNotMatch(html, /该节点差额0件/)
+  // 单独构造已足额但晚回的场景，原150件来源在测试后保持原值。
+  const task = lateReached.tasks.find(task => task.factory === 'B厂'), originalQty = task.receipts[0].qty
+  try {
+    task.receipts[0].qty = 175
+    const reached = render('reachedLate')
+    assert.match(reached, /class="history-band"/)
+    assert.match(reached, /class="history-actual"/)
+    assert.match(reached, /晚12小时.*该节点差额0件/)
+  } finally { task.receipts[0].qty = originalQty }
 })
 
 test('SCENE-09 / 10: preparation is a parallel four/five-day stage with separately recorded production and handover', () => {
@@ -223,7 +228,7 @@ test('SCENE-11 / 12: sample date is pickup plus three; failed or unsubmitted sam
   assert.equal(pendingDoc.sampleTiming.done, false)
   for (const key of ['sampleLate', 'samplePending'] as const) {
     const html = render(key)
-    assert.match(html, /30% 未达标，已超时，差150件 截止2026-10-04 23:59 累计目标150件/)
+    assert.match(html, /35% 未达标，已超时，差175件 截止2026-10-04 23:59 累计目标175件/)
     assert.match(html, /样衣结果不改变合同节点/)
     const detail = renderTimingSourceSummaryForCase(getTimingCaseByScene(key), key === 'sampleLate' ? lateDoc.id : pendingDoc.id)
     assert.match(detail, /日期口径；日内截止时刻待确认/)
@@ -408,7 +413,7 @@ const expectedSceneText: Record<typeof SCENES[number], string[]> = {
   completeUnknown: ['已全部入库 · 是否按期待核实', '全量入库的最后时间待核实'],
   partial: ['后道当前位置待核实', '150'],
   reordered: ['2张采购单', '2026-10-18 09:00'],
-  reachedLate: ['已达标 · 晚于截止', '晚12小时', '该节点差额0件'],
+  reachedLate: ['35%', '未达标 · 差25件'],
   positioning: ['有定位印', '阶段整体5自然日', '未完成 · 截止未到'],
   prepPending: ['生产准备未完成 · 已超时13天', '尚未发布', '已交出待接收'],
   sampleLate: ['工厂产前版样衣', '未通过', '已交出 · 晚于要求日期'],

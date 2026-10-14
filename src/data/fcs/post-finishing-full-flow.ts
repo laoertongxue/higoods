@@ -1,4 +1,5 @@
 import { assertPostFinishingWrite, registerPostFinishingRepository, withPostFinishingDemo, registerPostFinishingMigrationNormalizer, mapPostFinishingRepositoryValues } from './post-finishing-records.ts'
+import { ppicInstant } from './ppic-daily-return.ts'
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES, migratePostFinishingMockImages } from './post-finishing-production-source-fixtures.ts'
 import {
   beginPostFinishingAuthorizationDemoBatch,
@@ -387,6 +388,7 @@ export interface PostFinishingReturnConfirmationVersion {
   confirmedBy: PostFinishingActor
   versionKind: 'FINAL_CONFIRMATION' | 'AUTHORIZED_CORRECTION'
   correctionReason?: string
+  entryDelayReason?: string
   status: 'ACTIVE' | 'SUPERSEDED'
   supersedesVersionId?: string
   supersededAt?: string
@@ -1503,6 +1505,7 @@ function appendReturnConfirmationVersion(input: {
   confirmedBy: PostFinishingActor
   versionKind: PostFinishingReturnConfirmationVersion['versionKind']
   correctionReason?: string
+  entryDelayReason?: string
 }): PostFinishingReturnConfirmationVersion {
   const current = state.returnConfirmationVersions.find((version) => (
     version.deliveryId === input.delivery.deliveryId && version.status === 'ACTIVE'
@@ -1535,6 +1538,7 @@ function appendReturnConfirmationVersion(input: {
     confirmedBy: clone(input.confirmedBy),
     versionKind: input.versionKind,
     correctionReason: input.correctionReason?.trim() || undefined,
+    entryDelayReason: input.entryDelayReason?.trim() || undefined,
     status: 'ACTIVE',
     supersedesVersionId: current?.confirmationVersionId,
     lines: input.delivery.lines.map((line) => ({
@@ -2101,6 +2105,8 @@ export function confirmPostFinishingFactoryReturn(input: {
   secondCounts?: Array<{ skuId: string; actualQty: number }>
   actor: PostFinishingActor
   authorization?: PostFinishingAuthorizationInput
+  actualConfirmedAt?: string
+  entryDelayReason?: string
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
   assertPostFinishingWrite()
@@ -2113,6 +2119,9 @@ export function confirmPostFinishingFactoryReturn(input: {
     throw new PostFinishingFlowGateError('INVALID_STATUS', `送货单当前为${delivery.status}，不能重复确认回货。`)
   }
   const now = nowIso(input.nowMs)
+  const businessConfirmedAt = input.actualConfirmedAt ? new Date(ppicInstant(input.actualConfirmedAt)).toISOString() : now
+  if (Date.parse(businessConfirmedAt) > Date.parse(now)) throw new Error('实际后道确认时间不能晚于当前时间。')
+  if (input.actualConfirmedAt && businessConfirmedAt !== now && !input.entryDelayReason?.trim()) throw new Error('补录实际确认时间时须填写录入延迟原因。')
   const firstCounts = delivery.lines.map((line) => {
     const actualQty = Number(input.firstCounts.find((item) => item.skuId === line.sku.skuId)?.actualQty)
     assertIntegerQuantity(actualQty, { label: `SKU ${line.sku.skuCode} 第一次点数` })
@@ -2192,10 +2201,10 @@ export function confirmPostFinishingFactoryReturn(input: {
   const beforeStatus = delivery.status
   delivery.status = '已确认待送检'
   delivery.confirmedBy = clone(input.actor)
-  delivery.confirmedAt = now
+  delivery.confirmedAt = businessConfirmedAt
   const warehouseRecord = getOrCreateWaitProcessWarehouseRecord(delivery)
   warehouseRecord.status = '待送检'
-  warehouseRecord.confirmedAt = now
+  warehouseRecord.confirmedAt = businessConfirmedAt
   warehouseRecord.confirmedBy = clone(input.actor)
   warehouseRecord.lines = delivery.lines.map((line) => ({
     sku: clone(line.sku),
@@ -2211,7 +2220,9 @@ export function confirmPostFinishingFactoryReturn(input: {
   })
   appendReturnConfirmationVersion({
     delivery,
-    confirmedAt: now,
+    confirmedAt: businessConfirmedAt,
+    versionCreatedAt: now,
+    entryDelayReason: input.entryDelayReason,
     confirmedBy: input.actor,
     versionKind: 'FINAL_CONFIRMATION',
   })
@@ -2246,11 +2257,17 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
   deliveryId: string
   correctedCounts: Array<{ skuId: string; actualQty: number }>
   correctionReason: string
+  correctedConfirmedAt?: string
+  expectedConfirmationVersionId?: string
   actor: PostFinishingActor
   nowMs?: number
 }): PostFinishingFactoryReturnDelivery {
   assertPostFinishingWrite()
   const delivery = findDelivery(input.deliveryId)
+  const currentVersion = state.returnConfirmationVersions.find(v => v.deliveryId === input.deliveryId && v.status === 'ACTIVE')
+  if (input.expectedConfirmationVersionId && currentVersion?.confirmationVersionId !== input.expectedConfirmationVersionId) {
+    throw new Error('该回货确认已在其他标签页订正，本次未保存。保留输入，重新读取最新版本后再核对。')
+  }
   if (delivery.status !== '已确认待送检' || !delivery.confirmedAt) {
     throw new PostFinishingFlowGateError('INVALID_STATUS', '只有尚未送检的后道最终确认记录可以由回货主管订正。')
   }
@@ -2268,7 +2285,9 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
     assertIntegerQuantity(actualQty, { label: `SKU ${line.sku.skuCode} 订正确认数量` })
     return actualQty
   })
-  const businessConfirmedAt = delivery.confirmedAt
+  const correctedAt = nowIso(input.nowMs)
+  const businessConfirmedAt = input.correctedConfirmedAt ? new Date(ppicInstant(input.correctedConfirmedAt)).toISOString() : delivery.confirmedAt
+  if (Date.parse(businessConfirmedAt) > Date.parse(correctedAt)) throw new Error('订正后的实际确认时间不能晚于当前时间。')
   const beforeQuantity = total(delivery.lines.map((line) => line.confirmedQty || 0))
   delivery.lines.forEach((line, index) => {
     const actualQty = correctedQuantities[index]
@@ -2276,10 +2295,11 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
     line.differenceQty = actualQty - line.registeredQty
     line.differenceRate = quantityDifferenceRate(line.registeredQty, actualQty)
   })
-  const correctedAt = nowIso(input.nowMs)
+  delivery.confirmedAt = businessConfirmedAt
   delivery.lastCorrectedBy = clone(input.actor)
   delivery.lastCorrectedAt = correctedAt
   const warehouseRecord = getOrCreateWaitProcessWarehouseRecord(delivery)
+  warehouseRecord.confirmedAt = businessConfirmedAt
   warehouseRecord.lines = delivery.lines.map((line) => ({
     sku: clone(line.sku),
     registeredQty: line.registeredQty,
@@ -2303,6 +2323,8 @@ export function correctPostFinishingFactoryReturnConfirmation(input: {
     confirmedBy: input.actor,
     versionKind: 'AUTHORIZED_CORRECTION',
     correctionReason,
+    entryDelayReason: state.returnConfirmationVersions.find(v => v.deliveryId === delivery.deliveryId && v.status === 'ACTIVE')?.entryDelayReason
+      || (Date.parse(businessConfirmedAt) < Date.parse(delivery.registeredAt) ? `实际确认时间订正：${correctionReason}` : undefined),
   })
   persist()
   appendBusinessLog({

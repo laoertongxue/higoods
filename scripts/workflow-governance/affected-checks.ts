@@ -19,6 +19,14 @@ const LIST_GOVERNANCE_TOOLS = new Set([
 ])
 
 const DISPATCH_BROWSER_CHECK = 'npx playwright test --config tests/dispatch-assignment-granularity.config.ts --workers=1 --reporter=line'
+const PPIC_DAILY_BROWSER_CHECK = 'npx playwright test --config tests/ppic-daily-return.config.ts --workers=1 --reporter=line'
+const PPIC_DAILY_BROWSER_PATHS = new Set([
+  'tests/ppic-daily-return.config.ts',
+  'tests/fixtures/ppic-current-login.ts',
+  'tests/ppic-daily-return-pages.spec.ts',
+  'tests/ppic-daily-return-receipts.spec.ts',
+  'tests/ppic-shared-consumers.spec.ts',
+])
 const DISPATCH_BROWSER_PATHS = new Set([
   'tests/dispatch-assignment-granularity.config.ts',
   'tests/dispatch-assignment-granularity.spec.ts',
@@ -48,6 +56,9 @@ const DISPATCH_SCRIPT_CHECKS = new Map([
   ['scripts/check-fcs-dispatch-list-filters.ts', 'npm run check:fcs-dispatch-list-filters'],
   ['scripts/check-fcs-sewing-preparation-return-preview.ts', 'npm run check:fcs-sewing-preparation-return-preview'],
   ['scripts/check-fcs-unified-assignment-foundation.ts', 'npm run check:fcs-unified-assignment-foundation'],
+  ['scripts/check-sewing-outsourcing-workbench.ts', 'npm run check:sewing-outsourcing-workbench'],
+  ['scripts/check-sewing-outsourcing-information-architecture.ts', 'npm run check:sewing-outsourcing-information-architecture'],
+  ['scripts/check-sewing-outsourcing-list-page-consistency.ts', 'node --import tsx scripts/check-sewing-outsourcing-list-page-consistency.ts'],
   ['scripts/check-sewing-outsourcing-task-boundary.ts', 'npm run check:sewing-outsourcing-task-boundary'],
 ])
 
@@ -183,6 +194,11 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
       if (RETIRED_DISPATCH_TESTS.has(path)) add(fastChecks, `test ! -e ${shellQuote(path)}`)
       add(fullChecks, 'npm run build')
       add(fullChecks, DISPATCH_BROWSER_CHECK)
+      continue
+    }
+    if (PPIC_DAILY_BROWSER_PATHS.has(path)) {
+      add(fullChecks, PPIC_DAILY_BROWSER_CHECK)
+      escalationReasons.add('PPIC任务、后道原子实收及共享消费者变更须执行实际浏览器验收')
       continue
     }
     let handled = false

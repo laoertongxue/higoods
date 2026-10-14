@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 
 import {
   PPIC_TEAM_LEADER_JIEGE,
+  SEWING_OUTSOURCING_DEMO_CURRENT_PPIC,
   PPIC_TEAM_LEADER_LINGYUN,
 } from '../src/data/fcs/factory-onboarding-ppic.ts'
 import {
@@ -61,8 +62,14 @@ assert.ok(handoverStates.some((item) => item.totalHandedOverPieceQty > 0 && item
 
 const page = readFileSync('src/pages/sewing-outsourcing/workbench.ts', 'utf8')
 const workbenchDomain = readFileSync('src/data/fcs/sewing-outsourcing-workbench.ts', 'utf8')
-const personalHtml = renderSewingOutsourcingWorkbenchPage()
-const leaderHtml = renderSewingOutsourcingTeamWorkbenchPage()
+const personalHtml = await renderSewingOutsourcingWorkbenchPage()
+assert.ok((await renderSewingOutsourcingTeamWorkbenchPage()).includes('团队工作台由PPIC组长查看'))
+const current = { ...SEWING_OUTSOURCING_DEMO_CURRENT_PPIC }
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, PPIC_TEAM_LEADER_LINGYUN)
+const leaderHtml = await renderSewingOutsourcingTeamWorkbenchPage()
+assert.ok((await renderSewingOutsourcingWorkbenchPage()).includes('当前登录：凌云'))
+assert.equal(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId, PPIC_TEAM_LEADER_LINGYUN.ppicId)
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, current)
 for (const text of [
   '车缝任务还未交出',
   '已交出且仍欠片',
@@ -74,7 +81,8 @@ for (const text of [
 assert.ok(personalHtml.includes('当前登录：陈琳（PPIC）'))
 assert.ok(!personalHtml.includes('管理人员<select') && !personalHtml.includes('整个PPIC团队'))
 assert.ok(!personalHtml.includes('<table') && !personalHtml.includes('车缝外发执行任务主清单'), '工作台不得渲染任务列表')
-assert.ok(leaderHtml.includes('PPIC管理人员') && leaderHtml.includes('凌云') && leaderHtml.includes('婕哥'))
+assert.ok(leaderHtml.includes('PPIC组长') && leaderHtml.includes('凌云'))
+assert.ok(!leaderHtml.includes('managerPpicId'), '团队页面不能自选操作身份')
 assert.ok(leaderHtml.includes('整个PPIC团队') && !leaderHtml.includes('<table'))
 assert.ok(personalHtml.includes('data-workbench-summary="UNHANDED"'))
 assert.ok(page.includes('/fcs/sewing-outsourcing/tasks?status=UNFINISHED'))

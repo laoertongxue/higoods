@@ -1,3 +1,4 @@
+import { renderReturnBusinessTimeFields } from './ppic-return-business-time-ui.ts'
 import { handlePostFinishingStorageEvent, showPostFinishingActionFailure } from './process-factory/post-finishing/storage-notice.ts'
 import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
 // @page-pattern: pda
@@ -174,6 +175,7 @@ function renderReturnConfirmation(record: PostFinishingFactoryReturnDelivery): s
         <div class="mt-3 text-xs text-blue-900">送货人：${escapeHtml(record.deliveryPersonName)} · 登记人：${escapeHtml(record.registeredBy.actorName)}</div>
         <div class="mt-2 rounded-xl bg-white/80 px-3 py-2 text-xs text-blue-900">首次逐 SKU 差异率不超过 5%直接确认；超过 5%必须二次点数，二次仍超过 5%才扫描授权码。分母固定为工厂登记数量。</div>
       </section>
+      ${editable ? renderReturnBusinessTimeFields() : ''}
       ${lines}
       ${editable ? `${initialSummary(registeredTotal, currentTotal, `整单登记 ${registeredTotal} 件，当前点数 ${currentTotal} 件`, 'return-total', 'return-total')}${showAuthorization ? authorizationBlock('return', true, '任一 SKU 二次点数与登记数量的差异率仍超过 5%时必须授权') : ''}<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="confirm-return" data-delivery-id="${escapeHtml(record.deliveryId)}">${showAuthorization ? '授权并确认回货' : showSecond ? '提交第二次点数' : '提交第一次点数'}</button>${canDiscardPostFinishingFactoryReturn(record) ? `<button type="button" class="h-11 w-full rounded-2xl border border-red-200 bg-white text-sm font-medium text-red-700" data-pda-post-action="discard-return" data-delivery-id="${escapeHtml(record.deliveryId)}">废弃本次回货</button>` : ''}` : record.status === '已废弃' ? `<div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"><strong>本次回货已废弃。</strong><span class="mt-1 block text-xs">${escapeHtml(record.discardReason || '未填写原因')} · ${escapeHtml(record.discardedBy?.actorName || '—')} · ${escapeHtml(record.discardedAt || '—')}</span></div>` : `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">回货已由 ${escapeHtml(record.confirmedBy?.actorName || '回货确认人员')} 确认并进入后道待加工仓。质检单 ${escapeHtml(record.qcTaskNo || '—')} 已自动生成；送检操作请在 Web“后道待加工仓”完成。</div>`}
     </div>
@@ -507,6 +509,8 @@ export async function handlePdaPostFinishingFlowEvent(target: HTMLElement, event
         : undefined
       const confirmed = await runPostFinishingCommand(() => confirmPostFinishingFactoryReturn({
         deliveryId: current.deliveryId,
+        actualConfirmedAt: readValue(root, '[data-return-business-confirmed-at]') || undefined,
+        entryDelayReason: readValue(root, '[data-return-entry-delay-reason]') || undefined,
         firstCounts,
         secondCounts,
         actor: actor('回货确认人员'),

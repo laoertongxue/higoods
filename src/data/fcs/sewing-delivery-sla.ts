@@ -1,4 +1,4 @@
-import { calculateSewingReturnDeadlineDate, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_RULE_VERSION } from './sewing-return-calendar.ts'
+import { calculateSewingReturnDeadlineDate, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_RULE_VERSION, SEWING_RETURN_MILESTONE_RATIOS, formatSewingBusinessWallClock, type SewingReturnHistoricalMilestoneRatio, type SewingReturnQuantityStatus } from './sewing-return-calendar.ts'
 
 export type SewingDeliverySlaKind =
   | 'INDEPENDENT_SEWING'
@@ -23,10 +23,16 @@ export interface SewingDeliverySlaTaskLike {
 }
 
 export interface SewingDeliveryMilestoneSnapshot {
-  readonly ratio: 0.3 | 0.7 | 1
+  readonly ratio: SewingReturnHistoricalMilestoneRatio
   readonly hoursAfterAcceptance: number
   readonly targetQty: number
   readonly deadlineAt: string
+  readonly returnQuantityBasisVersionId?: string
+}
+
+export interface SewingDeliveryMilestoneQuantityBasis {
+  readonly expectedReturnQty: number | null
+  readonly basisVersionId: string
 }
 
 export interface SewingDeliverySlaSnapshot {
@@ -37,12 +43,17 @@ export interface SewingDeliverySlaSnapshot {
   readonly factoryId: string
   readonly factoryName: string
   readonly assignedQty: number
+  readonly expectedReturnQty?: number | null
+  readonly returnQuantityBasisVersionId?: string
+  readonly quantityStatus?: SewingReturnQuantityStatus
+  readonly milestoneQuantityBases?: Partial<Record<0.35 | 1, SewingDeliveryMilestoneQuantityBasis>>
   readonly acceptedAt: string
   /** 接单事实独立保留；只有业务分配日期可以确定回货节点起点。 */
   readonly businessAssignedAt?: string
   readonly timingStatus?: 'CONFIRMED' | 'PENDING_BUSINESS_ASSIGNMENT'
   readonly timingMessage?: string
   readonly ruleVersion?: string
+  readonly monitoringRuleVersion?: string
   readonly slaKind: SewingDeliverySlaKind
   readonly milestones: readonly SewingDeliveryMilestoneSnapshot[]
   readonly active: boolean
@@ -57,6 +68,8 @@ export interface SewingDeliveryReceiptFact {
   receivedAt: string
   voided?: boolean
   reversedQty?: number
+  /** 仅正式后道确认版本有录入延迟原因时由事实适配器标记。 */
+  isLateEntry?: boolean
 }
 
 export type SewingDeliveryMilestoneResult =
@@ -83,11 +96,13 @@ export interface SewingDeliveryMilestoneProjection extends SewingDeliveryMilesto
 export interface SewingDeliverySlaProjection {
   readonly snapshot: SewingDeliverySlaSnapshot
   readonly confirmedReceivedQty: number
-  readonly progressRatio: number
-  readonly remainingQty: number
+  readonly progressRatio: number | null
+  readonly remainingQty: number | null
   readonly completed: boolean
   readonly completedAt?: string
   readonly milestones: readonly SewingDeliveryMilestoneProjection[]
+  readonly quantityBasisPending: boolean
+  readonly missingMilestones: readonly { ratio: 0.35 | 1; deadlineAt: string }[]
 }
 
 export type SewingDeliveryResponsibilityConclusion = 'FACTORY' | 'RECEIVER' | 'SHARED'
@@ -96,16 +111,20 @@ export interface SewingDeliveryResponsibilityReview {
   readonly reviewId: string
   readonly snapshotId: string
   readonly runtimeTaskId: string
-  readonly milestoneRatio: 0.3 | 0.7 | 1
+  readonly milestoneRatio: SewingReturnHistoricalMilestoneRatio
   readonly conclusion: SewingDeliveryResponsibilityConclusion
   readonly remark: string
   readonly reviewedBy: string
   readonly reviewedAt: string
+  readonly monitoringRuleVersion?: string
+  readonly returnQuantityBasisVersionId?: string
+  readonly targetQty?: number
+  readonly deadlineAt?: string
 }
 
 const RULE_NATURAL_DAYS = SEWING_RETURN_COUNTING_DAYS
 
-const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
+const MILESTONE_RATIOS = SEWING_RETURN_MILESTONE_RATIOS
 
 export function getSewingReturnBusinessTiming(businessAssignedAt?: string): {
   businessAssignedAt: string
@@ -164,12 +183,12 @@ export function classifySewingDeliverySla(task: SewingDeliverySlaTaskLike): Sewi
 }
 
 function parseDateTime(value: string, fieldName: string): Date {
-  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value)
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?$/.exec(value)
   if (!match) {
     throw new Error(`${fieldName}必须为 YYYY-MM-DD HH:mm:ss 格式`)
   }
 
-  const [, yearText, monthText, dayText, hoursText, minutesText, secondsText] = match
+  const [, yearText, monthText, dayText, hoursText, minutesText, secondsText, millisecondsText] = match
   const [year, month, day, hours, minutes, seconds] = [
     yearText,
     monthText,
@@ -180,7 +199,7 @@ function parseDateTime(value: string, fieldName: string): Date {
   ].map(Number)
   const date = new Date(0)
   date.setUTCFullYear(year, month - 1, day)
-  date.setUTCHours(hours, minutes, seconds, 0)
+  date.setUTCHours(hours, minutes, seconds, Number(millisecondsText || 0))
   if (
     date.getUTCFullYear() !== year
     || date.getUTCMonth() !== month - 1
@@ -200,8 +219,13 @@ function formatDateTime(date: Date): string {
 }
 
 export function formatOperationLocalWallClock(date: Date = new Date()): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${String(date.getFullYear()).padStart(4, '0')}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  return formatSewingBusinessWallClock(date)
+}
+
+/** 实收读取保留当前毫秒；既有操作表单仍沿用秒精度格式。 */
+export function formatSewingDeliveryQueryWallClock(date: Date = new Date()): string {
+  const milliseconds = date.getUTCMilliseconds()
+  return formatOperationLocalWallClock(date) + (milliseconds ? '.' + String(milliseconds).padStart(3, '0') : '')
 }
 
 export function operationWallClockToDateTimeLocal(value: string): string {
@@ -233,7 +257,8 @@ function cloneAndFreezeSnapshot(snapshot: SewingDeliverySlaSnapshot): SewingDeli
   const milestones = Object.freeze(
     snapshot.milestones.map((milestone) => Object.freeze({ ...milestone })),
   )
-  return Object.freeze({ ...snapshot, milestones })
+  const milestoneQuantityBases = snapshot.milestoneQuantityBases ? Object.freeze(Object.fromEntries(Object.entries(snapshot.milestoneQuantityBases).map(([ratio, basis]) => [ratio, Object.freeze({ ...basis })]))) : undefined
+  return Object.freeze({ ...snapshot, milestones, ...(milestoneQuantityBases ? { milestoneQuantityBases } : {}) })
 }
 
 function cloneAndFreezeResponsibilityReview(
@@ -244,6 +269,7 @@ function cloneAndFreezeResponsibilityReview(
 
 export function saveSewingDeliverySlaSnapshot(snapshot: SewingDeliverySlaSnapshot): void {
   const existingById = snapshotsById.get(snapshot.snapshotId)
+  if (!existingById && snapshot.milestones.some(node => node.ratio === 0.3 || node.ratio === 0.7)) throw new Error('旧三节点快照仅供历史读取，当前写入必须采用35%和100%节点')
   if (
     existingById
     && (
@@ -360,7 +386,7 @@ export function clearSewingDeliverySlaSnapshotStore(runtimeTaskId?: string): voi
 
 export function recordSewingDeliveryResponsibilityReview(input: {
   runtimeTaskId: string
-  milestoneRatio: 0.3 | 0.7 | 1
+  milestoneRatio: SewingReturnHistoricalMilestoneRatio
   conclusion: SewingDeliveryResponsibilityConclusion
   remark: string
   reviewedBy: string
@@ -371,7 +397,7 @@ export function recordSewingDeliveryResponsibilityReview(input: {
   const projectedSnapshotId = input.projection?.snapshot.snapshotId
   const snapshot = projectedSnapshotId ? getSewingDeliverySlaSnapshotById(projectedSnapshotId) : null
   if (!snapshot || snapshot.runtimeTaskId !== runtimeTaskId) throw new Error('责任复核任务必须存在对应履约快照')
-  if (!MILESTONE_RATIOS.includes(input.milestoneRatio)) throw new Error('复核节点比例必须为 30%、70% 或 100%')
+  if (!MILESTONE_RATIOS.some(ratio => ratio === input.milestoneRatio)) throw new Error('当前复核节点比例必须为 35% 或 100%')
   if (!['FACTORY', 'RECEIVER', 'SHARED'].includes(input.conclusion)) throw new Error('责任结论必须为工厂、接收方或双方共同责任')
   if (input.projection?.snapshot.snapshotId !== snapshot.snapshotId) throw new Error('责任复核必须基于所选履约快照')
   const milestone = input.projection.milestones.find((item) => item.ratio === input.milestoneRatio)
@@ -391,6 +417,10 @@ export function recordSewingDeliveryResponsibilityReview(input: {
     remark,
     reviewedBy,
     reviewedAt: input.reviewedAt,
+    monitoringRuleVersion: input.projection.snapshot.monitoringRuleVersion || input.projection.snapshot.ruleVersion,
+    returnQuantityBasisVersionId: milestone.returnQuantityBasisVersionId || input.projection.snapshot.returnQuantityBasisVersionId,
+    targetQty: milestone.targetQty,
+    deadlineAt: milestone.deadlineAt,
   })
   responsibilityReviews.push(review)
   return cloneAndFreezeResponsibilityReview(review)
@@ -425,12 +455,16 @@ export function createSewingDeliverySlaSnapshot(input: {
   factoryId: string
   factoryName: string
   assignedQty: number
+  expectedReturnQty?: number | null
+  returnQuantityBasisVersionId?: string
+  quantityStatus?: SewingReturnQuantityStatus
+  milestoneQuantityBases?: Partial<Record<0.35 | 1, SewingDeliveryMilestoneQuantityBasis>>
   acceptedAt: string
   businessAssignedAt?: string
   slaKind: SewingDeliverySlaKind
 }): SewingDeliverySlaSnapshot {
   assertPositiveFiniteInteger(input.assignedQty, '分配数量')
-  const ruleDays = RULE_NATURAL_DAYS[input.slaKind]
+  const expectedReturnQty = resolveExpectedReturnQuantity(input)
   parseDateTime(input.acceptedAt, '有效接单时间')
   const timing = getSewingReturnBusinessTiming(input.businessAssignedAt)
   return cloneAndFreezeSnapshot({
@@ -438,15 +472,29 @@ export function createSewingDeliverySlaSnapshot(input: {
     ...input,
     ...timing,
     ruleVersion: SEWING_RETURN_RULE_VERSION,
-    milestones: timing.timingStatus === 'CONFIRMED' ? MILESTONE_RATIOS.map((ratio, index) => ({
-      ratio,
-      // 保留历史字段供旧页面兼容；第N个自然日，起算日为第1天，包含星期日。
-      hoursAfterAcceptance: ruleDays[index] * 24,
-      targetQty: Math.ceil(input.assignedQty * ratio),
-      deadlineAt: `${calculateSewingReturnDeadlineDate(timing.businessAssignedAt, ruleDays[index])} 23:59:59`,
-    })) : [],
+    milestones: timing.timingStatus === 'CONFIRMED' ? buildCurrentSewingMilestones(input, timing.businessAssignedAt, expectedReturnQty).milestones : [],
     active: true,
   })
+}
+
+function resolveExpectedReturnQuantity(snapshot: Pick<SewingDeliverySlaSnapshot, 'assignedQty' | 'expectedReturnQty' | 'quantityStatus'>): number | null {
+  if (snapshot.quantityStatus && snapshot.quantityStatus !== 'READY') return null
+  const quantity = snapshot.expectedReturnQty === undefined ? snapshot.assignedQty : snapshot.expectedReturnQty
+  if (quantity !== null && (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0)) throw new Error('应回数量必须为非负整数或待核实')
+  return quantity
+}
+
+function buildCurrentSewingMilestones(snapshot: Pick<SewingDeliverySlaSnapshot, 'slaKind' | 'milestoneQuantityBases' | 'returnQuantityBasisVersionId'>, businessAssignedAt: string, expectedReturnQty: number | null): { milestones: SewingDeliveryMilestoneSnapshot[]; missingMilestones: { ratio: 0.35 | 1; deadlineAt: string }[] } {
+  const milestones: SewingDeliveryMilestoneSnapshot[] = [], missingMilestones: { ratio: 0.35 | 1; deadlineAt: string }[] = []
+  MILESTONE_RATIOS.forEach((ratio, index) => {
+    const basis = snapshot.milestoneQuantityBases?.[ratio]
+    const quantity = basis === undefined ? expectedReturnQty : basis.expectedReturnQty
+    if (quantity !== null && (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0)) throw new Error('节点应回依据必须为非负整数或待核实')
+    const deadlineAt = `${calculateSewingReturnDeadlineDate(businessAssignedAt, RULE_NATURAL_DAYS[snapshot.slaKind][index])} 23:59:59`
+    if (quantity == null || quantity <= 0) { missingMilestones.push({ ratio, deadlineAt }); return }
+    milestones.push({ ratio, hoursAfterAcceptance: RULE_NATURAL_DAYS[snapshot.slaKind][index] * 24, targetQty: Math.ceil(quantity * ratio), deadlineAt, returnQuantityBasisVersionId: basis?.basisVersionId || snapshot.returnQuantityBasisVersionId })
+  })
+  return { milestones, missingMilestones }
 }
 
 export function projectSewingDeliverySla(
@@ -456,8 +504,13 @@ export function projectSewingDeliverySla(
 ): SewingDeliverySlaProjection {
   assertPositiveFiniteInteger(snapshot.assignedQty, '分配数量')
   parseDateTime(snapshot.acceptedAt, '接单时间')
+  const expectedReturnQty = resolveExpectedReturnQuantity(snapshot)
   const timing = getSewingReturnBusinessTiming(snapshot.businessAssignedAt)
-  const currentMilestones = timing.timingStatus === 'CONFIRMED' ? snapshot.milestones : []
+  const rebuildActive = snapshot.active && (snapshot.expectedReturnQty !== undefined || snapshot.milestoneQuantityBases !== undefined || snapshot.milestones.some(node => node.ratio === 0.3 || node.ratio === 0.7))
+  const current = timing.timingStatus === 'CONFIRMED' && snapshot.active ? buildCurrentSewingMilestones(snapshot, timing.businessAssignedAt, expectedReturnQty) : null
+  const currentMilestones = timing.timingStatus !== 'CONFIRMED' ? [] : rebuildActive ? current!.milestones : snapshot.milestones
+  const missingMilestones = current?.missingMilestones ?? []
+  const quantityBasisPending = expectedReturnQty == null || missingMilestones.length > 0
   currentMilestones.forEach((milestone) => parseDateTime(milestone.deadlineAt, '节点截止时间'))
   parseDateTime(nowAt, '当前时间')
   receipts.forEach((receipt) => {
@@ -473,7 +526,7 @@ export function projectSewingDeliverySla(
     parseDateTime(receipt.receivedAt, '实收时间')
   })
   // 历史快照保留原记录；缺少分配日期的当前投影不沿用旧接单口径判逾期。
-  const projectionSnapshot = cloneAndFreezeSnapshot({ ...snapshot, ...timing, milestones: currentMilestones })
+  const projectionSnapshot = cloneAndFreezeSnapshot({ ...snapshot, ...timing, monitoringRuleVersion: snapshot.active ? SEWING_RETURN_RULE_VERSION : snapshot.ruleVersion, milestones: currentMilestones })
   const reachedMilestones = projectionSnapshot.milestones.map(() => ({
     firstReachedAt: undefined as string | undefined,
     receiverDelayCandidateRecords: [] as SewingDeliveryReceiverDelayAttribution[],
@@ -481,23 +534,23 @@ export function projectSewingDeliverySla(
   const visibleReceiptByRecordId = new Map<string, SewingDeliveryReceiptFact>()
   receipts
     .filter((receipt) => Boolean(receipt.submittedAt)
-      && receipt.receivedAt <= nowAt
-      && receipt.submittedAt <= nowAt
-      && receipt.submittedAt <= receipt.receivedAt)
+      && compareSewingDeliveryDateTimes(receipt.receivedAt, nowAt) <= 0
+      && compareSewingDeliveryDateTimes(receipt.submittedAt, nowAt) <= 0
+      && (compareSewingDeliveryDateTimes(receipt.submittedAt, receipt.receivedAt) <= 0 || receipt.isLateEntry === true))
     .forEach((receipt) => {
       const current = visibleReceiptByRecordId.get(receipt.recordId)
       const receiptSignature = JSON.stringify(receipt)
       const currentSignature = current ? JSON.stringify(current) : ''
       if (
         !current
-        || receipt.receivedAt > current.receivedAt
-        || (receipt.receivedAt === current.receivedAt && receiptSignature > currentSignature)
+        || compareSewingDeliveryDateTimes(receipt.receivedAt, current.receivedAt) > 0
+        || (compareSewingDeliveryDateTimes(receipt.receivedAt, current.receivedAt) === 0 && receiptSignature > currentSignature)
       ) {
         visibleReceiptByRecordId.set(receipt.recordId, receipt)
       }
     })
   const orderedReceipts = [...visibleReceiptByRecordId.values()].sort((left, right) => {
-    const timeOrder = left.receivedAt.localeCompare(right.receivedAt)
+    const timeOrder = compareSewingDeliveryDateTimes(left.receivedAt, right.receivedAt)
     return timeOrder !== 0 ? timeOrder : left.recordId.localeCompare(right.recordId)
   })
 
@@ -507,7 +560,7 @@ export function projectSewingDeliverySla(
   for (let receiptIndex = 0; receiptIndex < orderedReceipts.length;) {
     const receivedAt = orderedReceipts[receiptIndex].receivedAt
     const receiptBatch: SewingDeliveryReceiptFact[] = []
-    while (orderedReceipts[receiptIndex]?.receivedAt === receivedAt) {
+    while (orderedReceipts[receiptIndex] && compareSewingDeliveryDateTimes(orderedReceipts[receiptIndex].receivedAt, receivedAt) === 0) {
       receiptBatch.push(orderedReceipts[receiptIndex])
       receiptIndex += 1
     }
@@ -530,8 +583,8 @@ export function projectSewingDeliverySla(
               : Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
             return effectiveReceivedQty > 0
               && receipt.submittedQty > 0
-              && receipt.submittedAt <= milestone.deadlineAt
-              && receipt.receivedAt > milestone.deadlineAt
+              && compareSewingDeliveryDateTimes(receipt.submittedAt, milestone.deadlineAt) <= 0
+              && compareSewingDeliveryDateTimes(receipt.receivedAt, milestone.deadlineAt) > 0
           })
           .sort((left, right) => left.recordId.localeCompare(right.recordId))
       receiverDelayCandidates.forEach((receipt) => {
@@ -553,8 +606,9 @@ export function projectSewingDeliverySla(
 
     if (
       completedAt === undefined
-      && previousReceivedQty < projectionSnapshot.assignedQty
-      && confirmedReceivedQty >= projectionSnapshot.assignedQty
+      && expectedReturnQty != null && expectedReturnQty > 0
+      && previousReceivedQty < expectedReturnQty
+      && confirmedReceivedQty >= expectedReturnQty
     ) {
       completedAt = receivedAt
     }
@@ -564,9 +618,9 @@ export function projectSewingDeliverySla(
     const reached = reachedMilestones[index]
     let result: SewingDeliveryMilestoneResult
     if (reached.firstReachedAt) {
-      result = reached.firstReachedAt <= milestone.deadlineAt ? 'ON_TIME' : 'OVERDUE_REACHED'
+      result = compareSewingDeliveryDateTimes(reached.firstReachedAt, milestone.deadlineAt) <= 0 ? 'ON_TIME' : 'OVERDUE_REACHED'
     } else {
-      result = nowAt < milestone.deadlineAt ? 'UPCOMING' : 'OVERDUE_PENDING'
+      result = compareSewingDeliveryDateTimes(nowAt, milestone.deadlineAt) < 0 ? 'UPCOMING' : 'OVERDUE_PENDING'
     }
 
     const receiverDelayRecords = reached.firstReachedAt
@@ -586,10 +640,12 @@ export function projectSewingDeliverySla(
   return Object.freeze({
     snapshot: projectionSnapshot,
     confirmedReceivedQty,
-    progressRatio: confirmedReceivedQty / projectionSnapshot.assignedQty,
-    remainingQty: Math.max(projectionSnapshot.assignedQty - confirmedReceivedQty, 0),
-    completed: confirmedReceivedQty >= projectionSnapshot.assignedQty,
-    ...(completedAt ? { completedAt } : {}),
+    progressRatio: expectedReturnQty != null && expectedReturnQty > 0 ? confirmedReceivedQty / expectedReturnQty : null,
+    remainingQty: expectedReturnQty == null ? null : Math.max(expectedReturnQty - confirmedReceivedQty, 0),
+    completed: !quantityBasisPending && expectedReturnQty != null && expectedReturnQty > 0 && confirmedReceivedQty >= expectedReturnQty,
+    ...(!quantityBasisPending && completedAt ? { completedAt } : {}),
     milestones,
+    quantityBasisPending,
+    missingMilestones: Object.freeze(missingMilestones.map(node => Object.freeze({ ...node }))),
   })
 }

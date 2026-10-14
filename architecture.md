@@ -120,3 +120,15 @@ flowchart LR
 - [scripts/](scripts/) 保存专项与治理检查，[tests/](tests/) 保存单元、契约及浏览器测试；数量不等于覆盖率，每项结果只证明其断言范围。
 - [playwright.config.ts](playwright.config.ts) 定义浏览器、服务和产物设置；裁片使用方式见 [专项手册](docs/cutting-e2e.md)。
 - [vercel.json](vercel.json) 提供 SPA 路径重写。构建、Git 推送与 Vercel Production 成功是不同证据，发布口径见 `AGENTS.md` 的 RELEASE 规则。
+
+## PPIC 每日回货与两节点（2026-10-14 范围补充）
+
+本节核对本次未提交工作树；上文其他模块仍保留其原核对版本。具体业务来源、替代关系和验收矩阵见 [实施方案](docs/product-design/PPIC每日回货跟进与两节点履约调整具体方案-2026-10-14.md)。
+
+- 每日填报与主管汇总分别位于 `/fcs/sewing-outsourcing/daily-return-report` 和 `/fcs/sewing-outsourcing/daily-return-summary`。演示身份仅切换当前浏览器中的角色，不代表真实登录或多人权限系统。
+- [应回数量依据](src/data/fcs/ppic-return-quantity-basis.ts) 只读有效任务、实际简易／中转袋交出和已确认放行版本。无缺片按交出齐套件数，有缺片按对应任务放行数量，裁剪到包装按任务分配数量；不明来源保持待核对。历史节点按各自截止时的来源计算。
+- [共享日历](src/data/fcs/sewing-return-calendar.ts) 和 [任务履约策略](src/data/fcs/task-fulfillment-policy.ts) 提供35%和100%两节点，业务时区为Asia/Jakarta。新合同／分配预览、有效监控、进度和PDA使用同一规则；旧签署合同和失效历史快照保留原内容。
+- [每日回货计算](src/data/fcs/ppic-daily-return.ts) 保存原承诺、安排修订和补回链。正式实收按原截止优先分摊，原准时率以原数量和原截止计算；补录及更正重算结果并保留旧分摊／评估。补录解除的补回义务单独显示，不修改原安排，也不虚构补回建立前的实收。
+- [每日记录入口](src/data/fcs/ppic-daily-return-records.ts) 复用 [后道记录仓库](src/data/fcs/post-finishing-records.ts) 和已有 `higood-pcs-records` IndexedDB。八类记录按稳定主键保存至 `higood-fcs-post-finishing-records` 命名空间；后道确认、更正、库存／待送检质检单及PPIC分摊在同一事务完成。普通FCS与PDA后道入口均在开放操作前注册分摊并读取持久资料。
+- 每日截止默认17:00，组长设置有生效日期，提交记录保留配置身份。每日确认绑定当前任务、原承诺、当日补回和改约动作；失效历史任务只读，不进入当日确认集合。
+- 裁片来源仍属于已有裁床库，后道及PPIC记录属于PCS库。跨库不假称共同事务：新承诺在保存前核对来源版本；后道正式确认及其直接下游结果在PCS同库事务保存。页面普通读取不生成演示数据副本。

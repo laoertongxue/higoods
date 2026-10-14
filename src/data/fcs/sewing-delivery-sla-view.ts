@@ -1,6 +1,9 @@
+import { calculateSewingReturnDeadlineDate, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_MILESTONE_RATIOS } from './sewing-return-calendar.ts'
+import { ppicInstant } from './ppic-daily-return.ts'
 import {
   classifySewingDeliverySla,
-  formatOperationLocalWallClock,
+  formatSewingDeliveryQueryWallClock,
+  compareSewingDeliveryDateTimes,
   listAllSewingDeliverySlaSnapshots,
   listSewingDeliverySlaSnapshotHistory,
   projectSewingDeliverySla,
@@ -12,6 +15,7 @@ import {
   listSewingDeliveryReceiptFacts,
   listSewingDeliverySubmissionFacts,
 } from './sewing-delivery-receipt-facts.ts'
+import { getPpicReturnQuantityBasis } from './ppic-return-quantity-basis.ts'
 
 export interface SewingDeliverySlaView {
   readonly runtimeTaskId: string
@@ -28,7 +32,14 @@ function buildView(
   const submittedQty = listSewingDeliverySubmissionFacts(runtimeTaskId, nowAt)
     .reduce((sum, record) => sum + record.submittedQty, 0)
   const receipts = listSewingDeliveryReceiptFacts(runtimeTaskId, nowAt)
-  const projection = projectSewingDeliverySla(snapshot, receipts, nowAt)
+  const basis = getPpicReturnQuantityBasis(snapshot.assignmentId, nowAt)
+  const milestoneQuantityBases = snapshot.active && snapshot.businessAssignedAt ? Object.fromEntries(SEWING_RETURN_MILESTONE_RATIOS.map((ratio, i) => {
+    const deadline = calculateSewingReturnDeadlineDate(snapshot.businessAssignedAt!, SEWING_RETURN_COUNTING_DAYS[snapshot.slaKind][i]!) + ' 23:59:59'
+    const historical = getPpicReturnQuantityBasis(snapshot.assignmentId, ppicInstant(deadline) < ppicInstant(nowAt) ? deadline : nowAt)
+    return [ratio, { expectedReturnQty: historical.expectedQty, basisVersionId: historical.basisVersion }]
+  })) : undefined
+  const projection = projectSewingDeliverySla(snapshot.active ? { ...snapshot, expectedReturnQty: basis.expectedQty,
+    returnQuantityBasisVersionId: basis.basisVersion, quantityStatus: basis.status, milestoneQuantityBases } : snapshot, receipts, nowAt)
 
   return Object.freeze({
     runtimeTaskId,
@@ -43,7 +54,7 @@ function resolveEligibleSnapshot(
   nowAt: string,
   task: RuntimeProcessTask | null = getRuntimeTaskById(runtimeTaskId),
   snapshot: SewingDeliverySlaSnapshot | null = listSewingDeliverySlaSnapshotHistory(runtimeTaskId)
-    .filter((candidate) => candidate.acceptedAt <= nowAt)
+    .filter((candidate) => compareSewingDeliveryDateTimes(candidate.acceptedAt, nowAt) <= 0)
     .at(-1) ?? null,
 ): SewingDeliverySlaSnapshot | null {
   if (!snapshot) return null
@@ -53,7 +64,7 @@ function resolveEligibleSnapshot(
 
 export function getSewingDeliverySlaView(
   runtimeTaskId: string,
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
 ): SewingDeliverySlaView | null {
   const snapshot = resolveEligibleSnapshot(runtimeTaskId, nowAt)
   if (!snapshot) return null
@@ -62,14 +73,14 @@ export function getSewingDeliverySlaView(
 
 
 export function listSewingDeliverySlaViews(
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
   runtimeTaskIds?: readonly string[],
 ): readonly SewingDeliverySlaView[] {
   const requestedTaskIds = runtimeTaskIds ? new Set(runtimeTaskIds) : null
   const snapshotsByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
   const latestSnapshotByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
   listAllSewingDeliverySlaSnapshots()
-    .filter((snapshot) => snapshot.acceptedAt <= nowAt)
+    .filter((snapshot) => compareSewingDeliveryDateTimes(snapshot.acceptedAt, nowAt) <= 0)
     .forEach((snapshot) => latestSnapshotByTaskId.set(snapshot.runtimeTaskId, snapshot))
   const candidateTaskIds = requestedTaskIds ?? new Set(latestSnapshotByTaskId.keys())
   const runtimeTaskById = new Map(listRuntimeProcessTasks().map((task) => [task.taskId, task] as const))

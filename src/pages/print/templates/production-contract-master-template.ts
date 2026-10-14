@@ -1,7 +1,10 @@
+// @page-pattern: detail
+// 单份合同固定两页的打印详情；累计节点表和规则表不是管理记录列表。
 import type { ProductionContract } from '../../../data/fcs/production-contracts.ts'
 import { escapeHtml } from '../../../utils.ts'
 
-export const PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE = 'PRODUCTION_CONTRACT_SPK_ID_V1'
+export const PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE = 'PRODUCTION_CONTRACT_SPK_ID_V2_TWO_NODES'
+export const PRODUCTION_CONTRACT_LEGACY_TEMPLATE_CODE = 'PRODUCTION_CONTRACT_SPK_ID_V1'
 export const PRODUCTION_CONTRACT_MASTER_PAGE_COUNT = 2
 export const PRODUCTION_CONTRACT_MASTER_SOURCE = '/fcs/contracts/template/production-contract-master.pdf'
 export const PRODUCTION_CONTRACT_MASTER_SOURCE_SHA256 = 'faa13a7aa6942f41c30ac3651ff78ea728841dedd941a99a5ea8b5de62edff8c'
@@ -100,7 +103,7 @@ function buildPageOneFields(contract: ProductionContract, meta: ProductionContra
   const printedBy = printedByInIndonesian(meta.printedBy || contract.generatedBy)
   const details = contract.templateSnapshot.taskDetails.slice(0, 3)
   const detailRows = Array.from({ length: 3 }, (_, index) => details[index])
-  const milestones = contract.returnRuleSnapshot.milestones.slice(0, 3)
+  const milestones = isTwoNodeContract(contract) ? [] : contract.returnRuleSnapshot.milestones.slice(0, 3)
   const cumulativeQty = milestones.map((item) => item.targetQty)
   const stageQty = cumulativeQty.map((qty, index) => Math.max(0, qty - (cumulativeQty[index - 1] || 0)))
   const fields: OverlayField[] = [
@@ -172,16 +175,52 @@ function buildPageOneFields(contract: ProductionContract, meta: ProductionContra
   return fields
 }
 
+export function isTwoNodeContract(contract: ProductionContract): boolean {
+  const nodes = contract.returnRuleSnapshot.milestones
+  return nodes.length === 2 && nodes[0]?.ratio === 0.35 && nodes[1]?.ratio === 1
+}
+
+export function getProductionContractTemplateCode(contract: ProductionContract): string {
+  return isTwoNodeContract(contract) ? PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE : PRODUCTION_CONTRACT_LEGACY_TEMPLATE_CODE
+}
+
+function renderTwoNodeReturnTable(contract: ProductionContract): string {
+  let previousQty = 0
+  const rows = contract.returnRuleSnapshot.milestones.map((node, index) => {
+    const stageQty = node.targetQty - previousQty
+    previousQty = node.targetQty
+    return `<tr><td>${index + 1}</td><td data-contract-field="HARI_${index + 1}">${node.naturalDay}</td><td data-contract-field="DEADLINE_${index + 1}">${escapeHtml(formatContractDateIndonesian(node.deadlineDate, true))}</td><td>${Math.round(node.ratio * 100)}%</td><td data-contract-field="QTY_TAHAP_${index + 1}">${formatNumber(stageQty)}</td><td data-contract-field="QTY_KUM_${index + 1}">${formatNumber(node.targetQty)}</td></tr>`
+  }).join('')
+  const estimated = contract.templateSnapshot.returnQuantityBasis !== 'TASK_ASSIGNMENT' && contract.templateSnapshot.returnQuantityBasis !== 'CONFIRMED_RETURN_BASIS'
+  const basis = estimated ? 'Estimasi berdasarkan jumlah tugas; jumlah wajib kembali dikonfirmasi saat serah terima. / 按分配量预估；正式应回数量以交出或放行依据为准。' : contract.templateSnapshot.returnQuantityBasis === 'TASK_ASSIGNMENT' ? 'Dasar: jumlah tugas yang dibagikan. / 应回依据：任务分配数量。' : 'Dasar: jumlah wajib kembali yang telah dikonfirmasi. / 应回依据：已确认的应回数量版本。'
+  return `<div class="production-contract-return-table" data-contract-return-table="two-nodes"><table><thead><tr><th>Tahap<br>阶段</th><th>Hari Ke-<br>第几天</th><th>Batas Waktu<br>截止日期</th><th>Target Kumulatif<br>累计比例</th><th>Jumlah Tahap Ini<br>本阶段数量</th><th>Jumlah Kumulatif<br>累计数量</th></tr></thead><tbody>${rows}</tbody></table><p>${escapeHtml(basis)} WIB (Asia/Jakarta).</p></div>`
+}
+
+function renderTwoNodeRuleTable(): string {
+  return `<div class="production-contract-rule-table" data-contract-rule-table="two-nodes"><table><thead><tr><th>Jenis Proses / 工序类型</th><th>Tahap 1 / 第一节点</th><th>Tahap Akhir / 最终节点</th></tr></thead><tbody><tr><th>Jahit / 缝纫</th><td>Hari ke-4 ≥ 35%<br>第4天 ≥ 35%</td><td>Hari ke-9 = 100%<br>第9天 = 100%</td></tr><tr><th>Jahit s.d. Packing / 缝纫到包装</th><td>Hari ke-5 ≥ 35%<br>第5天 ≥ 35%</td><td>Hari ke-10 = 100%<br>第10天 = 100%</td></tr><tr><th>Cutting s.d. Packing / 裁剪到包装</th><td>Hari ke-6 ≥ 35%<br>第6天 ≥ 35%</td><td>Hari ke-12 = 100%<br>第12天 = 100%</td></tr></tbody></table></div>`
+}
+
+function renderReturnBasisNotes(): string {
+  return `<div class="production-contract-basis-note"><b>PENTING / 重要：</b>Target kumulatif = jumlah wajib kembali × rasio, dibulatkan ke atas. Jahit tanpa kekurangan potongan: jumlah lengkap yang diserahkan; bila ada kekurangan: jumlah pelepasan yang terkonfirmasi. Cutting s.d. Packing: jumlah tugas yang dibagikan.<br>累计目标按应回数量×比例向上取整。无缺片按实际交出齐套量，有缺片按裁片放行量；裁剪到包装按任务分配量。分配日为第1自然日，包含星期日；节点当日23:59:59 WIB截止。</div>`
+}
+
+function renderReturnCalculationRules(): string {
+  return `<div class="production-contract-calculation"><h3>2. DASAR PERHITUNGAN SISTEM / 系统计算规则</h3><p>• Hari pembagian tugas adalah hari ke-1; hari kalender termasuk Minggu. Batas setiap tahap: 23.59.59 WIB (Asia/Jakarta).<br><small>任务分配日为第1天，全部自然日，节点当日23:59:59雅加达时间截止。</small></p><p>• Target kumulatif dibulatkan ke atas dari jumlah wajib kembali × rasio; jumlah tahap adalah selisih dua target kumulatif. Jumlah tugas tetap dicatat terpisah.<br><small>累计目标以应回数量为基数；本阶段数量为累计目标差额，分配数量单独保留。</small></p><p>• Estimasi sebelum serah terima ditandai pada halaman 1. Perubahan dasar dicatat dalam versi baru; versi lama tetap tersimpan.<br><small>交出前预估在第一页明确标示；依据变化形成新版本，历史原件保留。</small></p></div>`
+}
+
 export function renderProductionContractMasterTemplate(contract: ProductionContract, meta: ProductionContractPrintMeta = {}): string {
   const pageOneFields = buildPageOneFields(contract, meta).map(renderOverlay).join('')
+  const twoNodes = isTwoNodeContract(contract)
   return `
-    <main class="production-contract-master" data-contract-template="${PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE}" data-contract-pages="2">
+    <main class="production-contract-master" data-contract-template="${getProductionContractTemplateCode(contract)}" data-contract-pages="2">
       <section class="production-contract-master__page production-contract-master__page--one">
         <img src="${PRODUCTION_CONTRACT_MASTER_ASSETS[0]}" alt="SPK dan komitmen jadwal pengembalian halaman 1" />
         <div class="production-contract-master__fields">${pageOneFields}</div>
+        ${twoNodes ? renderTwoNodeReturnTable(contract) + renderReturnBasisNotes() : ''}
       </section>
       <section class="production-contract-master__page">
         <img src="${PRODUCTION_CONTRACT_MASTER_ASSETS[1]}" alt="Ketentuan komitmen waktu, pengingat dan sanksi halaman 2" />
+        ${twoNodes ? renderTwoNodeRuleTable() + renderReturnCalculationRules() : ''}
       </section>
     </main>
     <style>
@@ -194,6 +233,19 @@ export function renderProductionContractMasterTemplate(contract: ProductionContr
       .production-contract-master__fields>span{position:absolute;display:flex;align-items:center;box-sizing:border-box;overflow:hidden;white-space:nowrap;background:#fff;font-family:Arial,"Noto Sans",sans-serif;padding:0 .6mm;justify-content:flex-start}
       .production-contract-master__fields>span[data-contract-wrap="true"]{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
       .production-contract-master__fields>span[style*="text-align:center"]{justify-content:center}
+      .production-contract-return-table,.production-contract-rule-table{position:absolute;left:5.46%;width:89.05%;background:#fff;font-family:Arial,"Noto Sans",sans-serif;box-sizing:border-box}
+      .production-contract-return-table{top:42.33%;height:10.88%}
+      .production-contract-rule-table{top:9.60%;height:14.05%}
+      .production-contract-return-table table,.production-contract-rule-table table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.2pt;text-align:center;background:#fff}
+      .production-contract-return-table th,.production-contract-return-table td,.production-contract-rule-table th,.production-contract-rule-table td{border:1pt solid #111;padding:1.1mm .6mm;line-height:1.15}
+      .production-contract-return-table thead tr{height:10.5mm}.production-contract-return-table tbody tr{height:7.2mm}
+      .production-contract-return-table th,.production-contract-rule-table thead th{background:#eee}
+      .production-contract-return-table p{margin:0;padding:.8mm 1mm;font-size:6.4pt;line-height:1.2;border:1pt solid #111;border-top:0}
+      .production-contract-rule-table table{height:100%}.production-contract-rule-table tbody th{font-size:8pt}
+      .production-contract-basis-note{position:absolute;left:5.46%;top:53.34%;width:89.05%;height:6.67%;box-sizing:border-box;border:1.3pt solid #e00000;background:#fff;padding:1.4mm;font-family:Arial,"Noto Sans",sans-serif;font-size:8pt;line-height:1.22;overflow:hidden}
+      .production-contract-basis-note>b{color:#d00000}
+      .production-contract-calculation{position:absolute;left:6.1%;top:25.94%;width:43.6%;height:15.50%;box-sizing:border-box;background:#fff;font-family:Arial,"Noto Sans",sans-serif;font-size:8pt;line-height:1.18;overflow:hidden}
+      .production-contract-calculation h3{margin:0 0 1mm;font-size:8.7pt;line-height:1.2}.production-contract-calculation p{margin:0 0 1.1mm}.production-contract-calculation small{font-size:7.4pt;color:#666}
       @media print{
         html,body{margin:0!important;padding:0!important;background:#fff!important}
         .production-contract-master{margin:0!important}

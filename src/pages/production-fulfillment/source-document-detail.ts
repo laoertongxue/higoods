@@ -276,7 +276,7 @@ function contractDetails(match: SourceMatch): string {
   const start = wallTime(task.assigned || '业务分配日期缺失'), validHeld = task.held != null && Number.isFinite(task.held) && task.held > 0, now = wallTime(AS_OF)!
   const receipts = task.receipts.filter(receipt => (wallTime(receipt.at) ?? Infinity) <= now)
   const received = timingReceiptTotal(task)
-  const ratios = [0.3, 0.7, 1]
+  const ratios = [0.35, 1]
   const rows = ratios.map((ratio, index) => {
     const target = validHeld ? Math.ceil(task.held! * ratio) : null
     const deadline = start == null ? null : wallTime(calculateSewingReturnDeadlineDate(task.assigned!, days[index]) + ' 23:59:59')! + 999

@@ -1,10 +1,20 @@
 /** CONTRACT-002: 业务分配日为第1天，后续按自然日计时，包含星期日。 */
-export const SEWING_RETURN_RULE_VERSION = 'PPIC-20261008-NATURAL-DAYS'
+export const SEWING_RETURN_RULE_VERSION = 'PPIC-20261014-TWO-NODES-JAKARTA'
+export const SEWING_RETURN_BUSINESS_TIME_ZONE = 'Asia/Jakarta'
+export const SEWING_RETURN_MILESTONE_RATIOS = [0.35, 1] as const
+export type SewingReturnMilestoneRatio = typeof SEWING_RETURN_MILESTONE_RATIOS[number]
+/** 旧比例仅供原合同、旧快照和复核历史读取，当前规则不再生成。 */
+export type SewingReturnHistoricalMilestoneRatio = SewingReturnMilestoneRatio | 0.3 | 0.7
+export type SewingReturnQuantityStatus = 'READY' | 'WAIT_HANDOVER' | 'AMBIGUOUS' | 'SOURCE_UNAVAILABLE'
 export const SEWING_RETURN_COUNTING_DAYS = {
-  INDEPENDENT_SEWING: [4, 8, 9],
-  SEWING_TO_IRON_PACK: [5, 9, 10],
-  CUTTING_TO_IRON_PACK: [6, 9, 12],
+  INDEPENDENT_SEWING: [4, 9],
+  SEWING_TO_IRON_PACK: [5, 10],
+  CUTTING_TO_IRON_PACK: [6, 12],
 } as const
+
+export function formatSewingBusinessWallClock(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: SEWING_RETURN_BUSINESS_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(date)
+}
 
 export function calculateSewingReturnDeadlineDate(startAt: string, countingDay: number): string {
   if (!Number.isInteger(countingDay) || countingDay < 1) throw new Error('回货节点计时日必须大于等于1')

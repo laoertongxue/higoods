@@ -29,6 +29,7 @@ import {
   confirmPdaPickupRecordReceived,
   createFactoryHandoverRecord,
   deriveHandoutObjectProfile,
+  getPdaHandoverDisplayUnit,
   deriveHandoutRecordProfile,
   findPdaHandoverHead,
   findPdaHandoverRecord,
@@ -1761,9 +1762,10 @@ export function buildReceiverWritebackSlaPreview(
   if (!Number.isFinite(receiverWrittenQty) || receiverWrittenQty < 0) return null
   const record = findPdaHandoverRecord(recordId)
   if (!record || !confirmedAt.trim()) return null
+  const head = findPdaHandoverHead(record.handoverId)
   return Object.freeze({
     onsiteReceivedQty: receiverWrittenQty,
-    unit: record.qtyUnit || '件',
+    unit: head ? getPdaHandoverDisplayUnit(head, record.qtyUnit || '件') : record.qtyUnit || '件',
     confirmedAt,
     formalReturnSource: '后道最终确认',
   })
@@ -1779,7 +1781,7 @@ export function renderReceiverWritebackSlaPreview(
   return `
     <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
       <div class="font-medium">本次现场交接实收 ${preview.onsiteReceivedQty} ${escapeHtml(preview.unit)}</div>
-      <div class="mt-1">PDA 确认只完成现场交接，不计入 PPIC 正式回货；后道最终确认后才更新 30% / 70% / 100% 节点。</div>
+      <div class="mt-1">PDA 确认只完成现场交接，不计入 PPIC 正式回货；后道最终确认后才更新 35% / 100% 节点。</div>
     </div>
   `
 }
@@ -1799,7 +1801,8 @@ function refreshReceiverWritebackSlaPreview(recordId: string): void {
 function renderHandoverSlaSummary(taskId: string, unit: string): string {
   const view = getSewingDeliverySlaView(taskId)
   if (!view) return ''
-  return `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700" data-sewing-sla-handover-summary="${escapeHtml(taskId)}">后道已最终确认回货 ${view.confirmedReceivedQty} ${escapeHtml(unit)} · ${Math.round(view.projection.progressRatio * 1000) / 10}%；PDA 现场交接数量不计入此数。</div>`
+  const progress = view.projection.progressRatio == null ? '应回数量待核对，回货比例待核实' : `${Math.round(view.projection.progressRatio * 1000) / 10}%`
+  return `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700" data-sewing-sla-handover-summary="${escapeHtml(taskId)}">后道已最终确认回货 ${view.confirmedReceivedQty} ${escapeHtml(unit)} · ${progress}；PDA 现场交接数量不计入此数。</div>`
 }
 
 function escapeCssAttributeValue(value: string): string {
@@ -1906,9 +1909,9 @@ function renderHandoutRecordAuditItem(
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('交出记录号', record.handoverRecordNo || record.recordId, true)}
         ${renderFieldRow('状态', getHandoverRecordStatusLabel(record.handoverRecordStatus || record.status))}
-        ${renderFieldRow('交出对象数量', `${record.submittedQty ?? record.plannedQty ?? 0} ${record.qtyUnit}`, true)}
-        ${renderFieldRow('实收对象数量', typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${record.qtyUnit}` : '待收货确认', true)}
-        ${renderFieldRow('差异', typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${record.qtyUnit}` : '待收货确认', typeof diffQty === 'number' && diffQty !== 0)}
+        ${renderFieldRow('交出对象数量', `${record.submittedQty ?? record.plannedQty ?? 0} ${getPdaHandoverDisplayUnit(head, record.qtyUnit || head.qtyUnit)}`, true)}
+        ${renderFieldRow('实收对象数量', typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${getPdaHandoverDisplayUnit(head, record.qtyUnit || head.qtyUnit)}` : '待收货确认', true)}
+        ${renderFieldRow('差异', typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${getPdaHandoverDisplayUnit(head, record.qtyUnit || head.qtyUnit)}` : '待收货确认', typeof diffQty === 'number' && diffQty !== 0)}
         ${renderFieldRow('接收方确认时间', receiverWrittenAt || '待收货确认')}
         ${renderFieldRow('工厂提交时间', record.factorySubmittedAt)}
         ${renderFieldRow('出库记录', linkedOutboundLabel, Boolean(linkedOutboundRecord))}
@@ -2100,9 +2103,9 @@ function renderHandoutRecordItem(
       <div class="flex items-center justify-between gap-2"><span class="text-xs font-medium">第 ${record.sequenceNo} 次交出</span><span class="rounded-full border px-2 py-0.5 text-[10px] ${meta.className}">${escapeHtml(meta.label)}</span></div>
       <div class="truncate text-xs text-muted-foreground">${escapeHtml((record.postReturnLink || head.processBusinessCode === 'SEW') && record.skuCode ? `${record.skuCode} · ${record.skuColor || ''} / ${record.skuSize || ''}` : profile.itemTitle || profile.objectTypeLabel)}</div>
       <div class="grid grid-cols-3 gap-2 text-center text-xs">
-        <div><div class="text-[10px] text-muted-foreground">交出</div><div class="mt-1 font-semibold">${submittedQty} ${escapeHtml(record.qtyUnit)}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">实收</div><div class="mt-1 font-semibold">${typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">差异</div><div class="mt-1 font-semibold ${typeof diffQty === 'number' && diffQty !== 0 ? 'text-red-600' : 'text-emerald-700'}">${typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${escapeHtml(record.qtyUnit)}` : '待确认'}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">交出</div><div class="mt-1 font-semibold">${submittedQty} ${escapeHtml(getPdaHandoverDisplayUnit(head, record.qtyUnit || head.qtyUnit))}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">实收</div><div class="mt-1 font-semibold">${typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${escapeHtml(getPdaHandoverDisplayUnit(head, record.qtyUnit || head.qtyUnit))}` : '待确认'}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">差异</div><div class="mt-1 font-semibold ${typeof diffQty === 'number' && diffQty !== 0 ? 'text-red-600' : 'text-emerald-700'}">${typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${escapeHtml(getPdaHandoverDisplayUnit(head, record.qtyUnit || head.qtyUnit))}` : '待确认'}</div></div>
       </div>
       <div class="text-[11px] text-muted-foreground">${escapeHtml(record.factorySubmittedAt)}</div>
       ${record.objectionReason ? `<div class="rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">异议：${escapeHtml(record.objectionReason)}</div>` : ''}
@@ -2141,7 +2144,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
     : '<div>当前暂无交出记录</div>'
 
   return `
-    ${renderHandoverSlaSummary(head.taskId, head.qtyUnit || '件')}
+    ${renderHandoverSlaSummary(head.taskId, getPdaHandoverDisplayUnit(head, head.qtyUnit || '件'))}
     ${renderHandoutHeadLiveSummary(head)}
     ${renderSectionCard(
       '交出单',
@@ -2210,16 +2213,16 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         </div>
         <div class="space-y-0.5 text-muted-foreground">${detailLines}</div>
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          ${renderFieldRow(profile.primaryQtyLabel, `${profile.totalPlannedQty} ${profile.displayUnit}`, true)}
-          ${renderFieldRow(profile.writtenQtyLabel, `${profile.totalWrittenQty} ${profile.displayUnit}`, true)}
-          ${renderFieldRow(profile.pendingQtyLabel, `${profile.totalPendingQty} ${profile.displayUnit}`, true)}
+          ${renderFieldRow(profile.primaryQtyLabel, `${profile.totalPlannedQty} ${getPdaHandoverDisplayUnit(head, profile.displayUnit)}`, true)}
+          ${renderFieldRow(profile.writtenQtyLabel, `${profile.totalWrittenQty} ${getPdaHandoverDisplayUnit(head, profile.displayUnit)}`, true)}
+          ${renderFieldRow(profile.pendingQtyLabel, `${profile.totalPendingQty} ${getPdaHandoverDisplayUnit(head, profile.displayUnit)}`, true)}
           ${renderFieldRow('数量异议', `${head.objectionCount} 条`)}
           ${renderFieldRow('累计交出次数', `${head.recordCount} 次`)}
           ${renderFieldRow('待收货', `${head.pendingWritebackCount} 条`)}
         </div>
       </div>
       <div class="rounded-md border ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-2.5 py-1.5 text-xs">
-        ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${profile.displayUnit}）` : '数量一致'}
+        ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${getPdaHandoverDisplayUnit(head, profile.displayUnit)}）` : '数量一致'}
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
         <span>${escapeHtml(isCompleted ? '交出单已完成；接收方收货确认和异议仍可继续' : completionCheck.message)}</span>
@@ -2296,9 +2299,9 @@ function renderCompactHandoutHeadDetail(head: PdaHandoverHead): string {
       </div>
       <div class="mt-3 inline-flex items-center rounded border border-border bg-background px-2 py-1 text-[10px]">交出物类型：${escapeHtml(profile.objectTypeLabel)}</div>
       <div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs">
-        <div><div class="text-[10px] text-muted-foreground">${escapeHtml(profile.primaryQtyLabel)}</div><div class="mt-1 font-semibold">${profile.totalPlannedQty} ${escapeHtml(profile.displayUnit)}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">${escapeHtml(profile.writtenQtyLabel)}</div><div class="mt-1 font-semibold">${profile.totalWrittenQty} ${escapeHtml(profile.displayUnit)}</div></div>
-        <div><div class="text-[10px] text-muted-foreground">${escapeHtml(profile.pendingQtyLabel)}</div><div class="mt-1 font-semibold ${profile.totalPendingQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${profile.totalPendingQty} ${escapeHtml(profile.displayUnit)}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">${escapeHtml(profile.primaryQtyLabel)}</div><div class="mt-1 font-semibold">${profile.totalPlannedQty} ${escapeHtml(getPdaHandoverDisplayUnit(head, profile.displayUnit))}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">${escapeHtml(profile.writtenQtyLabel)}</div><div class="mt-1 font-semibold">${profile.totalWrittenQty} ${escapeHtml(getPdaHandoverDisplayUnit(head, profile.displayUnit))}</div></div>
+        <div><div class="text-[10px] text-muted-foreground">${escapeHtml(profile.pendingQtyLabel)}</div><div class="mt-1 font-semibold ${profile.totalPendingQty > 0 ? 'text-amber-700' : 'text-emerald-700'}">${profile.totalPendingQty} ${escapeHtml(getPdaHandoverDisplayUnit(head, profile.displayUnit))}</div></div>
       </div>
     </article>
 

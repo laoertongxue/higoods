@@ -75,7 +75,7 @@ function workRows(cases: TimingCase[]): WorkRow[] {
       if (!rule) continue
       const assigned = task.assigned || '', validStart = Number.isFinite(timestamp(assigned)), validHeld = task.held != null && Number.isFinite(task.held) && task.held > 0
       const receipts = task.receipts.filter(receipt => timestamp(receipt.at) <= timestamp(TIMING_AS_OF)), cumulative = timingReceiptTotal(task)
-      for (const [index, percent] of [30, 70, 100].entries()) {
+      for (const [index, percent] of [35, 100].entries()) {
         const target = validHeld ? Math.ceil(task.held! * percent / 100) : null
         const deadline = validStart ? timestamp(calculateSewingReturnDeadlineDate(assigned, rule.days[index]) + ' 23:59:59') + 999 : null
         let received = 0, reached: string | null = null
@@ -184,7 +184,7 @@ function teamsHtml(cases: TimingCase[]): string {
     { key: 'contract', title: '合同类型 / 业务分配日期', width: 180, render: task => `${e(contractRules[task.type]?.name || task.type)}<small>${e(task.assigned || '业务分配日期缺失')}</small>` },
     { key: 'held', title: '工厂实领量', width: 110, sortable: true, render: task => task.held == null ? '工厂实领量待核实' : `${fmt(task.held)}件` },
     { key: 'received', title: '后道实收量', width: 110, sortable: true, render: task => `${fmt(task.received)}件` },
-    { key: 'nodes', title: '30% / 70% / 100%节点', width: 365, render: task => task.nodes.map(node => `${badge(node.state)} ${e(node.title.slice(node.title.lastIndexOf('·') + 1))} · 应达标截止 ${node.deadline == null ? '分配日期缺失' : time(node.deadline)}<small>${e(node.quantity)}</small>`).join('<br>') },
+    { key: 'nodes', title: '35% / 100%节点', width: 365, render: task => task.nodes.map(node => `${badge(node.state)} ${e(node.title.slice(node.title.lastIndexOf('·') + 1))} · 应达标截止 ${node.deadline == null ? '分配日期缺失' : time(node.deadline)}<small>${e(node.quantity)}</small>`).join('<br>') },
     { key: 'executor', title: '执行 → 接收确认', width: 210, render: task => `${e(task.executor)} → ${e(task.receiver)}` },
     { key: 'operations', title: '操作', width: 100, required: true, actionColumn: true, render: task => anchor('全程图示', timingCaseHref(task.production)) },
   ], allTasks, ui)}`
@@ -199,9 +199,9 @@ function configurationHtml(): string {
     ['准备阶段', '从最早商品采购下单开始', '无定位印整体4天；有定位印整体5天；并行支线不相加'],
     ['面辅料采购', '各自物料采购下单 → 面料仓 / 辅料仓实收', '各单8自然日；库存来源仍须调拨交出与下游接收单据'],
     ['辅助工艺', '每道实际加工开始 → 实际加工完成', '每道3自然日；大货染色、印花、水洗不套用此标准'],
-    ['工厂合同 · 独立车缝', '业务分配日为第1天；累计30% / 70% / 100%', `第${SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING.join(' / ')}自然日当日23:59截止；分母工厂实领，分子该任务后道实收`],
-    ['工厂合同 · 车缝＋烫包', '业务分配日为第1天；累计30% / 70% / 100%', `第${SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK.join(' / ')}自然日当日23:59截止；星期日照常计入`],
-    ['工厂合同 · 裁剪＋车缝＋烫包', '业务分配日为第1天；累计30% / 70% / 100%', `第${SEWING_RETURN_COUNTING_DAYS.CUTTING_TO_IRON_PACK.join(' / ')}自然日当日23:59截止；同厂任务分别判断`],
+    ['工厂合同 · 独立车缝', '业务分配日为第1天；累计35% / 100%', `第${SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING.join(' / ')}自然日当日23:59截止；分母工厂实领，分子该任务后道实收`],
+    ['工厂合同 · 车缝＋烫包', '业务分配日为第1天；累计35% / 100%', `第${SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK.join(' / ')}自然日当日23:59截止；星期日照常计入`],
+    ['工厂合同 · 裁剪＋车缝＋烫包', '业务分配日为第1天；累计35% / 100%', `第${SEWING_RETURN_COUNTING_DAYS.CUTTING_TO_IRON_PACK.join(' / ')}自然日当日23:59截止；同厂任务分别判断`],
     ['工厂产前版样衣', '实际领料后第3天交出', '按日期展示，日内截止时刻待确认；是否通过不影响合同回货'],
     ['交接', '上游实际交出 / 调拨出 → 下游实际接收', '与加工分别计时；未配置标准仅记录耗时，正常或超时均无法判定'],
     ['人工放行', '读取裁片放行管理的人工记录', '业务人员决定是否放行；系统不按齐套或样衣结果自动放行'],
@@ -229,7 +229,7 @@ function refreshOverlay(): void { const root = document.querySelector('#timing-m
 function exportCsv(): void {
   const cases = matchingCases(), rows = orderRows(cases), works = filteredWorkRows(cases), teamTasks = currentSection === 'teams' ? teamTaskRows(cases) : []
   const values: unknown[][] = currentSection === 'work-items' ? [['生产单', '具体工作', '本工作时效结果', '单据状态', '执行负责人', '接收确认责任', '计时起点 / 业务分配', '应完成 / 达标截止', '实际完成 / 接收 / 达标', '本项数量（含现场单位）'], ...works.map(row => [row.production.order, row.title, row.state, row.executionState, row.executor, row.receiver, time(row.startedAt), row.deadlineLabel || time(row.deadline), time(row.endedAt), row.quantity])]
-    : currentSection === 'teams' ? [['生产单', '工厂', '具体任务', '合同', '业务分配日期', '工厂实领（件）', '后道累计实收（件）', '30%节点', '70%节点', '100%节点', '执行负责人', '接收确认人'], ...teamTasks.map(task => [task.production.order, task.factory, task.id, contractRules[task.type]?.name || task.type, task.assigned, task.held, task.received, ...task.nodes.map(node => `${node.state} · ${time(node.deadline)} · ${node.quantity}`), task.executor, task.receiver])]
+    : currentSection === 'teams' ? [['生产单', '工厂', '具体任务', '合同', '业务分配日期', '工厂实领（件）', '后道累计实收（件）', '35%节点', '100%节点', '执行负责人', '接收确认人'], ...teamTasks.map(task => [task.production.order, task.factory, task.id, contractRules[task.type]?.name || task.type, task.assigned, task.held, task.received, ...task.nodes.map(node => `${node.state} · ${time(node.deadline)} · ${node.quantity}`), task.executor, task.receiver])]
     : currentSection === 'pending-purchases' ? [['商品采购单', '款式', '场景', '下单时间', '入库截止', '原采购应完成量（件）', '成衣仓已入库量（件）', '生产单关联'], ...cases.filter(c => !c.order).map(c => [c.purchases.map(p => p.id).join(' / '), c.style, scene(c), time(getTimingFacts(c).first.at), time(getTimingFacts(c).deadline), getTimingFacts(c).required, c.warehouse == null ? '待核实' : c.warehouse, '未取得有效生产单关联'])]
     : [['生产单', '商品采购单', '场景', '跟单', '最早采购下单', '入库截止', '整单入仓状态', '整单入仓结果 / 未完成超时工作', '成衣仓入库量（件）', '原采购应完成量（件）', '未完成超时工作数（项）', '已结束但晚的计时项数（含合同节点）', '资料核实事项数（项）'], ...rows.map(row => [row.id, row.production.purchases.map(p => p.id).join(' / '), row.scenario, row.follower, time(row.firstAt), time(row.deadline), row.status, row.health, row.warehouse == null ? '待核实' : row.warehouse, row.facts.required, row.currentCount, row.historyCount, row.factualCount]), ...(['overview', 'orders', 'follow-up'].includes(currentSection) ? cases.filter(c => !c.order).map(c => ['待关联生产单', c.purchases.map(p => p.id).join(' / '), scene(c), follower(c), time(getTimingFacts(c).first.at), time(getTimingFacts(c).deadline), '待核实', '不计入生产单统计', c.warehouse == null ? '待核实' : c.warehouse, getTimingFacts(c).required, '', '', '']) : [])]
   const safe = (value: unknown) => { const text = String(value ?? ''); return '"' + (/^[=+\-@]/.test(text) ? "'" + text : text).replaceAll('"', '""') + '"' }

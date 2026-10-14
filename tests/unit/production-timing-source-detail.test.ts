@@ -53,7 +53,7 @@ test('contract details retain natural-day deadlines and late achievement history
   const contract = Object.values(branch.docs).find(document => document.type === '车缝任务分配合同' && document.object.startsWith('B厂'))!
   const html = resolveTimingSourceDetail(timingDocumentHref(contract.id))!
   assert.ok(html.includes('2026-10-04 23:59'), 'Independent sewing day 4 must include Sunday')
-  assert.ok(html.includes('已达标 · 晚12小时'))
+  assert.ok(html.includes('35%')); assert.ok(html.includes('还差目标25件'))
   assert.ok(html.includes('工厂实领') && html.includes('后道累计实收'))
   assert.ok(html.includes('同厂其他任务不抵扣本任务缺口'))
 })

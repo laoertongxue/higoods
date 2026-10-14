@@ -548,14 +548,14 @@ record({
 const independentPolicy = classifyTaskFulfillmentPolicy({ processCode: 'SEW', processBusinessCode: 'SEW', processNameZh: '车缝', taskUnitType: 'PROCESS_TASK', assignmentGranularity: 'SKU' })
 const sewingIronPolicy = classifyTaskFulfillmentPolicy({ processCode: 'SEWING_IRON_PACK', processNameZh: '车缝＋烫包', taskUnitType: 'MERGED_PRODUCTION_TASK', mergedTaskType: 'SEWING_IRON_PACK' })
 const cuttingIronPolicy = classifyTaskFulfillmentPolicy({ processCode: 'CUTTING_SEWING_IRON_PACK', processNameZh: '裁剪＋车缝＋烫包', taskUnitType: 'MERGED_PRODUCTION_TASK', mergedTaskType: 'CUTTING_SEWING_IRON_PACK' })
-assert.deepEqual(independentPolicy.milestones.map((item) => [item.ratio, item.naturalDay]), [[0.3, 4], [0.7, 8], [1, 9]])
-assert.deepEqual(sewingIronPolicy.milestones.map((item) => [item.ratio, item.naturalDay]), [[0.3, 5], [0.7, 9], [1, 10]])
-assert.deepEqual(cuttingIronPolicy.milestones.map((item) => [item.ratio, item.naturalDay]), [[0.3, 6], [0.7, 9], [1, 12]])
+assert.deepEqual(independentPolicy.milestones.map((item) => [item.ratio, item.naturalDay]), [[0.35, 4], [1, 9]])
+assert.deepEqual(sewingIronPolicy.milestones.map((item) => [item.ratio, item.naturalDay]), [[0.35, 5], [1, 10]])
+assert.deepEqual(cuttingIronPolicy.milestones.map((item) => [item.ratio, item.naturalDay]), [[0.35, 6], [1, 12]])
 record({
-  step: '三类任务30%/70%/100%回货时效',
+  step: '三类任务35%/100%回货时效',
   objectIds: ['SEWING_ONLY', 'SEWING_TO_IRON_PACK', 'CUTTING_TO_IRON_PACK'],
-  after: { independentSewing: [4, 8, 9], sewingIronPack: [5, 9, 10], cuttingSewingIronPack: [6, 9, 12], dayBasis: '分配当天为第1个自然日', deadlineTime: '23:59:59' },
-  assertions: ['三类任务分别使用确认后的时效', '30%/70%/100%均有独立节点', '自然日起算和截止时刻由规则快照冻结'],
+  after: { independentSewing: [4, 9], sewingIronPack: [5, 10], cuttingSewingIronPack: [6, 12], dayBasis: '分配当天为第1个自然日', deadlineTime: '23:59:59' },
+  assertions: ['三类任务分别使用确认后的时效', '35%/100%均有独立节点', '自然日起算和截止时刻由规则快照冻结'],
 })
 
 const submittedCutReturn = ensureSewingCutPieceReturnWorkflowDemo()

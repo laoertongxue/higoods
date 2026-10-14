@@ -1,3 +1,5 @@
+import { formatSewingBusinessWallClock } from './sewing-return-calendar.ts'
+import { ppicInstant } from './ppic-daily-return.ts'
 import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
 import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -40,10 +42,12 @@ import {
   type ProductionReturnReceiptFact,
 } from './production-return-fulfillment.ts'
 import { classifyTaskFulfillmentPolicy } from './task-fulfillment-policy.ts'
+import { getPpicReturnQuantityBasis, type PpicReturnQuantityBasis } from './ppic-return-quantity-basis.ts'
 
 export const SEWING_RETURN_TRACKING_DEMO_NOW = '2026-09-01 12:00:00'
 
 export interface SewingOutsourcingReturnTrackingRow {
+  quantityBasis: PpicReturnQuantityBasis
   assignment: EffectiveTaskAssignment
   productionOrder: Pick<PostFinishingAcceptanceProductionOrder, 'productionOrderId' | 'productionOrderNo' | 'sewingTaskNo' | 'styleNo' | 'styleName' | 'skus' | 'sewingTaskType'>
   taskType: PostFinishingSewingTaskType
@@ -220,7 +224,7 @@ function receiptFacts(versions: PostFinishingReturnConfirmationVersion[]): Produ
     factoryId: version.factoryId,
     declaredQty: version.registeredQty,
     confirmedQty: version.confirmedQty,
-    confirmedDate: version.confirmedAt.slice(0, 10),
+    confirmedDate: formatSewingBusinessWallClock(new Date(ppicInstant(version.confirmedAt))).slice(0, 10),
     confirmedAt: version.confirmedAt,
     confirmed: true,
     sourceType: 'POST_FINISHING_FINAL_CONFIRMATION',
@@ -231,8 +235,9 @@ function receiptFacts(versions: PostFinishingReturnConfirmationVersion[]): Produ
 }
 
 export function listSewingOutsourcingReturnTrackingRows(
-  nowAt: string = SEWING_RETURN_TRACKING_DEMO_NOW,
+  nowAt: string = formatSewingBusinessWallClock(),
 ): SewingOutsourcingReturnTrackingRow[] {
+  if (/[TZ+]/.test(nowAt.slice(10))) nowAt = formatSewingBusinessWallClock(new Date(ppicInstant(nowAt)))
   ensureSewingOutsourcingReturnTrackingDemo()
   return listEffectiveTaskAssignments().filter((assignment) => assignment.status === 'EFFECTIVE').filter((assignment) => assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code))).map((assignment) => {
     const taskType: PostFinishingSewingTaskType = assignment.processCodes.includes('CUTTING') ? 'CUTTING_TO_IRON_PACK' : assignment.processCodes.includes('IRON_PACK') ? 'SEWING_TO_IRON_PACK' : 'INDEPENDENT_SEWING'
@@ -256,18 +261,27 @@ export function listSewingOutsourcingReturnTrackingRows(
       ? []
       : listSewingReturnResponsibilityVersions(assignment.assignmentId).filter((version) => version.sourceKind === 'HANDOVER_CONFIRMED')
     const policy = policyFor(taskType)
+    const quantityBasis = getPpicReturnQuantityBasis(assignment.assignmentId, nowAt)
     // 接单与分配是不同事实；回货节点仅按业务分配日期起算，不因晚接单而延期。
     const snapshot = {
       snapshotId: `RETURN-TRACKING-${SEWING_RETURN_RULE_VERSION}-${assignment.assignmentId}`,
       assignmentId: assignment.assignmentId, runtimeTaskId: assignment.runtimeTaskId,
       productionOrderId: assignment.productionOrderId, factoryId: assignment.factoryId, factoryName: assignment.factoryName,
-      assignedQty: assignment.assignedQty, assignmentDate: timing.timingStatus === 'CONFIRMED' ? timing.businessAssignedAt.slice(0, 10) : '',
+      assignedQty: assignment.assignedQty, expectedReturnQty: quantityBasis.expectedQty,
+      returnQuantityBasisVersionId: quantityBasis.basisVersion, quantityStatus: quantityBasis.status,
+      assignmentDate: timing.timingStatus === 'CONFIRMED' ? timing.businessAssignedAt.slice(0, 10) : '',
       fulfillmentRuleCode: policy.fulfillmentRuleCode as 'SEWING_ONLY' | 'SEWING_TO_IRON_PACK' | 'CUTTING_TO_IRON_PACK',
       active: true, ruleVersion: SEWING_RETURN_RULE_VERSION,
-      milestones: timing.timingStatus === 'CONFIRMED' ? policy.milestones.map((node) => { const deadlineDate = calculateSewingReturnDeadlineDate(timing.businessAssignedAt, node.naturalDay); return { ratio: node.ratio, naturalDay: node.naturalDay, targetQty: Math.ceil(assignment.assignedQty * node.ratio), deadlineAt: `${deadlineDate} 23:59:59`, deadlineDate } }) : [],
+      milestones: timing.timingStatus === 'CONFIRMED' && quantityBasis.expectedQty !== null ? policy.milestones.map((node) => { const deadlineDate = calculateSewingReturnDeadlineDate(timing.businessAssignedAt, node.naturalDay); return { ratio: node.ratio, naturalDay: node.naturalDay, targetQty: Math.ceil(quantityBasis.expectedQty! * node.ratio), deadlineAt: `${deadlineDate} 23:59:59`, deadlineDate } }) : [],
     }
+    const milestoneQuantityBases = Object.fromEntries((timing.timingStatus === 'CONFIRMED' ? policy.milestones : []).map(node => {
+      const deadlineAt = calculateSewingReturnDeadlineDate(timing.businessAssignedAt, node.naturalDay) + ' 23:59:59'
+      const cutoff = ppicInstant(deadlineAt) < ppicInstant(nowAt) ? deadlineAt : nowAt
+      const basis = getPpicReturnQuantityBasis(assignment.assignmentId, cutoff)
+      return [node.ratio, { expectedReturnQty: basis.expectedQty, basisVersionId: basis.basisVersion }]
+    }))
     const returnProjection = projectProductionReturnFulfillment({
-      snapshot,
+      snapshot: { ...snapshot, milestoneQuantityBases },
       receipts: receiptFacts(activeConfirmationVersions),
       today: nowAt.slice(0, 10),
       nowAt,
@@ -277,6 +291,7 @@ export function listSewingOutsourcingReturnTrackingRows(
     const declaredQty = deliveries.reduce((sum, delivery) => sum + delivery.lines.reduce((lineSum, line) => lineSum + line.registeredQty, 0), 0)
     const confirmedQty = activeConfirmationVersions.reduce((sum, version) => sum + version.confirmedQty, 0)
     return {
+      quantityBasis,
       assignment,
       acceptedAt,
       ...timing,

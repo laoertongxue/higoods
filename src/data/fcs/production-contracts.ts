@@ -37,6 +37,10 @@ export interface ProductionContractTemplateSnapshot {
   processTypeId: ProductionContractProcessTypeId
   dayCalculationId: 'KALENDER'
   taskDetails: ProductionContractTaskDetailSnapshot[]
+  /** 合同生成早于裁片交出时，分配数量仅用于预估回货目标。 */
+  returnQuantityBasis?: 'ASSIGNMENT_ESTIMATE' | 'TASK_ASSIGNMENT' | 'CONFIRMED_RETURN_BASIS'
+  returnQuantity?: number
+  returnQuantityBasisVersionId?: string
 }
 
 export interface ProductionContract {
@@ -118,12 +122,15 @@ function resolveProcessTypeId(policy: TaskFulfillmentPolicy): ProductionContract
 function buildTemplateSnapshot(input: {
   assignment: EffectiveTaskAssignment
   policy: TaskFulfillmentPolicy
+  returnRuleSnapshot?: ProductionReturnRuleSnapshot | null
 }): ProductionContractTemplateSnapshot {
   const order = productionOrders.find((item) => (
     item.productionOrderId === input.assignment.productionOrderId
     || item.productionOrderNo === input.assignment.productionOrderNo
   ))
   const factory = getFactoryMasterRecordById(input.assignment.factoryId)
+  const expected = input.returnRuleSnapshot?.expectedReturnQty
+  const hasConfirmedBasis = expected != null && (!input.returnRuleSnapshot?.quantityStatus || input.returnRuleSnapshot.quantityStatus === 'READY')
   return {
     ppicName: order?.demandSnapshot.merchandiserName || 'PPIC belum ditentukan',
     factoryPicName: factory?.contact || 'PIC belum ditentukan',
@@ -138,6 +145,9 @@ function buildTemplateSnapshot(input: {
       note: input.assignment.taskNo ? `Tugas ${input.assignment.taskNo}` : 'Tidak ada',
       qty: input.assignment.assignedQty,
     }],
+    returnQuantityBasis: input.policy.fulfillmentRuleCode === 'CUTTING_TO_IRON_PACK' ? 'TASK_ASSIGNMENT' : hasConfirmedBasis ? 'CONFIRMED_RETURN_BASIS' : 'ASSIGNMENT_ESTIMATE',
+    returnQuantity: hasConfirmedBasis ? expected : input.assignment.assignedQty,
+    returnQuantityBasisVersionId: input.returnRuleSnapshot?.returnQuantityBasisVersionId,
   }
 }
 
@@ -194,6 +204,7 @@ export function generateProductionContract(input: {
 }): ProductionContract | null {
   if (!input.policy.contractRequired) return null
   if (!input.returnRuleSnapshot) throw new Error('有合同任务必须先生成回货规则快照')
+  if (input.returnRuleSnapshot.milestones.length !== 2 || input.returnRuleSnapshot.milestones[0]?.ratio !== 0.35 || input.returnRuleSnapshot.milestones[1]?.ratio !== 1) throw new Error('新合同必须采用35%和100%两个累计回货节点')
   if (!input.assignment.factoryId || !input.assignment.factoryName) throw new Error('只有确认具体加工厂后才能生成合同')
   contractSeq += 1
   const lineageRuntimeTaskId = input.lineageRuntimeTaskId || input.assignment.runtimeTaskId
@@ -250,6 +261,7 @@ export function recordProductionContractGenerationFailure(input: {
   error: string
   lineageRuntimeTaskId?: string
 }): ProductionContract {
+  if (input.returnRuleSnapshot.milestones.length !== 2 || input.returnRuleSnapshot.milestones[0]?.ratio !== 0.35 || input.returnRuleSnapshot.milestones[1]?.ratio !== 1) throw new Error('旧三节点规则不能生成新的合同记录')
   contractSeq += 1
   const contractId = `CONTRACT-${String(contractSeq).padStart(6, '0')}`
   const contract: ProductionContract = {
@@ -286,6 +298,7 @@ export function retryProductionContractGeneration(contractId: string, operatedAt
   const contract = contracts.get(contractId)
   if (!contract) throw new Error('未找到合同记录')
   if (contract.status !== 'GENERATION_FAILED') throw new Error('只有生成失败的合同可以重试')
+  if (contract.returnRuleSnapshot.milestones.length !== 2 || contract.returnRuleSnapshot.milestones[0]?.ratio !== 0.35 || contract.returnRuleSnapshot.milestones[1]?.ratio !== 1) throw new Error('旧版生成失败合同需按35%和100%规则重新生成，原记录继续保留')
   contract.status = 'EFFECTIVE'
   contract.generationError = undefined
   contract.generatedAt = operatedAt

@@ -1,4 +1,4 @@
-import { SEWING_RETURN_COUNTING_DAYS } from './sewing-return-calendar.ts'
+import { SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_MILESTONE_RATIOS, type SewingReturnMilestoneRatio } from './sewing-return-calendar.ts'
 import {
   getMergedProductionTaskDefinition,
   normalizeProductionExecutionProcessCode,
@@ -19,7 +19,7 @@ export type ContractEligibilityCode =
   | 'NO_PRODUCTION_CONTRACT'
 
 export interface FulfillmentMilestoneRule {
-  ratio: 0.3 | 0.7 | 1
+  ratio: SewingReturnMilestoneRatio
   naturalDay: number
 }
 
@@ -55,7 +55,7 @@ export interface TaskFulfillmentPolicyInput {
 }
 
 const milestoneRules = (days: readonly number[]): FulfillmentMilestoneRule[] =>
-  ([0.3, 0.7, 1] as const).map((ratio, index) => ({ ratio, naturalDay: days[index] }))
+  SEWING_RETURN_MILESTONE_RATIOS.map((ratio, index) => ({ ratio, naturalDay: days[index] }))
 const MILESTONES = {
   SEWING_ONLY: milestoneRules(SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING),
   SEWING_TO_IRON_PACK: milestoneRules(SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK),

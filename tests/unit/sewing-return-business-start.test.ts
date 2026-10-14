@@ -25,7 +25,7 @@ test('CONTRACT-002: later factory acceptance retains its fact without postponing
   assert.equal(snapshot.businessAssignedAt, '2026-08-01 09:00:00')
   assert.equal(snapshot.timingStatus, 'CONFIRMED')
   assert.deepEqual(snapshot.milestones.map((node) => node.deadlineAt), [
-    '2026-08-04 23:59:59', '2026-08-08 23:59:59', '2026-08-09 23:59:59',
+    '2026-08-04 23:59:59', '2026-08-09 23:59:59',
   ])
 })
 
@@ -76,8 +76,8 @@ test('CONTRACT-002: confirmed dates still show the next contractual node and com
   const snapshot = createSewingDeliverySlaSnapshot({ ...input, businessAssignedAt: '2026-08-01 09:00:00', acceptedAt: '2026-08-01 10:00:00' })
   const pending = projectSewingDeliverySla(snapshot, [], '2026-08-02 09:00:00')
   const pendingView = { runtimeTaskId: input.runtimeTaskId, submittedQty: 0, confirmedReceivedQty: 0, projection: pending }
-  assert.match(renderPdaSewingDeliveryProgress(pendingView, '件', '2026-08-02 09:00:00'), /30% · 30 件/)
-  assert.match(renderSewingDeliverySlaListCell(pendingView, '件'), /下一节点 30%/)
+  assert.match(renderPdaSewingDeliveryProgress(pendingView, '件', '2026-08-02 09:00:00'), /35% · 35 件/)
+  assert.match(renderSewingDeliverySlaListCell(pendingView, '件'), /下一节点 35%/)
   assert.match(renderSewingDeliverySlaDetail(pendingView, '件'), /2026-08-04 23:59:59/)
   const complete = projectSewingDeliverySla(snapshot, [{ recordId: 'complete-100', submittedAt: '2026-08-02 09:00:00', submittedQty: 100, receivedAt: '2026-08-02 10:00:00', receivedQty: 100 }], '2026-08-03 09:00:00')
   const completeView = { runtimeTaskId: input.runtimeTaskId, submittedQty: 100, confirmedReceivedQty: 100, projection: complete }
@@ -104,7 +104,9 @@ test('CONTRACT-002: outsourcing tracking uses allocation dates for tender tasks 
     const row = listSewingOutsourcingReturnTrackingRows().find((item) => item.assignment.assignmentId === assignment.assignmentId)!
     assert.equal(row.acceptedAt, '2026-08-25 09:00:00')
     assert.equal(row.returnProjection.snapshot.assignmentDate, '2026-08-20')
-    assert.equal(row.returnProjection.milestones[0]!.deadlineDate, '2026-08-23')
+    const firstDeadline = row.returnProjection.milestones.find(node => node.ratio === 0.35)?.deadlineDate
+      || row.returnProjection.missingMilestones.find(node => node.ratio === 0.35)?.deadlineDate
+    assert.equal(firstDeadline, '2026-08-23')
     assert.equal(row.timingStatus, 'CONFIRMED')
 
     assignment.businessAssignedAt = ''

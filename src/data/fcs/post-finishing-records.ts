@@ -14,6 +14,7 @@ let failure = ''
 let migrationNeeded = false
 let demoDepth = 0
 const normalizers: Array<() => void> = []
+const commitProjections: Array<() => void> = []
 const uploads = new Map<string, Blob>()
 const fileUrls = new Map<string, string>()
 const urlIds = new Map<string, string>()
@@ -26,6 +27,9 @@ const primaryIds: Record<string, string> = {
   returnConfirmationVersions: 'confirmationVersionId', qcTasks: 'qcTaskId', postTasks: 'postTaskId',
   recheckOrders: 'recheckOrderId', outboundOrders: 'outboundOrderId', warehouseReceipts: 'receiptId',
   defects: 'defectId', materialTransferOrders: 'transferOrderId', materialStocks: 'stockId',
+  ppicPromises: 'promiseId', ppicMakeups: 'makeupId', ppicAllocations: 'allocationId',
+  ppicConfirmations: 'confirmationId', ppicConfigs: 'configId', ppicBases: 'basisId',
+  ppicActions: 'actionId', ppicEvaluations: 'evaluationId',
 }
 const recordKey = (scope: string, collection: string, row: any): string => {
   if (row.kind && row.idempotencyKey) return `${row.kind}:${row.idempotencyKey}`
@@ -55,7 +59,10 @@ function restore(values: Map<string, unknown>): void { for (const [scope, value]
 
 export function registerPostFinishingRepository(scope: string, legacyKey: string, read: () => unknown, replace: (value: any) => void, legacy = JSON.parse): void {
   repositories.set(scope, { legacyKey, read, replace, legacy })
+  if (seeds.size && !seeds.has(scope)) { seeds.set(scope, copy(read())); ready = false }
 }
+/** 业务动作的必要关联结果在同一个PCS事务中提交，不在读取时写回。 */
+export function registerPostFinishingCommitProjection(recipe: () => void): void { commitProjections.push(recipe) }
 export function registerPostFinishingMigrationNormalizer(recipe: () => void): void { normalizers.push(recipe) }
 export function mapPostFinishingRepositoryValues(map: (value: unknown) => unknown): void {
   function walk(value: unknown): unknown {
@@ -184,6 +191,7 @@ export async function runPostFinishingCommand<T>(recipe: () => T): Promise<T> {
       businessError = error
     }
     if (result && typeof (result as any).then === 'function') throw new Error('请先读取文件，再执行后道保存。')
+    commitProjections.forEach(recipe => recipe())
     const after = snapshots(); restore(before)
     const oldRows = allRows(before), nextRows = allRows(after)
     const puts: Parameters<typeof commitPcsRecords>[0]['puts'] = []

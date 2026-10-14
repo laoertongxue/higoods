@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   aggregateSewingDurationNode,
+  buildSewingDurationDemoRows,
   calculateActualDurationHours,
   listSewingProductionOrderDurations,
   SEWING_DURATION_NODES,
@@ -9,6 +10,13 @@ import {
 } from '../../src/data/fcs/sewing-production-order-duration.ts'
 import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC } from '../../src/data/fcs/factory-onboarding-ppic.ts'
 const source = (id: string, startAt: string, endAt: string, included = true): SewingDurationSource => ({ id, no: id, label: '测试来源', task: id, factory: id, status: '测试', startAt, endAt, version: 'V1', included, reason: '', href: '/fcs/sewing-outsourcing/returns' })
+test('实际耗时列表不被固定演示行替换，当前回货只包含35%和100%', () => {
+  const rows = listSewingProductionOrderDurations({ viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId, nowAt: '2026-09-08 18:00:00' })
+  assert.ok(rows.length > 0)
+  assert.ok(rows.every(row => !/^PO-202609-01\d\d$/.test(row.productionOrderNo)))
+  assert.ok(rows.every(row => row.nodes.some(node => node.name === '35%回货') && row.nodes.some(node => node.name === '100%回货')))
+  assert.ok(rows.every(row => row.nodes.every(node => !/^30%|^70%/.test(node.name))))
+})
 test('实际耗时跨周日仍按真实时间差；没有可靠时间不造耗时', () => {
   assert.equal(calculateActualDurationHours('2026-09-05 12:00:00', '2026-09-07 12:00:00', ''), 48)
   assert.equal(calculateActualDurationHours('', '2026-09-07 12:00:00', ''), null)
@@ -18,21 +26,22 @@ test('每任务都达成才结束；同一来源去重，作废明细不影响�
   const a = source('A', '2026-09-01 10:00:00', '2026-09-02 10:00:00')
   const b = source('B', '2026-09-01 11:00:00', '')
   const old = source('OLD', '2020-01-01 10:00:00', '2030-01-01 10:00:00', false)
-  const result = aggregateSewingDurationNode('30%回货', [a, a, b, old], '2026-09-03 10:00:00')
+  const result = aggregateSewingDurationNode('35%回货', [a, a, b, old], '2026-09-03 10:00:00')
   assert.equal(result.sources.length, 3)
   assert.equal(result.startAt, a.startAt)
   assert.equal(result.endAt, '')
   assert.equal(result.hours, 48)
   b.endAt = '2026-09-03 10:00:00'
-  assert.equal(aggregateSewingDurationNode('30%回货', [a, b, old], '').endAt, b.endAt)
+  assert.equal(aggregateSewingDurationNode('35%回货', [a, b, old], '').endAt, b.endAt)
 })
 
 test('耗时页 Mock 至少覆盖九张生产单和全部节点，且下游事实不会越过未完成的前置节点', () => {
-  const rows = listSewingProductionOrderDurations({
+  const actual = listSewingProductionOrderDurations({
     viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
     nowAt: '2026-09-08 18:00:00',
   })
 
+  const rows = buildSewingDurationDemoRows(actual, '2026-09-08 18:00:00')
   assert.ok(rows.length >= 9)
   const coveredNodes = new Set(rows.flatMap((row) => row.nodes.filter((node) => node.sources.length).map((node) => node.name)))
   assert.deepEqual([...coveredNodes].sort(), [...SEWING_DURATION_NODES].sort())
@@ -58,10 +67,11 @@ test('耗时页 Mock 至少覆盖九张生产单和全部节点，且下游事�
 })
 
 test('裁片放行按一张放行单内的多次放行展示并选取节点起止时间', () => {
-  const rows = listSewingProductionOrderDurations({
+  const actual = listSewingProductionOrderDurations({
     viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
     nowAt: '2026-09-08 18:00:00',
   })
+  const rows = buildSewingDurationDemoRows(actual, '2026-09-08 18:00:00')
   const releaseNodes = rows.map((row) => ({
     productionOrderNo: row.productionOrderNo,
     node: row.nodes.find((node) => node.name === '裁片放行')!,
@@ -91,4 +101,17 @@ test('裁片放行按一张放行单内的多次放行展示并选取节点起�
       )
     }
   }
+})
+
+test('R70: an unknown task stays in the production order completion denominator', async () => {
+  const { buildSewingReturnDurationTaskSource } = await import('../../src/data/fcs/sewing-production-order-duration.ts')
+  const { listSewingOutsourcingReturnTrackingRows } = await import('../../src/data/fcs/sewing-outsourcing-return-tracking.ts')
+  const row = listSewingOutsourcingReturnTrackingRows('2026-10-14 18:00:00')[0]!
+  const unknown = buildSewingReturnDurationTaskSource({ ...row, acceptedAt: '2026-10-01 10:00:00', returnProjection: { ...row.returnProjection, milestones: [] } }, .35)
+  assert.equal(unknown.included, true); assert.equal(unknown.endAt, '')
+  assert.match(unknown.label, /待核对/)
+  const completed = source('COMPLETED-A', '2026-10-01 10:00:00', '2026-10-04T03:00:00Z')
+  const aggregate = aggregateSewingDurationNode('35%回货', [completed, unknown], '2026-10-07 10:00:00')
+  assert.equal(aggregate.endAt, ''); assert.equal(aggregate.sources.length, 2)
+  assert.equal(calculateActualDurationHours('2026-10-01 10:00:00', '2026-10-01T05:00:00Z', ''), 2)
 })

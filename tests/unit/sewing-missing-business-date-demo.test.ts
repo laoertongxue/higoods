@@ -72,7 +72,8 @@ test('CONTRACT-005: native legacy task fixture exposes the actual missing alloca
   assert.ok(knownDateView)
   assert.equal(knownDateView.projection.snapshot.timingStatus, 'CONFIRMED')
   assert.equal(knownDateView.projection.snapshot.businessAssignedAt, '2026-07-01 09:00:00')
-  assert.deepEqual(knownDateView.projection.milestones.map(node => node.deadlineAt), [
-    '2026-07-04 23:59:59', '2026-07-08 23:59:59', '2026-07-09 23:59:59',
-  ], 'Known allocation dates retain their original day 4 / 8 / 9 contractual deadlines')
+  assert.equal(knownDateView.projection.snapshot.expectedReturnQty, null,
+    'A known allocation date does not fabricate confirmed cut-piece handover quantities')
+  assert.deepEqual(knownDateView.projection.milestones, [])
+  assert.equal(knownDateView.projection.completed, false)
 })

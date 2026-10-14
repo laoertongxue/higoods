@@ -32,6 +32,11 @@ function createAsyncRenderer<TArgs extends unknown[]>(
         'higood-pcs-technical-data-version-store-v5',
       ])
     }
+    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
+    if (postFinishingScope) {
+      // 必须在页面和命令可用前注册必要分摊事实；直接后道入口与填报入口一致。
+      await import('../data/fcs/ppic-daily-return-records.ts')
+    }
     if (!modulePromise) {
       modulePromise = importModule().catch((error) => {
         modulePromise = null
@@ -40,7 +45,6 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
-    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
     if (postFinishingScope) {
       await import('../data/fcs/post-finishing-full-flow.ts')
       await (await import('../data/fcs/post-finishing-records.ts')).ensurePostFinishingRecordState()
@@ -272,6 +276,14 @@ export const renderSewingOutsourcingCutPieceReturnsPage = createAsyncRenderer(
 export const renderSewingOutsourcingReturnsPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/returns'),
   'renderSewingOutsourcingReturnsPage',
+)
+export const renderPpicDailyReturnReportPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/daily-return-report.ts'),
+  'renderPpicDailyReturnReportPage',
+)
+export const renderPpicDailyReturnSummaryPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/daily-return-summary.ts'),
+  'renderPpicDailyReturnSummaryPage',
 )
 export const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/responsibility-transfers'),

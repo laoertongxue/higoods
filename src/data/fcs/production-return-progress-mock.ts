@@ -18,8 +18,7 @@ const SEWING_POLICY: TaskFulfillmentPolicy = {
   assignmentGranularity: 'SKU',
   fulfillmentRuleCode: 'SEWING_ONLY',
   milestones: [
-    { ratio: 0.3, naturalDay: 4 },
-    { ratio: 0.7, naturalDay: 8 },
+    { ratio: 0.35, naturalDay: 4 },
     { ratio: 1, naturalDay: 9 },
   ],
   contractEligibilityCode: 'INDEPENDENT_SEWING',

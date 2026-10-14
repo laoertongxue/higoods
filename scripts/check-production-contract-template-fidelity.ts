@@ -98,6 +98,8 @@ assert.equal(contract.templateSnapshot.taskTypeId, 'NON-GABUNGAN')
 assert.equal(contract.templateSnapshot.processTypeId, 'JAHIT')
 assert.equal(contract.templateSnapshot.dayCalculationId, 'KALENDER')
 assert.equal(contract.templateSnapshot.pickupDate, 'Belum diambil')
+assert.equal(contract.templateSnapshot.returnQuantityBasis, 'ASSIGNMENT_ESTIMATE')
+assert.deepEqual(contract.returnRuleSnapshot.milestones.map(node => node.ratio), [0.35, 1])
 assert.equal(contract.templateSnapshot.taskDetails[0].purchaseOrderNo, 'Tidak tersedia')
 
 const rendered = renderProductionContractMasterTemplate(contract, {
@@ -113,6 +115,10 @@ for (const requiredValue of ['CV Micro Sewing Jakarta Pusat', 'NON-GABUNGAN', 'J
 for (const forbiddenText of ['生产加工合同', 'PRODUCTION PROCESSING CONTRACT', '生产履约约定与签署页', 'FULFILLMENT TERMS AND SIGNATURES', 'SKU DETAILS CONTINUED', '[[NO_KONTRAK]]']) {
   assert.equal(rendered.includes(forbiddenText), false, `合同仍包含旧格式或未替换占位符：${forbiddenText}`)
 }
+assert(rendered.includes('data-contract-return-table="two-nodes"'))
+assert(rendered.includes('data-contract-rule-table="two-nodes"'))
+assert(rendered.includes('35%'))
+assert(!rendered.includes('data-contract-field="HARI_3"'))
 assert(rendered.includes('data-contract-adaptive="true"'))
 assert(rendered.includes('data-contract-wrap="true"'))
 assert(rendered.includes('overflow-wrap:anywhere'))

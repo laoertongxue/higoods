@@ -4,6 +4,30 @@ import { execFileSync } from 'node:child_process'
 import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-checks.ts'
 import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
 
+test('PPIC每日回货配置与三类浏览器契约统一路由到实际独立服务回放', () => {
+  const paths = ['tests/ppic-daily-return.config.ts', 'tests/fixtures/ppic-current-login.ts', 'tests/ppic-daily-return-pages.spec.ts', 'tests/ppic-daily-return-receipts.spec.ts', 'tests/ppic-shared-consumers.spec.ts']
+  for (const path of paths) {
+    const result = routeAffectedChecks([path])
+    assert.deepEqual(result.unknownPaths, [])
+    assert.deepEqual(result.fullChecks, ['npx playwright test --config tests/ppic-daily-return.config.ts --workers=1 --reporter=line'])
+  }
+  const grouped = routeAffectedChecks(paths)
+  assert.equal(grouped.fullChecks.length, 1)
+  assert.deepEqual(routeAffectedChecks(['tests/ppic-unknown.spec.ts']).unknownPaths, ['tests/ppic-unknown.spec.ts'])
+})
+
+test('PPIC当前人改变后的工作台、导航和列表契约被实际执行', () => {
+  for (const [path, command] of [
+    ['scripts/check-sewing-outsourcing-workbench.ts', 'npm run check:sewing-outsourcing-workbench'],
+    ['scripts/check-sewing-outsourcing-information-architecture.ts', 'npm run check:sewing-outsourcing-information-architecture'],
+    ['scripts/check-sewing-outsourcing-list-page-consistency.ts', 'node --import tsx scripts/check-sewing-outsourcing-list-page-consistency.ts'],
+  ]) {
+    const result = routeAffectedChecks([path!])
+    assert.deepEqual(result.unknownPaths, [])
+    assert.ok(result.fastChecks.includes(command!))
+  }
+})
+
 test('Caddy 发布工具路由到实际 Python 契约而非仅构建', () => {
   const result = routeAffectedChecks(['scripts/deploy/receiver.py', 'scripts/deploy/prepare-release.py', 'scripts/deploy/check-public.py', 'tests/deploy/test_receiver.py', 'tests/deploy/test_prepare.py', 'tests/deploy/test_network.py', 'deploy/network-initcwnd.py', 'deploy/higoods-network.service', 'deploy/higoods-network.timer'])
   assert.deepEqual(result.unknownPaths, [])

@@ -10,15 +10,18 @@ import { renderSewingOutsourcingSupplementsPage } from '../src/pages/sewing-outs
 import { renderSewingOutsourcingTasksPage } from '../src/pages/sewing-outsourcing/tasks.ts'
 import { renderSewingProductionOrderDurationPage } from '../src/pages/sewing-outsourcing/production-order-duration.ts'
 
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, PPIC_TEAM_LEADER_LINGYUN } from '../src/data/fcs/factory-onboarding-ppic.ts'
+const current = { ...SEWING_OUTSOURCING_DEMO_CURRENT_PPIC }
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, PPIC_TEAM_LEADER_LINGYUN)
 const pages = [
-  { name: '车缝任务', file: 'src/pages/sewing-outsourcing/tasks.ts', html: renderSewingOutsourcingTasksPage(), hasTabs: true },
-  { name: '交出与欠片', file: 'src/pages/sewing-outsourcing/cut-piece-handover.ts', html: renderSewingCutPieceHandoverPage(), hasTabs: true },
-  { name: '批版建议', file: 'src/pages/sewing-outsourcing/sample-approval-suggestions.ts', html: renderSampleApprovalSuggestionsPage(), hasTabs: true },
-  { name: '回货跟进', file: 'src/pages/sewing-outsourcing/returns.ts', html: renderSewingOutsourcingReturnsPage(), hasTabs: true },
-  { name: '补料跟进', file: 'src/pages/sewing-outsourcing/supplements.ts', html: renderSewingOutsourcingSupplementsPage(), hasTabs: true },
-  { name: '裁片退仓', file: 'src/pages/sewing-outsourcing/cut-piece-returns.ts', html: renderSewingOutsourcingCutPieceReturnsPage(), hasTabs: true },
-  { name: '责任移交', file: 'src/pages/sewing-outsourcing/responsibility-transfers.ts', html: renderSewingOutsourcingResponsibilityTransfersPage(), hasTabs: true },
-  { name: '生成单全流程耗时', file: 'src/pages/sewing-outsourcing/production-order-duration.ts', html: renderSewingProductionOrderDurationPage(), hasTabs: false },
+  { name: '车缝任务', file: 'src/pages/sewing-outsourcing/tasks.ts', html: await renderSewingOutsourcingTasksPage(), hasTabs: true },
+  { name: '交出与欠片', file: 'src/pages/sewing-outsourcing/cut-piece-handover.ts', html: await renderSewingCutPieceHandoverPage(), hasTabs: true },
+  { name: '批版建议', file: 'src/pages/sewing-outsourcing/sample-approval-suggestions.ts', html: await renderSampleApprovalSuggestionsPage(), hasTabs: true },
+  { name: '回货跟进', file: 'src/pages/sewing-outsourcing/returns.ts', html: await renderSewingOutsourcingReturnsPage(), hasTabs: true },
+  { name: '补料跟进', file: 'src/pages/sewing-outsourcing/supplements.ts', html: await renderSewingOutsourcingSupplementsPage(), hasTabs: true },
+  { name: '裁片退仓', file: 'src/pages/sewing-outsourcing/cut-piece-returns.ts', html: await renderSewingOutsourcingCutPieceReturnsPage(), hasTabs: true },
+  { name: '责任移交', file: 'src/pages/sewing-outsourcing/responsibility-transfers.ts', html: await renderSewingOutsourcingResponsibilityTransfersPage(), hasTabs: true },
+  { name: '生成单全流程耗时', file: 'src/pages/sewing-outsourcing/production-order-duration.ts', html: await renderSewingProductionOrderDurationPage(), hasTabs: false },
 ] as const
 
 for (const page of pages) {
@@ -54,6 +57,8 @@ for (const page of pages) {
   }
   assert.ok(!page.html.includes('data-standard-list-stats'), `${page.name}运行时仍存在统计卡片`)
 }
+
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, current)
 
 const workbench = readFileSync('src/pages/sewing-outsourcing/workbench.ts', 'utf8')
 assert.ok(workbench.includes('我的工作台'), '我的工作台必须保留')

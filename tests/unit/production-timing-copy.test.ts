@@ -35,15 +35,20 @@ test('inbound quantity and final time completeness produce distinct business res
  assert.equal(getTimingFacts(getTimingCaseByScene('unknown')).result, '入库数量待核实，完成结果无法判定')
 })
 
-test('reached late milestone has zero only for that milestone, not the whole task', () => {
+test('reached 35 percent milestone has zero only for that task node; another factory remains short', () => {
  const html=diagram('reachedLate')
- assert.match(html, /已达标 · 晚/)
- assert.match(html, /该节点差额0件/)
+ assert.match(html, /35%节点欠25件/)
  assert.doesNotMatch(html, /当前欠0件/)
- const c=getTimingCaseByScene('reachedLate'), t=c.tasks.find((t:any)=>t.factory==='B厂')!
+ const c=getTimingCaseByScene('reachedLate'), a=c.tasks.find((t:any)=>t.factory==='A厂')!
+ const aDetail=renderTimingNodeDetail('task:'+a.id)
+ assert.match(aDetail, /350件/)
+ assert.match(aDetail, /该节点差额0件/)
+ assert.match(aDetail, /本任务尚未回100件/)
+ const t=c.tasks.find((t:any)=>t.factory==='B厂')!
  const detail=renderTimingNodeDetail('task:'+t.id)
  assert.match(detail, /后道实收／本任务工厂实领/)
- assert.match(detail, /本任务尚未回/)
+ assert.match(detail, /本任务尚未回350件/)
+ assert.match(detail, /当前欠25件/)
  assert.match(detail, /未到期.*后续累计目标|后续累计目标/)
 })
 

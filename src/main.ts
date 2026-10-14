@@ -400,6 +400,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/sewing-outsourcing/tasks.ts')
     return page.handleSewingOutsourcingTasksEvent(eventTarget)
   }
+  if (pagePath === '/fcs/sewing-outsourcing/daily-return-report') {
+    const page = await import('./pages/sewing-outsourcing/daily-return-report.ts')
+    return page.handlePpicDailyReturnReportEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/daily-return-summary') {
+    const page = await import('./pages/sewing-outsourcing/daily-return-summary.ts')
+    return page.handlePpicDailyReturnSummaryEvent(eventTarget, event)
+  }
   if (pagePath === '/fcs/dispatch/workbench') {
     const page = await import('./pages/unified-dispatch-workbench.ts')
     return page.handleUnifiedDispatchWorkbenchEvent(eventTarget, event)
@@ -922,13 +930,8 @@ let productionSourceEffectsHydration: Promise<void> | undefined
 let partTicketEntryHydration: Promise<void> | undefined
 let cuttingEntryHydration: Promise<void> | undefined
 async function hydratePartTicketsForEntry(normalizedPathname: string, snapshot?: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot, force = false): Promise<void> {
-  const context = await import('./data/fcs/production-context-records.ts')
-  const ownPostWarehouse = normalizedPathname === '/fcs/craft/post-finishing/wait-process-warehouse'
-    || normalizedPathname === '/fcs/craft/post-finishing/wait-handover-warehouse'
-    || normalizedPathname === '/fcs/craft/post-finishing/qc-workbench'
-  // 两个后道仓库读取自己的库存和交出事实。其他入口或已有分配覆盖
-  // 仍先恢复部位票，再恢复分配及裁片事件；不删除或改写部位票资料。
-  if (!force && ownPostWarehouse && context.productionContextStorage.getItem(context.PRODUCTION_CONTEXT_KEYS.effects) === null) return
+  // 后道确认同步更新PPIC承诺分摊；独立直达也先恢复其任务来源依赖。
+  // 仅只读恢复，不把部位票或演示种子写入数据库。
   partTicketEntryHydration ??= import('./data/fcs/cutting/part-ticket-records.ts')
     .then(partTickets => partTickets.hydratePartTicketRecords(snapshot))
     .catch(error => { partTicketEntryHydration = undefined; throw error })
@@ -1087,7 +1090,11 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
     const isolatedPcsList = ['/pcs/products/styles', '/pcs/products/specifications'].includes(normalizedPathname)
-    if (!isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
+    // 车缝执行及现场交接读取下方恢复的PCS/FCS事实。这里不同时启动
+    // 无关采购、请款和供应商列表的全部初始化，避免阻塞PDA实际任务。
+    const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
+      || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
+    if (!isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
@@ -2513,6 +2520,15 @@ document.addEventListener('keydown', async (event) => {
     return
   }
   if (event.key !== 'Escape') return
+
+  if (document.querySelector('[data-ppic-daily-page]')) {
+    if ((await import('./pages/sewing-outsourcing/daily-return-report.ts')).closePpicDailyReturnDialog()) event.preventDefault()
+    return
+  }
+  if (document.querySelector('[data-ppic-summary-page]')) {
+    if ((await import('./pages/sewing-outsourcing/daily-return-summary.ts')).closePpicDailySummaryDialog()) event.preventDefault()
+    return
+  }
 
   if (document.querySelector('[data-post-finishing-image-preview]')) {
     // Its local key listener closes the image. Do not load unrelated dialog

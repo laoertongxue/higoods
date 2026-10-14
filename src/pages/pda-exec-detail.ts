@@ -747,16 +747,20 @@ export function renderPdaSewingDeliveryProgress(
 ): string {
   if (!view) return ''
   const assignedQty = view.projection.snapshot.assignedQty
-  const overQty = Math.max(view.confirmedReceivedQty - assignedQty, 0)
+  const expectedQty = view.projection.snapshot.expectedReturnQty === undefined ? assignedQty : view.projection.snapshot.expectedReturnQty
+  const overQty = expectedQty == null ? 0 : Math.max(view.confirmedReceivedQty - expectedQty, 0)
   const nextMilestone = view.projection.milestones.find((milestone) => !milestone.firstReachedAt)
-  const timingPending = view.projection.snapshot.timingStatus === 'PENDING_BUSINESS_ASSIGNMENT'
+  const quantityPending = view.projection.progressRatio === null
+  const timingPending = view.projection.snapshot.timingStatus === 'PENDING_BUSINESS_ASSIGNMENT' || quantityPending || view.projection.quantityBasisPending
+  const pendingMessage = view.projection.snapshot.timingStatus === 'PENDING_BUSINESS_ASSIGNMENT' ? (view.projection.snapshot.timingMessage || '业务分配日期待核实，回货时效暂不能判定') + (quantityPending ? '；应回数量待核对' : '') : quantityPending ? '应回数量待核对，回货时效暂不能判定' : view.projection.quantityBasisPending ? '节点历史应回依据待核对，不能判定全部达标' : view.projection.snapshot.timingMessage || '业务分配日期待核实，回货时效暂不能判定'
   return `
     <article class="rounded-lg border bg-card" data-pda-sewing-delivery-progress="true">
       <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">交付进度</h2></header>
       <div class="space-y-3 p-4 text-sm">
-        ${timingPending ? `<p class="text-xs text-amber-700" role="status">${escapeHtml(view.projection.snapshot.timingMessage || '业务分配日期待核实，回货时效暂不能判定')}</p>` : ''}
+        ${timingPending ? `<p class="text-xs text-amber-700" role="status">${escapeHtml(pendingMessage)}</p>` : ''}
         <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
           <span class="text-muted-foreground">分配量</span><span class="font-medium">${assignedQty} ${escapeHtml(unit)}</span>
+          <span class="text-muted-foreground">应回数量</span><span class="font-medium">${quantityPending ? '待核实' : `${expectedQty} ${escapeHtml(unit)}`}</span>
           <span class="text-muted-foreground">已交</span><span class="font-medium">${view.submittedQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">后道最终确认</span><span class="font-medium">${view.confirmedReceivedQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">还差</span><span class="font-medium">${timingPending ? '待核实' : `${view.projection.remainingQty} ${escapeHtml(unit)}`}</span>

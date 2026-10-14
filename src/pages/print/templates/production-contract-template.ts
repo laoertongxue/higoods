@@ -3,20 +3,21 @@
 import { getProductionContract } from '../../../data/fcs/production-contracts.ts'
 import { createPrintDocumentId, type PrintDocument, type PrintDocumentBuildInput } from '../../../data/fcs/print-service.ts'
 import {
-  PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE,
+  getProductionContractTemplateCode,
   renderProductionContractMasterTemplate,
 } from './production-contract-master-template.ts'
 
 export function buildProductionContractPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const contract = getProductionContract(input.sourceId)
   if (!contract) throw new Error('未找到生产合同版本')
+  const templateCode = getProductionContractTemplateCode(contract)
   return {
-    printDocumentId: createPrintDocumentId(input, PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE),
+    printDocumentId: createPrintDocumentId(input, templateCode),
     documentType: 'PRODUCTION_CONTRACT',
     documentTitle: 'Surat Perintah Kerja (SPK) & Komitmen Jadwal Pengembalian',
     sourceType: 'PRODUCTION_CONTRACT_RECORD',
     sourceId: contract.contractId,
-    templateCode: PRODUCTION_CONTRACT_MASTER_TEMPLATE_CODE,
+    templateCode,
     paperType: 'A4',
     orientation: 'portrait',
     printTitle: 'SURAT PERINTAH KERJA (SPK) & KOMITMEN JADWAL PENGEMBALIAN',

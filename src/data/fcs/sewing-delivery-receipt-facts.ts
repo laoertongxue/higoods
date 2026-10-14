@@ -1,6 +1,7 @@
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
 import { listRegisteredHandoutRecordVersions } from './pda-handover-handout-registry.ts'
-import { formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
+import { formatSewingDeliveryQueryWallClock, compareSewingDeliveryDateTimes, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
+import { formatSewingBusinessWallClock } from './sewing-return-calendar.ts'
 import {
   listPostFinishingFactoryReturns,
   listPostFinishingReturnConfirmationVersions,
@@ -61,7 +62,7 @@ function compareRawRecordVersion(left: PdaHandoverRecord, right: PdaHandoverReco
 
 export function selectLatestSewingDeliveryRawRecords(
   records: readonly PdaHandoverRecord[],
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
 ): PdaHandoverRecord[] {
   const latestByRecordId = new Map<string, PdaHandoverRecord>()
   records.filter((record) => rawRecordVersionAt(record) <= nowAt).forEach((record) => {
@@ -77,7 +78,7 @@ export function selectLatestSewingDeliveryRawRecords(
 }
 
 export function listLatestSewingDeliveryRawRecords(
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
   runtimeTaskIds?: readonly string[],
 ): PdaHandoverRecord[] {
   return selectLatestSewingDeliveryRawRecords(listRegisteredHandoutRecordVersions(runtimeTaskIds), nowAt)
@@ -95,16 +96,16 @@ export function toConfirmedSewingDeliveryReceiptFact(
 }
 
 function toSlaWallClock(value: string): string {
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) return value
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{3})?$/.test(value)) return value
   const parsed = new Date(value)
   if (!Number.isFinite(parsed.getTime())) throw new Error('后道回货时间无效')
-  const pad = (part: number) => String(part).padStart(2, '0')
-  return `${parsed.getUTCFullYear()}-${pad(parsed.getUTCMonth() + 1)}-${pad(parsed.getUTCDate())} ${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}:${pad(parsed.getUTCSeconds())}`
+  const milliseconds = parsed.getUTCMilliseconds()
+  return formatSewingBusinessWallClock(parsed) + (milliseconds ? '.' + String(milliseconds).padStart(3, '0') : '')
 }
 
 export function listSewingDeliverySubmissionFacts(
   runtimeTaskId: string,
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
 ): SewingDeliverySubmissionFact[] {
   return listPostFinishingFactoryReturns()
     .filter((delivery) => delivery.executionTaskId === runtimeTaskId)
@@ -114,13 +115,13 @@ export function listSewingDeliverySubmissionFacts(
       submittedQty: delivery.lines.reduce((sum, line) => sum + line.registeredQty, 0),
       submittedAt: toSlaWallClock(delivery.registeredAt),
     }))
-    .filter((fact) => fact.submittedAt <= nowAt)
-    .sort((left, right) => left.submittedAt.localeCompare(right.submittedAt) || left.recordId.localeCompare(right.recordId))
+    .filter((fact) => compareSewingDeliveryDateTimes(fact.submittedAt, nowAt) <= 0)
+    .sort((left, right) => compareSewingDeliveryDateTimes(left.submittedAt, right.submittedAt) || left.recordId.localeCompare(right.recordId))
 }
 
 export function listSewingDeliveryReceiptFacts(
   runtimeTaskId: string,
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
 ): SewingDeliveryReceiptFact[] {
   const deliveryById = new Map(listPostFinishingFactoryReturns().map((delivery) => [delivery.deliveryId, delivery] as const))
   return listPostFinishingReturnConfirmationVersions({ executionTaskId: runtimeTaskId, activeOnly: true })
@@ -133,16 +134,17 @@ export function listSewingDeliveryReceiptFacts(
         submittedAt: toSlaWallClock(delivery.registeredAt),
         receivedQty: version.confirmedQty,
         receivedAt: toSlaWallClock(version.confirmedAt),
+        isLateEntry: Boolean(version.entryDelayReason),
         voided: false,
       }
     })
-    .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null && fact.receivedAt <= nowAt)
-    .sort((left, right) => left.receivedAt.localeCompare(right.receivedAt) || left.recordId.localeCompare(right.recordId))
+    .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null && compareSewingDeliveryDateTimes(fact.receivedAt, nowAt) <= 0)
+    .sort((left, right) => compareSewingDeliveryDateTimes(left.receivedAt, right.receivedAt) || left.recordId.localeCompare(right.recordId))
 }
 
 export function sumSewingDeliveryConfirmedReceiptQty(
   runtimeTaskId: string,
-  nowAt: string = formatOperationLocalWallClock(),
+  nowAt: string = formatSewingDeliveryQueryWallClock(),
 ): number {
   return listSewingDeliveryReceiptFacts(runtimeTaskId, nowAt).reduce(
     (sum, fact) => sum + (fact.voided ? 0 : fact.receivedQty),

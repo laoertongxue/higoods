@@ -2791,6 +2791,11 @@ function normalizeDisplayUnit(unit: string | undefined, fallback = '件'): strin
   return unit
 }
 
+/** 显示层单位：车缝成衣沿用件数，保持内部交接数量身份不变。 */
+export function getPdaHandoverDisplayUnit(head: PdaHandoverHead, unit = head.qtyUnit): string {
+  return ['SEW', 'SEWING'].includes(head.processBusinessCode || '') && unit === 'PIECE' ? '件' : unit
+}
+
 function resolveHandoutProcessKey(
   processCode: string | undefined,
 ):

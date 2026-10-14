@@ -108,6 +108,14 @@ const renderSewingOutsourcingReturnsPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/returns'),
   'renderSewingOutsourcingReturnsPage',
 )
+const renderPpicDailyReturnReportPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/daily-return-report.ts'),
+  'renderPpicDailyReturnReportPage',
+)
+const renderPpicDailyReturnSummaryPage = createAsyncRenderer(
+  () => import('../pages/sewing-outsourcing/daily-return-summary.ts'),
+  'renderPpicDailyReturnSummaryPage',
+)
 const renderSewingOutsourcingResponsibilityTransfersPage = createAsyncRenderer(
   () => import('../pages/sewing-outsourcing/responsibility-transfers'),
   'renderSewingOutsourcingResponsibilityTransfersPage',
@@ -147,6 +155,8 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/fcs/sewing-outsourcing/supplements': () => renderSewingOutsourcingSupplementsPage(),
   '/fcs/sewing-outsourcing/cut-piece-returns': () => renderSewingOutsourcingCutPieceReturnsPage(),
   '/fcs/sewing-outsourcing/returns': () => renderSewingOutsourcingReturnsPage(),
+  '/fcs/sewing-outsourcing/daily-return-report': () => renderPpicDailyReturnReportPage(),
+  '/fcs/sewing-outsourcing/daily-return-summary': () => renderPpicDailyReturnSummaryPage(),
   '/fcs/sewing-outsourcing/responsibility-transfers': () => renderSewingOutsourcingResponsibilityTransfersPage(),
 }
 

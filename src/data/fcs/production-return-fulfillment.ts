@@ -1,4 +1,4 @@
-import { calculateSewingReturnDeadlineDate, SEWING_RETURN_RULE_VERSION } from './sewing-return-calendar.ts'
+import { calculateSewingReturnDeadlineDate, SEWING_RETURN_RULE_VERSION, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_MILESTONE_RATIOS, type SewingReturnHistoricalMilestoneRatio, type SewingReturnQuantityStatus } from './sewing-return-calendar.ts'
 import type { FulfillmentRuleCode, TaskFulfillmentPolicy } from './task-fulfillment-policy'
 import { getEffectiveTaskAssignment, listEffectiveTaskAssignments } from './effective-task-assignments'
 import { resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
@@ -7,15 +7,25 @@ export type ReturnMilestoneStatus = 'UPCOMING' | 'DUE_TODAY' | 'REACHED' | 'CUTT
 export type ReturnReminderType = 'DUE_TOMORROW' | 'DUE_TODAY' | 'OVERDUE'
 
 export interface ProductionReturnMilestoneSnapshot {
-  ratio: 0.3 | 0.7 | 1
+  ratio: SewingReturnHistoricalMilestoneRatio
   naturalDay: number
   targetQty: number
   deadlineDate: string
   deadlineAt: string
+  returnQuantityBasisVersionId?: string
+}
+
+export interface ProductionReturnMilestoneQuantityBasis {
+  expectedReturnQty: number | null
+  basisVersionId: string
 }
 
 export interface ProductionReturnRulePreview {
   assignedQty: number
+  expectedReturnQty?: number | null
+  returnQuantityBasisVersionId?: string
+  quantityStatus?: SewingReturnQuantityStatus
+  milestoneQuantityBases?: Partial<Record<0.35 | 1, ProductionReturnMilestoneQuantityBasis>>
   assignmentDate: string
   fulfillmentRuleCode: Exclude<FulfillmentRuleCode, 'NO_STAGED_RETURN_RULE'>
   milestones: ProductionReturnMilestoneSnapshot[]
@@ -23,6 +33,7 @@ export interface ProductionReturnRulePreview {
 
 export interface ProductionReturnRuleSnapshot {
   ruleVersion?: string
+  monitoringRuleVersion?: string
   snapshotId: string
   assignmentId: string
   runtimeTaskId: string
@@ -30,6 +41,10 @@ export interface ProductionReturnRuleSnapshot {
   factoryId: string
   factoryName: string
   assignedQty: number
+  expectedReturnQty?: number | null
+  returnQuantityBasisVersionId?: string
+  quantityStatus?: SewingReturnQuantityStatus
+  milestoneQuantityBases?: Partial<Record<0.35 | 1, ProductionReturnMilestoneQuantityBasis>>
   assignmentDate: string
   fulfillmentRuleCode: Exclude<FulfillmentRuleCode, 'NO_STAGED_RETURN_RULE'>
   milestones: ProductionReturnMilestoneSnapshot[]
@@ -80,9 +95,12 @@ export interface ProductionReturnMilestoneProjection extends ProductionReturnMil
 export interface ProductionReturnProjection {
   snapshot: ProductionReturnRuleSnapshot
   confirmedReturnedQty: number
-  remainingQty: number
+  remainingQty: number | null
   highestRiskStatus: ReturnMilestoneStatus
   milestones: ProductionReturnMilestoneProjection[]
+  completed: boolean
+  quantityBasisPending: boolean
+  missingMilestones: { ratio: 0.35 | 1; deadlineDate: string; deadlineAt: string }[]
 }
 
 export interface ProductionReturnReminder {
@@ -90,7 +108,7 @@ export interface ProductionReturnReminder {
   assignmentId: string
   factoryId: string
   deadlineDate: string
-  milestoneRatio: 0.3 | 0.7 | 1
+  milestoneRatio: SewingReturnHistoricalMilestoneRatio
   reminderType: ReturnReminderType
   generatedDate: string
   targetQty: number
@@ -187,10 +205,10 @@ function dateToEpochDay(value: string): number {
 function dateTimeToEpoch(value: string, fieldName: string): number {
   const normalized = value.trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-    return Date.parse(`${assertDate(normalized, fieldName)}T23:59:59Z`)
+    return Date.parse(`${assertDate(normalized, fieldName)}T23:59:59+07:00`)
   }
   const wallClock = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(normalized)
-  const parsed = Date.parse(wallClock ? `${wallClock[1]}T${wallClock[2]}Z` : normalized)
+  const parsed = Date.parse(wallClock ? `${wallClock[1]}T${wallClock[2]}+07:00` : normalized)
   if (!Number.isFinite(parsed)) throw new Error(`${fieldName}必须是有效日期时间`)
   return parsed
 }
@@ -211,23 +229,28 @@ export function calculateNaturalDayDeadline(assignmentDate: string, naturalDay: 
 
 export function buildProductionReturnRulePreview(input: {
   assignedQty: number
+  expectedReturnQty?: number | null
+  returnQuantityBasisVersionId?: string
+  quantityStatus?: SewingReturnQuantityStatus
+  milestoneQuantityBases?: Partial<Record<0.35 | 1, ProductionReturnMilestoneQuantityBasis>>
   businessAssignedAt: string
   policy: TaskFulfillmentPolicy
 }): ProductionReturnRulePreview | null {
   if (input.policy.fulfillmentRuleCode === 'NO_STAGED_RETURN_RULE') return null
+  if (input.policy.milestones.length !== 2 || input.policy.milestones[0]?.ratio !== 0.35 || input.policy.milestones[1]?.ratio !== 1) throw new Error('当前回货规则必须采用35%和100%两个节点')
   if (!Number.isFinite(input.assignedQty) || input.assignedQty <= 0) throw new Error('分配数量必须大于0')
   const assignedQty = Math.floor(input.assignedQty)
+  const expectedReturnQty = resolveProductionExpectedReturnQuantity(input)
   const assignmentDate = assertDate(input.businessAssignedAt, '业务分配时间')
   return {
     assignedQty,
+    expectedReturnQty: input.expectedReturnQty,
+    returnQuantityBasisVersionId: input.returnQuantityBasisVersionId,
+    quantityStatus: input.quantityStatus,
+    milestoneQuantityBases: input.milestoneQuantityBases ? structuredClone(input.milestoneQuantityBases) : undefined,
     assignmentDate,
     fulfillmentRuleCode: input.policy.fulfillmentRuleCode,
-    milestones: input.policy.milestones.map((milestone) => ({
-      ...milestone,
-      targetQty: milestone.ratio === 1 ? assignedQty : Math.ceil(assignedQty * milestone.ratio),
-      deadlineDate: calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay),
-      deadlineAt: `${calculateNaturalDayDeadline(assignmentDate, milestone.naturalDay)} 23:59:59`,
-    })),
+    milestones: buildCurrentProductionMilestones({ ...input, assignmentDate, fulfillmentRuleCode: input.policy.fulfillmentRuleCode }, expectedReturnQty).milestones,
   }
 }
 
@@ -238,6 +261,10 @@ export function createProductionReturnRuleSnapshot(input: {
   factoryId: string
   factoryName: string
   assignedQty: number
+  expectedReturnQty?: number | null
+  returnQuantityBasisVersionId?: string
+  quantityStatus?: SewingReturnQuantityStatus
+  milestoneQuantityBases?: Partial<Record<0.35 | 1, ProductionReturnMilestoneQuantityBasis>>
   businessAssignedAt: string
   policy: TaskFulfillmentPolicy
 }): ProductionReturnRuleSnapshot | null {
@@ -253,6 +280,10 @@ export function createProductionReturnRuleSnapshot(input: {
     factoryName: input.factoryName,
     ruleVersion: SEWING_RETURN_RULE_VERSION,
     assignedQty: preview.assignedQty,
+    expectedReturnQty: preview.expectedReturnQty,
+    returnQuantityBasisVersionId: preview.returnQuantityBasisVersionId,
+    quantityStatus: preview.quantityStatus,
+    milestoneQuantityBases: preview.milestoneQuantityBases,
     assignmentDate: preview.assignmentDate,
     fulfillmentRuleCode: preview.fulfillmentRuleCode,
     milestones: preview.milestones.map((milestone) => ({ ...milestone })),
@@ -281,6 +312,35 @@ export function listProductionReturnRuleSnapshots(input: { runtimeTaskId?: strin
     .map((item) => structuredClone(item))
 }
 
+/** 受控历史读取：原快照保持不变，只有活动监控采用当前两节点。 */
+export function projectCurrentProductionReturnRuleSnapshot(snapshot: ProductionReturnRuleSnapshot): ProductionReturnRuleSnapshot {
+  if (!snapshot.active) return structuredClone(snapshot)
+  const expectedReturnQty = resolveProductionExpectedReturnQuantity(snapshot)
+  try { assertDate(snapshot.assignmentDate, '业务分配日期') } catch { return { ...structuredClone(snapshot), milestones: [] } }
+  if (snapshot.expectedReturnQty === undefined && snapshot.milestoneQuantityBases === undefined && !snapshot.milestones.some(node => node.ratio === 0.3 || node.ratio === 0.7)) return structuredClone(snapshot)
+  return { ...structuredClone(snapshot), monitoringRuleVersion: SEWING_RETURN_RULE_VERSION, milestones: buildCurrentProductionMilestones(snapshot, expectedReturnQty).milestones }
+}
+
+function buildCurrentProductionMilestones(snapshot: Pick<ProductionReturnRuleSnapshot, 'fulfillmentRuleCode' | 'assignmentDate' | 'milestoneQuantityBases' | 'returnQuantityBasisVersionId'>, expectedReturnQty: number | null): { milestones: ProductionReturnMilestoneSnapshot[]; missingMilestones: { ratio: 0.35 | 1; deadlineDate: string; deadlineAt: string }[] } {
+  const days = snapshot.fulfillmentRuleCode === 'SEWING_ONLY' ? SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING : SEWING_RETURN_COUNTING_DAYS[snapshot.fulfillmentRuleCode]
+  const milestones: ProductionReturnMilestoneSnapshot[] = [], missingMilestones: { ratio: 0.35 | 1; deadlineDate: string; deadlineAt: string }[] = []
+  SEWING_RETURN_MILESTONE_RATIOS.forEach((ratio, index) => {
+    const basis = snapshot.milestoneQuantityBases?.[ratio], quantity = basis === undefined ? expectedReturnQty : basis.expectedReturnQty
+    if (quantity !== null && (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0)) throw new Error('节点应回依据必须为非负整数或待核实')
+    const deadlineDate = calculateNaturalDayDeadline(snapshot.assignmentDate, days[index]), deadlineAt = `${deadlineDate} 23:59:59`
+    if (quantity == null || quantity <= 0) { missingMilestones.push({ ratio, deadlineDate, deadlineAt }); return }
+    milestones.push({ ratio, naturalDay: days[index], targetQty: Math.ceil(quantity * ratio), deadlineDate, deadlineAt, returnQuantityBasisVersionId: basis?.basisVersionId || snapshot.returnQuantityBasisVersionId })
+  })
+  return { milestones, missingMilestones }
+}
+
+function resolveProductionExpectedReturnQuantity(snapshot: Pick<ProductionReturnRuleSnapshot, 'assignedQty' | 'expectedReturnQty' | 'quantityStatus'>): number | null {
+  if (snapshot.quantityStatus && snapshot.quantityStatus !== 'READY') return null
+  const quantity = snapshot.expectedReturnQty === undefined ? Math.floor(snapshot.assignedQty) : snapshot.expectedReturnQty
+  if (quantity !== null && (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0)) throw new Error('应回数量必须为非负整数或待核实')
+  return quantity
+}
+
 function receiptsForSnapshot(
   snapshot: ProductionReturnRuleSnapshot,
   receipts: ProductionReturnReceiptFact[],
@@ -304,12 +364,21 @@ export function projectProductionReturnFulfillment(input: {
   usesCutPieceResponsibility?: boolean
   responsibilityVersions?: ProductionReturnResponsibilityVersionFact[]
 }): ProductionReturnProjection {
+  const snapshot = projectCurrentProductionReturnRuleSnapshot(input.snapshot)
+  const expectedReturnQty = resolveProductionExpectedReturnQuantity(snapshot)
+  let missingMilestones: ProductionReturnProjection['missingMilestones'] = []
+  if (snapshot.active) {
+    let validAssignmentDate = false
+    try { assertDate(snapshot.assignmentDate, '业务分配日期'); validAssignmentDate = true } catch { /* 未知起算日由上游显示待核对。 */ }
+    if (validAssignmentDate) missingMilestones = buildCurrentProductionMilestones(snapshot, expectedReturnQty).missingMilestones
+  }
+  const quantityBasisPending = expectedReturnQty == null || missingMilestones.length > 0
   const today = assertDate(input.today, '查询日期')
   const nowAt = input.nowAt ?? `${today} 23:59:59`
   const nowTime = dateTimeToEpoch(nowAt, '查询时间')
-  const effectiveReceipts = receiptsForSnapshot(input.snapshot, input.receipts)
+  const effectiveReceipts = receiptsForSnapshot(snapshot, input.receipts)
   const confirmedReturnedQty = effectiveReceipts.reduce((sum, item) => sum + item.confirmedQty, 0)
-  const milestones = input.snapshot.milestones.map<ProductionReturnMilestoneProjection>((milestone) => {
+  const milestones = snapshot.milestones.map<ProductionReturnMilestoneProjection>((milestone) => {
     const deadlineAt = milestone.deadlineAt || `${milestone.deadlineDate} 23:59:59`
     const deadlineTime = dateTimeToEpoch(deadlineAt, '节点截止时间')
     const byDeadline = effectiveReceipts.filter((item) => receiptConfirmedTime(item) <= deadlineTime)
@@ -321,7 +390,10 @@ export function projectProductionReturnFulfillment(input: {
       .filter((version) => dateTimeToEpoch(version.createdAt, '回货责任版本时间') <= responsibilityCutoffTime)
       .sort((left, right) => dateTimeToEpoch(left.createdAt, '回货责任版本时间') - dateTimeToEpoch(right.createdAt, '回货责任版本时间'))
     const responsibilityVersion = responsibilityVersions.at(-1)
-    const responsibilityQtyAtCutoff = input.usesCutPieceResponsibility
+    const nodeBasis = snapshot.active && (milestone.ratio === 0.35 || milestone.ratio === 1) ? snapshot.milestoneQuantityBases?.[milestone.ratio] : undefined
+    const responsibilityQtyAtCutoff = nodeBasis !== undefined ? nodeBasis.expectedReturnQty ?? 0 : snapshot.expectedReturnQty !== undefined
+      ? expectedReturnQty ?? 0
+      : input.usesCutPieceResponsibility
       ? Math.min(input.snapshot.assignedQty, responsibilityVersion?.totalResponsibilityQty ?? 0)
       : input.snapshot.assignedQty
     const attributableTargetQty = Math.min(milestone.targetQty, responsibilityQtyAtCutoff)
@@ -349,23 +421,27 @@ export function projectProductionReturnFulfillment(input: {
       factoryPendingQty,
       responsibilityQtyAtCutoff,
       responsibilityCutoffAt,
-      responsibilityVersionId: responsibilityVersion?.responsibilityVersionId,
+      responsibilityVersionId: nodeBasis?.basisVersionId || milestone.returnQuantityBasisVersionId || responsibilityVersion?.responsibilityVersionId,
       shortageQty: cuttingShortfallQty + factoryPendingQty,
       reachedDate,
       status,
     }
   })
   const statusRank: Record<ReturnMilestoneStatus, number> = { REACHED: 0, UPCOMING: 1, DUE_TODAY: 2, CUTTING_SHORTFALL: 3, OVERDUE: 4 }
-  const highestRiskStatus = milestones.reduce<ReturnMilestoneStatus>(
+  let highestRiskStatus = milestones.reduce<ReturnMilestoneStatus>(
     (highest, item) => statusRank[item.status] > statusRank[highest] ? item.status : highest,
-    'REACHED',
+    milestones.length ? 'REACHED' : 'UPCOMING',
   )
+  if (quantityBasisPending && highestRiskStatus === 'REACHED') highestRiskStatus = 'UPCOMING'
   return {
-    snapshot: { ...input.snapshot, milestones: input.snapshot.milestones.map((item) => ({ ...item })) },
+    snapshot,
     confirmedReturnedQty,
-    remainingQty: Math.max(0, input.snapshot.assignedQty - confirmedReturnedQty),
+    remainingQty: expectedReturnQty == null ? null : Math.max(0, expectedReturnQty - confirmedReturnedQty),
     highestRiskStatus,
     milestones,
+    completed: !quantityBasisPending && expectedReturnQty != null && expectedReturnQty > 0 && confirmedReturnedQty >= expectedReturnQty,
+    quantityBasisPending,
+    missingMilestones,
   }
 }
 
@@ -519,6 +595,7 @@ export function projectProductionOrderReturnSummary(input: {
   }
   const snapshots = listProductionReturnRuleSnapshots({ activeOnly: true })
     .filter((snapshot) => snapshot.productionOrderId === input.productionOrderId)
+    .map(projectCurrentProductionReturnRuleSnapshot)
   if (snapshots.length === 0) {
     const status: ProductionOrderReturnListStatus = input.expectedStagedReturn ? 'DATA_INCOMPLETE' : 'NO_RULE'
     return {
@@ -531,7 +608,8 @@ export function projectProductionOrderReturnSummary(input: {
   }
   const invalid = snapshots.find((snapshot) => (
     !snapshot.assignmentId || !snapshot.factoryId || !snapshot.factoryName || snapshot.assignedQty <= 0
-    || snapshot.milestones.length !== 3
+    || snapshot.milestones.length !== 2
+    || snapshot.milestones[0]?.ratio !== 0.35 || snapshot.milestones[1]?.ratio !== 1
     || snapshot.milestones.some((item) => item.targetQty <= 0 || !item.deadlineDate)
   ))
   if (invalid) {

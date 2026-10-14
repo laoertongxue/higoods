@@ -10,6 +10,7 @@ import {
   canCompletePdaHandoutHead,
   canCompletePdaPickupHead,
   deriveHandoutObjectProfile,
+  getPdaHandoverDisplayUnit,
   findPdaHandoverHead,
   getPdaHandoverSourceDisplay,
   getPdaHandoverRecordsByHead,
@@ -581,7 +582,7 @@ function renderCompactOpenHeadCard(head: PdaHandoverHead): string {
   const pendingValue = isPickup
     ? Math.max(head.qtyExpectedTotal - head.qtyActualTotal, 0)
     : profile?.totalPendingQty || 0
-  const unit = profile?.displayUnit || head.qtyUnit
+  const unit = getPdaHandoverDisplayUnit(head, profile?.displayUnit || head.qtyUnit)
   const canComplete = isPickup
     ? canCompletePdaPickupHead(head.handoverId).ok
     : canCompletePdaHandoutHead(head.handoverId).ok

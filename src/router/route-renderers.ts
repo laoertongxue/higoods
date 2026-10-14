@@ -30,6 +30,8 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       }
     }
 
+    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
+    if (postFinishingScope) await import('../data/fcs/ppic-daily-return-records.ts')
     if (!modulePromise) {
       modulePromise = importModule().catch((error) => {
         modulePromise = null
@@ -38,7 +40,6 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     }
 
     const module = await modulePromise
-    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
     if (postFinishingScope) {
       await import('../data/fcs/post-finishing-full-flow.ts')
       await (await import('../data/fcs/post-finishing-records.ts')).ensurePostFinishingRecordState()

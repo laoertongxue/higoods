@@ -1,10 +1,6 @@
 // @page-pattern: dashboard
 
 import {
-  PPIC_TEAM_LEADER_JIEGE,
-  PPIC_TEAM_LEADER_LINGYUN,
-} from '../../data/fcs/factory-onboarding-ppic.ts'
-import {
   ensureSewingCutPieceResponsibilityOverviewDemos,
   type SewingCutPieceResponsibilityProjection,
 } from '../../data/fcs/sewing-cut-piece-responsibility.ts'
@@ -17,14 +13,27 @@ import {
   type SewingOutsourcingWorkbenchTaskRow,
 } from '../../data/fcs/sewing-outsourcing-workbench.ts'
 import { escapeHtml } from '../../utils.ts'
+import { ensurePpicDailyReturnState, getPpicDailyReturnView, getPpicDailySupervisorView, getCurrentPpicDailyActor } from '../../data/fcs/ppic-daily-return-records.ts'
 
-const PERSONAL_WORKBENCH_PPIC_ID = 'PPIC-ACTIVE-006'
-const MANAGERS = [PPIC_TEAM_LEADER_LINGYUN, PPIC_TEAM_LEADER_JIEGE] as const
+let dailyReady = false
+let dailyReadError = ''
+async function prepareDaily(): Promise<void> {
+  try { await ensurePpicDailyReturnState(); dailyReady = true; dailyReadError = '' }
+  catch (error) { dailyReady = false; dailyReadError = error instanceof Error ? error.message : '每日回货记录读取失败' }
+}
+function renderDailyTodo(): string {
+  if (!dailyReady) return `<section class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">${escapeHtml(dailyReadError || '正在读取每日回货记录')}<a class="ml-3 font-semibold underline" href="/fcs/sewing-outsourcing/daily-return-report" data-nav="/fcs/sewing-outsourcing/daily-return-report">打开每日填报并重试</a></section>`
+  if (state.leaderView) {
+    const view = getPpicDailySupervisorView()
+    return `<section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4"><div><h2 class="font-semibold">每日回货提交</h2><p class="mt-2 text-sm">${view.stats.submitted}／${view.stats.members} 人已提交 · ${escapeHtml(view.date)} ${escapeHtml(view.config.cutoff)} 截止（${escapeHtml(view.config.timeZone)}）</p></div><a class="rounded bg-blue-600 px-4 py-3 text-sm font-semibold text-white" href="/fcs/sewing-outsourcing/daily-return-summary" data-nav="/fcs/sewing-outsourcing/daily-return-summary">查看每日回货汇总</a></section>`
+  }
+  const view = getPpicDailyReturnView(), overdue = view.tasks.flatMap(t => t.promises).filter(p => p.result.due && p.result.currentGap > 0), missingReasons = view.tasks.flatMap(t => t.promises).filter(p => p.result.missingReason)
+  return `<section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4"><div><h2 class="font-semibold">今日回货填报 · ${escapeHtml(view.actor.name)}</h2><p class="mt-2 text-sm">${escapeHtml(view.submissionStatus)} · ${view.tasks.length} 个任务 · ${overdue.length} 笔到期欠回 · ${missingReasons.length} 笔待补原因 · ${escapeHtml(view.config.timeZone)} ${escapeHtml(view.config.cutoff)} 截止</p></div><a class="rounded bg-blue-600 px-4 py-3 text-sm font-semibold text-white" href="/fcs/sewing-outsourcing/daily-return-report" data-nav="/fcs/sewing-outsourcing/daily-return-report">填写今日回货</a></section>`
+}
 
 const state = {
-  viewerPpicId: PERSONAL_WORKBENCH_PPIC_ID,
+  viewerPpicId: '',
   leaderView: false,
-  managerPpicId: PPIC_TEAM_LEADER_LINGYUN.ppicId,
   selectedPpicId: '',
 }
 
@@ -92,7 +101,7 @@ function summaryCards(rows: SewingOutsourcingWorkbenchTaskRow[], cutPieces: Sewi
     {
       key: 'DUE_RETURN',
       title: '回货节点临近或未达成',
-      description: '按任务类型分别关注30%、70%、100%节点。',
+      description: '按任务类型分别关注35%、100%节点。',
       count: dueReturn,
       href: '/fcs/sewing-outsourcing/returns?tab=DUE_FOLLOW_UP',
       tone: 'RED',
@@ -136,11 +145,11 @@ function renderResponsibilitySummary(rows: SewingOutsourcingWorkbenchTaskRow[]):
 function renderIdentityControls(rows: SewingOutsourcingWorkbenchTaskRow[]): string {
   const ppicOptions = listSewingOutsourcingWorkbenchPpicOptions()
   if (!state.leaderView) {
-    const currentName = ppicOptions.find((option) => option.ppicId === state.viewerPpicId)?.ppicName || '当前PPIC'
+    const currentName = getCurrentPpicDailyActor().name
     return `<div class="flex flex-wrap items-center gap-3"><span class="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">当前登录：${escapeHtml(currentName)}（PPIC）</span><span class="text-sm text-slate-500">仅汇总本人当前负责的任务</span></div>`
   }
-  const manager = MANAGERS.find((item) => item.ppicId === state.managerPpicId) || PPIC_TEAM_LEADER_LINGYUN
-  return `<div class="flex flex-wrap items-center gap-3"><label class="text-sm">管理人员<select class="ml-2 h-9 rounded border px-3" data-ppic-workbench-field="managerPpicId">${MANAGERS.map((item) => `<option value="${escapeHtml(item.ppicId)}"${manager.ppicId === item.ppicId ? ' selected' : ''}>${escapeHtml(item.ppicName)}</option>`).join('')}</select></label><span class="rounded border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800">当前登录：${escapeHtml(manager.ppicName)}（PPIC管理人员）</span><label class="text-sm">查看范围<select class="ml-2 h-9 rounded border px-3" data-ppic-workbench-field="selectedPpicId"><option value="">整个PPIC团队</option>${ppicOptions.map((option) => `<option value="${escapeHtml(option.ppicId)}"${state.selectedPpicId === option.ppicId ? ' selected' : ''}>${escapeHtml(option.ppicName)}（${option.taskCount}）</option>`).join('')}</select></label><span class="ml-auto text-xs text-slate-500">当前范围${rows.length}个未完执行任务</span></div>`
+  const actor = getCurrentPpicDailyActor()
+  return `<div class="flex flex-wrap items-center gap-3"><span class="rounded border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800">当前登录：${escapeHtml(actor.name)}（PPIC组长）</span><label class="text-sm">查看范围<select class="ml-2 h-9 rounded border px-3" data-ppic-workbench-field="selectedPpicId"><option value="">整个PPIC团队</option>${ppicOptions.map((option) => `<option value="${escapeHtml(option.ppicId)}"${state.selectedPpicId === option.ppicId ? ' selected' : ''}>${escapeHtml(option.ppicName)}（${option.taskCount}）</option>`).join('')}</select></label><span class="ml-auto text-xs text-slate-500">当前范围${rows.length}个未完执行任务</span></div>`
 }
 
 function renderWorkbenchPage(): string {
@@ -150,21 +159,27 @@ function renderWorkbenchPage(): string {
   return `<div class="space-y-5" data-ppic-workbench-page data-skip-page-rerender="true">
     <header class="flex flex-wrap items-start justify-between gap-4"><div><p class="text-xs text-slate-500">车缝外发协同 / 工作台</p><h1 class="mt-1 text-2xl font-semibold">${state.leaderView ? '团队工作台' : '我的工作台'}</h1><p class="mt-2 text-sm text-slate-500">汇总当前登录人需要关注的业务情况，并提供对应专业页面入口；执行任务明细只在“车缝任务”展示。</p></div><span class="rounded bg-slate-100 px-3 py-2 text-xs text-slate-600">原型核查时点：${escapeHtml(SEWING_OUTSOURCING_WORKBENCH_NOW)}</span></header>
     <section class="rounded-xl border bg-white p-4">${renderIdentityControls(rows)}</section>
+    <div data-workbench-daily>${renderDailyTodo()}</div>
     ${renderSummaryCards(cards)}
     ${renderResponsibilitySummary(rows)}
   </div>`
 }
 
-export function renderSewingOutsourcingWorkbenchPage(): string {
-  state.viewerPpicId = PERSONAL_WORKBENCH_PPIC_ID
+export async function renderSewingOutsourcingWorkbenchPage(): Promise<string> {
+  state.viewerPpicId = getCurrentPpicDailyActor().id
   state.leaderView = false
   state.selectedPpicId = ''
+  await prepareDaily()
   return renderWorkbenchPage()
 }
 
-export function renderSewingOutsourcingTeamWorkbenchPage(): string {
+export async function renderSewingOutsourcingTeamWorkbenchPage(): Promise<string> {
+  const actor = getCurrentPpicDailyActor()
+  if (!actor.leader) return `<main class="space-y-4 p-4" data-ppic-workbench-page><h1 class="text-xl font-semibold">团队工作台</h1><p class="rounded bg-amber-50 p-3 text-sm text-amber-800">当前登录：${escapeHtml(actor.name)}。团队工作台由PPIC组长查看。</p><a class="text-blue-700" href="/fcs/sewing-outsourcing/workbench" data-nav="/fcs/sewing-outsourcing/workbench">打开我的工作台</a></main>`
   state.leaderView = true
-  state.viewerPpicId = state.managerPpicId
+  state.viewerPpicId = actor.id
+  state.selectedPpicId = ''
+  await prepareDaily()
   return renderWorkbenchPage()
 }
 
@@ -178,15 +193,16 @@ export function closeSewingOutsourcingWorkbenchDialog(): boolean { return false 
 
 export function handleSewingOutsourcingWorkbenchEvent(target: HTMLElement): boolean {
   const field = target.closest<HTMLSelectElement>('[data-ppic-workbench-field]')
-  if (!field || !state.leaderView) return false
-  if (field.dataset.ppicWorkbenchField === 'managerPpicId') {
-    state.managerPpicId = field.value
-    state.viewerPpicId = field.value
-  } else if (field.dataset.ppicWorkbenchField === 'selectedPpicId') {
-    state.selectedPpicId = field.value
-  } else {
-    return false
-  }
+  if (!field || !state.leaderView || !getCurrentPpicDailyActor().leader) return false
+  if (field.dataset.ppicWorkbenchField !== 'selectedPpicId') return false
+  state.selectedPpicId = field.value
   refresh()
   return true
 }
+
+if (typeof window !== 'undefined') window.setInterval(() => {
+  const region = document.querySelector<HTMLElement>('[data-workbench-daily]')
+  if (!region || !dailyReady) return
+  try { region.innerHTML = renderDailyTodo() }
+  catch (error) { region.innerHTML = `<p role="alert" class="rounded bg-red-50 p-3 text-sm text-red-700">${escapeHtml(error instanceof Error ? error.message : '每日回货待办读取失败')}</p>` }
+}, 30000)

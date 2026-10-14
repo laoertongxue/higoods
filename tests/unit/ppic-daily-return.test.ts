@@ -1,0 +1,171 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { createPpicDailyStore, addPpicPromise, arrangePpicMakeup, recordPpicGapReason, syncPpicReceipts, ppicPromiseResult, ppicTaskCapacity, confirmPpicDay, changePpicConfig, amendPpicPromise, ppicConfigAt, type PpicTaskContext } from '../../src/data/fcs/ppic-daily-return.ts'
+
+const actor = { id: 'a', name: '跟单A', leader: false }
+const task: PpicTaskContext = { assignmentId: 't', taskId: 'task', factoryId: 'f', ownerId: 'a', expectedQty: 2000, basisVersion: 'b1', sourceKind: 'RELEASE', sourceRefs: [], status: 'READY' }
+const now = '2026-10-14T09:00:00+07:00'
+const input = (id: string, quantity = 800) => ({ operationId: id, actor, task, date: '2026-10-14', quantity, deadlineAt: '2026-10-14T17:00', nowAt: now })
+const receipt = (id: string, quantity: number, confirmedAt: string, assignmentId = 't') => ({ id, deliveryId: id, assignmentId, factoryId: 'f', quantity, confirmedAt, recordedAt: confirmedAt })
+
+test('R20/R26: invalid quantity and missing other-reason detail leave the original records intact', () => {
+  const s = createPpicDailyStore()
+  for (const invalid of [0, -1, 1.5, NaN, Infinity]) {
+    assert.throws(() => addPpicPromise(s, input('invalid', invalid)), /整数/)
+    assert.equal(s.promises.length, 0)
+  }
+  const p = addPpicPromise(s, input('valid', 100))
+  const reason = { operationId: 'reason', actor, task, promiseId: p.promiseId, reason: '其他', detail: ' ', nowAt: '2026-10-14T18:00:00+07:00' }
+  assert.throws(() => recordPpicGapReason(s, reason), /说明/)
+  assert.throws(() => arrangePpicMakeup(s, { ...reason, quantity: 100, deadlineAt: '2026-10-15T10:00' }), /具体情况/)
+  assert.equal(s.makeups.length, 0)
+  assert.equal(s.actions.filter(a => a.action === '补充欠回原因').length, 0)
+  recordPpicGapReason(s, { ...reason, detail: '设备损坏' })
+  assert.equal(s.actions.at(-1)!.reason, '其他：设备损坏')
+})
+
+test('R23/R24/R64: daily cutoff snapshots do not replace individual deadlines or rewrite prior submissions', () => {
+  const s = createPpicDailyStore(), leader = { ...actor, id: 'leader', leader: true }
+  const before = confirmPpicDay(s, { operationId: 'before', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: { t: '今日无安排' }, nowAt: '2026-10-14T16:59:59+07:00' })
+  const originalConfigId = before.configId
+  changePpicConfig(s, { operationId: 'new-cutoff', actor: leader, cutoff: '16:00', timeZone: 'Asia/Jakarta', effectiveFrom: '2026-10-14', nowAt: '2026-10-14T17:01:00+07:00' })
+  assert.equal(before.configId, originalConfigId)
+  assert.equal(s.configs.find(c => c.configId === originalConfigId)!.cutoff, '17:00')
+  assert.equal(ppicConfigAt(s, '2026-10-13').cutoff, '17:00')
+  assert.equal(ppicConfigAt(s, '2026-10-14').cutoff, '16:00')
+  assert.throws(() => changePpicConfig(s, { operationId: 'past', actor: leader, cutoff: '18:00', timeZone: 'Asia/Jakarta', effectiveFrom: '2026-10-13', nowAt: '2026-10-14T17:01:00+07:00' }), /过去业务日/)
+  const early = addPpicPromise(s, { ...input('early', 100), deadlineAt: '2026-10-14T12:00' })
+  const later = addPpicPromise(s, { ...input('later', 300), deadlineAt: '2026-10-14T18:00' })
+  syncPpicReceipts(s, [receipt('r', 200, '2026-10-14T13:00:00+07:00')])
+  assert.equal(ppicPromiseResult(s, early, '2026-10-14T17:00:00+07:00').timelyQty, 0)
+  assert.equal(ppicPromiseResult(s, early, '2026-10-14T17:00:00+07:00').originalGap, 100)
+  assert.equal(ppicPromiseResult(s, later, '2026-10-14T17:00:00+07:00').due, false)
+  assert.equal(ppicPromiseResult(s, later, '2026-10-14T17:00:00+07:00').timelyQty, 100)
+})
+
+test('R20/R21: roots reserve remaining demand exactly once; makeup does not add demand', () => {
+  const s = createPpicDailyStore()
+  const p = addPpicPromise(s, input('one'))
+  addPpicPromise(s, input('two', 600))
+  syncPpicReceipts(s, [receipt('r', 600, '2026-10-14T16:00:00+07:00')])
+  assert.equal(ppicTaskCapacity(s, task, 600).available, 600)
+  arrangePpicMakeup(s, { operationId: 'm', actor, task, promiseId: p.promiseId, quantity: 200, deadlineAt: '2026-10-15T10:00', reason: '运输延迟', detail: '', nowAt: '2026-10-14T18:00:00+07:00' })
+  assert.equal(ppicTaskCapacity(s, task, 600).available, 600)
+  assert.throws(() => addPpicPromise(s, { ...input('excess', 601), receivedQty: 600 }), /可新增/)
+})
+test('R30/R32/R36: receipt cannot cross tasks; late makeup never washes original lateness', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('one'))
+  syncPpicReceipts(s, [receipt('wrong', 800, '2026-10-14T16:00:00+07:00', 'other'), receipt('right', 600, '2026-10-14T16:00:00+07:00')])
+  assert.equal(ppicPromiseResult(s, p, '2026-10-14T18:00:00+07:00').originalGap, 200)
+  syncPpicReceipts(s, [receipt('right', 600, '2026-10-14T16:00:00+07:00'), receipt('late', 200, '2026-10-15T10:00:00+07:00')])
+  const result = ppicPromiseResult(s, p, '2026-10-15T11:00:00+07:00')
+  assert.equal(result.currentGap, 0); assert.equal(result.timelyQty, 600); assert.equal(result.status, '逾期已补齐')
+  assert.equal(s.allocations.filter(a => a.active).reduce((n, a) => n + a.quantity, 0), 800)
+})
+test('R35/R37: true business time corrects prior evaluation; old allocation versions remain', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('one'))
+  syncPpicReceipts(s, [receipt('v1', 600, '2026-10-14T16:00:00+07:00')])
+  syncPpicReceipts(s, [{ ...receipt('v2', 800, '2026-10-14T16:50:00+07:00'), recordedAt: '2026-10-15T09:00:00+07:00' }])
+  assert.equal(ppicPromiseResult(s, p, '2026-10-15T10:00:00+07:00').originalGap, 0)
+  assert(s.allocations.some(a => !a.active && a.receiptId === 'v1'))
+})
+test('R66: rescheduling only unfulfilled 80 preserves fulfilled 120', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('one', 200))
+  arrangePpicMakeup(s, { operationId: 'm1', actor, task, promiseId: p.promiseId, quantity: 200, deadlineAt: '2026-10-15T10:00', reason: '运输延迟', detail: '', nowAt: '2026-10-14T18:00:00+07:00' })
+  syncPpicReceipts(s, [receipt('r', 120, '2026-10-15T09:30:00+07:00')])
+  arrangePpicMakeup(s, { operationId: 'm2', actor, task, promiseId: p.promiseId, quantity: 80, deadlineAt: '2026-10-16T10:00', reason: '运输延迟', detail: '', nowAt: '2026-10-15T11:00:00+07:00' })
+  assert.equal(ppicPromiseResult(s, p, '2026-10-15T11:00:00+07:00').currentGap, 80)
+  assert.equal(s.allocations.filter(a => a.active).reduce((n, a) => n + a.quantity, 0), 120)
+})
+test('R17/R49/R61/R73: ownership, stable commands and historical receipts', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('one'))
+  assert.equal(addPpicPromise(s, input('one')).promiseId, p.promiseId); assert.equal(s.promises.length, 1)
+  assert.throws(() => addPpicPromise(s, { ...input('wrong'), actor: { ...actor, id: 'b' } }), /本人/)
+  assert.throws(() => addPpicPromise(s, { ...input('one'), quantity: 900 }), /不同/)
+  syncPpicReceipts(s, [receipt('old', 800, '2026-10-14T08:00:00+07:00')])
+  assert.equal(ppicPromiseResult(s, p, now).currentGap, 800)
+})
+test('R22/R46/R63/R64: complete daily coverage, config permission and immutable baseline', () => {
+  const s = createPpicDailyStore()
+  assert.throws(() => confirmPpicDay(s, { operationId: 'd', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: {}, nowAt: now }), /安排/)
+  confirmPpicDay(s, { operationId: 'd', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: { t: '等待交出' }, nowAt: now })
+  assert.equal(s.confirmations.length, 1)
+  assert.throws(() => changePpicConfig(s, { operationId: 'c', actor, cutoff: '18:00', timeZone: 'Asia/Jakarta', effectiveFrom: '2026-10-15', nowAt: now }), /组长/)
+  const p = addPpicPromise(s, input('p'))
+  amendPpicPromise(s, { operationId: 'am', actor, task, promiseId: p.promiseId, deadlineAt: '2026-10-14T18:00', reason: '运输确认', nowAt: now })
+  assert.equal(p.originalDeadlineAt, '2026-10-14T10:00:00.000Z')
+  assert.throws(() => amendPpicPromise(s, { operationId: 'am2', actor, task, promiseId: p.promiseId, deadlineAt: '2026-10-15T18:00', reason: '改约', nowAt: '2026-10-14T18:30:00+07:00' }), /补回/)
+})
+test('R66: replacing two expired branches gives all later receipt to the new arrangement', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('one', 200))
+  const make = (operationId: string, qty: number, time: string) => arrangePpicMakeup(s, { operationId, actor, task, promiseId: p.promiseId, quantity: qty, deadlineAt: '2026-10-15T10:00', reason: '运输延迟', detail: '', nowAt: time })
+  make('m1', 100, '2026-10-14T18:00:00+07:00'); make('m2', 100, '2026-10-14T18:01:00+07:00')
+  const m = arrangePpicMakeup(s, { operationId: 'm3', actor, task, promiseId: p.promiseId, quantity: 200, deadlineAt: '2026-10-16T10:00', reason: '运输延迟', detail: '', nowAt: '2026-10-15T11:00:00+07:00' })
+  syncPpicReceipts(s, [receipt('r', 200, '2026-10-16T09:00:00+07:00')])
+  assert.equal(s.allocations.filter(a => a.active && a.makeupId === m.makeupId).reduce((n, a) => n + a.quantity, 0), 200)
+})
+test('R28/R66: fulfilled branch never becomes a delay round when arranging previously uncovered quantity', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('p', 200))
+  const first = arrangePpicMakeup(s, { operationId: 'first', actor, task, promiseId: p.promiseId, quantity: 100, deadlineAt: '2026-10-15T11:00', reason: '运输延迟', detail: '', nowAt: '2026-10-14T18:00:00+07:00' })
+  syncPpicReceipts(s, [receipt('r', 100, '2026-10-15T10:30:00+07:00')])
+  const next = arrangePpicMakeup(s, { operationId: 'next', actor, task, promiseId: p.promiseId, quantity: 100, deadlineAt: '2026-10-16T11:00', reason: '工厂生产延迟', detail: '', nowAt: '2026-10-15T12:00:00+07:00' })
+  assert.equal(first.active, true); assert.equal(first.endedAt, undefined)
+  assert.equal(next.round, 1); assert.equal(next.previousId, undefined)
+  assert.equal(ppicPromiseResult(s, p, '2026-10-15T12:00:00+07:00').makeups[0].receivedQty, 100)
+})
+test('R25/R36: on-time fulfilled promise rejects a new gap reason; late fulfilled accepts reason only', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('p', 100))
+  const reason = { operationId: 'reason', actor, task, promiseId: p.promiseId, reason: '运输延迟', detail: '', nowAt: '2026-10-15T12:00:00+07:00' }
+  syncPpicReceipts(s, [receipt('r', 100, '2026-10-14T16:00:00+07:00')])
+  assert.throws(() => recordPpicGapReason(s, reason), /没有原到期欠回/)
+  syncPpicReceipts(s, [receipt('r2', 100, '2026-10-15T10:00:00+07:00')])
+  recordPpicGapReason(s, reason); recordPpicGapReason(s, reason)
+  assert.equal(s.actions.filter(a => a.action === '补充欠回原因').length, 1)
+})
+test('R22/R46: daily confirmation binds revision IDs and accepts today makeup of yesterday root', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('p', 100))
+  const d = confirmPpicDay(s, { operationId: 'd1', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: {}, nowAt: now })
+  amendPpicPromise(s, { operationId: 'am', actor, task, promiseId: p.promiseId, deadlineAt: '2026-10-14T18:00', reason: '改约', nowAt: '2026-10-14T10:00:00+07:00' })
+  const d2 = confirmPpicDay(s, { operationId: 'd2', actor, date: '2026-10-14', tasks: [task], noArrangementReasons: {}, nowAt: '2026-10-14T11:00:00+07:00' })
+  assert.deepEqual(d.revisionIds, []); assert.deepEqual(d2.revisionIds, ['ACTION-am'])
+  const m = arrangePpicMakeup(s, { operationId: 'm', actor, task, promiseId: p.promiseId, quantity: 100, deadlineAt: '2026-10-16T10:00', reason: '运输延迟', detail: '', nowAt: '2026-10-15T11:00:00+07:00' })
+  const next = confirmPpicDay(s, { operationId: 'next', actor, date: '2026-10-15', tasks: [task], noArrangementReasons: {}, nowAt: '2026-10-15T12:00:00+07:00' })
+  assert.deepEqual(next.promiseIds, []); assert.deepEqual(next.makeupIds, [m.makeupId])
+})
+
+test('R35/R66: late entry before original deadline releases redundant makeup without fabricating makeup receipt', () => {
+  const s = createPpicDailyStore(); const p = addPpicPromise(s, input('p', 800))
+  syncPpicReceipts(s, [receipt('first', 600, '2026-10-14T16:00:00+07:00')])
+  const m = arrangePpicMakeup(s, { operationId: 'm', actor, task, promiseId: p.promiseId, quantity: 200, deadlineAt: '2026-10-15T10:00', reason: '运输延迟', detail: '', nowAt: '2026-10-14T17:10:00+07:00' })
+  const late = (qty: number) => ({ ...receipt('late', qty, '2026-10-14T16:50:00+07:00'), recordedAt: '2026-10-14T18:00:00+07:00' })
+  syncPpicReceipts(s, [receipt('first', 600, '2026-10-14T16:00:00+07:00'), late(100)])
+  const partial = ppicPromiseResult(s, p, '2026-10-14T18:00:00+07:00')
+  assert.equal(partial.makeups[0].currentGap, 100); assert.equal(partial.makeups[0].releasedQty, 100)
+  assert.equal(partial.makeups[0].receivedQty, 0); assert.equal(partial.makeupAvailableQty, 0)
+  syncPpicReceipts(s, [receipt('first', 600, '2026-10-14T16:00:00+07:00'), late(200)])
+  const complete = ppicPromiseResult(s, p, '2026-10-15T11:00:00+07:00')
+  assert.equal(complete.status, '按期兑现'); assert.equal(complete.currentGap, 0)
+  assert.equal(complete.makeups[0].currentGap, 0); assert.equal(complete.makeups[0].releasedQty, 200)
+  assert.equal(complete.makeupAllocationConflict, false)
+  assert.equal(s.allocations.filter(a => a.active && a.makeupId === m.makeupId).length, 0)
+  assert.equal(m.quantity, 200); assert.equal(m.createdAt, '2026-10-14T10:10:00.000Z')
+})
+
+test('R35/R66: rescheduling outstanding branch never revives another formally released branch', () => {
+  const s = createPpicDailyStore(), p = addPpicPromise(s, input('p', 200))
+  const make = (id: string, qty: number, deadlineAt: string, nowAt: string) => arrangePpicMakeup(s, { operationId: id, actor, task, promiseId: p.promiseId, quantity: qty, deadlineAt, nowAt, reason: '运输延迟', detail: '' })
+  const a = make('a', 100, '2026-10-15T11:00', '2026-10-14T17:01:00+07:00')
+  const b = make('b', 100, '2026-10-15T14:00', '2026-10-14T17:02:00+07:00')
+  const early = { ...receipt('early', 100, '2026-10-14T16:00:00+07:00'), recordedAt: '2026-10-14T18:00:00+07:00' }
+  syncPpicReceipts(s, [early])
+  assert.equal(b.releasedQty, 100)
+  const c = make('c', 70, '2026-10-15T16:00', '2026-10-15T11:01:00+07:00')
+  const result = ppicPromiseResult(s, p, '2026-10-15T11:02:00+07:00')
+  assert.equal(a.active, false)
+  assert.equal(result.makeups.find(m => m.makeupId === b.makeupId)!.currentGap, 0)
+  assert.equal(result.makeups.find(m => m.makeupId === c.makeupId)!.currentGap, 70)
+  assert.equal(result.makeupAvailableQty, 30)
+  syncPpicReceipts(s, [early, receipt('late', 70, '2026-10-15T13:00:00+07:00')])
+  assert.equal(s.allocations.filter(a => a.active && a.makeupId === c.makeupId).reduce((n,a) => n+a.quantity,0), 70)
+  assert.equal(s.allocations.filter(a => a.active && a.makeupId === b.makeupId).length, 0)
+})

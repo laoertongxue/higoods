@@ -56,7 +56,7 @@ npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 | 裁片放行 | [业务调整方案](docs/product-design/裁片放行管理与上下游产品调整方案.md) | 历史最终证据与当前需求分开 |
 | 裁后换片布及菲票 | [业务调整方案](docs/product-design/裁后处理换片布菲票打印与交出联动产品调整方案-2026-09-24.md) | 实物接受未完成条目不因整理关闭 |
 | 后道质检 | [完整调整方案](docs/product-design/QC后道全流程系统完整调整方案.md) | 后续专项矩阵和历史失败保持原版本 |
-| 车缝外发与履约 | [任务分配及时效需求](docs/product-design/车缝与车缝到后道任务自定义分配及履约时效产品需求文档.md) | 专题约束仍按原需求继承 |
+| 车缝外发与履约 | [任务分配及时效需求](docs/product-design/车缝与车缝到后道任务自定义分配及履约时效产品需求文档.md) | [每日回货与两节点调整具体方案](docs/product-design/PPIC每日回货跟进与两节点履约调整具体方案-2026-10-14.md)已完成本地原型实施与专项技术验收；未替代部分继续继承原需求 |
 | 辅料工厂 | [总体设计](docs/product-design/辅料工厂管理总体产品设计文档.md) | 原计划、矩阵及检查输入保留 |
 | 仓储面料需求 | [业务说明](docs/product-design/仓储管理-面料需求看板产品说明文档.md) | 不合并掉独立业务边界 |
 | 生产时效 V7 | [接入设计](docs/product-design/production-fulfillment-timeliness/v7-integration-design.md) | 106 条原子矩阵、原版本和未完成门禁继续联查 |

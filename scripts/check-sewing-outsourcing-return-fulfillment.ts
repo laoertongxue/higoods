@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { mock } from 'node:test'
+import { SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, getOnboardingPpicOptionById } from '../src/data/fcs/factory-onboarding-ppic.ts'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS,
   correctPostFinishingFactoryReturnConfirmation,
@@ -28,16 +30,16 @@ resetSewingCutPieceResponsibilityForTests()
 resetProductionReturnSnapshotSequenceForTests()
 resetEffectiveTaskAssignmentsForTests()
 
-const rows = listSewingOutsourcingReturnTrackingRows()
+const rows = listSewingOutsourcingReturnTrackingRows('2026-09-01 12:00:00')
 assert.deepEqual(rows.map((row) => row.taskType), [
   'INDEPENDENT_SEWING',
   'SEWING_TO_IRON_PACK',
   'CUTTING_TO_IRON_PACK',
 ])
 assert.deepEqual(rows.map((row) => row.returnProjection.snapshot.milestones.map((node) => node.naturalDay)), [
-  [4, 8, 9],
-  [5, 9, 10],
-  [6, 9, 12],
+  [4, 9],
+  [5, 10],
+  [6, 12],
 ])
 assert.equal(rows[0]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-08-23 23:59:59')
 assert.equal(rows[1]!.returnProjection.snapshot.milestones[0]!.deadlineAt, '2026-08-29 23:59:59')
@@ -63,14 +65,17 @@ assert.equal(toConfirmedSewingDeliveryReceiptFact({
 } as never, rows[2]!.assignment.runtimeTaskId), null)
 assert.equal(listSewingDeliveryReceiptFacts(rows[1]!.assignment.runtimeTaskId).every((fact) => !fact.recordId.includes(rows[0]!.assignment.runtimeTaskId)), true)
 
-// 裁片回货责任与工厂回货责任分开：已获得 200 件齐套责任，70% 节点只归责 200 件给工厂。
-const first70 = rows[0]!.returnProjection.milestones[1]!
-assert.equal(first70.targetQty, 350)
-assert.equal(first70.attributableTargetQty, 200)
-assert.equal(first70.confirmedQtyByDeadline, 198)
-assert.equal(first70.factoryPendingQty, 2)
-assert.equal(first70.cuttingShortfallQty, 150)
-assert.equal(first70.status, 'OVERDUE')
+// 已确认正式应回依据替代旧分配/工厂归责分母，原分配500保持事实。
+assert.equal(rows[0]!.assignment.assignedQty, 500)
+assert.equal(rows[0]!.quantityBasis.expectedQty, 200)
+const firstComplete = rows[0]!.returnProjection.milestones[1]!
+assert.equal(rows[0]!.returnProjection.milestones[0]!.targetQty, 70)
+assert.equal(firstComplete.targetQty, 200)
+assert.equal(firstComplete.attributableTargetQty, 200)
+assert.equal(firstComplete.confirmedQtyByDeadline, 198)
+assert.equal(firstComplete.factoryPendingQty, 2)
+assert.equal(firstComplete.cuttingShortfallQty, 0)
+assert.equal(firstComplete.status, 'OVERDUE')
 assert.equal(rows[2]!.returnProjection.milestones.every((node) => node.cuttingShortfallQty === 0), true)
 
 // 节点截止后才新增的裁片责任，不能倒改原节点归责。
@@ -100,7 +105,7 @@ const frozenProjection = projectProductionReturnFulfillment({
   ],
 })
 assert.equal(frozenProjection.milestones[1]!.attributableTargetQty, 200)
-assert.equal(frozenProjection.milestones[2]!.attributableTargetQty, 200)
+assert.equal(frozenProjection.milestones[0]!.attributableTargetQty, 70)
 
 // 后道主管订正生成新版本；保留原业务确认时间，不用订正时间伪造履约迟到。
 const firstDelivery = rows[0]!.deliveries[0]!
@@ -122,6 +127,9 @@ assert.equal(correctedVersions[1]!.confirmedAt, correctedVersions[0]!.confirmedA
 assert.equal(correctedVersions[1]!.versionCreatedAt.startsWith('2026-08-24'), true)
 assert.equal(listSewingDeliveryReceiptFacts(rows[0]!.assignment.runtimeTaskId, '2026-09-01 12:00:00')[0]?.receivedQty, 199)
 
+// 定向页面场景用当前到期的第三方任务负责人，不能绕过新的读取隔离。
+mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-09-01T05:00:00Z') })
+Object.assign(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC, getOnboardingPpicOptionById(rows[2]!.ppicId)!)
 const page = renderSewingOutsourcingReturnsPage()
 assert(page.includes('正式数据源：后道最终确认'))
 assert(page.includes('后道回货源'))
@@ -129,5 +137,6 @@ assert(page.includes('裁床待补'))
 assert(!page.includes('data-ppic-return-track-action="create"'))
 assert(!page.includes('只读后道最终确认'))
 assert(!page.includes('不允许 PPIC 手填回货'))
+mock.timers.reset()
 
 console.log('check-sewing-outsourcing-return-fulfillment: ok')

@@ -1,11 +1,11 @@
 import { listSewingOutsourcingWorkbenchRows } from './sewing-outsourcing-workbench.ts'
-import { listSewingOutsourcingReturnTrackingRows } from './sewing-outsourcing-return-tracking.ts'
+import { listSewingOutsourcingReturnTrackingRows, type SewingOutsourcingReturnTrackingRow } from './sewing-outsourcing-return-tracking.ts'
 import { listMaterialPrepOrderProjections } from './cutting/production-material-prep.ts'
 import { listProcessWorkOrders } from './process-work-order-domain.ts'
 import { listSpecialCraftTaskOrders } from './special-craft-task-orders.ts'
 import { listCutPieceReleaseAvailableQtyVersions } from './cut-piece-release.ts'
 
-export const SEWING_DURATION_NODES = ['面辅料采购', '面料加工', '裁剪配料', '完成裁剪', '特殊工艺加工', '裁片放行', '外发加工派单', '30%回货', '70%回货', '100%回货'] as const
+export const SEWING_DURATION_NODES = ['面辅料采购', '面料加工', '裁剪配料', '完成裁剪', '特殊工艺加工', '裁片放行', '外发加工派单', '35%回货', '100%回货'] as const
 export type SewingDurationNodeName = typeof SEWING_DURATION_NODES[number]
 export interface SewingDurationSource {
   id: string; no: string; label: string; task: string; factory: string; status: string
@@ -22,7 +22,7 @@ const minTime = (values: string[]) => values.filter(Boolean).sort()[0] || ''
 const maxTime = (values: string[]) => values.filter(Boolean).sort().at(-1) || ''
 export function calculateActualDurationHours(startAt: string, endAt: string, nowAt: string): number | null {
   if (!startAt) return null
-  const parse = (value: string) => Date.parse(value.replace(' ', 'T') + (/[zZ]|[+-]\d\d:\d\d$/.test(value) ? '' : '+08:00'))
+  const parse = (value: string) => Date.parse(value.replace(' ', 'T') + (/[zZ]|[+-]\d\d:\d\d$/.test(value) ? '' : '+07:00'))
   const elapsed = parse(endAt || nowAt) - parse(startAt)
   return Number.isFinite(elapsed) && elapsed >= 0 ? Math.round(elapsed / 36000) / 100 : null
 }
@@ -34,6 +34,22 @@ export function aggregateSewingDurationNode(name: SewingDurationNodeName, source
   return { name, startAt, endAt, hours: calculateActualDurationHours(startAt, endAt, nowAt), sources: unique, reason }
 }
 
+export function buildSewingReturnDurationTaskSource(task: SewingOutsourcingReturnTrackingRow, ratio: 0.35 | 1): SewingDurationSource {
+  const target = task.returnProjection.milestones.find(node => node.ratio === ratio)?.targetQty
+  let cumulative = 0; let reachedAt = ''
+  if (target != null) for (const version of task.confirmationVersions.filter(v => v.status === 'ACTIVE').sort((a,b) => a.confirmedAt.localeCompare(b.confirmedAt))) {
+    cumulative += version.confirmedQty
+    if (!reachedAt && cumulative >= target) reachedAt = version.confirmedAt
+  }
+  return { id: task.assignment.assignmentId, no: task.assignment.taskNo || task.assignment.runtimeTaskId,
+    label: target == null ? `应回依据待核对；后道确认 ${task.confirmedQty}件` : `目标 ${target}件；后道确认 ${task.confirmedQty}件`,
+    task: task.assignment.runtimeTaskId, factory: task.assignment.factoryName,
+    status: target == null ? '节点依据待核对' : task.acceptedAt ? '已接单' : '未有有效接单时间',
+    startAt: task.acceptedAt, endAt: task.acceptedAt ? reachedAt : '', version: task.assignment.assignmentId, included: true,
+    reason: target == null ? '该有效任务缺少节点应回依据，整张生产单尚不能判定达标' : '各任务独立达标后取最晚达成；不跨工厂抵扣',
+    href: `/fcs/sewing-outsourcing/returns?assignmentId=${encodeURIComponent(task.assignment.assignmentId)}` }
+}
+
 const DURATION_DEMO_NODE_DOCUMENTS: Record<SewingDurationNodeName, { prefix: string; label: string; href: string }> = {
   面辅料采购: { prefix: 'PUR', label: '采购单', href: '/fcs/material-prep/sewing' },
   面料加工: { prefix: 'DYE', label: '面料加工单', href: '/fcs/craft/dyeing' },
@@ -42,8 +58,7 @@ const DURATION_DEMO_NODE_DOCUMENTS: Record<SewingDurationNodeName, { prefix: str
   特殊工艺加工: { prefix: 'CRAFT', label: '特殊工艺加工单', href: '/fcs/process-factory/special-craft' },
   裁片放行: { prefix: 'REL', label: '裁片放行单', href: '/fcs/craft/cutting/cut-piece-release' },
   外发加工派单: { prefix: 'ASG', label: '外发任务分配单', href: '/fcs/dispatch/workbench' },
-  '30%回货': { prefix: 'RET30', label: '30%回货确认单', href: '/fcs/sewing-outsourcing/returns' },
-  '70%回货': { prefix: 'RET70', label: '70%回货确认单', href: '/fcs/sewing-outsourcing/returns' },
+  '35%回货': { prefix: 'RET35', label: '35%回货确认单', href: '/fcs/sewing-outsourcing/returns' },
   '100%回货': { prefix: 'RET100', label: '100%回货确认单', href: '/fcs/sewing-outsourcing/returns' },
 }
 
@@ -119,7 +134,7 @@ function buildDurationDemoReleaseSources(
   })
 }
 
-function buildDurationDemoRows(
+export function buildSewingDurationDemoRows(
   identities: SewingProductionOrderDurationRow[],
   nowAt: string,
 ): SewingProductionOrderDurationRow[] {
@@ -203,15 +218,11 @@ export function listSewingProductionOrderDurations(input: { viewerPpicId: string
     const targetReached = history.find((version) => version.totalReleaseConfirmQty >= current!.totalTargetQty && current!.totalTargetQty > 0)
     for (const [releaseIndex, version] of releases.entries()) sources['裁片放行'].push({ id: version.releaseVersionId, no: `REL-${identity.productionOrderNo.replace(/^PO-/, '')}`, label: `第${releaseIndex + 1}次放行 · V${version.releaseVersionNo} · 累计${version.beforeTotalReleaseConfirmQty}→${version.afterTotalReleaseConfirmQty}件 · 目标${version.totalTargetQty}件`, task: '', factory: '', status: version.releaseStatus, startAt: version.confirmedAt, endAt: version === targetReached ? version.confirmedAt : '', version: `V${version.releaseVersionNo}`, included: version.basisTargetVersion === current?.basisTargetVersion, reason: `${version.confirmedBy} ${version.confirmedAt}；${version.riskReason || '无风险原因'}；${version === firstRelease ? '入选首次有效放行' : version === targetReached ? '入选当前目标首次达成' : '历史依据'}`, href: '/fcs/craft/cutting/cut-piece-release' })
     for (const task of tasks) sources['外发加工派单'].push({ id: task.assignmentId, no: task.taskNo, label: task.taskKindLabel, task: task.runtimeTaskId, factory: task.factoryName, status: '有效分配', startAt: '', endAt: '', version: task.assignmentId, included: true, reason: '缺少分配当时各门禁最后满足的来源时间，不能用当前配齐状态倒推', href: '/fcs/dispatch/workbench' })
-    for (const ratio of [0.3, 0.7, 1] as const) {
+    for (const ratio of [0.35, 1] as const) {
       const name = `${Math.round(ratio * 100)}%回货` as SewingDurationNodeName
       // 聚合整张生产单的全部有效任务，不能用当前PPIC筛选后的子集判定整单达成。
       for (const task of returnRows.filter((row) => row.assignment.productionOrderId === id)) {
-        const target = Math.ceil(task.assignment.assignedQty * ratio)
-        let cumulative = 0; let reachedAt = ''
-        const versions = task.confirmationVersions.filter((version) => version.status === 'ACTIVE').sort((a,b) => a.confirmedAt.localeCompare(b.confirmedAt))
-        for (const version of versions) { cumulative += version.confirmedQty; if (!reachedAt && cumulative >= target) reachedAt = version.confirmedAt }
-        sources[name].push({ id: task.assignment.assignmentId, no: task.assignment.taskNo || task.assignment.runtimeTaskId, label: `目标 ${target}件；后道确认 ${task.confirmedQty}件`, task: task.assignment.runtimeTaskId, factory: task.assignment.factoryName, status: task.acceptedAt ? '已接单' : '未有有效接单时间', startAt: task.acceptedAt, endAt: task.acceptedAt ? reachedAt : '', version: task.assignment.assignmentId, included: true, reason: '各任务独立达标后取最晚达成；不跨工厂抵扣', href: `/fcs/sewing-outsourcing/returns?assignmentId=${encodeURIComponent(task.assignment.assignmentId)}` })
+        sources[name].push(buildSewingReturnDurationTaskSource(task, ratio))
         for (const version of task.confirmationVersions) sources[name].push({ id: version.confirmationVersionId, no: version.deliveryOrderNo, label: `${version.confirmedQty}件，确认 ${version.confirmedAt}`, task: task.assignment.runtimeTaskId, factory: task.assignment.factoryName, status: version.status, startAt: '', endAt: '', version: version.confirmationVersionId, included: false, reason: version.status === 'ACTIVE' ? '有效收货明细，已累计至所属任务，不重复计入' : '已订正旧版本，不参加当前数量计算', href: `/fcs/craft/post-finishing/wait-process-warehouse?deliveryId=${encodeURIComponent(version.deliveryId)}` })
       }
     }
@@ -219,5 +230,5 @@ export function listSewingProductionOrderDurations(input: { viewerPpicId: string
     const releaseNode = nodes[5]; releaseNode.startAt = firstRelease?.confirmedAt || ''; releaseNode.endAt = targetReached?.confirmedAt || ''; releaseNode.hours = calculateActualDurationHours(releaseNode.startAt, releaseNode.endAt, input.nowAt)
     return { productionOrderId: id, productionOrderNo: identity.productionOrderNo, styleCode: identity.styleCode, styleName: identity.styleName, imageUrl: identity.styleImageUrl, ppicNames: [...new Set(tasks.map((task) => task.ppicName))], factoryNames: [...new Set(tasks.map((task) => task.factoryName))], taskKinds: [...new Set(tasks.map((task) => task.taskKindLabel))], deliveryDate: prep[0]?.order.deliveryDate || '', nodes }
   })
-  return buildDurationDemoRows(derivedRows, input.nowAt)
+  return derivedRows
 }

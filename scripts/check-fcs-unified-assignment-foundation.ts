@@ -198,11 +198,11 @@ assert.equal(cuttingSewingIronPackPolicy.assignmentGranularity, 'ORDER')
 assert.equal(printingPolicy.assignmentGranularity, 'ORDER')
 assert.equal(nonSewingWithLegacySkuGranularityPolicy.assignmentGranularity, 'ORDER')
 assert.equal(sewingPolicy.contractRequired, true)
-assert.deepEqual(sewingPolicy.milestones.map((item) => item.naturalDay), [4, 8, 9])
+assert.deepEqual(sewingPolicy.milestones.map((item) => item.naturalDay), [4, 9])
 assert.equal(sewingIronPackPolicy.contractRequired, true)
-assert.deepEqual(sewingIronPackPolicy.milestones.map((item) => item.naturalDay), [5, 9, 10])
+assert.deepEqual(sewingIronPackPolicy.milestones.map((item) => item.naturalDay), [5, 10])
 assert.equal(cuttingSewingIronPackPolicy.contractRequired, true)
-assert.deepEqual(cuttingSewingIronPackPolicy.milestones.map((item) => item.naturalDay), [6, 9, 12])
+assert.deepEqual(cuttingSewingIronPackPolicy.milestones.map((item) => item.naturalDay), [6, 12])
 assert.equal(printingPolicy.contractRequired, false)
 assert.deepEqual(printingPolicy.milestones, [])
 assert.equal(calculateNaturalDayDeadline('2026-08-05 23:59:59', 4), '2026-08-08')
@@ -262,7 +262,7 @@ const returnV1 = createProductionReturnRuleSnapshot({
   policy: sewingPolicy,
 })
 assert(returnV1)
-assert.deepEqual(returnV1.milestones.map((item) => item.targetQty), [31, 71, 101])
+assert.deepEqual(returnV1.milestones.map((item) => item.targetQty), [36, 101])
 const contractV1 = generateProductionContract({
   assignment: assignmentV1,
   policy: sewingPolicy,
@@ -341,16 +341,16 @@ recordProductionReturnReceipt({
   receiptId: 'RET-CHECK-001',
   assignmentId: assignmentV2.assignmentId,
   factoryId: assignmentV2.factoryId,
-  confirmedQty: 31,
+  confirmedQty: 36,
   confirmedDate: '2026-08-08',
   confirmed: true,
 })
 const returnProjection = projectProductionReturnFulfillment({
   snapshot: returnV2,
   today: '2026-08-08',
-  receipts: [{ receiptId: 'RET-CHECK-001', assignmentId: assignmentV2.assignmentId, factoryId: assignmentV2.factoryId, confirmedQty: 31, confirmedDate: '2026-08-08', confirmed: true }],
+  receipts: [{ receiptId: 'RET-CHECK-001', assignmentId: assignmentV2.assignmentId, factoryId: assignmentV2.factoryId, confirmedQty: 36, confirmedDate: '2026-08-08', confirmed: true }],
 })
-assert.equal(returnProjection.confirmedReturnedQty, 31)
+assert.equal(returnProjection.confirmedReturnedQty, 36)
 assert.equal(returnProjection.milestones[0].status, 'REACHED')
 assert.equal(resolveReturnReceiptAssignment({ productionOrderId: assignmentV2.productionOrderId, factoryId: assignmentV2.factoryId, skuCodes: ['SKU-BLACK-M'], confirmedDate: '2026-08-08' }).resolution, 'MATCHED')
 assert.equal(resolveReturnReceiptAssignment({ productionOrderId: assignmentV1.productionOrderId, factoryId: assignmentV1.factoryId, skuCodes: ['SKU-BLACK-M'], confirmedDate: '2026-08-08' }).resolution, 'MATCHED')
@@ -373,7 +373,7 @@ assert.equal(listProductionContracts({ assignmentId: assignmentV2.assignmentId }
 assert.equal(listMissingSignedContractScanTodos().some((item) => item.contractId === contractV2.contractId), false)
 const printDocument = buildPrintDocument({ documentType: 'PRODUCTION_CONTRACT', sourceType: 'PRODUCTION_CONTRACT_RECORD', sourceId: contractV2.contractId })
 assert.equal(printDocument.paperType, 'A4')
-assert.equal(printDocument.templateCode, 'PRODUCTION_CONTRACT_SPK_ID_V1')
+assert.equal(printDocument.templateCode, 'PRODUCTION_CONTRACT_SPK_ID_V2_TWO_NODES')
 const printText = JSON.stringify(printDocument)
 assert(printText.includes('Jadwal Pengembalian Bertahap'))
 assert(!printText.includes('frozenPrice') && !printText.includes('派单价') && !printText.includes('总加工费'))

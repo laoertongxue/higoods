@@ -2,6 +2,7 @@
  * Ordinary reads never seed browser business storage. Records are identified by their native document IDs.
  */
 import fixtures from './fixtures.json'
+import { calculateSewingReturnDeadlineDate, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_MILESTONE_RATIOS } from '../fcs/sewing-return-calendar.ts'
 export const TIMING_AS_OF='2026-10-07 09:00'
 export const TIMING_IMAGE='/images/production-timing/shirt-086.jpg'
 const DAY=86400000
@@ -26,7 +27,24 @@ export function listTimingCases():TimingCase[]{return entries.map(e=>e.order)}
 export function getTimingCaseByScene(scene:string):TimingCase { const entry=entries.find(e=>e.order.key===scene);if(!entry)throw new Error('未找到对应生产单场景');return entry.order }
 export function findTimingCase(id:string):TimingCase|undefined{return entries.find(e=>e.order.id===id)?.order}
 export function getTimingBranch(order:TimingCase):TimingBranch|null{return entries.find(e=>e.order.id===order.id)?.branch??null}
-export function getTimingIssues(order:TimingCase):any[]{return entries.find(e=>e.order.id===order.id)?.issues??[]}
+export function getTimingIssues(order:TimingCase):any[]{
+ const stored=entries.find(e=>e.order.id===order.id)?.issues??[]
+ // 旧静态回货异常不是当前履约事实；保留原实收，按当前两节点重新判断。
+ const issues=stored.filter(issue=>!issue.id?.startsWith('return-'))
+ if(getTimingFacts(order).complete)return issues
+ for(const task of order.tasks){
+  if(!task.assigned||!Number.isFinite(task.held)||task.held<=0)continue
+  const days=task.type==='sewing'?SEWING_RETURN_COUNTING_DAYS.INDEPENDENT_SEWING:task.type==='full'?SEWING_RETURN_COUNTING_DAYS.CUTTING_TO_IRON_PACK:SEWING_RETURN_COUNTING_DAYS.SEWING_TO_IRON_PACK
+  const received=timingReceiptTotal(task)
+  const late=SEWING_RETURN_MILESTONE_RATIOS.map((ratio,index)=>({ratio,target:Math.ceil(task.held*ratio),deadline:calculateSewingReturnDeadlineDate(task.assigned,days[index])+' 23:59'})).find(node=>timingMs(node.deadline)<timingMs(TIMING_AS_OF)&&received<node.target)
+  if(!late)continue
+  const title=`${task.factory} ${task.id} · ${Math.round(late.ratio*100)}%节点欠${late.target-received}件`
+  const latest=`${task.executor}执行 → ${task.receiver}接收；该合同节点未达标 · 已超时${timingDuration(timingMs(TIMING_AS_OF)-timingMs(late.deadline))}；累计目标${late.target}件，后道实收${received}件`
+  const previous=stored.find(issue=>issue.id===`return-${task.id}`)
+  issues.push({...previous,id:`return-${task.id}`,category:'work',title,detail:`task:${task.id}`,tone:'bad',latest,reason:latest,text:title,executor:task.owner||order.merch,receiver:'对应下游接收确认人',owner:task.owner||order.merch,feedback:previous?.feedback||''})
+ }
+ return issues
+}
 export function timingCaseHref(order:TimingCase):string{return '/dds/supply-chain/production-fulfillment/'+(order.order?'orders/':'pending-purchases/')+encodeURIComponent(order.id)}
 export function timingMs(value:string):number{return Date.parse(value.replace(' ','T')+(value.length===16?':00':'')+'+08:00')}
 export function timingDuration(value:number):string{const minutes=Math.floor(Math.abs(value)/60000),days=Math.floor(minutes/1440),hours=Math.floor(minutes%1440/60),rest=minutes%60;return (days?days+'天':'')+(hours?hours+'小时':'')+(rest?rest+'分钟':'')||'不足1分钟'}
