@@ -79,3 +79,9 @@ npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 | [专项审查](docs/reviews/) / [测试记录](docs/test-records/) | 具体任务的审查结果、日志与附件 |
 
 具体任务的检查命令按影响选择。裁片专项、相关回归和完整 E2E 的入口见 [裁片手册](docs/cutting-e2e.md)，无需在所有项目任务中运行裁片全链检查。
+
+## 自动部署到 Caddy
+
+正式站点：[higood.12lab.cn](https://higood.12lab.cn)。推送 GitHub `main` 自动执行 [Deploy Caddy Production](.github/workflows/deploy.yml)：Node 24、锁文件安装、现有检查与构建、产物校验、变化文件 SSH 上传、原子切换和 HTTPS 回读；相同文件从已校验旧版本复用，整个新版本仍逐文件验证。失败保留或恢复上一版。日常无需登录服务器或手动发布。
+
+部署用户仅有本站点发布权限，私钥与服务器主机密钥存 GitHub Actions Secrets。仓库变量 `CADDY_DEPLOY_ENABLED=true` 启用发布。具体部署目录、版本、回滚、验收与迁移状态见 [迁移记录](docs/deployment/caddy-migration-2026-10-13.md)。本地数据仍按浏览器来源隔离；旧域名数据不会因托管迁移自动出现在新域名。

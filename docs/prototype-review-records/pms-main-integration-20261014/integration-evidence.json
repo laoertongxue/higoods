@@ -1,0 +1,37 @@
+{
+  "base": "fe203b8da8f9944ec4ca5ea3acec28beaf116a56",
+  "pmsCommit": "5df8cffef8fd498b4b2c01c0e7621e9f57262c84",
+  "sourceHashes": {
+    "src/main.ts": "8b6e54807ebb6c71d82512f2a8270699b676c95dcb87496190818bd89306ce70",
+    "src/pages/pms/shared.ts": "740f2c591bee4376af9f1d48363a9371e06194421d5d3d210ee0ad5b0c780a36",
+    "scripts/check-pms-purchase-chain.ts": "e537a6b91f818fc406194f868e29dac3c02a0ee69ace9bb3c03340168a8ae6c8",
+    "tests/pms-peripheral.spec.ts": "eb2f9bc0e4b846e78c60052e68f9ebce0a1ad8f468ac3fc0f820f3d7264d17d4"
+  },
+  "preview": "http://127.0.0.1:5403",
+  "assets": "/tmp/pms-main-merged-preview-20261014",
+  "viewports": [
+    [
+      1366,
+      768
+    ],
+    [
+      1280,
+      720
+    ]
+  ],
+  "nativeReadback": {
+    "bodyOverflow": false,
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-black.webp",
+    "thumbnailNaturalWidth": 192,
+    "original": "/materials/pcs-reviewed/tee-black.jpg",
+    "originalNaturalWidth": 765,
+    "escapeCloses": true
+  },
+  "tests": {
+    "firstRun": "14 pass, 1 fail because evaluateAll ran before async dialog mounting, 16 not run",
+    "focusedBeforeFix": "1 pass without product modification; failed snapshot already shows valid candidates",
+    "afterWaitFix": "30 pass; unchanged 21x5 first-visit performance retained from first run; max 573.5ms"
+  },
+  "receipt": "/tmp/pms-main-publication-20261014/integrated-task-receipt.json",
+  "acceptance": "Technical validation by Codex, not product acceptance"
+}

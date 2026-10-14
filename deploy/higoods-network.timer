@@ -1,0 +1,10 @@
+[Unit]
+Description=Restore measured TCP startup setting after boot or DHCP renewal
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+Unit=higoods-network.service
+
+[Install]
+WantedBy=timers.target

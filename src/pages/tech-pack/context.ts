@@ -135,6 +135,7 @@ type TechPackTab =
   | 'size'
   | 'design'
   | 'cost'
+  | 'attachment'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 type ProcessRouteStatus = NonNullable<TechnicalDataVersionContent['processRouteStatus']>
 type RouteSourceKind =
@@ -656,6 +657,7 @@ const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
   { key: 'color-mapping', icon: 'git-merge', label: '款色用料对应' },
   { key: 'cost', icon: 'badge-dollar-sign', label: '核价' },
   { key: 'design', icon: 'image', label: '花型设计' },
+  { key: 'attachment', icon: 'paperclip', label: '附件' },
 ]
 
 const printOptions = ['无', '数码印', '丝网印', '胶浆印', '烫金', '烫银', '转印', '其他']
@@ -1897,6 +1899,7 @@ interface TechPackPageState {
   addTechniqueDialogOpen: boolean
   addSizeDialogOpen: boolean
   addDesignDialogOpen: boolean
+  attachmentDeleteTarget: { attachmentId: string } | null
   patternDialogOpen: boolean
   patternTemplateDialogOpen: boolean
   designPreviewDialogOpen: boolean
@@ -2025,6 +2028,7 @@ const state: TechPackPageState = {
   addTechniqueDialogOpen: false,
   addSizeDialogOpen: false,
   addDesignDialogOpen: false,
+  attachmentDeleteTarget: null,
   patternDialogOpen: false,
   patternTemplateDialogOpen: false,
   designPreviewDialogOpen: false,
@@ -5514,6 +5518,7 @@ function closeAllDialogs(): void {
   state.addTechniqueDialogOpen = false
   state.addSizeDialogOpen = false
   state.addDesignDialogOpen = false
+  state.attachmentDeleteTarget = null
   state.patternDialogOpen = false
   state.patternTemplateDialogOpen = false
   state.patternDuplicateWarning = null

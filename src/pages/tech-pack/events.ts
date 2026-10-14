@@ -33,6 +33,34 @@ import {
   publishTechnicalDataVersion,
   saveTechnicalDataVersionRecordMeta,
 } from '../../data/pcs-project-technical-data-writeback.ts'
+import { editTechPackMetadata } from '../../data/pcs-technical-data-version-repository.ts'
+import {
+  deleteProjectImageBlob,
+  getProjectImageBlob,
+  saveProjectImageBlob,
+} from '../../data/pcs-project-image-blob-repository.ts'
+import { getTechnicalDataVersionContent, listTechnicalDataVersions } from '../../data/pcs-technical-data-version-repository.ts'
+
+/** 判断某个技术包版本的附件清单是否仍引用该文件实体。 */
+function isAttachmentBlobKeyReferenced(technicalVersionId: string, attachmentId: string): boolean {
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  return (content?.attachments ?? []).some((item) => item.id === attachmentId)
+}
+
+/** 技术包附件：单文件上限 20 MB，业务记录只保存文件引用与元数据，文件字节存 IndexedDB Blob。 */
+const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+
+function nowText(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+function formatAttachmentFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
 import {
   createProductionTechPackPublishEvaluationBatch,
 } from '../../data/fcs/production-tech-pack-change-domain.ts'
@@ -67,6 +95,7 @@ import type {
   EngineeringBomOperatorRole,
 } from '../../data/pcs-engineering-bom-types.ts'
 import type {
+  TechPackType,
   TechnicalGarmentDifficultyGrade,
   TechnicalModuleKey,
   TechnicalReviewNodeKey,
@@ -269,6 +298,11 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'open-design-file-picker': 'DESIGN',
   'save-design': 'DESIGN',
   'delete-design': 'DESIGN',
+  'open-attachment-file-picker': 'ATTACHMENT',
+  'download-attachment': 'ATTACHMENT',
+  'delete-attachment': 'ATTACHMENT',
+  'close-attachment-delete': 'ATTACHMENT',
+  'confirm-attachment-delete': 'ATTACHMENT',
 }
 
 function validateCurrentDesignRequirement(prefix: string): string {
@@ -283,7 +317,7 @@ function validateCurrentDesignRequirement(prefix: string): string {
 function getTechPackFieldModuleKey(field: string): TechnicalModuleKey | null {
   const normalized = field.trim()
   if (!normalized) return null
-  if (normalized === 'garment-difficulty-grade') return 'QUALITY'
+  if (normalized === 'garment-difficulty-grade' || normalized === 'tech-pack-type') return 'QUALITY'
   if (normalized.startsWith('bom-pricing-') || normalized.startsWith('bom-custom-cost-')) return 'COST'
   if (normalized.startsWith('new-bom-') || normalized.startsWith('bom-')) return 'BOM'
   if (
@@ -2023,6 +2057,17 @@ async function handleTechPackField(
     return true
   }
 
+  if (field === 'tech-pack-type') {
+    if (!state.currentTechnicalVersionId) return true
+    if (value !== 'NORMAL' && value !== 'GARMENT_HEAT_TRANSFER') return true
+    await runPcsRecordCommand(() => editTechPackMetadata({
+      technicalVersionId: state.currentTechnicalVersionId!,
+      techPackType: value as TechPackType,
+      actor: currentUser.name,
+    }), crypto.randomUUID(), ['higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1'])
+    return true
+  }
+
   if (field === 'prep-output-material-sku') {
     const techId = node.dataset.techId || ''
     const technique = state.techniques.find((item) => item.id === techId)
@@ -3290,6 +3335,43 @@ async function handleTechPackField(
     state.newDesignSideType = value === 'INSIDE' ? 'INSIDE' : 'FRONT'
     return true
   }
+  if (field === 'new-attachment-file') {
+    if (!(node instanceof HTMLInputElement)) return true
+    const files = Array.from(node.files ?? [])
+    node.value = ''
+    if (files.length === 0) return true
+    if (!state.techPack || !state.currentTechnicalVersionId) {
+      state.compatibilityMessage = '未找到技术包版本，附件未保存。'
+      return true
+    }
+    const oversized = files.find((file) => file.size > ATTACHMENT_MAX_BYTES)
+    if (oversized) {
+      state.compatibilityMessage = `${oversized.name} 超过单个附件 ${Math.round(ATTACHMENT_MAX_BYTES / 1024 / 1024)} MB 上限，未保存。`
+      return true
+    }
+    const actor = currentUser.name
+    const uploadedAt = nowText()
+    const nextAttachments = [...state.techPack.attachments]
+    for (const file of files) {
+      const storageKey = `techpack-attachment-${state.currentTechnicalVersionId}-${crypto.randomUUID()}`
+      await saveProjectImageBlob(file, storageKey)
+      nextAttachments.push({
+        id: storageKey,
+        fileName: file.name,
+        fileType: file.name.split('.').pop()?.toUpperCase() || file.type || '未知类型',
+        fileSize: formatAttachmentFileSize(file.size),
+        uploadedAt,
+        uploadedBy: actor,
+        downloadUrl: '',
+      })
+    }
+    state.techPack = { ...state.techPack, attachments: nextAttachments }
+    ;(await syncTechPackToStore())
+    node.value = ''
+    state.compatibilityMessage = `已上传 ${files.length} 个附件。`
+    return true
+  }
+
   if (field === 'new-design-file') {
     if (!(node instanceof HTMLInputElement)) return true
     const files = Array.from(node.files ?? [])
@@ -5039,6 +5121,62 @@ export async function handleTechPackEvent(target: HTMLElement): Promise<boolean>
     }
 
     ;(await syncTechPackToStore())
+    return true
+  }
+
+  if (action === 'open-attachment-file-picker') {
+    document.getElementById('tech-pack-attachment-file-input')?.click()
+    return false
+  }
+
+  if (action === 'download-attachment') {
+    const attachmentId = actionNode.dataset.attachmentId || ''
+    const attachment = state.techPack?.attachments.find((item) => item.id === attachmentId)
+    if (!attachment) return true
+    const blob = await getProjectImageBlob(attachmentId)
+    if (!blob) {
+      state.compatibilityMessage = `${attachment.fileName} 的文件内容已丢失，请重新上传。`
+      return true
+    }
+    const runtimeUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = runtimeUrl
+    anchor.download = attachment.fileName
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    window.setTimeout(() => URL.revokeObjectURL(runtimeUrl), 1000)
+    return true
+  }
+
+  if (action === 'delete-attachment') {
+    const attachmentId = actionNode.dataset.attachmentId || ''
+    const attachment = state.techPack?.attachments.find((item) => item.id === attachmentId)
+    if (!attachment) return true
+    state.attachmentDeleteTarget = { attachmentId }
+    return true
+  }
+
+  if (action === 'close-attachment-delete') {
+    state.attachmentDeleteTarget = null
+    return true
+  }
+
+  if (action === 'confirm-attachment-delete') {
+    const attachmentId = state.attachmentDeleteTarget?.attachmentId || ''
+    state.attachmentDeleteTarget = null
+    if (!attachmentId || !state.techPack) return true
+    // 仅当没有其他版本引用同一文件时才回收实体，避免多标签新增引用后误删。
+    const remaining = state.techPack.attachments.filter((item) => item.id !== attachmentId)
+    state.techPack = { ...state.techPack, attachments: remaining }
+    ;(await syncTechPackToStore())
+    const stillReferenced = state.currentTechnicalVersionId
+      ? listTechnicalDataVersions().some((record) => record.technicalVersionId !== state.currentTechnicalVersionId && isAttachmentBlobKeyReferenced(record.technicalVersionId, attachmentId))
+      : false
+    if (!stillReferenced) {
+      await deleteProjectImageBlob(attachmentId).catch(() => undefined)
+    }
+    state.compatibilityMessage = '附件已删除。'
     return true
   }
 

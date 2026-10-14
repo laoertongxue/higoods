@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
-import { menusBySystem } from '../src/data/app-shell-config.ts'
+import { menusBySystem, systems } from '../src/data/app-shell-config.ts'
 import { routes } from '../src/router/routes-pms.ts'
 import { shellIcons } from '../src/icons/shell-icons.ts'
 import { listPurchaseMaterialReferences, listPurchaseWarehouses, getPurchaseMaterialReference } from '../src/data/pms/canonical-purchase-references.ts'
@@ -39,5 +39,18 @@ for (const file of retiredPageFiles) assert.equal(existsSync(`src/pages/pms/${fi
 for (const registration of ['src/router/routes-pms.ts', 'src/router/route-renderers-pms.ts', 'src/main-handlers/pms-handlers.ts']) {
   const text = readFileSync(registration, 'utf8')
   for (const file of retiredPageFiles) assert.ok(!text.includes(`pages/pms/${file}`), `${registration} 仍导入退休页面 ${file}`)
+}
+const pmsSystem = systems.find(system => system.id === 'pms')
+assert.ok(pmsSystem && routes.exactRoutes[pmsSystem.defaultPage], 'PMS 默认页缺少精确路由')
+const menuHrefs = items.map(item => item.href)
+for (const removed of [
+  '/pms/supplier', '/pms/contract', '/pms/workbench/overview', '/pms/data-management',
+  '/pms/trade-subjects', '/pms/subject-operations', '/pms/material-reconciliations',
+  '/pms/logistics-reconciliations', '/pms/transit/dashboard', '/pms/transit/receipts',
+  '/pms/transit/order-checks', '/pms/transit/preparation-tasks', '/pms/users',
+  '/pms/roles', '/pms/dictionaries',
+]) {
+  assert.ok(!menuHrefs.includes(removed), `已退役菜单重新出现：${removed}`)
+  assert.ok(!routes.exactRoutes[removed], `已退役路由重新出现：${removed}`)
 }
 console.log('采购导航与来源合同通过：9 组、21 页；独立基础资料对象已退役。')

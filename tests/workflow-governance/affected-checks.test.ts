@@ -4,6 +4,26 @@ import { execFileSync } from 'node:child_process'
 import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-checks.ts'
 import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
 
+test('Caddy 发布工具路由到实际 Python 契约而非仅构建', () => {
+  const result = routeAffectedChecks(['scripts/deploy/receiver.py', 'scripts/deploy/prepare-release.py', 'scripts/deploy/check-public.py', 'tests/deploy/test_receiver.py', 'tests/deploy/test_prepare.py', 'tests/deploy/test_network.py', 'deploy/network-initcwnd.py', 'deploy/higoods-network.service', 'deploy/higoods-network.timer'])
+  assert.deepEqual(result.unknownPaths, [])
+  assert.deepEqual(result.fastChecks, ['PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/deploy -v'])
+  assert.deepEqual(result.fullChecks, [])
+})
+
+test('Caddy 运行和 Actions 配置核验发布契约、站点 JSON 与构建', () => {
+  const result = routeAffectedChecks(['.github/workflows/deploy.yml', 'deploy/Caddyfile', 'deploy/sites.json', 'vercel.json'])
+  assert.deepEqual(result.unknownPaths, [])
+  assert(result.fastChecks.includes('PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/deploy -v'))
+  assert(result.fastChecks.includes('python3 -m json.tool deploy/sites.json > /dev/null'))
+  assert(result.fullChecks.includes('npm run build'))
+})
+
+test('未知发布测试仍升级，不能被目录前缀误判为已执行', () => {
+  const result = routeAffectedChecks(['tests/deploy/unknown.test.py'])
+  assert.deepEqual(result.unknownPaths, ['tests/deploy/unknown.test.py'])
+})
+
 test('补料页面路由到专项检查和原型治理', () => {
   const result = routeAffectedChecks([
     'src/pages/cutting/supplement-management.ts',

@@ -1,0 +1,52 @@
+(static_app) {
+    encode zstd gzip
+    root * {args[0]}/current
+
+    handle /assets/* {
+        root * {args[0]}
+        try_files /current{path} /previous{path}
+        header Cache-Control "public, max-age=3600"
+        file_server {
+            precompressed br gzip
+        }
+    }
+    handle /deployment.json {
+        header Cache-Control "no-store"
+        file_server {
+            precompressed br gzip
+        }
+    }
+    @static path_regexp static \.(js|mjs|css|json|png|jpg|jpeg|gif|svg|webp|avif|ico|woff|woff2|ttf|pdf|xls|xlsx|csv|txt|html|mp4|mp3)$
+    handle @static {
+        header Cache-Control "public, max-age=0, must-revalidate"
+        file_server {
+            precompressed br gzip
+        }
+    }
+    handle {
+        route {
+            try_files {path} /index.html
+            header /index.html Cache-Control "public, max-age=0, must-revalidate"
+            file_server {
+                precompressed br gzip
+            }
+        }
+    }
+}
+
+# These local listeners remain available for deployment verification.
+http://127.0.0.1:18081 {
+    bind 127.0.0.1
+    import static_app /srv/higoods
+}
+http://127.0.0.1:18082 {
+    bind 127.0.0.1
+    import static_app /srv/old-higoods
+}
+
+higood.12lab.cn {
+    import static_app /srv/higoods
+}
+old-higood.12lab.cn {
+    import static_app /srv/old-higoods
+}

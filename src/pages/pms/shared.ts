@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../utils.ts'
+import { staticImageThumbnail } from '../../utils/static-image-thumbnail.ts'
 
 /** A local confirmation keeps the current form intact and does not block other browser tabs. */
 export function confirmPmsAction(message: string, confirmLabel: string, title = '确认操作'): Promise<boolean> {
@@ -127,7 +128,7 @@ export function renderPmsStatusBadge(text: string, tone: 'blue' | 'green' | 'yel
 }
 
 export function renderPmsBusinessImage(src: string, alt: string, sizeClass = 'h-11 w-11'): string {
-  return `<button type="button" class="relative shrink-0 overflow-hidden rounded-md border bg-slate-50 ${sizeClass}" data-pms-common-action="open-image" data-image-src="${escapeHtml(src)}" data-image-alt="${escapeHtml(alt)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(alt)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" onload="this.parentElement.querySelector('[data-pms-image-loading]').classList.add('hidden')" onerror="this.classList.add('hidden');this.parentElement.querySelector('[data-pms-image-loading]').classList.add('hidden');this.parentElement.querySelector('[data-pms-image-error]').classList.remove('hidden');this.parentElement.querySelector('[data-pms-image-error]').classList.add('flex')"><span class="absolute inset-0 flex items-center justify-center bg-slate-50 px-1 text-center text-[10px] leading-tight text-slate-500" data-pms-image-loading>图片加载中…</span><span class="hidden h-full w-full items-center justify-center px-1 text-center text-[10px] leading-tight text-red-700" data-pms-image-error>图片加载失败，点击重试</span></button>`
+  return `<button type="button" class="relative shrink-0 overflow-hidden rounded-md border bg-slate-50 ${sizeClass}" data-pms-common-action="open-image" data-image-src="${escapeHtml(src)}" data-image-alt="${escapeHtml(alt)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(alt)}大图"><img class="h-full w-full object-cover" loading="lazy" src="${escapeHtml(staticImageThumbnail(src))}" alt="${escapeHtml(alt)}" onload="this.parentElement.querySelector('[data-pms-image-loading]').classList.add('hidden')" onerror="this.classList.add('hidden');this.parentElement.querySelector('[data-pms-image-loading]').classList.add('hidden');this.parentElement.querySelector('[data-pms-image-error]').classList.remove('hidden');this.parentElement.querySelector('[data-pms-image-error]').classList.add('flex')"><span class="absolute inset-0 flex items-center justify-center bg-slate-50 px-1 text-center text-[10px] leading-tight text-slate-500" data-pms-image-loading>图片加载中…</span><span class="hidden h-full w-full items-center justify-center px-1 text-center text-[10px] leading-tight text-red-700" data-pms-image-error>图片加载失败，点击重试</span></button>`
 }
 
 export function renderPmsImagePreview(): string {

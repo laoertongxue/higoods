@@ -364,6 +364,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/pda/auth/login') {
+    const page = await import('./pages/pda-login.ts')
+    return page.handlePdaLoginEvent(eventTarget)
+  }
   if (pagePath === '/wls/finished-inbound') {
     const page = await import('./pages/wls-finished-inbound.ts')
     return page.handleWlsFinishedInboundEvent(eventTarget, event)
@@ -1042,6 +1046,21 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // Authentication has no production records to hydrate. Loading its own
+    // renderer also keeps unrelated execution routes out of this first visit.
+    if (normalizedPathname === '/fcs/pda/auth/login') {
+      return (await import('./pages/pda-login.ts')).renderPdaLoginPage()
+    }
+    if (normalizedPathname === '/pms/purchase-suggestions') {
+      const [page, logs] = await Promise.all([
+        import('./pages/pms/purchase-suggestions.ts'),
+        import('./data/pms/runtime.ts'),
+      ])
+      // The page reads its current purchase and SKU facts independently.
+      // Keep this direct entry isolated from unrelated production records.
+      await logs.hydratePmsLogsFromIdb()
+      return await page.renderPmsPurchaseSuggestionsPage()
+    }
     // Static timing pages and registered source documents do not initialize
     // unrelated live module stores or run their legacy seed/migration actions.
     if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) return await resolvePage(pathname)
@@ -1067,7 +1086,8 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
         && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
-    if (!postFinishingEntry && !cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
+    const isolatedPcsList = ['/pcs/products/styles', '/pcs/products/specifications'].includes(normalizedPathname)
+    if (!isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
@@ -1079,7 +1099,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       : normalizedPathname === '/pcs/production-preparation/design-revision'
       ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
       : normalizedPathname === '/pcs/products/styles' || normalizedPathname === '/pcs/products/specifications'
-        ? ['/materials/pcs-reviewed/shirt-black.jpg', ...(normalizedPathname.endsWith('/styles') ? ['/materials/pcs-reviewed/casual-dress-black.jpg'] : [])]
+        ? ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']
         : []
     for (const src of pcsFirstScreenImages) { const image = new Image(); image.src = src; void image.decode().catch(() => {}) }
     // 改款加工、收货和 PDA 直达页须先读取同一份已提交资料。
@@ -1328,7 +1348,8 @@ async function render(): Promise<void> {
     || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
   const pageContent = await pageContentPromise
   // PDA处理器含读取业务记录的模块，必须等同一页面的记录初始化完成。
-  if (isPdaPath(state.pathname) && !isDirectWoolPda) await getPdaHandlersModule()
+  const isPdaLogin = state.pathname.split('?')[0].split('#')[0] === '/fcs/pda/auth/login'
+  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isPdaLogin) await getPdaHandlersModule()
   if (currentSerial !== renderSerial) {
     return
   }
@@ -1339,7 +1360,7 @@ async function render(): Promise<void> {
     pmsSurface.hydratePmsSurface(root, { icons: false })
   }
   if (isPdaPath(state.pathname)) {
-    if (!root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+    if (!isPdaLogin && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
     }
     queueMicrotask(() => hydrateIcons(root))
@@ -1854,6 +1875,7 @@ const TECH_CHANGE_RERENDER_DRIVEN_FIELDS = new Set([
   'new-bom-print-requirement',
   'new-bom-print-side-mode',
   'new-design-file',
+  'new-attachment-file',
 ])
 const MARKER_PLAN_INPUT_SELECTOR = [
   '[data-marker-plan-filter-field]',

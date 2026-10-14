@@ -27,6 +27,9 @@ import {
 import { listTechPackVersionLogsByVersionId } from '../../data/pcs-tech-pack-version-log-repository.ts'
 import {
   TECHNICAL_GARMENT_DIFFICULTY_GRADES,
+  TECHPACK_TYPES,
+  TECHPACK_TYPE_LABEL,
+  type TechPackType,
   type TechnicalReviewNode,
   type TechnicalReviewNodeKey,
 } from '../../data/pcs-technical-data-version-types.ts'
@@ -45,6 +48,7 @@ import {
 } from './pattern-domain.ts'
 import { renderAddTechniqueDialog, renderProcessTab } from './process-domain.ts'
 import { renderAddSizeDialog, renderSizeTab } from './size-domain.ts'
+import { renderAttachmentDeleteDialog, renderAttachmentTab } from './attachment-domain.ts'
 
 export { renderTabHeader }
 
@@ -73,6 +77,7 @@ export function renderCurrentTabContent(): string {
   if (state.activeTab === 'color-mapping') return renderColorMappingTab()
   if (state.activeTab === 'size') return renderSizeTab()
   if (state.activeTab === 'design') return renderDesignTab()
+  if (state.activeTab === 'attachment') return renderAttachmentTab()
   return renderPatternTab()
 }
 
@@ -184,6 +189,35 @@ function renderGarmentDifficultyField(record: ReturnType<typeof getTechnicalData
   `
 }
 
+function renderTechPackTypeField(record: ReturnType<typeof getTechnicalDataVersionById>): string {
+  const current = record?.techPackType || 'NORMAL'
+  if (isTechPackModuleReadOnly('QUALITY')) {
+    return `<div class="md:col-span-3"><span>类型：</span><span class="font-medium text-foreground">${escapeHtml(TECHPACK_TYPE_LABEL[current])}</span></div>`
+  }
+  return `
+    <div class="md:col-span-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <span>类型：</span>
+        <div class="flex flex-wrap items-center gap-3">
+          ${TECHPACK_TYPES.map((item) => `
+            <label class="inline-flex items-center gap-1.5 text-sm text-foreground">
+              <input
+                type="radio"
+                name="tech-pack-type"
+                value="${escapeHtml(item)}"
+                class="h-4 w-4"
+                data-tech-field="tech-pack-type"
+                ${item === current ? 'checked' : ''}
+              />
+              <span>${escapeHtml(TECHPACK_TYPE_LABEL[item])}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function renderTechPackSummary(): string {
   if (!state.currentTechnicalVersionId || !state.currentStyleId) return ''
   const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
@@ -193,6 +227,7 @@ function renderTechPackSummary(): string {
   return `
     <div class="ml-10 mt-3 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-muted-foreground">
       ${renderGarmentDifficultyField(record)}
+      ${renderTechPackTypeField(record)}
       <div>关联花型库资产：<span class="font-medium text-foreground">${patternAssets.length > 0 ? escapeHtml(patternAssets.map((item) => item.pattern_code).join('、')) : '未关联'}</span></div>
       <div>当前花型图：<span class="font-medium text-foreground">${patternDesignCount} 张</span></div>
     </div>
@@ -786,7 +821,7 @@ export function renderTechPackPage(
   options?: {
     spuName?: string
     skuCatalog?: { skuCode: string; color: string; size: string }[]
-    activeTab?: 'pattern' | 'bom' | 'process' | 'color-mapping' | 'size' | 'design' | 'cost'
+    activeTab?: 'pattern' | 'bom' | 'process' | 'color-mapping' | 'size' | 'design' | 'cost' | 'attachment'
     styleId?: string
     technicalVersionId?: string
   },
@@ -877,6 +912,7 @@ export function renderTechPackPage(
       ${renderAddTechniqueDialog()}
       ${renderAddSizeDialog()}
       ${renderAddDesignDialog()}
+      ${renderAttachmentDeleteDialog()}
     </div>
   `
 }

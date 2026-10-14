@@ -16,9 +16,6 @@ import {
   resolvePdaPostLoginRoute,
 } from '../data/fcs/factory-onboarding-flow.ts'
 
-void import('./pda-exec')
-void import('../router/routes-pda')
-
 interface LoginState {
   loginId: string
   password: string

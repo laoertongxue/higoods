@@ -41,6 +41,7 @@ import {
 import type {
   TechPackSourceTaskType,
   StoredTechPackSourceTaskType,
+  TechPackType,
   TechPackVersionChangeScope,
   TechnicalAttachment,
   TechnicalBomItem,
@@ -356,17 +357,30 @@ function normalizeDomainStatus(value: string | null | undefined): TechnicalDomai
   return 'EMPTY'
 }
 
+function normalizeTechPackType(value: string | null | undefined): TechPackType {
+  return value === 'GARMENT_HEAT_TRANSFER' ? 'GARMENT_HEAT_TRANSFER' : 'NORMAL'
+}
+
 function normalizeSourceTaskType(
   value: string | null | undefined,
 ): StoredTechPackSourceTaskType {
   // A read is not permission to create a new package from an old task kind.
-  if (value === 'ENGINEERING_MASTER' || value === 'PLATE' || value === 'REVISION' || value === 'ARTWORK' || value === 'PATTERN') return value
+  if (value === 'ENGINEERING_MASTER' || value === 'MANUAL' || value === 'PLATE' || value === 'REVISION' || value === 'ARTWORK' || value === 'PATTERN') return value
   return ''
 }
 
 function validateTechnicalVersionCreationSource(record: TechnicalDataVersionRecord): void {
+  if (record.createdFromTaskType === 'MANUAL') {
+    if (!record.styleId.trim()) throw new Error('手动新建技术包必须指定款式。')
+    const style = getStyleArchiveById(record.styleId)
+    if (!style) throw new Error(`款式档案不存在：${record.styleId}`)
+    // MANUAL 来源使用款式档案作为虚拟 sourceProjectId，便于追溯“来源款式”。
+    if (!record.sourceProjectId.trim()) record.sourceProjectId = record.styleId
+    if (!record.createdFromTaskId.trim()) record.createdFromTaskId = `manual-${record.technicalVersionId}`
+    return
+  }
   if (record.createdFromTaskType !== 'ENGINEERING_MASTER') {
-    throw new Error('技术包新版本只能由生产准备单生成。')
+    throw new Error('技术包新版本只能由生产准备单或手动方式生成。')
   }
   if (!record.sourceProjectId.trim() || !record.createdFromTaskId.trim()) {
     throw new Error('技术包必须同时记录来源对象和来源任务。')
@@ -792,6 +806,8 @@ function normalizeRecord(
       colorMaterialStatus: normalizeDomainStatus(rawRecord.colorMaterialStatus),
       designStatus: normalizeDomainStatus(rawRecord.designStatus),
       attachmentStatus: normalizeDomainStatus(rawRecord.attachmentStatus),
+      techPackType: normalizeTechPackType(rawRecord.techPackType),
+      isDefault: Boolean(rawRecord.isDefault),
     },
     content,
   )
@@ -1430,4 +1446,275 @@ export function assignTechnicalPackResponsible(technicalVersionId: string, role:
   if (!result) throw new Error('技术包负责人保存失败。')
   appendTechPackVersionLog({ logId: `tech-pack-person-${technicalVersionId}-${crypto.randomUUID()}`, technicalVersionId, technicalVersionCode: record.technicalVersionCode, versionLabel: record.versionLabel, styleId: record.styleId, styleCode: record.styleCode, logType: '维护技术包负责人', sourceTaskType: record.createdFromTaskType === 'ENGINEERING_MASTER' ? record.createdFromTaskType : '', sourceTaskId: record.createdFromTaskId, sourceTaskCode: record.createdFromTaskCode, sourceTaskName: record.sourceProjectName, changeScope: '', changeText: `${role}：${before || '未设置'} → ${person.reviewerName}`, beforeVersionId: technicalVersionId, beforeVersionCode: record.technicalVersionCode, afterVersionId: technicalVersionId, afterVersionCode: record.technicalVersionCode, createdAt: timestamp, createdBy: actor })
   return result
+}
+
+interface CreateManualTechPackInput {
+  styleId: string
+  techPackType: TechPackType
+  /** 复制来源版本 ID；空表示空白新建 */
+  copyFromVersionId?: string
+  actor?: string
+}
+
+/** 直接新建技术包。仅用于演示：原生产准备单路径仍为正式来源。 */
+export function createManualTechPackVersion(input: CreateManualTechPackInput): TechnicalDataVersionRecord {
+  const style = getStyleArchiveById(input.styleId)
+  if (!style) throw new Error(`款式档案不存在：${input.styleId}`)
+  const { id, code } = getNextTechnicalVersionIdentity()
+  const { versionNo, versionLabel } = getNextStyleVersionMeta(input.styleId)
+  const timestamp = nowText()
+  const actor = input.actor || '管理员'
+  const sourceProjectName = `${style.styleName || style.styleCode} · 直接新建`
+  const copySourceId = input.copyFromVersionId || ''
+  let copySourceCode = ''
+  let copySourceVersionLabel = ''
+  if (copySourceId) {
+    const source = getTechnicalDataVersionById(copySourceId)
+    if (!source) throw new Error(`复制源不存在：${copySourceId}`)
+    copySourceCode = source.technicalVersionCode
+    copySourceVersionLabel = source.versionLabel
+  }
+  const record: TechnicalDataVersionRecord = {
+    technicalVersionId: id,
+    technicalVersionCode: code,
+    versionLabel,
+    versionNo,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    techPackType: input.techPackType,
+    isDefault: false,
+    sourceProjectId: style.styleId,
+    sourceProjectCode: style.styleCode,
+    sourceProjectName,
+    sourceProjectNodeId: '',
+    primaryPlateTaskId: '',
+    primaryPlateTaskCode: '',
+    primaryPlateTaskVersion: '',
+    linkedDesignRevisionTaskIds: [],
+    linkedPatternTaskIds: [],
+    linkedArtworkTaskIds: [],
+    createdFromTaskType: 'MANUAL',
+    createdFromTaskId: `manual-${id}`,
+    createdFromTaskCode: `MANUAL-${code}`,
+    baseTechnicalVersionId: '',
+    baseTechnicalVersionCode: '',
+    changeScope: '直接新建',
+    changeSummary: copySourceCode ? `复制自 ${copySourceCode}（${copySourceVersionLabel}）。` : '在技术资料列表手动新建。',
+    garmentDifficultyGrade: 'B',
+    merchandiserId: '',
+    merchandiserName: '',
+    patternMakerId: '',
+    patternMakerName: '',
+    linkedPartTemplateIds: [],
+    linkedPatternLibraryVersionIds: [],
+    versionStatus: 'DRAFT',
+    reviewStage: '未提交审核',
+    bomStatus: 'EMPTY',
+    patternStatus: 'EMPTY',
+    processStatus: 'EMPTY',
+    gradingStatus: 'EMPTY',
+    qualityStatus: 'EMPTY',
+    colorMaterialStatus: 'EMPTY',
+    designStatus: 'EMPTY',
+    attachmentStatus: 'EMPTY',
+    bomItemCount: 0,
+    patternFileCount: 0,
+    processEntryCount: 0,
+    gradingRuleCount: 0,
+    qualityRuleCount: 0,
+    colorMaterialMappingCount: 0,
+    designAssetCount: 0,
+    attachmentCount: 0,
+    completenessScore: 0,
+    missingItemCodes: [],
+    missingItemNames: [],
+    publishedAt: '',
+    publishedBy: '',
+    createdAt: timestamp,
+    createdBy: actor,
+    updatedAt: timestamp,
+    updatedBy: actor,
+    note: '',
+    legacySpuCode: '',
+    legacyVersionLabel: '',
+  }
+  const created = createTechnicalDataVersionDraft(record)
+  appendTechPackVersionLog({
+    logId: `tech-pack-create-${created.technicalVersionId}-${crypto.randomUUID()}`,
+    technicalVersionId: created.technicalVersionId,
+    technicalVersionCode: created.technicalVersionCode,
+    versionLabel: created.versionLabel,
+    styleId: created.styleId,
+    styleCode: created.styleCode,
+    logType: '直接新建技术包',
+    sourceTaskType: 'MANUAL',
+    sourceTaskId: created.createdFromTaskId,
+    sourceTaskCode: created.createdFromTaskCode,
+    sourceTaskName: sourceProjectName,
+    changeScope: '直接新建',
+    changeText: copySourceCode
+      ? `手动创建技术包：类型 = ${created.techPackType === 'GARMENT_HEAT_TRANSFER' ? '成衣烫画' : '普通'}，复制自 ${copySourceCode}（${copySourceVersionLabel}）`
+      : `手动创建技术包：类型 = ${created.techPackType === 'GARMENT_HEAT_TRANSFER' ? '成衣烫画' : '普通'}，空白新建`,
+    beforeVersionId: '',
+    beforeVersionCode: '',
+    afterVersionId: created.technicalVersionId,
+    afterVersionCode: created.technicalVersionCode,
+    createdAt: timestamp,
+    createdBy: actor,
+  })
+  return created
+}
+
+interface EditTechPackInput {
+  technicalVersionId: string
+  techPackType?: TechPackType
+  garmentDifficultyGrade?: 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
+  changeNote?: string
+  actor?: string
+}
+
+/** 编辑技术包基本信息（类型 / 做货难度 / 备注）。正式字段禁止修改。 */
+export function editTechPackMetadata(input: EditTechPackInput): TechnicalDataVersionRecord | null {
+  const record = getTechnicalDataVersionById(input.technicalVersionId)
+  if (!record) throw new Error('技术包不存在。')
+  const timestamp = nowText()
+  const actor = input.actor || '管理员'
+  const patch: Partial<TechnicalDataVersionRecord> = {
+    updatedAt: timestamp,
+    updatedBy: actor,
+  }
+  const changes: string[] = []
+  if (input.techPackType && input.techPackType !== record.techPackType) {
+    patch.techPackType = input.techPackType
+    changes.push(`类型：${record.techPackType === 'GARMENT_HEAT_TRANSFER' ? '成衣烫画' : '普通'} → ${input.techPackType === 'GARMENT_HEAT_TRANSFER' ? '成衣烫画' : '普通'}`)
+  }
+  if (input.garmentDifficultyGrade && input.garmentDifficultyGrade !== record.garmentDifficultyGrade) {
+    patch.garmentDifficultyGrade = input.garmentDifficultyGrade
+    changes.push(`做货难度：${record.garmentDifficultyGrade} → ${input.garmentDifficultyGrade}`)
+  }
+  if (typeof input.changeNote === 'string' && input.changeNote !== record.note) {
+    patch.note = input.changeNote
+    changes.push('备注已更新')
+  }
+  if (changes.length === 0) return record
+  const next = updateTechnicalDataVersionRecord(input.technicalVersionId, patch)
+  if (!next) throw new Error('保存失败。')
+  appendTechPackVersionLog({
+    logId: `tech-pack-edit-${input.technicalVersionId}-${crypto.randomUUID()}`,
+    technicalVersionId: next.technicalVersionId,
+    technicalVersionCode: next.technicalVersionCode,
+    versionLabel: next.versionLabel,
+    styleId: next.styleId,
+    styleCode: next.styleCode,
+    logType: '编辑技术包',
+    sourceTaskType: next.createdFromTaskType,
+    sourceTaskId: next.createdFromTaskId,
+    sourceTaskCode: next.createdFromTaskCode,
+    sourceTaskName: next.sourceProjectName,
+    changeScope: '编辑技术包',
+    changeText: changes.join('；'),
+    beforeVersionId: next.technicalVersionId,
+    beforeVersionCode: next.technicalVersionCode,
+    afterVersionId: next.technicalVersionId,
+    afterVersionCode: next.technicalVersionCode,
+    createdAt: timestamp,
+    createdBy: actor,
+  })
+  return next
+}
+
+/** 删除技术包。同时清理款式档案默认版本指向与本地内容。 */
+export function deleteTechPackVersion(technicalVersionId: string, actor = '管理员'): void {
+  const snapshot = loadSnapshot()
+  const record = snapshot.records.find(item => item.technicalVersionId === technicalVersionId)
+  if (!record) throw new Error('技术包不存在。')
+  if (record.versionStatus === 'PUBLISHED') {
+    // 已发布版本不被允许直接删除，需要先归档。
+    throw new Error('已发布的技术包版本请先归档后再删除。')
+  }
+  const timestamp = nowText()
+  const filtered = snapshot.records.filter(item => item.technicalVersionId !== technicalVersionId)
+  const filteredContents = snapshot.contents.filter(item => item.technicalVersionId !== technicalVersionId)
+  persistSnapshot({
+    ...snapshot,
+    records: filtered,
+    contents: filteredContents,
+  })
+  // 若该款式档案指向此版本为默认，清空以避免悬挂引用。
+  try {
+    const style = getStyleArchiveById(record.styleId)
+    if (style && style.currentTechPackVersionId === technicalVersionId) {
+      updateStyleArchive(style.styleId, { currentTechPackVersionId: '' })
+    }
+  } catch {
+    // 样式档案缺失时跳过，避免阻塞主流程。
+  }
+  appendTechPackVersionLog({
+    logId: `tech-pack-delete-${technicalVersionId}-${crypto.randomUUID()}`,
+    technicalVersionId,
+    technicalVersionCode: record.technicalVersionCode,
+    versionLabel: record.versionLabel,
+    styleId: record.styleId,
+    styleCode: record.styleCode,
+    logType: '删除技术包',
+    sourceTaskType: record.createdFromTaskType,
+    sourceTaskId: record.createdFromTaskId,
+    sourceTaskCode: record.createdFromTaskCode,
+    sourceTaskName: record.sourceProjectName,
+    changeScope: '删除技术包',
+    changeText: `删除技术包：${record.styleName} · ${record.technicalVersionCode}（${TECHPACK_TYPE_LABEL[record.techPackType]}）`,
+    beforeVersionId: technicalVersionId,
+    beforeVersionCode: record.technicalVersionCode,
+    afterVersionId: '',
+    afterVersionCode: '',
+    createdAt: timestamp,
+    createdBy: actor,
+  })
+}
+
+/** 设为该款式当前默认生效版本。同步更新款式档案的默认版本字段。 */
+export function setTechPackAsDefault(technicalVersionId: string, actor = '管理员'): TechnicalDataVersionRecord | null {
+  const target = getTechnicalDataVersionById(technicalVersionId)
+  if (!target) throw new Error('技术包不存在。')
+  const snapshot = loadSnapshot()
+  const timestamp = nowText()
+  const previousDefaultId = snapshot.records.find(item => item.styleId === target.styleId && item.isDefault)?.technicalVersionId || ''
+  const updated = snapshot.records.map((item) => {
+    if (item.styleId !== target.styleId) return item
+    if (item.technicalVersionId === technicalVersionId) return { ...item, isDefault: true, updatedAt: timestamp, updatedBy: actor }
+    if (item.isDefault) return { ...item, isDefault: false, updatedAt: timestamp, updatedBy: actor }
+    return item
+  })
+  persistSnapshot({ ...snapshot, records: updated })
+  try {
+    updateStyleArchive(target.styleId, { currentTechPackVersionId: technicalVersionId })
+  } catch {
+    // 样式档案缺失时只刷新技术包侧的默认标记，避免阻塞主流程。
+  }
+  const previousRecord = previousDefaultId ? snapshot.records.find(item => item.technicalVersionId === previousDefaultId) : null
+  appendTechPackVersionLog({
+    logId: `tech-pack-default-${technicalVersionId}-${crypto.randomUUID()}`,
+    technicalVersionId: target.technicalVersionId,
+    technicalVersionCode: target.technicalVersionCode,
+    versionLabel: target.versionLabel,
+    styleId: target.styleId,
+    styleCode: target.styleCode,
+    logType: '设为默认技术包',
+    sourceTaskType: target.createdFromTaskType,
+    sourceTaskId: target.createdFromTaskId,
+    sourceTaskCode: target.createdFromTaskCode,
+    sourceTaskName: target.sourceProjectName,
+    changeScope: '设为默认',
+    changeText: previousRecord
+      ? `默认版本切换：${previousRecord.technicalVersionCode} → ${target.technicalVersionCode}`
+      : `设为首个默认版本：${target.technicalVersionCode}`,
+    beforeVersionId: previousDefaultId,
+    beforeVersionCode: previousRecord?.technicalVersionCode || '',
+    afterVersionId: target.technicalVersionId,
+    afterVersionCode: target.technicalVersionCode,
+    createdAt: timestamp,
+    createdBy: actor,
+  })
+  return getTechnicalDataVersionById(technicalVersionId)
 }

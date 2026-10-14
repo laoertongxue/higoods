@@ -55,6 +55,7 @@ test.describe('PMS 外围业务的保存与门禁', () => {
   test('新增备货款后排除重复SPU；常备数量无效或取消不写，合法修改刷新读回', async ({ page }) => {
     await localPage(page, '/pms/reorder', '[data-pms-ros-root]')
     await page.locator(action('pms-ros', 'open-create')).click()
+    await expect(page.locator('[data-pms-ros-create-spu]')).toBeVisible()
     const spu = await page.locator('[data-pms-ros-create-spu] option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value).find(Boolean))
     expect(spu, 'Existing PCS candidates must provide a new valid SPU').toBeTruthy()
     await page.locator('[data-pms-ros-create-spu]').selectOption(spu!)
@@ -64,6 +65,7 @@ test.describe('PMS 外围业务的保存与门禁', () => {
     const find = async () => (await stored(page, 'pmsReorderSuggestions')).find(row => row.spu === spu)
     await expect.poll(find).toMatchObject({ regularRestockQty: 12 })
     await page.locator(action('pms-ros', 'open-create')).click()
+    await expect(page.locator('[data-pms-ros-create-spu]')).toBeVisible()
     await expect(page.locator(`[data-pms-ros-create-spu] option[value="${spu}"]`), 'Duplicate SPU is not offered in the create selector').toHaveCount(0)
     await page.locator(action('pms-ros', 'close-overlay')).last().click()
     const regular = page.locator(`${action('pms-ros', 'open-regular')}[data-spu="${spu}"]`)
