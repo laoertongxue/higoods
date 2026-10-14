@@ -144,6 +144,27 @@ function preloadStaticFirstScreenRoutes(): Plugin {
             '/src/pages/sewing-outsourcing/returns.ts',
             ...returnReadInitialization,
           ]), []],
+          ['/fcs/progress/production-orders', routeStaticChunks(context.bundle, [
+            '/src/pages/production-order-progress-tracking.ts',
+            ...returnReadInitialization,
+          ]), []],
+          ['/fcs/contracts/print', routeStaticChunks(context.bundle, [
+            '/src/pages/production-contract-print.ts',
+            ...returnReadInitialization,
+          ]), ['/fcs/contracts/template/production-contract-master-1.png', '/fcs/contracts/template/production-contract-master-2.png']],
+          ['/fcs/craft/post-finishing/wait-process-warehouse', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/post-finishing/warehouse.ts',
+            ...returnReadInitialization,
+          ]), []],
+          ['/fcs/pda/post-finishing/return-confirm', routeStaticChunks(context.bundle, [
+            '/src/pages/pda-post-finishing-flow.ts',
+            ...returnReadInitialization,
+          ]), ['/materials/pcs-reviewed/jacket-black.jpg', '/materials/pcs-reviewed/jacket-white.jpg',
+            '/materials/pcs-reviewed/jacket-blue.jpg', '/materials/pcs-reviewed/jacket-khaki.jpg', '/materials/pcs-reviewed/jacket-wine.jpg']],
+          ['/fcs/pda/exec/', routeStaticChunks(context.bundle, [
+            '/src/pages/pda-exec-detail.ts',
+            ...returnReadInitialization,
+          ]), [], true],
           ['/fcs/pda/auth/login', routeStaticChunks(context.bundle, ['/src/pages/pda-login.ts']), []],
           ['/pms/purchase-suggestions', routeStaticChunks(context.bundle, ['/src/pages/pms/purchase-suggestions.ts']), [
             '/thumbnails/tshirt-sample.webp', '/thumbnails/pants-sample.webp',
@@ -153,7 +174,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
         ]
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `for(var entry of ${JSON.stringify(entries)}){if(location.pathname===entry[0]){entry[1].forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';link.href=src;document.head.appendChild(link)});break}}` }]
+          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);if((entry[3]!==true&&location.pathname===entry[0])||genericExec){entry[1].forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';link.href=src;document.head.appendChild(link)});break}}` }]
       },
     },
   }
