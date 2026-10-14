@@ -1,0 +1,101 @@
+import { chromium } from '@playwright/test';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+const cwd=process.cwd(), out=path.join(cwd,'output/playwright/pms-compact-toolbar-20261014/after');
+await fs.mkdir(out,{recursive:true});
+const routes=["/pms/purchase-suggestions","/pms/kol-demands","/pms/product-purchase-orders","/pms/reorder","/pms/product-purchase-order-aftersales","/pms/material-requirements","/pms/material-purchase-orders","/pms/material-purchase-tracking","/pms/fitting-timeliness","/pms/material-supplier-confirmations","/pms/first-leg-shipments","/pms/first-leg-carriers","/pms/kol-sample-stock","/pms/kol-sample-stock/lock-log","/pms/kol-sample-apply","/pms/kol-sample-link","/pms/suppliers","/pms/supplier-supply-archives","/pms/material-payment-requests","/pms/logistics-payment-requests","/pms/material-inventory"];
+const browser=await chromium.launch({headless:true});
+const context=await browser.newContext({viewport:{width:1280,height:720},timezoneId:'Asia/Shanghai'});
+const page=await context.newPage(), errors=[], geometry=[], performanceSamples=[], actions=[];
+page.on('pageerror',e=>errors.push(String(e)));
+async function ready() {
+ await page.locator('[data-standard-list-table-section] > header').waitFor({state:'visible'});
+ return page.evaluate(async()=>{
+  await document.fonts.ready;
+  const imgs=[...document.querySelectorAll('[data-standard-list-table-section] img')];
+  await Promise.all(imgs.map(img=>img.decode().catch(()=>{})));
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  return {imageCount:imgs.length,failedImages:imgs.filter(x=>!x.naturalWidth).map(x=>x.currentSrc)};
+ });
+}
+function measureHeader(el) {
+ const rect=x=>{const r=x.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right}};
+ const visible=x=>x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden'&&(!x.closest('details:not([open])')||x.tagName==='SUMMARY');
+ const h=rect(el),title=rect(el.querySelector('h2'));
+ const controls=[...el.querySelectorAll('button,summary,select')].filter(visible).map(x=>({text:x.getAttribute('aria-label')||x.textContent.trim(),...rect(x),fontSize:getComputedStyle(x).fontSize}));
+ const ys=[...new Set(controls.map(x=>Math.round(x.y)))], col=controls.find(x=>x.text==='列设置');
+ return {title:el.querySelector('h2')?.textContent.trim(),header:h,controls,rows:ys.length,bodyOverflow:document.documentElement.scrollWidth>innerWidth+1,rightOverflow:controls.some(x=>x.right>h.right+1),titleAndColumnSameLine:!!col&&Math.abs(title.y+title.height/2-col.y-col.height/2)<2};
+}
+for(const route of routes){
+ await page.goto('http://127.0.0.1:43965'+route);
+ const images=await ready();
+ const header=page.locator('[data-standard-list-table-section] > header');
+ for(const width of [1366,1280]){
+  await page.setViewportSize({width,height:width===1366?768:720});
+  await header.scrollIntoViewIfNeeded();await ready();
+  const data=await header.evaluate(measureHeader);
+  geometry.push({route,width,...images,...data});
+  await header.screenshot({path:path.join(out,route.replaceAll('/','_')+'-'+width+'.png')});
+ }
+ await header.getByRole('button',{name:'列设置',exact:true}).click();
+ const drawerTitle=page.locator('h2').filter({hasText:/列设置$/});
+ await drawerTitle.waitFor({state:'visible',timeout:5000});
+ await page.getByRole('button',{name:'关闭',exact:true}).last().click();
+ await drawerTitle.waitFor({state:'hidden',timeout:5000});
+ actions.push({route,action:'列设置打开和关闭',passed:true});
+}
+for(const route of routes){
+ for(let i=0;i<5;i++){
+  const start=performance.now();
+  await page.goto('http://127.0.0.1:43965'+route);
+  const images=await ready();
+  const ms=performance.now()-start;
+  performanceSamples.push({route,sample:i+1,kind:'已完成逐页功能核验后的缓存内导航',ms,...images});
+ }
+}
+await page.goto('http://127.0.0.1:43965/pms/material-purchase-orders');await ready();
+const header=page.locator('[data-standard-list-table-section] > header');
+await header.getByRole('button',{name:'批量设置采购员',exact:true}).click();
+await page.getByText('选择要操作的采购单',{exact:true}).waitFor();
+actions.push({route:'/pms/material-purchase-orders',action:'缩短按钮仍阻止未选记录',passed:true});
+const row=page.locator('[data-standard-list-table-section] tbody tr').first();
+await row.getByRole('button',{name:'更多操作',exact:true}).click();
+await page.getByRole('button',{name:'打印明细',exact:true}).click();
+await page.getByRole('dialog',{name:'采购单条码列表',exact:true}).waitFor();
+const child=page.locator('.pms-compact-toolbar');await child.scrollIntoViewIfNeeded();
+const childResult=await child.evaluate(el=>{
+ const r=el.getBoundingClientRect(), buttons=[...el.querySelectorAll('button')].map(x=>{const b=x.getBoundingClientRect();return {text:x.textContent.trim(),x:b.x,y:b.y,height:b.height,right:b.right}});
+ return {headerHeight:r.height,rows:new Set(buttons.map(x=>Math.round(x.y))).size,rightOverflow:buttons.some(x=>x.right>r.right+1),buttons};
+});
+await child.screenshot({path:path.join(out,'barcode-toolbar-1280.png')});
+actions.push({route:'/pms/material-purchase-orders',action:'条码子页工具栏',passed:childResult.rows===1&&!childResult.rightOverflow,...childResult});
+await page.getByRole('dialog',{name:'采购单条码列表',exact:true}).getByRole('button',{name:'关闭',exact:true}).click();
+for(const width of [1366,1280]){
+ await page.setViewportSize({width,height:width===1366?768:720});
+ await page.screenshot({path:path.join(out,'material-purchase-orders-full-'+width+'.png')});
+}
+await page.goto('http://127.0.0.1:43965/pms/product-purchase-orders');await ready();
+await page.locator('[data-standard-list-table-section] > header summary').click();
+const menu=page.locator('[data-standard-list-table-section] > header details[open]>div');
+await menu.waitFor();
+actions.push({route:'/pms/product-purchase-orders',action:'原有批量菜单展开',passed:await menu.isVisible(),buttonCount:await menu.getByRole('button').count()});
+await page.screenshot({path:path.join(out,'product-bulk-menu-1280.png')});
+await page.goto('http://127.0.0.1:43965/fcs/craft/dyeing/work-orders');
+await page.locator('[data-standard-list-table-section] > header').waitFor();
+const other=await page.locator('[data-standard-list-table-section] > header').evaluate(el=>({headerHeight:el.getBoundingClientRect().height,compactScope:!!el.closest('.pms-compact-list'),controls:[...el.querySelectorAll('button')].map(x=>({text:x.textContent.trim(),height:x.getBoundingClientRect().height}))}));
+actions.push({route:'/fcs/craft/dyeing/work-orders',action:'非采购页面不受紧凑样式影响',passed:!other.compactScope&&other.controls.some(x=>x.height===36),...other});
+const assets=await page.evaluate(()=>performance.getEntriesByType('resource').map(x=>x.name).filter(x=>/\/assets\/.+\.(js|css)$/.test(x)));
+const assetProof=[];
+for(const url of [...new Set(assets)]){
+ const buf=await(await context.request.get(url)).body(), rel=new URL(url).pathname.slice(1), disk=await fs.readFile(path.join(cwd,'dist',rel));
+ const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+ assetProof.push({url,sha256:hash(buf),diskSha256:hash(disk),equal:hash(buf)===hash(disk)});
+}
+const sourceFiles=Object.keys(JSON.parse(await fs.readFile(path.join(cwd,'output/playwright/pms-compact-toolbar-20261014/before-sources.json'),'utf8')));
+const sourceHashes=Object.fromEntries(await Promise.all(sourceFiles.map(async x=>[x,crypto.createHash('sha256').update(await fs.readFile(x)).digest('hex')])));
+const result={environment:{url:'http://127.0.0.1:43965',cwd,browser:await browser.version(),timezone:'Asia/Shanghai',time:new Date().toISOString(),data:'隔离浏览器固定演示记录；本轮无业务提交；缓存内导航在42个功能样本之后采样。'},geometry,performanceSamples,actions,errors,assetProof,sourceHashes};
+await fs.writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));
+await fs.writeFile(path.join(out,'page-performance.json'),JSON.stringify(performanceSamples,null,2));
+console.log(JSON.stringify({geometry:geometry.length,layoutFailures:geometry.filter(x=>x.rows!==1||x.bodyOverflow||x.rightOverflow||!x.titleAndColumnSameLine),performanceSamples:performanceSamples.length,maxMs:Math.max(...performanceSamples.map(x=>x.ms)),slow:performanceSamples.filter(x=>x.ms>1000),failedImages:geometry.filter(x=>x.failedImages.length),actionFailures:actions.filter(x=>!x.passed),errors,assetsMatched:assetProof.every(x=>x.equal)}));
+await browser.close();

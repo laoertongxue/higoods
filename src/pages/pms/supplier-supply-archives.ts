@@ -276,7 +276,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '供应商供货档案',
     primaryActionsHtml: renderPrimaryButton('新增供货档案',{prefix:EVENT_PREFIX,action:'open-new'},'plus') + renderSecondaryButton('导入',{prefix:EVENT_PREFIX,action:'open-import'},'upload'),

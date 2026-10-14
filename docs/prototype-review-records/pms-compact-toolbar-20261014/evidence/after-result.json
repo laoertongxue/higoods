@@ -1,0 +1,3523 @@
+{
+  "environment": {
+    "url": "http://127.0.0.1:43965",
+    "cwd": "/Users/laoer/.codex/worktrees/7eaf/higoods",
+    "browser": "149.0.7827.55",
+    "timezone": "Asia/Shanghai",
+    "time": "2026-10-14T10:50:42.671Z",
+    "data": "隔离浏览器固定演示记录；本轮无业务提交；缓存内导航在42个功能样本之后采样。"
+  },
+  "geometry": [
+    {
+      "route": "/pms/purchase-suggestions",
+      "width": 1366,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 8 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "生成采购单",
+          "x": 1152,
+          "y": 416,
+          "width": 90,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/purchase-suggestions",
+      "width": 1280,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 8 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "生成采购单",
+          "x": 1066,
+          "y": 416,
+          "width": 90,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-demands",
+      "width": 1366,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量驳回",
+          "x": 891,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 971,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量入库",
+          "x": 974,
+          "y": 416,
+          "width": 78,
+          "height": 28,
+          "right": 1052,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量审核通过",
+          "x": 1055,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1159,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量备注",
+          "x": 1162,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-demands",
+      "width": 1280,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量驳回",
+          "x": 805,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 885,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量入库",
+          "x": 888,
+          "y": 416,
+          "width": 78,
+          "height": 28,
+          "right": 966,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量审核通过",
+          "x": 969,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1073,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量备注",
+          "x": 1076,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 436,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量操作",
+          "x": 1167.296875,
+          "y": 444,
+          "width": 74.703125,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 444,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 436,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量操作",
+          "x": 1081.296875,
+          "y": 444,
+          "width": 74.703125,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 444,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/reorder",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/reorder",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 11 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量开始售后",
+          "x": 924,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1028,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量同意退货",
+          "x": 1031,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1135,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量更新状态",
+          "x": 1138,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 11 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量开始售后",
+          "x": 838,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 942,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量同意退货",
+          "x": 945,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1049,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量更新状态",
+          "x": 1052,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-requirements",
+      "width": 1366,
+      "imageCount": 2,
+      "failedImages": [],
+      "title": "共 3 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量需求操作",
+          "x": 343.15625,
+          "y": 416,
+          "width": 134,
+          "height": 28,
+          "right": 477.15625,
+          "fontSize": "12px"
+        },
+        {
+          "text": "上传实际采购数量",
+          "x": 900,
+          "y": 416,
+          "width": 128,
+          "height": 28,
+          "right": 1028,
+          "fontSize": "12px"
+        },
+        {
+          "text": "上传入库数量",
+          "x": 1031,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1135,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量填写物流",
+          "x": 1138,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-requirements",
+      "width": 1280,
+      "imageCount": 2,
+      "failedImages": [],
+      "title": "共 3 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量需求操作",
+          "x": 343.15625,
+          "y": 416,
+          "width": 134,
+          "height": 28,
+          "right": 477.15625,
+          "fontSize": "12px"
+        },
+        {
+          "text": "上传实际采购数量",
+          "x": 814,
+          "y": 416,
+          "width": 128,
+          "height": 28,
+          "right": 942,
+          "fontSize": "12px"
+        },
+        {
+          "text": "上传入库数量",
+          "x": 945,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1049,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量填写物流",
+          "x": 1052,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "width": 1366,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 8 条",
+      "header": {
+        "x": 281,
+        "y": 410,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量设置采购员",
+          "x": 551,
+          "y": 418,
+          "width": 50,
+          "height": 28,
+          "right": 601,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量驳回",
+          "x": 604,
+          "y": 418,
+          "width": 38,
+          "height": 28,
+          "right": 642,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量采购备注",
+          "x": 645,
+          "y": 418,
+          "width": 62,
+          "height": 28,
+          "right": 707,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量设置采购区域",
+          "x": 710,
+          "y": 418,
+          "width": 62,
+          "height": 28,
+          "right": 772,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量设置面辅料供应商",
+          "x": 775,
+          "y": 418,
+          "width": 50,
+          "height": 28,
+          "right": 825,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量添加快递",
+          "x": 828,
+          "y": 418,
+          "width": 62,
+          "height": 28,
+          "right": 890,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量补录快递",
+          "x": 893,
+          "y": 418,
+          "width": 62,
+          "height": 28,
+          "right": 955,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量确认实际采购价",
+          "x": 958,
+          "y": 418,
+          "width": 74,
+          "height": 28,
+          "right": 1032,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量设置为已下单",
+          "x": 1035,
+          "y": 418,
+          "width": 74,
+          "height": 28,
+          "right": 1109,
+          "fontSize": "12px"
+        },
+        {
+          "text": "运单批量入库",
+          "x": 1112,
+          "y": 418,
+          "width": 62,
+          "height": 28,
+          "right": 1174,
+          "fontSize": "12px"
+        },
+        {
+          "text": "修改物流信息",
+          "x": 1177,
+          "y": 418,
+          "width": 62,
+          "height": 28,
+          "right": 1239,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 418,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "width": 1280,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 8 条",
+      "header": {
+        "x": 281,
+        "y": 424,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量设置采购员",
+          "x": 465,
+          "y": 432,
+          "width": 50,
+          "height": 28,
+          "right": 515,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量驳回",
+          "x": 518,
+          "y": 432,
+          "width": 38,
+          "height": 28,
+          "right": 556,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量采购备注",
+          "x": 559,
+          "y": 432,
+          "width": 62,
+          "height": 28,
+          "right": 621,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量设置采购区域",
+          "x": 624,
+          "y": 432,
+          "width": 62,
+          "height": 28,
+          "right": 686,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量设置面辅料供应商",
+          "x": 689,
+          "y": 432,
+          "width": 50,
+          "height": 28,
+          "right": 739,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量添加快递",
+          "x": 742,
+          "y": 432,
+          "width": 62,
+          "height": 28,
+          "right": 804,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量补录快递",
+          "x": 807,
+          "y": 432,
+          "width": 62,
+          "height": 28,
+          "right": 869,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量确认实际采购价",
+          "x": 872,
+          "y": 432,
+          "width": 74,
+          "height": 28,
+          "right": 946,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量设置为已下单",
+          "x": 949,
+          "y": 432,
+          "width": 74,
+          "height": 28,
+          "right": 1023,
+          "fontSize": "12px"
+        },
+        {
+          "text": "运单批量入库",
+          "x": 1026,
+          "y": 432,
+          "width": 62,
+          "height": 28,
+          "right": 1088,
+          "fontSize": "12px"
+        },
+        {
+          "text": "修改物流信息",
+          "x": 1091,
+          "y": 432,
+          "width": 62,
+          "height": 28,
+          "right": 1153,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 432,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量签收（国内）",
+          "x": 1033,
+          "y": 416,
+          "width": 128,
+          "height": 28,
+          "right": 1161,
+          "fontSize": "12px"
+        },
+        {
+          "text": "加入头程",
+          "x": 1164,
+          "y": 416,
+          "width": 78,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量签收（国内）",
+          "x": 947,
+          "y": 416,
+          "width": 128,
+          "height": 28,
+          "right": 1075,
+          "fontSize": "12px"
+        },
+        {
+          "text": "加入头程",
+          "x": 1078,
+          "y": 416,
+          "width": 78,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 13 条面辅料采购时效记录",
+      "header": {
+        "x": 281,
+        "y": 536,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 544,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 13 条面辅料采购时效记录",
+      "header": {
+        "x": 281,
+        "y": 536,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 544,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "全选本页",
+          "x": 972,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1052,
+          "fontSize": "12px"
+        },
+        {
+          "text": "清空选择",
+          "x": 1055,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1135,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量打印标签",
+          "x": 1138,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "全选本页",
+          "x": 886,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 966,
+          "fontSize": "12px"
+        },
+        {
+          "text": "清空选择",
+          "x": 969,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1049,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量打印标签",
+          "x": 1052,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "批量装柜",
+          "x": 1055,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1135,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量确认出运",
+          "x": 1138,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1242,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "批量装柜",
+          "x": 969,
+          "y": 416,
+          "width": 80,
+          "height": 28,
+          "right": 1049,
+          "fontSize": "12px"
+        },
+        {
+          "text": "批量确认出运",
+          "x": 1052,
+          "y": 416,
+          "width": 104,
+          "height": 28,
+          "right": 1156,
+          "fontSize": "12px"
+        },
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 20 条",
+      "header": {
+        "x": 281,
+        "y": 474,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 482,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 20 条",
+      "header": {
+        "x": 281,
+        "y": 474,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 482,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 14 条锁定操作记录",
+      "header": {
+        "x": 281,
+        "y": 476,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 484,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 14 条锁定操作记录",
+      "header": {
+        "x": 281,
+        "y": 476,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 484,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "width": 1366,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 6 条手动寄样申请",
+      "header": {
+        "x": 281,
+        "y": 482,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 490,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "width": 1280,
+      "imageCount": 5,
+      "failedImages": [],
+      "title": "共 6 条手动寄样申请",
+      "header": {
+        "x": 281,
+        "y": 482,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 490,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条对外样品池链接",
+      "header": {
+        "x": 281,
+        "y": 476,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 484,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条对外样品池链接",
+      "header": {
+        "x": 281,
+        "y": 476,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 484,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/suppliers",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 13 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/suppliers",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 13 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "width": 1366,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "width": 1280,
+      "imageCount": 0,
+      "failedImages": [],
+      "title": "共 6 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-inventory",
+      "width": 1366,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 1044,
+        "height": 45,
+        "right": 1325
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1245,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1313,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    },
+    {
+      "route": "/pms/material-inventory",
+      "width": 1280,
+      "imageCount": 10,
+      "failedImages": [],
+      "title": "共 12 条",
+      "header": {
+        "x": 281,
+        "y": 408,
+        "width": 958,
+        "height": 45,
+        "right": 1239
+      },
+      "controls": [
+        {
+          "text": "列设置",
+          "x": 1159,
+          "y": 416,
+          "width": 68,
+          "height": 28,
+          "right": 1227,
+          "fontSize": "12px"
+        }
+      ],
+      "rows": 1,
+      "bodyOverflow": false,
+      "rightOverflow": false,
+      "titleAndColumnSameLine": true
+    }
+  ],
+  "performanceSamples": [
+    {
+      "route": "/pms/purchase-suggestions",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 346.1610419999997,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/purchase-suggestions",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 335.03991700000006,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/purchase-suggestions",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 448.3455409999988,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/purchase-suggestions",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 349.9621670000015,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/purchase-suggestions",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 349.9358749999992,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-demands",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.8141660000001,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-demands",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.6353330000002,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-demands",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.63437499999964,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-demands",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.6664579999997,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-demands",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.65712500000154,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 349.9047500000015,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.70245799999975,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.69425000000047,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.60604199999943,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.86595899999884,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/reorder",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 466.41300000000047,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/reorder",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 466.6665410000023,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/reorder",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 466.7205419999991,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/reorder",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 631.3794579999994,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/reorder",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 585.4447919999984,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.41925000000265,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.71529100000043,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.73645899999974,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.5151250000017,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 366.69312499999796,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-requirements",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.8780000000006,
+      "imageCount": 2,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-requirements",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 265.9262920000001,
+      "imageCount": 2,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-requirements",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 267.21908299999996,
+      "imageCount": 2,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-requirements",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.93154199999844,
+      "imageCount": 2,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-requirements",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 283.398416,
+      "imageCount": 2,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 234.2253750000018,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 132.23162500000035,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.14025000000038,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 132.77716699999655,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.78016600000046,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.80841700000019,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 150.109666999997,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.2120419999992,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.24883300000147,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.72595800000272,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 167.6618329999983,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 132.3110409999972,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.63120900000285,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.63550000000032,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.53308300000208,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.34291600000142,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 233.30962499999805,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.4563330000019,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.67558300000019,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.72762499999953,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 250.4690410000003,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 282.75208300000304,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 267.7930000000015,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 265.859457999999,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 266.36312499999985,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.38637499999822,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 183.28262499999983,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.3624579999996,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.37895800000115,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.43808300000092,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 143.21641699999964,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 156.63695799999914,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.73062500000015,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.61200000000099,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.7844589999986,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 150.08870899999965,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 149.74183400000038,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 150.12083300000086,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 149.75104199999987,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 150.21570800000336,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.74925000000076,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.68191699999807,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.3548750000009,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.1768340000017,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.835959,
+      "imageCount": 5,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.53658400000131,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.38737500000207,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.73708299999998,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.49083299999984,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.65408300000126,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/suppliers",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 66.56583300000057,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/suppliers",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 66.66770800000086,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/suppliers",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 66.67262499999924,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/suppliers",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 66.2001670000027,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/suppliers",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 67.2877499999995,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 233.3227909999987,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 233.1645000000026,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.44120799999655,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 233.42841699999553,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.43391600000177,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.39104100000259,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.66679099999601,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.55762500000128,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.76466699999582,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.73174999999901,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 115.66912500000035,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 117.84779100000014,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.0783750000046,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.57233300000371,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.88025000000198,
+      "imageCount": 0,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-inventory",
+      "sample": 1,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.4341659999991,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-inventory",
+      "sample": 2,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 116.591290999997,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-inventory",
+      "sample": 3,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 133.1895829999994,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-inventory",
+      "sample": 4,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 134.1700420000052,
+      "imageCount": 10,
+      "failedImages": []
+    },
+    {
+      "route": "/pms/material-inventory",
+      "sample": 5,
+      "kind": "已完成逐页功能核验后的缓存内导航",
+      "ms": 232.5233750000043,
+      "imageCount": 10,
+      "failedImages": []
+    }
+  ],
+  "actions": [
+    {
+      "route": "/pms/purchase-suggestions",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/kol-demands",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/reorder",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/product-purchase-order-aftersales",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-requirements",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-purchase-tracking",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/fitting-timeliness",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-supplier-confirmations",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/first-leg-shipments",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/first-leg-carriers",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/kol-sample-stock",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/kol-sample-stock/lock-log",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/kol-sample-apply",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/kol-sample-link",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/suppliers",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/supplier-supply-archives",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-payment-requests",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/logistics-payment-requests",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-inventory",
+      "action": "列设置打开和关闭",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "action": "缩短按钮仍阻止未选记录",
+      "passed": true
+    },
+    {
+      "route": "/pms/material-purchase-orders",
+      "action": "条码子页工具栏",
+      "passed": true,
+      "headerHeight": 57,
+      "rows": 1,
+      "rightOverflow": false,
+      "buttons": [
+        {
+          "text": "批量修改",
+          "x": 728,
+          "y": 496,
+          "height": 28,
+          "right": 790
+        },
+        {
+          "text": "补充条码",
+          "x": 793,
+          "y": 496,
+          "height": 28,
+          "right": 873
+        },
+        {
+          "text": "导入细码",
+          "x": 876,
+          "y": 496,
+          "height": 28,
+          "right": 956
+        },
+        {
+          "text": "批量删除",
+          "x": 959,
+          "y": 496,
+          "height": 28,
+          "right": 1039
+        },
+        {
+          "text": "下架到待出库区",
+          "x": 1042,
+          "y": 496,
+          "height": 28,
+          "right": 1140
+        },
+        {
+          "text": "批量打印预览",
+          "x": 1143,
+          "y": 496,
+          "height": 28,
+          "right": 1247
+        }
+      ]
+    },
+    {
+      "route": "/pms/product-purchase-orders",
+      "action": "原有批量菜单展开",
+      "passed": true,
+      "buttonCount": 11
+    },
+    {
+      "route": "/fcs/craft/dyeing/work-orders",
+      "action": "非采购页面不受紧凑样式影响",
+      "passed": true,
+      "headerHeight": 61,
+      "compactScope": false,
+      "controls": [
+        {
+          "text": "批量打印流程卡（0）",
+          "height": 36
+        },
+        {
+          "text": "列设置",
+          "height": 36
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "assetProof": [
+    {
+      "url": "http://127.0.0.1:43965/assets/tmf-domain-shared-CsnEeaO8.js",
+      "sha256": "244726ed87d721f953e81f1fc443cb87853f782359d69f9ac0253daea36807e2",
+      "diskSha256": "244726ed87d721f953e81f1fc443cb87853f782359d69f9ac0253daea36807e2",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/index-Bv29wb9V.js",
+      "sha256": "0b788fee1c7ec807db1951ef7ce708bcf7cd02250cdda90994fac6ce8ea4c1f9",
+      "diskSha256": "0b788fee1c7ec807db1951ef7ce708bcf7cd02250cdda90994fac6ce8ea4c1f9",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/app-shared-z-ASswDF.js",
+      "sha256": "e246221295ec984e3f4950d0d4b43cf479de558277fceff1ff098a0f9a9685a8",
+      "diskSha256": "e246221295ec984e3f4950d0d4b43cf479de558277fceff1ff098a0f9a9685a8",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/index-BcxMV9rL.css",
+      "sha256": "bc682cf9f4e9ad119ef816360968eed1674f60472b11e802872241eac750009d",
+      "diskSha256": "bc682cf9f4e9ad119ef816360968eed1674f60472b11e802872241eac750009d",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/first-leg-logistics-ChOiKUAv.js",
+      "sha256": "7f102360979ca03877b20f293eebaa04482e216d22b0c206361cfdfc48cef8d4",
+      "diskSha256": "7f102360979ca03877b20f293eebaa04482e216d22b0c206361cfdfc48cef8d4",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/material-requirements-rSGE2g8V.js",
+      "sha256": "acc361b496c72dd484e4a484225847278c1ea9fd9a0cefc0e22d785eb65700d6",
+      "diskSha256": "acc361b496c72dd484e4a484225847278c1ea9fd9a0cefc0e22d785eb65700d6",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/canonical-purchase-references-DpNIo4gF.js",
+      "sha256": "590e5011c941b3decb2591840658ef3bc8649c09f004eff0b80ef8f98597cc66",
+      "diskSha256": "590e5011c941b3decb2591840658ef3bc8649c09f004eff0b80ef8f98597cc66",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-record-core--attDaL_.js",
+      "sha256": "be197c7b12e62292c3aac7ad20d051a2373b7fef50f6b55ce37385915d48f3a6",
+      "diskSha256": "be197c7b12e62292c3aac7ad20d051a2373b7fef50f6b55ce37385915d48f3a6",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-tech-pack-bootstrap-Cxw44ufA.js",
+      "sha256": "1ffd06f32683c28cfd8bfa7e035c23dab92580eca9368ad6e77db613d4a3f106",
+      "diskSha256": "1ffd06f32683c28cfd8bfa7e035c23dab92580eca9368ad6e77db613d4a3f106",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-tech-pack-review-CLP_Ta8l.js",
+      "sha256": "2b7bdc3ad19ff7538936a2b452adeb751b79293c4041962db2e5357d8c82ac80",
+      "diskSha256": "2b7bdc3ad19ff7538936a2b452adeb751b79293c4041962db2e5357d8c82ac80",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-config-workspace-repository-DOUp6fG2.js",
+      "sha256": "c945ff559d28e1f030c4df4e0160b7dbc17df792ef40514cd63acd29ae5c922b",
+      "diskSha256": "c945ff559d28e1f030c4df4e0160b7dbc17df792ef40514cd63acd29ae5c922b",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-tech-pack-review-notification-repository-C915pCRT.js",
+      "sha256": "7cc6257b2eaba241a6c7a36cb047f5ffda896936122a8458f20cc190fdaaec37",
+      "diskSha256": "7cc6257b2eaba241a6c7a36cb047f5ffda896936122a8458f20cc190fdaaec37",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-pattern-library-lSDcc93b.js",
+      "sha256": "13d5587d12b1f5b219c5291b79fb59222db5dd548c3a093612d58f00cc3b81af",
+      "diskSha256": "13d5587d12b1f5b219c5291b79fb59222db5dd548c3a093612d58f00cc3b81af",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-tech-pack-version-log-repository-BcQ81ymf.js",
+      "sha256": "4f5ee2a01816cc79c353140faf4b0b937ddd8c0493f41798b4198dce3c618da6",
+      "diskSha256": "4f5ee2a01816cc79c353140faf4b0b937ddd8c0493f41798b4198dce3c618da6",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/los-live-room-master-BMAOWnFu.js",
+      "sha256": "3bf0d74573c13c93a460e856ecd14f5db84aa5c64692a6cbc4f9d4f3985577b8",
+      "diskSha256": "3bf0d74573c13c93a460e856ecd14f5db84aa5c64692a6cbc4f9d4f3985577b8",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/cutting-record-identity-CtTd0WGy.js",
+      "sha256": "84690cf2676fb5beb306fbe97426d108fcfb04c371cb3dbcb13e6c284847f7a8",
+      "diskSha256": "84690cf2676fb5beb306fbe97426d108fcfb04c371cb3dbcb13e6c284847f7a8",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/cutting-record-repository-kI1Ea7FB.js",
+      "sha256": "2127df7bb86523cea47ec8e007c4635950977415cca949d6fa4823e06901c3b8",
+      "diskSha256": "2127df7bb86523cea47ec8e007c4635950977415cca949d6fa4823e06901c3b8",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-context-records-DGqRmijE.js",
+      "sha256": "acdfd59709a7e76b738b300216410f441552504aff2b894a1b46a42b47836041",
+      "diskSha256": "acdfd59709a7e76b738b300216410f441552504aff2b894a1b46a42b47836041",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/shared-seed-CGi2rQR7.js",
+      "sha256": "c2ee6fb0595631b5b1bd2c64a63f6dbc86a560ee7f7bd644dd990e2a46e87b07",
+      "diskSha256": "c2ee6fb0595631b5b1bd2c64a63f6dbc86a560ee7f7bd644dd990e2a46e87b07",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-engineering-bom-snapshot-source-Ds7ud7QL.js",
+      "sha256": "588912c4669248a27080d9c9985ed7e061a39cc1829f3ac5cbd53dca73d3b0c4",
+      "diskSha256": "588912c4669248a27080d9c9985ed7e061a39cc1829f3ac5cbd53dca73d3b0c4",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-part-template-library-DuWIg8ZB.js",
+      "sha256": "896b0c49e4b6ab68f03010688cc55d6753e61a35e385362529b1cba0a7007879",
+      "diskSha256": "896b0c49e4b6ab68f03010688cc55d6753e61a35e385362529b1cba0a7007879",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/fabric-demand-board-BFQEDyyz.js",
+      "sha256": "7d08459cb1234ff672127b61522fae36b409ff968a86e4146a6ca7047f5d1e8d",
+      "diskSha256": "7d08459cb1234ff672127b61522fae36b409ff968a86e4146a6ca7047f5d1e8d",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/raw-seed-ZTASzgRs.js",
+      "sha256": "ba683320e67e105f6957c2319a116121b97df56bf4a37267f936367c7a9b59e5",
+      "diskSha256": "ba683320e67e105f6957c2319a116121b97df56bf4a37267f936367c7a9b59e5",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/idb-storage-BK6PtbH8.js",
+      "sha256": "32b93d13d7e7010da2dca63b6cd47061f633c38cbf4ea777cb0efb7dd826dc08",
+      "diskSha256": "32b93d13d7e7010da2dca63b6cd47061f633c38cbf4ea777cb0efb7dd826dc08",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/kol-sample-stock-lock-log-sk7Vpwcw.js",
+      "sha256": "2c1a6cc6a7934f6af7446336a870299aea188c452c212049c80b0fb7876abaa6",
+      "diskSha256": "2c1a6cc6a7934f6af7446336a870299aea188c452c212049c80b0fb7876abaa6",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/suppliers-oZXypUNi.js",
+      "sha256": "08104a64e5011dc520d24713b78988ad5275607f336c5945252efcabc47e2ed9",
+      "diskSha256": "08104a64e5011dc520d24713b78988ad5275607f336c5945252efcabc47e2ed9",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pms-business-number-y_Q1IIYb.js",
+      "sha256": "b903797c4aaf1bf9279d99f1073da3d12241a5f8e4776882790983ef6d35fa70",
+      "diskSha256": "b903797c4aaf1bf9279d99f1073da3d12241a5f8e4776882790983ef6d35fa70",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/payment-requests-BG18IzcV.js",
+      "sha256": "3555770455044cbcc3f8b57d8aa1dceac75accb157cfd5931d65970ba540a8dc",
+      "diskSha256": "3555770455044cbcc3f8b57d8aa1dceac75accb157cfd5931d65970ba540a8dc",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/tmf-material-purchases-CoXLPJqG.js",
+      "sha256": "3f6f7b9396b3986d57aa134a54eece5142f3b2f2633481cff2c5a821ad63d7cc",
+      "diskSha256": "3f6f7b9396b3986d57aa134a54eece5142f3b2f2633481cff2c5a821ad63d7cc",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/reconciliations-B7EetKRm.js",
+      "sha256": "0ae5ffb47459f26cd35f2d0d1ae97f1fde3590c8611f4a62ab31c8d187663989",
+      "diskSha256": "0ae5ffb47459f26cd35f2d0d1ae97f1fde3590c8611f4a62ab31c8d187663989",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/supplier-confirmations-CWRJeb4N.js",
+      "sha256": "836b619efdc0f5428499a276ea7bb197c170e5162c1195aaf78adb5e08d578c7",
+      "diskSha256": "836b619efdc0f5428499a276ea7bb197c170e5162c1195aaf78adb5e08d578c7",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/purchase-suggestions-BeXldKJu.js",
+      "sha256": "9e7301fcb8f4bad9977831ed87da81feadc3c38f2b2baf8f51368d3e0bb40b19",
+      "diskSha256": "9e7301fcb8f4bad9977831ed87da81feadc3c38f2b2baf8f51368d3e0bb40b19",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/supplier-supply-archives-CfYbKieu.js",
+      "sha256": "323d5fce1b2f41a0a61f1a97afda070cd5adcaf6510d1c19747b05e658ecfef5",
+      "diskSha256": "323d5fce1b2f41a0a61f1a97afda070cd5adcaf6510d1c19747b05e658ecfef5",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pcs-record-bootstrap-Dtxu2AR1.js",
+      "sha256": "86f9faf8991e063f6bbcd9aec28a305238b0262fe72a3f9415a27c2a8def2bbe",
+      "diskSha256": "86f9faf8991e063f6bbcd9aec28a305238b0262fe72a3f9415a27c2a8def2bbe",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/design-revision-pcs-storage-D2ozVRMd.js",
+      "sha256": "73fff65125d4a52787853d707de657353cba68183e382597493cacae9472b531",
+      "diskSha256": "73fff65125d4a52787853d707de657353cba68183e382597493cacae9472b531",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/part-ticket-records-C_f7w2g9.js",
+      "sha256": "b4a7e989c45720154a71657ea6faa232e867d94ff504cbf7b8c30e5d3f512107",
+      "diskSha256": "b4a7e989c45720154a71657ea6faa232e867d94ff504cbf7b8c30e5d3f512107",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-context-actions-CWPcm48l.js",
+      "sha256": "be2fca24460326380ed4e7d2549affbc21d78f538cabc8cdd0d72a1720bcf252",
+      "diskSha256": "be2fca24460326380ed4e7d2549affbc21d78f538cabc8cdd0d72a1720bcf252",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/process-tasks-rfUgSPTx.js",
+      "sha256": "c9381d2e307387c477ca188023a89e1ad68ce930503c1ae45769239b71fd1247",
+      "diskSha256": "c9381d2e307387c477ca188023a89e1ad68ce930503c1ae45769239b71fd1247",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-orders-Dnju1kiN.js",
+      "sha256": "b2da3d440ce2fb641e618a95a2d68f320f315c4a87691eda05cc9243582af65b",
+      "diskSha256": "b2da3d440ce2fb641e618a95a2d68f320f315c4a87691eda05cc9243582af65b",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-order-tech-pack-runtime-CE47jiL2.js",
+      "sha256": "928056f0756cd1d5768eec10f979ff2310a75d9f15b2d273be7083abc184ab87",
+      "diskSha256": "928056f0756cd1d5768eec10f979ff2310a75d9f15b2d273be7083abc184ab87",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/post-finishing-records-DqwYmLvc.js",
+      "sha256": "59b5292c7be392940290a81189c6cd23902a4863e0b1eb6f45ff1c67f53acefd",
+      "diskSha256": "59b5292c7be392940290a81189c6cd23902a4863e0b1eb6f45ff1c67f53acefd",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/post-finishing-full-flow-CGgi-FCg.js",
+      "sha256": "f215951894cd316067e5047a4d121be1fbea15b3e09201b0386cb182f6886677",
+      "diskSha256": "f215951894cd316067e5047a4d121be1fbea15b3e09201b0386cb182f6886677",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/sewing-delivery-sla-C5d3SGHU.js",
+      "sha256": "8b812ed7565ce725de08644e5344f7076432945bdaebdf024d267ed9974d95be",
+      "diskSha256": "8b812ed7565ce725de08644e5344f7076432945bdaebdf024d267ed9974d95be",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/post-finishing-authorization-TUKBYQ5m.js",
+      "sha256": "bdcad4aff68ee30405bc08931e1e7fc67da4060923d928bec4c8bbc5e8bfac3f",
+      "diskSha256": "bdcad4aff68ee30405bc08931e1e7fc67da4060923d928bec4c8bbc5e8bfac3f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/runtime-task-read-bridge-B0U7pJHQ.js",
+      "sha256": "34805e145fcfebffd7e5c054d01bd87c6de6eb2f17ef3c6cb87446a8834e0c5d",
+      "diskSha256": "34805e145fcfebffd7e5c054d01bd87c6de6eb2f17ef3c6cb87446a8834e0c5d",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dispatch-acceptance-sla-C69UpTYa.js",
+      "sha256": "92f653dd5f17c838c0e7d475bb0e6eed5270312fa0a52be1872dba8d5be3ae72",
+      "diskSha256": "92f653dd5f17c838c0e7d475bb0e6eed5270312fa0a52be1872dba8d5be3ae72",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/factory-types-DbcizYGx.js",
+      "sha256": "ce4a793a4db35a9dee205ba882de044d4af3d7bf3ac826ea7ff467541a7adaaa",
+      "diskSha256": "ce4a793a4db35a9dee205ba882de044d4af3d7bf3ac826ea7ff467541a7adaaa",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-source-shared-Bj4b3XYm.js",
+      "sha256": "5bb87a741a8f18a0bbf30f2dac060524e510f6a724b98553cbf084d16667cde7",
+      "diskSha256": "5bb87a741a8f18a0bbf30f2dac060524e510f6a724b98553cbf084d16667cde7",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/sewing-outsourcing-responsibility-BY6qiUxb.js",
+      "sha256": "861c46d4a7c8efa07dab8ae522ec509043d87fcdd971365512daf01b7118fe02",
+      "diskSha256": "861c46d4a7c8efa07dab8ae522ec509043d87fcdd971365512daf01b7118fe02",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/third-party-factory-rating-Bwps_K4F.js",
+      "sha256": "932f84e2cb3662812bb0f39a64158c57f8876f2baccf586a71833237b24ffad7",
+      "diskSha256": "932f84e2cb3662812bb0f39a64158c57f8876f2baccf586a71833237b24ffad7",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/effective-task-assignments-Dj5FW57N.js",
+      "sha256": "731378097d8b542e20d0d610041802e7fea785cde9fdbae1ee0f201a9edbe49a",
+      "diskSha256": "731378097d8b542e20d0d610041802e7fea785cde9fdbae1ee0f201a9edbe49a",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/factory-receiving-WzCE93C5.js",
+      "sha256": "5093a2fede5f8894de356a8ec4ccd0a481985ef4b22eb13869197a01e4fd9fb0",
+      "diskSha256": "5093a2fede5f8894de356a8ec4ccd0a481985ef4b22eb13869197a01e4fd9fb0",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/cut-piece-release-Dd84PloF.js",
+      "sha256": "b6239de967800e414c27d438e8a46554c4cae2fab17f728ae737db6f19ba5812",
+      "diskSha256": "b6239de967800e414c27d438e8a46554c4cae2fab17f728ae737db6f19ba5812",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/store-domain-pda-DtM6oRYT.js",
+      "sha256": "d7bf9ae239a47da52af151db5d0f7f5e43209a6f8a5fa490e6dccb90b4b56197",
+      "diskSha256": "d7bf9ae239a47da52af151db5d0f7f5e43209a6f8a5fa490e6dccb90b4b56197",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/commands-DBafX8AT.js",
+      "sha256": "7fb172964b846706e639a7136aea3d8bd09dcc91abf83306749b42e7974f5e32",
+      "diskSha256": "7fb172964b846706e639a7136aea3d8bd09dcc91abf83306749b42e7974f5e32",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/special-craft-task-orders-f9lAazKh.js",
+      "sha256": "5db8b75517f0741f3f5584d9f55ad6d94cf3d5101258db0dbcaba4ae0cfc444f",
+      "diskSha256": "5db8b75517f0741f3f5584d9f55ad6d94cf3d5101258db0dbcaba4ae0cfc444f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/machine-associations-DPD1TaPF.js",
+      "sha256": "68110e7620f52bca83aa1b7dd893d1a7a0b4e94e3bb4a14aa59605e295ae6728",
+      "diskSha256": "68110e7620f52bca83aa1b7dd893d1a7a0b4e94e3bb4a14aa59605e295ae6728",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/cutting-runtime-event-ledger-BQAa_wJn.js",
+      "sha256": "73d0f7fe759abb8304146b8d4b10862520c8ff3d3f037a50f54dba10a417c8f2",
+      "diskSha256": "73d0f7fe759abb8304146b8d4b10862520c8ff3d3f037a50f54dba10a417c8f2",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/material-ledger-3PO6-nIl.js",
+      "sha256": "4f1e91f72a52a611903241200f77f95f5540dc9dbb1ee192fa73ca0dc27f238f",
+      "diskSha256": "4f1e91f72a52a611903241200f77f95f5540dc9dbb1ee192fa73ca0dc27f238f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "sha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b",
+      "diskSha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/mobile-jHAGB0_j.js",
+      "sha256": "7ef42d2c7e2e8c531448f97e70cc35623773fe329d0ee8fd35ccccbad5d33a4f",
+      "diskSha256": "7ef42d2c7e2e8c531448f97e70cc35623773fe329d0ee8fd35ccccbad5d33a4f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/tmf-process-continuation-B3hoPFRr.js",
+      "sha256": "113faba4c2c69e239cce4d2df80b3c2682eb9c1e1d703852b72064d17e713f1d",
+      "diskSha256": "113faba4c2c69e239cce4d2df80b3c2682eb9c1e1d703852b72064d17e713f1d",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/tmf-reference-images-6geKcU1B.js",
+      "sha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a",
+      "diskSha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/post-finishing-current-read-model-yGIYZAOT.js",
+      "sha256": "cb23e725bb5be7961119584d86335ef2652c55d3afc8863d3a7ca5a37f17b17a",
+      "diskSha256": "cb23e725bb5be7961119584d86335ef2652c55d3afc8863d3a7ca5a37f17b17a",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-tech-pack-change-domain-KHVnp0fr.js",
+      "sha256": "15edd937acee03c5a5f1fa20e2ae9643ecb64793ac5b66188d11ea400a2c411b",
+      "diskSha256": "15edd937acee03c5a5f1fa20e2ae9643ecb64793ac5b66188d11ea400a2c411b",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/cutting-task-routing-CdhKP5PH.js",
+      "sha256": "af1a866069dbe01d4225f92d0d07297bd814a89025b1babf5b4b2cb6b1dd4b42",
+      "diskSha256": "af1a866069dbe01d4225f92d0d07297bd814a89025b1babf5b4b2cb6b1dd4b42",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-return-fulfillment-MBwvCYAE.js",
+      "sha256": "1e10a8cf399041bd794b412b14e394023c2a8fa9155a7c1822a2ccd9d258f614",
+      "diskSha256": "1e10a8cf399041bd794b412b14e394023c2a8fa9155a7c1822a2ccd9d258f614",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-contracts-ssakTS_W.js",
+      "sha256": "cc136e9f529cb0e2da1166e3e08eed038e04524d83dce4425976483c141d0854",
+      "diskSha256": "cc136e9f529cb0e2da1166e3e08eed038e04524d83dce4425976483c141d0854",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/generated-cut-orders-CHr1u-AW.js",
+      "sha256": "becb6df55e62acb2621b80f94fafda5f99689ae5adcef90b07f394d468d03426",
+      "diskSha256": "becb6df55e62acb2621b80f94fafda5f99689ae5adcef90b07f394d468d03426",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/runtime-task-tenders-XWRhS5BY.js",
+      "sha256": "2971789a1cfbe553c2ab3acd67a9ea623e89bb0d58936cba31867f5636eac651",
+      "diskSha256": "2971789a1cfbe553c2ab3acd67a9ea623e89bb0d58936cba31867f5636eac651",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/routes-fcs-BojODskM.js",
+      "sha256": "a16c44967a6d4a9ce5cd7fc0eaa1151f54ca1968ec1bbb6e49a8dd85845cda3e",
+      "diskSha256": "a16c44967a6d4a9ce5cd7fc0eaa1151f54ca1968ec1bbb6e49a8dd85845cda3e",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pending-receipts-BisoIHxt.js",
+      "sha256": "09252d48ef9f3764bb6ea83658dbd521452bb6fcb1a7b41bc866caf8fb1e23c7",
+      "diskSha256": "09252d48ef9f3764bb6ea83658dbd521452bb6fcb1a7b41bc866caf8fb1e23c7",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/process-order-list-controller-mDrsjsJ4.js",
+      "sha256": "26a195eb2af128a749a2f726ddbcd78080839b0609321d303250eb64b80ba8fc",
+      "diskSha256": "26a195eb2af128a749a2f726ddbcd78080839b0609321d303250eb64b80ba8fc",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/factory-receiving-links-Dc2FyqK9.js",
+      "sha256": "e25c609317fdcb037d7c77ba406098db2fd64cd0f139cc5467931830974ecb19",
+      "diskSha256": "e25c609317fdcb037d7c77ba406098db2fd64cd0f139cc5467931830974ecb19",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/fcs-route-links-CdIu8Xoq.js",
+      "sha256": "4939e250907fe9d7142c27415d1b1c21e0032dd2fa571121a4d9f5088cbf0ab4",
+      "diskSha256": "4939e250907fe9d7142c27415d1b1c21e0032dd2fa571121a4d9f5088cbf0ab4",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/stage-display-DfLfLMJV.js",
+      "sha256": "2dd67a327714afa48b66581930461109b2dc9d60eb1106e3fa7df07dd95b4100",
+      "diskSha256": "2dd67a327714afa48b66581930461109b2dc9d60eb1106e3fa7df07dd95b4100",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/print-service-CyrwQfQw.js",
+      "sha256": "2e31cebee2a6008b546807a59c1df3da600ee42338d58525b75e2a1ab6810489",
+      "diskSha256": "2e31cebee2a6008b546807a59c1df3da600ee42338d58525b75e2a1ab6810489",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dispatch-COLqNAeC.js",
+      "sha256": "348748b5a70b6f0abf904595ea13106b3ef121160070a2a9dc08436050d9445d",
+      "diskSha256": "348748b5a70b6f0abf904595ea13106b3ef121160070a2a9dc08436050d9445d",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/design-revision-pcs-command-Bl9gJ89Z.js",
+      "sha256": "fe9028e8c88bde3ca0e8f0b99f9396d5ec897c3b4bb11677c91df988289dd73f",
+      "diskSha256": "fe9028e8c88bde3ca0e8f0b99f9396d5ec897c3b4bb11677c91df988289dd73f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/work-orders-DcJLJh6I.js",
+      "sha256": "b31ae6d1d6148198aca44718a660bc737d12cc3de73fc26f5e7674ee8d14e24d",
+      "diskSha256": "b31ae6d1d6148198aca44718a660bc737d12cc3de73fc26f5e7674ee8d14e24d",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dye-work-order-times-w7U4XCtx.js",
+      "sha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e",
+      "diskSha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/badge-CPVnP7GB.js",
+      "sha256": "1103ecef7b76ecbe8445aac1ede2cbe41334ce2cdad99c8f6238fb4d381269ed",
+      "diskSha256": "1103ecef7b76ecbe8445aac1ede2cbe41334ce2cdad99c8f6238fb4d381269ed",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/work-order-times-D7E8xe8V.js",
+      "sha256": "b3941b64b3fe5289ecc9f1da9b7caca4110fdd6c2997cdd223dccff88224f00a",
+      "diskSha256": "b3941b64b3fe5289ecc9f1da9b7caca4110fdd6c2997cdd223dccff88224f00a",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/order-list-columns-Dw8reW42.js",
+      "sha256": "c3f78c9898bd59241c0fd5db1b9a9fcc17ff0201d7f0ccd8ab92f6a51a9ada6f",
+      "diskSha256": "c3f78c9898bd59241c0fd5db1b9a9fcc17ff0201d7f0ccd8ab92f6a51a9ada6f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/presentation-CzhGdTWk.js",
+      "sha256": "2ec0d2c8171608a769014e6baea03461528788a44840664d59a78f00293e0cf3",
+      "diskSha256": "2ec0d2c8171608a769014e6baea03461528788a44840664d59a78f00293e0cf3",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/printing-statistics-yBEshH0k.js",
+      "sha256": "76e999b8f2a994d58f80b48a32bd8b4ba84b7b8a65d7ffa840b3dcc123853d5f",
+      "diskSha256": "76e999b8f2a994d58f80b48a32bd8b4ba84b7b8a65d7ffa840b3dcc123853d5f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/relations-BfnNRpYc.js",
+      "sha256": "757af1db6e25ee93b05cd575c4d46695a70a3509222da410e910aafa0caf7c73",
+      "diskSha256": "757af1db6e25ee93b05cd575c4d46695a70a3509222da410e910aafa0caf7c73",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/work-order-times-C81W6I5w.js",
+      "sha256": "5a78a017d0266d0814ef6c00cb1dd1a24682170dba0c26c21a297a1a5b7a73ed",
+      "diskSha256": "5a78a017d0266d0814ef6c00cb1dd1a24682170dba0c26c21a297a1a5b7a73ed",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/process-order-task-links-CkTZaK-k.js",
+      "sha256": "a3cba506f60d82436340e6fc4cbd8765329e8b882df007d9f505dd9ac357cce7",
+      "diskSha256": "a3cba506f60d82436340e6fc4cbd8765329e8b882df007d9f505dd9ac357cce7",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/lace-factory-domain-E69dJw3K.js",
+      "sha256": "5bc64c80d0420b358e9ca782c15182a2028226efd10761bbadf362369bae0754",
+      "diskSha256": "5bc64c80d0420b358e9ca782c15182a2028226efd10761bbadf362369bae0754",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/process-order-list-presentation-BMRK-d2l.js",
+      "sha256": "cdf66145659c8767fd69b17a4c95e8d127ba12af397f01ff9774a90cebbd2625",
+      "diskSha256": "cdf66145659c8767fd69b17a4c95e8d127ba12af397f01ff9774a90cebbd2625",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-order-identity-DE2qGxRX.js",
+      "sha256": "af71d0f249c54af8a1d59c108a87ba608e430b31d07238eb7c7d51ec9b26b9dd",
+      "diskSha256": "af71d0f249c54af8a1d59c108a87ba608e430b31d07238eb7c7d51ec9b26b9dd",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/production-demand-early-process-work-orders-C2YVcx7q.js",
+      "sha256": "21c405e6b59d003e553e71f04d1b21e96e1ed5333eff816786a1ad60708f2de9",
+      "diskSha256": "21c405e6b59d003e553e71f04d1b21e96e1ed5333eff816786a1ad60708f2de9",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/process-work-order-generation-service-CZEZ7B2l.js",
+      "sha256": "0d45e7d0ea716b61fa8a78b8773b368d3caa25d29ae687a9dd132dcecc7690bb",
+      "diskSha256": "0d45e7d0ea716b61fa8a78b8773b368d3caa25d29ae687a9dd132dcecc7690bb",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dialogs-B6IYVYJg.js",
+      "sha256": "cd43cf6f435cee07532c264fec38903923753f3e57d53967abe2bd6e4b777623",
+      "diskSha256": "cd43cf6f435cee07532c264fec38903923753f3e57d53967abe2bd6e4b777623",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/yarn-shipments-CfVFBgaM.js",
+      "sha256": "97bd5afb9e5ffe39e7a75c2d2ee347a6290a9676b9f3a43fbff0245c68e11402",
+      "diskSha256": "97bd5afb9e5ffe39e7a75c2d2ee347a6290a9676b9f3a43fbff0245c68e11402",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/pending-receipts-B2KoVw7C.js",
+      "sha256": "05aafae9d0ab136518b787357c79a1292315e58b0c490407370f5bac58a3d659",
+      "diskSha256": "05aafae9d0ab136518b787357c79a1292315e58b0c490407370f5bac58a3d659",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/real-barcode-Bso_A71v.js",
+      "sha256": "40f14d5990ec33fee61951edacd53cc1046b6733c78948df0f4bf2b701bee91f",
+      "diskSha256": "40f14d5990ec33fee61951edacd53cc1046b6733c78948df0f4bf2b701bee91f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/preparation-material-receipt-sources-BdcyYJOR.js",
+      "sha256": "e14da21e73ae17e505df7586fc69ff9ab08b059de40f3ca24481a59f7bf909bc",
+      "diskSha256": "e14da21e73ae17e505df7586fc69ff9ab08b059de40f3ca24481a59f7bf909bc",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/tmf-upstream-receiving-D0CkIVFz.js",
+      "sha256": "243d3c5469c52937ce2404dad849c8a5e9b66e14f0ad8022ab0a7a90892edcdd",
+      "diskSha256": "243d3c5469c52937ce2404dad849c8a5e9b66e14f0ad8022ab0a7a90892edcdd",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/quality-chain-adapter-BZbLatmE.js",
+      "sha256": "db193339cfa6a64d02cb2c7f09c149301e1703f1f36ac0453cadab6719b675c8",
+      "diskSha256": "db193339cfa6a64d02cb2c7f09c149301e1703f1f36ac0453cadab6719b675c8",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/store-domain-quality-bootstrap-CQggXzM-.js",
+      "sha256": "333049cd22f437a13bd8e82a12710ac29d50ae221a55c76964a045bf03dba2ea",
+      "diskSha256": "333049cd22f437a13bd8e82a12710ac29d50ae221a55c76964a045bf03dba2ea",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/settlement-linked-mock-factory-ie1kMcLL.js",
+      "sha256": "c452847213cc155f4b721a16917d64eacf503e862e493e4ab4df5b61a4caff68",
+      "diskSha256": "c452847213cc155f4b721a16917d64eacf503e862e493e4ab4df5b61a4caff68",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/quality-deduction-selectors-CBTtsIGx.js",
+      "sha256": "5dc8a468562af4cfde0b923bd073ee59ddf290eb9e0959250271a06e65b1e30f",
+      "diskSha256": "5dc8a468562af4cfde0b923bd073ee59ddf290eb9e0959250271a06e65b1e30f",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/quality-deduction-repository-ZmzgD93D.js",
+      "sha256": "26295e442fd21fad349f631094cb76bf2cee8c81ef018e9d015f7f1be2f21563",
+      "diskSha256": "26295e442fd21fad349f631094cb76bf2cee8c81ef018e9d015f7f1be2f21563",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/route-renderers-fcs-BVb0SkhJ.js",
+      "sha256": "b149ef6475163c201bbcf2dde26d636c3745b323df3eda8b7081ba334c4d4468",
+      "diskSha256": "b149ef6475163c201bbcf2dde26d636c3745b323df3eda8b7081ba334c4d4468",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/work-orders-CUCS1nmL.js",
+      "sha256": "0a9a4703b8e6a4c2e24cc4ea49ea2a3a9065d7142e7c04cc7051a2d7ef5745dc",
+      "diskSha256": "0a9a4703b8e6a4c2e24cc4ea49ea2a3a9065d7142e7c04cc7051a2d7ef5745dc",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/output-documents-BmJ0iP6J.js",
+      "sha256": "a36291279bf3ad33330f270e3812ab1eb7dc4767ece0ede13d4d3334ac0f1188",
+      "diskSha256": "a36291279bf3ad33330f270e3812ab1eb7dc4767ece0ede13d4d3334ac0f1188",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dyeing-material-receipts-CR6ImHq5.js",
+      "sha256": "bdc5981bce2f8b5218b840311deb7d2930b7f35a3efd253a3f06c9becfb59371",
+      "diskSha256": "bdc5981bce2f8b5218b840311deb7d2930b7f35a3efd253a3f06c9becfb59371",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dye-work-order-online-domain-B-_y5AYd.js",
+      "sha256": "326c9aac85fae90e7f5743c9c37a18c139887077f5a629d00766825958d73524",
+      "diskSha256": "326c9aac85fae90e7f5743c9c37a18c139887077f5a629d00766825958d73524",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/dye-work-order-online-view-qN2wIOAl.js",
+      "sha256": "fd45b8bc37b8786662a57a3a8465cfcac21822067777f80c8c3d3e6797bf067e",
+      "diskSha256": "fd45b8bc37b8786662a57a3a8465cfcac21822067777f80c8c3d3e6797bf067e",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/process-order-three-axis-view-C6gKH772.js",
+      "sha256": "e35c8b62cc224041e7cf78f5f7650748855dedc5f59b22b25bf1847f14908789",
+      "diskSha256": "e35c8b62cc224041e7cf78f5f7650748855dedc5f59b22b25bf1847f14908789",
+      "equal": true
+    },
+    {
+      "url": "http://127.0.0.1:43965/assets/form-Df6CT5Tj.js",
+      "sha256": "9f5e148f134f32bea658847a2b007077f3aac4ef9ac9a4e0fea4faf473ed3680",
+      "diskSha256": "9f5e148f134f32bea658847a2b007077f3aac4ef9ac9a4e0fea4faf473ed3680",
+      "equal": true
+    }
+  ],
+  "sourceHashes": {
+    "src/pages/pms/first-leg-shipments.ts": "2061c5c822df3d4087f811bbc25d0e87844586e0a483db40ec4cb9a691830c79",
+    "src/pages/pms/kol-demands.ts": "145eafcdb5e2b29b48f41aaae4f3e743ee325b734e11d6d3e41293ad96f72525",
+    "src/pages/pms/material-requirements.ts": "7120a82410eb50e3b930721c7449e339434bd3eda621810a0bf4c45d6f417dfc",
+    "src/pages/pms/suppliers.ts": "37c7a90f15fc12ec8386d6a360b124743e34dc1e276e335637521a368afb6a26",
+    "src/pages/pms/supplier-supply-archives.ts": "6d20d4078be3a5446491d2b797d3ff75fdc95a4068a05d676710cb969f0f279b",
+    "src/pages/pms/material-inventory.ts": "8a22835cce1c8f09db6fe2471ee9e29040232b35679d619ef56bc8278d8052ee",
+    "src/pages/pms/purchase-suggestions.ts": "f53622550e309bc3107a3a536f70cf77ebe7fe657ebbf28a429b15e4b8b29354",
+    "src/pages/pms/kol-sample-stock.ts": "9e5674a4ac83352ad6a53de1bdcf4f8fce245b56aabeb02aa1c09e61494f99d0",
+    "src/pages/pms/material-purchase-orders.ts": "5bbb1eee5398d961c7d015c19dad7f27bbe48114d9284124a32c4fef7e3a443d",
+    "src/pages/pms/reorder-suggestions.ts": "7762909e613e5cc770e6889239bffff80c1b400910396a740ff6946d15e59430",
+    "src/pages/pms/material-purchase-tracking.ts": "201f40aa97e21484809512b4bb78cbd84caaa43b27b4eef3e6d70df69e23323c",
+    "src/pages/pms/fitting-timeliness.ts": "1eaa23064862566a6109dcc8baccb94dad5c53faa80eb2a3d4cd4152f2446845",
+    "src/pages/pms/kol-sample-stock-lock-log.ts": "459568d1f9854094bddcf336c6353d49a01f81e02a35e73573dfce9ae3270009",
+    "src/pages/pms/first-leg-carriers.ts": "404e8f2e4b2f4b9ea5b1b3c357b243b5fa1bb24e38686428ef8195675a480d3d",
+    "src/pages/pms/product-purchase-orders.ts": "72c13bb69030c5f083c05e057703bc64497fdf31a3026c91161c3c1be1cd5f0c",
+    "src/pages/pms/supplier-confirmations.ts": "0c285ef710083d1134b35a2835c87ddbda7d697a92c2dd15eedc5ae6914ee0c3",
+    "src/pages/pms/kol-sample-link.ts": "c41b13e8f8c30c612e861ea8c4f606f2affbf197c655cf0b74c8fff4ea477e5b",
+    "src/pages/pms/kol-sample-apply.ts": "03ee45bbbb1071aee4f4e0e7fcbfce51078be9bcdbabc318dde7639644e276fa",
+    "src/pages/pms/purchase-order-aftersales.ts": "8afaaf341ca7e91924aab3d28b4a3a5ce9f77761e9b9656ed7cbf3af2a86aa76",
+    "src/pages/pms/payment-requests.ts": "3b71ef513a08409643cce9bbc8615661a448e1507b759f937ec3c74707ae3584",
+    "src/pages/pms/material-purchase-order-parity.ts": "39555e0acd9b1b40a962610bb5dcbdcf2f5155884e791a1432da53c943ff557d",
+    "src/pages/pms/material-purchase-barcodes.ts": "cd96f054180635e74aaaa77b3c4309372d36cb7b0174dfca6dd31bf5041b11a5",
+    "src/styles.css": "7192e2e73440d7e9d1afb58df0c7fd80b3158b5ee248ae4537e9beebb0da53c1"
+  }
+}

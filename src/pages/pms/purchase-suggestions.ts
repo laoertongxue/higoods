@@ -377,7 +377,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '商品采购建议',
     primaryActionsHtml: '',

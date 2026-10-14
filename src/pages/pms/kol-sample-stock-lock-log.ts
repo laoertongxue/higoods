@@ -221,7 +221,7 @@ function renderBody(): string {
   const stats = renderStats()
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
     showHeader: true,
     title: '锁定操作记录',
     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,

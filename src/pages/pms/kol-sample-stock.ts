@@ -261,7 +261,7 @@ function renderBody(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
   const listTitle = `共 ${filteredRows().length} 条${state.selectedSkus.length ? ` · 已选 ${state.selectedSkus.length} 条` : ''}`
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
     showHeader: true,
     title: 'KOL 库存',
     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,

@@ -16,6 +16,11 @@ export async function ensurePurchaseCatalogState(): Promise<void> {
 /** Procurement reads existing catalog identities; this module owns no master records or writes. */
 export type PurchaseRegion = '国内' | '印尼'
 export interface PurchaseMaterialReference {
+  materialSpu?: string
+  materialId?: string
+  materialSkuId?: string
+  colorName?: string
+  specName?: string
   materialCode: string
   materialName: string
   imageUrl: string
@@ -28,7 +33,7 @@ export interface PurchaseMaterialReference {
 export function listPurchaseMaterialReferences(): PurchaseMaterialReference[] {
   return listAllMaterialSkuRecords().map(sku => {
     const archive = getMaterialArchiveById(sku.materialId)
-    return { materialCode: sku.materialSkuCode, materialName: [sku.materialName, sku.colorName, sku.sizeName].filter(Boolean).join(' · '), imageUrl: sku.skuImageUrl || archive?.mainImageUrl || '', category: archive?.kind === 'fabric' ? '面料' : archive?.kind === 'yarn' ? '纱线' : '辅料', unit: sku.mainUnit || archive?.mainUnit || sku.pricingUnit, referencePrice: sku.costPrice, active: sku.status === 'ACTIVE' }
+    return { materialSpu: archive?.materialCode || '', materialId: sku.materialId, materialSkuId: sku.materialSkuId, colorName: sku.colorName, specName: sku.specName, materialCode: sku.materialSkuCode, materialName: [sku.materialName, sku.colorName, sku.sizeName].filter(Boolean).join(' · '), imageUrl: sku.skuImageUrl || archive?.mainImageUrl || '', category: archive?.kind === 'fabric' ? '面料' : archive?.kind === 'yarn' ? '纱线' : '辅料', unit: sku.mainUnit || archive?.mainUnit || sku.pricingUnit, referencePrice: sku.costPrice, active: sku.status === 'ACTIVE' }
   })
 }
 
@@ -36,15 +41,15 @@ export function getPurchaseMaterialReference(identity: string): PurchaseMaterial
   const sku = resolveMaterialSkuIdentity(identity)
   if (sku) {
     const archive = getMaterialArchiveById(sku.materialId)
-    return { materialCode: sku.materialSkuCode, materialName: [sku.materialName, sku.colorName, sku.sizeName].filter(Boolean).join(' · '), imageUrl: sku.skuImageUrl || archive?.mainImageUrl || '', category: archive?.kind === 'fabric' ? '面料' : archive?.kind === 'yarn' ? '纱线' : '辅料', unit: sku.mainUnit || archive?.mainUnit || sku.pricingUnit, referencePrice: sku.costPrice, active: sku.status === 'ACTIVE' }
+    return { materialSpu: archive?.materialCode || '', materialId: sku.materialId, materialSkuId: sku.materialSkuId, colorName: sku.colorName, specName: sku.specName, materialCode: sku.materialSkuCode, materialName: [sku.materialName, sku.colorName, sku.sizeName].filter(Boolean).join(' · '), imageUrl: sku.skuImageUrl || archive?.mainImageUrl || '', category: archive?.kind === 'fabric' ? '面料' : archive?.kind === 'yarn' ? '纱线' : '辅料', unit: sku.mainUnit || archive?.mainUnit || sku.pricingUnit, referencePrice: sku.costPrice, active: sku.status === 'ACTIVE' }
   }
   const archive = getMaterialArchiveByCode(identity)
   if (!archive) return undefined
-  return { materialCode: archive.materialCode, materialName: archive.materialName, imageUrl: archive.mainImageUrl, category: archive.kind === 'fabric' ? '面料' : archive.kind === 'yarn' ? '纱线' : '辅料', unit: archive.mainUnit, referencePrice: 0, active: archive.status === 'ACTIVE' }
+  return { materialSpu: archive.materialCode, materialId: archive.materialId, materialCode: archive.materialCode, materialName: archive.materialName, imageUrl: archive.mainImageUrl, category: archive.kind === 'fabric' ? '面料' : archive.kind === 'yarn' ? '纱线' : '辅料', unit: archive.mainUnit, referencePrice: 0, active: archive.status === 'ACTIVE' }
 }
 
 export function listPurchaseGoodsReferences(): PurchaseMaterialReference[] {
-  return [...listPurchaseMaterialReferences(), ...listSkuArchives().map(sku => ({ materialCode: sku.skuCode, materialName: sku.skuName, imageUrl: sku.skuImageUrl, category: '成衣', unit: sku.pricingUnit || '件', referencePrice: sku.costPrice, active: sku.archiveStatus === 'ACTIVE' }))]
+  return [...listPurchaseMaterialReferences(), ...listSkuArchives().map(sku => ({ materialSpu: sku.styleCode, materialSkuId: sku.skuId, materialCode: sku.skuCode, materialName: sku.skuName, imageUrl: sku.skuImageUrl, category: '成衣', unit: sku.pricingUnit || '件', referencePrice: sku.costPrice, active: sku.archiveStatus === 'ACTIVE' }))]
 }
 export function getPurchaseGoodsReference(identity: string): PurchaseMaterialReference | undefined {
   return getPurchaseMaterialReference(identity) || listPurchaseGoodsReferences().find(item => item.materialCode === identity)

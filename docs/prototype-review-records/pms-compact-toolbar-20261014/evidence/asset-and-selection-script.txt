@@ -1,0 +1,16 @@
+import{chromium}from'@playwright/test';
+import fs from'node:fs/promises';import crypto from'node:crypto';
+const base='http://127.0.0.1:43965',out='output/playwright/pms-compact-toolbar-20261014/after';
+const browser=await chromium.launch({headless:true}),context=await browser.newContext({viewport:{width:1280,height:720},timezoneId:'Asia/Shanghai'}),page=await context.newPage();
+const assets=new Set();page.on('response',r=>{if(r.url().includes('/assets/')&&/\.(js|css)$/.test(r.url()))assets.add(r.url())});
+for(const route of ["/pms/purchase-suggestions","/pms/kol-demands","/pms/product-purchase-orders","/pms/reorder","/pms/product-purchase-order-aftersales","/pms/material-requirements","/pms/material-purchase-orders","/pms/material-purchase-tracking","/pms/fitting-timeliness","/pms/material-supplier-confirmations","/pms/first-leg-shipments","/pms/first-leg-carriers","/pms/kol-sample-stock","/pms/kol-sample-stock/lock-log","/pms/kol-sample-apply","/pms/kol-sample-link","/pms/suppliers","/pms/supplier-supply-archives","/pms/material-payment-requests","/pms/logistics-payment-requests","/pms/material-inventory"]){await page.goto(base+route);await page.locator('[data-standard-list-table-section]>header').waitFor();await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))}
+const proof=[];for(const url of assets){const body=await(await context.request.get(url)).body(),file=await fs.readFile('dist'+new URL(url).pathname),h=b=>crypto.createHash('sha256').update(b).digest('hex');proof.push({url,sha256:h(body),diskSha256:h(file),equal:h(body)===h(file)})}
+await page.goto(base+'/pms/material-purchase-orders');await page.locator('[data-standard-list-table-section]>header').waitFor();
+const controls=await page.locator('[data-standard-list-table-section] input[type=checkbox]').evaluateAll(xs=>xs.map(x=>({html:x.outerHTML,checked:x.checked})));
+await page.locator('[data-standard-list-table-section] tbody input[type=checkbox]').first().check();
+await page.locator('[data-standard-list-table-section]>header h2').filter({hasText:'已选'}).waitFor();
+const selected=await page.locator('[data-standard-list-table-section]>header').evaluate(el=>{const r=el.getBoundingClientRect(),title=el.querySelector('h2').getBoundingClientRect(),buttons=[...el.querySelectorAll('button')].filter(x=>x.getClientRects().length).map(x=>{const b=x.getBoundingClientRect();return{text:x.textContent.trim(),y:b.y,right:b.right}});return{title:el.querySelector('h2').textContent,headerHeight:r.height,rows:new Set(buttons.map(x=>Math.round(x.y))).size,rightOverflow:buttons.some(x=>x.right>r.right),titleRight:title.right,firstButtonX:el.querySelector('button').getBoundingClientRect().x}});
+await page.screenshot({path:out+'/material-purchase-orders-selected-1280.png'});
+await fs.writeFile(out+'/pms-asset-and-selection-proof.json',JSON.stringify({assets:proof,allMatched:proof.every(x=>x.equal),controls,selected},null,2));
+console.log(JSON.stringify({assets:proof.length,matched:proof.every(x=>x.equal),selected}));
+await browser.close();

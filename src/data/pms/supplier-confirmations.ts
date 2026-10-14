@@ -1,4 +1,4 @@
-import { preparePmsSupplierPurchaseConfirmation, publishPmsMaterialPurchaseOrders, getPmsMaterialPurchaseOrder, hydratePmsMaterialPurchaseOrdersFromIdb, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
+import { getPmsMaterialPurchaseOrderLines, preparePmsSupplierPurchaseConfirmation, publishPmsMaterialPurchaseOrders, getPmsMaterialPurchaseOrder, hydratePmsMaterialPurchaseOrdersFromIdb, listPmsMaterialPurchaseOrders, type PmsMaterialPurchaseOrder, type PmsMaterialPurchaseOrderLine } from './material-purchase-orders.ts'
 import { PMS_STORES, pmsAll, pmsCommitRecords, pmsGetEntityVersion } from './idb-storage.ts'
 import { appendPmsLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
@@ -14,7 +14,7 @@ export function hydratePmsSupplierConfirmationsFromIdb(): Promise<void> {
       else rt.confirmations.unshift(saved)
     }
     for (const row of rt.confirmations) row._pmsBaseVersion = await pmsGetEntityVersion(PMS_STORES.pmsSupplierConfirmations, row.confirmationNo)
-  })()
+  })().catch(error=>{confirmationHydrationPromise=null;throw error})
   return confirmationHydrationPromise
 }
 async function commitConfirmation(confirmation: PmsSupplierConfirmation, log: Parameters<typeof appendPmsLog>[0], operationId?: string, confirmOrder = false, operationSignature?:string): Promise<void> {
@@ -26,6 +26,11 @@ async function commitConfirmation(confirmation: PmsSupplierConfirmation, log: Pa
   if (editsConfirmed && !currentOrder) throw new PmsDomainError('CONF_ORDER_MISSING','关联采购单不存在，发货修改未保存')
   if (currentOrder && ['已到货','已入库','已关闭'].includes(currentOrder.status)) throw new PmsDomainError('CONF_ORDER_LOCKED',`关联采购单${currentOrder.status}，不能修改已确认发货资料。使用“查看确认单”核对历史资料`)
   const order = confirmOrder ? preparePmsSupplierPurchaseConfirmation(confirmation.purchaseOrderNo) : reopenOrder && currentOrder ? { ...structuredClone(currentOrder), supplierConfirmed:false, supplierConfirmedAt:'' } : undefined
+  if(order && confirmOrder){
+    const related=[...getRuntime().confirmations.filter(row=>row.confirmationNo!==confirmation.confirmationNo),confirmation]
+    order.supplierConfirmed=getPmsMaterialPurchaseOrderLines(order).every(line=>related.some(row=>row.purchaseOrderNo===order.purchaseOrderNo && confirmationMatchesLine(row,order,line) && row.status==='已确认'))
+    if(!order.supplierConfirmed)order.supplierConfirmedAt=''
+  }
   const result = await pmsCommitRecords([{store:PMS_STORES.pmsSupplierConfirmations,value:confirmation},...(order ? [{store:PMS_STORES.pmsMaterialPurchaseOrderDeltas,value:order}] : [])],{operationId,operationSignature:operationSignature || JSON.stringify({action:log.action,beforeValue:log.beforeValue,afterValue:log.afterValue,reason:log.reason}),log})
   const saved = result.values[0] as PmsSupplierConfirmation
   const existing = getPmsSupplierConfirmation(saved.confirmationNo)
@@ -73,6 +78,7 @@ export interface PmsConfirmationPackageDetail {
 export interface PmsSupplierConfirmation {
   confirmationNo: string
   purchaseOrderNo: string
+  purchaseLineId?: string
   inboundNo: string
   relationNo: string
   materialCode: string
@@ -112,6 +118,22 @@ interface PmsConfirmationRuntime {
 
 let runtime: PmsConfirmationRuntime | null = null
 let rollSequence = 0
+
+function confirmationMatchesLine(confirmation:PmsSupplierConfirmation,order:PmsMaterialPurchaseOrder,line:PmsMaterialPurchaseOrderLine):boolean {
+  return confirmation.materialCode===line.materialCode && confirmation.unit===line.unit && (confirmation.purchaseLineId ? confirmation.purchaseLineId===line.lineId : getPmsMaterialPurchaseOrderLines(order).filter(item=>item.materialCode===line.materialCode&&item.unit===line.unit).length===1)
+}
+function confirmationLine(confirmation:PmsSupplierConfirmation,order:PmsMaterialPurchaseOrder):PmsMaterialPurchaseOrderLine {
+  const line=getPmsMaterialPurchaseOrderLines(order).find(line=>confirmationMatchesLine(confirmation,order,line))
+  if(!line)throw new PmsDomainError('CONF_SKU_MISSING','确认单对应的采购 SKU 或单位已变更，重新核对采购明细')
+  return line
+}
+function confirmationIdentity(order:PmsMaterialPurchaseOrder,line:PmsMaterialPurchaseOrderLine):string {
+  if(line.legacy)return `CONF-${order.purchaseOrderNo}`
+  // Derived from immutable order + line identities, never from display order or material names.
+  let hash=2166136261
+  for(const char of line.lineId)hash=Math.imul(hash^char.charCodeAt(0),16777619)
+  return `CONF-${order.purchaseOrderNo}-${(hash>>>0).toString(36).toUpperCase()}`
+}
 
 function qrText(confirmation: PmsSupplierConfirmation, roll: PmsConfirmationRoll): string {
   const boxSpec = confirmation.boxSpecs.find((spec) => spec.boxNo === roll.boxNo)
@@ -235,7 +257,7 @@ function buildInitialRuntime(): PmsConfirmationRuntime {
     confirmations.push(confirmation)
   }
 
-  for (const order of listPmsMaterialPurchaseOrders().filter(order => !confirmations.some(row => row.purchaseOrderNo === order.purchaseOrderNo) && !order.pcsSource && !order.tmfTipSource).slice(0, 2)) {
+  for (const order of listPmsMaterialPurchaseOrders().filter(order => !order.lines?.length && !confirmations.some(row => row.purchaseOrderNo === order.purchaseOrderNo) && !order.pcsSource && !order.tmfTipSource).slice(0, 2)) {
     confirmations.push({ confirmationNo:`CONF-2026-${String(confirmations.length + 1).padStart(4,'0')}`,purchaseOrderNo:order.purchaseOrderNo,inboundNo:'',relationNo:'',materialCode:order.materialCode,materialName:order.materialName,materialImageUrl:order.materialImageUrl,styleCode:order.styleCode,styleName:order.styleName,styleImageUrl:order.styleImageUrl,unit:order.unit,packageUnit:'卷',packageQty:100,supplierName:order.supplierName,status:'待确认',editor:'王采购',updatedAt:'2026-10-13T09:00:00+07:00',confirmedBy:'',confirmedAt:'',rolls:[],boxSpecs:[],packageDetails:[] })
   }
   runtime = { confirmations }
@@ -347,8 +369,9 @@ export async function generatePmsConfirmationRolls(
 
   confirmation.packageUnit = input.packageUnit.trim()
   confirmation.packageQty = input.qtyPerPackage
-  let remaining = roundPmsQty(order.orderedQty, 2)
-  const rollCount = numbered && metersPerRoll ? Math.max(1, Math.ceil(roundPmsQty(order.orderedQty, 2) / metersPerRoll)) : input.rollCount
+  const line=confirmationLine(confirmation,order),quantity=line.actualPurchasedQty>0?line.actualPurchasedQty:line.orderedQty
+  let remaining = roundPmsQty(quantity, 2)
+  const rollCount = numbered && metersPerRoll ? Math.max(1, Math.ceil(roundPmsQty(quantity, 2) / metersPerRoll)) : input.rollCount
   confirmation.rolls = Array.from({ length: rollCount }, (_, index) => {
     const isLast = index === rollCount - 1
     const qty = numbered && metersPerRoll
@@ -367,7 +390,7 @@ export async function generatePmsConfirmationRolls(
     objectId: confirmationNo,
     action: '生成包装明细',
     beforeValue: '',
-    afterValue: numbered && startSequence !== undefined ? `${confirmation.rolls.length} 个包装 · ${rollNoPrefix}-${startSequence} 起 · ${order.orderedQty} ${order.unit}` : `${confirmation.rolls.length} 个包装 · ${order.orderedQty} ${order.unit}`,
+    afterValue: numbered && startSequence !== undefined ? `${confirmation.rolls.length} 个包装 · ${rollNoPrefix}-${startSequence} 起 · ${quantity} ${line.unit}` : `${confirmation.rolls.length} 个包装 · ${quantity} ${line.unit}`,
     reason: '',
     actorId: actor.id,
     actorName: actor.name,
@@ -618,6 +641,7 @@ export async function confirmPmsSupplierConfirmation(
 export function resetPmsConfirmationRuntimeForTest(): void {
   runtime = null
   rollSequence = 0
+  confirmationHydrationPromise = null
 }
 
 export interface PmsConfirmationShipmentPatch { actualShipmentQty:number;packageCount:number;totalBoxCount:number;totalWeight:number;totalVolume:number;shipmentDate:string;shipmentRemark:string;purchaseRemark:string;internalRemark:string;rolls:Array<{rollNo:string;qty:number;weight:number;boxNo:string;remark:string}> }
@@ -647,12 +671,13 @@ export async function savePmsConfirmationShipment(confirmationNo:string, patch:P
 }
 export async function synchronizePmsSupplierConfirmations(actor:{id:string;name:string;role:PmsActorRole},operationId?:string):Promise<number> {
   await Promise.all([hydratePmsSupplierConfirmationsFromIdb(),hydratePmsMaterialPurchaseOrdersFromIdb()])
-  const candidates = listPmsMaterialPurchaseOrders().filter(order => {
-    if(getRuntime().confirmations.some(row => row.purchaseOrderNo === order.purchaseOrderNo))return false
-    try { preparePmsSupplierPurchaseConfirmation(order.purchaseOrderNo);return true } catch(error) { if(error instanceof PmsDomainError && error.code==='MPO_CONFIRM_BLOCKED')return false;throw error }
-  }).map(order => ({confirmationNo:`CONF-${order.purchaseOrderNo}`,purchaseOrderNo:order.purchaseOrderNo,inboundNo:'',relationNo:'',materialCode:order.materialCode,materialName:order.materialName,materialImageUrl:order.materialImageUrl,styleCode:order.styleCode,styleName:order.styleName,styleImageUrl:order.styleImageUrl,unit:order.unit,packageUnit:'卷',packageQty:1,supplierName:order.supplierName,status:'待确认' as const,editor:actor.name,updatedAt:new Date().toISOString(),confirmedBy:'',confirmedAt:'',rolls:[],boxSpecs:[],packageDetails:[]}))
+  const candidates = listPmsMaterialPurchaseOrders().flatMap(order => {
+    try { preparePmsSupplierPurchaseConfirmation(order.purchaseOrderNo) } catch(error) { if(error instanceof PmsDomainError && error.code==='MPO_CONFIRM_BLOCKED')return [];throw error }
+    return getPmsMaterialPurchaseOrderLines(order).filter(line=>!getRuntime().confirmations.some(row=>row.purchaseOrderNo===order.purchaseOrderNo && confirmationMatchesLine(row,order,line))).map(line=>({confirmationNo:confirmationIdentity(order,line),purchaseOrderNo:order.purchaseOrderNo,purchaseLineId:line.lineId,inboundNo:'',relationNo:'',materialCode:line.materialCode,materialName:line.materialName,materialImageUrl:line.imageUrl,styleCode:order.styleCode,styleName:order.styleName,styleImageUrl:order.styleImageUrl,unit:line.unit,packageUnit:'卷',packageQty:1,supplierName:order.supplierName,status:'待确认' as const,editor:actor.name,updatedAt:new Date().toISOString(),confirmedBy:'',confirmedAt:'',rolls:[],boxSpecs:[],packageDetails:[]}))
+  })
   if (!candidates.length) return 0
-  const result = await pmsCommitRecords(candidates.map(value => ({store:PMS_STORES.pmsSupplierConfirmations,value,expectedVersion:0})),{operationId,operationSignature:JSON.stringify(candidates.map(row=>row.purchaseOrderNo)),log:{objectType:'supplier-confirmation',objectId:'SYNC',action:'同步采购单',beforeValue:'',afterValue:`${candidates.length} 条`,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role}})
+  if(new Set(candidates.map(row=>row.confirmationNo)).size!==candidates.length)throw new PmsDomainError('CONF_IDENTITY_CONFLICT','采购明细确认编号冲突，未生成确认单')
+  const result = await pmsCommitRecords(candidates.map(value => ({store:PMS_STORES.pmsSupplierConfirmations,value,expectedVersion:0})),{operationId,operationSignature:JSON.stringify(candidates.map(row=>[row.purchaseOrderNo,row.purchaseLineId])),log:{objectType:'supplier-confirmation',objectId:'SYNC',action:'同步采购单',beforeValue:'',afterValue:`${candidates.length} 条`,reason:'',actorId:actor.id,actorName:actor.name,actorRole:actor.role}})
   getRuntime().confirmations.unshift(...result.values as PmsSupplierConfirmation[])
   return candidates.length
 }

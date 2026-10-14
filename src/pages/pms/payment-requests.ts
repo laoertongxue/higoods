@@ -408,7 +408,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: pageTitle(),
     primaryActionsHtml: `${renderPrimaryButton('新增请款单',{prefix:EVENT_PREFIX,action:'choose-source'},'plus')}`,

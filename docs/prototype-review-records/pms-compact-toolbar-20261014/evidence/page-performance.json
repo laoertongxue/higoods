@@ -1,0 +1,842 @@
+[
+  {
+    "route": "/pms/purchase-suggestions",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 346.1610419999997,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/purchase-suggestions",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 335.03991700000006,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/purchase-suggestions",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 448.3455409999988,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/purchase-suggestions",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 349.9621670000015,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/purchase-suggestions",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 349.9358749999992,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-demands",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.8141660000001,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-demands",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.6353330000002,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-demands",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.63437499999964,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-demands",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.6664579999997,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-demands",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.65712500000154,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-orders",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 349.9047500000015,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-orders",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.70245799999975,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-orders",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.69425000000047,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-orders",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.60604199999943,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-orders",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.86595899999884,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/reorder",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 466.41300000000047,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/reorder",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 466.6665410000023,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/reorder",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 466.7205419999991,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/reorder",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 631.3794579999994,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/reorder",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 585.4447919999984,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-order-aftersales",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.41925000000265,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-order-aftersales",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.71529100000043,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-order-aftersales",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.73645899999974,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-order-aftersales",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.5151250000017,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/product-purchase-order-aftersales",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 366.69312499999796,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-requirements",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.8780000000006,
+    "imageCount": 2,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-requirements",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 265.9262920000001,
+    "imageCount": 2,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-requirements",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 267.21908299999996,
+    "imageCount": 2,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-requirements",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.93154199999844,
+    "imageCount": 2,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-requirements",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 283.398416,
+    "imageCount": 2,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-orders",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 234.2253750000018,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-orders",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 132.23162500000035,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-orders",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.14025000000038,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-orders",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 132.77716699999655,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-orders",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.78016600000046,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-tracking",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.80841700000019,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-tracking",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 150.109666999997,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-tracking",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.2120419999992,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-tracking",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.24883300000147,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-purchase-tracking",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.72595800000272,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/fitting-timeliness",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 167.6618329999983,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/fitting-timeliness",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 132.3110409999972,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/fitting-timeliness",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.63120900000285,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/fitting-timeliness",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.63550000000032,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/fitting-timeliness",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.53308300000208,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-supplier-confirmations",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.34291600000142,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-supplier-confirmations",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 233.30962499999805,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-supplier-confirmations",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.4563330000019,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-supplier-confirmations",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.67558300000019,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-supplier-confirmations",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.72762499999953,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-shipments",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 250.4690410000003,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-shipments",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 282.75208300000304,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-shipments",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 267.7930000000015,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-shipments",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 265.859457999999,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-shipments",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 266.36312499999985,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-carriers",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.38637499999822,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-carriers",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 183.28262499999983,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-carriers",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.3624579999996,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-carriers",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.37895800000115,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/first-leg-carriers",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.43808300000092,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 143.21641699999964,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 156.63695799999914,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.73062500000015,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.61200000000099,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.7844589999986,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock/lock-log",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 150.08870899999965,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock/lock-log",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 149.74183400000038,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock/lock-log",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 150.12083300000086,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock/lock-log",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 149.75104199999987,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-stock/lock-log",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 150.21570800000336,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-apply",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.74925000000076,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-apply",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.68191699999807,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-apply",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.3548750000009,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-apply",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.1768340000017,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-apply",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.835959,
+    "imageCount": 5,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-link",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.53658400000131,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-link",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.38737500000207,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-link",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.73708299999998,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-link",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.49083299999984,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/kol-sample-link",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.65408300000126,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/suppliers",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 66.56583300000057,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/suppliers",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 66.66770800000086,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/suppliers",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 66.67262499999924,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/suppliers",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 66.2001670000027,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/suppliers",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 67.2877499999995,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/supplier-supply-archives",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 233.3227909999987,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/supplier-supply-archives",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 233.1645000000026,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/supplier-supply-archives",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.44120799999655,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/supplier-supply-archives",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 233.42841699999553,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/supplier-supply-archives",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.43391600000177,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-payment-requests",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.39104100000259,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-payment-requests",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.66679099999601,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-payment-requests",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.55762500000128,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-payment-requests",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.76466699999582,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-payment-requests",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.73174999999901,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/logistics-payment-requests",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 115.66912500000035,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/logistics-payment-requests",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 117.84779100000014,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/logistics-payment-requests",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.0783750000046,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/logistics-payment-requests",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.57233300000371,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/logistics-payment-requests",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.88025000000198,
+    "imageCount": 0,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-inventory",
+    "sample": 1,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.4341659999991,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-inventory",
+    "sample": 2,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 116.591290999997,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-inventory",
+    "sample": 3,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 133.1895829999994,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-inventory",
+    "sample": 4,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 134.1700420000052,
+    "imageCount": 10,
+    "failedImages": []
+  },
+  {
+    "route": "/pms/material-inventory",
+    "sample": 5,
+    "kind": "已完成逐页功能核验后的缓存内导航",
+    "ms": 232.5233750000043,
+    "imageCount": 10,
+    "failedImages": []
+  }
+]

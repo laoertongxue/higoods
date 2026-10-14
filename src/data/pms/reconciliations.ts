@@ -1,4 +1,4 @@
-import { getPmsMaterialPurchaseOrder, listPmsMaterialLogisticsRecords, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
+import { getPmsMaterialPurchaseOrder, getPmsMaterialPurchaseOrderLines, pmsMaterialPurchaseOrderAmount, pmsMaterialPurchaseQuantityGroups, listPmsMaterialLogisticsRecords, listPmsMaterialPurchaseOrders, type PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
 import { getPmsFirstLegBatch, listPmsFirstLegBatches, type PmsFirstLegTransportMethod } from './first-leg-logistics.ts'
 import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
@@ -116,6 +116,10 @@ export interface PmsMaterialReconciliation {
   purchaseOrderNos: string[]
   currency: 'RMB' | 'USD' | 'IDR'
   orderedQty: number
+  actualPurchasedQty?: number
+  actualPriceConfirmed?: boolean
+  /** New line records use physical purchase quantity; old stored records retain their original controlled basis. */
+  amountBasis?: 'actual'
   estimatedUnitPrice: number
   purchaseAmount: number
   actualUnitPrice: number | null
@@ -209,7 +213,8 @@ interface PmsMaterialRowPatch {
 function materialRow(id: string, orderNo: string, patch: PmsMaterialRowPatch = {}): PmsMaterialReconciliation {
   const order = listPmsMaterialPurchaseOrders().find((item) => item.purchaseOrderNo === orderNo)
   if (!order) throw new Error(`面辅料采购单不存在: ${orderNo}`)
-  const purchaseAmount = roundPmsQty(order.orderedQty * order.unitPrice, 2)
+  const lines=getPmsMaterialPurchaseOrderLines(order),quantities=pmsMaterialPurchaseQuantityGroups(order)
+  const purchaseAmount = pmsMaterialPurchaseOrderAmount(order,'planned')
   const domesticLogisticsFee = roundPmsQty(
     listPmsMaterialLogisticsRecords()
       .filter((record) => record.purchaseOrderNo === orderNo)
@@ -220,12 +225,13 @@ function materialRow(id: string, orderNo: string, patch: PmsMaterialRowPatch = {
   const row: PmsMaterialReconciliation = {
     id,
     supplierName: order.supplierName,
-    materialCode: order.materialCode,
-    materialName: order.materialName,
+    materialCode: lines.map(line=>line.materialCode).join(' / '),
+    materialName: lines.map(line=>line.materialName).join(' / '),
     purchaseOrderNos: [orderNo],
     currency: order.currency,
-    orderedQty: order.orderedQty,
-    estimatedUnitPrice: order.unitPrice,
+    orderedQty: quantities.length===1?quantities[0].orderedQty:0,
+    ...(lines.some(line=>!line.legacy)?{amountBasis:'actual' as const,actualPurchasedQty:quantities.length===1?quantities[0].actualPurchasedQty:undefined,actualPriceConfirmed:lines.every(line=>line.priceConfirmed)}:{}),
+    estimatedUnitPrice: lines.length===1?lines[0].unitPrice:0,
     purchaseAmount,
     actualUnitPrice: patch.actualUnitPrice ?? null,
     actualPurchaseAmount: patch.actualPurchaseAmount ?? null,
@@ -254,8 +260,26 @@ function materialRow(id: string, orderNo: string, patch: PmsMaterialRowPatch = {
 
 export function pmsMaterialEffectivePurchaseAmount(row: PmsMaterialReconciliation): number {
   if (row.actualPurchaseAmount !== null) return row.actualPurchaseAmount
+  if(row.amountBasis==='actual'){
+    const source=row.purchaseOrderNos.length===1?getPmsMaterialPurchaseOrder(row.purchaseOrderNos[0]):undefined
+    if(source && row.actualUnitPrice===null)return pmsMaterialPurchaseActualSettlementAmount(source) ?? 0
+    if(!row.actualPurchasedQty || !Number.isFinite(row.actualPurchasedQty))return 0
+    if(row.actualUnitPrice!==null)return roundPmsQty(row.actualUnitPrice*row.actualPurchasedQty,2)
+    return row.actualPriceConfirmed?roundPmsQty(row.estimatedUnitPrice*row.actualPurchasedQty,2):0
+  }
   if (row.actualUnitPrice !== null) return roundPmsQty(row.actualUnitPrice * row.orderedQty, 2)
   return row.purchaseAmount
+}
+
+/** null means the new order's actual quantity/price facts are still unconfirmed, never a zero settlement. */
+export function pmsMaterialPurchaseActualSettlementAmount(order:PmsMaterialPurchaseOrder):number|null {
+  const lines=getPmsMaterialPurchaseOrderLines(order)
+  if(lines.every(line=>line.legacy)){
+    if(lines.every(line=>line.actualPurchasedQty===0))return pmsMaterialPurchaseOrderAmount(order,'planned')
+    return lines.every(line=>line.actualPurchasedQty>0&&line.priceConfirmed)?pmsMaterialPurchaseOrderAmount(order,'actual'):null
+  }
+  if(lines.some(line=>line.actualPurchasedQty<=0 || !line.priceConfirmed))return null
+  return pmsMaterialPurchaseOrderAmount(order,'actual')
 }
 
 export function pmsMaterialEffectiveLogisticsFee(row: PmsMaterialReconciliation): number {
@@ -400,6 +424,7 @@ export function updatePmsMaterialReconciliation(
   const row = getPmsMaterialReconciliation(id)
   if (!row) throw new PmsDomainError('RECONCILIATION_NOT_FOUND', `对账记录 ${id} 不存在`)
   if (row.status === '已确认') throw new PmsDomainError('RECONCILIATION_LOCKED', '已确认的对账记录不能再修改费用')
+  if(patch.actualUnitPrice!==undefined && row.amountBasis==='actual' && row.purchaseOrderNos.some(no=>{const order=getPmsMaterialPurchaseOrder(no);return order && getPmsMaterialPurchaseOrderLines(order).length>1}))throw new PmsDomainError('RECONCILIATION_PRICE_LINES','多 SKU 采购按明细确认单价；对账记录可填写实际采购货款')
   if (patch.actualUnitPrice !== undefined) {
     validateActualAmount(patch.actualUnitPrice, '实际单价')
     row.actualUnitPrice = patch.actualUnitPrice
@@ -511,6 +536,7 @@ export function confirmPmsMaterialReconciliation(id: string, actor: { id: string
   const row = getPmsMaterialReconciliation(id)
   if (!row) throw new PmsDomainError('RECONCILIATION_NOT_FOUND', `对账记录 ${id} 不存在`)
   if (row.status === '已确认') throw new PmsDomainError('RECONCILIATION_CONFIRMED', '对账记录已确认')
+  if(row.amountBasis==='actual' && row.actualPurchaseAmount===null){const order=row.purchaseOrderNos.length===1?getPmsMaterialPurchaseOrder(row.purchaseOrderNos[0]):undefined;if(!order || pmsMaterialPurchaseActualSettlementAmount(order)===null)throw new PmsDomainError('RECONCILIATION_ACTUAL_PENDING','实际采购数量或价格尚未确认，不能把计划金额作为实际对账货款')}
   if (row.feeConfirmations.length < PMS_MATERIAL_FEE_ITEMS.length) throw new PmsDomainError('RECONCILIATION_FEE_UNCONFIRMED', '存在未确认的费用项，请逐项确认或点击“确认全部费用”')
   if (row.difference !== 0 && !row.differenceConfirmed) throw new PmsDomainError('RECONCILIATION_DIFF_UNCONFIRMED', '存在差异，必须先确认差异才能确认对账')
   const beforeStatus = row.status
@@ -920,31 +946,34 @@ export interface PmsReconciliationPurchaseRow {
   unit: string
   unitPrice: number
   amount: number
+  amountConfirmed?: boolean
+  purchaseLineId?: string
   supplierName: string
   status: string
   orderedAt: string
 }
 
 export function listPmsLogisticsReconciliationPurchases(batchNo: string): PmsReconciliationPurchaseRow[] {
+  const records=listPmsMaterialLogisticsRecords().filter(record=>record.headBatchNo===batchNo)
   const orderNos = [...new Set(
-    listPmsMaterialLogisticsRecords()
-      .filter((record) => record.headBatchNo === batchNo)
-      .map((record) => record.purchaseOrderNo),
+    records.map((record) => record.purchaseOrderNo),
   )]
   return orderNos
     .map((orderNo) => getPmsMaterialPurchaseOrder(orderNo))
     .filter((order): order is NonNullable<typeof order> => Boolean(order))
-    .map((order) => ({
+    .flatMap((order) => getPmsMaterialPurchaseOrderLines(order).filter(line=>records.some(record=>record.purchaseOrderNo===order.purchaseOrderNo && (record.purchaseLineId?record.purchaseLineId===line.lineId:record.materialCode?record.materialCode===line.materialCode:getPmsMaterialPurchaseOrderLines(order).length===1) && record.unit===line.unit)).map(line=>({
       purchaseOrderNo: order.purchaseOrderNo,
-      materialCode: order.materialCode,
-      materialName: order.materialName,
+      purchaseLineId:line.lineId,
+      materialCode: line.materialCode,
+      materialName: line.materialName,
       styleName: order.styleName,
-      qty: order.orderedQty,
-      unit: order.unit,
-      unitPrice: order.unitPrice,
-      amount: roundPmsQty(order.orderedQty * order.unitPrice, 2),
+      qty: line.legacy && !line.actualPurchasedQty?line.orderedQty:line.actualPurchasedQty,
+      unit: line.unit,
+      unitPrice: line.unitPrice,
+      amount: line.legacy&&!line.actualPurchasedQty?roundPmsQty(line.orderedQty*line.unitPrice,2):line.actualPurchasedQty>0&&line.priceConfirmed?roundPmsQty(line.actualPurchasedQty*line.unitPrice,2):0,
+      amountConfirmed:Boolean(line.legacy&&!line.actualPurchasedQty || line.actualPurchasedQty>0&&line.priceConfirmed),
       supplierName: order.supplierName,
       status: order.status,
       orderedAt: order.orderDate,
-    }))
+    })))
 }

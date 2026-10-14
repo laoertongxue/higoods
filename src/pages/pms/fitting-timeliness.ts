@@ -354,7 +354,7 @@ function renderBody(): string {
   const stats = renderStats()
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
     showHeader: true,
     title: '面辅料采购时效',
     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,

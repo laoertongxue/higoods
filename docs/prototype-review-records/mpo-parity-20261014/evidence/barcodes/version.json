@@ -1,0 +1,15 @@
+{
+  "run": "acceptance-barcode-1791970910401",
+  "head": "3e6412f25bd389985ca1a2045280eff2220f622b",
+  "origin": "http://127.0.0.1:43965",
+  "sourceHashes": {
+    "src/pages/pms/material-purchase-barcodes.ts": "d74a57d7a80a6f2f31e86938f4d989fff0eba085613c8baf73d445580af10279",
+    "src/pages/pms/material-purchase-orders.ts": "9b7f7fde83e270a16e6e2bfc4e65f5fabaca76e49b791cd060a4db11dcaffed6",
+    "src/pages/pms/material-purchase-order-parity.ts": "a7937f009b921f5420583f16ff22b59e4eb25dd00d9c7af9c6f182403fb217fe",
+    "src/data/pms/material-purchase-orders.ts": "c8a5a65452673ee2a7a412a984a8bf2755fbb494f513bfb543209b6cd84dc3ba",
+    "src/data/pms/material-purchase-lines.ts": "b56db07223eac8b162f1df5542112ab34964e19a8641c6ed570dd232106870cd",
+    "src/utils/static-image-thumbnails.json": "7e778b4f2c79992d662aedabb8dc67e01b2ce57e4edd5b57363583187c90b7e2",
+    "tests/material-purchase-barcode-online-parity.spec.ts": "ba15d85145c4aab34e6cafebb1007dd10b30829ca78323ed40cb031f7bde2889",
+    "dist/index.html": "1a0a83489143da8c65ea3030aab133aeadf8cf41a42c9ef2456f7c449ccd2ed8"
+  }
+}

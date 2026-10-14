@@ -294,7 +294,7 @@ function renderOverlays(): string {
 function renderInner(): string {
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
       showHeader: true,
     title: '面辅料需求分析',
     feedbackHtml: `<div data-pms-mreq-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,

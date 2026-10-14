@@ -1,0 +1,301 @@
+--- src/pages/pms/first-leg-shipments.ts before
++++ src/pages/pms/first-leg-shipments.ts after
+@@ -415,7 +415,7 @@
+   const targetBanner = state.targetBatchNo
+     ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">已从物流费用对账定位头程单 <strong>${escapeHtml(state.targetBatchNo)}</strong>，列表已按单号过滤。</div>`
+     : ''
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '头程物流',
+     primaryActionsHtml: `${renderPrimaryButton('新建头程单', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus')}`,
+--- src/pages/pms/kol-demands.ts before
++++ src/pages/pms/kol-demands.ts after
+@@ -353,7 +353,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: 'KOL 采购需求',
+     primaryActionsHtml: renderPrimaryButton('新增KOL需求', { prefix: EVENT_PREFIX, action: 'open-new' }, 'plus'),
+--- src/pages/pms/material-requirements.ts before
++++ src/pages/pms/material-requirements.ts after
+@@ -294,7 +294,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '面辅料需求分析',
+     feedbackHtml: `<div data-pms-mreq-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,
+--- src/pages/pms/suppliers.ts before
++++ src/pages/pms/suppliers.ts after
+@@ -354,7 +354,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '商品供应商管理',
+     primaryActionsHtml: renderPrimaryButton('新增供应商',{prefix:EVENT_PREFIX,action:'open-create'},'plus'),
+--- src/pages/pms/supplier-supply-archives.ts before
++++ src/pages/pms/supplier-supply-archives.ts after
+@@ -276,7 +276,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '供应商供货档案',
+     primaryActionsHtml: renderPrimaryButton('新增供货档案',{prefix:EVENT_PREFIX,action:'open-new'},'plus') + renderSecondaryButton('导入',{prefix:EVENT_PREFIX,action:'open-import'},'upload'),
+--- src/pages/pms/material-inventory.ts before
++++ src/pages/pms/material-inventory.ts after
+@@ -43,7 +43,7 @@
+ function overlays(){return controller.renderColumnSettings()+(state.overlay?`<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-label="${escapeHtml(state.overlay.title)}"><section class="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl bg-background p-5"><header class="mb-4 flex justify-between"><h2 class="font-semibold">${escapeHtml(state.overlay.title)}</h2>${renderSecondaryButton('关闭',{prefix:PREFIX,action:'close-overlay'},'x')}</header>${state.overlay.html}</section></div>`:'')+renderPmsImagePreview()}
+ function refreshOverlays(){const node=root()?.querySelector<HTMLElement>('[data-pms-inv-overlays]');if(node){node.innerHTML=overlays();hydratePmsSurface(node)}}
+ function refresh(){const node=root();if(!node)return;for(const [selector,html] of [['[data-standard-list-filters]',filters()],['[data-pms-inv-stats]',stats()],['[data-pms-inv-feedback]',renderPmsFeedback(state.feedback,state.feedbackOk)]]){const surface=node.querySelector<HTMLElement>(selector);if(surface){surface.innerHTML=html;hydratePmsSurface(surface)}}const title=node.querySelector<HTMLElement>('[data-standard-list-table-section] > header h2');if(title)title.textContent=`共 ${rows().length} 条`;controller.refresh({overlays:false});refreshOverlays()}
+-export async function renderPmsMaterialInventoryPage():Promise<string>{try{await hydratePmsMaterialPurchaseOrdersFromIdb()}catch(error){state.feedback=`本地采购入库资料未读取：${error instanceof Error?error.message:'读取失败'}。当前仓储资料可继续查询。`;state.feedbackOk=false}resetStandardListEntryTransientStateOnRouteEntry(state,Boolean(root()));controller.installColumnDragEvents();const view=controller.getView();return `<div data-pms-inv-root data-skip-page-rerender="true">${renderStandardListPage({title:'原料仓库存查询',feedbackHtml:`<div data-pms-inv-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:filters(),statsHtml:`<div data-pms-inv-stats>${stats()}</div>`,listTitle:`共 ${rows().length} 条`,listActionsHtml:renderSecondaryButton('列设置',{prefix:PREFIX,action:'open-column-settings'},'settings-2'),tableHtml:`<div data-pms-inv-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-inv-pagination-content>${view.paginationHtml}</div><div class="mt-2 flex justify-end gap-2"><input class="h-8 w-16 rounded border px-2" type="number" min="1" aria-label="跳转页码" data-pms-inv-jump value="${state.currentPage}">${renderSecondaryButton('跳转',{prefix:PREFIX,action:'jump-page'},'arrow-right')}</div>`,overlaysHtml:`<div data-pms-inv-overlays>${overlays()}</div>`})}</div>`}
++export async function renderPmsMaterialInventoryPage():Promise<string>{try{await hydratePmsMaterialPurchaseOrdersFromIdb()}catch(error){state.feedback=`本地采购入库资料未读取：${error instanceof Error?error.message:'读取失败'}。当前仓储资料可继续查询。`;state.feedbackOk=false}resetStandardListEntryTransientStateOnRouteEntry(state,Boolean(root()));controller.installColumnDragEvents();const view=controller.getView();return `<div data-pms-inv-root data-skip-page-rerender="true">${renderStandardListPage({className:'pms-compact-list',title:'原料仓库存查询',feedbackHtml:`<div data-pms-inv-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:filters(),statsHtml:`<div data-pms-inv-stats>${stats()}</div>`,listTitle:`共 ${rows().length} 条`,listActionsHtml:renderSecondaryButton('列设置',{prefix:PREFIX,action:'open-column-settings'},'settings-2'),tableHtml:`<div data-pms-inv-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-inv-pagination-content>${view.paginationHtml}</div><div class="mt-2 flex justify-end gap-2"><input class="h-8 w-16 rounded border px-2" type="number" min="1" aria-label="跳转页码" data-pms-inv-jump value="${state.currentPage}">${renderSecondaryButton('跳转',{prefix:PREFIX,action:'jump-page'},'arrow-right')}</div>`,overlaysHtml:`<div data-pms-inv-overlays>${overlays()}</div>`})}</div>`}
+ export function closePmsInventoryOverlays():boolean{if(state.overlay){state.overlay=null;refreshOverlays();return true}if(state.showColumnSettings){state.showColumnSettings=false;refreshOverlays();return true}return false}
+ export async function handlePmsMaterialInventoryEvent(target:HTMLElement,event?:Event):Promise<boolean>{
+  if(handlePmsCommonImageEvent(target,event,refreshOverlays))return true
+--- src/pages/pms/purchase-suggestions.ts before
++++ src/pages/pms/purchase-suggestions.ts after
+@@ -377,7 +377,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '商品采购建议',
+     primaryActionsHtml: '',
+--- src/pages/pms/kol-sample-stock.ts before
++++ src/pages/pms/kol-sample-stock.ts after
+@@ -261,7 +261,7 @@
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+   const listTitle = `共 ${filteredRows().length} 条${state.selectedSkus.length ? ` · 已选 ${state.selectedSkus.length} 条` : ''}`
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+     showHeader: true,
+     title: 'KOL 库存',
+     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+--- src/pages/pms/material-purchase-orders.ts before
++++ src/pages/pms/material-purchase-orders.ts after
+@@ -586,7 +586,7 @@
+   if (state.purchaseView !== 'list') return renderPcsPurchaseWorkspace()
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '面辅料采购单',
+     primaryActionsHtml: `<div class="flex flex-wrap gap-2">${['面料','物料','辅料'].map(kind=>renderPrimaryButton(`${kind}采购`,{prefix:EVENT_PREFIX,action:'parity-new'},'plus').replace('<button',`<button data-purchase-kind="${kind}"`)).join('')}<details><summary class="cursor-pointer rounded border px-3 py-2 text-sm">更多采购</summary><div class="absolute z-20 flex gap-2 rounded border bg-white p-2 shadow">${['原料','样衣'].map(kind=>renderSecondaryButton(`${kind}采购`,{prefix:EVENT_PREFIX,action:'parity-new'}).replace('<button',`<button data-purchase-kind="${kind}"`)).join('')}${renderSecondaryButton('创建端头辅材采购', { prefix: EVENT_PREFIX, action: 'open-tip-purchase' }, 'plus')}</div></details></div>`,
+--- src/pages/pms/reorder-suggestions.ts before
++++ src/pages/pms/reorder-suggestions.ts after
+@@ -341,7 +341,7 @@
+   const stats = renderStats()
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+     showHeader: true,
+     title: '备货列表',
+     primaryActionsHtml: renderPrimaryButton('新增备货SPU', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus'),
+--- src/pages/pms/material-purchase-tracking.ts before
++++ src/pages/pms/material-purchase-tracking.ts after
+@@ -263,7 +263,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '面辅料采购跟踪',
+     feedbackHtml: `<div data-pms-mtrk-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,
+--- src/pages/pms/fitting-timeliness.ts before
++++ src/pages/pms/fitting-timeliness.ts after
+@@ -354,7 +354,7 @@
+   const stats = renderStats()
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+     showHeader: true,
+     title: '面辅料采购时效',
+     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+--- src/pages/pms/kol-sample-stock-lock-log.ts before
++++ src/pages/pms/kol-sample-stock-lock-log.ts after
+@@ -221,7 +221,7 @@
+   const stats = renderStats()
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+     showHeader: true,
+     title: '锁定操作记录',
+     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+--- src/pages/pms/first-leg-carriers.ts before
++++ src/pages/pms/first-leg-carriers.ts after
+@@ -389,7 +389,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '头程物流商管理',
+     primaryActionsHtml: renderPrimaryButton('新增物流商',{prefix:EVENT_PREFIX,action:'open-carrier-create'},'plus'),
+--- src/pages/pms/product-purchase-orders.ts before
++++ src/pages/pms/product-purchase-orders.ts after
+@@ -126,7 +126,7 @@
+  controller.ensurePreferencesLoaded();controller.installColumnDragEvents();const view=controller.getView()
+  const newActions=renderPrimaryButton('新增采购单',{prefix:EVENT_PREFIX,action:'open-create'},'plus')+TYPES.map(type=>button(type+'采购','open-create','',`data-type="${type}"`)).join('')
+  const bulk=['审核采购','驳回采购','合并采购单','组合生产采购单','设置采购员','更改采购类型','确认模板','发起售后'].map(action=>button('批量'+action,'bulk','',`data-business-action="${action}"`)).join('')+button('批量设置合作商','boundary-partner-bulk')+button('批量面辅料签收表','bulk-sign')+button('运单批量入库','scan')
+- return `<div data-pms-ppo-root data-skip-page-rerender="true"><style>[data-pms-ppo-root] td:has(details[open]){z-index:40}[data-pms-ppo-root] td details[open]>div{z-index:45}</style>${renderStandardListPage({showHeader:true,title:'商品采购单',primaryActionsHtml:`<div class="flex flex-wrap gap-2">${newActions}</div>`,feedbackHtml:`<div data-pms-ppo-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:`<div data-pms-ppo-filters>${renderFilters()}</div>`,statsHtml:`<div data-pms-ppo-stats>${renderStats()}</div>`,listTitle:`共 ${filteredRows().length} 条`,listActionsHtml:`<div class="flex flex-wrap gap-1"><details><summary class="cursor-pointer rounded border px-3 py-2 text-xs">批量操作</summary><div class="absolute z-30 grid max-h-72 overflow-auto rounded border bg-white p-2 shadow-lg">${bulk}</div></details>${renderSecondaryButton('列设置',{prefix:EVENT_PREFIX,action:'open-column-settings'},'settings-2')}</div>`,tableHtml:`<div data-pms-ppo-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-ppo-pagination-surface>${renderPmsCorePagination(view.paginationHtml,EVENT_PREFIX,state.currentPage)}</div>`,overlaysHtml:`<div data-pms-ppo-overlays>${renderOverlay()}</div>`})}</div>`
++ return `<div data-pms-ppo-root data-skip-page-rerender="true"><style>[data-pms-ppo-root] td:has(details[open]){z-index:40}[data-pms-ppo-root] td details[open]>div{z-index:45}</style>${renderStandardListPage({className:'pms-compact-list',showHeader:true,title:'商品采购单',primaryActionsHtml:`<div class="flex flex-wrap gap-2">${newActions}</div>`,feedbackHtml:`<div data-pms-ppo-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:`<div data-pms-ppo-filters>${renderFilters()}</div>`,statsHtml:`<div data-pms-ppo-stats>${renderStats()}</div>`,listTitle:`共 ${filteredRows().length} 条`,listActionsHtml:`<div class="flex flex-wrap gap-1"><details><summary class="cursor-pointer rounded border px-3 py-2 text-xs">批量操作</summary><div class="absolute z-30 grid max-h-72 overflow-auto rounded border bg-white p-2 shadow-lg">${bulk}</div></details>${renderSecondaryButton('列设置',{prefix:EVENT_PREFIX,action:'open-column-settings'},'settings-2')}</div>`,tableHtml:`<div data-pms-ppo-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-ppo-pagination-surface>${renderPmsCorePagination(view.paginationHtml,EVENT_PREFIX,state.currentPage)}</div>`,overlaysHtml:`<div data-pms-ppo-overlays>${renderOverlay()}</div>`})}</div>`
+ }
+ export function closePmsProductPurchaseOrderOverlays():boolean{if(state.saving)return false;if(state.overlay||state.showColumnSettings){state.overlay=null;state.overlayError='';state.showColumnSettings=false;refreshOverlay();return true}return false}
+ function readOrderInput(surface:ParentNode,overlay:Extract<Overlay,{kind:'create'|'edit'}>):{patch:PmsPurchaseOrderPatch;product:ReturnType<typeof listPmsPurchaseProductCandidates>[number]|undefined;lines:Array<PmsCreatePurchaseOrderInput['lines'][number]&{lineId:string}>} {
+--- src/pages/pms/supplier-confirmations.ts before
++++ src/pages/pms/supplier-confirmations.ts after
+@@ -431,7 +431,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: '面辅料供应商确认单',
+     primaryActionsHtml: renderPrimaryButton('同步采购单',{prefix:EVENT_PREFIX,action:'sync-orders'},'refresh-cw'),
+--- src/pages/pms/kol-sample-link.ts before
++++ src/pages/pms/kol-sample-link.ts after
+@@ -225,7 +225,7 @@
+   const stats = renderStats()
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+     showHeader: true,
+     title: '对外样品池链接',
+     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+--- src/pages/pms/kol-sample-apply.ts before
++++ src/pages/pms/kol-sample-apply.ts after
+@@ -242,7 +242,7 @@
+   const stats = renderStats()
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+     showHeader: true,
+     title: '手动寄样申请',
+     feedbackHtml: `<div data-${EVENT_PREFIX}-feedback>${renderPmsFeedback(state.feedback, state.feedbackOk)}</div>`,
+--- src/pages/pms/purchase-order-aftersales.ts before
++++ src/pages/pms/purchase-order-aftersales.ts after
+@@ -71,7 +71,7 @@
+   resetStandardListEntryTransientStateOnRouteEntry(state,Boolean(rootElement()))
+   try{await Promise.all([hydratePmsPurchaseOrderAftersalesFromIdb(),hydratePmsProductPurchaseOrdersFromIdb()])}catch(error){state.feedback=`用户记录读取失败：${error instanceof Error?error.message:'请重试'}`;state.feedbackOk=false}
+   controller.ensurePreferencesLoaded();controller.installColumnDragEvents();const view=controller.getView()
+-  return `<div data-pms-posa-root data-skip-page-rerender="true">${renderStandardListPage({showHeader:true,title:'商品采购售后',feedbackHtml:`<div data-pms-posa-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:`<div data-pms-posa-filters>${renderFilters()}</div>`,statsHtml:`<div data-pms-posa-stats>${renderStats()}</div>`,listTitle:`共 ${filteredRows().length} 条`,listActionsHtml:`<div class="flex flex-wrap gap-2">${renderSecondaryButton('批量开始售后',{prefix:EVENT_PREFIX,action:'batch-start'},'play')}${renderSecondaryButton('批量同意退货',{prefix:EVENT_PREFIX,action:'batch-approve'},'check')}${renderSecondaryButton('批量更新状态',{prefix:EVENT_PREFIX,action:'batch-status'},'refresh-ccw')}${renderSecondaryButton('列设置',{prefix:EVENT_PREFIX,action:'open-column-settings'},'settings-2')}</div>`,tableHtml:`<div data-pms-posa-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-posa-pagination-surface>${renderPmsCorePagination(view.paginationHtml,EVENT_PREFIX,state.currentPage)}</div>`,overlaysHtml:`<div data-pms-posa-overlays>${renderOverlay()}</div>`})}</div>`
++  return `<div data-pms-posa-root data-skip-page-rerender="true">${renderStandardListPage({className:'pms-compact-list',showHeader:true,title:'商品采购售后',feedbackHtml:`<div data-pms-posa-feedback>${renderPmsFeedback(state.feedback,state.feedbackOk)}</div>`,filtersHtml:`<div data-pms-posa-filters>${renderFilters()}</div>`,statsHtml:`<div data-pms-posa-stats>${renderStats()}</div>`,listTitle:`共 ${filteredRows().length} 条`,listActionsHtml:`<div class="flex flex-wrap gap-2">${renderSecondaryButton('批量开始售后',{prefix:EVENT_PREFIX,action:'batch-start'},'play')}${renderSecondaryButton('批量同意退货',{prefix:EVENT_PREFIX,action:'batch-approve'},'check')}${renderSecondaryButton('批量更新状态',{prefix:EVENT_PREFIX,action:'batch-status'},'refresh-ccw')}${renderSecondaryButton('列设置',{prefix:EVENT_PREFIX,action:'open-column-settings'},'settings-2')}</div>`,tableHtml:`<div data-pms-posa-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-pms-posa-pagination-surface>${renderPmsCorePagination(view.paginationHtml,EVENT_PREFIX,state.currentPage)}</div>`,overlaysHtml:`<div data-pms-posa-overlays>${renderOverlay()}</div>`})}</div>`
+ }
+ export function closePmsPurchaseOrderAftersalesOverlays(): boolean {if(state.saving)return false;if(state.overlay||state.showColumnSettings){state.overlay=null;state.overlayError='';state.showColumnSettings=false;refreshOverlay();return true}return false}
+ export async function handlePmsPurchaseOrderAftersalesEvent(target: HTMLElement,event?: Event): Promise<boolean> {
+--- src/pages/pms/payment-requests.ts before
++++ src/pages/pms/payment-requests.ts after
+@@ -408,7 +408,7 @@
+ function renderInner(): string {
+   controller.ensurePreferencesLoaded()
+   const view = controller.getView()
+-  return renderStandardListPage({
++  return renderStandardListPage({className:'pms-compact-list',
+       showHeader: true,
+     title: pageTitle(),
+     primaryActionsHtml: `${renderPrimaryButton('新增请款单',{prefix:EVENT_PREFIX,action:'choose-source'},'plus')}`,
+--- src/pages/pms/material-purchase-order-parity.ts before
++++ src/pages/pms/material-purchase-order-parity.ts after
+@@ -39,7 +39,11 @@
+ }
+ 
+ export function renderMpoParityToolbar():string {
+- return `<div class="flex flex-wrap items-center gap-2">${[['buyerName','批量设置采购员'],['rejectedReason','批量驳回'],['remark','批量采购备注'],['purchaseRegion','批量设置采购区域'],['supplierName','批量设置面辅料供应商']].map(([key,label])=>action(label,'field',`data-field="${key}"`)).join('')}${action('批量添加快递','logistics')}${action('批量补录快递','logistics', 'data-logistics-mode="supplement"')}${action('批量确认实际采购价','price')}${action('批量设置为已下单','placed')}${action('运单批量入库','inbound')}${action('修改物流信息','logistics-select')}</div>`
++ const compactAction=(label:string,name:string,data='')=>{
++  const short=({'批量设置采购员':'采购员','批量设置采购区域':'采购区域','批量设置面辅料供应商':'供应商','批量确认实际采购价':'确认采购价','批量设置为已下单':'设为已下单','运单批量入库':'运单入库','修改物流信息':'修改物流'} as Record<string,string>)[label]||label.replace(/^批量/,'')
++  return action(short,name,data).replace('<button',`<button title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"`)
++ }
++ return `<div class="flex flex-wrap items-center gap-2">${[['buyerName','批量设置采购员'],['rejectedReason','批量驳回'],['remark','批量采购备注'],['purchaseRegion','批量设置采购区域'],['supplierName','批量设置面辅料供应商']].map(([key,label])=>compactAction(label,'field',`data-field="${key}"`)).join('')}${compactAction('批量添加快递','logistics')}${compactAction('批量补录快递','logistics', 'data-logistics-mode="supplement"')}${compactAction('批量确认实际采购价','price')}${compactAction('批量设置为已下单','placed')}${compactAction('运单批量入库','inbound')}${compactAction('修改物流信息','logistics-select')}</div>`
+ }
+ 
+ export function renderMpoSkuSummary(order:Order):string {
+--- src/pages/pms/material-purchase-barcodes.ts before
++++ src/pages/pms/material-purchase-barcodes.ts after
+@@ -146,7 +146,7 @@
+     { key: 'actions', title: '操作', width: 150, actionColumn: true, render: row => `<div class="flex flex-wrap gap-2">${allowWrite ? `<button class="text-xs text-blue-700" ${action('edit')} data-code="${escapeHtml(row.code)}">修改</button><button class="text-xs text-red-700" ${action('delete-one')} data-code="${escapeHtml(row.code)}">删除</button>` : ''}<button class="text-xs text-blue-700" ${action('print-one')} data-code="${escapeHtml(row.code)}">打印预览</button></div>` },
+   ]
+   const prefs: StandardListColumnPreferences = { order: columns.map(c => c.key), visibleKeys: columns.map(c => c.key), frozenKeys: [], pageSize: state.pageSize }
+-  return `<section class="rounded-lg border"><header class="flex flex-wrap items-center justify-between gap-3 border-b p-3"><div><h3 class="font-semibold">条码列表 · 共 ${rows.length} 条</h3><p class="text-xs text-muted-foreground">已选 ${selected} 个 · 数量 ${quantitySummary(rows)}</p></div><div class="flex flex-wrap gap-2">${allowWrite ? renderSecondaryButton('批量修改', { prefix: PREFIX, action: 'batch-edit' }) + renderSecondaryButton('补充条码', { prefix: PREFIX, action: 'create' }, 'plus') + renderSecondaryButton('导入细码', { prefix: PREFIX, action: 'import' }, 'upload') + renderSecondaryButton('批量删除', { prefix: PREFIX, action: 'delete-selected' }, 'trash-2') + renderSecondaryButton('下架到待出库区', { prefix: PREFIX, action: 'offshelf' }) : ''}${renderSecondaryButton('批量打印预览', { prefix: PREFIX, action: 'print-selected' }, 'printer')}</div></header>${renderStandardListTable({ columns, rows: paging.rows, preferences: prefs, sort: null, eventPrefix: PREFIX, skipPageRerender: true, emptyText: '当前条件下暂无条码' })}${renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: PREFIX, pageSizeOptions: [5, 10, 20, 40], skipPageRerender: true })}</section>`
++  return `<section class="rounded-lg border"><header class="pms-compact-toolbar flex flex-wrap items-center justify-between gap-3 border-b p-3"><div><h3 class="font-semibold">条码列表 · 共 ${rows.length} 条</h3><p class="text-xs text-muted-foreground">已选 ${selected} 个 · 数量 ${quantitySummary(rows)}</p></div><div class="flex flex-wrap gap-2">${allowWrite ? renderSecondaryButton('批量修改', { prefix: PREFIX, action: 'batch-edit' }) + renderSecondaryButton('补充条码', { prefix: PREFIX, action: 'create' }, 'plus') + renderSecondaryButton('导入细码', { prefix: PREFIX, action: 'import' }, 'upload') + renderSecondaryButton('批量删除', { prefix: PREFIX, action: 'delete-selected' }, 'trash-2') + renderSecondaryButton('下架到待出库区', { prefix: PREFIX, action: 'offshelf' }) : ''}${renderSecondaryButton('批量打印预览', { prefix: PREFIX, action: 'print-selected' }, 'printer')}</div></header>${renderStandardListTable({ columns, rows: paging.rows, preferences: prefs, sort: null, eventPrefix: PREFIX, skipPageRerender: true, emptyText: '当前条件下暂无条码' })}${renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: PREFIX, pageSizeOptions: [5, 10, 20, 40], skipPageRerender: true })}</section>`
+ }
+ export function renderMpoBarcodeOverlay(orderNo: string, initialMode?: 'import' | 'print'): string {
+   const opening = state.orderNo !== orderNo
+--- src/styles.css before
++++ src/styles.css after
+@@ -345,3 +345,52 @@
+     padding: 12px;
+   }
+ }
++
++
++/* Procurement list actions: compact on one row, scoped to PMS only. */
++.pms-compact-list [data-standard-list-table-section] > header,
++.pms-compact-toolbar {
++  flex-wrap: nowrap;
++  align-items: center;
++  gap: 6px;
++  min-height: 44px;
++  padding: 8px 12px;
++}
++.pms-compact-list [data-standard-list-table-section] > header > h2 {
++  flex-shrink: 0;
++  white-space: nowrap;
++  font-size: 14px;
++}
++.pms-compact-list [data-standard-list-table-section] > header > div,
++.pms-compact-toolbar > div:last-child {
++  flex-wrap: nowrap;
++  align-items: center;
++  gap: 3px;
++  flex-shrink: 0;
++  margin-left: auto;
++}
++.pms-compact-list [data-standard-list-table-section] > header :is(button, summary),
++.pms-compact-toolbar :is(button, summary) {
++  height: 28px;
++  min-height: 28px;
++  padding: 0 6px;
++  gap: 4px;
++  font-size: 12px;
++  line-height: 1;
++  white-space: nowrap;
++  flex-shrink: 0;
++}
++.pms-compact-list [data-standard-list-table-section] > header button :is(svg, i),
++.pms-compact-toolbar button :is(svg, i) {
++  width: 14px;
++  height: 14px;
++}
++.pms-compact-list [data-standard-list-table-section] > header > select {
++  height: 28px;
++  min-height: 28px;
++  font-size: 12px;
++}
++
++.pms-compact-list [data-standard-list-table-section] > header summary {
++  line-height: 28px;
++}

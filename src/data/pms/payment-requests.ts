@@ -1,4 +1,4 @@
-import { listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
+import { getPmsMaterialPurchaseOrderLines, pmsMaterialPurchaseOrderAmount, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
 import { listPmsFirstLegBatches } from './first-leg-logistics.ts'
 import {
   checkPmsLogisticsReconciliationGenerate,
@@ -553,7 +553,8 @@ export async function updatePmsPaymentRemark(requestNo: string, remark: string, 
 }
 
 export function listPmsPaymentSourceOptions(type:PmsPaymentRequestType):Array<{id:string;label:string;objectName:string;currency:'RMB'|'USD'|'IDR';amount:number}> {
-  return type==='material'?listPmsMaterialPurchaseOrders().filter(row=>row.status!=='已关闭' && row.orderedQty*row.unitPrice>0 && !getRuntime().requests.some(request=>request.status!=='已作废' && request.sourceRows.some(source=>source.sourceId===row.purchaseOrderNo || source.sourceLabel.includes(row.purchaseOrderNo)))).map(row=>({id:row.purchaseOrderNo,label:`${row.purchaseOrderNo} · ${row.materialName}`,objectName:row.supplierName,currency:row.currency,amount:row.orderedQty*row.unitPrice})):
+  // Direct purchase requests retain the existing planned-payment contract; settlement uses actual facts separately.
+  return type==='material'?listPmsMaterialPurchaseOrders().filter(row=>row.status!=='已关闭' && pmsMaterialPurchaseOrderAmount(row,'planned')>0 && !getRuntime().requests.some(request=>request.status!=='已作废' && request.sourceRows.some(source=>source.sourceId===row.purchaseOrderNo || source.sourceLabel.includes(row.purchaseOrderNo)))).map(row=>({id:row.purchaseOrderNo,label:`${row.purchaseOrderNo} · 计划采购 · ${getPmsMaterialPurchaseOrderLines(row).map(line=>line.materialName).join(' / ')}`,objectName:row.supplierName,currency:row.currency,amount:pmsMaterialPurchaseOrderAmount(row,'planned')})):
     listPmsFirstLegBatches().filter(row=>row.fee>0 && !getRuntime().requests.some(request=>request.status!=='已作废' && request.sourceRows.some(source=>source.sourceLabel.includes(row.batchNo)))).map(row=>({id:row.batchNo,label:`${row.batchNo} · ${row.channelName}`,objectName:row.carrierName,currency:row.feeCurrency,amount:row.fee}))
 }
 export function preparePmsPaymentDraftFromSources(type:PmsPaymentRequestType,ids:string[]):PmsPaymentDraft {

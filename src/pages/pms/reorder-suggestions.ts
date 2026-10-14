@@ -341,7 +341,7 @@ function renderBody(): string {
   const stats = renderStats()
   controller.ensurePreferencesLoaded()
   const view = controller.getView()
-  return renderStandardListPage({
+  return renderStandardListPage({className:'pms-compact-list',
     showHeader: true,
     title: '备货列表',
     primaryActionsHtml: renderPrimaryButton('新增备货SPU', { prefix: EVENT_PREFIX, action: 'open-create' }, 'plus'),

@@ -345,3 +345,52 @@ main > div:has(> [data-page-content-root] > [data-cut-piece-release-detail-page]
     padding: 12px;
   }
 }
+
+
+/* Procurement list actions: compact on one row, scoped to PMS only. */
+.pms-compact-list [data-standard-list-table-section] > header,
+.pms-compact-toolbar {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.pms-compact-list [data-standard-list-table-section] > header > h2 {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.pms-compact-list [data-standard-list-table-section] > header > div,
+.pms-compact-toolbar > div:last-child {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.pms-compact-list [data-standard-list-table-section] > header :is(button, summary),
+.pms-compact-toolbar :is(button, summary) {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 6px;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pms-compact-list [data-standard-list-table-section] > header button :is(svg, i),
+.pms-compact-toolbar button :is(svg, i) {
+  width: 14px;
+  height: 14px;
+}
+.pms-compact-list [data-standard-list-table-section] > header > select {
+  height: 28px;
+  min-height: 28px;
+  font-size: 12px;
+}
+
+.pms-compact-list [data-standard-list-table-section] > header summary {
+  line-height: 28px;
+}
