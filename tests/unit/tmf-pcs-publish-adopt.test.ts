@@ -28,7 +28,8 @@ import {
 import { findStyleArchiveByCode, getStyleArchiveById } from '../../src/data/pcs-style-archive-repository.ts'
 import { createMaterialArchive, createMaterialSkuRecord, getMaterialStandardCost } from '../../src/data/pcs-material-archive-repository.ts'
 import { productionDemands } from '../../src/data/fcs/production-demands.ts'
-import { buildProductionOrderFromDemand, productionOrders } from '../../src/data/fcs/production-orders.ts'
+import { productionOrders } from '../../src/data/fcs/production-orders.ts'
+import { buildProductionOrderFromDemand } from '../../src/data/fcs/production-order-create.ts'
 import {
   getDemandCurrentTechPackInfo,
   listPublishedTechPackVersionOptionsForDemand,

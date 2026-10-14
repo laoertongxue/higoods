@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
+import { completeTestingFixture } from './helpers/pcs-testing-fixture.ts'
 
-import { buildProductionOrderFromDemand, type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
+import { type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
+import { buildProductionOrderFromDemand } from '../src/data/fcs/production-order-create.ts'
 import type { ProductionDemand } from '../src/data/fcs/production-demands.ts'
 import {
   createEngineeringMasterOrder,
@@ -82,6 +84,7 @@ resetEngineeringMasterRepository()
 resetTechnicalDataVersionRepository()
 
 const style = resetAndGetProductionPreparationStyle()
+completeTestingFixture(style.styleId)
 const baseRecord = listTechnicalDataVersions()[0]
 assert.ok(baseRecord, '必须存在技术包结构演示数据')
 const baseContent = getTechnicalDataVersionContent(baseRecord.technicalVersionId)

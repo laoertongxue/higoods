@@ -12,7 +12,7 @@ import {
   listGarmentWarehouseRelabelTasks,
   startGarmentWarehouseRelabelTask,
   type GarmentWarehouseRelabelTask,
-} from '../data/fcs/garment-spu-replacement.ts'
+} from "../data/fcs/garment-spu-replacement-records.ts"
 import { escapeHtml } from '../utils.ts'
 
 interface RelabelTaskPageState extends ProcessOrderListControllerState {

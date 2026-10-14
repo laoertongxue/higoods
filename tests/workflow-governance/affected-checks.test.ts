@@ -3,6 +3,30 @@ import test from 'node:test'
 import { execFileSync } from 'node:child_process'
 import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-checks.ts'
 import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
+import { isProductionCreateImportOnly } from '../../scripts/workflow-governance/production-create-test-import.ts'
+
+test('生产建单与冻结独立Node专项精确路由，未知脚本不获得豁免', () => {
+  for (const path of ['tests/fcs-demand-to-order-current-tech-pack.spec.ts', 'tests/fcs-production-tech-pack-snapshot-freeze.spec.ts']) {
+    const result = routeAffectedChecks([path])
+    assert.deepEqual(result.unknownPaths, [])
+    assert.deepEqual(result.fastChecks, [`node --import tsx '${path}'`])
+  }
+  assert.deepEqual(routeAffectedChecks(['tests/pcs-production-engineering-full-flow.spec.ts']).fastChecks,
+    ['node --import tsx scripts/check-pcs-engineering-test-import-migration.ts --scope worktree'])
+  assert.deepEqual(routeAffectedChecks(['tests/fcs-unknown-freeze.spec.ts']).unknownPaths, ['tests/fcs-unknown-freeze.spec.ts'])
+})
+
+test('旧工程全流程只有精确建单import移位可按迁移契约验，其它改动须完整回放', () => {
+  const before = "import assert from 'node:assert/strict'\nimport { productionOrders, buildProductionOrderFromDemand } from '../src/data/fcs/production-orders.ts'\nassert.equal(productionOrders.length > 0, true)"
+  const after = "import assert from 'node:assert/strict'\nimport { productionOrders } from '../src/data/fcs/production-orders.ts'\nimport { buildProductionOrderFromDemand } from '../src/data/fcs/production-order-create.ts'\nassert.equal(productionOrders.length > 0, true)"
+  assert.equal(isProductionCreateImportOnly(before, after), true)
+  for (const changed of [after.replace('> 0', '> -1'), after.replace("'node:assert/strict'", "'node:assert'"), after.replace('buildProductionOrderFromDemand }', 'buildProductionOrderFromDemand as skip }'), after + '\n// changed fixture', after.replace('production-order-create', 'unrelated')]) {
+    assert.equal(isProductionCreateImportOnly(before, changed), false)
+  }
+  assert.equal(isProductionCreateImportOnly(before, after.replace("production-order-create.ts'", "production-order-create.ts' with { type: 'json' }")), false)
+  const createLine = after.split('\n')[2]!
+  assert.equal(isProductionCreateImportOnly(before, createLine + '\n' + after.split('\n').filter((_, index) => index !== 2).join('\n')), false)
+})
 
 test('PPIC每日回货配置与三类浏览器契约统一路由到实际独立服务回放', () => {
   const paths = ['tests/ppic-daily-return.config.ts', 'tests/fixtures/ppic-current-login.ts', 'tests/ppic-daily-return-pages.spec.ts', 'tests/ppic-daily-return-receipts.spec.ts', 'tests/ppic-shared-consumers.spec.ts']

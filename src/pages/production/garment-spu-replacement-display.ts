@@ -7,7 +7,7 @@ import {
   listGarmentSpuReplacementsByProductionOrder,
   type GarmentReplacementIdentity,
   type GarmentSpuReplacementRecord,
-} from '../../data/fcs/garment-spu-replacement.ts'
+} from "../../data/fcs/garment-spu-replacement-records.ts"
 
 function formatQty(value: number): string {
   return `${Number(value || 0).toLocaleString('zh-CN')} 件`

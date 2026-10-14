@@ -20,7 +20,7 @@ import type {
   SettlementPartyType,
 } from './store-domain-quality-types'
 import { getPostProcessRouteByProductionOrderId } from './post-process-route.ts'
-import { resolveEffectiveGarmentIdentity, resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
+import { resolveEffectiveGarmentIdentity, resolveOriginalSkuForReturnedSku } from "./garment-spu-replacement-records.ts"
 
 function isProcessorManagedReturn(processType: ReturnInboundBatch['processType']): boolean {
   return processType === 'PRINT' || processType === 'DYE' || processType === 'DYE_PRINT'

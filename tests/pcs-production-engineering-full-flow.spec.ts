@@ -103,7 +103,8 @@ import { getLegacyTechPackReviewer } from '../src/data/pcs-tech-pack-reviewer-di
 import { publishTechnicalDataVersion } from '../src/data/pcs-project-technical-data-writeback.ts'
 import { activateTechPackVersionForStyle } from '../src/data/pcs-tech-pack-version-activation.ts'
 import { getPreparationRecordCapabilities } from '../src/data/fcs/production-preparation-timing-runtime.ts'
-import { buildProductionOrderFromDemand, type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
+import { type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
+import { buildProductionOrderFromDemand } from '../src/data/fcs/production-order-create.ts'
 import type { ProductionDemand } from '../src/data/fcs/production-demands.ts'
 import type {
   EngineeringIndependentProfessionalTaskType,

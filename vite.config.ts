@@ -126,6 +126,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
         // only after production/part-ticket restoration has finished. Fetch them
         // during navigation; the existing initializer still evaluates/restores in order.
         const returnReadInitialization = [
+          '/src/data/pms/idb-storage.ts',
           '/src/data/fcs/cutting/part-ticket-records.ts',
           '/src/data/fcs/production-context-actions.ts',
           '/src/data/fcs/cutting/cutting-event-repository.ts',
@@ -174,7 +175,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
         ]
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);if((entry[3]!==true&&location.pathname===entry[0])||genericExec){entry[1].forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';link.href=src;document.head.appendChild(link)});break}}` }]
+          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);if((entry[3]!==true&&location.pathname===entry[0])||genericExec){var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){return Number(b.includes('/idb-storage-'))-Number(a.includes('/idb-storage-'))}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&file.includes('/idb-storage-'))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});break}}` }]
       },
     },
   }

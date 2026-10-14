@@ -1,3 +1,5 @@
+import { clonePatternFiles, cloneProcessEntries, cloneSizeTable, cloneSizeMeasurements, cloneBomItems, cloneColorMappings, cloneSnapshotColorMappings, clonePatternDesigns, cloneCutPieceParts, cloneImageSnapshot, cloneProductionOrderTechPackSnapshot } from './production-frozen-snapshot.ts'
+export { cloneProductionOrderTechPackSnapshot } from './production-frozen-snapshot.ts'
 import { cloneWebbingSpecifications } from './webbing-specifications.ts'
 import { findStyleArchiveByCode } from '../pcs-style-archive-repository.ts'
 import {
@@ -169,73 +171,9 @@ function parseSizeRangeText(sizeRange?: string): string[] {
   )
 }
 
-function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
-  return items.map((item) => ({
-    ...item,
-    prjFile: item.prjFile ? { ...item.prjFile } : undefined,
-    markerImage: item.markerImage ? { ...item.markerImage } : undefined,
-    dxfFile: item.dxfFile ? { ...item.dxfFile } : undefined,
-    rulFile: item.rulFile ? { ...item.rulFile } : undefined,
-    duplicateWarningReasons: item.duplicateWarningReasons ? [...item.duplicateWarningReasons] : undefined,
-    pieceInstances: item.pieceInstances?.map((instance) => ({
-      ...instance,
-      specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
-    })),
-    rulSizeList: [...(item.rulSizeList ?? [])],
-    selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
-    bindingStrips: item.bindingStrips?.map((strip) => ({
-      ...strip,
-      specialCrafts: strip.specialCrafts?.map((craft) => ({
-        ...craft,
-        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
-        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
-      })),
-    })),
-    pieceRows: item.pieceRows?.map((row) => ({
-      ...row,
-      applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
-      colorAllocations: row.colorAllocations?.map((allocation) => ({
-        ...allocation,
-        skuCodes: [...(allocation.skuCodes ?? [])],
-      })),
-      specialCrafts: row.specialCrafts?.map((craft) => ({
-        ...craft,
-        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
-        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
-      })),
-      bundleLengthCm: row.bundleLengthCm,
-      bundleWidthCm: row.bundleWidthCm,
-      candidatePartNames: [...(row.candidatePartNames ?? [])],
-      rawTextLabels: [...(row.rawTextLabels ?? [])],
-      colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
-    })),
-  }))
-}
 
-function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
-  return items.map((item) => ({
-    ...item,
-    webbingSpecifications: cloneWebbingSpecifications(item.webbingSpecifications),
-    routeStepNo: item.routeStepNo,
-    routeLaneNo: item.routeLaneNo,
-    routeParallelGroupId: item.routeParallelGroupId,
-    routeParallelGroupName: item.routeParallelGroupName,
-    routeSourceKind: item.routeSourceKind,
-    routeObjectKey: item.routeObjectKey,
-    inputObjectType: item.inputObjectType,
-    outputObjectType: item.outputObjectType,
-    routeUpdatedBy: item.routeUpdatedBy,
-    routeUpdatedAt: item.routeUpdatedAt,
-    detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
-    supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
-    supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
-    linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
-    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
-    consumedBomItemIds: [...(item.consumedBomItemIds ?? [])],
-    predecessorEntryIds: item.predecessorEntryIds ? [...item.predecessorEntryIds] : undefined,
-    visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
-  }))
-}
+
+
 
 function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<TechnicalProcessEntry['routeSourceKind']> {
   if (item.routeSourceKind) return item.routeSourceKind
@@ -253,76 +191,21 @@ function freezeProcessEntries(items: TechnicalProcessEntry[], _snapshotId: strin
   })))
 }
 
-function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
-  return items.map((item) => ({ ...item }))
-}
 
-function cloneSizeMeasurements(items: TechPackSizeMeasurementSnapshot[]): TechPackSizeMeasurementSnapshot[] {
-  return items.map((item) => ({ ...item }))
-}
 
-function cloneBomItems(items: TechPackBomItemSnapshot[]): TechPackBomItemSnapshot[] {
-  return items.map((item) => ({
-    ...item,
-    applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
-    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
-    usageProcessCodes: [...(item.usageProcessCodes ?? [])],
-  }))
-}
 
-function cloneColorMappings(items: TechnicalColorMaterialMapping[]): ProductionTechPackColorMaterialMapping[] {
-  return items.map((item) => ({
-    ...item,
-    mappingOrigin: 'TECH_PACK',
-    lines: item.lines.map((line) => ({
-      ...line,
-      applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
-    })),
-  }))
-}
 
-function cloneSnapshotColorMappings(
-  items: ProductionTechPackColorMaterialMapping[],
-): ProductionTechPackColorMaterialMapping[] {
-  return items.map((item) => ({
-    ...item,
-    mappingOrigin: item.mappingOrigin,
-    lines: item.lines.map((line) => ({
-      ...line,
-      applicableSkuCodes: [...(line.applicableSkuCodes ?? [])],
-    })),
-  }))
-}
 
-function clonePatternDesigns(items: TechnicalPatternDesign[]): TechnicalPatternDesign[] {
-  return items.map((item) => ({ ...item }))
-}
 
-function cloneCutPieceParts(items: TechPackCutPiecePartSnapshot[]): TechPackCutPiecePartSnapshot[] {
-  return items.map((item) => ({
-    ...item,
-    applicableColorList: [...item.applicableColorList],
-    applicableSizeList: [...item.applicableSizeList],
-    specialCrafts: item.specialCrafts?.map((craft) => ({
-      ...craft,
-      supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
-      supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
-    })),
-  }))
-}
 
-function cloneImageSnapshot(snapshot: TechPackImageSnapshot): TechPackImageSnapshot {
-  return {
-    productImages: [...snapshot.productImages],
-    styleImages: [...snapshot.styleImages],
-    sampleImages: [...snapshot.sampleImages],
-    materialImages: [...snapshot.materialImages],
-    accessoryImages: [...snapshot.accessoryImages],
-    patternImages: [...snapshot.patternImages],
-    markerImages: [...snapshot.markerImages],
-    artworkImages: [...snapshot.artworkImages],
-  }
-}
+
+
+
+
+
+
+
+
 
 function getBomDisplayCode(item: TechPackBomItemSnapshot, index: number): string {
   return (
@@ -601,30 +484,7 @@ function buildImageSnapshot(input: {
   }
 }
 
-export function cloneProductionOrderTechPackSnapshot(
-  snapshot: ProductionOrderTechPackSnapshot | null,
-): ProductionOrderTechPackSnapshot | null {
-  if (!snapshot) return null
-  return {
-    ...snapshot,
-    garmentDifficultyGrade: snapshot.garmentDifficultyGrade || 'B',
-    bomItems: cloneBomItems(snapshot.bomItems),
-    patternFiles: clonePatternFiles(snapshot.patternFiles),
-    processEntries: cloneProcessEntries(snapshot.processEntries),
-    sizeTable: cloneSizeTable(snapshot.sizeTable),
-    sizeMeasurements: cloneSizeMeasurements(snapshot.sizeMeasurements),
-    colorMaterialMappings: cloneSnapshotColorMappings(snapshot.colorMaterialMappings),
-    cutPieceParts: cloneCutPieceParts(snapshot.cutPieceParts),
-    imageSnapshot: cloneImageSnapshot(snapshot.imageSnapshot),
-    onlineConfirmationFacts: snapshot.onlineConfirmationFacts
-      ? JSON.parse(JSON.stringify(snapshot.onlineConfirmationFacts))
-      : undefined,
-    patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
-    linkedDesignRevisionTaskIds: [...snapshot.linkedDesignRevisionTaskIds],
-    linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
-    linkedArtworkTaskIds: [...snapshot.linkedArtworkTaskIds],
-  }
-}
+
 
 function createSnapshotId(productionOrderNo: string): string {
   return `TPS-${productionOrderNo}`

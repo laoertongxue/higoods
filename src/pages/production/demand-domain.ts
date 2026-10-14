@@ -31,13 +31,8 @@ import {
   demandStatusConfig,
   PAGE_SIZE,
 } from './context.ts'
-import {
-  persistCreatedProductionOrders,
-  findProductionOrderForDemand,
-  buildProductionOrderFromDemand,
-  buildProductionOrderFromDemands,
-  PENDING_MAIN_FACTORY_ID,
-} from '../../data/fcs/production-orders'
+import { persistCreatedProductionOrders, findProductionOrderForDemand, PENDING_MAIN_FACTORY_ID } from '../../data/fcs/production-orders'
+import { buildProductionOrderFromDemand, buildProductionOrderFromDemands } from '../../data/fcs/production-order-create'
 import type {
   DemandPublishedTechPackVersionOption,
 } from '../../data/fcs/production-tech-pack-snapshot-builder.ts'

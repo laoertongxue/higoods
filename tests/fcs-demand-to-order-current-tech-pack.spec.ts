@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
+import { completeTestingFixture } from './helpers/pcs-testing-fixture.ts'
 import { readFileSync } from 'node:fs'
-import { buildProductionOrderFromDemand, type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
+import { type ProductionOrderSeed } from '../src/data/fcs/production-orders.ts'
+import { buildProductionOrderFromDemand } from '../src/data/fcs/production-order-create.ts'
 import type { ProductionDemand } from '../src/data/fcs/production-demands.ts'
 import { getDemandCurrentTechPackInfo } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import {
@@ -80,6 +82,7 @@ function buildOrderSeed(orderId: string, demandId: string): ProductionOrderSeed 
 }
 
 const style = resetAndGetProductionPreparationStyle()
+completeTestingFixture(style.styleId)
 resetEngineeringMasterRepository()
 resetTechnicalDataVersionRepository()
 

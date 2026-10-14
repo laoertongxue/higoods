@@ -47,11 +47,8 @@ import {
 import {
   setProcessWorkOrderGenerationCommitFailureForTest,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
-import {
-  buildProductionOrderFromDemands,
-  productionOrders,
-  type ProductionOrder,
-} from '../src/data/fcs/production-orders.ts'
+import { productionOrders, type ProductionOrder } from '../src/data/fcs/production-orders.ts'
+import { buildProductionOrderFromDemands } from '../src/data/fcs/production-order-create.ts'
 import { state } from '../src/pages/production/context.ts'
 import { renderProductionOrderDetailPage } from '../src/pages/production/detail-domain.ts'
 import { renderProductionOrdersPage } from '../src/pages/production/orders-domain.ts'

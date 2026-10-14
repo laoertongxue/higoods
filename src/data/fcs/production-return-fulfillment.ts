@@ -1,7 +1,7 @@
 import { calculateSewingReturnDeadlineDate, SEWING_RETURN_RULE_VERSION, SEWING_RETURN_COUNTING_DAYS, SEWING_RETURN_MILESTONE_RATIOS, type SewingReturnHistoricalMilestoneRatio, type SewingReturnQuantityStatus } from './sewing-return-calendar.ts'
 import type { FulfillmentRuleCode, TaskFulfillmentPolicy } from './task-fulfillment-policy'
 import { getEffectiveTaskAssignment, listEffectiveTaskAssignments } from './effective-task-assignments'
-import { resolveOriginalSkuForReturnedSku } from './garment-spu-replacement.ts'
+import { resolveOriginalSkuForReturnedSku } from "./garment-spu-replacement-records.ts"
 
 export type ReturnMilestoneStatus = 'UPCOMING' | 'DUE_TODAY' | 'REACHED' | 'CUTTING_SHORTFALL' | 'OVERDUE'
 export type ReturnReminderType = 'DUE_TOMORROW' | 'DUE_TODAY' | 'OVERDUE'

@@ -89,6 +89,14 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if (path === 'tests/fcs-demand-to-order-current-tech-pack.spec.ts' || path === 'tests/fcs-production-tech-pack-snapshot-freeze.spec.ts') {
+      add(fastChecks, `node --import tsx ${shellQuote(path)}`)
+      continue
+    }
+    if (path === 'tests/pcs-production-engineering-full-flow.spec.ts' || path === 'scripts/check-pcs-engineering-test-import-migration.ts') {
+      add(fastChecks, 'node --import tsx scripts/check-pcs-engineering-test-import-migration.ts --scope worktree')
+      continue
+    }
     if (path === 'tests/helpers/pms-memory-idb.ts') {
       // Shared by PMS and TMF unit consumers; execute all unit tests, not the fixture as a test.
       add(fastChecks, 'npm test')

@@ -1,3 +1,4 @@
+export { buildProductionOrderDemandSnapshot } from './production-frozen-snapshot.ts'
 import { productionDemands, type ProductionDemand } from './production-demands.ts'
 import {
   buildProductionOrderTechPackSnapshot,
@@ -28,20 +29,7 @@ export function getProductionDemandById(demandId: string): ProductionDemand | nu
   return productionDemands.find((item) => item.demandId === demandId) ?? null
 }
 
-export function buildProductionOrderDemandSnapshot(demand: ProductionDemand): DemandSnapshot {
-  return {
-    demandId: demand.demandId,
-    spuCode: demand.spuCode,
-    spuName: demand.spuName,
-    buyerName: demand.buyerName,
-    merchandiserName: demand.merchandiserName,
-    saleType: demand.saleType,
-    priority: demand.priority,
-    requiredDeliveryDate: demand.requiredDeliveryDate,
-    constraintsNote: demand.constraintsNote,
-    skuLines: demand.skuLines.map((line) => ({ ...line })),
-  }
-}
+
 
 export function validateDemandTechPackOrderLink(input: {
   productionOrderId: string

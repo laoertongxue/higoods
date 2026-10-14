@@ -82,9 +82,7 @@ import {
 import {
   isKolGotoProductionOrder,
 } from '../../data/fcs/kol-goto-special-flow.ts'
-import {
-  listGarmentPrintRows,
-} from '../../data/fcs/garment-spu-replacement.ts'
+import { listGarmentPrintRows } from '../../data/fcs/garment-spu-replacement.ts'
 import {
   renderProductionOrderGarmentReplacementDetails,
   renderProductionOrderGarmentReplacementMarker,
