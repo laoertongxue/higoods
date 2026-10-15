@@ -846,9 +846,9 @@ function resolveProcessEntryDictionaryFields(entry: TechPackProcessEntry): Pick<
       getProcessStageByCode(stageCode)?.stageName
       || entry.stageName,
     processCode: processDef?.processCode || resolvedProcessCode,
-    processName: processDef?.processName || entry.processName,
+    processName: processDef?.processName || (['WASH', 'craft-wash'].includes(resolvedProcessCode) && entry.processName === '水洗' ? '洗水' : entry.processName),
     craftCode: craftDef?.craftCode || entry.craftCode,
-    craftName: craftDef?.craftName || entry.craftName,
+    craftName: craftDef?.craftName || (['WASH', 'craft-wash'].includes(resolvedProcessCode) && entry.craftName === '水洗' ? '洗水' : entry.craftName),
   }
 }
 

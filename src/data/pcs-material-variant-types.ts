@@ -82,7 +82,7 @@ export const MATERIAL_VARIANT_PROCESS_TYPE_LABELS: Record<MaterialVariantProcess
   finish: '后整理',
   print: '印花',
   embroider: '绣花',
-  wash: '水洗',
+  wash: '洗水',
   heat: '烫画',
 }
 

@@ -76,19 +76,26 @@ export function washingJudgmentId(printOrderId: string, rollId: string): string 
   return 'WJ/' + encodeURIComponent(printOrderId) + '/' + encodeURIComponent(rollId)
 }
 export function assertWashingSource(source: WashingSource): void {
-  if (source.objectType !== 'FABRIC') fail('水洗仅适用于面料。')
+  if (source.objectType !== 'FABRIC') fail('洗水仅适用于面料。')
   if (!source.actualCompleted || source.blockedReason) fail(source.blockedReason || '面料尚未实际完成印花，不能登记触摸判断。')
   if (!source.id || !source.printOrderId || !source.batchId || !source.materialSku || !source.revision) fail('实际产出来源不完整，请核对批次。')
   if (!source.imageUrl) fail('请先核对面料对应图片，用户图片须使用已保存的文件引用。')
 }
+/** Undecided physical rolls that can start a new washing order. */
+export function washingInitiationRolls(state: WashingState, source: WashingSource): WashingSourceRoll[] {
+  try { assertWashingSource(source) } catch { return [] }
+  return source.rolls.filter(roll => roll.confirmed && positive(roll.qty) && !!roll.unit?.trim()
+    && !roll.handedOut && !roll.blockedReason
+    && !state.judgments.some(judgment => judgment.printOrderId === source.printOrderId && judgment.rollId === roll.id))
+}
 function selectOrder(state: WashingState, id: string, historical=false): WashingOrder {
-  const order = state.orders.find(row => row.id === id) ?? fail('水洗加工单不存在。')
+  const order = state.orders.find(row => row.id === id) ?? fail('洗水加工单不存在。')
   if (order.cancelledAt&&!historical) fail('本单已作废，不能新增执行。')
   return order
 }
 function factoryActor(actor: WashingActor, order: WashingOrder) {
   actorRole(actor, ['染厂人员'])
-  if (!actor.factoryId || actor.factoryId !== order.assignedFactoryId) fail('只能处理本厂获派的水洗加工单。')
+  if (!actor.factoryId || actor.factoryId !== order.assignedFactoryId) fail('只能处理本厂获派的洗水加工单。')
 }
 function scanning(rolls: WashingRoll[], codes: string[], output = false) {
   if (codes.length !== rolls.length || new Set(codes).size !== codes.length
@@ -117,17 +124,17 @@ export function applyWashingCommand(
     const rolls = scope(command.source.rolls, command.rollIds)
     if(command.decision==='WASH'&&rolls.some(roll=>roll.blockedReason))fail(rolls.find(roll=>roll.blockedReason)!.blockedReason!)
     if (rolls.some(roll => !roll.confirmed || !positive(roll.qty) || !roll.unit || roll.handedOut)) fail('所选卷未核实数量或已经交出，请重新核对。')
-    if (new Set(rolls.map(roll => roll.unit)).size !== 1) fail('同一水洗单的面料数量单位须一致。')
+    if (new Set(rolls.map(roll => roll.unit)).size !== 1) fail('同一洗水单的面料数量单位须一致。')
     const previous = rolls.map(roll => state.judgments.find(row => row.id === washingJudgmentId(command.source.printOrderId, roll.id)))
     for (const row of previous) if (row) {
       if (row.actorId !== actor.id) fail('只能纠正本人登记的触摸结果。')
       const oldOrder = row.orderId && state.orders.find(item => item.id === row.orderId && !item.cancelledAt)
       if (oldOrder && (oldOrder.assignedFactoryId || oldOrder.rolls.some(item => item.sentAt))) fail('本批已派厂或交出，请先由跟单协调纠正原单。')
-      if (oldOrder && oldOrder.rollIds.some(id => !command.rollIds.includes(id))) fail('请完整选择原水洗单的卷后纠正，避免留下半套占用。')
+      if (oldOrder && oldOrder.rollIds.some(id => !command.rollIds.includes(id))) fail('请完整选择原洗水单的卷后纠正，避免留下半套占用。')
     }
     if(previous.some(Boolean)&&!command.correct)fail('所选卷已有触摸结果，请查看对应单据；需调整时使用纠正结果。')
     if (command.decision === 'WASH') {
-      if (!WASHING_HAND_FEELS.includes(command.handFeel as WashingHandFeel)) fail('请选择目标水洗手感。')
+      if (!WASHING_HAND_FEELS.includes(command.handFeel as WashingHandFeel)) fail('请选择目标洗水手感。')
       const id = 'WASH-' + operationId
       order = {
         id, no: 'WS-' + new Date(at).toLocaleDateString('sv-SE').replaceAll('-','') + '-' + operationId.replace(/[^A-Za-z0-9]/g, '').slice(0,8).toUpperCase(),
@@ -136,9 +143,9 @@ export function applyWashingCommand(
         rolls: rolls.map(roll => ({ id: roll.id, sourceRollId: roll.id, barcode: roll.barcode, inputQty: roll.qty, unit: roll.unit })),
       }
       if(state.orders.some(row=>row.no===order!.no&&row.id!==order!.id)) order.no += '-' + operationId.replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase()
-      if(state.orders.some(row=>row.no===order!.no)) fail('水洗单号冲突，请重新核对操作。')
+      if(state.orders.some(row=>row.no===order!.no)) fail('洗水单号冲突，请重新核对操作。')
       state.orders.push(order)
-    } else if (command.handFeel !== undefined) fail('不需要水洗时无需填写手感。')
+    } else if (command.handFeel !== undefined) fail('不需要洗水时无需填写手感。')
     for (const row of previous) if (row?.orderId) {
       const old = state.orders.find(item => item.id === row.orderId && !item.cancelledAt)
       if (old) { old.cancelledAt = at; old.revision++; }
@@ -223,7 +230,7 @@ export function applyWashingCommand(
       const target = order.source.target
       if (!target || command.target.id !== target.id) fail('请先核对原来源对应的唯一接收方。')
       const rolls = scope(order.rolls, command.rollIds); scanning(rolls, command.scannedCodes, true)
-      if (rolls.some(roll => !roll.completedAt || roll.handedOutAt)) fail('只能交出已经水洗完成且尚未交出的卷。')
+      if (rolls.some(roll => !roll.completedAt || roll.handedOutAt)) fail('只能交出已经洗水完成且尚未交出的卷。')
       rolls.forEach(roll => { roll.handedOutAt = at }); selectedIds = command.rollIds
     } else if (command.type === 'DOWNSTREAM_RECEIVE') {
       actorRole(actor, ['接收人员'])
@@ -286,10 +293,10 @@ export function applyWashingCommand(
 
 export function washingRollRelease(state: WashingState, printOrderId: string, rollId: string, revision?: string): string {
   const row = state.judgments.find(item => item.id === washingJudgmentId(printOrderId, rollId))
-  if (!row || (revision && row.sourceRevision !== revision) || row.sourceRevision === '需重新触摸判断') return '请先实际触摸本卷面料，登记是否需要水洗。'
+  if (!row || (revision && row.sourceRevision !== revision) || row.sourceRevision === '需重新触摸判断') return '请先实际触摸本卷面料，登记是否需要洗水。'
   if (row.decision === 'NO_WASH') return ''
   const order = state.orders.find(item => item.id === row.orderId && !item.cancelledAt)
   const roll = order?.rolls.find(item => item.sourceRollId === rollId)
-  return order?.exception ? '本卷存在水洗异常，请先由负责人核对。'
-    : roll?.completedAt && roll.downstreamReceivedAt ? '' : '本卷需要水洗，请按对应水洗单流转，完成加工及下游实收后再领用。'
+  return order?.exception ? '本卷存在洗水异常，请先由负责人核对。'
+    : roll?.completedAt && roll.downstreamReceivedAt ? '' : '本卷需要洗水，请按对应洗水单流转，完成加工及下游实收后再领用。'
 }

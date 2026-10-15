@@ -46,6 +46,7 @@ import { renderPrintingRelations, printingUpstreamNames, printingPatternLabel, p
 import { escapeHtml } from '../../../utils.ts'
 import { ensureProductionDemandEarlyProcessAcceptanceData } from '../../../data/fcs/production-demand-early-process-work-orders.ts'
 import { renderPrintingDialog } from './dialogs.ts'
+import { canInitiateFabricWashing, washingInitiationOrderIds } from '../../../data/fcs/fabric-washing.ts'
 
 const EVENT_PREFIX = 'printing-work-orders'
 const PREFERENCE_KEY = '/fcs/craft/printing/work-orders:input-output-v4'
@@ -124,9 +125,11 @@ function renderBatchPrintAction(): string {
   return `<a class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-sm text-white" href="${escapeHtml(href)}" data-nav="${escapeHtml(href)}" data-printing-preview-link data-skip-page-rerender="true">${label}</a>`
 }
 
-function renderActions(order: PrintingWorkOrderBusinessRecord): string {
-  return `<div class="grid w-full grid-cols-2 gap-x-1 gap-y-0.5" data-printing-row-actions>
+let washingListEligibility = new Set<string>()
+function renderActions(order: PrintingWorkOrderBusinessRecord, eligible = washingListEligibility.has(order.workOrderId)): string {
+  return `<div class="grid w-full grid-cols-2 gap-x-1 gap-y-0.5" data-printing-row-actions="${escapeHtml(order.workOrderId)}">
     <a class="inline-flex min-h-7 w-full items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}" data-printing-row-action data-nav="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}">查看</a>
+    ${eligible ? actionButton('发起洗水', 'initiate-washing', order) : ''}
     ${actionButton('调整投入', 'change-input', order, order.output.completedQty > 0 ? '已有加工产出，不能调整投入' : '')}
     ${printAction('打印印花信息单', 'PRINTING_INFO_SHEET', order)}
     ${printAction('打印印花确认单', 'PRINTING_CONFIRMATION', order)}
@@ -139,7 +142,7 @@ function renderActions(order: PrintingWorkOrderBusinessRecord): string {
 const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
   { key: 'selection', title: '选择', width: 72, required: true, leadingControlColumn: true, renderHeader: rows => renderProcessSelectionHeader(rows.map(row => row.workOrderId), selectedWorkOrderIds, EVENT_PREFIX), render: order => `<input type="checkbox" aria-label="选择 ${escapeHtml(order.printOrderNo)}" data-printing-action="toggle-select" data-work-order-id="${escapeHtml(order.workOrderId)}" ${selectedWorkOrderIds.has(order.workOrderId) ? 'checked' : ''}>` },
   ...createPrintingOrderDisplayColumns(order => `<span class="inline-flex flex-wrap items-center gap-2">${renderProductionObjectCodeButton({ objectType: 'PRINT_WORK_ORDER', objectId: order.printOrderNo })}<a class="text-xs text-blue-700 underline" href="${buildPrintingWorkOrderDetailLink(order.workOrderId)}" data-nav="${buildPrintingWorkOrderDetailLink(order.workOrderId)}">详情</a></span>`),
-  { key: 'actions', title: '操作', width: 176, required: true, actionColumn: true, render: renderActions },
+  { key: 'actions', title: '操作', width: 176, required: true, actionColumn: true, render: order => renderActions(order) },
 ]
 
 function selectedTime(order: PrintingWorkOrderBusinessRecord): string {
@@ -296,6 +299,7 @@ function renderFactoryTabs(): string {
 function renderWorkspace(): string {
   listController.ensurePreferencesLoaded()
   const rows = filteredRows()
+  washingListEligibility = washingInitiationOrderIds(rows)
   const view = withProcessOrderTaskRelationRead(() => listController.getView(rows))
   return renderStandardListPage({
     title: '印花加工单',
@@ -336,6 +340,15 @@ export function refreshPrintingWorkOrderListPage(reloadFacts = true): void {
   if (reloadFacts) listSnapshot = undefined
   const workspace = rootElement()?.querySelector<HTMLElement>('[data-printing-work-orders-workspace]')
   if (workspace) { workspace.innerHTML = renderWorkspace(); hydrateIcons(workspace); syncProcessSelectionHeader(workspace) }
+}
+
+export function refreshPrintingWashingActions(workOrderId: string): void {
+  const actions = rootElement()?.querySelector<HTMLElement>(`[data-printing-row-actions="${CSS.escape(workOrderId)}"]`)
+  const order = listRows().find(row => row.workOrderId === workOrderId)
+  if (!actions || !order) return
+  actions.outerHTML = renderActions(order, canInitiateFabricWashing(workOrderId))
+  const updated = rootElement()?.querySelector<HTMLElement>(`[data-printing-row-actions="${CSS.escape(workOrderId)}"]`)
+  ;(updated?.querySelector<HTMLButtonElement>('[data-printing-action="initiate-washing"]') || updated?.querySelector<HTMLAnchorElement>('a[data-printing-row-action]'))?.focus()
 }
 
 export function getSelectedPrintingWorkOrderIds(): string[] {

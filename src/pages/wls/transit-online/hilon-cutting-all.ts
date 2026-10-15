@@ -17,7 +17,7 @@ const dyeStatusClass: Record<string, string> = {
 
 // 售卖类型 10 项 / 染印需求 8 项 / 配料状态 3 项 / 领料状态 3 项（group8 行5）。
 const SELL_TYPE_OPTIONS = ['全部', '内销', '外销', '样衣', '大货', '返单', '补单', '预售', '现货', '清仓', '定制']
-const DYE_DEMAND_OPTIONS = ['全部', '白坯', '染色', '印花', '绣花', '压皱', '水洗', '定型', '免烫']
+const DYE_DEMAND_OPTIONS = ['全部', '白坯', '染色', '印花', '绣花', '压皱', '洗水', '定型', '免烫']
 const ALLOCATION_STATUS_OPTIONS = ['全部', '待配料', '部分配料', '已配料']
 const PICKUP_STATUS_OPTIONS = ['全部', '待领料', '部分领料', '已领料']
 

@@ -10,7 +10,7 @@ const MIRROR: Record<string, FcsCraftDictRef> = {
   'craft-dye': { processCode: 'craft-dye', processName: '染色', craftStage: 'POST' },
   'craft-print': { processCode: 'craft-print', processName: '印花', craftStage: 'PROD' },
   'craft-embroider': { processCode: 'craft-embroider', processName: '绣花', craftStage: 'PROD' },
-  'craft-wash': { processCode: 'craft-wash', processName: '水洗', craftStage: 'POST' },
+  'craft-wash': { processCode: 'craft-wash', processName: '洗水', craftStage: 'POST' },
   'craft-finish': { processCode: 'craft-finish', processName: '后整理', craftStage: 'POST' },
 }
 

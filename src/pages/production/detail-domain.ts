@@ -1178,7 +1178,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   }
 
   const washingActual = readWashingState().orders.filter(item=>item.source.productionOrderId===order.productionOrderId)
-  const washingRelations = washingActual.length ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">印花后实际追加水洗</h2><ul class="mt-2 space-y-2">${washingActual.map(item=>`<li><a class="text-blue-700" href="${WASHING_ROUTE}/${encodeURIComponent(item.id)}" data-nav="${WASHING_ROUTE}/${encodeURIComponent(item.id)}">${escapeHtml(item.no)}</a> · ${escapeHtml(item.handFeel)} · ${item.rolls.length} 卷${item.cancelledAt?' · 已作废':''}</li>`).join('')}</ul></section>` : ''
+  const washingRelations = washingActual.length ? `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">印花后实际追加洗水</h2><ul class="mt-2 space-y-2">${washingActual.map(item=>`<li><a class="text-blue-700" href="${WASHING_ROUTE}/${encodeURIComponent(item.id)}" data-nav="${WASHING_ROUTE}/${encodeURIComponent(item.id)}">${escapeHtml(item.no)}</a> · ${escapeHtml(item.handFeel)} · ${item.rolls.length} 卷${item.cancelledAt?' · 已作废':''}</li>`).join('')}</ul></section>` : ''
   const isKolGotoOrder = isKolGotoProductionOrder(order)
 
   const techPack = getOrderTechPackInfo(order)

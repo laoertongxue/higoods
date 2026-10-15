@@ -38,8 +38,10 @@ import {
   getSelectedPrintingWorkOrderIds,
   handlePrintingWorkOrderListEvent,
   refreshPrintingWorkOrderListPage,
+  refreshPrintingWashingActions,
   selectFilteredPrintingWorkOrders,
 } from './work-orders.ts'
+import { canInitiateFabricWashing } from '../../../data/fcs/fabric-washing.ts'
 
 function showPrintingToast(message: string, tone: 'success' | 'error' = 'success'): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -238,6 +240,15 @@ function exportCsv(kind: 'export'): void {
 
 async function handlePrintingAction(actionNode: HTMLElement, action: string): Promise<boolean> {
   const workOrderId = actionNode.dataset.workOrderId || document.querySelector<HTMLElement>('[data-printing-work-order-detail-root]')?.dataset.workOrderId || getPrintingDialogState()?.workOrderId || ''
+  if (action === 'initiate-washing') {
+    if (!canInitiateFabricWashing(workOrderId)) {
+      refreshPrintingWashingActions(workOrderId)
+      showPrintingToast('当前没有符合发起条件的面料卷，请核对实际产出或已有洗水单。','error')
+      return true
+    }
+    openPrintingDialog({type:'washing',workOrderId},()=>refreshPrintingWashingActions(workOrderId))
+    return true
+  }
   if (action === 'open-dispatch-pending' || action === 'open-dispatch-documents') { appStore.navigate(`/fcs/craft/printing/${action === 'open-dispatch-pending' ? 'pending-handover' : 'handover-documents'}${workOrderId ? `?workOrderId=${encodeURIComponent(workOrderId)}` : ''}`); return true }
   if (action === 'receive-input' && !getPrintingWorkOrderById(workOrderId)?.historicalInputQuantityUnknown) { appStore.navigate(`/fcs/craft/printing/pending-receipts?workOrderId=${encodeURIComponent(workOrderId)}`); return true }
   if (action === 'handover') { appStore.navigate(`/fcs/craft/printing/pending-handover?workOrderId=${encodeURIComponent(workOrderId)}`); return true }

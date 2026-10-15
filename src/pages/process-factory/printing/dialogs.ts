@@ -13,8 +13,10 @@ import {
   type PrintingWorkOrderBusinessRecord,
 } from '../../../data/fcs/printing-work-order-business.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { renderWashingJudgmentPanel, isWashingSavePending } from '../dyeing/washing/work-orders.ts'
 
 export type PrintingDialogType =
+  | 'washing'
   | 'assign'
   | 'change-input'
   | 'receive-input'
@@ -48,20 +50,42 @@ export interface PrintingDialogState {
 
 let currentDialog: PrintingDialogState | null = null
 let escapeListenerInstalled=false
+let currentDialogOnClose: (() => void) | undefined
 
 export function getPrintingDialogState(): PrintingDialogState | null {
   return currentDialog ? structuredClone(currentDialog) : null
 }
 
-export function openPrintingDialog(state: PrintingDialogState): void {
-  if(!escapeListenerInstalled && typeof document!=='undefined'){document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.querySelector('[data-printing-image-preview]'))closePrintingDialog()});escapeListenerInstalled=true}
+export function openPrintingDialog(state: PrintingDialogState, onClose?: () => void): void {
+  if (!escapeListenerInstalled && typeof document !== 'undefined') {
+    document.addEventListener('keydown', event => {
+      if (document.querySelector('[data-printing-image-preview],[data-washing-image-overlay]')) return
+      if (event.key === 'Escape') {
+        if (currentDialog?.type === 'washing') event.preventDefault()
+        closePrintingDialog()
+      } else if (event.key === 'Tab' && currentDialog?.type === 'washing') {
+        const controls = Array.from(document.querySelectorAll<HTMLElement>('[data-printing-dialog-panel] button:not(:disabled),[data-printing-dialog-panel] input:not(:disabled),[data-printing-dialog-panel] select:not(:disabled),[data-printing-dialog-panel] a[href]'))
+          .filter(control => control.getClientRects().length > 0)
+        const first = controls[0], last = controls[controls.length - 1]
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+      }
+    })
+    escapeListenerInstalled = true
+  }
+  currentDialogOnClose = onClose
   currentDialog = { ...structuredClone(state), receiptId: state.receiptId || `PRINT-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}` }
   refreshPrintingDialogSurface()
+  if (state.type === 'washing') document.querySelector<HTMLElement>('[data-printing-dialog-panel] [data-washing-feel]')?.focus()
 }
 
 export function closePrintingDialog(): void {
+  if (currentDialog?.type === 'washing' && isWashingSavePending()) return
+  const onClose = currentDialogOnClose
+  currentDialogOnClose = undefined
   currentDialog = null
   refreshPrintingDialogSurface()
+  onClose?.()
 }
 
 export function replacePrintingDialog(state: PrintingDialogState): void {
@@ -77,7 +101,7 @@ function inputControl(name: string, value: string | number, options: { type?: st
   return `<input class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:bg-slate-50" data-printing-dialog-field="${escapeHtml(name)}" type="${escapeHtml(options.type || 'text')}" value="${escapeHtml(value)}" ${options.step ? `step="${escapeHtml(options.step)}"` : ''} ${options.readonly ? 'readonly' : ''} placeholder="${escapeHtml(options.placeholder || '')}">`
 }
 
-function dialogShell(input: { title: string; order: PrintingWorkOrderBusinessRecord; body: string; confirmLabel?: string; wide?: boolean; footerExtra?: string }): string {
+function dialogShell(input: { title: string; order: PrintingWorkOrderBusinessRecord; body: string; confirmLabel?: string; wide?: boolean; footerExtra?: string; hideInputSummary?: boolean; closeLabel?: string }): string {
   return `<div class="fixed inset-0 z-[120] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="${escapeHtml(input.title)}">
     <button type="button" class="absolute inset-0 bg-slate-950/55" data-printing-action="close-dialog" aria-label="关闭弹窗"></button>
     <section class="relative z-10 max-h-[92vh] w-full ${input.wide ? 'max-w-6xl' : 'max-w-2xl'} overflow-auto rounded-xl bg-white shadow-2xl" data-printing-dialog-panel data-skip-page-rerender="true">
@@ -85,10 +109,10 @@ function dialogShell(input: { title: string; order: PrintingWorkOrderBusinessRec
         <div><h2 class="text-lg font-semibold">${escapeHtml(input.title)}</h2><p class="mt-1 text-xs text-slate-500">${escapeHtml(input.order.printOrderNo)} · ${escapeHtml(input.order.output.sku)}</p></div>
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-printing-action="close-dialog">关闭</button>
       </header>
-      <div class="p-5"><div class="mb-4 flex flex-wrap gap-4 border-b pb-3">${input.order.demandSource.type !== 'STOCK' ? `<div class="flex max-w-sm items-center gap-2">${renderPrintingObjectImage(input.order.product)}<div class="text-xs"><p>${escapeHtml(input.order.product.productName)}</p><p>${escapeHtml(input.order.product.spu)}</p></div></div>` : ''}<div class="flex max-w-sm items-center gap-2">${renderPrintingObjectImage(input.order.plannedInput)}<div class="text-xs"><p>${escapeHtml(input.order.plannedInput.materialName)}</p><p>${escapeHtml(printingMaterialCode(input.order.plannedInput.sku))}</p></div></div></div>${input.body}</div>
+      <div class="p-5">${input.hideInputSummary?'':`<div class="mb-4 flex flex-wrap gap-4 border-b pb-3">${input.order.demandSource.type !== 'STOCK' ? `<div class="flex max-w-sm items-center gap-2">${renderPrintingObjectImage(input.order.product)}<div class="text-xs"><p>${escapeHtml(input.order.product.productName)}</p><p>${escapeHtml(input.order.product.spu)}</p></div></div>` : ''}<div class="flex max-w-sm items-center gap-2">${renderPrintingObjectImage(input.order.plannedInput)}<div class="text-xs"><p>${escapeHtml(input.order.plannedInput.materialName)}</p><p>${escapeHtml(printingMaterialCode(input.order.plannedInput.sku))}</p></div></div></div>`}${input.body}</div>
       <footer class="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t bg-white px-5 py-4">
         ${input.footerExtra || ''}
-        <button type="button" class="rounded-md border px-4 py-2 text-sm" data-printing-action="close-dialog">取消</button>
+        <button type="button" class="rounded-md border px-4 py-2 text-sm" data-printing-action="close-dialog">${escapeHtml(input.closeLabel || '取消')}</button>
         ${input.confirmLabel ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-printing-action="submit-dialog">${escapeHtml(input.confirmLabel)}</button>` : ''}
       </footer>
     </section>
@@ -274,6 +298,7 @@ export function renderPrintingDialog(): string {
   if (!currentDialog) return ''
   const order = getPrintingWorkOrderById(currentDialog.workOrderId)
   if (!order) return ''
+  if (currentDialog.type === 'washing') return dialogShell({title:'发起洗水',order,wide:true,hideInputSummary:true,closeLabel:'关闭',body:renderWashingJudgmentPanel(order.workOrderId,false,true)})
   if (currentDialog.type === 'logs') return dialogShell({title:'印花操作日志',order,wide:true,body:`<table class="w-full text-left text-sm"><thead><tr><th class="p-2">时间</th><th class="p-2">操作人</th><th class="p-2">操作</th><th class="p-2">说明</th></tr></thead><tbody>${order.operationLogs.map(log=>`<tr class="border-t"><td class="p-2">${escapeHtml(log.operatedAt)}</td><td class="p-2">${escapeHtml(log.operatorName)}</td><td class="p-2">${escapeHtml(log.action)}</td><td class="p-2">${escapeHtml(log.remark)}</td></tr>`).join('')}</tbody></table>`})
   if (currentDialog.type === 'edit-info') return renderEditInformation(order)
   if (currentDialog.type === 'remarks') return dialogShell({ title:'加工单备注', order, body:`${renderPrintingDemandSource(order)}<p class="mt-4 whitespace-pre-wrap text-sm">${escapeHtml(order.remark || '暂无备注，可在编辑信息中填写')}</p>` })
@@ -299,5 +324,10 @@ export function renderPrintingDialog(): string {
 export function refreshPrintingDialogSurface(): void {
   if (typeof document === 'undefined') return
   const surface = document.querySelector<HTMLElement>('[data-printing-dialog-surface]')
-  if (surface) surface.innerHTML = renderPrintingDialog()
+  if (surface) {
+    surface.innerHTML = renderPrintingDialog()
+    if (currentDialog?.type === 'washing') surface.querySelector('[data-printing-dialog-panel]')?.addEventListener('click',event=>{
+      if ((event.target as HTMLElement).closest('[data-washing-result] a[data-nav]')) closePrintingDialog()
+    },{capture:true})
+  }
 }

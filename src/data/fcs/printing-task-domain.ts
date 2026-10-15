@@ -5590,18 +5590,18 @@ registerDesignRevisionFcsCacheHooks('print', {
 export function markPrintingWashingTransfer(printOrderId: string, rollIds: string[], recordId: string, actorName: string, at: string, received?: number): void {
   const order = getMutablePrintingBusinessOrder(printOrderId), view = order.businessView!
   const rolls = view.barcodes.filter(roll => rollIds.includes(roll.id))
-  if (rolls.length !== rollIds.length) throw new Error('水洗原印花卷不存在。')
+  if (rolls.length !== rollIds.length) throw new Error('洗水原印花卷不存在。')
   if (received === undefined) {
-    if (rolls.some(roll => ['已交出','已入库'].includes(roll.status))) throw new Error('原卷已经交出，不能重复发往水洗。')
+    if (rolls.some(roll => ['已交出','已入库'].includes(roll.status))) throw new Error('原卷已经交出，不能重复发往洗水。')
     if (listPrintingDispatchDocuments().some(doc => doc.status === '草稿' && doc.lines.some(line => line.workOrderId === printOrderId && line.barcodeIds.some(id => rollIds.includes(id))))) throw new Error('所选卷在原交出草稿中，请先解除草稿。')
     rolls.forEach(roll => { roll.status = '已交出'; roll.handoverRecordId = recordId })
     view.handover.handedOverQty += rolls.reduce((n, roll) => n + roll.lengthY, 0)
     view.handover.handedOverAt = at
-    addPrintingBusinessOperation(order, '按卷交给水洗染厂', actorName, recordId)
+    addPrintingBusinessOperation(order, '按卷交给洗水染厂', actorName, recordId)
   } else {
     view.handover.receivedQty += received
     view.handover.receivedAt = at
-    addPrintingBusinessOperation(order, '水洗染厂实际接收', actorName, recordId + '；实收 ' + received + ' ' + view.output.qtyUnit)
+    addPrintingBusinessOperation(order, '洗水染厂实际接收', actorName, recordId + '；实收 ' + received + ' ' + view.output.qtyUnit)
   }
   view.handover.diffQty = view.handover.handedOverQty - view.handover.receivedQty
   view.pendingWritebackQty = Math.max(0, view.handover.handedOverQty - view.handover.receivedQty)

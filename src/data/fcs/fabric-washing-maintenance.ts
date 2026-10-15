@@ -25,7 +25,7 @@ export async function exportWashingBackup():Promise<WashingBackup>{
 }
 export function validateWashingBackup(value:unknown):{backup:WashingBackup;files:PcsStoredFile[]}{
  const b=value as WashingBackup
- if(!b||b.format!=='higood-fcs-fabric-washing'||b.version!==1||!Array.isArray(b.records)||!Array.isArray(b.files))throw new Error('水洗资料备份格式或版本不支持，原资料未改变。')
+ if(!b||b.format!=='higood-fcs-fabric-washing'||b.version!==1||!Array.isArray(b.records)||!Array.isArray(b.files))throw new Error('洗水资料备份格式或版本不支持，原资料未改变。')
  const ids=new Set<string>(),fileIds=new Set<string>()
  const files=b.files.map(f=>{if(!f||typeof f.id!=='string'||!f.id||fileIds.has(f.id)||typeof f.base64!=='string'||typeof f.type!=='string')throw new Error('备份附件格式或编号无效。');fileIds.add(f.id);let binary:string;try{binary=atob(f.base64)}catch{throw new Error('备份附件字节损坏。')};return{id:f.id,blob:new Blob([Uint8Array.from(binary,c=>c.charCodeAt(0))],{type:f.type})}})
  for(const r of b.records){if(!r||!scope.includes(r.collection)||!r.id?.startsWith(r.collection+'/')||ids.has(r.id)||!Number.isSafeInteger(r.version)||r.version<1||(r.deleted!==undefined&&typeof r.deleted!=='boolean'))throw new Error('备份记录范围、版本或编号无效，未处理 PCS 资料。');ids.add(r.id);for(const id of pcsFileReferences(r.value))if(!fileIds.has(id))throw new Error('备份缺少被引用的附件。')}
@@ -34,12 +34,12 @@ export function validateWashingBackup(value:unknown):{backup:WashingBackup;files
   if(r.collection===WASHING_BRIDGE_COLLECTION){const v=r.value as any;if(!v||!WASHING_LEGACY_KEYS.includes(v.legacyKey)||!v.path||!v.key||r.id!==WASHING_BRIDGE_COLLECTION+'/'+encodeURIComponent(v.legacyKey)+'/'+encodeURIComponent(v.path+'/'+v.key))throw new Error('备份来源映射不完整。');continue}
   const v=r.value as any,d=v?.data
   if(!v||!['orders','judgments','actions'].includes(v.kind)||typeof d?.id!=='string'||r.id!==WASHING_COLLECTION+'/'+v.kind+'/'+encodeURIComponent(d.id))throw new Error('备份业务对象不完整。')
-  if(v.kind==='orders'&&(!WASHING_HAND_FEELS.includes(d.handFeel)||d.source?.objectType!=='FABRIC'||!d.source?.printOrderId||!d.source?.batchId||!d.source?.materialSku||!Array.isArray(d.rolls)||!d.rolls.length||!Array.isArray(d.rollIds)||d.rollIds.length!==d.rolls.length||new Set(d.rollIds).size!==d.rollIds.length||d.rolls.some((roll:any)=>!d.rollIds.includes(roll.id)||roll.id!==roll.sourceRollId||!roll.barcode||!Number.isFinite(roll.inputQty)||roll.inputQty<=0||!roll.unit)||new Set(d.rolls.map((roll:any)=>roll.unit)).size!==1||!['UNASSIGNED','PENDING','ACCEPTED','REJECTED'].includes(d.acceptance)))throw new Error('备份水洗单的实物范围、手感或状态无效。')
+  if(v.kind==='orders'&&(!WASHING_HAND_FEELS.includes(d.handFeel)||d.source?.objectType!=='FABRIC'||!d.source?.printOrderId||!d.source?.batchId||!d.source?.materialSku||!Array.isArray(d.rolls)||!d.rolls.length||!Array.isArray(d.rollIds)||d.rollIds.length!==d.rolls.length||new Set(d.rollIds).size!==d.rollIds.length||d.rolls.some((roll:any)=>!d.rollIds.includes(roll.id)||roll.id!==roll.sourceRollId||!roll.barcode||!Number.isFinite(roll.inputQty)||roll.inputQty<=0||!roll.unit)||new Set(d.rolls.map((roll:any)=>roll.unit)).size!==1||!['UNASSIGNED','PENDING','ACCEPTED','REJECTED'].includes(d.acceptance)))throw new Error('备份洗水单的实物范围、手感或状态无效。')
   if(v.kind==='judgments'&&(d.id!==washingJudgmentId(d.printOrderId,d.rollId)||!['WASH','NO_WASH'].includes(d.decision)||!Array.isArray(d.history)||d.decision==='WASH'&&(!d.orderId||!WASHING_HAND_FEELS.includes(d.handFeel))))throw new Error('备份触摸判断无效。')
   if(v.kind==='actions'&&(!d.intent||!d.actor?.id||!Array.isArray(d.rollIds)||!d.action))throw new Error('备份动作记录不完整。')
  }
  const orderIds=new Set(data.filter(v=>v.kind==='orders').map(v=>v.data.id))
- for(const v of data)if(v.kind==='judgments'&&v.data.orderId&&!orderIds.has(v.data.orderId))throw new Error('备份缺少判断关联的水洗单。')
+ for(const v of data)if(v.kind==='judgments'&&v.data.orderId&&!orderIds.has(v.data.orderId))throw new Error('备份缺少判断关联的洗水单。')
  return {backup:b,files}
 }
 export async function restoreWashingBackup(value:unknown){

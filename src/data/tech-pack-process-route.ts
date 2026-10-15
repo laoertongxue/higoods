@@ -407,7 +407,7 @@ export function validateProcessRouteGraph<T extends ProcessRouteGraphEntry>(
       })
     }
     if (entry.processCode === 'WASH' || entry.processCode === 'craft-wash') {
-      issues.push({ code: 'WASH_NOT_STATIC_ROUTE', entryId: entry.id, message: '水洗须在印花完成后触摸面料判断，不能提前写入工艺路线。' })
+      issues.push({ code: 'WASH_NOT_STATIC_ROUTE', entryId: entry.id, message: '洗水须在印花完成后触摸面料判断，不能提前写入工艺路线。' })
     }
 
     const seenPredecessors = new Set<string>()
@@ -682,7 +682,7 @@ export function removePredeterminedWashing<T extends ProcessRouteGraphEntry>(ent
  const byId=new Map(entries.map(entry=>[entry.id,entry]))
  const washing=(entry:ProcessRouteGraphEntry)=>['WASH','craft-wash'].includes(entry.processCode)
  function predecessors(id:string,seen=new Set<string>()):string[]{
-  if(seen.has(id))throw new Error('原水洗前置关系存在循环，请先核对路线。')
+  if(seen.has(id))throw new Error('原洗水前置关系存在循环，请先核对路线。')
   const entry=byId.get(id);if(!entry||!washing(entry))return [id]
   const next=new Set(seen);next.add(id)
   return (entry.predecessorEntryIds??[]).flatMap(parent=>predecessors(parent,next))

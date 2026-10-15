@@ -1,0 +1,2 @@
+{"family":"cold-list","run":1,"ms":1074.6000000238419,"status":"FAIL","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}
+{"family":"cold-list","run":2,"ms":936.6999999880791,"status":"PASS","start":"navigationStart","completion":"correct visible result, ready visible images, two animation frames; save includes native transaction readback"}

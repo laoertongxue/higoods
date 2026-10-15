@@ -1,0 +1,17 @@
+FAIL cold-list 1074.6
+FAIL entry-lifecycle-1 locator.selectOption: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('combobox', { name: '每页条数' })[22m
+
+PASS cold-list 936.7
+FAIL entry-lifecycle-2 browserContext.close: Target page, context or browser has been closed
+Browser logs:
+
+<launching> /Users/laoer/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/folders/p5/sm3z8lc52y7gycyy2dg4y6380000gn/T/playwright_chromiumdev_profile-cGBOYc --remote-debugging-pipe --no-startup-window
+<launched> pid=74083
+[pid=74083] <gracefully close start>
+FAIL entry-lifecycle-3 browser.newContext: Target page, context or browser has been closed
+FAIL entry-lifecycle-4 browser.newContext: Target page, context or browser has been closed
+FAIL entry-lifecycle-5 browser.newContext: Target page, context or browser has been closed
+FAIL pending-save-close-guard-local-refresh-and-image browser.newContext: Target page, context or browser has been closed
+{ pass: 0, fail: 6, pageErrors: 0, samples: 2, slow: 1 }

@@ -1,5 +1,6 @@
 # 印花后面料水洗原子需求矩阵
 
+> V1.2 增量修订：[操作栏发起洗水与名称统一](list-entry-and-washing-name-v1.2.md)。本文件保留 V1.1 的规则及证据身份，新增入口和显示名称以修订为准。
 版本：V1.1。日期：2026-10-15。阶段：V1.1 本地技术验证完成；逐项绑定当前实现与证据，产品接受另行登记。
 
 依据：[业务需求](requirements.md)。执行：[实施计划](implementation-plan.md)。当前代码证据：[直接上下游核查](upstream-downstream-review.md)。代码基线 67499ec61a1e770c39e5cdf3eddc4d2068eb7f4a。

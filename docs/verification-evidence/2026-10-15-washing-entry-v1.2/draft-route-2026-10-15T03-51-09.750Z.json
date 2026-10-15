@@ -1,0 +1,94 @@
+{
+  "at": "2026-10-15T03:51:00.287Z",
+  "base": "http://127.0.0.1:43158",
+  "environment": {
+    "browser": "Chromium",
+    "timezone": "Asia/Shanghai",
+    "viewport": "1366×768",
+    "scale": "26 native technical versions; one injected legacy node per named draft and published version; isolated context per sample"
+  },
+  "checks": [
+    {
+      "run": 1,
+      "status": "PASS",
+      "draft": "tdv_demand_SPU_TSHIRT_081",
+      "published": "tdv_demand_ASYSA26060310",
+      "originalLegacySourceKept": true
+    },
+    {
+      "run": 2,
+      "status": "PASS",
+      "draft": "tdv_demand_SPU_TSHIRT_081",
+      "published": "tdv_demand_ASYSA26060310",
+      "originalLegacySourceKept": true
+    },
+    {
+      "run": 3,
+      "status": "PASS",
+      "draft": "tdv_demand_SPU_TSHIRT_081",
+      "published": "tdv_demand_ASYSA26060310",
+      "originalLegacySourceKept": true
+    },
+    {
+      "run": 4,
+      "status": "PASS",
+      "draft": "tdv_demand_SPU_TSHIRT_081",
+      "published": "tdv_demand_ASYSA26060310",
+      "originalLegacySourceKept": true
+    },
+    {
+      "run": 5,
+      "status": "PASS",
+      "draft": "tdv_demand_SPU_TSHIRT_081",
+      "published": "tdv_demand_ASYSA26060310",
+      "originalLegacySourceKept": true
+    }
+  ],
+  "samples": [
+    {
+      "family": "legacy-draft-route-tab",
+      "run": 1,
+      "ms": 108.5,
+      "status": "PASS",
+      "start": "captured real pointerdown",
+      "complete": "correct route, visible real images and two animation frames"
+    },
+    {
+      "family": "legacy-draft-route-tab",
+      "run": 2,
+      "ms": 65.89999997615814,
+      "status": "PASS",
+      "start": "captured real pointerdown",
+      "complete": "correct route, visible real images and two animation frames"
+    },
+    {
+      "family": "legacy-draft-route-tab",
+      "run": 3,
+      "ms": 53.30000001192093,
+      "status": "PASS",
+      "start": "captured real pointerdown",
+      "complete": "correct route, visible real images and two animation frames"
+    },
+    {
+      "family": "legacy-draft-route-tab",
+      "run": 4,
+      "ms": 53.5,
+      "status": "PASS",
+      "start": "captured real pointerdown",
+      "complete": "correct route, visible real images and two animation frames"
+    },
+    {
+      "family": "legacy-draft-route-tab",
+      "run": 5,
+      "ms": 55.80000001192093,
+      "status": "PASS",
+      "start": "captured real pointerdown",
+      "complete": "correct route, visible real images and two animation frames"
+    }
+  ],
+  "summary": {
+    "pass": 5,
+    "fail": 0,
+    "maxMs": 108.5
+  }
+}

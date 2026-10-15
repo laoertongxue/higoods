@@ -26,7 +26,7 @@ const seedProcessors: Processor[] = [
   { code: 'PROC-003', name: 'PT Garment Jaya', processTypes: ['裁剪', '车缝'], address: 'Jl. Industri No.12, Bandung', contact: 'Hendra', phone: '+62-22-7101-xxxx', capacity: '日产 2000 件', enabled: true, cooperationSince: '2024-03-01' },
   { code: 'PROC-004', name: '中山利达后整', processTypes: ['后整', '包装'], address: '广东省中山市沙溪镇', contact: '郭经理', phone: '0760-8801-xxxx', capacity: '日整 4000 件', enabled: true, cooperationSince: '2023-08-22' },
   { code: 'PROC-005', name: '苏州恒力绣花', processTypes: ['绣花', '印花'], address: '江苏省苏州市吴江区', contact: '沈总', phone: '0512-6301-xxxx', capacity: '日绣 8000 片', enabled: true, cooperationSince: '2024-01-15' },
-  { code: 'PROC-006', name: 'PT Washindo Pratama', processTypes: ['水洗', '后整'], address: 'Kawasan Industri, Semarang', contact: 'Bambang', phone: '+62-24-7501-xxxx', capacity: '日洗 3000 件', enabled: false, cooperationSince: '2024-06-08' },
+  { code: 'PROC-006', name: 'PT Washindo Pratama', processTypes: ['洗水', '后整'], address: 'Kawasan Industri, Semarang', contact: 'Bambang', phone: '+62-24-7501-xxxx', capacity: '日洗 3000 件', enabled: false, cooperationSince: '2024-06-08' },
 ]
 
 const EVENT_PREFIX = 'wls-basic-processor'

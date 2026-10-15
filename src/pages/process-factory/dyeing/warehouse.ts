@@ -32,7 +32,7 @@ type DyeingWarehouseMode = 'wait-process' | 'wait-handover'
 
 function materialCell(item:{itemName:string;materialSku?:string;photoList?:string[];washingOrderId?:string}):string {
  const url=item.photoList?.[0],title=`${item.itemName} ${item.materialSku||''}`
- return `<div class="flex items-start gap-2">${url?`<button type="button" class="relative h-10 w-10 shrink-0 overflow-hidden rounded border" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(title)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(title)}大图"><img class="h-full w-full ${item.washingOrderId?'object-contain':'object-cover'}" src="${escapeHtml(url)}" alt="${escapeHtml(title)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 bg-white text-[10px]">图片加载中</span></button>`:'<span>物料图片未维护</span>'}<div><div>${escapeHtml(item.itemName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.materialSku||'按原单物料')}</div>${item.washingOrderId?'<p class="text-xs text-blue-700">水洗面料</p>':''}</div></div>`
+ return `<div class="flex items-start gap-2">${url?`<button type="button" class="relative h-10 w-10 shrink-0 overflow-hidden rounded border" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(title)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(title)}大图"><img class="h-full w-full ${item.washingOrderId?'object-contain':'object-cover'}" src="${escapeHtml(url)}" alt="${escapeHtml(title)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 bg-white text-[10px]">图片加载中</span></button>`:'<span>物料图片未维护</span>'}<div><div>${escapeHtml(item.itemName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.materialSku||'按原单物料')}</div>${item.washingOrderId?'<p class="text-xs text-blue-700">洗水面料</p>':''}</div></div>`
 }
 
 function formatQty(value: number | undefined, unit = ''): string {
@@ -185,7 +185,7 @@ function renderWaitProcessRows(view: DyeingWarehouseView): string[][] {
       `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'warning')}`,
       `
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(item.washingOrderId):view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${item.washingOrderId?'查看水洗加工单':view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(item.washingOrderId):view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${item.washingOrderId?'查看洗水加工单':view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>
               ${item.washingOrderId?'':renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`, buildWaitProcessFlowLines(item))}
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/pda/washing/'+encodeURIComponent(item.washingOrderId):item.taskId ? buildTaskDetailLink(item.taskId) : ''}" ${item.washingOrderId||item.taskId ? '' : 'disabled'}>打开移动端执行页</button>
             </div>
@@ -213,8 +213,8 @@ function renderWaitHandoverRows(view: DyeingWarehouseView): string[][] {
       `${renderBadge(item.status, item.status.includes('差异') || item.status.includes('异议') ? 'danger' : 'warning')}`,
       `
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/pda/washing/'+encodeURIComponent(item.washingOrderId):item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.washingOrderId||item.handoverOrderId ? '' : 'disabled'}>${item.washingOrderId?'打开水洗交回页':'打开移动端交出页'}</button>
-              ${item.washingOrderId?`<button type="button" class="rounded border px-2 py-1 text-xs" data-nav="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(item.washingOrderId)}">查看水洗加工单</button>`:renderWarehouseFlowButton(`${item.taskNo || item.stockItemId} 库存流水`, buildWaitHandoverFlowLines(item))}
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/pda/washing/'+encodeURIComponent(item.washingOrderId):item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.washingOrderId||item.handoverOrderId ? '' : 'disabled'}>${item.washingOrderId?'打开洗水交回页':'打开移动端交出页'}</button>
+              ${item.washingOrderId?`<button type="button" class="rounded border px-2 py-1 text-xs" data-nav="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(item.washingOrderId)}">查看洗水加工单</button>`:renderWarehouseFlowButton(`${item.taskNo || item.stockItemId} 库存流水`, buildWaitHandoverFlowLines(item))}
             </div>
           `
     ])
@@ -236,7 +236,7 @@ function renderInboundRows(view: DyeingWarehouseView): string[][] {
       `${escapeHtml(item.receiverName)}`,
       `${escapeHtml(item.receivedAt)}`,
       `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'success')}`,
-      `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(item.washingOrderId):view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${item.washingOrderId?'查看水洗加工单':view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>`
+      `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(item.washingOrderId):view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${item.washingOrderId?'查看洗水加工单':view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>`
     ])
 }
 

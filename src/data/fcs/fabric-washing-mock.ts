@@ -15,7 +15,7 @@ export function buildWashingPrintDemoOrders(templates: PrintWorkOrder[]): PrintW
       sourceSnapshot:{...order.sourceSnapshot,targetSpuImageUrl:view.product.imageUrl,sourceType:rootType,productionOrderId:type==='PRODUCTION'?'PO-202603-0003':undefined,productionOrderNo:type==='PRODUCTION'?'PO-202603-0003':undefined,
         productionDemandId:type==='PRODUCTION_DEMAND'?sourceNo:undefined,productionDemandNo:type==='PRODUCTION_DEMAND'?sourceNo:undefined,designRevisionTaskId:type==='DESIGN_REVISION'?sourceNo:undefined,
         supplementRecordId:type==='SUPPLEMENT'?sourceNo:undefined,supplementRecordNo:type==='SUPPLEMENT'?sourceNo:undefined,receivingTeamId:'F090',receivingTeamName:'全能力测试工厂',receivingLocationName:'原需求接收位置',receivingFactoryId:'F090',receivingFactoryName:'全能力测试工厂',receivingLocationId:'原需求接收位置',inputMaterialSkuCode:view.plannedInput.sku,outputMaterialSkuCode:view.output.sku},
-      remark:`水洗原型演示 · ${type} · ${done?'面料真实转印完成，可实际操作':'仅打印纸完成，未转印面料'}` })
+      remark:`洗水原型演示 · ${type} · ${done?'面料真实转印完成，可实际操作':'仅打印纸完成，未转印面料'}` })
     view.creationMethod=({PRODUCTION:'生产单自动生成',PRODUCTION_DEMAND:'生产需求提前创建',PURCHASE:'采购备货创建',STOCK:'备货手动创建',SUPPLEMENT:'裁片补料生成',DESIGN_REVISION:'设计改款样衣创建'} as const)[type]
     view.demandSource={type,sourceNo,sourceLabel:sourceNo,...(type==='PRODUCTION'?{productionOrderNo:sourceNo}:{}),...(type==='PRODUCTION_DEMAND'?{demandNo:sourceNo}:{})}
     view.plannedInput.plannedQty=300;view.output.plannedQty=300

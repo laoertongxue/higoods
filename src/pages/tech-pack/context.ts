@@ -116,6 +116,7 @@ import { buildPatternSignature } from './pattern-duplicate-check.ts'
 import {
   materializeLegacyProcessRoutePredecessors,
   normalizeProcessRouteEntries,
+  removePredeterminedWashing,
   projectProcessRouteLayoutFromPredecessors,
   validateProcessRouteGraph,
 } from '../../data/tech-pack-process-route.ts'
@@ -2544,7 +2545,13 @@ function applyTechPackState(
 
   state.bomItems = buildBomItemsFromTechPack(nextTechPack)
   state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
-  const loadedTechniques = buildTechniquesFromTechPack(nextTechPack, state.bomItems)
+  // Editable drafts follow current planning rules; published/review-locked graphs stay historical.
+  const routeTechPack = !isTechPackModuleReadOnly('PROCESS') ? {
+    ...nextTechPack,
+    processEntries: removePredeterminedWashing(nextTechPack.processEntries ?? []),
+    processes: nextTechPack.processes.filter(item => !['水洗', '洗水'].includes(item.name)),
+  } : nextTechPack
+  const loadedTechniques = buildTechniquesFromTechPack(routeTechPack, state.bomItems)
   state.techniques = state.processRouteStatus === 'CONFIRMED'
     ? loadedTechniques
     : syncPatternDrivenTechniques(loadedTechniques, state.patternItems)

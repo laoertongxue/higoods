@@ -461,7 +461,7 @@ const MONITOR_PRODUCTS = [
   { name: '树脂纽扣-12mm', type: '辅料', image: '/materials/accessory-button.jpg' },
   { name: '金属拉链-20cm', type: '辅料', image: '/materials/accessory-zipper.jpg' },
 ]
-const MONITOR_PROCESSES = ['染色', '印花', '水洗', '定型', '—', '—']
+const MONITOR_PROCESSES = ['染色', '印花', '洗水', '定型', '—', '—']
 
 export const stockMonitorSeed: StockMonitorRow[] = Array.from({ length: 16 }, (_, index): StockMonitorRow => {
   const product = MONITOR_PRODUCTS[index % MONITOR_PRODUCTS.length]

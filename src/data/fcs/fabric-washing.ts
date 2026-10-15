@@ -3,7 +3,7 @@ import { listFactoryMasterRecords } from './factory-master-store.ts'
 import { productionOrders } from './production-orders.ts'
 import { registerFabricWashingRelease, registerWashingOutputStock } from './fabric-washing-gates.ts'
 import { readWashingState, registerWashingProjection, executeWashingCommand, ensureWashingRecords, adoptWashingLedgerRows, washingLedgerSnapshot, guardWashingLedger } from './fabric-washing-repository.ts'
-import { assertWashingSource, washingRollRelease, type WashingSource, type WashingActor, type WashingCommand, type WashingOrder } from './fabric-washing-model.ts'
+import { assertWashingSource, washingRollRelease, washingInitiationRolls, type WashingSource, type WashingActor, type WashingCommand, type WashingOrder } from './fabric-washing-model.ts'
 import { FACTORY_RECEIVING_KEY, registerFactoryReceivingSource, assertReceiptPosition, prepareFactoryReceipt, savePreparedFactoryReceipt, listFactoryReceipts, recordWashingMaterialUsage } from './factory-receiving.ts'
 import type { FactoryReceivingSource } from './factory-receiving-types.ts'
 const PRINT_KEY='higoods.formal-print-execution.v1'
@@ -15,6 +15,18 @@ export function getWashingSources(printOrderId: string): WashingSource[] {
  const raw=getPrintWorkOrderById(printOrderId),view=getPrintingWorkOrderById(printOrderId)
  if(!raw||!view||view.output.objectType!=='面料')return []
  return buildWashingSources(raw,view)
+}
+export function canInitiateFabricWashing(printOrderId: string): boolean {
+ const state=readWashingState()
+ return getWashingSources(printOrderId).some(source=>washingInitiationRolls(state,source).length>0)
+}
+/** Reuse the synchronized list snapshot; row rendering must not resync the printing domain per row. */
+export function washingInitiationOrderIds(views:ReturnType<typeof listPrintingWorkOrders>):Set<string> {
+ const raws=new Map(capturePrintProcessMutationState().workOrders),state=readWashingState()
+ return new Set(views.filter(view=>{
+  const raw=raws.get(view.workOrderId)
+  return raw&&view.output.objectType==='面料'&&buildWashingSources(raw,view).some(source=>washingInitiationRolls(state,source).length>0)
+ }).map(view=>view.workOrderId))
 }
 function buildWashingSources(raw:NonNullable<ReturnType<typeof getPrintWorkOrderById>>,view:NonNullable<ReturnType<typeof getPrintingWorkOrderById>>):WashingSource[]{
  const printOrderId=raw.printOrderId
@@ -99,7 +111,7 @@ export async function submitWashingCommand(command:WashingCommand,actor:WashingA
     const factoryId=outbound?(order.source.target?.factoryId||order.source.target?.id)!:order.assignedFactoryId!
     const position={warehouseId:command.warehouseId!,locationId:command.locationId!}
     assertReceiptPosition(factoryId,position)
-    const input={id:'WASH-RECEIPT-'+operationId,factoryId,operatorName:actor.name,operatorId:actor.id,receivedAt:new Date().toISOString(),remark:outbound?'水洗后逐卷实收':'水洗染厂逐卷实收',lines:[...bySource].map(([sourceId,lines])=>{
+    const input={id:'WASH-RECEIPT-'+operationId,factoryId,operatorName:actor.name,operatorId:actor.id,receivedAt:new Date().toISOString(),remark:outbound?'洗水后逐卷实收':'洗水染厂逐卷实收',lines:[...bySource].map(([sourceId,lines])=>{
      const source=sources.find(s=>s.id===sourceId)!,sourceLine=source.lines[0],unit=order.rolls[0].unit
      return {sourceId,sourceLineId:sourceLine.id,...position,businessQty:lines.reduce((n,l)=>n+l.qty,0),businessUnit:unit,rolls:lines.map(line=>{const roll=order.rolls.find(r=>r.id===line.rollId)!;return{...position,barcode:outbound?roll.outputBarcode||roll.barcode:roll.barcode,yard:line.qty,qty:line.qty,unit}})}
     })}
@@ -107,7 +119,7 @@ export async function submitWashingCommand(command:WashingCommand,actor:WashingA
     if(!outbound)markPrintingWashingTransfer(order.source.printOrderId,command.lines.map(l=>l.rollId),'WASH-RECEIPT-'+operationId,actor.name,input.receivedAt,command.lines.reduce((n,l)=>n+l.qty,0))
    }
    if(command.type==='START'){
-    for(const roll of order.rolls.filter(r=>command.rollIds.includes(r.id))){const location=receiving.getFactoryReceiptLocations(order.assignedFactoryId!).find(p=>p.warehouse.warehouseId===roll.warehouseId&&p.location.locationId===roll.locationId);if(!location||['异常区','待确认区'].includes(location.area.areaName))throw new Error('本卷所在库位不可用于水洗投入，请负责人先核对实物。')}
+    for(const roll of order.rolls.filter(r=>command.rollIds.includes(r.id))){const location=receiving.getFactoryReceiptLocations(order.assignedFactoryId!).find(p=>p.warehouse.warehouseId===roll.warehouseId&&p.location.locationId===roll.locationId);if(!location||['异常区','待确认区'].includes(location.area.areaName))throw new Error('本卷所在库位不可用于洗水投入，请负责人先核对实物。')}
     recordWashingMaterialUsage({id:'WASH-USE-'+operationId,washingOrderId:order.id,factoryId:order.assignedFactoryId!,operatorName:actor.name,at:new Date().toISOString(),barcodes:order.rolls.filter(r=>command.rollIds.includes(r.id)).map(r=>r.barcode)})
    }
   }
@@ -132,7 +144,7 @@ registerFabricWashingRelease((printOrderId,rollId,mode)=>{
  if(!judgment&&['已交出','已入库'].includes(roll.status))return ''
  const source=getWashingSources(printOrderId).find(s=>s.rolls.some(r=>r.id===roll.id))
  const reason=washingRollRelease(state,printOrderId,roll.id,source?.rolls.find(r=>r.id===roll.id)?.revision??source?.revision)
- if(!reason&&mode==='HANDOUT'&&judgment?.decision==='WASH')return '本卷已经交给水洗，请从水洗加工单交回，不能再次作为印花产出发出。'
+ if(!reason&&mode==='HANDOUT'&&judgment?.decision==='WASH')return '本卷已经交给洗水，请从洗水加工单交回，不能再次作为印花产出发出。'
  return reason
 })
 
@@ -167,9 +179,9 @@ import { listFactoryInternalWarehouses } from './factory-internal-warehouse-loca
 registerWashingOutputStock(()=>readWashingState().orders.filter(order=>!order.cancelledAt&&order.assignedFactoryId).flatMap(order=>order.rolls.filter(roll=>roll.completedAt).map(roll=>{
  const warehouse=listFactoryInternalWarehouses(order.assignedFactoryId!).find(w=>w.warehouseKind==='WAIT_HANDOVER')
  return {stockItemId:'WASH-OUTPUT-'+order.id+'-'+roll.id,washingOrderId:order.id,warehouseId:warehouse?.warehouseId||'',warehouseName:warehouse?.warehouseName||'待交出仓',factoryId:order.assignedFactoryId!,factoryName:order.assignedFactoryName!,factoryKind:warehouse?.factoryKind||'CENTRAL_DYE' as const,
-  processCode:'PROC_WASH',processName:'水洗',craftCode:'WASH',craftName:'水洗',itemKind:'面料' as const,itemName:order.source.materialName,materialSku:order.source.materialSku,fabricRollNo:roll.outputBarcode||roll.barcode,unit:roll.unit,
-  areaName:'水洗实物产出',shelfNo:'按卷保管',locationNo:roll.locationId||'',locationText:'源卷 '+roll.barcode,photoList:[order.source.imageUrl],completedQty:roll.outputQty!,lossQty:0,waitHandoverQty:roll.handedOutAt||order.exception?0:roll.outputQty!,inTransitQty:roll.handedOutAt&&!roll.downstreamReceivedAt?roll.outputQty!:0,
+  processCode:'PROC_WASH',processName:'洗水',craftCode:'WASH',craftName:'洗水',itemKind:'面料' as const,itemName:order.source.materialName,materialSku:order.source.materialSku,fabricRollNo:roll.outputBarcode||roll.barcode,unit:roll.unit,
+  areaName:'洗水实物产出',shelfNo:'按卷保管',locationNo:roll.locationId||'',locationText:'源卷 '+roll.barcode,photoList:[order.source.imageUrl],completedQty:roll.outputQty!,lossQty:0,waitHandoverQty:roll.handedOutAt||order.exception?0:roll.outputQty!,inTransitQty:roll.handedOutAt&&!roll.downstreamReceivedAt?roll.outputQty!:0,
   receiverKind:order.source.target?.factoryId?'加工任务' as const:'中转仓' as const,receiverName:order.source.target?.name||'待核对',sourceType:(order.source.rootSource as any)?.sourceType,productionOrderId:order.source.productionOrderId,productionOrderNo:order.source.productionOrderId,taskNo:order.no,
-  abnormalReason:order.exception,status:order.exception?'异议中' as const:roll.downstreamReceivedAt?'已回写' as const:roll.handedOutAt?'已交出' as const:'待交出' as const,remark:'水洗数量变化 '+(roll.receivedQty!-roll.outputQty!)+' '+roll.unit+'；原卷 '+roll.barcode,
+  abnormalReason:order.exception,status:order.exception?'异议中' as const:roll.downstreamReceivedAt?'已回写' as const:roll.handedOutAt?'已交出' as const:'待交出' as const,remark:'洗水数量变化 '+(roll.receivedQty!-roll.outputQty!)+' '+roll.unit+'；原卷 '+roll.barcode,
  }
 })))

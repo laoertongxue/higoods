@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyWashingCommand, emptyWashingState, washingRollRelease, washingPrintSignature, type WashingSource, type WashingState, type WashingCommand, type WashingActor, WASHING_HAND_FEELS } from '../../src/data/fcs/fabric-washing-model.ts'
+import { applyWashingCommand, emptyWashingState, washingInitiationRolls, washingRollRelease, washingPrintSignature, type WashingSource, type WashingState, type WashingCommand, type WashingActor, WASHING_HAND_FEELS } from '../../src/data/fcs/fabric-washing-model.ts'
 
 const site: WashingActor = { id: 'site-1', name: '现场人员', role: '现场判断人员', factoryId: 'PRINT-1' }
 const planner: WashingActor = { id: 'plan-1', name: '计划员', role: '计划跟单' }
@@ -22,6 +22,37 @@ function harness() {
   return { act, state: () => state }
 }
 const judge = (s = source(), feel = WASHING_HAND_FEELS[0], rolls = ['R1', 'R2']): WashingCommand => ({ type: 'JUDGE', source: s, rollIds: rolls, decision: 'WASH', handFeel: feel })
+
+test('WASH-206/208: initiation uses completed physical batches and never mutates source facts', () => {
+  const s = source(), before = structuredClone(s)
+  assert.deepEqual(washingInitiationRolls(emptyWashingState(), s).map(r => r.id), ['R1', 'R2', 'R3'])
+  assert.deepEqual(s, before)
+})
+test('WASH-209/212: non-fabric, unfinished, blocked or incomplete source cannot initiate', () => {
+  for (const patch of [{objectType:'PAPER'}, {actualCompleted:false}, {blockedReason:'生产单已暂停'}, {printOrderId:''}, {imageUrl:''}]) {
+    const s = {...source(), ...patch} as WashingSource
+    assert.deepEqual(washingInitiationRolls(emptyWashingState(), s), [])
+  }
+})
+test('WASH-210/212: initiation excludes unconfirmed, non-positive, unitless, handed-out and draft-occupied rolls', () => {
+  for (const patch of [{confirmed:false}, {qty:0}, {qty:-1}, {qty:NaN}, {qty:Infinity}, {unit:''}, {handedOut:true}, {blockedReason:'交出草稿占用'}]) {
+    const s = source(); Object.assign(s.rolls[0], patch)
+    assert.deepEqual(washingInitiationRolls(emptyWashingState(), s).map(r => r.id), ['R2', 'R3'])
+  }
+})
+test('WASH-211: every existing touch decision prevents duplicate initiation, leaving other rolls available', () => {
+  const h = harness(), s = source()
+  h.act(judge(s))
+  assert.deepEqual(washingInitiationRolls(h.state(), s).map(r => r.id), ['R3'])
+  h.act({type:'JUDGE', source:s, rollIds:['R3'], decision:'NO_WASH'})
+  assert.deepEqual(washingInitiationRolls(h.state(), s), [])
+})
+test('WASH-218: judgment rejects a planner or a different onsite factory without creating records', () => {
+  const h = harness()
+  assert.throws(() => h.act(judge(), planner), /当前人员不能执行/)
+  assert.throws(() => h.act(judge(), {...site, factoryId:'OTHER'}), /当前现场面料/)
+  assert.deepEqual(h.state(), emptyWashingState())
+})
 
 test('CT-02: unfinished fabric cannot be judged; input remains unchanged', () => {
   const h = harness(), s = source(); s.actualCompleted = false
@@ -59,7 +90,7 @@ test('CT-05: no-wash and wash can coexist; undecided rolls remain guarded', () =
   h.act({ type: 'JUDGE', source: source(), rollIds: ['R3'], decision: 'NO_WASH' })
   h.act(judge())
   assert.equal(washingRollRelease(h.state(), 'PRINT-1', 'R3', 'V1'), '')
-  assert.match(washingRollRelease(h.state(), 'PRINT-1', 'R1', 'V1'), /需要水洗/)
+  assert.match(washingRollRelease(h.state(), 'PRINT-1', 'R1', 'V1'), /需要洗水/)
   assert.match(washingRollRelease(h.state(), 'PRINT-1', 'UNKNOWN'), /实际触摸/)
   assert.match(washingRollRelease(h.state(), 'PRINT-1', 'R3', 'V2'), /实际触摸/)
 })
@@ -79,7 +110,7 @@ test('CT-06: assignment does not receive; physical receipt and output govern rel
   h.act({ type: 'HANDOUT', orderId: id, rollIds: ['R1'], scannedCodes: ['ROLL-1'], target: source().target! }, factory)
   h.act({ type: 'DOWNSTREAM_RECEIVE', warehouseId:'W-1',locationId:'L-1', orderId: id, lines: [{ rollId: 'R1', qty: 98 }] }, receiver)
   assert.equal(washingRollRelease(h.state(), 'PRINT-1', 'R1'), '')
-  assert.match(washingRollRelease(h.state(), 'PRINT-1', 'R2'), /需要水洗/)
+  assert.match(washingRollRelease(h.state(), 'PRINT-1', 'R2'), /需要洗水/)
   assert.throws(() => h.act({ type: 'COMPLETE', orderId: id }, factory), /仍有未加工/)
 })
 test('CT-07: wrong factory cannot act; a sent order cannot be cancelled', () => {

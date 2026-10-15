@@ -60,8 +60,8 @@ async function warehouseRead(c,mode,kind,branch){
    await sample(p,'PF-07','web-dye-'+branch+'-columns-open',mode,()=>inventory.getByRole('button',{name:'列设置',exact:true}).click(),()=>inventory.getByRole('button',{name:'关闭',exact:true}).waitFor({state:'visible'}),false,root)
    await sample(p,'PF-07','web-dye-'+branch+'-columns-close',mode,()=>inventory.getByRole('button',{name:'关闭',exact:true}).click(),()=>inventory.locator('[data-dye-warehouse-action="close-column-settings"]').first().waitFor({state:'detached'}),false,root)
    await p.locator('[data-dye-wh-filter="keyword"]').fill(order.no)
-   await sample(p,'PF-07','web-dye-'+branch+'-query',mode,()=>p.locator('[data-dye-wh-filter-action="query"]').click(),()=>p.getByRole('button',{name:'查看水洗加工单',exact:true}).first().waitFor(),false,root)
-   await sample(p,'PF-07','web-dye-'+branch+'-open-order',mode,()=>p.getByRole('button',{name:'查看水洗加工单',exact:true}).first().click(),()=>p.locator('[data-washing-order]').waitFor())
+   await sample(p,'PF-07','web-dye-'+branch+'-query',mode,()=>p.locator('[data-dye-wh-filter-action="query"]').click(),()=>p.getByRole('button',{name:'查看洗水加工单',exact:true}).first().waitFor(),false,root)
+   await sample(p,'PF-07','web-dye-'+branch+'-open-order',mode,()=>p.getByRole('button',{name:'查看洗水加工单',exact:true}).first().click(),()=>p.locator('[data-washing-order]').waitFor())
    assert.match(await p.locator('[data-washing-order]').innerText(),new RegExp(order.no))
   }
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
@@ -78,21 +78,21 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} lifecycle ${
   await sample(p,'PF-01','refresh-print-detail',mode,()=>p.reload(),()=>p.locator('[data-washing-judgment-root]').waitFor(),true)
   assert.equal(await p.locator('[data-washing-judge-roll]:checked').count(),6)
   assert.equal(await p.locator('[data-washing-feel]').inputValue(),'')
-  await sample(p,'PF-02','create-failure-missing-feel',mode,()=>p.getByRole('button',{name:'创建水洗加工单',exact:true}).click(),()=>p.locator('[data-washing-error]').filter({hasText:'手感'}).waitFor())
+  await sample(p,'PF-02','create-failure-missing-feel',mode,()=>p.getByRole('button',{name:'创建洗水加工单',exact:true}).click(),()=>p.locator('[data-washing-error]').filter({hasText:'手感'}).waitFor())
   await role(p,'现场判断人员');await p.locator('[data-washing-feel]').selectOption(['柔软手感','增厚蓬松棉手感','硬挺手感'][n%3])
   await p.evaluate(()=>{window.washPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(...args){if(this.name==='records')throw new DOMException('quota fixture','QuotaExceededError');return window.washPut.apply(this,args)}})
-  await sample(p,'PF-02','create-failure-quota',mode,()=>p.getByRole('button',{name:'创建水洗加工单',exact:true}).click(),()=>p.locator('[data-washing-error]').filter({hasText:'空间不足'}).waitFor())
+  await sample(p,'PF-02','create-failure-quota',mode,()=>p.getByRole('button',{name:'创建洗水加工单',exact:true}).click(),()=>p.locator('[data-washing-error]').filter({hasText:'空间不足'}).waitFor())
   assert.equal((await p.evaluate(()=>window.washDurable())).length,0);await p.evaluate(()=>{IDBObjectStore.prototype.put=window.washPut})
-  await act(p,'创建水洗加工单','JUDGE',mode,'PF-02','create-six-rolls')
+  await act(p,'创建洗水加工单','JUDGE',mode,'PF-02','create-six-rolls')
   const order=(await p.evaluate(async()=>(await window.washDurable()).find(r=>r.value?.kind==='orders').value.data)),id=order.id
-  await sample(p,'PF-01','created-order-real-link',mode,()=>p.getByRole('link',{name:'查看水洗加工单',exact:true}).click(),()=>p.locator('[data-washing-order]').waitFor());assert.ok(p.url().includes((mode==='PDA'?'/fcs/pda/washing':route)+'/'+encodeURIComponent(id)))
+  await sample(p,'PF-01','created-order-real-link',mode,()=>p.getByRole('link',{name:'查看洗水加工单',exact:true}).click(),()=>p.locator('[data-washing-order]').waitFor());assert.ok(p.url().includes((mode==='PDA'?'/fcs/pda/washing':route)+'/'+encodeURIComponent(id)))
   await nav(p,(mode==='PDA'?'/fcs/pda/washing':route)+'/'+encodeURIComponent(id),'[data-washing-order]',mode,'direct-washing-detail-with-existing-cache')
   await role(p,'计划跟单');await p.locator('[data-washing-assign-factory]').selectOption('F090');await act(p,'派给染厂','ASSIGN',mode)
   await role(p,'染厂人员');await act(p,'接单','ACCEPT',mode)
   await role(p,'现场判断人员');await selectAll(p);await p.locator('[data-washing-scan]').fill('WRONG-ROLL');await sample(p,'PF-04','scan-wrong',mode,()=>p.locator('[data-washing-scan]').press('Enter'),()=>p.locator('[data-washing-error]').filter({hasText:'卷码不属于本单'}).waitFor());await scans(p,mode);const duplicateCode=await p.locator('[data-washing-exec-roll]').first().evaluate(n=>n.parentElement.querySelector('strong').textContent);await p.locator('[data-washing-scan]').fill(duplicateCode);await sample(p,'PF-04','scan-duplicate',mode,()=>p.locator('[data-washing-scan]').press('Enter'),()=>p.locator('[data-washing-error]').filter({hasText:'不能重复扫描'}).waitFor());await act(p,'印花交给染厂','SEND',mode,'PF-04')
   await role(p,'染厂人员');await selectAll(p);await fillQty(p);await position(p);await act(p,'登记逐卷实收','RECEIVE',mode,'PF-04')
   await warehouseRead(c,mode,'WAIT_PROCESS','warehouse-input-cold-existing-data')
-  await selectAll(p);await act(p,'投入水洗','START',mode,'PF-05')
+  await selectAll(p);await act(p,'投入洗水','START',mode,'PF-05')
   await selectAll(p);await fillQty(p);await act(p,'登记实际产出','OUTPUT',mode,'PF-05')
   await warehouseRead(c,mode,'WAIT_HANDOVER','warehouse-output-cold-existing-data')
   await selectAll(p);await scans(p,mode);await act(p,'交回原接收方','HANDOUT',mode,'PF-05')
@@ -103,14 +103,14 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} lifecycle ${
    window.washPaper=''
    new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node instanceof HTMLIFrameElement&&node.dataset.washingPrintFrame)node.addEventListener('load',()=>{node.contentWindow.print=()=>{window.washPaper=node.contentDocument.documentElement.outerHTML;queueMicrotask(()=>node.contentWindow?.dispatchEvent(new Event('afterprint')))}},{capture:true})}).observe(document.body,{childList:true})
   })
-  await act(p,'水洗加工单预览','PRINT',mode,'PF-06','order-preview')
+  await act(p,'洗水加工单预览','PRINT',mode,'PF-06','order-preview')
   await p.locator('[data-washing-print-document]').waitFor();assert.match(await p.locator('[data-washing-print-document]').innerText(),/300|50 Yard/)
-  await sample(p,'PF-06','print-ready-order-paper',mode,()=>p.getByRole('button',{name:'打印本预览',exact:true}).click(),()=>p.waitForFunction(()=>window.washPaper.includes('水洗加工单')))
+  await sample(p,'PF-06','print-ready-order-paper',mode,()=>p.getByRole('button',{name:'打印本预览',exact:true}).click(),()=>p.waitForFunction(()=>window.washPaper.includes('洗水加工单')))
   if(n===0){const html=await p.evaluate(()=>window.washPaper),paper=await c.newPage();await paper.setContent(html.replace('<head>','<head><base href="'+base+'/">'));await paper.locator('img').evaluateAll(async images=>{for(const img of images)await img.decode()});await paper.pdf({path:`output/pdf/washing-${mode.toLowerCase()}-order.pdf`,format:'A4',printBackground:true,preferCSSPageSize:true});await paper.close();writeFileSync(out+`/${mode.toLowerCase()}-order-paper.html`,html)}
   await p.evaluate(()=>window.washPaper='')
   await act(p,'交接与卷标预览','PRINT',mode,'PF-06','transfer-label-preview')
   assert.equal(await p.locator('[data-washing-print-document] [data-real-barcode]').count(),6)
-  await sample(p,'PF-06','print-ready-paper',mode,()=>p.getByRole('button',{name:'打印本预览',exact:true}).click(),()=>p.waitForFunction(()=>window.washPaper.includes('水洗交接与卷标')))
+  await sample(p,'PF-06','print-ready-paper',mode,()=>p.getByRole('button',{name:'打印本预览',exact:true}).click(),()=>p.waitForFunction(()=>window.washPaper.includes('洗水交接与卷标')))
   if(n===0){
    const html=await p.evaluate(()=>window.washPaper),paper=await c.newPage();await paper.setContent(html.replace('<head>','<head><base href="'+base+'/">'));await paper.locator('img').evaluateAll(async images=>{for(const img of images)await img.decode()});await paper.pdf({path:`output/pdf/washing-${mode.toLowerCase()}-transfer.pdf`,format:'A4',printBackground:true,preferCSSPageSize:true});await paper.close();writeFileSync(out+`/${mode.toLowerCase()}-paper.html`,html)
   }
@@ -124,7 +124,7 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} lifecycle ${
   await sample(p,'PF-01','refresh-list',mode,()=>p.reload(),()=>p.locator('[data-washing-list-root]').waitFor(),true)
   await sample(p,'PF-01','in-app-detail',mode,()=>p.locator('[data-washing-list-root] a').filter({hasText:order.no}).first().click(),()=>p.locator('[data-washing-order]').waitFor())
   if(mode==='Web'){
-   await sample(p,'PF-07','production-actual-relation',mode,()=>p.getByRole('link',{name:'PO-202603-0003',exact:true}).click(),async()=>{await p.getByRole('heading',{name:'印花后实际追加水洗',exact:true}).waitFor();await p.getByRole('link',{name:order.no,exact:true}).waitFor()},false,'main')
+   await sample(p,'PF-07','production-actual-relation',mode,()=>p.getByRole('link',{name:'PO-202603-0003',exact:true}).click(),async()=>{await p.getByRole('heading',{name:'印花后实际追加洗水',exact:true}).waitFor();await p.getByRole('link',{name:order.no,exact:true}).waitFor()},false,'main')
    await nav(p,route+'/'+encodeURIComponent(id),'[data-washing-order]',mode,'return-production-relation')
   }
   await role(p,'计划跟单')
@@ -138,7 +138,7 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} lifecycle ${
    let download;await sample(p,'PF-08','storage-export',mode,async()=>{const waiting=p.waitForEvent('download');await p.getByRole('button',{name:'导出完整备份',exact:true}).click();download=await waiting},()=>p.locator('[data-washing-result]').filter({hasText:'完整备份已生成'}).waitFor())
    const file=out+`/backup-ui-${n+1}.json`;await download.saveAs(file);await p.locator('[data-washing-backup-input]').setInputFiles(file)
    await sample(p,'PF-08','storage-restore-identical',mode,()=>p.getByRole('button',{name:'核验并恢复备份',exact:true}).click(),async()=>{await p.locator('[data-washing-result]').filter({hasText:'恢复及回读完成'}).waitFor();const rows=await p.evaluate(()=>window.washDurable());assert.ok(rows.some(r=>r.value?.kind==='orders'&&r.value.data.completedAt))})
-   await sample(p,'PF-08','storage-cleanup',mode,()=>p.getByRole('button',{name:'清理无引用水洗附件',exact:true}).click(),()=>p.locator('[data-washing-result]').filter({hasText:'已清理'}).waitFor())
+   await sample(p,'PF-08','storage-cleanup',mode,()=>p.getByRole('button',{name:'清理无引用洗水附件',exact:true}).click(),()=>p.locator('[data-washing-result]').filter({hasText:'已清理'}).waitFor())
    const restored=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'}),rp=await restored.newPage();await initPage(rp);await nav(rp,route,'[data-washing-list-root]',mode,'cold-list-restore');await rp.getByRole('button',{name:'本地资料',exact:true}).click();await rp.locator('[data-washing-backup-input]').setInputFiles(file)
    await sample(rp,'PF-08','storage-restore-new',mode,()=>rp.getByRole('button',{name:'核验并恢复备份',exact:true}).click(),async()=>{await rp.locator('[data-washing-result]').filter({hasText:'恢复及回读完成'}).waitFor();assert.ok((await rp.evaluate(()=>window.washDurable())).some(r=>r.value?.kind==='orders'&&r.value.data.completedAt))})
    await rp.locator('[data-washing-backup-input]').setInputFiles({name:'bad-backup.json',mimeType:'application/json',buffer:Buffer.from('{"format":"bad"}')})
@@ -155,24 +155,24 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} correction a
  const printId='PWO-WASH-DEMO-SUPPLEMENT-DONE',judge=mode==='PDA'?'/fcs/pda/exec/TASK-'+printId:'/fcs/craft/printing/work-orders/'+printId
  const selectRoll=async index=>{for(const node of await p.locator('[data-washing-judge-roll]').all())if(await node.isChecked())await node.uncheck();await p.locator('[data-washing-judge-roll]').nth(index).check()}
  try{
-  await nav(p,judge,'[data-washing-judgment-root]',mode,'cold-supplement-print-detail');await role(p,'现场判断人员');await selectRoll(0);await p.locator('[data-washing-feel]').selectOption('柔软手感');await act(p,'创建水洗加工单','JUDGE',mode,'PF-02','create-partial-one-roll')
+  await nav(p,judge,'[data-washing-judgment-root]',mode,'cold-supplement-print-detail');await role(p,'现场判断人员');await selectRoll(0);await p.locator('[data-washing-feel]').selectOption('柔软手感');await act(p,'创建洗水加工单','JUDGE',mode,'PF-02','create-partial-one-roll')
   await selectRoll(0);await p.locator('[data-washing-feel]').selectOption('硬挺手感');await act(p,'纠正为所选手感','JUDGE',mode,'PF-03','own-correction')
-  let id=decodeURIComponent((await p.getByRole('link',{name:'查看水洗加工单',exact:true}).getAttribute('href')).split('/').at(-1))
+  let id=decodeURIComponent((await p.getByRole('link',{name:'查看洗水加工单',exact:true}).getAttribute('href')).split('/').at(-1))
   await nav(p,(mode==='PDA'?'/fcs/pda/washing':route)+'/'+encodeURIComponent(id),'[data-washing-order]',mode,'correction-detail')
   await role(p,'计划跟单');await sample(p,'PF-03','cancel-confirm-open',mode,()=>p.getByRole('button',{name:'作废本单',exact:true}).click(),()=>p.locator('[data-washing-reason]').waitFor());await sample(p,'PF-03','dismiss-confirm',mode,()=>p.getByRole('button',{name:'返回填写',exact:true}).click(),()=>p.locator('[data-washing-reason]').waitFor({state:'detached'}));await p.getByRole('button',{name:'作废本单',exact:true}).click();await p.locator('[data-washing-reason]').fill('核对原实物后作废');await act(p,'确认作废','CANCEL',mode,'PF-03','cancel-before-physical')
-  await nav(p,judge,'[data-washing-judgment-root]',mode,'return-source');await role(p,'现场判断人员');await selectRoll(1);await p.locator('[data-washing-feel]').selectOption('增厚蓬松棉手感');await act(p,'创建水洗加工单','JUDGE',mode,'PF-02','create-partial-one-roll')
-  id=decodeURIComponent((await p.getByRole('link',{name:'查看水洗加工单',exact:true}).getAttribute('href')).split('/').at(-1));await nav(p,(mode==='PDA'?'/fcs/pda/washing':route)+'/'+encodeURIComponent(id),'[data-washing-order]',mode,'rejection-detail')
+  await nav(p,judge,'[data-washing-judgment-root]',mode,'return-source');await role(p,'现场判断人员');await selectRoll(1);await p.locator('[data-washing-feel]').selectOption('增厚蓬松棉手感');await act(p,'创建洗水加工单','JUDGE',mode,'PF-02','create-partial-one-roll')
+  id=decodeURIComponent((await p.getByRole('link',{name:'查看洗水加工单',exact:true}).getAttribute('href')).split('/').at(-1));await nav(p,(mode==='PDA'?'/fcs/pda/washing':route)+'/'+encodeURIComponent(id),'[data-washing-order]',mode,'rejection-detail')
   await role(p,'计划跟单');await p.locator('[data-washing-assign-factory]').selectOption('F090');await act(p,'派给染厂','ASSIGN',mode,'PF-03','initial-assignment')
   await role(p,'染厂人员');await sample(p,'PF-03','reject-confirm-open',mode,()=>p.getByRole('button',{name:'拒单',exact:true}).click(),()=>p.locator('[data-washing-reason]').waitFor());await p.locator('[data-washing-reason]').fill('本次产能不足');await act(p,'确认拒单','REJECT',mode,'PF-03','reject')
   await role(p,'计划跟单');await p.locator('[data-washing-assign-factory]').selectOption('F090');await act(p,'派给染厂','ASSIGN',mode,'PF-03','reassign-after-reject')
   await role(p,'染厂人员');await act(p,'接单','ACCEPT',mode,'PF-03','accept-after-reassign')
   await role(p,'现场负责人');await sample(p,'PF-03','exception-confirm-open',mode,()=>p.getByRole('button',{name:'登记异常',exact:true}).click(),()=>p.locator('[data-washing-reason]').waitFor());await p.locator('[data-washing-reason]').fill('触摸结果需要现场协调');await act(p,'确认登记异常','EXCEPTION',mode,'PF-03','exception-freeze')
   await sample(p,'PF-03','resolve-exception-confirm-open',mode,()=>p.getByRole('button',{name:'核对实物并恢复',exact:true}).click(),()=>p.locator('[data-washing-reason]').waitFor());await p.locator('[data-washing-reason]').fill('实物已核对，同意按原范围恢复');await p.locator('[data-washing-resolved-feel]').selectOption('柔软手感');await act(p,'确认恢复流转','RESOLVE_EXCEPTION',mode,'PF-03','supervisor-resolution')
-  await nav(p,judge,'[data-washing-judgment-root]',mode,'return-source-no-wash');await role(p,'现场判断人员');await selectRoll(2);await act(p,'不需要水洗','JUDGE',mode,'PF-02','no-wash')
+  await nav(p,judge,'[data-washing-judgment-root]',mode,'return-source-no-wash');await role(p,'现场判断人员');await selectRoll(2);await act(p,'不需要洗水','JUDGE',mode,'PF-02','no-wash')
   await p.goto(base+(mode==='PDA'?'/fcs/pda/washing':route));await p.locator('[data-washing-list-root]').waitFor()
   await p.locator('[data-washing-filter="handFeel"]').selectOption('柔软手感');await sample(p,'PF-02','query',mode,()=>p.getByRole('button',{name:'查询',exact:true}).click(),()=>p.locator('[data-washing-list-root]').filter({hasText:'柔软手感'}).waitFor());await sample(p,'PF-02','reset',mode,()=>p.getByRole('button',{name:'重置',exact:true}).click(),()=>p.waitForFunction(()=>document.querySelector('[data-washing-filter="handFeel"]').value===''))
   if(mode==='Web'){
-   await sample(p,'PF-02','column-settings',mode,()=>p.getByRole('button',{name:'列设置',exact:true}).click(),()=>p.getByText('水洗列表列设置',{exact:true}).waitFor())
+   await sample(p,'PF-02','column-settings',mode,()=>p.getByRole('button',{name:'列设置',exact:true}).click(),()=>p.getByText('洗水列表列设置',{exact:true}).waitFor())
   }
   return {partial:true,corrected:true,cancelled:true,rejected:true,reassigned:true,exceptionResolved:true,noWash:true}
  }finally{await c.close()}
@@ -193,7 +193,7 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} list populat
   if(mode==='Web'){
    const sorting=p.locator('[data-fabric-washing-action="sort-column"][data-column-key="qty"]')
    for(const [branch,direction] of [['sort-asc','asc'],['sort-desc','desc'],['sort-default','none']])await sample(p,'PF-02',branch,mode,()=>sorting.click(),()=>sorting.locator('[data-standard-list-sort-icon="'+direction+'"]').waitFor())
-   await sample(p,'PF-02','columns-open-18',mode,()=>p.getByRole('button',{name:'列设置',exact:true}).click(),()=>p.getByText('水洗列表列设置',{exact:true}).waitFor())
+   await sample(p,'PF-02','columns-open-18',mode,()=>p.getByRole('button',{name:'列设置',exact:true}).click(),()=>p.getByText('洗水列表列设置',{exact:true}).waitFor())
    const visible=p.locator('[data-fabric-washing-action="toggle-column-visibility"][data-fabric-washing-column-key="source"]'),frozen=p.locator('[data-fabric-washing-action="toggle-column-freeze"][data-fabric-washing-column-key="material"]')
    await sample(p,'PF-02','column-hide',mode,()=>visible.click(),()=>p.waitForFunction(()=>!document.querySelector('[data-fabric-washing-action="toggle-column-visibility"][data-fabric-washing-column-key="source"]').checked))
    await sample(p,'PF-02','column-show',mode,()=>visible.click(),()=>p.waitForFunction(()=>document.querySelector('[data-fabric-washing-action="toggle-column-visibility"][data-fabric-washing-column-key="source"]').checked))
@@ -201,7 +201,7 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} list populat
    const from=p.locator('[draggable="true"][data-fabric-washing-column-key="qty"]'),to=p.locator('[draggable="true"][data-fabric-washing-column-key="source"]')
    await sample(p,'PF-02','column-reorder',mode,()=>from.dragTo(to),()=>p.waitForFunction(()=>{const rows=[...document.querySelectorAll('[draggable="true"][data-fabric-washing-column-key]')].map(n=>n.dataset.fabricWashingColumnKey);return rows.indexOf('qty')<rows.indexOf('source')}))
    await sample(p,'PF-02','columns-restore-defaults',mode,()=>p.getByRole('button',{name:'恢复默认',exact:true}).click(),()=>p.waitForFunction(()=>!document.querySelector('[data-fabric-washing-action="toggle-column-freeze"][data-fabric-washing-column-key="material"]').checked))
-   await sample(p,'PF-02','columns-close',mode,()=>p.getByRole('button',{name:'关闭',exact:true}).click(),()=>p.getByText('水洗列表列设置',{exact:true}).waitFor({state:'detached'}))
+   await sample(p,'PF-02','columns-close',mode,()=>p.getByRole('button',{name:'关闭',exact:true}).click(),()=>p.getByText('洗水列表列设置',{exact:true}).waitFor({state:'detached'}))
   }
   const next=p.locator('[data-fabric-washing-action="next-page"]');await sample(p,'PF-02','next-page-18-orders',mode,()=>next.click(),()=>p.waitForFunction(()=>document.querySelector('[data-washing-list-root]').innerText.includes('2 / 2')))
   await sample(p,'PF-02','previous-page-18-orders',mode,()=>p.locator('[data-fabric-washing-action="prev-page"]').click(),()=>p.waitForFunction(()=>document.querySelector('[data-washing-list-root]').innerText.includes('1 / 2')))
@@ -212,7 +212,7 @@ for(const mode of modes)for(let n=0;n<runs;n++)await check(`${mode} list populat
    await sample(p,'PF-01','candidate-list-20-first',mode,()=>p.getByRole('button',{name:'查看印花产出',exact:true}).click(),()=>p.getByRole('heading',{name:'印花实际产出',exact:true}).waitFor())
    await sample(p,'PF-02','candidate-next-page',mode,()=>p.getByRole('button',{name:'下一页',exact:true}).click(),()=>p.getByText('第 2 /',{exact:false}).waitFor())
    await sample(p,'PF-02','candidate-previous-page',mode,()=>p.getByRole('button',{name:'上一页',exact:true}).click(),()=>p.getByText('第 1 /',{exact:false}).waitFor())
-   await sample(p,'PF-01','candidate-return-list',mode,()=>p.getByRole('button',{name:'返回水洗列表',exact:true}).click(),()=>p.getByRole('heading',{name:'水洗加工单',exact:true}).waitFor())
+   await sample(p,'PF-01','candidate-return-list',mode,()=>p.getByRole('button',{name:'返回洗水列表',exact:true}).click(),()=>p.getByRole('heading',{name:'洗水加工单',exact:true}).waitFor())
   }
   return {orders:18,query:6,pageSize:20,pagination:true}
  }finally{await c.close()}
@@ -234,7 +234,7 @@ if(modes.includes('Web'))for(let n=0;n<runs;n++)await check(`Web maintenance one
   await nav(p,route,'[data-washing-list-root]','Web','cold-list-blob-restore');await p.getByRole('button',{name:'本地资料',exact:true}).click();await p.locator('[data-washing-backup-input]').setInputFiles('/tmp/washing-blob-backup.json')
   await sample(p,'PF-08','storage-restore-one-real-blob','Web',()=>p.getByRole('button',{name:'核验并恢复备份',exact:true}).click(),async()=>{await p.locator('[data-washing-result]').filter({hasText:'恢复及回读完成'}).waitFor();await p.getByText('附件 1 个',{exact:false}).waitFor();const files=await p.evaluate(()=>new Promise((resolve,reject)=>{const q=indexedDB.open('higood-pcs-records');q.onerror=()=>reject(q.error);q.onsuccess=()=>{const db=q.result,t=db.transaction('files','readonly'),r=t.objectStore('files').getAll();r.onsuccess=()=>{t.oncomplete=()=>{db.close();resolve(r.result.map(f=>({id:f.id,bytes:f.blob.size})))}}}}));assert.equal(files[0].bytes,expectedBytes)})
   let download;await sample(p,'PF-08','storage-export-one-real-blob','Web',async()=>{const waiting=p.waitForEvent('download');await p.getByRole('button',{name:'导出完整备份',exact:true}).click();download=await waiting},()=>p.locator('[data-washing-result]').filter({hasText:'完整备份已生成'}).waitFor());const file=n===0?out+'/backup-real-blob.json':`/tmp/washing-backup-real-blob-${n+1}.json`;await download.saveAs(file);const exported=JSON.parse(readFileSync(file,'utf8'));assert.equal(exported.files[0].base64,fixture.files[0].base64)
-  await p.locator('[data-washing-backup-input]').setInputFiles(file);await sample(p,'PF-08','storage-restore-identical-one-real-blob','Web',()=>p.getByRole('button',{name:'核验并恢复备份',exact:true}).click(),()=>p.locator('[data-washing-result]').filter({hasText:'新增 0 条记录'}).waitFor());await sample(p,'PF-08','storage-cleanup-keeps-referenced-blob','Web',()=>p.getByRole('button',{name:'清理无引用水洗附件',exact:true}).click(),async()=>{await p.locator('[data-washing-result]').filter({hasText:'已清理 0 个'}).waitFor();await p.getByText('附件 1 个',{exact:false}).waitFor()});return{files:1,bytes:expectedBytes,fullBytesEqual:true}
+  await p.locator('[data-washing-backup-input]').setInputFiles(file);await sample(p,'PF-08','storage-restore-identical-one-real-blob','Web',()=>p.getByRole('button',{name:'核验并恢复备份',exact:true}).click(),()=>p.locator('[data-washing-result]').filter({hasText:'新增 0 条记录'}).waitFor());await sample(p,'PF-08','storage-cleanup-keeps-referenced-blob','Web',()=>p.getByRole('button',{name:'清理无引用洗水附件',exact:true}).click(),async()=>{await p.locator('[data-washing-result]').filter({hasText:'已清理 0 个'}).waitFor();await p.getByText('附件 1 个',{exact:false}).waitFor()});return{files:1,bytes:expectedBytes,fullBytesEqual:true}
  }finally{await c.close()}
 })
 report.assets=Object.fromEntries(readdirSync('dist/assets').filter(p=>/\.(?:js|css)$/.test(p)).map(p=>[p,createHash('sha256').update(readFileSync('dist/assets/'+p)).digest('hex')]))

@@ -5,6 +5,21 @@ import { serializePrintExecution, parsePrintExecution } from '../../src/data/fcs
 import { removePredeterminedWashing, validateProcessRouteGraph } from '../../src/data/tech-pack-process-route.ts'
 import { projectUneditedLegacyTechnicalDemo } from '../../src/data/pcs-technical-data-demo-projection.ts'
 import { createTechnicalDataVersionBootstrapSnapshot } from '../../src/data/pcs-technical-data-version-bootstrap.ts'
+import { resolveTechPackProcessEntryRule, type TechPackProcessEntry } from '../../src/data/fcs/tech-packs.ts'
+import { MATERIAL_VARIANT_PROCESS_TYPE_LABELS } from '../../src/data/pcs-material-variant-types.ts'
+import { getFcsCraftDictRef } from '../../src/data/pcs-material-variant-fcs-dict.ts'
+
+test('WASH-219/222: current labels and legacy route display use 洗水 without changing stored identities or free text', () => {
+ assert.equal(MATERIAL_VARIANT_PROCESS_TYPE_LABELS.wash, '洗水')
+ assert.equal(getFcsCraftDictRef('craft-wash')?.processName, '洗水')
+ for (const processCode of ['WASH', 'craft-wash']) {
+  const old = {id:'history-1', entryType:'PROCESS_BASELINE', stageCode:'PREP', processCode, processName:'水洗', craftName:'水洗', assignmentGranularity:'ORDER', detailSplitDimensions:[]} as unknown as TechPackProcessEntry
+  const before=structuredClone(old),display=resolveTechPackProcessEntryRule(old)
+  assert.equal(display.processName,'洗水');assert.equal(display.craftName,'洗水');assert.equal(display.processCode,processCode)
+  assert.deepEqual(old,before)
+  assert.equal(resolveTechPackProcessEntryRule({...old,processName:'旧水洗工艺记录'}).processName,'旧水洗工艺记录')
+ }
+})
 
 test('CT-01: washing is rejected from an authored static route',()=>{
  const entries=[{id:'w',stageCode:'PREP',processCode:'WASH',routeObjectKey:'BOM:f',inputObjectType:'FABRIC' as const,outputObjectType:'FABRIC' as const,inputMaterialSkuId:'sku',outputMaterialSkuId:'sku'}]

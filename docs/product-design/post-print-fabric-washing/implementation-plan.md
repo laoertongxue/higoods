@@ -1,5 +1,6 @@
 # 印花后面料水洗实施计划
 
+> V1.2 增量修订：[操作栏发起洗水与名称统一](list-entry-and-washing-name-v1.2.md)。本文件保留 V1.1 的规则及证据身份，新增入口和显示名称以修订为准。
 版本：V1.1。日期：2026-10-15。阶段：本地技术验证完成，产品接受另行登记。核查代码基线：67499ec61a1e770c39e5cdf3eddc4d2068eb7f4a，detached HEAD，整理前工作树干净。
 
 依据：[业务需求](requirements.md)。逐项交付：[原子矩阵](atomic-requirements.md)。现状与直接消费者：[影响核查](upstream-downstream-review.md)。

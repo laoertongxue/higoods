@@ -206,7 +206,7 @@ export function prepareFactoryReceipt(input:FactoryReceiptInput):FactoryReceipt 
   }else if(line.washingOrderId){
    if(!l.rolls?.length || !Number.isFinite(l.businessQty) || l.businessQty!<=0 || !l.businessUnit)throw new Error('请逐卷填写本次实际接收数量及原单位。')
    unit=l.businessUnit==='m'?'米':l.businessUnit as typeof unit
-   if(!['Yard','kg','米'].includes(unit)||convertReceiptQuantity(1,l.businessUnit,line.unit)!==1)throw new Error('水洗接收须保留原数量单位，不能混算重量和长度。')
+   if(!['Yard','kg','米'].includes(unit)||convertReceiptQuantity(1,l.businessUnit,line.unit)!==1)throw new Error('洗水接收须保留原数量单位，不能混算重量和长度。')
    for(const roll of l.rolls){
     const origin=line.rolls.find(r=>r.barcode===roll.barcode),key=s.id+'|'+roll.barcode
     if(!origin || used.has(key) || read().receipts.some(r=>r.lines.some(x=>x.sourceId===s.id&&x.rolls?.some(y=>y.barcode===roll.barcode))))throw new Error('卷码不属于本单或已经接收。')
@@ -308,7 +308,7 @@ export function recordWashingMaterialUsage(input: { id:string; washingOrderId:st
   const line=data.receipts.filter(r=>r.factoryId===input.factoryId).flatMap(r=>r.lines).find(l=>l.washingOrderId===input.washingOrderId&&l.washingDirection==='TO_WASH'&&l.rolls?.some(r=>r.barcode===barcode))
   const roll=line?.rolls?.find(r=>r.barcode===barcode)
   if(!line||!roll||uses.some(u=>u.lines.some(l=>l.receiptLineId===line.id&&l.barcode===barcode)))throw new Error('本卷尚未实际接收或已经投入，不能凭历史可用量开工。')
-  if(line.unit==='片')throw new Error('水洗面料单位不符。')
+  if(line.unit==='片')throw new Error('洗水面料单位不符。')
   lines.push({receiptLineId:line.id,barcode,qty:roll.qty??roll.yard,unit:line.unit})
  }
  const next=receiptWriteCopy();next.materialUses=[...uses,{...input,lines}];save(next)

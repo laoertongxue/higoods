@@ -33,7 +33,7 @@ function hydrate<T>(value: T): T {
   return JSON.parse(JSON.stringify(value), (_, item) => {
     if (typeof item !== 'string' || !item.startsWith('pcs-file:')) return item
     const id = item.slice(9), blob = blobs.get(id)
-    if (!blob) throw new Error('水洗资料的附件引用缺失，请保留资料后重新读取。')
+    if (!blob) throw new Error('洗水资料的附件引用缺失，请保留资料后重新读取。')
     if (!fileUrls.has(id)) { const url = URL.createObjectURL(blob); fileUrls.set(id, url); urlFiles.set(url, id) }
     return fileUrls.get(id)
   })
@@ -53,7 +53,7 @@ export function readWashingState(): WashingState {
 }
 export async function ensureWashingRecords(force = false): Promise<void> {
   if (loaded && !force) return
-  if (saving) throw new Error('上一笔水洗动作尚未保存，请等待完成。')
+  if (saving) throw new Error('上一笔洗水动作尚未保存，请等待完成。')
   try {
     await (await import('../pcs-record-runtime.ts')).ensurePcsRecordState(PCS_FCS_COLLECTIONS)
     await (await import('./production-context-records.ts')).hydrateProductionContextRecords()
@@ -67,7 +67,7 @@ export async function ensureWashingRecords(force = false): Promise<void> {
     loaded = true; readFailure = ''
     if(processChanged)hydrateDesignRevisionFcsCaches()
   } catch (error) {
-    readFailure = '水洗用户资料无法读取，未按空数据覆盖。' + (error instanceof Error ? error.message : String(error))
+    readFailure = '洗水用户资料无法读取，未按空数据覆盖。' + (error instanceof Error ? error.message : String(error))
     throw new Error(readFailure)
   }
 }

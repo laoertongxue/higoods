@@ -1,0 +1,65 @@
+{
+  "reports": [
+    "entry-2026-10-15T03-56-08.413Z.json",
+    "entry-2026-10-15T03-57-24.451Z.json",
+    "draft-route-2026-10-15T03-58-42.452Z.json"
+  ],
+  "samples": 77,
+  "families": {
+    "cold-list": {
+      "count": 5,
+      "maxMs": 894.3000000119209
+    },
+    "refresh-50-row-list": {
+      "count": 5,
+      "maxMs": 817
+    },
+    "row-open": {
+      "count": 17,
+      "maxMs": 116.30000001192093
+    },
+    "close-without-save": {
+      "count": 5,
+      "maxMs": 48.90000003576279
+    },
+    "escape-without-save": {
+      "count": 5,
+      "maxMs": 30.599999964237213
+    },
+    "reject-missing-handfeel": {
+      "count": 5,
+      "maxMs": 81.39999997615814
+    },
+    "save-quota-failure": {
+      "count": 5,
+      "maxMs": 132.19999998807907
+    },
+    "create-and-durable-read": {
+      "count": 5,
+      "maxMs": 132.19999998807907
+    },
+    "view-created-order": {
+      "count": 5,
+      "maxMs": 66.09999996423721
+    },
+    "no-wash-and-durable-read": {
+      "count": 5,
+      "maxMs": 131.80000001192093
+    },
+    "close-blocked-during-save": {
+      "count": 5,
+      "maxMs": 32.200000047683716
+    },
+    "escape-blocked-during-save": {
+      "count": 5,
+      "maxMs": 32.60000002384186
+    },
+    "legacy-draft-route-tab": {
+      "count": 5,
+      "maxMs": 81.60000002384186
+    }
+  },
+  "maxMs": 894.3000000119209,
+  "status": "PASS",
+  "history": "All first failures and preflight reports are retained; final navigation waits for DOMContentLoaded, correct target content, required visible images and two animation frames, rather than offscreen page load. First slow samples 1074.6, 1017, 1025.5ms retained."
+}
