@@ -4,10 +4,11 @@ const root='[data-wool-work-orders-root]', storeKey='higood-fcs-wool-stage-store
 const action=(name:string,id?:string)=>`[data-wool-work-orders-action="${name}"]${id?`[data-wool-order-id="${id}"]`:''}`
 async function open(page:Page,stage='knitting'){await page.goto(`/fcs/craft/wool/${stage}-orders`);await expect(page.locator(root)).toBeVisible()}
 async function facts(page:Page){return page.evaluate(async()=>{const modulePath='/src/data/fcs/wool-domain/store.ts';const {readWoolStore}=await import(/* @vite-ignore */ modulePath);return readWoolStore()})}
-async function report(page:Page,id:string,qty:number){await page.locator(action('open-report',id)).click();await page.locator('[data-wool-dialog-field="qty"]').fill(String(qty));await page.locator(action('save-report')).click()}
+async function stageTotal(page:Page,stage='knitting'){return page.evaluate(async stage=>{const modulePath='/src/data/fcs/wool-domain/queries.ts';const domain=await import(/* @vite-ignore */ modulePath);return domain.listWoolWorkOrders({stage:stage==='knitting'?'KNITTING':'LINKING'}).length},stage)}
+async function report(page:Page,id:string,qty:number){await page.locator('[data-wool-work-orders-field="pageSize"]').selectOption('50');await expect(page.locator(action('open-report',id))).toBeVisible();await page.locator(action('open-report',id)).click();await page.locator('[data-wool-dialog-field="qty"]').fill(String(qty));await page.locator(action('save-report')).click()}
 async function receive(page:Page,id:string,qty:number,piece=false){await page.goto(`/fcs/craft/wool/pending-receipts?workOrderId=${encodeURIComponent(id)}`);await page.locator('[data-wool-receiving-action="receive"]').first().click();if(piece)await page.locator('[data-wool-receiving-field="pieceQty"]').fill(String(qty));else {await page.locator('[data-wool-receiving-field="pcs"]').fill('1');await page.locator('[data-wool-receiving-field="grossKg"]').fill(String(qty+.062));await page.locator('[data-wool-receiving-field="PAPER"]').fill('1')}await page.locator('[data-wool-receiving-action="review"]').click();await page.locator('[data-wool-receiving-action="save"]').click();await expect(page.locator('[data-wool-receiving-feedback]')).toContainText('已保存')}
 
-test('两阶段保留六状态、八列、分页与路由独立筛选',async({page})=>{for(const stage of ['knitting','linking']){await open(page,stage);await expect(page.locator('[data-wool-work-orders-action^="tab:"]')).toHaveCount(6);for(const title of ['加工投入','加工要求','加工产出','时间','数量'])await expect(page.locator('th').filter({hasText:title}).first()).toBeVisible();await page.locator('[data-wool-work-orders-field="keyword"]').fill('不存在的单据');await page.locator(action('query')).click();await expect(page.locator('[data-wool-work-orders-table-surface]')).toContainText('暂无');await page.locator(action('reset-filters')).click();await expect(page.locator('[data-wool-work-orders-total]')).toContainText('14')}})
+test('两阶段保留六状态、八列、分页与路由独立筛选',async({page})=>{for(const stage of ['knitting','linking']){await open(page,stage);const initialTotal=await stageTotal(page,stage);await expect(page.locator('[data-wool-work-orders-action^="tab:"]')).toHaveCount(6);for(const title of ['加工投入','加工要求','加工产出','时间','数量'])await expect(page.locator('th').filter({hasText:title}).first()).toBeVisible();await page.locator('[data-wool-work-orders-field="keyword"]').fill('不存在的单据');await page.locator(action('query')).click();await expect(page.locator('[data-wool-work-orders-table-surface]')).toContainText('暂无');await page.locator(action('reset-filters')).click();await expect(page.locator('[data-wool-work-orders-total]')).toHaveText(`共 ${initialTotal} 条`)}})
 
 test('缺纱线不能填报，统一实收1kg后对应横机可开工',async({page})=>{await open(page);await expect(page.locator(action('open-report','WOOL-STAGE-001:KNITTING'))).toHaveCount(0);await receive(page,'WOOL-STAGE-001:KNITTING',1);await open(page);await expect(page.locator(action('open-report','WOOL-STAGE-001:KNITTING'))).toBeVisible()})
 
@@ -114,8 +115,9 @@ test('导出全部匹配行而非当前页，无操作列且空结果有明确�
 
 test('列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留',async({page})=>{
  await open(page)
+ const initialTotal=await stageTotal(page);await page.locator(action('reset-filters')).click()
  await page.locator(action('next-page')).click()
- await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(4)
+ await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(Math.min(10,initialTotal-10))
  await page.reload();await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(10)
  await page.locator(action('sort-column')+'[data-column-key="order"]').click()
  await expect(page.locator('th[data-column-key="order"]')).toHaveAttribute('aria-sort','ascending')
@@ -126,7 +128,7 @@ test('列显隐顺序冻结和页大小按阶段保存，页码和排序刷新�
  await page.locator('[data-drag-source="times"]').dragTo(page.locator('[data-drop-target="inputs"]'))
  await page.locator(action('close-column-settings')).first().click()
  await page.locator('[data-wool-work-orders-field="pageSize"]').selectOption('20')
- await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(14)
+ await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(Math.min(20,initialTotal))
  const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem('/fcs/craft/wool/knitting-orders:list-columns')!))
  expect(prefs.visibleKeys).not.toContain('requirements');expect(prefs.frozenKeys).toContain('quantities');expect(prefs.order.indexOf('times')).toBeLessThan(prefs.order.indexOf('inputs'));expect(prefs.pageSize).toBe(20)
  expect(prefs).not.toHaveProperty('sort');expect(prefs).not.toHaveProperty('currentPage')

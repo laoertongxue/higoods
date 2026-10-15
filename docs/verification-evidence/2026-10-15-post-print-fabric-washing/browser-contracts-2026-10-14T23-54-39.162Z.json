@@ -1,0 +1,369 @@
+{
+  "at": "2026-10-14T23:54:39.163Z",
+  "base": "http://127.0.0.1:43157",
+  "head": "67499ec61a1e770c39e5cdf3eddc4d2068eb7f4a",
+  "environment": {
+    "browser": "Chromium",
+    "timezone": "Asia/Shanghai",
+    "viewport": "1366×768",
+    "node": "v26.8.2"
+  },
+  "cases": [
+    {
+      "id": "CT-02/08/10",
+      "name": "首次读取无判断、无水洗种子、无必要台账整包副本",
+      "status": "PASS",
+      "ms": 1.109375,
+      "detail": {
+        "records": 0,
+        "legacyPrintBytes": 0
+      }
+    },
+    {
+      "id": "CT-02/03/04",
+      "name": "六来源、三手感、无需与未判断按卷混合，缺手感和重复建单阻断",
+      "status": "PASS",
+      "ms": 1133.8188329999998,
+      "detail": {
+        "orders": 18,
+        "sources": [
+          {
+            "type": "PRODUCTION",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "PRODUCTION_ORDER",
+            "productionOrderId": "PO-202603-0003",
+            "target": "全能力测试工厂"
+          },
+          {
+            "type": "PRODUCTION_DEMAND",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "PRODUCTION_DEMAND",
+            "productionOrderId": null,
+            "target": "大货提前加工待匹配仓"
+          },
+          {
+            "type": "PURCHASE",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "STOCK",
+            "productionOrderId": null,
+            "target": "面料中央仓(GKP)"
+          },
+          {
+            "type": "STOCK",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "STOCK",
+            "productionOrderId": null,
+            "target": "面料中央仓(GKP)"
+          },
+          {
+            "type": "SUPPLEMENT",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "CUT_PIECE_SUPPLEMENT",
+            "productionOrderId": null,
+            "target": "全能力测试工厂"
+          },
+          {
+            "type": "DESIGN_REVISION",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "DESIGN_REVISION",
+            "productionOrderId": null,
+            "target": "全能力测试工厂"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CT-05/06/07/11",
+      "name": "真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填",
+      "status": "PASS",
+      "ms": 374.1341249999996,
+      "detail": {
+        "orderId": "WASH-e5244137-c9f6-4886-b573-35240279c956",
+        "received": 49,
+        "output": 52,
+        "downstream": 51,
+        "manualComplete": true,
+        "skuUnchanged": true
+      }
+    },
+    {
+      "id": "CT-04/06",
+      "name": "中央仓按原去向实收，独立责任库存且单位不变",
+      "status": "PASS",
+      "ms": 227.56345899999997,
+      "detail": {
+        "id": "WASH-3b35b175-e975-455c-9057-f936348ab5f6/PWO-WASH-DEMO-STOCK-DONE-R3",
+        "orderId": "WASH-3b35b175-e975-455c-9057-f936348ab5f6",
+        "orderNo": "WS-20261015-3B35B175",
+        "source": {
+          "objectType": "FABRIC",
+          "id": "PWO-WASH-DEMO-STOCK-DONE/BATCH-WASH-STOCK",
+          "printOrderId": "PWO-WASH-DEMO-STOCK-DONE",
+          "printOrderNo": "PH-WASH-4-A",
+          "batchId": "BATCH-WASH-STOCK",
+          "sourceType": "STOCK",
+          "sourceNo": "STOCK-WASH-DEMO-01",
+          "rootSource": {
+            "targetSpuImageUrl": "/materials/pcs-reviewed/jogger-black.jpg",
+            "sourceType": "STOCK",
+            "receivingTeamId": "F090",
+            "receivingTeamName": "全能力测试工厂",
+            "receivingLocationName": "原需求接收位置",
+            "receivingFactoryId": "F090",
+            "receivingFactoryName": "全能力测试工厂",
+            "receivingLocationId": "原需求接收位置",
+            "inputMaterialSkuCode": "FAB-P200-WHITE",
+            "outputMaterialSkuCode": "FAB-P200-BLUE-FLORAL"
+          },
+          "factoryId": "F090",
+          "factoryName": "全能力测试工厂",
+          "materialSku": "FAB-P200-BLUE-FLORAL",
+          "materialName": "蓝白碎花棉府绸",
+          "imageUrl": "/materials/fei-ticket/blue-white-print-cotton.png",
+          "actualCompleted": true,
+          "blockedReason": "",
+          "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",[[\"PWO-WASH-DEMO-STOCK-DONE-R1\",\"WS-4-R1\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R2\",\"WS-4-R2\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R3\",\"WS-4-R3\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R4\",\"WS-4-R4\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R5\",\"WS-4-R5\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R6\",\"WS-4-R6\",\"FAB-P200-BLUE-FLORAL\",50,true]]]",
+          "target": {
+            "id": "WH-FABRIC-001",
+            "name": "面料中央仓(GKP)",
+            "warehouseId": "WH-FABRIC-001"
+          },
+          "rolls": [
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R1",
+              "barcode": "WS-4-R1",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R1\",\"WS-4-R1\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R2",
+              "barcode": "WS-4-R2",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R2\",\"WS-4-R2\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R3",
+              "barcode": "WS-4-R3",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R3\",\"WS-4-R3\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R4",
+              "barcode": "WS-4-R4",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R4\",\"WS-4-R4\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R5",
+              "barcode": "WS-4-R5",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R5\",\"WS-4-R5\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R6",
+              "barcode": "WS-4-R6",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R6\",\"WS-4-R6\",50,true]"
+            }
+          ],
+          "demo": true
+        },
+        "barcode": "WS-4-R3",
+        "qty": 50,
+        "unit": "Yard",
+        "warehouseId": "WH-FABRIC-001",
+        "locationId": "A-01",
+        "at": "2026-10-14T23:54:43.819Z",
+        "blocked": false
+      }
+    },
+    {
+      "id": "CT-07",
+      "name": "本人纠正、派厂后协调、异常冻结与负责人恢复保留历史",
+      "status": "PASS",
+      "ms": 95.22641699999986,
+      "detail": {
+        "oldId": "WASH-aa99863d-fdad-47a4-bca9-1ea553716bf6",
+        "orderId": "WASH-704933eb-ca2a-4c1c-b697-14ace0c745ed",
+        "history": 1,
+        "handFeel": "硬挺手感"
+      }
+    },
+    {
+      "id": "CT-08/10",
+      "name": "备份仅必要 FCS，坏格式/缺附件/重复冲突不覆盖，完整恢复到隔离浏览器",
+      "status": "PASS",
+      "ms": 1331.4719169999998,
+      "detail": {
+        "records": 138,
+        "count": 138,
+        "orders": 19,
+        "files": 0
+      }
+    },
+    {
+      "id": "CT-09",
+      "name": "同浏览器两标签竞争同一卷只有一张有效单",
+      "status": "PASS",
+      "ms": 709.5869999999995,
+      "detail": [
+        {
+          "ok": true,
+          "result": {
+            "orderId": "WASH-a3200ecb-fb6f-4d81-b95d-58bc057a6c73"
+          }
+        },
+        {
+          "ok": false,
+          "error": "PCS 记录已被其他页面修改，请重新读取后再保存。"
+        }
+      ]
+    },
+    {
+      "id": "CT-08",
+      "name": "事务中止不半套保存，输入保留并以同一操作重试",
+      "status": "PASS",
+      "ms": 2104.0255830000006,
+      "detail": {
+        "recordsAfterAbort": 0,
+        "retry": "durable after reload"
+      }
+    },
+    {
+      "id": "CT-08",
+      "name": "IndexedDB 打开失败明确告知，不能显示空列表或保存成功",
+      "status": "PASS",
+      "ms": 99.69654199999968,
+      "detail": "数据库连接未能读取：blocked open。已保存的记录没有被覆盖。请恢复浏览器存储权限后重新读取。"
+    },
+    {
+      "id": "CT-08/10",
+      "name": "偏好存储禁用仍可按记录保存水洗业务",
+      "status": "PASS",
+      "ms": 1008.105125,
+      "detail": "业务保存未回退 localStorage"
+    },
+    {
+      "id": "CT-10",
+      "name": "旧原图转 Blob，选择性迁移读回后清理，其他旧记录保留",
+      "status": "PASS",
+      "ms": 3796.401458999999,
+      "detail": {
+        "records": 6,
+        "files": 1,
+        "bytes": 2666204,
+        "oldRecords": 1,
+        "recovered": {
+          "orders": 1,
+          "bytes": 2666204,
+          "sku": "FAB-P200-BLUE-FLORAL"
+        }
+      }
+    },
+    {
+      "id": "PG-04/05/RL-01",
+      "name": "原来源和下游直达读取、无效单号及中央仓库存入口",
+      "status": "PASS",
+      "ms": 1662.845292,
+      "detail": "中央仓入口读取同一实收；无效 ID 显示可理解结果"
+    },
+    {
+      "id": "PD-01/02/03",
+      "name": "PDA 原型会话、本厂单据和适用小屏",
+      "status": "PASS",
+      "ms": 1670.0003330000018,
+      "detail": {
+        "viewport": "390×844",
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "id": "PG-02/PR-01/02",
+      "name": "水洗单和交接卷标预览包含真图、手感、源卷和实际责任方",
+      "status": "PASS",
+      "ms": 739.6152089999996,
+      "detail": {
+        "barcodes": 1
+      }
+    }
+  ],
+  "errors": [],
+  "sourceHashes": {
+    "scripts/check-post-print-fabric-washing-edges.mjs": "2cd50bfe6e98508ea944c1e8ea4e713a9b91ee870fac34030427f2d0ee98a06f",
+    "scripts/check-post-print-fabric-washing-ui.mjs": "546a049f57bb502b3b36fd921400a5e41efb1594f8d73db914960c931a7c9824",
+    "scripts/check-post-print-fabric-washing.mjs": "46693f8e5d39e311949176ad6607430f25e3c4a55056af9c7138583660a55194",
+    "src/data/fcs/fabric-washing-gates.ts": "2e956d66d40b4b76a8871398089ff6a3c558c8daccde021c8e45efec686c376c",
+    "src/data/fcs/fabric-washing-maintenance.ts": "1009933e8b1cee39554221f0fb5b77c1ec3c8d80ce10fff5de04ceb6ce69a710",
+    "src/data/fcs/fabric-washing-mock.ts": "7b5e377c72c7b79ff4a5fbda02a9db9cc50bbe4acfdbf7397ba615ecd8a65f8b",
+    "src/data/fcs/fabric-washing-model.ts": "761ffc6410b424a6e4eab49eeac98f9226d1ac2118c2a8a47014962adfe90831",
+    "src/data/fcs/fabric-washing-repository.ts": "19a007d55d7e0f329d103ae7b42888fefd4697827eb4c1be1bf3a9eee9731d3d",
+    "src/data/fcs/fabric-washing-storage-bridge.ts": "1e6816d9a2f4e6685855956181694562694b64ca90c49c32f4bed845600c53e1",
+    "src/data/fcs/fabric-washing.ts": "c922ad82495cb6c6bd2ca62fc26235c4f1428f70b333d6ca9e173783b45b8ab3",
+    "src/pages/process-factory/dyeing/washing/storage-tools.ts": "b3916242c5854d037f3f87d4841ae7ebc9edbf6988edf981bb10053f1b33b98b",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "e24825c9fcede41ca9d65291836b238deb5feb27a61c4573aeeed84a60d4ab41",
+    "src/pages/wls/raw/washing-stock.ts": "6fcee82cd73f8b2acd08efd29c8a8bcf8b547688b98331a112046bad60b8751d",
+    "tests/helpers/fabric-washing-unit-fixture.ts": "b0bb68138e5b4b236f62089c0cb968b12f5ae3703151e4bbd82a49dbd5ced1a6",
+    "tests/unit/fabric-washing-route-codec.test.ts": "31f69694258210cce71342804240aab574d4c006484d97ca7a6c8b1a16147115",
+    "tests/unit/fabric-washing.test.ts": "74b7fad7758b96aca5bf9b6217083c130cde20f723b8cba63a93bee686fa8a68",
+    "src/data/app-shell-config.ts": "9288755e9deef73dda9417a521b5fc40be295a26bc40ae13377f3cddf4fc18ab",
+    "src/data/fcs/design-revision-pcs-command.ts": "7ab6a831a379e33dab10401bfdf39db0ff9ea0af1d724a907cff26c42843477a",
+    "src/data/fcs/design-revision-pcs-storage.ts": "3fc30b96bbecf9380ef81562a3174c7d515e9c1e2994e32ae7331af0b5a81a83",
+    "src/data/fcs/dyeing-warehouse-view.ts": "818cbf92840cf86d0714e5ba0538b2b0743b94862e8354a5bca0821d5d948ec7",
+    "src/data/fcs/factory-internal-warehouse.ts": "47ca0ae104ecc653d521a34fe135498bdb88933f74f72169629281ce1b766415",
+    "src/data/fcs/factory-receiving-types.ts": "65bb0cca802479e63c060f268383d7e999cef4a45085b981a28a8d76de730e3a",
+    "src/data/fcs/factory-receiving-warehouse.ts": "a3cf19df6f37d635e9a69d89fc439c450978d44d1bf6dbeeb2f73e24d86e2204",
+    "src/data/fcs/factory-receiving.ts": "6ac61afb9cd07374ae1ef82e2ef29a6ce1b6fe49b1ac9f80c5ebda024608ae01",
+    "src/data/fcs/pda-handover-events.ts": "1c7b940c29dd4c76660127c82e20164fed3a1f588f222b7e3dd97f960fb9d97d",
+    "src/data/fcs/printing-factory-demos.ts": "4890133ef0c39f93320a38a931fcf26fe8a9913f2447cef5e62f4a38a16586b6",
+    "src/data/fcs/printing-material-receipts.ts": "9c4351779d2ba7afc3efe2bc7203116c353a0a3d6efd9c1a1bbadfba8f1c2a6f",
+    "src/data/fcs/printing-task-domain.ts": "3bbec3675516ae5a24f8381d8000a1d612384793214526397d4f2f8af2c332ae",
+    "src/data/fcs/process-order-task-links.ts": "52921bb59a495013b35d4d65a6b275685ef1042c207dcbb186392c64f1c652f8",
+    "src/data/fcs/production-artifact-generation.ts": "cc67ff534b95bf532bf3b2b1b688e10e91d0865e3bd36bd7feb3068e2f820944",
+    "src/data/pcs-record-db.ts": "fc51e5671584feded9e212224a64e4fcb500cc4f30d52df50c65d55a2e65dd31",
+    "src/data/pcs-technical-data-demo-completion.ts": "2e25d966114b1284f75e1533980e1f8628cdc9714b4b0d6b0e6c5a75fae1ac8e",
+    "src/data/pcs-technical-data-demo-projection.ts": "f4c05f6468bd2c725c7feaebf2154792b004d8bca653400c2c4dd2fd450b230b",
+    "src/data/production-timing/source.ts": "1da947eb4ec4ef324d5cc88bb5302f7f248997c97224c7fed46895ae161a4f27",
+    "src/data/tech-pack-process-route.ts": "9ac5f197dbee53bd721929a714f9ad921a2e360423c8521c370a7492d3d22e35",
+    "src/main.ts": "3bfb6e8380e6237514313d72255cc40ae90ef6a3503ceb58ffbb4ea4129db165",
+    "src/pages/pda-exec-detail.ts": "0dd1152ff761af28a62869e5d5ed3f30887f79a61fcb883aeb9e92f5a706afd3",
+    "src/pages/process-factory/dyeing/pending-receipts.ts": "ebcfe199ec451488ac73d42feee9f1fb304f7645e38f8e91ce232fef823871ce",
+    "src/pages/process-factory/printing/work-order-detail.ts": "7914386b29a404bfe245cfae9d5ff186fa201fd318e333aa900569a13828beee",
+    "src/pages/production/detail-domain.ts": "01d88710b7e2d14dac534ecd7457cd14a962c462e398e06243ee1cdbe0d6f64c",
+    "src/pages/tech-pack/context.ts": "b87fec690c46763f69c00ee4cb20ec8771c35c56553c5b905b1523fb46c9e062",
+    "src/pages/wls-inbound.ts": "c45f8b4092fb9c96032225a35e76750480afdb9dbc6291396089ce41f1f3efb4",
+    "src/pages/wls/raw/inbound-list.ts": "4344221b1e1d028df24c7e7379ce0adf66fa17df6cc2b78635b9212c81983fec",
+    "src/router/route-renderers-fcs.ts": "cf3ad34e56ca812165d69119851368c94a599ba7cad3aed811686f4467d4d71e",
+    "src/router/route-renderers.ts": "715e6634af25a2bacc98e620d459f8468c5d6d6cfbd91bfbade7afea52dd2e21",
+    "src/router/routes-fcs.ts": "256877119f5534c656402f5b841d3a8bf747c1f875853b6df8112e52e49e9f61",
+    "src/router/routes-pda.ts": "fcefa2977dd3f65a5707509443e04c7033a2ae9d7e0679682fb8343976c39dff",
+    "src/router/routes-wls.ts": "aa3eeff0bcb7914c729ea0d31b8ee7de38ab2b4feedf133dd5898872579cf1fb",
+    "src/router/routes.ts": "5f549df48b27de38537dd8983fdda7c258494d02d9ec688b88d49539c7512cb3",
+    "tests/unit/fcs-design-revision-result-readiness.test.ts": "5cd520b2c881cfac82f86e292cea19056cdee718fc801677716a5893bcb716b2",
+    "tests/unit/printing-demo-history-reload.test.ts": "ccf0b8c90311c7da3ba685cf729983428a8857bc14f0cd4c56d57f047da98ca6",
+    "tests/unit/technical-pack-demo-completion.test.ts": "f3f9bde44e11812eb8c719e880f779f67aa3785583d63d3a2e22c08cc1cccc87"
+  },
+  "browserVersion": "149.0.7827.55",
+  "summary": {
+    "pass": 14,
+    "fail": 0,
+    "pageErrors": 0
+  }
+}

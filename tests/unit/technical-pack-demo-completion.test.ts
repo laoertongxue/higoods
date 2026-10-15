@@ -53,7 +53,7 @@ test('TP-DATA-001: baseline has 20 actual complete formal versions and three plu
   }
 })
 
-test('TP-ROUTE-001: all twenty formal routes have three resolvable dye→print→wash chains and five two-craft pieces', () => {
+test('TP-ROUTE-001: all twenty formal routes have three resolvable dye→print chains without predetermined washing and five two-craft pieces', () => {
   for (const record of listTechnicalDataVersions().filter(record => record.versionStatus === 'PUBLISHED')) {
     const content = getTechnicalDataVersionContent(record.technicalVersionId)!
     assert.deepEqual(validateProcessRouteGraph(content.processEntries, { requireComplete: true }), [], `stored graph ${record.technicalVersionCode}`)
@@ -62,15 +62,14 @@ test('TP-ROUTE-001: all twenty formal routes have three resolvable dye→print�
     assert.equal(keys.length, 3)
     for (const key of keys) {
       const lane = prep.filter(entry => entry.routeObjectKey === key).sort((a,b) => (a.routeStepNo || 0) - (b.routeStepNo || 0))
-      assert.deepEqual(lane.map(entry => entry.processCode), ['DYE','PRINT','WASH'])
+      assert.deepEqual(lane.map(entry => entry.processCode), ['DYE','PRINT'])
       lane.forEach((entry, index) => {
         const input = getMaterialSkuRecordById(entry.inputMaterialSkuId || '')
         const output = getMaterialSkuRecordById(entry.outputMaterialSkuId || '')
         assert.ok(input && output, `${record.technicalVersionCode} ${entry.id}`)
         assert.equal(output.status, 'ACTIVE'); assert.equal(output.approvalStatus, 'APPROVED')
         if (index) { assert.deepEqual(entry.predecessorEntryIds, [lane[index - 1].id]); assert.equal(entry.inputMaterialSkuId, lane[index - 1].outputMaterialSkuId) }
-        if (entry.processCode === 'WASH') assert.equal(entry.inputMaterialSkuId, entry.outputMaterialSkuId)
-        else assert.notEqual(entry.inputMaterialSkuId, entry.outputMaterialSkuId)
+        assert.notEqual(entry.inputMaterialSkuId, entry.outputMaterialSkuId)
       })
     }
     const crafts = content.processEntries.filter(entry => entry.routeSourceKind === 'PIECE_CRAFT')
@@ -142,7 +141,7 @@ test('TP-LEGACY-002: repository reads old demo without writes; new legacy-source
   assert.equal(result.status, 0, result.stdout + result.stderr)
 })
 
-test('TP-LEGACY-003: early release content upgrades after person maintenance but genuine technical edits remain intact', () => {
+test('TP-LEGACY-003: unmatched historical published content and genuine technical edits remain intact', () => {
   const record = listTechnicalDataVersions().find(item => item.technicalVersionCode === '1')!
   const content = getTechnicalDataVersionContent(record.technicalVersionId)!
   const oldJson = JSON.stringify(content)
@@ -161,8 +160,9 @@ test('TP-LEGACY-003: early release content upgrades after person maintenance but
   const source = { version: 5, records: [{ ...record, merchandiserId: 'U001', merchandiserName: '人员维护结果', updatedAt: '2026-10-06 11:35' }], contents: [oldContent], pendingItems: [] }
   const projected = projectUneditedLegacyTechnicalDemo(source, baseline)
   assert.deepEqual(projected.records, source.records, 'person fields and maintenance timestamps are retained exactly')
-  assert.equal(projected.contents[0].bomItems[1].materialCode, 'MAT-FB-00000002')
-  assert.deepEqual(validateProcessRouteGraph(projected.contents[0].processEntries, { requireComplete: true }), [])
+  assert.equal(projected.contents[0].bomItems[1].materialCode, 'DR-COTTON-001')
+  assert.deepEqual(projected.contents,source.contents,'historical content is not rewritten to force the new route')
+  assert.deepEqual(validateProcessRouteGraph(projected.contents[0].processEntries, { requireComplete: true }), validateProcessRouteGraph(source.contents[0].processEntries, { requireComplete: true }), 'historic graph findings remain attached to their original content')
   const changed = structuredClone(source)
   changed.contents[0].patternDesc = '真实业务纸样编辑'
   assert.deepEqual(projectUneditedLegacyTechnicalDemo(changed, baseline).contents, changed.contents, 'a real content edit cannot be replaced')

@@ -1,0 +1,18 @@
+(node:55812) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款染后印花必须先分配印花厂，染色交出不能误送中央工厂 (168.470791ms)
+✔ 仅染与仅印分别创建一张加工单和一条仓库首道调拨计划 (12.118666ms)
+✔ 辅料染色单创建后已有辅料仓调拨计划，分厂时自动落实原单但不冒充实发 (8.48725ms)
+✔ 历史双工艺加工单仍可追溯原有染印交接 (263.061667ms)
+✔ 先染后印目标 SKU 创建两段加工单，印花只接收本行染后物料而不能跳过染色 (925.753208ms)
+✔ 单独印花 SKU 从仓库发印厂并完成样衣归档 (1383.059708ms)
+✔ 印花实际交出生成中央工厂待接收原单，实收回写原交接并允许完成加工单 (570.771708ms)
+✔ 专业成果没有真实附件时保持未绑定 (6.61925ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3920.349875

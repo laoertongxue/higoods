@@ -339,6 +339,31 @@ export async function resolvePage(pathname: string): Promise<string> {
     return renderProductionFulfillmentPage(normalizedPathname)
   }
 
+  // These physical workflow entries use the same existing renderers and storage
+  // guards without importing the unrelated FCS/PDA route table on first visit.
+  const washingEntry=/^\/fcs\/(craft\/dyeing\/washing\/work-orders|pda\/washing)(?:\/([^/]+))?$/.exec(normalizedPathname)
+  if(washingEntry){
+    const pages=await import('./route-renderers')
+    const pda=washingEntry[1]==='pda/washing'
+    return washingEntry[2]?pages.renderFabricWashingDetailPage(decodeURIComponent(washingEntry[2]),pda):pages.renderFabricWashingListPage(pda)
+  }
+  const processWarehouse=/^\/fcs\/craft\/(dyeing|printing)\/wait-(process|handover)-warehouse$/.exec(normalizedPathname)
+  if(processWarehouse){
+    const pages=await import('./route-renderers-fcs')
+    if(processWarehouse[1]==='dyeing')return processWarehouse[2]==='process'?pages.renderCraftDyeingWaitProcessWarehousePage():pages.renderCraftDyeingWaitHandoverWarehousePage()
+    return processWarehouse[2]==='process'?pages.renderCraftPrintingWaitProcessWarehousePage():pages.renderCraftPrintingWaitHandoverWarehousePage()
+  }
+  const printingDetail=/^\/fcs\/craft\/printing\/work-orders\/([^/]+)$/.exec(normalizedPathname)
+  if(printingDetail){const pages=await import('./route-renderers-fcs');return pages.renderCraftPrintingWorkOrderDetailPage(decodeURIComponent(printingDetail[1]))}
+  const pdaExecutionDetail=/^\/fcs\/pda\/exec\/([^/]+)$/.exec(normalizedPathname)
+  if(pdaExecutionDetail){const pages=await import('./route-renderers');return pages.renderPdaExecDetailPage(decodeURIComponent(pdaExecutionDetail[1]))}
+  if(normalizedPathname==='/fcs/pda/handover'){const pages=await import('./route-renderers');return pages.renderPdaHandoverPage()}
+  if(normalizedPathname==='/fcs/pda/warehouse/wait-process'||normalizedPathname==='/fcs/pda/warehouse/wait-handover'){
+    const session=(await import('../data/fcs/store-domain-pda.ts')).getPdaSession()
+    const factory=session&&(await import('../data/fcs/factory-master-store.ts')).getFactoryMasterRecordById(session.factoryId)
+    if(factory&&['CENTRAL_AUX','CENTRAL_SPECIAL'].includes(factory.factoryType))return renderRouteRedirect('/fcs/pda/handover?tab='+(normalizedPathname.endsWith('wait-process')?'pickup':'handout'),'正在进入工厂交接')
+  }
+
   if (/^\/dds\/supply-chain\/materials\/(overview|panorama|planning|consumption|risks|quality|configuration|health|warnings|daily|goods|preparation)$/.test(normalizedPathname)) {
     const { renderMaterialDecisionPage } = await import('../pages/material-decision')
     return renderMaterialDecisionPage(normalizedPathname)

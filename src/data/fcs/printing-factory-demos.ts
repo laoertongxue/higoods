@@ -1,6 +1,6 @@
 import { PRINTING_FACTORIES, PRINTING_FACTORY_DEMO_CODES } from './printing-factories.ts'
 import {
-  type PrintWorkOrder, getPrintingWorkOrderById, startPrintingProduction,
+  type PrintWorkOrder, getPrintingWorkOrderById, startPrintingProduction, restoreStaticPrintingDemoStart,
   recordPrintingProductionStage, completePrintingWorkOrder, updatePrintingRollBarcode,
   createPrintingDispatch, scanPrintingDispatchRoll, confirmPrintingDispatch, receivePrintingHandover,
   markPrintingRollBarcodesPrinted,
@@ -72,7 +72,13 @@ export function initializePrintingFactoryDemoProgress(orders: PrintWorkOrder[]):
     }
     if (stage >= 2) {
       for (const step of ['ARTWORK','SAMPLE'] as const) recordPrintingProductionStage(id,{id:`${id}-${step}`,stage:step,action:'FINISH',operatorName:'原型测试打样员'})
-      startPrintingProduction(id,{id:`${id}-START`,qty,operatorName:`${order.printFactoryName} 测试领料员`})
+      const priorUse=listFactoryMaterialUses(id).find(use=>use.id===`${id}-START`)
+      if(priorUse){
+        const actual=priorUse.lines.reduce((n,line)=>n+line.qty,0)
+        if(priorUse.factoryId!==order.printFactoryId||priorUse.printingOrderId!==id||Math.abs(actual-qty)>.000001||priorUse.lines.some(line=>line.unit!==view.plannedInput.qtyUnit))throw new Error('历史演示领用与本单来源不符，未覆盖实物事实。')
+        view.actualInput.usedQty=actual;view.actualInput.usedRollCount=new Set(priorUse.lines.map(line=>line.barcode)).size;view.productionStartedAt=priorUse.at
+        restoreStaticPrintingDemoStart(id)
+      }else startPrintingProduction(id,{id:`${id}-START`,qty,operatorName:`${order.printFactoryName} 测试领料员`})
       recordPrintingProductionStage(id,{id:`${id}-PRINT-START`,stage:'PRINT',action:'START',operatorName:'原型测试印制员'})
     }
     if (stage >= 3) {

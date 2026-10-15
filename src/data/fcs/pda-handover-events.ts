@@ -1,3 +1,4 @@
+import { assertFabricWashingRelease } from './fabric-washing-gates.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks, isStoredDesignRevisionHandoverHead } from './design-revision-pcs-storage.ts'
 import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady, onProductionContextChanged } from './production-context-records.ts'
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
@@ -4679,6 +4680,8 @@ export function validateWaterSolubleHandoverScan(head: PdaHandoverHead, scanCode
 export function createFactoryHandoverRecord(input: {
   /** Set only by the dyeing execution transaction after roll/gross-weight validation. */
   dyeExecutionConfirmed?: boolean
+  printingOrderId?: string
+  printingValidatedRollIds?: string[]
   handoverOrderId: string
   submittedQty: number
   qtyUnit?: string
@@ -4705,6 +4708,11 @@ export function createFactoryHandoverRecord(input: {
   const head = getHandoverOrderById(input.handoverOrderId)
   if (!head || head.headType !== 'HANDOUT') {
     throw new Error(`未找到交出单：${input.handoverOrderId}`)
+  }
+  if(head.sourceBusinessType==='PRINT_WORK_ORDER'||head.processBusinessCode==='PRINT') {
+    const id=head.sourceDocId||input.printingOrderId||''
+    if(input.printingValidatedRollIds?.length)input.printingValidatedRollIds.forEach(rollId=>assertFabricWashingRelease(id,rollId,'HANDOUT'))
+    else assertFabricWashingRelease(id,'__SCOPE__','HANDOUT')
   }
   if (!input.dyeExecutionConfirmed && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER' && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.processBusinessCode === 'DYE')) throw new Error('染色交出请从待交出列表逐卷建单；纱线请使用毛重、净重整单交出。')
   if (head.processBusinessCode === 'WOOL') {

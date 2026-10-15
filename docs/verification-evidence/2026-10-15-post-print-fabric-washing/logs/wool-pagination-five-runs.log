@@ -1,0 +1,22 @@
+[WebServer] (node:56223) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:56241) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (2.3s)
+(node:56276) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.9s)
+(node:56282) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.9s)
+(node:56288) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.6s)
+(node:56294) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.8s)
+
+  5 passed (11.9s)

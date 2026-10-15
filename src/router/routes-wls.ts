@@ -1,3 +1,4 @@
+import { withWashingRecords } from '../data/fcs/fabric-washing-repository.ts'
 import type { RouteRegistry } from './route-types'
 import { renderTmfPdaOutputReceipts } from '../pages/wls/raw/tmf-output-receipts'
 import { renderFinishedDashboard } from '../pages/wls/finished/dashboard'
@@ -167,7 +168,7 @@ export const routes: RouteRegistry = {
 
     // ── 原料仓 · 入库 ──
     '/wls/raw/arrival-list': () => renderRawArrivalList(),
-    '/wls/raw/inbound-list': () => renderRawInboundList(),
+    '/wls/raw/inbound-list': () => withWashingRecords(() => renderRawInboundList()),
 
     // ── 原料仓 · 出库 ──
     '/wls/raw/requisition-list': () => renderRawRequisitionList(),

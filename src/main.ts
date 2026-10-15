@@ -358,6 +358,10 @@ window.addEventListener('error', (event) => {
 
 async function dispatchPageEvent(target: Element, event?: Event): Promise<boolean> {
   const eventTarget = target as HTMLElement
+  if (target.closest('[data-fabric-washing-action], [data-washing-context-role], [data-washing-context-factory], [data-washing-judgment-root], [data-washing-detail-root], [data-washing-list-root]')) {
+    const page = await import('./pages/process-factory/dyeing/washing/work-orders.ts')
+    return page.handleFabricWashingEvent(eventTarget, event)
+  }
   if (target.closest('[data-post-finishing-action^="storage-"]') || target.closest('[data-post-finishing-field="storage-import"]')) {
     const page = await import('./pages/process-factory/post-finishing/storage-notice.ts')
     return page.handlePostFinishingStorageEvent(eventTarget, event)
@@ -1075,6 +1079,21 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       const sourcePage = resolveTimingSourceDetail(normalizedPathname)
       if (sourcePage) return sourcePage
     }
+    // These physical entries hydrate their own committed records in the route
+    // renderer. The generic entry below also initializes unrelated procurement
+    // and workshop demos, and its direct handover branch bypasses that guard.
+    if (/^\/fcs\/(?:craft\/dyeing\/washing\/work-orders(?:\/[^/]+)?|pda\/washing(?:\/[^/]+)?|craft\/printing\/work-orders\/[^/]+|craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse|pda\/exec\/(?:TASK-PRINT-[^/]+|TASK-PWO-WASH-[^/]+)|pda\/handover|pda\/warehouse\/(?:wait-process|wait-handover))$/.test(normalizedPathname)) {
+      // Keep the existing PCS/FCS read contract ready before any later adjacent
+      // navigation starts its handlers or shared catalogue module evaluation.
+      try { await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState() } catch(error) {
+        return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(error)
+      }
+      if (normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/warehouse/') || /^\/fcs\/craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse$/.test(normalizedPathname)) {
+        await preparePageRouteEntry(normalizedPathname)
+      }
+      else if (normalizedPathname.startsWith('/fcs/pda/')) await hydratePartTicketsForEntry(normalizedPathname)
+      return await resolvePage(pathname)
+    }
     // Ordinary sewing execution reads PCS/FCS records below. Leave unrelated
     // PMS initialization pending until its original module entry is visited.
     const generatedPdaTask = normalizedPathname.match(/^\/fcs\/pda\/exec\/(TASKGEN-[^/]+)$/)
@@ -1158,7 +1177,11 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       const { getRuntimeTaskById, isRuntimeIndependentSewingTask } = await import('./data/fcs/runtime-process-tasks.ts')
       const generatedTask = getRuntimeTaskById(decodeURIComponent(generatedPdaTask[1]))
       isGeneratedIndependentSewing = Boolean(generatedTask && isRuntimeIndependentSewingTask(generatedTask))
-      if (!isGeneratedIndependentSewing) startPmsInitialization()
+      if (!isGeneratedIndependentSewing) {
+        const printing = await import('./data/fcs/printing-task-domain.ts')
+        if (printing.getPrintWorkOrderByTaskId(decodeURIComponent(generatedPdaTask[1]))) return await resolvePage(pathname)
+        startPmsInitialization()
+      }
     }
     if (isWoolStageExecution) {
       const [page, shell] = await Promise.all([
@@ -2508,6 +2531,8 @@ document.addEventListener('keydown', async (event) => {
     const scanResult = await handleActivePdaCuttingEvent(cuttingScanTarget, event)
     return
   }
+  if(event.key==='Enter'&&target?.closest('[data-washing-scan]')){event.preventDefault();await (await import('./pages/process-factory/dyeing/washing/work-orders.ts')).handleFabricWashingEvent(target,event);return}
+  if(event.key==='Escape'&&document.querySelector('[data-washing-image-overlay]'))return
   const scanEnterTarget =
     event.key === 'Enter'
       ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')

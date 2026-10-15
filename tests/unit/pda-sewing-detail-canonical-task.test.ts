@@ -210,10 +210,12 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
             events.push(`direct sewing ${taskId}`)
             return `<article>/fcs/pda/exec/${taskId}</article>`
           } }
+        : path.includes('printing-task-domain') ? { getPrintWorkOrderByTaskId: () => undefined }
         : path.includes('pms/runtime') ? { hydratePmsLogsFromIdb: async () => { events.push('PMS logs ready') } }
         : path.includes('canonical-purchase-references') ? { ensurePurchaseCatalogState: async () => { events.push('purchase catalog ready') } }
         : { ensurePcsRecordState: async () => { events.push('PCS ready') } },
       preparePageRouteEntry: async () => { events.push('FCS and part tickets ready') },
+      hydratePartTicketsForEntry: async () => { events.push('part tickets ready') },
       resolvePage: async (pathname: string) => { events.push(`page ${pathname}`); return `<article>${pathname}</article>` },
       getPdaHandlersModule: async () => { events.push('PDA handler ready') },
     }
@@ -241,7 +243,12 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
   assert.equal(session.events.filter(event => event === 'purchase catalog ready').length, 1)
   assert.ok(session.events.indexOf('purchase catalog ready') < session.events.indexOf('page /pms/product-purchase-orders'))
 
-  for (const pathname of ['/fcs/pda/exec/TASK-PRINT-000714', '/fcs/pda/exec/TASKGEN-202603-0007-001__ORDER', '/fcs/progress/board']) {
+  const printing = createSession()
+  assert.equal(await execute(printing.dependencies, '/fcs/pda/exec/TASK-PRINT-000714'), '<article>/fcs/pda/exec/TASK-PRINT-000714</article>')
+  assert.equal(printing.isPmsStarted(), false, 'actual printing uses the guarded physical-workflow renderer')
+  assert.ok(printing.events.indexOf('PCS ready') < printing.events.indexOf('part tickets ready'))
+  assert.ok(printing.events.indexOf('part tickets ready') < printing.events.indexOf('page /fcs/pda/exec/TASK-PRINT-000714'))
+  for (const pathname of ['/fcs/pda/exec/TASKGEN-202603-0007-001__ORDER', '/fcs/progress/board']) {
     const other = createSession()
     assert.equal(await execute(other.dependencies, pathname), `<article>${pathname}</article>`)
     assert.equal(other.isPmsStarted(), true, pathname)

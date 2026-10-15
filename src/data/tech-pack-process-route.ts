@@ -52,6 +52,7 @@ export type ProcessRouteValidationIssueCode =
   | 'MATERIAL_SKU_MISMATCH'
   | 'FABRIC_PRINT_OBJECT_INVALID'
   | 'POST_PROCESS_NOT_STATIC_ROUTE'
+  | 'WASH_NOT_STATIC_ROUTE'
   | 'WEBBING_SPECIFICATION_INVALID'
   | 'WEBBING_INVENTORY_FORM_INVALID'
   | 'WEBBING_PREDECESSOR_INVALID'
@@ -405,6 +406,9 @@ export function validateProcessRouteGraph<T extends ProcessRouteGraphEntry>(
         message: '开扣眼、装扣子、烫包由到货 QC 决定，不能写入技术包固定工艺路线。',
       })
     }
+    if (entry.processCode === 'WASH' || entry.processCode === 'craft-wash') {
+      issues.push({ code: 'WASH_NOT_STATIC_ROUTE', entryId: entry.id, message: '水洗须在印花完成后触摸面料判断，不能提前写入工艺路线。' })
+    }
 
     const seenPredecessors = new Set<string>()
     for (const predecessorId of entry.predecessorEntryIds ?? []) {
@@ -671,4 +675,17 @@ export function removeProcessRouteEdge<T extends ProcessRouteGraphEntry>(
     ? { ...entry, predecessorEntryIds: (entry.predecessorEntryIds ?? []).filter((id) => id !== sourceEntryId) } as T
     : entry)
   return projectProcessRouteLayoutFromPredecessors(next)
+}
+
+/** Planning a new execution chain omits washing; frozen input is never modified. */
+export function removePredeterminedWashing<T extends ProcessRouteGraphEntry>(entries:T[]):T[] {
+ const byId=new Map(entries.map(entry=>[entry.id,entry]))
+ const washing=(entry:ProcessRouteGraphEntry)=>['WASH','craft-wash'].includes(entry.processCode)
+ function predecessors(id:string,seen=new Set<string>()):string[]{
+  if(seen.has(id))throw new Error('原水洗前置关系存在循环，请先核对路线。')
+  const entry=byId.get(id);if(!entry||!washing(entry))return [id]
+  const next=new Set(seen);next.add(id)
+  return (entry.predecessorEntryIds??[]).flatMap(parent=>predecessors(parent,next))
+ }
+ return entries.filter(entry=>!washing(entry)).map(entry=>({...structuredClone(entry),predecessorEntryIds:[...new Set((entry.predecessorEntryIds??[]).flatMap(id=>predecessors(id)))]}))
 }

@@ -74,7 +74,7 @@ export function timingDocumentHref(id:string):string{
  const workPath=(record:TimingDocument):string|null=>{
   if(/大货染色加工/.test(record.type))return '/fcs/craft/dyeing/work-orders'
   if(/大货印花加工/.test(record.type))return '/fcs/craft/printing/work-orders'
-  if(/水洗加工/.test(record.type))return '/fcs/craft/washing/work-orders'
+  if(/水洗加工/.test(record.type))return '/fcs/craft/dyeing/washing/work-orders'
   if(/后道加工/.test(record.type))return '/fcs/craft/post-finishing/work-orders'
   if(/绣花加工/.test(record.type))return '/fcs/process-factory/special-craft/aux-op-embroidery/work-orders'
   if(/打揽加工/.test(record.type))return '/fcs/process-factory/special-craft/aux-op-dalan/work-orders'

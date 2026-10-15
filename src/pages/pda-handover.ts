@@ -1,3 +1,4 @@
+import { renderWashingFactoryStockSection } from './process-factory/dyeing/washing/work-orders.ts'
 import { runPostFinishingCommand } from '../data/fcs/post-finishing-records.ts'
 import { handlePostFinishingStorageEvent } from './process-factory/post-finishing/storage-notice.ts'
 import { getSpecialCraftTaskOrderById } from '../data/fcs/special-craft-task-orders.ts'
@@ -1089,6 +1090,7 @@ export function renderPdaHandoverPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 overflow-y-auto p-4">
+        ${state.activeTab==='pickup'?renderWashingFactoryStockSection(runtime.factoryId,'WAIT_PROCESS'):state.activeTab==='handout'?renderWashingFactoryStockSection(runtime.factoryId,'WAIT_HANDOVER'):''}
         ${state.activeTab === 'received' && simpleReceiptHeads.length ? `<section class="rounded-xl border bg-white p-3"><h2 class="font-semibold">裁片接收记录</h2><p class="mt-1 text-xs text-muted-foreground">仓库已确认，PPIC 与工厂已接收，无需再次确认。</p>${simpleReceiptHeads.map((h) => `<a data-nav="/fcs/pda/handover/${encodeURIComponent(h.handoverId)}" class="mt-3 block rounded-lg border p-3 text-sm"><b>${escapeHtml(h.handoverOrderNo || '')} · 已接收</b><p>${escapeHtml(h.productionOrderNo || '')} / ${escapeHtml(h.taskNo)}</p><p>${h.qtyActualTotal} 片 · ${escapeHtml(h.lastRecordAt || '')}</p></a>`).join('')}</section>` : ''}
         ${hasBindingOrders && state.activeTab !== 'received' ? renderBindingHandoverScanPanel() : ''}
         ${hasWoolOrders && state.activeTab !== 'received' ? renderWoolHandoverScanPanel() : ''}

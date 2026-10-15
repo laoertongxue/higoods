@@ -45,10 +45,10 @@ export function completeTechnicalPackDemoContent(source: TechnicalDataVersionCon
   const fabrics = FLOW_FABRICS.map((fabric, index) => ({
     ...(existingFabrics[index] || existingFabrics[0] || content.bomItems[0]),
     id: existingFabrics[index]?.id || `${id}-flow-fabric-${index + 1}`,
-    type: '面料' as const, name: fabric.name, spec: `150cm · ${fabric.role} · 染色后印花再洗水`,
+    type: '面料' as const, name: fabric.name, spec: `150cm · ${fabric.role} · 染色后印花`,
     materialCode: fabric.code, materialSkuId: fabric.skus[2],
     unit: fabric.unit, unitConsumption: [1.35, 0.4, 0.8][index], lossRate: 0,
-    applicableSkuCodes: [...skuCodes], linkedPatternIds: [patternId], usageProcessCodes: ['DYE', 'PRINT', 'WASH'],
+    applicableSkuCodes: [...skuCodes], linkedPatternIds: [patternId], usageProcessCodes: ['DYE', 'PRINT'],
     dyeRequirement: '匹染', printRequirement: '数码印花', printSideMode: 'SINGLE' as const,
     frontPatternDesignIds: [`${id}-flow-design-${index + 1}`], frontPatternDesignId: `${id}-flow-design-${index + 1}`,
     insidePatternDesignIds: [], insidePatternDesignId: '',
@@ -61,12 +61,12 @@ export function completeTechnicalPackDemoContent(source: TechnicalDataVersionCon
   }))
   const entries: TechnicalProcessEntry[] = []
   fabrics.forEach((fabric, fabricIndex) => {
-    ;[['DYE', '染色'], ['PRINT', '印花'], ['WASH', '洗水']].forEach(([processCode, processName], stageIndex) => {
+    ;[['DYE', '染色'], ['PRINT', '印花']].forEach(([processCode, processName], stageIndex) => {
       const skuChain = FLOW_FABRICS[fabricIndex].skus
-      entries.push({ inputMaterialSkuId: skuChain[Math.min(stageIndex, 2)], outputMaterialSkuId: skuChain[Math.min(stageIndex + 1, 2)], id: `${id}-flow-prep-${fabricIndex + 1}-${stageIndex + 1}`, entryType: 'PROCESS_BASELINE', stageCode: 'PREP', stageName: '生产准备', processCode, processName, assignmentGranularity: 'DETAIL', defaultDocType: 'PREPARATION_ORDER', taskTypeMode: 'PROCESS', isSpecialCraft: false, selectedTargetObject: '完整面料', targetObject: 'FABRIC', targetObjectName: '面料', linkedBomItemIds: [fabric.id], linkedPatternIds: [], routeSourceKind: 'BOM_REQUIREMENT', routeObjectKey: `BOM:${fabric.id}`, inputObjectType: 'FABRIC', outputObjectType: 'FABRIC', routeStepNo: stageIndex + 1, routeLaneNo: fabricIndex + 1, predecessorEntryIds: stageIndex ? [`${id}-flow-prep-${fabricIndex + 1}-${stageIndex}`] : [], remark: `${fabric.name} · 第 ${stageIndex + 1} 道工序${stageIndex === 2 ? ' · 洗水保持同一物料 SKU，记录加工阶段' : ''}` })
+      entries.push({ inputMaterialSkuId: skuChain[Math.min(stageIndex, 2)], outputMaterialSkuId: skuChain[Math.min(stageIndex + 1, 2)], id: `${id}-flow-prep-${fabricIndex + 1}-${stageIndex + 1}`, entryType: 'PROCESS_BASELINE', stageCode: 'PREP', stageName: '生产准备', processCode, processName, assignmentGranularity: 'DETAIL', defaultDocType: 'PREPARATION_ORDER', taskTypeMode: 'PROCESS', isSpecialCraft: false, selectedTargetObject: '完整面料', targetObject: 'FABRIC', targetObjectName: '面料', linkedBomItemIds: [fabric.id], linkedPatternIds: [], routeSourceKind: 'BOM_REQUIREMENT', routeObjectKey: `BOM:${fabric.id}`, inputObjectType: 'FABRIC', outputObjectType: 'FABRIC', routeStepNo: stageIndex + 1, routeLaneNo: fabricIndex + 1, predecessorEntryIds: stageIndex ? [`${id}-flow-prep-${fabricIndex + 1}-${stageIndex}`] : [], remark: `${fabric.name} · 第 ${stageIndex + 1} 道工序` })
     })
   })
-  fabrics.forEach((fabric, index) => entries.push({ id: `${id}-flow-cut-${index + 1}`, entryType: 'PROCESS_BASELINE', stageCode: 'PROD', stageName: '生产执行', processCode: 'CUT_PANEL', processName: '裁剪', assignmentGranularity: 'DETAIL', defaultDocType: 'TASK', taskTypeMode: 'PROCESS', isSpecialCraft: false, targetObject: 'FABRIC', targetObjectName: '面料', selectedTargetObject: '完整面料', linkedBomItemIds: [fabric.id], linkedPatternIds: [patternId], routeSourceKind: 'BOM_REQUIREMENT', routeObjectKey: `BOM:${fabric.id}`, inputObjectType: 'FABRIC', outputObjectType: 'CUT_PIECE', routeStepNo: 4, routeLaneNo: index + 1, predecessorEntryIds: [`${id}-flow-prep-${index + 1}-3`], inputMaterialSkuId: FLOW_FABRICS[index].skus[2] }))
+  fabrics.forEach((fabric, index) => entries.push({ id: `${id}-flow-cut-${index + 1}`, entryType: 'PROCESS_BASELINE', stageCode: 'PROD', stageName: '生产执行', processCode: 'CUT_PANEL', processName: '裁剪', assignmentGranularity: 'DETAIL', defaultDocType: 'TASK', taskTypeMode: 'PROCESS', isSpecialCraft: false, targetObject: 'FABRIC', targetObjectName: '面料', selectedTargetObject: '完整面料', linkedBomItemIds: [fabric.id], linkedPatternIds: [patternId], routeSourceKind: 'BOM_REQUIREMENT', routeObjectKey: `BOM:${fabric.id}`, inputObjectType: 'FABRIC', outputObjectType: 'CUT_PIECE', routeStepNo: 4, routeLaneNo: index + 1, predecessorEntryIds: [`${id}-flow-prep-${index + 1}-2`], inputMaterialSkuId: FLOW_FABRICS[index].skus[2] }))
   pieces.forEach((piece, pieceIndex) => crafts.forEach((craft, craftIndex) => {
     entries.push({ id: `${id}-flow-prod-${pieceIndex + 1}-${craftIndex + 1}`, entryType: 'CRAFT', stageCode: 'PROD', stageName: '生产执行', processCode: 'SPECIAL_CRAFT', processName: '特殊工艺', ...craft, assignmentGranularity: 'DETAIL', defaultDocType: 'TASK', taskTypeMode: 'CRAFT', isSpecialCraft: true, selectedTargetObject: '已裁部位', targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位', supportedTargetObjects: ['CUT_PIECE'], supportedTargetObjectLabels: ['已裁部位'], linkedBomItemIds: [fabrics[0].id], linkedPatternIds: [patternId], routeSourceKind: 'PIECE_CRAFT', routeObjectKey: `PATTERN:${patternId}:PIECE:${piece.id}`, inputObjectType: 'CUT_PIECE', outputObjectType: 'CUT_PIECE', routeStepNo: craftIndex + 5, routeLaneNo: pieceIndex + 1, predecessorEntryIds: craftIndex ? [`${id}-flow-prod-${pieceIndex + 1}-1`] : [`${id}-flow-cut-1`], remark: `${piece.name} · ${craft.craftName}` })
   }))
@@ -76,7 +76,7 @@ export function completeTechnicalPackDemoContent(source: TechnicalDataVersionCon
   content.processRouteStatus = 'CONFIRMED'
   content.processRouteConfirmedBy = '原型样本整理'
   content.processRouteConfirmedAt ||= '2026-10-06 09:00'
-  content.processRouteChangeReason = '静态演示工艺路线：三个面料对象各自染色→印花→洗水，五个裁片各自绣花→压褶。'
+  content.processRouteChangeReason = '静态演示工艺路线：三个面料对象各自染色→印花，五个裁片各自绣花→压褶。'
   content.sizeTable = [{ id: `${id}-flow-size`, part: '关键尺寸', S: 48, M: 50, L: 52, XL: 54, tolerance: 1 }]
   content.qualityRules = [{ id: `${id}-flow-quality`, checkItem: '加工效果', standardText: '对照确认花型、颜色和纸样检查；尺寸偏差±1cm。', samplingRule: '首件确认、巡检与尾检', note: '原型质量要求样本' }]
   content.attachments = [{ id: `${id}-flow-original-rul`, fileName: 'grey-zip-hoodie.rul', fileType: 'RUL', fileSize: '静态文件', uploadedAt: content.processRouteConfirmedAt, uploadedBy: '原型样本整理', downloadUrl: `${ORIGINAL_ROOT}/grey-zip-hoodie.rul` }, { id: `${id}-flow-original-prj`, fileName: 'grey-zip-hoodie.prj', fileType: 'PRJ', fileSize: '静态文件', uploadedAt: content.processRouteConfirmedAt, uploadedBy: '原型样本整理', downloadUrl: `${ORIGINAL_ROOT}/grey-zip-hoodie.prj` }]

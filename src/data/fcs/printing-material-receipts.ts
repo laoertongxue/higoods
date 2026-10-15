@@ -1,19 +1,22 @@
 import { listPrintingFactoryOptions } from './printing-factories.ts'
 import { getPrintingWorkOrderById, listPrintingWorkOrders } from './printing-task-domain.ts'
-import { listFactoryReceivingSources, getSourceActualReceipts, convertReceiptQuantity, getFactoryReceivingSource, registerFactoryReceivingSource } from './factory-receiving.ts'
+import { listFactoryReceivingSources, getSourceActualReceipts, convertReceiptQuantity, getFactoryReceivingSource, registerFactoryReceivingSource, initializeFactoryReceivingDemoBatch } from './factory-receiving.ts'
 import type { PreparationMaterialReceiptSourceResult } from './preparation-material-receipt-sources.ts'
 import type {FactoryReceivingSource} from './factory-receiving-types.ts'
 /** Explicit prototype incoming documents; only missing examples are seeded, never overwrite receipt history. */
 export function ensurePrintingReceivingExamples():void {
  const first=getPrintingWorkOrderById('PWO-PRINT-001'),second=getPrintingWorkOrderById('PWO-PRINT-002')
  if(!first||!second)return
+ if(['PRINT-SRC-001','PRINT-SRC-002','PRINT-SRC-003','PRINT-SRC-004','PRINT-SRC-005'].every(id=>getFactoryReceivingSource(id)))return
  const specs=[{id:'PRINT-SRC-001',order:first,qty:60,approved:true,attached:true},{id:'PRINT-SRC-002',order:first,qty:40,approved:true,attached:true},{id:'PRINT-SRC-003',order:second,qty:50,approved:true,attached:true},{id:'PRINT-SRC-004',order:second,qty:50,approved:true,attached:false},{id:'PRINT-SRC-005',order:second,qty:10,approved:false,attached:false}]
+ initializeFactoryReceivingDemoBatch(()=>{
  for(const spec of specs){
   if(getFactoryReceivingSource(spec.id))continue
   const o=spec.order,m=o.plannedInput
   const source:FactoryReceivingSource={id:spec.id,processCode:'PRINT',documentNo:`DB-PRINT-DEMO-${spec.id.slice(-3)}`,type:'TRANSFER',origin:{kind:'WAREHOUSE',id:'WH-FABRIC-001',name:'面料中央仓(GKP)',warehouseAttribute:'面料中央仓'},targetFactoryId:o.printFactoryId,targetFactoryName:o.printFactoryName,createdAt:'2026-09-14 08:00:00',createdBy:'原型仓库员',approvedAt:spec.approved?'2026-09-14 08:05:00':undefined,approvedBy:spec.approved?'原型审核员':undefined,handedOutAt:spec.approved?'2026-09-14 08:10:00':undefined,workOrderNo:spec.attached?o.printOrderNo:undefined,lines:[{id:`${spec.id}-L1`,material:{sku:m.sku,name:m.materialName,kind:'FABRIC',imageUrl:m.imageUrl,color:'本白',composition:m.composition||'100% 棉',specification:`幅宽 ${m.widthCm} cm / 克重 ${m.gsm} g/㎡`,batchNo:`PRINT-IN-${spec.id.slice(-3)}`},plannedQty:spec.qty,sentQty:spec.approved?spec.qty:0,unit:'Yard',rolls:[{barcode:`PRINT-RAW-${spec.id.slice(-3)}`,yard:spec.qty}],label:`PRINT-RAW-${spec.id.slice(-3)}`,printingOrderId:spec.attached?o.workOrderId:undefined,productionOrderNo:spec.attached?o.demandSource.productionOrderNo:undefined,taskNo:spec.attached?o.taskNo:undefined}]}
   registerFactoryReceivingSource(source)
  }
+ },false)
 }
 export function getPrintingMaterialReceiptOptions(orderId:string):PreparationMaterialReceiptSourceResult {
  const order=getPrintingWorkOrderById(orderId)

@@ -1,3 +1,4 @@
+import { washingOutputStock } from './fabric-washing-gates.ts'
 import {
   listFactoryInternalWarehouses,
   listFactoryWaitProcessStockItems,
@@ -53,7 +54,7 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
     .flatMap((r) => r.lines.map((line) => ({ line, receipt: r })))
   const physicalIds = new Set(physicalLines.map((x) => x.line.id))
   const physical = (id: string) => physicalIds.has(id.replace(/^WPS-FIN-|^FIN-/, '').replace(/-\d+$/, ''))
-  const waitProcessItems = listFactoryWaitProcessStockItems()
+  const waitProcessItems: FactoryWaitProcessStockItem[] = listFactoryWaitProcessStockItems()
     .filter((r) => physical(r.stockItemId))
     .map((row) => {
       const line = physicalLines.find(
@@ -62,13 +63,14 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
       const order = facts.find((f) => f.order.dyeOrderId === line?.dyeOrderId)?.order
       return {
         ...row,
-        sourceRecordId: order?.dyeOrderId || line?.sourceId || row.sourceRecordId,
+        washingOrderId: line?.washingOrderId,
+        sourceRecordId: order?.dyeOrderId || line?.washingOrderId || line?.sourceId || row.sourceRecordId,
         taskId: order?.taskId,
-        taskNo: order?.taskNo || line?.taskNo || '备料（未关联加工单）',
+        taskNo: order?.taskNo || line?.taskNo || (line?.washingOrderId ? line.sourceDocumentNo : '备料（未关联加工单）'),
         factoryName: dyeFactoryTabLabel(row.factoryId, row.factoryName),
       }
     })
-  const inboundRecords = listFactoryWarehouseInboundRecords()
+  const inboundRecords: FactoryWarehouseInboundRecord[] = listFactoryWarehouseInboundRecords()
     .filter((r) => physical(r.inboundRecordId))
     .map((row) => {
       const line = physicalLines.find(
@@ -77,9 +79,10 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
       const order = facts.find((f) => f.order.dyeOrderId === line?.dyeOrderId)?.order
       return {
         ...row,
-        sourceRecordId: order?.dyeOrderId || line?.sourceId || row.sourceRecordId,
+        washingOrderId: line?.washingOrderId,
+        sourceRecordId: order?.dyeOrderId || line?.washingOrderId || line?.sourceId || row.sourceRecordId,
         taskId: order?.taskId,
-        taskNo: order?.taskNo || line?.taskNo || '备料（未关联加工单）',
+        taskNo: order?.taskNo || line?.taskNo || (line?.washingOrderId ? line.sourceDocumentNo : '备料（未关联加工单）'),
         factoryName: dyeFactoryTabLabel(row.factoryId, row.factoryName),
       }
     })
@@ -222,7 +225,8 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
   const stocks = waitProcessItems.filter((x) =>
     matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.taskNo, x.fabricRollNo]),
   )
-  const outputs = waitHandoverItems.filter((x) => matches(x, [x.taskNo, x.itemName, x.materialSku, x.handoverOrderNo]))
+  waitHandoverItems.push(...washingOutputStock())
+  const outputs = waitHandoverItems.filter((x) => matches(x, [x.taskNo, x.itemName, x.materialSku, x.fabricRollNo, x.handoverOrderNo]))
   const inbounds = inboundRecords.filter(
     (x) => matches(x, [x.sourceRecordNo, x.itemName, x.materialSku, x.taskNo]) && inDate(x.receivedAt),
   )
@@ -240,8 +244,8 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
       if (stock)
         usageRecords.push({
           ...stock,
-          taskNo: facts.find((f) => f.order.dyeOrderId === use.dyeOrderId)?.order.taskNo || use.waterOrderId || use.dyeOrderId!,
-          sourceRecordId: use.waterOrderId || use.dyeOrderId!,
+          taskNo: facts.find((f) => f.order.dyeOrderId === use.dyeOrderId)?.order.taskNo || (use.washingOrderId ? stock.taskNo : undefined) || use.waterOrderId || use.dyeOrderId!,
+          sourceRecordId: use.washingOrderId || use.waterOrderId || use.dyeOrderId!,
           issuedQty: line.qty,
           usedAt: use.at,
           usedBy: use.operatorName,

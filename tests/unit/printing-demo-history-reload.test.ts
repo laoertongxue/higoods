@@ -32,6 +32,10 @@ for (const historicalFactory of ['DYE-GOTO-GLOBAL','ID-FAC-001165']) {
       if(stage===1){
         assert.equal(orders.some(o=>o.printOrderId.startsWith('PWO-PRINT-DEMO-09-')),false);
         assert.equal(orders.find(o=>o.printOrderId==='PWO-PRINT-DEMO-10-5').plannedQty,190);
+        // Explicit fixture creation: ordinary reads must no longer persist all static seeds.
+        const hs=await import('./src/data/fcs/pda-handover-events.ts');for(const order of orders){if(!order.handoverOrderId)continue;const head=hs.getHandoverOrderById(order.handoverOrderId,{includeWool:false});if(head)hs.upsertPdaHandoverHeadMock({...head,sourceBusinessType:'PRINT_WORK_ORDER',sourceDocId:order.printOrderId,sourceDocNo:order.printOrderNo})};hs.persistPdaHandoverState();
+        const rc=await import('./src/data/fcs/factory-receiving.ts');storage.set('higood-factory-material-receiving-v1',JSON.stringify(rc.captureFactoryReceivingData()));
+        const codec=await import('./src/data/fcs/printing-execution-storage.ts');const snap=p.capturePrintProductionCreationState();storage.set('higoods.formal-print-execution.v1',codec.serializePrintExecution({version:1,state:snap.state,tasks:snap.tasks}));
         // Simulate both released slot-09 histories using real persisted execution and handover structures.
         for(const [k,v] of storage){
           storage.set(k,v.replaceAll('DEMO-10','DEMO-09').replaceAll('DEMO-260914-10','DEMO-260914-09').replaceAll('TEST-10','TEST-09').replaceAll('RAW-10','RAW-09').replaceAll('IN-10','IN-09').replaceAll('RCV-10','RCV-09').replaceAll('PRINTDEMO10','PRINTDEMO09').replaceAll('ID-FAC-001165',process.env.HISTORY_FACTORY));

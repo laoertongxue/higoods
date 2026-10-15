@@ -21,7 +21,6 @@ import {
   renderBadge,
 } from './shared.ts'
 import {
-  renderFactoryWarehouseStandardTabs,
   renderWarehouseFlowButton,
   renderWarehouseLocationActions,
   renderWarehouseLocationToolbar,
@@ -31,9 +30,9 @@ import {
 
 type DyeingWarehouseMode = 'wait-process' | 'wait-handover'
 
-function materialCell(item:{itemName:string;materialSku?:string;photoList?:string[]}):string {
+function materialCell(item:{itemName:string;materialSku?:string;photoList?:string[];washingOrderId?:string}):string {
  const url=item.photoList?.[0],title=`${item.itemName} ${item.materialSku||''}`
- return `<div class="flex items-start gap-2">${url?`<button type="button" class="relative h-10 w-10 shrink-0 overflow-hidden rounded border" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(title)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(title)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(url)}" alt="${escapeHtml(title)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 bg-white text-[10px]">图片加载中</span></button>`:'<span>物料图片未维护</span>'}<div><div>${escapeHtml(item.itemName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.materialSku||'按原单物料')}</div></div></div>`
+ return `<div class="flex items-start gap-2">${url?`<button type="button" class="relative h-10 w-10 shrink-0 overflow-hidden rounded border" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(title)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(title)}大图"><img class="h-full w-full ${item.washingOrderId?'object-contain':'object-cover'}" src="${escapeHtml(url)}" alt="${escapeHtml(title)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 bg-white text-[10px]">图片加载中</span></button>`:'<span>物料图片未维护</span>'}<div><div>${escapeHtml(item.itemName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.materialSku||'按原单物料')}</div>${item.washingOrderId?'<p class="text-xs text-blue-700">水洗面料</p>':''}</div></div>`
 }
 
 function formatQty(value: number | undefined, unit = ''): string {
@@ -93,7 +92,7 @@ function buildWaitHandoverFlowLines(item: DyeingWarehouseView['waitHandoverItems
   return lines
 }
 
-type WarehouseTable = {rows:string[][];controller:ReturnType<typeof createProcessOrderListController<string[]>>;state:ProcessOrderListControllerState}
+type WarehouseTable = {controller:ReturnType<typeof createProcessOrderListController<string[]>>;state:ProcessOrderListControllerState;render(rows:string[][]):string}
 const tables=new Map<string,WarehouseTable>()
 let tableEventsInstalled=false
 let warehouseFilters:DyeingWarehouseViewFilters={timeRange:'ALL'}
@@ -127,21 +126,39 @@ function installTableEvents(){
  // These local controls are fully handled here; do not load unrelated global print handlers.
  document.addEventListener('click',handle,true);document.addEventListener('change',handle,true);document.addEventListener('input',handle,true)
 }
+function createWarehouseTable(id:string,headers:string[]):WarehouseTable {
+  let currentRows:string[][]=[]
+  const columns:StandardListColumn<string[]>[]=headers.map((title,i)=>({key:`col-${i}`,title,width:title==='操作'?280:/SKU|物料/.test(title)?260:150,required:i===0||/SKU|物料/.test(title),freezeable:title!=='操作',sortable:title!=='操作',actionColumn:title==='操作',render:row=>row[i]||'',sortValue:row=>row[i]?.replace(/<[^>]*>/g,'')}))
+  const state:ProcessOrderListControllerState={currentPage:1,sort:null,preferences:{order:[],visibleKeys:[],frozenKeys:[],pageSize:10},preferencesLoaded:false,showColumnSettings:false}
+  const controller=createProcessOrderListController({state,columns,preferenceKey:`higood.${id}.columns`,pageSizeOptions:[10,20,50],eventPrefix:'dye-warehouse',rootSelector:`[data-dye-warehouse-table="${id}"]`,tableSurfaceSelector:'[data-dye-warehouse-table-surface]',paginationSurfaceSelector:'[data-dye-warehouse-pagination]',overlaysSurfaceSelector:'[data-dye-warehouse-overlays]',defaultFrozenKeys:[],columnSettingsTitle:'仓库列设置',emptyText:'暂无相应记录',getRows:()=>currentRows,locallyManagedEvents:true})
+  controller.installColumnDragEvents()
+  return {controller,state,render(rows:string[][]):string {
+   currentRows=rows
+   const view=controller.getView()
+   return `<div data-dye-warehouse-table="${id}">${renderStandardListPage({title:'仓库明细',showHeader:false,filtersHtml:'',listTitle:`共 ${rows.length} 条`,listActionsHtml:'<button type="button" class="h-9 rounded border px-3 text-sm" data-dye-warehouse-action="open-column-settings" data-skip-page-rerender="true">列设置</button>',tableHtml:`<div data-dye-warehouse-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-dye-warehouse-pagination>${view.paginationHtml}</div>`,overlaysHtml:`<div data-dye-warehouse-overlays>${controller.renderColumnSettings()}</div>`})}</div>`
+  }}
+}
 function renderTable(headers:string[],rows:string[][],_width=''):string {
  const key=(typeof window==='undefined'?'warehouse':window.location.pathname.split('/').at(-1))+'-'+headers.join('|')
  const id='dye-wh-'+Array.from(key).reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)
- let entry=tables.get(id)
- if(!entry){
-  const columns:StandardListColumn<string[]>[]=headers.map((title,i)=>({key:`col-${i}`,title,width:title==='操作'?280:/SKU|物料/.test(title)?260:150,required:i===0||/SKU|物料/.test(title),freezeable:title!=='操作',sortable:title!=='操作',actionColumn:title==='操作',render:row=>row[i]||'',sortValue:row=>row[i]?.replace(/<[^>]*>/g,'')}))
-  const state:ProcessOrderListControllerState={currentPage:1,sort:null,preferences:{order:[],visibleKeys:[],frozenKeys:[],pageSize:10},preferencesLoaded:false,showColumnSettings:false}
-  const controller=createProcessOrderListController({state,columns,preferenceKey:`higood.${id}.columns`,pageSizeOptions:[10,20,50],eventPrefix:'dye-warehouse',rootSelector:`[data-dye-warehouse-table="${id}"]`,tableSurfaceSelector:'[data-dye-warehouse-table-surface]',paginationSurfaceSelector:'[data-dye-warehouse-pagination]',overlaysSurfaceSelector:'[data-dye-warehouse-overlays]',defaultFrozenKeys:[],columnSettingsTitle:'仓库列设置',emptyText:'暂无相应记录',getRows:()=>tables.get(id)?.rows??[],locallyManagedEvents:true})
-  entry={rows,controller,state};tables.set(id,entry);controller.installColumnDragEvents()
- }
- entry.rows=rows;installTableEvents()
- const view=entry.controller.getView()
- return `<div data-dye-warehouse-table="${id}">${renderStandardListPage({title:'仓库明细',showHeader:false,filtersHtml:'',listTitle:`共 ${rows.length} 条`,listActionsHtml:'<button type="button" class="h-9 rounded border px-3 text-sm" data-dye-warehouse-action="open-column-settings" data-skip-page-rerender="true">列设置</button>',tableHtml:`<div data-dye-warehouse-table-surface>${view.tableHtml}</div>`,paginationHtml:`<div data-dye-warehouse-pagination>${view.paginationHtml}</div>`,overlaysHtml:`<div data-dye-warehouse-overlays>${entry.controller.renderColumnSettings()}</div>`})}</div>`
+ installTableEvents()
+ if(!tables.has(id))tables.set(id,createWarehouseTable(id,headers))
+ return tables.get(id)!.render(rows)
 }
 function renderMetricCard(label:string,value:string,_description:string):string{return renderStandardListStats([{label,value}])}
+
+function renderWarehouseTabs(inventoryHtml:string,inventoryCount:number,tabs:FactoryWarehouseStandardTab[],idPrefix:string):string {
+ const panels=[{key:'inventory',label:'库存',count:inventoryCount},...tabs]
+ return `<section class="rounded-lg border bg-card">
+  <style>${panels.map(tab=>`#${idPrefix}-${tab.key}:checked ~ .factory-warehouse-tab-labels label[for="${idPrefix}-${tab.key}"]{background:rgb(15 23 42);border-color:rgb(15 23 42);color:white}#${idPrefix}-${tab.key}:checked ~ .factory-warehouse-tab-panels [data-factory-warehouse-tab-panel="${tab.key}"]{display:block}`).join('')}</style>
+  ${panels.map((tab,index)=>`<input id="${idPrefix}-${tab.key}" class="sr-only" type="radio" name="${idPrefix}" ${index===0?'checked':''}/>`).join('')}
+  <div class="factory-warehouse-tab-labels flex flex-nowrap gap-2 overflow-x-auto whitespace-nowrap border-b bg-muted/20 px-4 py-3">${panels.map(tab=>`<label for="${idPrefix}-${tab.key}" class="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"><span>${escapeHtml(tab.label)}</span><span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">${tab.count}</span></label>`).join('')}</div>
+  <div class="factory-warehouse-tab-panels">
+   <div class="hidden" data-factory-warehouse-tab-panel="inventory"><div class="flex items-center justify-between border-b px-4 py-3"><h2 class="text-base font-semibold">库存</h2><span class="text-xs text-muted-foreground">共 ${inventoryCount} 条</span></div>${inventoryHtml}</div>
+   ${tabs.map(tab=>`<div class="hidden" data-factory-warehouse-tab-panel="${escapeHtml(tab.key)}"><div class="flex items-center justify-between border-b px-4 py-3"><h2 class="text-base font-semibold">${escapeHtml(tab.label)}</h2><span class="text-xs text-muted-foreground">共 ${tab.count} 条</span></div>${tab.content}</div>`).join('')}
+  </div>
+ </section>`
+}
 
 function renderFilters(view: DyeingWarehouseView): string {
   const factories=new Map(getDyeingWarehouseView().waitProcessItems.concat(getDyeingWarehouseView().waitHandoverItems as never[]).map(r=>[r.factoryId,dyeFactoryTabLabel(r.factoryId,r.factoryName)]))
@@ -168,9 +185,9 @@ function renderWaitProcessRows(view: DyeingWarehouseView): string[][] {
       `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'warning')}`,
       `
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>
-              ${renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`, buildWaitProcessFlowLines(item))}
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.taskId ? buildTaskDetailLink(item.taskId) : ''}" ${item.taskId ? '' : 'disabled'}>打开移动端执行页</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(item.washingOrderId):view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${item.washingOrderId?'查看水洗加工单':view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>
+              ${item.washingOrderId?'':renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`, buildWaitProcessFlowLines(item))}
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/pda/washing/'+encodeURIComponent(item.washingOrderId):item.taskId ? buildTaskDetailLink(item.taskId) : ''}" ${item.washingOrderId||item.taskId ? '' : 'disabled'}>打开移动端执行页</button>
             </div>
           `
     ])
@@ -196,8 +213,8 @@ function renderWaitHandoverRows(view: DyeingWarehouseView): string[][] {
       `${renderBadge(item.status, item.status.includes('差异') || item.status.includes('异议') ? 'danger' : 'warning')}`,
       `
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>打开移动端交出页</button>
-              ${renderWarehouseFlowButton(`${item.taskNo || item.stockItemId} 库存流水`, buildWaitHandoverFlowLines(item))}
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/pda/washing/'+encodeURIComponent(item.washingOrderId):item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.washingOrderId||item.handoverOrderId ? '' : 'disabled'}>${item.washingOrderId?'打开水洗交回页':'打开移动端交出页'}</button>
+              ${item.washingOrderId?`<button type="button" class="rounded border px-2 py-1 text-xs" data-nav="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(item.washingOrderId)}">查看水洗加工单</button>`:renderWarehouseFlowButton(`${item.taskNo || item.stockItemId} 库存流水`, buildWaitHandoverFlowLines(item))}
             </div>
           `
     ])
@@ -219,7 +236,7 @@ function renderInboundRows(view: DyeingWarehouseView): string[][] {
       `${escapeHtml(item.receiverName)}`,
       `${escapeHtml(item.receivedAt)}`,
       `${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'success')}`,
-      `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>`
+      `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.washingOrderId?'/fcs/craft/dyeing/washing/work-orders/'+encodeURIComponent(item.washingOrderId):view.dyeOrderIds.includes(item.sourceRecordId)?buildDyeingWorkOrderDetailLink(item.sourceRecordId):'/fcs/craft/dyeing/pending-receipts?sourceId='+encodeURIComponent(item.sourceRecordId)}">${item.washingOrderId?'查看水洗加工单':view.dyeOrderIds.includes(item.sourceRecordId)?'查看染色加工单':'查看接收来源'}</button>`
     ])
 }
 
@@ -343,12 +360,6 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
     mode === 'wait-process'
       ? [
           {
-            key: 'inventory',
-            label: '库存',
-            count: view.waitProcessItems.length,
-            content: renderTable(['工厂', '仓库', '来源单据', '所属任务', '类型', '原料面料 SKU', '颜色', '尺码', '卷号', '累计入库数量', '当前库存', '累计用料数量', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]'),
-          },
-          {
             key: 'receipts',
             label: '接收记录',
             count: view.inboundRecords.length,
@@ -368,12 +379,6 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
           },
         ]
       : [
-          {
-            key: 'inventory',
-            label: '库存',
-            count: view.waitHandoverItems.length,
-            content: renderTable(['工厂', '仓库', '来源任务', '类型', '原料面料 SKU', '颜色', '卷号', '加工完成数量', '损耗数量', '当前库存', '接收方', '交出单', '交出记录', '收货确认数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]'),
-          },
           {
             key: 'handouts',
             label: '交出记录',
@@ -399,7 +404,10 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
       <header><h1 class="text-xl font-semibold">${title}</h1><p class="text-sm text-muted-foreground">${description}</p></header>
       ${renderFilters(view)}
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">${metrics}</section>
-      ${renderFactoryWarehouseStandardTabs(tabs, mode === 'wait-process' ? 'dyeing-wait-process-tabs' : 'dyeing-wait-handover-tabs')}
+      ${renderWarehouseTabs(renderTable(
+        mode==='wait-process'?['工厂','仓库','来源单据','所属任务','类型','原料面料 SKU','颜色','尺码','卷号','累计入库数量','当前库存','累计用料数量','库位','状态','操作']:['工厂','仓库','来源任务','类型','原料面料 SKU','颜色','卷号','加工完成数量','损耗数量','当前库存','接收方','交出单','交出记录','收货确认数量','状态','操作'],
+        mode==='wait-process'?renderWaitProcessRows(view):renderWaitHandoverRows(view)
+      ),mode==='wait-process'?view.waitProcessItems.length:view.waitHandoverItems.length,tabs,mode==='wait-process'?'dyeing-wait-process-tabs':'dyeing-wait-handover-tabs')}
     </div>
   `
 }

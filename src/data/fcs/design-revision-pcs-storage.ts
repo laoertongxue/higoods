@@ -1,4 +1,5 @@
 import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
+import { readWashingStorage, writeWashingStorage } from './fabric-washing-storage-bridge.ts'
 
 export const PCS_FCS_COLLECTIONS = [
   'higood-pcs-fcs-design-revision-dye-v1', 'higood-pcs-fcs-design-revision-print-v1',
@@ -137,7 +138,7 @@ export function finalizeLegacySlices(verified: DesignRevisionLegacySlice[]): voi
     for (const key of Object.keys(slice.auxiliary ?? {})) storage!.removeItem(key)
   }
 }
-export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+function getUnscopedDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
   return {
     getItem(key) {
       if (key.startsWith(remarkPrefix)) { const id=key.slice(remarkPrefix.length); return localRows(0).find(row=>row.path==='remarks'&&row.key===id)?.value.remark ?? native()?.getItem(key) ?? null }
@@ -194,6 +195,20 @@ export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setIte
   }
 }
 const cacheHooks = new Map<string, { capture(): unknown; restore(value: any): void; hydrate?(): void }>()
+export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+  const storage = getUnscopedDesignRevisionFcsStorage()
+  return {
+    getItem(key) { return readWashingStorage(key, storage.getItem(key)) },
+    setItem(key, raw) {
+      const result = writeWashingStorage(key, raw, storage.getItem(key))
+      if (!result.handled) storage.setItem(key, result.raw ?? raw)
+    },
+    removeItem(key) {
+      const result = writeWashingStorage(key, '{}', storage.getItem(key))
+      if (!result.handled) storage.removeItem(key)
+    },
+  }
+}
 export function registerDesignRevisionFcsCacheHooks(name: string, value: { capture(): unknown; restore(value: any): void; hydrate?(): void }): void { cacheHooks.set(name, value) }
 export function captureDesignRevisionFcsCaches(): Array<[string, unknown]> { return [...cacheHooks].map(([name, hook]) => [name, hook.capture()]) }
 export function restoreDesignRevisionFcsCaches(snapshot: unknown): void { for (const [name, value] of snapshot as Array<[string, unknown]>) cacheHooks.get(name)?.restore(value) }
@@ -218,7 +233,7 @@ export function isDesignRevisionFcsTarget(target: unknown): boolean {
   return matches(target)
 }
 
-export function getStoredDesignRevisionPrintOrder(id: string): any { return merged(1).state.workOrders.find(([key]:[string,unknown])=>key===id)?.[1] }
+export function getStoredDesignRevisionPrintOrder(id: string): any { return (parsePrintExecution(getDesignRevisionFcsStorage().getItem(legacyKeys[1]) || JSON.stringify(empty(1))) as any).state.workOrders.find(([key]:[string,unknown])=>key===id)?.[1] }
 
 /** Validate against the saved execution bundle, without initializing another domain. */
 export function isStoredDesignRevisionHandoverHead(head: { handoverId: string; taskId: string; factoryId?: string; sourceType?: string; sourceSnapshot?: unknown }): boolean {

@@ -361,13 +361,13 @@ export async function commitPcsRecords(input: PcsCommitInput): Promise<void> {
     operations.add({ id: input.operationId, intentHash, createdAt: new Date().toISOString() })
   })
 }
-export async function cleanupUnreferencedPcsFiles(): Promise<number> {
+export async function cleanupUnreferencedPcsFiles(ownedPrefix?: string): Promise<number> {
   return transaction('readwrite', async tx => {
     const [records, keys] = await Promise.all([result(tx.objectStore('records').getAll()) as Promise<PcsStoredRecord[]>, result(tx.objectStore('files').getAllKeys())])
     const ids = new Set(keys.map(String)); const referenced = new Set<string>()
     for (const record of records) if (!record.deleted) for (const id of pcsFileReferences(record.value, ids)) referenced.add(id)
     let count = 0
-    for (const id of ids) if (!referenced.has(id)) { tx.objectStore('files').delete(id); count++ }
+    for (const id of ids) if ((!ownedPrefix || id.startsWith(ownedPrefix)) && !referenced.has(id)) { tx.objectStore('files').delete(id); count++ }
     return count
   })
 }

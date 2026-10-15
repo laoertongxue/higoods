@@ -1,3 +1,5 @@
+import { withWashingRecords } from '../data/fcs/fabric-washing-repository.ts'
+import { renderFabricWashingListPage, renderFabricWashingDetailPage } from './route-renderers.ts'
 import { renderWoolPendingReceiptsPage } from '../pages/process-factory/wool/pending-receipts'
 import {renderPrintingPendingHandoverPage,renderPrintingHandoverDocumentsPage} from '../pages/process-factory/printing/dispatch.ts'
 import {renderDyeYarnShipmentsPage} from '../pages/process-factory/dyeing/yarn-shipments.ts'
@@ -238,6 +240,7 @@ const specialCraftMenuExactRoutes = buildSpecialCraftMenuExactRoutes()
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/craft/dyeing/washing/work-orders': () => renderFabricWashingListPage(false),
     ...specialCraftMenuExactRoutes,
     '/fcs/history/retired-process-records': () => renderRetiredProcessHistoryPage(),
     '/fcs/craft/cutting/cut-piece-orders': () => renderRetiredProcessHistoryLegacyPage('CUT_PIECE'),
@@ -381,7 +384,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/statistics/ab-material': () => renderCraftCuttingAbMaterialStatisticsPage(),
     '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
     '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
-    '/fcs/craft/printing/pending-receipts': () => renderPrintingPendingReceiptsPage(),
+    '/fcs/craft/printing/pending-receipts': () => withWashingRecords(() => renderPrintingPendingReceiptsPage()),
     '/fcs/craft/printing/pending-handover': () => renderPrintingPendingHandoverPage(),
     '/fcs/craft/printing/handover-documents': () => renderPrintingHandoverDocumentsPage(),
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
@@ -402,7 +405,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/printing/dashboards': () => renderCraftPrintingDashboardsPage(),
     '/fcs/craft/dyeing': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/yarn-shipments': () => renderDyeYarnShipmentsPage(),
-    '/fcs/craft/dyeing/pending-receipts': () => renderFactoryPendingReceiptsPage(),
+    '/fcs/craft/dyeing/pending-receipts': () => withWashingRecords(() => renderFactoryPendingReceiptsPage()),
     '/fcs/craft/wool/pending-receipts': () => renderWoolPendingReceiptsPage(),
     '/fcs/craft/dyeing/work-orders': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/water-soluble-pending-handover': () => renderWaterSolublePendingHandoverPage(),
@@ -470,6 +473,7 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
+    {pattern: /^\/fcs\/craft\/dyeing\/washing\/work-orders\/([^/]+)$/, render: match => renderFabricWashingDetailPage(decodeURIComponent(match[1]),false)},
     { pattern: /^\/fcs\/process\/material-plans\/new$/, render: () => renderFcsMaterialProcessPlanCreatePage() },
     { pattern: /^\/fcs\/process\/material-plans\/([^/]+)\/edit$/, render: match => renderFcsMaterialProcessPlanEditPage(decodeURIComponent(match[1])) },
     { pattern: /^\/fcs\/process\/material-plans\/([^/]+)$/, render: match => renderFcsMaterialProcessPlanDetailPage(decodeURIComponent(match[1])) },

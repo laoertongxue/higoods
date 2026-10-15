@@ -30,7 +30,12 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       }
     }
 
-    const postFinishingScope = exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName)
+    if (/Printing|FabricWashing|WlsInbound|Dyeing|FactoryPending|PdaExec|PdaHandover|ProductionOrderDetail|WaitProcess|WaitHandover/.test(exportName)) {
+      await import('../data/fcs/fabric-washing.ts')
+      try { await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords() } catch(error) { return '<div class="p-4 text-red-700" role="alert">' + (await import('../utils.ts')).escapeHtml(error instanceof Error ? error.message : String(error)) + ' 刷新后重试。</div>' }
+    }
+    const printingExecution=exportName==='renderPdaExecDetailPage'&&typeof args[0]==='string'&&Boolean((await import('../data/fcs/printing-task-domain.ts')).getPrintWorkOrderByTaskId(args[0]))
+    const postFinishingScope = !printingExecution&&(exportName.includes('PostFinishing') || exportName === 'renderPdaSewingSelfReturnPage' || exportName === 'renderWlsFinishedInboundPage' || ['renderPdaWarehouseWaitProcessPage', 'renderPdaHandoverPage', 'renderPdaExecPage', 'renderPdaExecDetailPage', 'renderProductionOrderDetailPage', 'renderPrintPreviewPage'].includes(exportName))
     const ppicReturnReadScope = exportName === 'renderProgressBoardPage'
     if (postFinishingScope || ppicReturnReadScope) await import('../data/fcs/ppic-daily-return-records.ts')
     if (!modulePromise) {
@@ -685,3 +690,6 @@ export const renderWlsFinishedInboundPage = createAsyncRenderer(() => import('..
 export const renderPdaCuttingSimpleCutPieceHandoverPage = createAsyncRenderer(() => import('../pages/pda-cutting-simple-cut-piece-handover'), 'renderPdaCuttingSimpleCutPieceHandoverPage')
 
 export const renderPcsSampleLabelPage = createAsyncRenderer(() => import('../pages/pcs-sample-label'), 'renderPcsSampleLabelPage')
+
+export const renderFabricWashingListPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/washing/work-orders.ts'), 'renderFabricWashingListPage')
+export const renderFabricWashingDetailPage = createAsyncRenderer(() => import('../pages/process-factory/dyeing/washing/work-orders.ts'), 'renderFabricWashingDetailPage')

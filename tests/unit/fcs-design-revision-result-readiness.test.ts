@@ -1,3 +1,6 @@
+import { getWashingSources } from '../../src/data/fcs/fabric-washing.ts'
+import { registerFabricWashingRelease } from '../../src/data/fcs/fabric-washing-gates.ts'
+import { applyWashingCommand, emptyWashingState, washingRollRelease } from '../../src/data/fcs/fabric-washing-model.ts'
 import { getDyeWorkOrderProgressView } from '../../src/data/fcs/process-order-three-axis-view.ts'
 import assert from 'node:assert/strict'
 import { listHandoverOrdersByTaskId } from '../../src/data/fcs/pda-handover-events.ts'
@@ -67,6 +70,14 @@ import { PROCESS_WORK_ORDER_SOURCE_LABEL } from '../../src/data/fcs/process-work
 import { formatProcessQuantityWithUnit, getQuantityLabel } from '../../src/data/fcs/process-quantity-labels.ts'
 import { buildDyeWorkOrderCsv, listDyeWorkOrderOnlineRows } from '../../src/data/fcs/dye-work-order-online-view.ts'
 import { DYE_FACTORY_TABS } from '../../src/data/fcs/dye-work-order-demo-details.ts'
+
+/** Unit-only pure decision state; persistence is independently verified in the browser suite. */
+function touchNoWashInUnitFixture(printOrderId:string){
+ let state=emptyWashingState()
+ for(const source of getWashingSources(printOrderId))state=applyWashingCommand(state,{type:'JUDGE',source,rollIds:source.rolls.filter(r=>!r.handedOut&&r.confirmed).map(r=>r.id),decision:'NO_WASH'},{id:'UNIT-SITE',name:'单元契约现场人员',role:'现场判断人员',factoryId:source.factoryId},'UNIT-'+source.id,'2026-10-15T10:00:00+08:00').state
+ registerFabricWashingRelease((id,rollId)=>{const order=getPrintingWorkOrderById(id);if(order?.output.objectType!=='面料')return '';const roll=order.barcodes.find(r=>r.id===rollId||r.barcode===rollId);if(!roll)return '请选择对应的整卷';return washingRollRelease(state,id,roll.id)})
+}
+
 import { buildDyeWorkOrderTimes } from '../../src/data/fcs/dye-work-order-times.ts'
 import { printingDemandFields, renderPrintingDemandSource } from '../../src/pages/process-factory/printing/presentation.ts'
 import { printingWorkOrderTimeGroups } from '../../src/pages/process-factory/printing/work-order-times.ts'
@@ -460,6 +471,8 @@ test('单独印花 SKU 从仓库发印厂并完成样衣归档', () => {
   const printDispatchId = createPrintingDispatch([{ workOrderId: printRef.processOrderId, barcodeIds: [outputBarcode.id] }], '印花厂仓管')
   captureBrowserEvidenceStage('print-dispatch-draft')
   scanPrintingDispatchRoll(printDispatchId, outputBarcode.barcode, '印花厂仓管')
+  if(getPrintWorkOrderById(printRef.processOrderId)?.objectType==='面料')assert.throws(()=>confirmPrintingDispatch(printDispatchId,'印花厂仓管'),/触摸/)
+  touchNoWashInUnitFixture(printRef.processOrderId)
   confirmPrintingDispatch(printDispatchId, '印花厂仓管')
   const centralSource = listFactoryReceivingSources(GOTO_GLOBAL_FACTORY_ID).find((item) =>
     item.type === 'HANDOUT' && item.workOrderNo === printOrder.printOrderNo && item.id.startsWith('PRINT-HANDOUT-'))
@@ -564,6 +577,8 @@ test('印花实际交出生成中央工厂待接收原单，实收回写原交�
   markPrintingRollBarcodesPrinted(ref.processOrderId, [barcode.id], '印花工厂')
   const dispatchId = createPrintingDispatch([{ workOrderId: ref.processOrderId, barcodeIds: [barcode.id] }], '印花厂仓管')
   scanPrintingDispatchRoll(dispatchId, barcode.barcode, '印花厂仓管')
+  if(getPrintWorkOrderById(ref.processOrderId)?.objectType==='面料')assert.throws(()=>confirmPrintingDispatch(dispatchId,'印花厂仓管'),/触摸/)
+  touchNoWashInUnitFixture(ref.processOrderId)
   confirmPrintingDispatch(dispatchId, '印花厂仓管')
   const centralSource = listFactoryReceivingSources(GOTO_GLOBAL_FACTORY_ID).find((item) =>
     item.type === 'HANDOUT' && item.workOrderNo === order.printOrderNo && item.id.startsWith('PRINT-HANDOUT-'))

@@ -1,3 +1,4 @@
+import { removePredeterminedWashing } from '../tech-pack-process-route.ts'
 import { getProductionOrderProcessEntries } from './production-order-tech-pack-runtime.ts'
 import { listProcessWorkOrderRelationSources, PROCESS_WORK_ORDER_SOURCE_LABEL } from './process-work-order-domain.ts'
 import { processTasks, type ProcessTask } from './process-tasks.ts'
@@ -135,7 +136,7 @@ function resolveRouteObjectKeys(productionOrderId: string | undefined, sourceEnt
   if (!productionOrderId || sourceEntryIds.length === 0) return []
   const sourceEntryIdSet = new Set(sourceEntryIds)
   return unique(
-    getProductionOrderProcessEntries(productionOrderId)
+    removePredeterminedWashing(getProductionOrderProcessEntries(productionOrderId))
       .filter((entry) => sourceEntryIdSet.has(entry.id))
       .map((entry) => entry.routeObjectKey),
   )
@@ -350,7 +351,7 @@ function inferWorkOrderEntryIds(input: {
   // 旧 Mock 只带生产单号，没有 BOM 分支或 occurrence 身份；按工序码猜测会把
   // 不同历史加工单错误挂到同一个路线节点。没有分支证据时宁可保持待关联。
   if (bomIds.size === 0) return []
-  return getProductionOrderProcessEntries(input.productionOrderId)
+  return removePredeterminedWashing(getProductionOrderProcessEntries(input.productionOrderId))
     .filter((entry) => entry.processCode === input.processCode)
     .filter((entry) => (entry.linkedBomItemIds ?? []).some((id) => bomIds.has(id)))
     .map((entry) => entry.id)
@@ -359,7 +360,7 @@ function inferWorkOrderEntryIds(input: {
 function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessTask[], sourceTaskId?: string, designRevisionScope?: string): ProcessOrderTaskDocumentRef[] {
   const generatedCutOrders = designRevisionScope ? [] : listGeneratedCutOrderSourceRecords()
   const specialCraftOrders = designRevisionScope ? [] : listSpecialCraftTaskOrders()
-  const scopedEntries = productionOrderId ? getProductionOrderProcessEntries(productionOrderId) : []
+  const scopedEntries = productionOrderId ? removePredeterminedWashing(getProductionOrderProcessEntries(productionOrderId)) : []
   const needsWoolDocuments = !designRevisionScope && (!productionOrderId || scopedEntries.length === 0
     || scopedEntries.some(entry => entry.processCode === 'WOOL' || entry.processCode === 'PROC_WOOL'))
   const woolWorkOrders = needsWoolDocuments ? listWoolWorkOrders({ productionOrderId }) : []
@@ -761,7 +762,7 @@ function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessT
 function listEntriesByProductionOrder(documentRefs: ProcessOrderTaskDocumentRef[]): Map<string, TechnicalProcessEntry[]> {
   const result = new Map<string, TechnicalProcessEntry[]>()
   unique(documentRefs.map((document) => document.productionOrderId)).forEach((productionOrderId) => {
-    result.set(productionOrderId, getProductionOrderProcessEntries(productionOrderId))
+    result.set(productionOrderId, removePredeterminedWashing(getProductionOrderProcessEntries(productionOrderId)))
   })
   return result
 }

@@ -78,15 +78,16 @@ function demoSignature(value: unknown): string {
 export function projectUneditedLegacyTechnicalDemo(source: TechnicalDataVersionStoreSnapshot, current: TechnicalDataVersionStoreSnapshot): TechnicalDataVersionStoreSnapshot {
   const deleted = getPcsDeletedRecordIds('higood-pcs-technical-data-version-store-v5')
   const mayAdd = (id: string) => !deleted.has(`higood-pcs-technical-data-version-store-v5/records/${encodeURIComponent(id)}`)
+  const frozenWashingIds=new Set(source.records.filter(record=>record.versionStatus==='PUBLISHED'&&source.contents.find(content=>content.technicalVersionId===record.technicalVersionId)?.processEntries.some(entry=>['WASH','craft-wash'].includes(entry.processCode))).map(record=>record.technicalVersionId))
   const oldContents = new Map(source.contents.map(content => [content.technicalVersionId, content]))
   const newRecords = new Map(current.records.map(record => [record.technicalVersionId, record]))
   const newContents = new Map(current.contents.map(content => [content.technicalVersionId, content]))
-  const correctedReleaseContents = new Set(source.contents.filter(content => RELEASE_DEMO_CONTENT_SIGNATURES[content.technicalVersionId]?.includes(demoSignature(content)) && newContents.has(content.technicalVersionId)).map(content => content.technicalVersionId))
+  const correctedReleaseContents = new Set(source.contents.filter(content => !frozenWashingIds.has(content.technicalVersionId) && RELEASE_DEMO_CONTENT_SIGNATURES[content.technicalVersionId]?.includes(demoSignature(content)) && newContents.has(content.technicalVersionId)).map(content => content.technicalVersionId))
   const upgraded = new Set<string>()
   const records = source.records.map(record => {
     const signatures = LEGACY_DEMO_SIGNATURES[record.technicalVersionId]
     const replacement = newRecords.get(record.technicalVersionId), content = oldContents.get(record.technicalVersionId)
-    if (!signatures || !replacement || !content || demoSignature(record) !== signatures[0] || demoSignature(content) !== signatures[1]) return record
+    if (frozenWashingIds.has(record.technicalVersionId) || !signatures || !replacement || !content || demoSignature(record) !== signatures[0] || demoSignature(content) !== signatures[1]) return record
     upgraded.add(record.technicalVersionId)
     return { ...replacement, createdFromTaskType: record.createdFromTaskType, createdFromTaskId: record.createdFromTaskId, createdFromTaskCode: record.createdFromTaskCode, sourceProjectId: record.sourceProjectId, sourceProjectCode: record.sourceProjectCode, sourceProjectName: record.sourceProjectName, sourceProjectNodeId: record.sourceProjectNodeId, primaryPlateTaskId: record.primaryPlateTaskId, primaryPlateTaskCode: record.primaryPlateTaskCode, primaryPlateTaskVersion: record.primaryPlateTaskVersion, changeScope: record.changeScope, changeSummary: record.changeSummary }
   })

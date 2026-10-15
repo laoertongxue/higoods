@@ -1,0 +1,766 @@
+[
+  {
+    "file": "src/data/app-shell-config.ts",
+    "requirements": [
+      "WASH-125",
+      "WASH-126",
+      "WASH-127",
+      "WASH-128",
+      "WASH-129",
+      "WASH-130"
+    ]
+  },
+  {
+    "file": "src/data/fcs/design-revision-pcs-command.ts",
+    "requirements": [
+      "WASH-166",
+      "WASH-167",
+      "WASH-168",
+      "WASH-169",
+      "WASH-170",
+      "WASH-171",
+      "WASH-172"
+    ]
+  },
+  {
+    "file": "src/data/fcs/design-revision-pcs-storage.ts",
+    "requirements": [
+      "WASH-166",
+      "WASH-167",
+      "WASH-168",
+      "WASH-169",
+      "WASH-170",
+      "WASH-171",
+      "WASH-172"
+    ]
+  },
+  {
+    "file": "src/data/fcs/dyeing-warehouse-view.ts",
+    "requirements": [
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing-gates.ts",
+    "requirements": [
+      "WASH-185"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing-maintenance.ts",
+    "requirements": [
+      "WASH-027",
+      "WASH-028",
+      "WASH-029",
+      "WASH-030",
+      "WASH-031",
+      "WASH-032",
+      "WASH-033",
+      "WASH-034",
+      "WASH-035",
+      "WASH-036",
+      "WASH-173",
+      "WASH-197",
+      "WASH-198",
+      "WASH-199",
+      "WASH-200",
+      "WASH-201",
+      "WASH-202",
+      "WASH-203",
+      "WASH-204",
+      "WASH-205"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing-mock.ts",
+    "requirements": [
+      "WASH-174",
+      "WASH-175",
+      "WASH-176"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing-model.ts",
+    "requirements": [
+      "WASH-003",
+      "WASH-005",
+      "WASH-006",
+      "WASH-007",
+      "WASH-008",
+      "WASH-009",
+      "WASH-012",
+      "WASH-013",
+      "WASH-014",
+      "WASH-015",
+      "WASH-016",
+      "WASH-017",
+      "WASH-018",
+      "WASH-019",
+      "WASH-020",
+      "WASH-022",
+      "WASH-023",
+      "WASH-024",
+      "WASH-025",
+      "WASH-026",
+      "WASH-042",
+      "WASH-043",
+      "WASH-044",
+      "WASH-045",
+      "WASH-046",
+      "WASH-047",
+      "WASH-048",
+      "WASH-050",
+      "WASH-051",
+      "WASH-052",
+      "WASH-053",
+      "WASH-057",
+      "WASH-058",
+      "WASH-059",
+      "WASH-060",
+      "WASH-061",
+      "WASH-062",
+      "WASH-063",
+      "WASH-064",
+      "WASH-065",
+      "WASH-066",
+      "WASH-067",
+      "WASH-068",
+      "WASH-069",
+      "WASH-070",
+      "WASH-071",
+      "WASH-072",
+      "WASH-073",
+      "WASH-074",
+      "WASH-075",
+      "WASH-076",
+      "WASH-077",
+      "WASH-078",
+      "WASH-079",
+      "WASH-092",
+      "WASH-093",
+      "WASH-094",
+      "WASH-095",
+      "WASH-096",
+      "WASH-097",
+      "WASH-098",
+      "WASH-099",
+      "WASH-100",
+      "WASH-101",
+      "WASH-106",
+      "WASH-107",
+      "WASH-110",
+      "WASH-111",
+      "WASH-113",
+      "WASH-114",
+      "WASH-115",
+      "WASH-116",
+      "WASH-117",
+      "WASH-118",
+      "WASH-119",
+      "WASH-120",
+      "WASH-121",
+      "WASH-122",
+      "WASH-134",
+      "WASH-135",
+      "WASH-136",
+      "WASH-137",
+      "WASH-193",
+      "WASH-194"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing-repository.ts",
+    "requirements": [
+      "WASH-054",
+      "WASH-055",
+      "WASH-056",
+      "WASH-142",
+      "WASH-143",
+      "WASH-144",
+      "WASH-145",
+      "WASH-146",
+      "WASH-147",
+      "WASH-148",
+      "WASH-149",
+      "WASH-150",
+      "WASH-151",
+      "WASH-152",
+      "WASH-153",
+      "WASH-154",
+      "WASH-155",
+      "WASH-156",
+      "WASH-158",
+      "WASH-159",
+      "WASH-166",
+      "WASH-167",
+      "WASH-168",
+      "WASH-169",
+      "WASH-170",
+      "WASH-171",
+      "WASH-172"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing-storage-bridge.ts",
+    "requirements": [
+      "WASH-054",
+      "WASH-055",
+      "WASH-056",
+      "WASH-142",
+      "WASH-143",
+      "WASH-144",
+      "WASH-145",
+      "WASH-146",
+      "WASH-147",
+      "WASH-148",
+      "WASH-149",
+      "WASH-150",
+      "WASH-151",
+      "WASH-152",
+      "WASH-153",
+      "WASH-154",
+      "WASH-155",
+      "WASH-156",
+      "WASH-158",
+      "WASH-159"
+    ]
+  },
+  {
+    "file": "src/data/fcs/fabric-washing.ts",
+    "requirements": [
+      "WASH-001",
+      "WASH-002",
+      "WASH-004",
+      "WASH-007",
+      "WASH-012",
+      "WASH-014",
+      "WASH-015",
+      "WASH-016",
+      "WASH-017",
+      "WASH-018",
+      "WASH-019",
+      "WASH-020",
+      "WASH-021",
+      "WASH-022",
+      "WASH-023",
+      "WASH-024",
+      "WASH-025",
+      "WASH-026",
+      "WASH-027",
+      "WASH-028",
+      "WASH-029",
+      "WASH-030",
+      "WASH-031",
+      "WASH-032",
+      "WASH-033",
+      "WASH-034",
+      "WASH-035",
+      "WASH-036",
+      "WASH-037",
+      "WASH-038",
+      "WASH-039",
+      "WASH-040",
+      "WASH-041",
+      "WASH-042",
+      "WASH-043",
+      "WASH-049",
+      "WASH-057",
+      "WASH-058",
+      "WASH-059",
+      "WASH-060",
+      "WASH-061",
+      "WASH-062",
+      "WASH-063",
+      "WASH-064",
+      "WASH-065",
+      "WASH-066",
+      "WASH-067",
+      "WASH-068",
+      "WASH-069",
+      "WASH-070",
+      "WASH-071",
+      "WASH-072",
+      "WASH-073",
+      "WASH-074",
+      "WASH-075",
+      "WASH-076",
+      "WASH-077",
+      "WASH-078",
+      "WASH-079",
+      "WASH-080",
+      "WASH-081",
+      "WASH-082",
+      "WASH-083",
+      "WASH-084",
+      "WASH-085",
+      "WASH-086",
+      "WASH-087",
+      "WASH-088",
+      "WASH-089",
+      "WASH-090",
+      "WASH-091",
+      "WASH-106",
+      "WASH-107",
+      "WASH-110",
+      "WASH-111",
+      "WASH-112",
+      "WASH-113",
+      "WASH-114",
+      "WASH-115",
+      "WASH-116",
+      "WASH-117",
+      "WASH-118",
+      "WASH-119",
+      "WASH-120",
+      "WASH-121",
+      "WASH-122",
+      "WASH-163",
+      "WASH-164",
+      "WASH-165",
+      "WASH-186",
+      "WASH-193",
+      "WASH-196"
+    ]
+  },
+  {
+    "file": "src/data/fcs/factory-internal-warehouse.ts",
+    "requirements": [
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/data/fcs/factory-receiving-types.ts",
+    "requirements": [
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/data/fcs/factory-receiving-warehouse.ts",
+    "requirements": [
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/data/fcs/factory-receiving.ts",
+    "requirements": [
+      "WASH-064",
+      "WASH-065",
+      "WASH-066",
+      "WASH-067",
+      "WASH-068",
+      "WASH-069",
+      "WASH-070",
+      "WASH-071",
+      "WASH-072",
+      "WASH-073",
+      "WASH-074",
+      "WASH-075",
+      "WASH-076",
+      "WASH-077",
+      "WASH-078",
+      "WASH-079",
+      "WASH-092",
+      "WASH-093",
+      "WASH-094",
+      "WASH-095",
+      "WASH-096",
+      "WASH-097",
+      "WASH-098",
+      "WASH-099",
+      "WASH-100",
+      "WASH-101",
+      "WASH-195",
+      "WASH-196"
+    ]
+  },
+  {
+    "file": "src/data/fcs/pda-handover-events.ts",
+    "requirements": [
+      "WASH-080",
+      "WASH-081",
+      "WASH-082",
+      "WASH-083",
+      "WASH-084",
+      "WASH-085",
+      "WASH-086",
+      "WASH-087",
+      "WASH-088",
+      "WASH-089",
+      "WASH-090",
+      "WASH-091"
+    ]
+  },
+  {
+    "file": "src/data/fcs/printing-factory-demos.ts",
+    "requirements": [
+      "WASH-163",
+      "WASH-164",
+      "WASH-165"
+    ]
+  },
+  {
+    "file": "src/data/fcs/printing-material-receipts.ts",
+    "requirements": [
+      "WASH-155",
+      "WASH-163",
+      "WASH-185"
+    ]
+  },
+  {
+    "file": "src/data/fcs/printing-task-domain.ts",
+    "requirements": [
+      "WASH-001",
+      "WASH-002",
+      "WASH-004",
+      "WASH-021",
+      "WASH-037",
+      "WASH-038",
+      "WASH-039",
+      "WASH-040",
+      "WASH-041",
+      "WASH-049",
+      "WASH-080",
+      "WASH-081",
+      "WASH-082",
+      "WASH-083",
+      "WASH-084",
+      "WASH-085",
+      "WASH-086",
+      "WASH-087",
+      "WASH-088",
+      "WASH-089",
+      "WASH-090",
+      "WASH-091"
+    ]
+  },
+  {
+    "file": "src/data/fcs/process-order-task-links.ts",
+    "requirements": [
+      "WASH-011",
+      "WASH-108",
+      "WASH-109"
+    ]
+  },
+  {
+    "file": "src/data/fcs/production-artifact-generation.ts",
+    "requirements": [
+      "WASH-011",
+      "WASH-108",
+      "WASH-109",
+      "WASH-161",
+      "WASH-162"
+    ]
+  },
+  {
+    "file": "src/data/fcs/wool-domain/mock-receiving.ts",
+    "requirements": [
+      "WASH-185"
+    ]
+  },
+  {
+    "file": "src/data/pcs-record-db.ts",
+    "requirements": [
+      "WASH-054",
+      "WASH-055",
+      "WASH-056",
+      "WASH-142",
+      "WASH-143",
+      "WASH-144",
+      "WASH-145",
+      "WASH-146",
+      "WASH-147",
+      "WASH-148",
+      "WASH-149",
+      "WASH-150",
+      "WASH-151",
+      "WASH-152",
+      "WASH-153",
+      "WASH-154",
+      "WASH-155",
+      "WASH-156",
+      "WASH-158",
+      "WASH-159",
+      "WASH-197",
+      "WASH-198",
+      "WASH-199",
+      "WASH-200",
+      "WASH-201",
+      "WASH-202",
+      "WASH-203",
+      "WASH-204",
+      "WASH-205"
+    ]
+  },
+  {
+    "file": "src/data/pcs-technical-data-demo-completion.ts",
+    "requirements": [
+      "WASH-010",
+      "WASH-102",
+      "WASH-103",
+      "WASH-104",
+      "WASH-105",
+      "WASH-160"
+    ]
+  },
+  {
+    "file": "src/data/pcs-technical-data-demo-projection.ts",
+    "requirements": [
+      "WASH-010",
+      "WASH-102",
+      "WASH-103",
+      "WASH-104",
+      "WASH-105",
+      "WASH-160",
+      "WASH-161",
+      "WASH-162"
+    ]
+  },
+  {
+    "file": "src/data/production-timing/source.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-139",
+      "WASH-140",
+      "WASH-141"
+    ]
+  },
+  {
+    "file": "src/data/tech-pack-process-route.ts",
+    "requirements": [
+      "WASH-010",
+      "WASH-102",
+      "WASH-103",
+      "WASH-104",
+      "WASH-105",
+      "WASH-160",
+      "WASH-161",
+      "WASH-162"
+    ]
+  },
+  {
+    "file": "src/main.ts",
+    "requirements": [
+      "WASH-124"
+    ]
+  },
+  {
+    "file": "src/pages/pda-exec-detail.ts",
+    "requirements": [
+      "WASH-124"
+    ]
+  },
+  {
+    "file": "src/pages/pda-handover.ts",
+    "requirements": [
+      "WASH-177",
+      "WASH-178",
+      "WASH-179",
+      "WASH-180"
+    ]
+  },
+  {
+    "file": "src/pages/process-factory/dyeing/pending-receipts.ts",
+    "requirements": [
+      "WASH-064",
+      "WASH-067",
+      "WASH-154"
+    ]
+  },
+  {
+    "file": "src/pages/process-factory/dyeing/warehouse.ts",
+    "requirements": [
+      "WASH-126",
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/pages/process-factory/dyeing/washing/storage-tools.ts",
+    "requirements": [
+      "WASH-173",
+      "WASH-197",
+      "WASH-198",
+      "WASH-199",
+      "WASH-200",
+      "WASH-201",
+      "WASH-202",
+      "WASH-203",
+      "WASH-204",
+      "WASH-205"
+    ]
+  },
+  {
+    "file": "src/pages/process-factory/dyeing/washing/work-orders.ts",
+    "requirements": [
+      "WASH-003",
+      "WASH-005",
+      "WASH-006",
+      "WASH-008",
+      "WASH-009",
+      "WASH-013",
+      "WASH-044",
+      "WASH-045",
+      "WASH-046",
+      "WASH-047",
+      "WASH-048",
+      "WASH-050",
+      "WASH-051",
+      "WASH-052",
+      "WASH-053",
+      "WASH-057",
+      "WASH-058",
+      "WASH-059",
+      "WASH-060",
+      "WASH-061",
+      "WASH-062",
+      "WASH-063",
+      "WASH-092",
+      "WASH-093",
+      "WASH-094",
+      "WASH-095",
+      "WASH-096",
+      "WASH-097",
+      "WASH-098",
+      "WASH-099",
+      "WASH-100",
+      "WASH-101",
+      "WASH-114",
+      "WASH-115",
+      "WASH-116",
+      "WASH-117",
+      "WASH-118",
+      "WASH-119",
+      "WASH-120",
+      "WASH-121",
+      "WASH-122",
+      "WASH-123",
+      "WASH-124",
+      "WASH-125",
+      "WASH-126",
+      "WASH-127",
+      "WASH-128",
+      "WASH-129",
+      "WASH-130",
+      "WASH-131",
+      "WASH-132",
+      "WASH-133",
+      "WASH-134",
+      "WASH-135",
+      "WASH-136",
+      "WASH-137",
+      "WASH-157",
+      "WASH-177",
+      "WASH-178",
+      "WASH-179",
+      "WASH-180",
+      "WASH-190",
+      "WASH-191",
+      "WASH-192",
+      "WASH-194"
+    ]
+  },
+  {
+    "file": "src/pages/process-factory/printing/work-order-detail.ts",
+    "requirements": [
+      "WASH-123"
+    ]
+  },
+  {
+    "file": "src/pages/production/detail-domain.ts",
+    "requirements": [
+      "WASH-027",
+      "WASH-028",
+      "WASH-029",
+      "WASH-030",
+      "WASH-031",
+      "WASH-032",
+      "WASH-033",
+      "WASH-034",
+      "WASH-035",
+      "WASH-036",
+      "WASH-112"
+    ]
+  },
+  {
+    "file": "src/pages/tech-pack/context.ts",
+    "requirements": [
+      "WASH-010",
+      "WASH-102",
+      "WASH-103",
+      "WASH-104",
+      "WASH-105",
+      "WASH-160"
+    ]
+  },
+  {
+    "file": "src/pages/wls-inbound.ts",
+    "requirements": [
+      "WASH-077",
+      "WASH-154",
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/pages/wls/raw/inbound-list.ts",
+    "requirements": [
+      "WASH-077",
+      "WASH-154",
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/pages/wls/raw/washing-stock.ts",
+    "requirements": [
+      "WASH-077",
+      "WASH-154",
+      "WASH-195"
+    ]
+  },
+  {
+    "file": "src/router/route-renderers-fcs.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-154"
+    ]
+  },
+  {
+    "file": "src/router/route-renderers.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-154"
+    ]
+  },
+  {
+    "file": "src/router/routes-fcs.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-139",
+      "WASH-140",
+      "WASH-141"
+    ]
+  },
+  {
+    "file": "src/router/routes-pda.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-139",
+      "WASH-140",
+      "WASH-141"
+    ]
+  },
+  {
+    "file": "src/router/routes-wls.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-154"
+    ]
+  },
+  {
+    "file": "src/router/routes.ts",
+    "requirements": [
+      "WASH-138",
+      "WASH-139",
+      "WASH-140",
+      "WASH-141"
+    ]
+  }
+]

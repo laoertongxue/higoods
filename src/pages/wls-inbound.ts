@@ -1,3 +1,4 @@
+import { renderWashingWarehouseSection } from './wls/raw/washing-stock.ts'
 // @page-pattern: list
 // WH-001–006：原交出单中转区域实收；原型身份选择，不代替生产鉴权。
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
@@ -97,7 +98,7 @@ export function renderWlsInboundPage(): string {
   state.selected = null; state.busy = false
   controller.installColumnDragEvents(); loadRows()
   const view = controller.getView()
-  return `<div data-wls-inbound-root data-skip-page-rerender="true">${renderStandardListPage({
+  return `<div data-wls-inbound-root data-skip-page-rerender="true">${renderWashingWarehouseSection()}${renderStandardListPage({
     title: '中转区域收货',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-sm"><span>原型操作身份</span><select class="rounded border p-2" data-wls-inbound-field="actorRole"><option value="READONLY" ${state.actorRole === 'READONLY' ? 'selected' : ''}>只读查看</option><option value="TRANSFER_CLERK" ${state.actorRole === 'TRANSFER_CLERK' ? 'selected' : ''}>中转区域收货员</option></select><label>收货员姓名 <input class="rounded border p-2" data-wls-inbound-field="actorName" value="${escapeHtml(state.actorName)}" placeholder="填写实际操作人姓名"></label></div>`,
     feedbackHtml: `<p role="status" data-wls-inbound-feedback>${escapeHtml(state.feedback)}</p>`,

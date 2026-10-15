@@ -2635,7 +2635,7 @@ function getBaselineProcessByCode(code: string): BaselineProcessOption | null {
 
 function getTechniqueProcessOptions(stageCode: '' | 'PREP' | 'PROD' | 'POST') {
   if (!stageCode) return []
-  return listProcessesByStageCode(stageCode).map((item) => ({
+  return listProcessesByStageCode(stageCode).filter(item=>!['WASH','craft-wash'].includes(item.processCode)).map((item) => ({
     processCode: item.processCode,
     processName: item.processName,
     stageCode: item.stageCode,

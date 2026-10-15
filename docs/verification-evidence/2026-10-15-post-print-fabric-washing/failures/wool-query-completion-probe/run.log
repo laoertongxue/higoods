@@ -1,0 +1,62 @@
+[WebServer] (node:55879) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:55908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.0m)
+(node:55977) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.5s)
+(node:55983) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (2.2s)
+(node:55991) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.9s)
+(node:55997) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.5s)
+
+
+  1) tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 ──────────────
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for locator('[data-wool-dialog-field="qty"]')
+
+
+       6 | async function facts(page:Page){return page.evaluate(async()=>{const modulePath='/src/data/fcs/wool-domain/store.ts';const {readWoolStore}=await import(/* @vite-ignore */ modulePath);return readWoolStore()})}
+       7 | async function stageTotal(page:Page,stage='knitting'){return page.evaluate(async stage=>{const modulePath='/src/data/fcs/wool-domain/queries.ts';const domain=await import(/* @vite-ignore */ modulePath);return domain.listWoolWorkOrders({stage:stage==='knitting'?'KNITTING':'LINKING'}).length},stage)}
+    >  8 | async function report(page:Page,id:string,qty:number){const order=(await facts(page)).workOrders[id];await page.locator('[data-wool-work-orders-field="keyword"]').fill(order.woolOrderNo);await page.locator(action('query')).click();await expect(page.locator('[data-wool-work-orders-table-surface] tbody tr')).toHaveCount(1);await page.locator(action('open-report',id)).click();await page.locator('[data-wool-dialog-field="qty"]').fill(String(qty));await page.locator(action('save-report')).click()}
+         |                                                                                                                                                                                                                                                                                                                                                                                                                                              ^
+       9 | async function receive(page:Page,id:string,qty:number,piece=false){await page.goto(`/fcs/craft/wool/pending-receipts?workOrderId=${encodeURIComponent(id)}`);await page.locator('[data-wool-receiving-action="receive"]').first().click();if(piece)await page.locator('[data-wool-receiving-field="pieceQty"]').fill(String(qty));else {await page.locator('[data-wool-receiving-field="pcs"]').fill('1');await page.locator('[data-wool-receiving-field="grossKg"]').fill(String(qty+.062));await page.locator('[data-wool-receiving-field="PAPER"]').fill('1')}await page.locator('[data-wool-receiving-action="review"]').click();await page.locator('[data-wool-receiving-action="save"]').click();await expect(page.locator('[data-wool-receiving-feedback]')).toContainText('已保存')}
+      10 |
+      11 | test('两阶段保留六状态、八列、分页与路由独立筛选',async({page})=>{for(const stage of ['knitting','linking']){await open(page,stage);const initialTotal=await stageTotal(page,stage);await expect(page.locator('[data-wool-work-orders-action^="tab:"]')).toHaveCount(6);for(const title of ['加工投入','加工要求','加工产出','时间','数量'])await expect(page.locator('th').filter({hasText:title}).first()).toBeVisible();await page.locator('[data-wool-work-orders-field="keyword"]').fill('不存在的单据');await page.locator(action('query')).click();await expect(page.locator('[data-wool-work-orders-table-surface]')).toContainText('暂无');await page.locator(action('reset-filters')).click();await expect(page.locator('[data-wool-work-orders-total]')).toHaveText(`共 ${initialTotal} 条`)}})
+        at report (/Users/laoer/.codex/worktrees/a266/higoods/tests/wool-management-fact-workflow.spec.ts:8:430)
+        at /Users/laoer/.codex/worktrees/a266/higoods/tests/wool-management-fact-workflow.spec.ts:19:81
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/wool-management-fact-workflow-混合片Q1回80与Q2回100时最多缝盘80，不能二次放大/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/wool-management-fact-workflow-混合片Q1回80与Q2回100时最多缝盘80，不能二次放大/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/wool-management-fact-workflow-混合片Q1回80与Q2回100时最多缝盘80，不能二次放大/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/wool-management-fact-workflow-混合片Q1回80与Q2回100时最多缝盘80，不能二次放大/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/wool-management-fact-workflow-混合片Q1回80与Q2回100时最多缝盘80，不能二次放大/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/wool-management-fact-workflow.spec.ts:19:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 ───────────────
+  4 passed (1.2m)

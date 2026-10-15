@@ -1,3 +1,4 @@
+import { renderWashingJudgmentPanel } from './process-factory/dyeing/washing/work-orders.ts'
 import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { getProcessOrderReceivingFacts } from '../data/fcs/factory-receiving.ts'
@@ -3234,10 +3235,13 @@ function measurePdaExecDetailReady(renderToken: string): void {
 
 export function renderPdaExecDetailPage(taskId: string): string {
   syncWaterActionScope(taskId)
-  syncPdaStartRiskAndExceptions()
-  syncMilestoneOverdueExceptions()
-
   const task = getTaskFactById(taskId)
+  // These two synchronizers own only the PDA-EXEC demonstration tasks. A real
+  // print task reads its own execution facts without scanning unrelated cases.
+  if(!task||getMobileTaskProcessType(task)!=='PRINT'){
+    syncPdaStartRiskAndExceptions()
+    syncMilestoneOverdueExceptions()
+  }
   if (task && getMobileTaskProcessType(task) === 'WOOL') {
     const session = getPdaSession()
     const woolAccess = validateWoolPdaTaskAccess({
@@ -3750,7 +3754,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
       ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
       ${renderPdaSewingDeliveryProgress(getSewingDeliverySlaView(task.taskId), getQtyUnitLabel(task.qtyUnit))}
-      ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) : ''}
+      ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) + renderWashingJudgmentPanel(printWorkOrder.printOrderId,true) : ''}
       ${mobileTaskAccess.canOpenMobileExecution && dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
       ${specialCraftExecutionPanel}
 

@@ -3,7 +3,7 @@ import type { FactoryReceivingSource } from '../factory-receiving-types.ts'
 import { projectFactoryReceiptsIntoWool } from '../factory-receiving-wool.ts'
 import type { WoolDomainStore } from './store.ts'
 import { sourceForBatch } from './craft-flow.ts'
-import { finalizeWoolStageDemoFacts, woolDemoNumber } from './mock-data.ts'
+import { buildWoolFactWorkflowMockStore, finalizeWoolStageDemoFacts, woolDemoNumber } from './mock-data.ts'
 
 const INITIALIZED = 'WDEMO-RECEIVING-INITIALIZED-20260918'
 let initializing = false
@@ -12,7 +12,10 @@ let initializing = false
 export function ensureWoolStageDemoReceivingFacts(store: WoolDomainStore): void {
   if (initializing) return
   const alreadyInitialized = store.operationLogs.some(log => log.operationLogId === INITIALIZED)
-  const orders = Object.values(store.workOrders).filter(order => order.stage === 'KNITTING' && woolDemoNumber(order) > 0)
+  // Fixed demonstration receipts are a read-only fallback across refreshes.
+  // Rebuild them from the original fixture, never from later user handovers.
+  const demoFacts = alreadyInitialized ? buildWoolFactWorkflowMockStore() : store
+  const orders = Object.values(demoFacts.workOrders).filter(order => order.stage === 'KNITTING' && woolDemoNumber(order) > 0)
   if (!orders.length) return
   initializing = true
   try {
@@ -45,7 +48,7 @@ export function ensureWoolStageDemoReceivingFacts(store: WoolDomainStore): void 
       registerFactoryReceivingSource(source)
       receive(source, 10, stockReceiptId, '2026-09-18 08:30:00')
     }
-    for (const order of alreadyInitialized ? [] : orders) {
+    for (const order of orders) {
       const n = woolDemoNumber(order), id = `WDEMO-YARN:${order.pairId}`, material = order.yarnMaterials![0]
       const yarn: FactoryReceivingSource = { id, documentNo: `LY-MZ-${String(n).padStart(3, '0')}`, type: 'TRANSFER', approvedAt: '2026-09-18 08:05:00', approvedBy: '纱仓主管（演示）',
         origin: { kind: 'WAREHOUSE', id: 'WDEMO-YARN-CENTRAL', name: '毛纱中心仓（演示）', warehouseAttribute: '常规仓' },
@@ -54,14 +57,14 @@ export function ensureWoolStageDemoReceivingFacts(store: WoolDomainStore): void 
           plannedQty: 25, sentQty: 25, unit: 'kg', rolls: [], label: id, woolOrderId: order.woolOrderId, productionOrderNo: order.productionOrderNo, taskNo: order.taskNo }] }
       registerFactoryReceivingSource(yarn)
       if (![1, 6].includes(n)) receive(yarn, 25, `WDEMO-YARN-R:${order.pairId}`, '2026-09-18 08:30:00')
-      for (const handover of store.handovers.filter(record => record.woolOrderId === order.woolOrderId && record.pieceKey)) {
+      for (const handover of demoFacts.handovers.filter(record => record.woolOrderId === order.woolOrderId && record.pieceKey)) {
         const piece = order.externalPieces.find(item => item.pieceKey === handover.pieceKey)!, node = piece.routeNodes[0]
         const source = sourceForBatch(order, piece, { id: handover.handoverId, qty: handover.handoverQty, at: handover.handedOverAt, by: handover.handedOverBy,
           factoryId: node.factoryId, factoryName: node.factoryName, target: node, routeNodeId: node.sourceEntryId, sourceFactoryId: order.factoryId, sourceFactoryName: order.factoryName })
         registerFactoryReceivingSource(source)
         receive(source, handover.handoverQty, `WDEMO-R:${handover.handoverId}`, '2026-09-18 10:00:00')
       }
-      for (const record of store.craftRecords.filter(record => record.woolOrderId === order.woolOrderId && record.action === 'HANDOVER')) {
+      for (const record of demoFacts.craftRecords.filter(record => record.woolOrderId === order.woolOrderId && record.action === 'HANDOVER')) {
         const piece = order.externalPieces.find(item => item.pieceKey === record.pieceKey)!
         const index = piece.routeNodes.findIndex(node => node.sourceEntryId === record.routeNodeId), node = piece.routeNodes[index], next = piece.routeNodes[index + 1] || null
         const source = sourceForBatch(order, piece, { id: record.recordId, qty: record.qty, at: record.operatedAt, by: record.operatedBy,
@@ -82,6 +85,6 @@ export function ensureWoolStageDemoReceivingFacts(store: WoolDomainStore): void 
       store.operationLogs.push({ operationLogId: INITIALIZED, action: 'INITIALIZE_DEMO_RECEIVING', objectType: 'DEMO_SOURCE', objectId: INITIALIZED,
         operatedBy: '两阶段演示数据', operatedAt: '2026-09-18 16:30:00', remark: '仅初始化新演示需求；纱线与毛织片实收来自统一接收记录' })
     }
-    })
+    }, false)
   } finally { initializing = false }
 }

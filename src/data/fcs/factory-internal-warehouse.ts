@@ -1,3 +1,4 @@
+import { washingOutputStock } from './fabric-washing-gates.ts'
 import { buildWoolCraftWarehouseProjection, isWoolCraftWarehouseProjectionId } from './wool-domain/craft-warehouse.ts'
 import {getReceiptMaterialUsed, getFactoryReceivingRevision} from './factory-receiving.ts'
 import {buildFactoryReceiptInboundRecords} from './factory-receiving-warehouse.ts'
@@ -92,6 +93,7 @@ export type FactoryWarehouseStocktakeReviewStatus = '待审核' | '审核通过'
 export type FactoryWarehouseAdjustmentOrderStatus = '待执行' | '已完成' | '已作废'
 
 interface FactoryWarehouseBaseItem {
+  washingOrderId?: string
   stockItemId: string
   warehouseId: string
   factoryId: string
@@ -180,6 +182,7 @@ export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
 }
 
 export interface FactoryWarehouseInboundRecord {
+  washingOrderId?: string
   inboundRecordId: string
   inboundRecordNo: string
   warehouseId: string
@@ -1146,6 +1149,7 @@ function buildWaitProcessStockItemFromInbound(
   record: FactoryWarehouseInboundRecord,
 ): FactoryWaitProcessStockItem {
   return {
+    washingOrderId: record.washingOrderId,
     stockItemId: `WPS-${record.inboundRecordId}`,
     warehouseId: record.warehouseId,
     factoryId: record.factoryId,
@@ -2598,7 +2602,7 @@ export function listFactoryWaitProcessStockItems(): FactoryWaitProcessStockItem[
 }
 
 export function listFactoryWaitHandoverStockItems(): FactoryWaitHandoverStockItem[] {
-  return cloneValue(ensureFactoryInternalWarehouseStore().waitHandoverStockItems)
+  return cloneValue([...ensureFactoryInternalWarehouseStore().waitHandoverStockItems,...washingOutputStock()])
 }
 
 export function listFactoryWarehouseInboundRecords(): FactoryWarehouseInboundRecord[] {

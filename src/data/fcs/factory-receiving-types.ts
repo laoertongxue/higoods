@@ -5,19 +5,19 @@ export interface ReceivingMaterial {
   sku: string; name: string; kind: ReceivingMaterialKind; imageUrl: string; color: string
   composition: string; specification: string; batchNo: string
 }
-export interface SourceRoll {barcode:string; yard:number}
+export interface SourceRoll {barcode:string; yard:number; qty?:number; unit?:string;originRollId?:string}
 export interface FactoryReceivingSourceLine {
   /** 仅已明确为连续长度库存的辅料使用；其他辅料沿用实际称重。 */
   measurementBasis?: 'CONTINUOUS_LENGTH'
   id:string; material:ReceivingMaterial; plannedQty:number; unit:string; sentQty:number
   rolls:SourceRoll[]; label:string; yarn?:YarnWeight
-  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
+  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; washingOrderId?:string; washingDirection?:'TO_WASH'|'AFTER_WASH'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string; woolOrderId?:string; productionOrderNo?:string; taskNo?:string
 }
 export interface FactoryReceivingSource {
   id:string; documentNo:string; type:'TRANSFER'|'ISSUE'|'HANDOUT'; origin:DyePartner
   targetFactoryId:string; targetFactoryName:string; createdAt:string; createdBy:string
   approvedAt?:string; approvedBy?:string; handedOutAt?:string; voidedAt?:string
-  processCode?:'PRINT';waterBatchId?:string;lines:FactoryReceivingSourceLine[]; workOrderNo?:string; originalRecordId?:string
+  processCode?:'PRINT'|'WASH';waterBatchId?:string;lines:FactoryReceivingSourceLine[]; workOrderNo?:string; originalRecordId?:string
 }
 export interface FactoryDeliveryLine {
   id:string; sourceId:string; sourceLineId:string; qty:number; unit:string; rollBarcodes:string[]
@@ -26,7 +26,7 @@ export interface FactoryDeliveryNote {
   id:string; barcode:string; deliveredAt:string; createdBy:string; lines:FactoryDeliveryLine[]
 }
 export interface ReceiptPosition {warehouseId:string;locationId:string}
-export interface ReceiptRoll extends ReceiptPosition {barcode:string;yard:number}
+export interface ReceiptRoll extends ReceiptPosition {barcode:string;yard:number;qty?:number;unit?:string;originRollId?:string}
 export interface FactoryReceiptLineInput extends ReceiptPosition {
   sourceId:string;sourceLineId:string;deliveryLineId?:string;rolls?:ReceiptRoll[]
   businessQty?:number;businessUnit?:string;weightKg?:number;grossKg?:number;tubes?:YarnTubeCounts;pcs?:number
@@ -38,7 +38,7 @@ export interface FactoryReceiptInput {
 export interface FactoryReceiptLine extends FactoryReceiptLineInput {
   id:string; material:ReceivingMaterial; qty:number;unit:'Yard'|'kg'|'片'|'米';yarn?:YarnWeight
   sourceDocumentNo:string; sourceType:FactoryReceivingSource['type']; origin:DyePartner
-  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
+  woolPieceKey?:string; woolRouteNodeId?:string; woolCraftOrderId?:string; washingOrderId?:string; washingDirection?:'TO_WASH'|'AFTER_WASH'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;productionOrderNo?:string;taskNo?:string
 }
 export interface FactoryReceipt extends Omit<FactoryReceiptInput,'lines'> {lines:FactoryReceiptLine[]; fingerprint:string}
-export interface ReceivingAllocation {id:string;receiptLineId:string;printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}
+export interface ReceivingAllocation {id:string;receiptLineId:string;washingOrderId?:string; washingDirection?:'TO_WASH'|'AFTER_WASH'; originPrintOrderId?:string; printingOrderId?:string;dyeOrderId?:string;waterOrderId?:string;woolOrderId?:string;qty:number;operatorName:string;at:string}
