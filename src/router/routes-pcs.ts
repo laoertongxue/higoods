@@ -183,7 +183,10 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/,
-      render: (match) => renderers.renderTechPackPage(match[1], { styleId: match[1], technicalVersionId: match[2] }),
+      render: async (match) => {
+        await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingViewRecords()
+        return renderers.renderTechPackPage(match[1], { styleId: match[1], technicalVersionId: match[2] })
+      },
     },
   ],
 }

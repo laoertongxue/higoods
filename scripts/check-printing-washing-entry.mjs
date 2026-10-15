@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 // Isolated browser contexts only. Never connects to the user's daily browser.
 const base=process.env.WASH_BASE_URL||'http://127.0.0.1:43158'
 const runs=Number(process.env.WASH_ENTRY_RUNS||5)
-const out='docs/verification-evidence/2026-10-15-washing-entry-v1.2'
+const out=process.env.WASH_OUT_DIR||'docs/verification-evidence/2026-10-15-washing-gtg-v1.3'
 const stamp=new Date().toISOString().replaceAll(':','-')
 mkdirSync(out,{recursive:true})
 const report={at:new Date().toISOString(),base,head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),environment:{node:process.version,timezone:'Asia/Shanghai',scale:'77 native printing orders; 50 rows per page; six eligible fabric source scenarios × six 50 Yard rolls; new isolated context each run, no prewarming'},checks:[],samples:[],errors:[]}
@@ -45,6 +45,7 @@ for(let run=1;run<=runs;run++)await check('entry-lifecycle-'+run,async()=>{
  const c=await browser.newContext({viewport,timezoneId:'Asia/Shanghai'}),p=await c.newPage();await init(p)
  try{
   await sample(p,'cold-list',run,()=>p.goto(base+path,{waitUntil:'domcontentloaded'}),()=>p.locator('[data-printing-work-orders-root]').waitFor(),true)
+  if(process.env.WASH_ENTRY_ONLY==='cold')return {coldRepair:true,printingRows:await p.locator('[data-printing-row-actions]').count()}
   await p.locator('[data-printing-work-orders-field="pageSize"]').selectOption('50')
   await p.waitForFunction(()=>document.querySelectorAll('[data-printing-row-actions]').length===50)
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
@@ -66,9 +67,7 @@ for(let run=1;run<=runs;run++)await check('entry-lifecycle-'+run,async()=>{
   await open(p,run)
   await sample(p,'reject-missing-handfeel',run,()=>p.getByRole('button',{name:'创建洗水加工单',exact:true}).click(),()=>p.locator('[data-washing-error]').filter({hasText:'手感'}).waitFor())
   assert.equal((await durable(p)).length,0)
-  await p.getByRole('combobox',{name:'当前职责',exact:true}).selectOption('计划跟单')
-  await p.getByRole('button',{name:'创建洗水加工单',exact:true}).click();await p.locator('[data-washing-error]').filter({hasText:'当前人员不能执行此动作'}).waitFor()
-  await p.getByRole('combobox',{name:'当前职责',exact:true}).selectOption('现场判断人员')
+  assert.equal(await p.locator('[data-washing-context],[data-washing-context-role],[data-washing-context-factory]').count(),0)
   const feel=['柔软手感','增厚蓬松棉手感','硬挺手感'][run%3]
   await p.locator('[data-washing-feel]').selectOption(feel)
   await p.evaluate(()=>{window.entryPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(...args){if(this.name==='records')throw new DOMException('entry quota fixture','QuotaExceededError');return window.entryPut.apply(this,args)}})
@@ -96,7 +95,7 @@ for(let run=1;run<=runs;run++)await check('entry-lifecycle-'+run,async()=>{
  }finally{await c.close()}
 })
 
-await check('pending-save-close-guard-local-refresh-and-image',async()=>{
+if(process.env.WASH_ENTRY_ONLY!=='cold')await check('pending-save-close-guard-local-refresh-and-image',async()=>{
  const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'}),p=await c.newPage();await init(p)
  try{
   await p.goto(base+path);await p.locator('[data-printing-work-orders-root]').waitFor();await filter(p);await open(p,0)

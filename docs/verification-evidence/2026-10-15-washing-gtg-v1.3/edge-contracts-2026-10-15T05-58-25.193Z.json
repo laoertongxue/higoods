@@ -1,0 +1,136 @@
+{
+  "at": "2026-10-15T05:58:07.256Z",
+  "base": "http://127.0.0.1:43157",
+  "cases": [
+    {
+      "name": "WASH-208/209/212 操作栏按已完成批次判断，取消和暂停不能发起",
+      "status": "PASS",
+      "detail": {
+        "completedBatch": "BATCH-WASH-PRODUCTION",
+        "eligibleRolls": 6,
+        "partialWholeOrder": true,
+        "cancelledBlocked": true,
+        "pausedBlocked": true
+      }
+    },
+    {
+      "name": "CT-11 真实提前匹配事务保存后追加关联，刷新不重建，失败保留洗水事实",
+      "status": "PASS",
+      "detail": {
+        "orderId": "WASH-83314f68-9d6f-4bc9-8003-32896f6a250b",
+        "productionOrderId": "PO-WASH-EARLY-EDGE",
+        "orders": 1
+      }
+    },
+    {
+      "name": "CT-01/05 原正常交出与洗水混合分流，旧草稿占用阻断，裁剪车缝身份不重建",
+      "status": "PASS",
+      "detail": {
+        "normalRoll": "WS-1-R1",
+        "washingRoll": "WS-1-R3",
+        "originalTarget": "全能力测试工厂",
+        "washingFactory": "ID-F003",
+        "originalOutput": 300,
+        "handedOver": 100,
+        "draft": "SJ-20261015-1792043889557-10"
+      }
+    },
+    {
+      "name": "CT-07/09 上游改版停止实物动作，负责人核对原范围后恢复并保留判断历史",
+      "status": "PASS",
+      "detail": {
+        "orderId": "WASH-2134873f-8459-45c3-a600-2288c29c3d04",
+        "history": 1
+      }
+    },
+    {
+      "name": "CT-05/06 重包新码分配和实际领用追溯原卷，历史可用量不能补足洗水库存",
+      "status": "PASS",
+      "detail": {
+        "barcode": "NEW-EDGE-ROLL",
+        "originRollId": "PWO-WASH-DEMO-PRODUCTION-DONE-R1",
+        "qty": 50
+      }
+    },
+    {
+      "name": "PG-04 通用待接收扫码深链只能进入洗水逐卷实收，不进入 Yard 通用表单",
+      "status": "FAIL",
+      "error": "locator.waitFor: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: '逐卷洗水接收', exact: true }) to be visible\u001b[22m\n BODY 数：1\n最近接收人：仓管（演示）\n最近接收时间：2026-09-18 10:00:00\n原单建单时间：2026-09-18 09:30:00\n\t\n接收明细：WDEMO-R:WDEMO-HO:WOOL-STAGE-011:KNITTING:Q2-L1\n位置：全能力测试工厂 · 待加工仓 / A-01-01\n\t\n接收\n详情 / 来源\n接收记录\n\n\n收货工厂：全能力测试工厂\nWDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER\n工厂名称：APF - 辅助工艺\n工厂编号：FAC-APF\n工厂类型：工艺加工厂\n单据类型：工厂交出单\n\t\nQ / 第1片\nWOOL-STAGE-011:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER\n\t\n送货单：尚未安排送货单\n用途：备料来货，未关联加工单\n\t\n计划：100 片\n上游实发：100 片\n标签：WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER\n历史实收：100.000 kg / 100000 g\n来货差异：暂无可比实发数量\n\t\n登记情况：已有接收记录\n接收明细数：1\n最近接收人：仓管（演示）\n最近接收时间：2026-09-18 11:00:00\n原单建单时间：2026-09-18 10:30:00\n\t\n接收明细：WDEMO-R:WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER-L1\n位置：全能力测试工厂 · 待加工仓 / A-01-01\n\t\n接收\n详情 / 来源\n接收记录\n\n\n收货工厂：全能力测试工厂\nWDEMO-HO:WOOL-STAGE-012:KNITTING:Q2\n工厂名称：周哥毛织厂\n工厂编号：OWN_WOOL_FACTORY\n工厂类型：工艺加工厂\n单据类型：工厂交出单\n\t\nQ / 第2片\nWOOL-STAGE-012:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2\n\t\n送货单：尚未安排送货单\n用途：备料来货，未关联加工单\n\t\n计划：100 片\n上游实发：100 片\n标签：WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2\n历史实收：100.000 kg / 100000 g\n来货差异：暂无可比实发数量\n\t\n登记情况：已有接收记录\n接收明细数：1\n最近接收人：仓管（演示）\n最近接收时间：2026-09-18 10:00:00\n原单建单时间：2026-09-18 09:30:00\n\t\n接收明细：WDEMO-R:WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2-L1\n位置：全能力测试工厂 · 待加工仓 / A-01-01\n\t\n接收\n详情 / 来源\n接收记录\n\n\n收货工厂：全能力测试工厂\nWDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER\n工厂名称：APF - 辅助工艺\n工厂编号：FAC-APF\n工厂类型：工艺加工厂\n单据类型：工厂交出单\n\t\nQ / 第1片\nWOOL-STAGE-012:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER\n\t\n送货单：尚未安排送货单\n用途：备料来货，未关联加工单\n\t\n计划：100 片\n上游实发：100 片\n标签：WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER\n历史实收：100.000 kg / 100000 g\n来货差异：暂无可比实发数量\n\t\n登记情况：已有接收记录\n接收明细数：1\n最近接收人：仓管（演示）\n最近接收时间：2026-09-18 11:00:00\n原单建单时间：2026-09-18 10:30:00\n\t\n接收明细：WDEMO-R:WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER-L1\n位置：全能力测试工厂 · 待加工仓 / A-01-01\n\t\n接收\n详情 / 来源\n接收记录\n\n\n收货工厂：全能力测试工厂\nWDEMO-HO:WOOL-STAGE-013:KNITTING:Q2\n工厂名称：周哥毛织厂\n工厂编号：OWN_WOOL_FACTORY\n工厂类型：工艺加工厂\n单据类型：工厂交出单\n\t\nQ / 第2片\nWOOL-STAGE-013:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2\n\t\n送货单：尚未安排送货单\n用途：备料来货，未关联加工单\n\t\n计划：100 片\n上游实发：100 片\n标签：WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2\n历史实收：100.000 kg / 100000 g\n来货差异：暂无可比实发数量\n\t\n登记情况：已有接收记录\n接收明细数：1\n最近接收人：仓管（演示）\n最近接收时间：2026-09-18 10:00:00\n原单建单时间：2026-09-18 09:30:00\n\t\n接收明细：WDEMO-R:WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2-L1\n位置：全能力测试工厂 · 待加工仓 / A-01-01\n\t\n接收\n详情 / 来源\n接收记录\n\n\n收货工厂：全能力测试工厂\nWDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER\n工厂名称：APF - 辅助工艺\n工厂编号：FAC-APF\n工厂类型：工艺加工厂\n单据类型：工厂交出单\n\t\nQ / 第1片\nWOOL-STAGE-013:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER\n\t\n送货单：尚未安排送货单\n用途：备料来货，未关联加工单\n\t\n计划：100 片\n上游实发：100 片\n标签：WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER\n历史实收：100.000 kg / 100000 g\n来货差异：暂无可比实发数量\n\t\n登记情况：已有接收记录\n接收明细数：1\n最近接收人：仓管（演示）\n最近接收时间：2026-09-18 11:00:00\n原单建单时间：2026-09-18 10:30:00\n\t\n接收明细：WDEMO-R:WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER-L1\n位置：全能力测试工厂 · 待加工仓 / A-01-01\n\t\n接收\n详情 / 来源\n接收记录\n\n共 9 条，当前 1-9\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页"
+    },
+    {
+      "name": "PD-02/03 全能力工厂 PDA 待加工和待交出仓直达读取洗水实物，不复制库存",
+      "status": "FAIL",
+      "error": "locator.waitFor: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-washing-factory-stock=\"WAIT_PROCESS\"]') to be visible\u001b[22m\n DATA {\"native\":45,\"before\":1,\"readError\":\"\",\"url\":\"http://127.0.0.1:43157/fcs/pda/handover?tab=pickup\",\"orders\":1,\"sessionFactory\":\"F090\",\"receiptLines\":[],\"render\":\"\"} BODY 全能力测试工厂\n交接 · F090\n待办\n49\n全\n全能力测\n待接收 4\n待交出 7\n扫码接收捆条面料\n识别加工单\n扫码确认接收\n识别加工单\n水溶\nPO-202603-088\n待仓库/工厂处理\n雅加达中心仓\n全能力测试工厂\n应收\n1134 米\n已收\n0 米\n待收\n1134 米\n确认接收\n水溶\nPO-202603-087\n待仓库/工厂处理\n雅加达中心仓\n全能力测试工厂\n应收\n1512 米\n已收\n0 米\n待收\n1512 米\n确认接收\n裁片\nPO-202603-0003\n存在数量差异\n五仓裁片仓\nPT Mulia Cutting Center\n应收\n8 卷\n已收\n0 卷\n待收\n8 卷\n确认接收\n裁片\nPO-20260319-013\n待仓库/工厂处理\n一仓裁床仓\n全能力测试工厂\n应收\n10 卷\n已收\n0 卷\n待收\n10 卷\n确认接收\n接单\n执行\n交接\n仓管\n结算"
+    },
+    {
+      "name": "CT-10 清理旧片段失败可用原操作续迁，过期旧标签修改不能被清理吞掉",
+      "status": "PASS",
+      "detail": [
+        {
+          "stale": false,
+          "blocked": false,
+          "remaining": 0,
+          "orderId": "WASH-be8d2f76-b380-4931-8b49-da0d38aa4f77"
+        },
+        {
+          "stale": true,
+          "blocked": true,
+          "remaining": 1,
+          "orderId": "WASH-cae916be-69ab-4372-8637-f182803f6135"
+        }
+      ]
+    },
+    {
+      "name": "CT-08 DB v1 升级阻塞明确提示，关闭旧页重试保留旧记录",
+      "status": "PASS",
+      "detail": {
+        "retainedOldRecords": 1
+      }
+    },
+    {
+      "name": "CT-08 versionchange 自动关闭连接，清理复核全库共享引用，损坏附件拒绝恢复",
+      "status": "PASS",
+      "detail": {
+        "orphanRemoved": 1,
+        "sharedKept": true,
+        "versionchangeClosed": true,
+        "orderId": "WASH-e229f53e-7f42-4fff-90d4-3797167447f6"
+      }
+    },
+    {
+      "name": "RL-01/CT-10 历史洗水时效深链保留原身份和执行记录",
+      "status": "PASS",
+      "detail": "原历史数量和完成时间未改写"
+    }
+  ],
+  "sourceHashes": {
+    "scripts/check-washing-gtg-ui.mjs": "a403360518a99b44ed35ffa3c0d4aa51fc91aef9d8cf39fd603454efe79d1f1e",
+    "src/components/actual-washing-route.ts": "5e80aa0ce89df2a66771874e0abe4a2864470f109b648c1b055b6a76eadc6259",
+    "src/data/fcs/fabric-washing-views.ts": "524886fa82b367e83a0259d1f635aaef2817744c64fb934f67f5a96853aff2e5",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "49080879771d6127a0dd8e96eda53d400d908e5dccbfb4009f4ba47efdec0628",
+    "tests/unit/fabric-washing-views.test.ts": "e3c86f752113923a64bb64cc4f6e77787d9b89f28985a894b64ac47cd449e4ef",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "e7c59be5fa6fe9074cb5ff6f1bf203675380aed3045eaba4abef554c932127a2",
+    "scripts/check-post-print-fabric-washing.mjs": "85bfead884c5e4715cc036218430e65dd31486881edf34f9f4318463752591f4",
+    "scripts/check-printing-washing-entry.mjs": "0d6a213191d4e6e09f65593c3178fcfabcbd00ba325ac29c319a76e93d80bdc2",
+    "src/data/fcs/fabric-washing-model.ts": "e2f56689d6cf4b8a735b14a57408360b199912036ca936894a8d0312f34eaa07",
+    "src/data/fcs/fabric-washing-repository.ts": "858609ee3f4096cb613c570c5452252faaf2ee0146c07d0e75e6e4ee7e4935ac",
+    "src/data/fcs/fabric-washing.ts": "afba9cccb75f8c4940bc8f5875aee322b4816f5bebeaa7facb3489ecf467c1f2",
+    "src/data/fcs/indonesia-factories.ts": "559fd29d0d5a3e9be969de90d47c1342ebcecce9d1682d6507ef4ea94c1a0ee8",
+    "src/pages/fcs-production-tech-pack-snapshot.ts": "1ce5fbc3ede080216404ac081aca446298d1734987b4fc21950f59ec9eea4871",
+    "src/pages/print/printing-sheet-preview.ts": "1351e46e0132a4b0de75d26e8446067ec76f5e809e8949a8adef7043f0ab86b8",
+    "src/pages/print/templates/printing-sheet-template.ts": "c121e33b75418ec748597b8989f940b5dc2fae85e21814ce3629dd19e498187f",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "368afa47ad9df10a7c2a3c2b30fba02e4bda2c7b9cd01878e0cf843fb58320a7",
+    "src/pages/process-factory/printing/dialogs.ts": "0113ad842591111f4197d806ad9644f1d696a77db92240bd514b40fa8ee1d7d4",
+    "src/pages/process-factory/printing/events.ts": "e79bd0b0cfdef87c554bce5a5870dd164cd88db224da86d8ccf39bcb5f0c791b",
+    "src/pages/process-factory/printing/relations.ts": "1a1cb96f5852e5dfc295dc0611fd5584db7bc2c2ad90b3df9164a74c8a267a6d",
+    "src/pages/process-factory/printing/work-orders.ts": "dcc649a46001203948689f118938486c611a72cfc8fbf7d2dcd25a913e579d87",
+    "src/pages/tech-pack/process-domain.ts": "00de97db3067e043f389986c5f92ba26edb5ea9443f3aea19d43232a2ead63e4",
+    "src/router/routes-fcs.ts": "c5ca9fb74d5930a84043d8bb7a397f777fb07a83657b0112a6ba69fb9d6fdd79",
+    "src/router/routes-pcs.ts": "389de71442b1e0ba9092d61c4c5847e4a6f1cf03bd549636b6cbcbb74d7811ac",
+    "tests/unit/fabric-washing.test.ts": "080c33ceb1ac9dec80370141c1837e5975d6d4277b32a6734a885e3c857fd3dd"
+  },
+  "summary": {
+    "pass": 9,
+    "fail": 2
+  }
+}

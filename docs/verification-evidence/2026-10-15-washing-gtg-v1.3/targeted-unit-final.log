@@ -1,0 +1,42 @@
+✔ WASH-219/222: current labels and legacy route display use 洗水 without changing stored identities or free text (0.834459ms)
+✔ CT-01: washing is rejected from an authored static route (0.315917ms)
+✔ CT-01: new planning bridges removed washing predecessors without mutating frozen history (0.178459ms)
+✔ CT-10: compressed legacy image references expand before selected leaf adoption (0.37725ms)
+✔ CT-10: selective overrides and tombstones retain unrelated documents and root configuration (0.250208ms)
+✔ CT-10: published historical washing content remains frozen while new static samples omit it (35.859875ms)
+(node:88458) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ WASH-230/232/241/243: links and initiation logs derive from the same atomic order and action (3.529833ms)
+✔ WASH-233/234/235: actual route additions are isolated by exact version and production order (0.177291ms)
+✔ WASH-236/237/247: no-wash never creates a route; retry and cancellation do not duplicate active additions (0.186416ms)
+✔ WASH-266: a legacy order reads its production frozen version without rewriting the saved source (0.103791ms)
+✔ WASH-248–254: washing columns have seven business groups and retain the original downstream (130.626334ms)
+✔ partial and full washing scopes drive the current downstream without changing the original target (0.288291ms)
+✔ legacy column preferences reveal all seven groups while preserving page size and current preferences (0.243166ms)
+✔ WASH-226/231: touch initiation immediately assigns GTG and preserves the original downstream (24.369083ms)
+✔ WASH-227: another factory cannot replace GTG (0.600833ms)
+✔ WASH-206/208: initiation uses completed physical batches and never mutates source facts (0.217625ms)
+✔ WASH-209/212: non-fabric, unfinished, blocked or incomplete source cannot initiate (0.109542ms)
+✔ WASH-210/212: initiation excludes unconfirmed, non-positive, unitless, handed-out and draft-occupied rolls (0.504625ms)
+✔ WASH-211: every existing touch decision prevents duplicate initiation, leaving other rolls available (0.617542ms)
+✔ WASH-218: judgment rejects a planner or a different onsite factory without creating records (0.692ms)
+✔ CT-02: unfinished fabric cannot be judged; input remains unchanged (0.097208ms)
+✔ CT-03/04: all six sources accept three hand feels without a factory or chemistry (3.5655ms)
+✔ CT-03/09: duplicate operation is idempotent but changed intent is rejected (0.369084ms)
+✔ CT-03: duplicate rolls and partial correction of an existing order fail (0.286209ms)
+✔ CT-05: no-wash and wash can coexist; undecided rolls remain guarded (0.536917ms)
+✔ CT-06: assignment does not receive; physical receipt and output govern release (1.057917ms)
+✔ CT-07: wrong factory cannot act; a sent order cannot be cancelled (5.166458ms)
+✔ CT-04: a late match preserves order identity and prior physical facts (14.421ms)
+✔ CT-07: coordinated source verification keeps judgment history and refuses changed physical quantities (3.1265ms)
+✔ CT-06: kilograms and decimal metres retain identity and precision without conversion (0.488917ms)
+✔ CT-07: cancelling leaves the original decision stale and never deletes the order (0.16ms)
+✔ PR-01/02: a committed late target change invalidates the printed content signature (0.133084ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 764.265417

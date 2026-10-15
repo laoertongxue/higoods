@@ -1,0 +1,693 @@
+{
+  "at": "2026-10-15T06:08:08.531Z",
+  "base": "http://127.0.0.1:43159",
+  "head": "09881217da6db7ae5bd79fa286165e1c3a02caa5",
+  "environment": {
+    "node": "v26.8.2",
+    "timezone": "Asia/Shanghai",
+    "scale": "77 native printing orders; 50 rows per page; six eligible fabric source scenarios × six 50 Yard rolls; new isolated context each run, no prewarming"
+  },
+  "checks": [
+    {
+      "name": "entry-lifecycle-1",
+      "status": "PASS",
+      "result": {
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "orders": 1,
+        "judgments": 12,
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-5adff52f-bd37-47ee-8cab-8f4971c1f2db"
+      }
+    },
+    {
+      "name": "entry-lifecycle-2",
+      "status": "PASS",
+      "result": {
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "orders": 1,
+        "judgments": 12,
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-f31ea5c4-b5fd-4f36-8263-c9e60483986c"
+      }
+    },
+    {
+      "name": "entry-lifecycle-3",
+      "status": "PASS",
+      "result": {
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "orders": 1,
+        "judgments": 12,
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-a4401704-1354-43d8-a2e7-d015aa8e5538"
+      }
+    },
+    {
+      "name": "entry-lifecycle-4",
+      "status": "PASS",
+      "result": {
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "orders": 1,
+        "judgments": 12,
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-748f6b13-1b5f-45d4-9457-70c8b9390756"
+      }
+    },
+    {
+      "name": "entry-lifecycle-5",
+      "status": "PASS",
+      "result": {
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "orders": 1,
+        "judgments": 12,
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-8ddf7962-b352-4b3d-a24b-170289716b2e"
+      }
+    },
+    {
+      "name": "pending-save-close-guard-local-refresh-and-image",
+      "status": "PASS",
+      "result": {
+        "heldNativeTransaction": true,
+        "closeBlocked": true,
+        "localNodesPreserved": true
+      }
+    }
+  ],
+  "samples": [
+    {
+      "family": "cold-list",
+      "run": 1,
+      "ms": 1058.699999988079,
+      "status": "FAIL",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "refresh-50-row-list",
+      "run": 1,
+      "ms": 806.8000000119209,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 1,
+      "ms": 109.40000003576279,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-without-save",
+      "run": 1,
+      "ms": 47.59999996423721,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 1,
+      "ms": 47.80000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-without-save",
+      "run": 1,
+      "ms": 28,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 1,
+      "ms": 47.60000002384186,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "reject-missing-handfeel",
+      "run": 1,
+      "ms": 64.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "save-quota-failure",
+      "run": 1,
+      "ms": 114.69999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "create-and-durable-read",
+      "run": 1,
+      "ms": 114.59999996423721,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "view-created-order",
+      "run": 1,
+      "ms": 64.5,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "no-wash-and-durable-read",
+      "run": 1,
+      "ms": 128.5,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "cold-list",
+      "run": 2,
+      "ms": 917.5,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "refresh-50-row-list",
+      "run": 2,
+      "ms": 813.1000000238419,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 2,
+      "ms": 114.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-without-save",
+      "run": 2,
+      "ms": 48.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 2,
+      "ms": 48.200000047683716,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-without-save",
+      "run": 2,
+      "ms": 28.69999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 2,
+      "ms": 47.90000003576279,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "reject-missing-handfeel",
+      "run": 2,
+      "ms": 65.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "save-quota-failure",
+      "run": 2,
+      "ms": 116.39999997615814,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "create-and-durable-read",
+      "run": 2,
+      "ms": 131.5999999642372,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "view-created-order",
+      "run": 2,
+      "ms": 63.80000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "no-wash-and-durable-read",
+      "run": 2,
+      "ms": 130.30000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "cold-list",
+      "run": 3,
+      "ms": 909.1000000238419,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "refresh-50-row-list",
+      "run": 3,
+      "ms": 812.5,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 3,
+      "ms": 114,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-without-save",
+      "run": 3,
+      "ms": 46.80000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 3,
+      "ms": 64.69999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-without-save",
+      "run": 3,
+      "ms": 28.600000023841858,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 3,
+      "ms": 47.799999952316284,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "reject-missing-handfeel",
+      "run": 3,
+      "ms": 64.60000002384186,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "save-quota-failure",
+      "run": 3,
+      "ms": 131.60000002384186,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "create-and-durable-read",
+      "run": 3,
+      "ms": 114.69999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "view-created-order",
+      "run": 3,
+      "ms": 66.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "no-wash-and-durable-read",
+      "run": 3,
+      "ms": 113.30000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "cold-list",
+      "run": 4,
+      "ms": 986.6999999880791,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "refresh-50-row-list",
+      "run": 4,
+      "ms": 812.8999999761581,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 4,
+      "ms": 114.30000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-without-save",
+      "run": 4,
+      "ms": 48.09999996423721,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 4,
+      "ms": 48.5,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-without-save",
+      "run": 4,
+      "ms": 29,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 4,
+      "ms": 48,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "reject-missing-handfeel",
+      "run": 4,
+      "ms": 65.59999996423721,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "save-quota-failure",
+      "run": 4,
+      "ms": 114.69999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "create-and-durable-read",
+      "run": 4,
+      "ms": 114.90000003576279,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "view-created-order",
+      "run": 4,
+      "ms": 66.10000002384186,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "no-wash-and-durable-read",
+      "run": 4,
+      "ms": 131.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "cold-list",
+      "run": 5,
+      "ms": 894,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "refresh-50-row-list",
+      "run": 5,
+      "ms": 829.8000000119209,
+      "status": "PASS",
+      "start": "navigationStart",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 5,
+      "ms": 114.09999996423721,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-without-save",
+      "run": 5,
+      "ms": 47.60000002384186,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 5,
+      "ms": 48,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-without-save",
+      "run": 5,
+      "ms": 27.5,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 5,
+      "ms": 48,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "reject-missing-handfeel",
+      "run": 5,
+      "ms": 64.70000004768372,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "save-quota-failure",
+      "run": 5,
+      "ms": 115.20000004768372,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "create-and-durable-read",
+      "run": 5,
+      "ms": 114.60000002384186,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "view-created-order",
+      "run": 5,
+      "ms": 66,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "no-wash-and-durable-read",
+      "run": 5,
+      "ms": 114.5,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "row-open",
+      "run": 0,
+      "ms": 48.09999996423721,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-blocked-during-save",
+      "run": 1,
+      "ms": 31.100000023841858,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-blocked-during-save",
+      "run": 1,
+      "ms": 29.399999976158142,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-blocked-during-save",
+      "run": 2,
+      "ms": 31.30000001192093,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-blocked-during-save",
+      "run": 2,
+      "ms": 31.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-blocked-during-save",
+      "run": 3,
+      "ms": 31.900000035762787,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-blocked-during-save",
+      "run": 3,
+      "ms": 30.100000023841858,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-blocked-during-save",
+      "run": 4,
+      "ms": 31.600000023841858,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-blocked-during-save",
+      "run": 4,
+      "ms": 30.100000023841858,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "close-blocked-during-save",
+      "run": 5,
+      "ms": 31.900000035762787,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    },
+    {
+      "family": "escape-blocked-during-save",
+      "run": 5,
+      "ms": 30.19999998807907,
+      "status": "PASS",
+      "start": "captured real pointer/key/change",
+      "completion": "correct visible result, ready visible images, two animation frames; save includes native transaction readback"
+    }
+  ],
+  "errors": [],
+  "browser": "149.0.7827.55",
+  "hashes": {
+    "scripts/check-washing-gtg-direct-consumers.mjs": "2188520b08e7c495913ac121b70aa476cbc34fe3ea88dc87c40ee1ade63e9238",
+    "scripts/check-washing-gtg-ui.mjs": "e4cca21f18e2b1ca56dd08bbe6c8f9ae54b5d48315a53de8c64bd1b76ead67a3",
+    "src/components/actual-washing-route.ts": "5e80aa0ce89df2a66771874e0abe4a2864470f109b648c1b055b6a76eadc6259",
+    "src/data/fcs/fabric-washing-views.ts": "524886fa82b367e83a0259d1f635aaef2817744c64fb934f67f5a96853aff2e5",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "49080879771d6127a0dd8e96eda53d400d908e5dccbfb4009f4ba47efdec0628",
+    "tests/unit/fabric-washing-views.test.ts": "e3c86f752113923a64bb64cc4f6e77787d9b89f28985a894b64ac47cd449e4ef",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "b8f9a62e48f364888a6a5f0a22c590ccf283cb04b1e53ce90b08fdf11ebacdc4",
+    "scripts/check-post-print-fabric-washing.mjs": "85bfead884c5e4715cc036218430e65dd31486881edf34f9f4318463752591f4",
+    "scripts/check-printing-washing-entry.mjs": "0d6a213191d4e6e09f65593c3178fcfabcbd00ba325ac29c319a76e93d80bdc2",
+    "src/data/fcs/fabric-washing-model.ts": "e2f56689d6cf4b8a735b14a57408360b199912036ca936894a8d0312f34eaa07",
+    "src/data/fcs/fabric-washing-repository.ts": "858609ee3f4096cb613c570c5452252faaf2ee0146c07d0e75e6e4ee7e4935ac",
+    "src/data/fcs/fabric-washing.ts": "afba9cccb75f8c4940bc8f5875aee322b4816f5bebeaa7facb3489ecf467c1f2",
+    "src/data/fcs/indonesia-factories.ts": "559fd29d0d5a3e9be969de90d47c1342ebcecce9d1682d6507ef4ea94c1a0ee8",
+    "src/pages/fcs-production-tech-pack-snapshot.ts": "1ce5fbc3ede080216404ac081aca446298d1734987b4fc21950f59ec9eea4871",
+    "src/pages/pda-warehouse-shared.ts": "9d04290e52341a0202df4f43707966f139c348a74bb70f20a1b8398d5b4dc02e",
+    "src/pages/print/printing-sheet-preview.ts": "1351e46e0132a4b0de75d26e8446067ec76f5e809e8949a8adef7043f0ab86b8",
+    "src/pages/print/templates/printing-sheet-template.ts": "c121e33b75418ec748597b8989f940b5dc2fae85e21814ce3629dd19e498187f",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "ee36b85b090e072f52e438de84d3b971642f3ad84f12ebad5e162e799f23c60e",
+    "src/pages/process-factory/printing/dialogs.ts": "0113ad842591111f4197d806ad9644f1d696a77db92240bd514b40fa8ee1d7d4",
+    "src/pages/process-factory/printing/events.ts": "e79bd0b0cfdef87c554bce5a5870dd164cd88db224da86d8ccf39bcb5f0c791b",
+    "src/pages/process-factory/printing/relations.ts": "1a1cb96f5852e5dfc295dc0611fd5584db7bc2c2ad90b3df9164a74c8a267a6d",
+    "src/pages/process-factory/printing/work-orders.ts": "dcc649a46001203948689f118938486c611a72cfc8fbf7d2dcd25a913e579d87",
+    "src/pages/tech-pack/process-domain.ts": "00de97db3067e043f389986c5f92ba26edb5ea9443f3aea19d43232a2ead63e4",
+    "src/router/routes-fcs.ts": "c5ca9fb74d5930a84043d8bb7a397f777fb07a83657b0112a6ba69fb9d6fdd79",
+    "src/router/routes-pcs.ts": "389de71442b1e0ba9092d61c4c5847e4a6f1cf03bd549636b6cbcbb74d7811ac",
+    "tests/unit/fabric-washing.test.ts": "080c33ceb1ac9dec80370141c1837e5975d6d4277b32a6734a885e3c857fd3dd"
+  },
+  "summary": {
+    "pass": 6,
+    "fail": 0,
+    "pageErrors": 0,
+    "samples": 71,
+    "slow": 1
+  }
+}

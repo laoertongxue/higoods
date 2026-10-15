@@ -1,0 +1,286 @@
+PASS WASH-208/209/212 操作栏按已完成批次判断，取消和暂停不能发起
+PASS CT-11 真实提前匹配事务保存后追加关联，刷新不重建，失败保留洗水事实
+PASS CT-01/05 原正常交出与洗水混合分流，旧草稿占用阻断，裁剪车缝身份不重建
+PASS CT-07/09 上游改版停止实物动作，负责人核对原范围后恢复并保留判断历史
+PASS CT-05/06 重包新码分配和实际领用追溯原卷，历史可用量不能补足洗水库存
+FAIL PG-04 通用待接收扫码深链只能进入洗水逐卷实收，不进入 Yard 通用表单 locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('heading', { name: '逐卷洗水接收', exact: true }) to be visible[22m
+ BODY 数：1
+最近接收人：仓管（演示）
+最近接收时间：2026-09-18 10:00:00
+原单建单时间：2026-09-18 09:30:00
+	
+接收明细：WDEMO-R:WDEMO-HO:WOOL-STAGE-011:KNITTING:Q2-L1
+位置：全能力测试工厂 · 待加工仓 / A-01-01
+	
+接收
+详情 / 来源
+接收记录
+
+
+收货工厂：全能力测试工厂
+WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER
+工厂名称：APF - 辅助工艺
+工厂编号：FAC-APF
+工厂类型：工艺加工厂
+单据类型：工厂交出单
+	
+Q / 第1片
+WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M
+奶油色
+WOOL_PIECE · 毛织片
+CARDIGAN-CREAM / M / Q / 第1片
+批次：WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER
+	
+送货单：尚未安排送货单
+用途：备料来货，未关联加工单
+	
+计划：100 片
+上游实发：100 片
+标签：WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER
+历史实收：100.000 kg / 100000 g
+来货差异：暂无可比实发数量
+	
+登记情况：已有接收记录
+接收明细数：1
+最近接收人：仓管（演示）
+最近接收时间：2026-09-18 11:00:00
+原单建单时间：2026-09-18 10:30:00
+	
+接收明细：WDEMO-R:WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER-L1
+位置：全能力测试工厂 · 待加工仓 / A-01-01
+	
+接收
+详情 / 来源
+接收记录
+
+
+收货工厂：全能力测试工厂
+WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2
+工厂名称：周哥毛织厂
+工厂编号：OWN_WOOL_FACTORY
+工厂类型：工艺加工厂
+单据类型：工厂交出单
+	
+Q / 第2片
+WOOL-STAGE-012:Q2:CARDIGAN-CREAM-M
+奶油色
+WOOL_PIECE · 毛织片
+CARDIGAN-CREAM / M / Q / 第2片
+批次：WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2
+	
+送货单：尚未安排送货单
+用途：备料来货，未关联加工单
+	
+计划：100 片
+上游实发：100 片
+标签：WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2
+历史实收：100.000 kg / 100000 g
+来货差异：暂无可比实发数量
+	
+登记情况：已有接收记录
+接收明细数：1
+最近接收人：仓管（演示）
+最近接收时间：2026-09-18 10:00:00
+原单建单时间：2026-09-18 09:30:00
+	
+接收明细：WDEMO-R:WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2-L1
+位置：全能力测试工厂 · 待加工仓 / A-01-01
+	
+接收
+详情 / 来源
+接收记录
+
+
+收货工厂：全能力测试工厂
+WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER
+工厂名称：APF - 辅助工艺
+工厂编号：FAC-APF
+工厂类型：工艺加工厂
+单据类型：工厂交出单
+	
+Q / 第1片
+WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M
+奶油色
+WOOL_PIECE · 毛织片
+CARDIGAN-CREAM / M / Q / 第1片
+批次：WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER
+	
+送货单：尚未安排送货单
+用途：备料来货，未关联加工单
+	
+计划：100 片
+上游实发：100 片
+标签：WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER
+历史实收：100.000 kg / 100000 g
+来货差异：暂无可比实发数量
+	
+登记情况：已有接收记录
+接收明细数：1
+最近接收人：仓管（演示）
+最近接收时间：2026-09-18 11:00:00
+原单建单时间：2026-09-18 10:30:00
+	
+接收明细：WDEMO-R:WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER-L1
+位置：全能力测试工厂 · 待加工仓 / A-01-01
+	
+接收
+详情 / 来源
+接收记录
+
+
+收货工厂：全能力测试工厂
+WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2
+工厂名称：周哥毛织厂
+工厂编号：OWN_WOOL_FACTORY
+工厂类型：工艺加工厂
+单据类型：工厂交出单
+	
+Q / 第2片
+WOOL-STAGE-013:Q2:CARDIGAN-CREAM-M
+奶油色
+WOOL_PIECE · 毛织片
+CARDIGAN-CREAM / M / Q / 第2片
+批次：WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2
+	
+送货单：尚未安排送货单
+用途：备料来货，未关联加工单
+	
+计划：100 片
+上游实发：100 片
+标签：WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2
+历史实收：100.000 kg / 100000 g
+来货差异：暂无可比实发数量
+	
+登记情况：已有接收记录
+接收明细数：1
+最近接收人：仓管（演示）
+最近接收时间：2026-09-18 10:00:00
+原单建单时间：2026-09-18 09:30:00
+	
+接收明细：WDEMO-R:WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2-L1
+位置：全能力测试工厂 · 待加工仓 / A-01-01
+	
+接收
+详情 / 来源
+接收记录
+
+
+收货工厂：全能力测试工厂
+WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER
+工厂名称：APF - 辅助工艺
+工厂编号：FAC-APF
+工厂类型：工艺加工厂
+单据类型：工厂交出单
+	
+Q / 第1片
+WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M
+奶油色
+WOOL_PIECE · 毛织片
+CARDIGAN-CREAM / M / Q / 第1片
+批次：WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER
+	
+送货单：尚未安排送货单
+用途：备料来货，未关联加工单
+	
+计划：100 片
+上游实发：100 片
+标签：WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER
+历史实收：100.000 kg / 100000 g
+来货差异：暂无可比实发数量
+	
+登记情况：已有接收记录
+接收明细数：1
+最近接收人：仓管（演示）
+最近接收时间：2026-09-18 11:00:00
+原单建单时间：2026-09-18 10:30:00
+	
+接收明细：WDEMO-R:WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER-L1
+位置：全能力测试工厂 · 待加工仓 / A-01-01
+	
+接收
+详情 / 来源
+接收记录
+
+共 9 条，当前 1-9
+
+10 条/页
+20 条/页
+50 条/页
+上一页
+1 / 1
+下一页
+FAIL PD-02/03 全能力工厂 PDA 待加工和待交出仓直达读取洗水实物，不复制库存 locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-washing-factory-stock="WAIT_PROCESS"]') to be visible[22m
+ DATA {"native":45,"before":1,"readError":"","url":"http://127.0.0.1:43157/fcs/pda/handover?tab=pickup","orders":1,"sessionFactory":"F090","receiptLines":[],"render":""} BODY 全能力测试工厂
+交接 · F090
+待办
+49
+全
+全能力测
+待接收 4
+待交出 7
+扫码接收捆条面料
+识别加工单
+扫码确认接收
+识别加工单
+水溶
+PO-202603-088
+待仓库/工厂处理
+雅加达中心仓
+全能力测试工厂
+应收
+1134 米
+已收
+0 米
+待收
+1134 米
+确认接收
+水溶
+PO-202603-087
+待仓库/工厂处理
+雅加达中心仓
+全能力测试工厂
+应收
+1512 米
+已收
+0 米
+待收
+1512 米
+确认接收
+裁片
+PO-202603-0003
+存在数量差异
+五仓裁片仓
+PT Mulia Cutting Center
+应收
+8 卷
+已收
+0 卷
+待收
+8 卷
+确认接收
+裁片
+PO-20260319-013
+待仓库/工厂处理
+一仓裁床仓
+全能力测试工厂
+应收
+10 卷
+已收
+0 卷
+待收
+10 卷
+确认接收
+接单
+执行
+交接
+仓管
+结算
+PASS CT-10 清理旧片段失败可用原操作续迁，过期旧标签修改不能被清理吞掉
+PASS CT-08 DB v1 升级阻塞明确提示，关闭旧页重试保留旧记录
+PASS CT-08 versionchange 自动关闭连接，清理复核全库共享引用，损坏附件拒绝恢复
+PASS RL-01/CT-10 历史洗水时效深链保留原身份和执行记录
+{ pass: 9, fail: 2 }

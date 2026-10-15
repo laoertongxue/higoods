@@ -78,14 +78,16 @@ export interface MobileWarehouseRuntimeContext {
 export function getMobileWarehouseRuntimeContext(): MobileWarehouseRuntimeContext | null {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return null
-  const warehouses = listFactoryInternalWarehouses().filter((item) => item.factoryId === runtime.factoryId)
+  // Row/detail readers often need only the factory identity. Do not rebuild the
+  // warehouse overview and cards for each such lookup in the same render.
+  let warehouses:FactoryInternalWarehouse[]|undefined,overview:FactoryMobileWarehouseOverview|undefined,cards:FactoryMobileWarehouseCard[]|undefined
   return {
     factoryId: runtime.factoryId,
     factoryName: runtime.factoryName,
     roleId: runtime.roleId,
-    overview: getFactoryMobileWarehouseOverview(runtime.factoryId, runtime.factoryName),
-    cards: getFactoryMobileWarehouseCards(runtime.factoryId, runtime.factoryName),
-    warehouses,
+    get overview(){return overview??=getFactoryMobileWarehouseOverview(runtime.factoryId,runtime.factoryName)},
+    get cards(){return cards??=getFactoryMobileWarehouseCards(runtime.factoryId,runtime.factoryName)},
+    get warehouses(){return warehouses??=listFactoryInternalWarehouses().filter(item=>item.factoryId===runtime.factoryId)},
   }
 }
 
@@ -356,6 +358,7 @@ export function resolveOutboundRoute(record: FactoryWarehouseOutboundRecord): st
 }
 
 export function resolveWaitProcessSourceRoute(item: FactoryWaitProcessStockItem): string {
+  if (item.washingOrderId) return `/fcs/pda/washing/${encodeURIComponent(item.washingOrderId)}`
   if (item.sourceRecordType === 'HANDOVER_RECEIVE' && item.sourceRecordId) {
     const handoverRecord = findPdaHandoverRecord(item.sourceRecordId)
     if (handoverRecord?.handoverId) return `/fcs/pda/handover/${handoverRecord.handoverId}`
@@ -369,6 +372,7 @@ export function resolveWaitProcessSourceRoute(item: FactoryWaitProcessStockItem)
 }
 
 export function resolveWaitHandoverRoute(item: FactoryWaitHandoverStockItem): string {
+  if (item.washingOrderId) return `/fcs/pda/washing/${encodeURIComponent(item.washingOrderId)}`
   if (item.handoverOrderId) return `/fcs/pda/handover/${item.handoverOrderId}`
   return '/fcs/pda/handover'
 }

@@ -26,6 +26,7 @@ import { FULL_CAPABILITY_FACTORY_ID } from './post-finishing-current-read-model.
 import { isIndonesiaBusinessDateToday } from './indonesia-business-time.ts'
 import { listWoolFactoryWarehouseFlows, summarizeWoolQuantities } from './wool-domain/queries.ts'
 import { woolWarehouseFlowSignedQty } from './wool-domain/warehouse-ledger.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 
 export interface FactoryMobileWarehouseOverview {
   waitProcessQtyText?: string
@@ -205,8 +206,12 @@ export function getFactoryMobileWarehouseOverview(
 
   const summary = getFactoryWarehouseSummary({ factoryId, timeRange: '7D' })
   const handoverHeads = listPdaHandoverHeads().filter((item) => item.factoryId === factoryId)
-  const packTasks = getFactoryMobileTransferBagPackTasks(factoryId)
-  const receiveTasks = getFactoryMobileTransferBagReceiveTasks(factoryId)
+  const factory=getFactoryMasterRecordById(factoryId)
+  const dyeOnly=factory?.factoryType==='CENTRAL_DYE'&&!factory.processAbilities.some(ability=>['CUT_PANEL','SEW'].includes(ability.processCode))
+  // A dye-only warehouse has no cutting/sewing transfer bags. Avoid constructing
+  // the entire unrelated transfer-bag chain just to derive two empty lists.
+  const packTasks = dyeOnly?[]:getFactoryMobileTransferBagPackTasks(factoryId)
+  const receiveTasks = dyeOnly?[]:getFactoryMobileTransferBagReceiveTasks(factoryId)
   const sewingLightweight = isSewingFactory(factoryId)
 
   return {

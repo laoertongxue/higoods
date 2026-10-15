@@ -47,6 +47,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { ensureProductionDemandEarlyProcessAcceptanceData } from '../../../data/fcs/production-demand-early-process-work-orders.ts'
 import { renderPrintingDialog } from './dialogs.ts'
 import { canInitiateFabricWashing, washingInitiationOrderIds } from '../../../data/fcs/fabric-washing.ts'
+import { printingWashingOrders, printingDownstreamNames, withPrintingWashingRead } from '../../../data/fcs/fabric-washing-views.ts'
 
 const EVENT_PREFIX = 'printing-work-orders'
 const PREFERENCE_KEY = '/fcs/craft/printing/work-orders:input-output-v4'
@@ -127,9 +128,12 @@ function renderBatchPrintAction(): string {
 
 let washingListEligibility = new Set<string>()
 function renderActions(order: PrintingWorkOrderBusinessRecord, eligible = washingListEligibility.has(order.workOrderId)): string {
+  const washes=printingWashingOrders(order.workOrderId)
   return `<div class="grid w-full grid-cols-2 gap-x-1 gap-y-0.5" data-printing-row-actions="${escapeHtml(order.workOrderId)}">
+    ${washes.length?`<span class="col-span-2 rounded bg-blue-50 px-2 py-1 text-center text-xs text-blue-800" data-printing-washing-status>已发起洗水 · ${washes.length} 单</span>`:''}
     <a class="inline-flex min-h-7 w-full items-center justify-center whitespace-nowrap rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}" data-printing-row-action data-nav="${escapeHtml(buildPrintingWorkOrderDetailLink(order.workOrderId))}">查看</a>
     ${eligible ? actionButton('发起洗水', 'initiate-washing', order) : ''}
+    ${washes.map(wash=>`<a class="col-span-2 inline-flex min-h-7 items-center justify-center rounded px-1.5 py-1 text-xs text-blue-700 hover:bg-blue-50" href="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(wash.id)}" target="_blank" rel="noopener" data-printing-washing-link="${escapeHtml(wash.id)}" title="${escapeHtml(wash.no+' · '+wash.handFeel)}">查看洗水加工单${washes.length>1?` (${escapeHtml(wash.no)})`:''}</a>`).join('')}
     ${actionButton('调整投入', 'change-input', order, order.output.completedQty > 0 ? '已有加工产出，不能调整投入' : '')}
     ${printAction('打印印花信息单', 'PRINTING_INFO_SHEET', order)}
     ${printAction('打印印花确认单', 'PRINTING_CONFIRMATION', order)}
@@ -169,7 +173,7 @@ function textMatches(order: PrintingWorkOrderBusinessRecord): boolean {
     order.printOrderNo, order.taskNo, order.demandSource.sourceNo, order.demandSource.demandNo, order.demandSource.productionOrderNo,
     order.demandSource.purchaseOrderNo, order.demandSource.stockPlanNo, order.demandSource.supplementOrderNo, order.product.spu,
     order.plannedInput.materialName, order.output.materialName, order.requirement.frontPattern.patternNo, order.requirement.insidePattern?.patternNo, order.requirement.frontPattern.patternName, order.requirement.insidePattern?.patternName, ...printingUpstreamNames(order), order.plannedInput.spu, order.plannedInput.sku, order.actualInput.actualSku, order.output.sku, order.handover.handoverNo,
-    ...order.barcodes.map((barcode) => barcode.barcode), ...(order.dispatchDocuments || []).map(doc => doc.id), ...((order.actualInput.receipts || []).map(receipt => receipt.upstreamRecordId)),
+    ...order.barcodes.map((barcode) => barcode.barcode), ...printingDownstreamNames(order), ...(order.dispatchDocuments || []).map(doc => doc.id), ...((order.actualInput.receipts || []).map(receipt => receipt.upstreamRecordId)),
   ]
   return values.some((value) => String(value || '').toLowerCase().includes(keyword))
 }
@@ -190,7 +194,7 @@ function filteredRows(): PrintingWorkOrderBusinessRecord[] {
     && (!state.factory || order.printFactoryId === state.factory)
     && (!state.craft || order.requirement.craftName === state.craft)
     && (!state.upstream || printingUpstreamNames(order).includes(state.upstream))
-    && (!state.receiver || order.receivingTargetName === state.receiver)
+    && (!state.receiver || printingDownstreamNames(order).includes(state.receiver))
     && (!state.exception || (state.exception === 'HISTORY' ? Boolean(order.historicalInputQuantityUnknown) : state.exception === 'DIFFERENCE' ? order.receiptStatus === 'RECEIPT_DIFFERENCE' || order.handover.objectionQty > 0 : printingIsOverdue(order)))
     && (!state.materialType || order.materialType === state.materialType)
     && yesNoMatch(state.changedInput, order.inputChanges.length > 0)
@@ -212,7 +216,7 @@ const listController = createProcessOrderListController({
 })
 
 function refreshList(options?: Parameters<typeof listController.refresh>[0]): boolean {
-  return withProcessOrderTaskRelationRead(() => listController.refresh(options))
+  return withPrintingWashingRead(()=>withProcessOrderTaskRelationRead(() => listController.refresh(options)))
 }
 
 
@@ -243,7 +247,7 @@ function renderFilters(): string {
     ${selectField('售卖类型', 'salesType', state.salesType, uniqueOptions(rows.map((row) => row.salesType)))}
 
     ${selectField('工艺', 'craft', state.craft, uniqueOptions(rows.map((row) => row.requirement.craftName)))}
-    ${selectField('下游接收方', 'receiver', state.receiver, uniqueOptions(rows.map((row) => row.receivingTargetName)))}
+    ${selectField('下游接收方', 'receiver', state.receiver, uniqueOptions(rows.flatMap(row => printingDownstreamNames(row))))}
     ${selectField('印花面别', 'printSide', state.printSide, [['','全部'],['单面','单面'],['双面','双面']])}
     ${selectField('生产环节', 'stage', state.stage, uniqueOptions(rows.map(printingProductionStage)))}
     ${selectField('打印设备', 'printer', state.printer, uniqueOptions(rows.map(row => row.printerNo)))}
@@ -297,6 +301,7 @@ function renderFactoryTabs(): string {
 }
 
 function renderWorkspace(): string {
+ return withPrintingWashingRead(()=>{
   listController.ensurePreferencesLoaded()
   const rows = filteredRows()
   washingListEligibility = washingInitiationOrderIds(rows)
@@ -313,6 +318,7 @@ function renderWorkspace(): string {
     paginationHtml: `<div data-printing-work-orders-pagination-surface>${view.paginationHtml}</div>`,
     overlaysHtml: `<div data-printing-work-orders-overlays-surface>${listController.renderColumnSettings()}</div>`,
   })
+ })
 }
 
 function rootElement(): HTMLElement | null {
@@ -343,12 +349,18 @@ export function refreshPrintingWorkOrderListPage(reloadFacts = true): void {
 }
 
 export function refreshPrintingWashingActions(workOrderId: string): void {
+ return withPrintingWashingRead(()=>{
   const actions = rootElement()?.querySelector<HTMLElement>(`[data-printing-row-actions="${CSS.escape(workOrderId)}"]`)
   const order = listRows().find(row => row.workOrderId === workOrderId)
   if (!actions || !order) return
+  const downstream=actions.closest('tr')?.querySelector<HTMLElement>('[data-printing-downstream]')
   actions.outerHTML = renderActions(order, canInitiateFabricWashing(workOrderId))
+  if(downstream)downstream.outerHTML=renderPrintingRelations(order,'downstream')
+  const receiver=rootElement()?.querySelector<HTMLSelectElement>('[data-printing-work-orders-field="receiver"]')
+  if(receiver)receiver.innerHTML=uniqueOptions([...listRows().flatMap(row=>printingDownstreamNames(row)),state.receiver]).map(([key,label])=>option(key,label,state.receiver)).join('')
   const updated = rootElement()?.querySelector<HTMLElement>(`[data-printing-row-actions="${CSS.escape(workOrderId)}"]`)
   ;(updated?.querySelector<HTMLButtonElement>('[data-printing-action="initiate-washing"]') || updated?.querySelector<HTMLAnchorElement>('a[data-printing-row-action]'))?.focus()
+ })
 }
 
 export function getSelectedPrintingWorkOrderIds(): string[] {
@@ -356,12 +368,12 @@ export function getSelectedPrintingWorkOrderIds(): string[] {
 }
 
 export function selectFilteredPrintingWorkOrders(): void {
-  filteredRows().forEach((order) => selectedWorkOrderIds.add(order.workOrderId))
+  withPrintingWashingRead(()=>filteredRows().forEach((order) => selectedWorkOrderIds.add(order.workOrderId)))
   refreshPrintingWorkOrderListPage(false)
 }
 
 export function getFilteredPrintingWorkOrders(): PrintingWorkOrderBusinessRecord[] {
-  return filteredRows()
+  return withPrintingWashingRead(filteredRows)
 }
 
 function readFilterFields(root: HTMLElement): void {
@@ -409,7 +421,7 @@ export function handlePrintingWorkOrderListEvent(target: HTMLElement): boolean {
     const scope = field.value
     if (!scope) return true
     if (scope === 'clear') selectedWorkOrderIds.clear()
-    else if (scope === 'all') filteredRows().forEach(row => selectedWorkOrderIds.add(row.workOrderId))
+    else if (scope === 'all') withPrintingWashingRead(()=>filteredRows().forEach(row => selectedWorkOrderIds.add(row.workOrderId)))
     else root.querySelectorAll<HTMLInputElement>('tbody [data-printing-action="toggle-select"]').forEach(box => selectedWorkOrderIds.add(box.dataset.workOrderId || ''))
     refreshPrintingWorkOrderListPage(false); return true
   }

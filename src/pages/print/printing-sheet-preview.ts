@@ -4,11 +4,12 @@ import { renderUnifiedPrintStyles } from './print-styles.ts'
 import { buildPrintingConfirmationDocument, buildPrintingInfoSheetDocument, renderPrintingConfirmationDocument, renderPrintingInfoSheetDocument } from './templates/printing-sheet-template.ts'
 
 /** The two online printing forms do not need the other factories' print registries. */
-export function renderPrintingSheetPreview(): string {
+export async function renderPrintingSheetPreview(): Promise<string> {
   const params = new URLSearchParams(appStore.getState().pathname.split('?')[1] || '')
   const confirmation = params.get('documentType') === 'PRINTING_CONFIRMATION'
   let paper: string, title: string
   try {
+    await (await import('../../data/fcs/fabric-washing-repository.ts')).ensureWashingRecords()
     const input = { sourceType: 'PRINTING_WORK_ORDER' as const, sourceId: params.get('sourceId') || '', documentType: confirmation ? 'PRINTING_CONFIRMATION' as const : 'PRINTING_INFO_SHEET' as const }
     const document = confirmation ? buildPrintingConfirmationDocument(input) : buildPrintingInfoSheetDocument(input)
     title = document.documentTitle

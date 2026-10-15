@@ -1,5 +1,7 @@
 /** Post-print physical decisions. This module has no storage or UI side effects. */
 export const WASHING_HAND_FEELS = ['柔软手感', '增厚蓬松棉手感', '硬挺手感'] as const
+export const WASHING_FACTORY_ID = 'ID-F003'
+export const WASHING_FACTORY_NAME = 'GTG'
 export type WashingHandFeel = typeof WASHING_HAND_FEELS[number]
 export type WashingRole = '现场判断人员' | '计划跟单' | '染厂人员' | '接收人员' | '现场负责人'
 export interface WashingActor { id: string; name: string; role: WashingRole; factoryId?: string; warehouseId?:string }
@@ -13,6 +15,9 @@ export interface WashingSource {
   sourceType: 'PRODUCTION' | 'PRODUCTION_DEMAND' | 'PURCHASE' | 'STOCK' | 'SUPPLEMENT' | 'DESIGN_REVISION'
   sourceNo: string; productionOrderId?: string; productionDemandId?: string; techPackVersionId?: string
   factoryId: string; factoryName: string; materialSku: string; materialName: string; imageUrl: string
+  product?: { spu: string; productName: string; imageUrl: string; imageAlt: string }
+  materialProperties?: { composition: string; gsm: number; widthCm: number }
+  taskNo?: string; salesType?: string; creationMethod?: string
   revision: string; actualCompleted: boolean; blockedReason?: string; target?: WashingTarget
   rolls: WashingSourceRoll[]; demo?: boolean
 }
@@ -129,7 +134,7 @@ export function applyWashingCommand(
     for (const row of previous) if (row) {
       if (row.actorId !== actor.id) fail('只能纠正本人登记的触摸结果。')
       const oldOrder = row.orderId && state.orders.find(item => item.id === row.orderId && !item.cancelledAt)
-      if (oldOrder && (oldOrder.assignedFactoryId || oldOrder.rolls.some(item => item.sentAt))) fail('本批已派厂或交出，请先由跟单协调纠正原单。')
+      if (oldOrder && (oldOrder.acceptedAt || oldOrder.rolls.some(item => item.sentAt))) fail('GTG 已接单或本批已交出，请先由跟单协调纠正原单。')
       if (oldOrder && oldOrder.rollIds.some(id => !command.rollIds.includes(id))) fail('请完整选择原洗水单的卷后纠正，避免留下半套占用。')
     }
     if(previous.some(Boolean)&&!command.correct)fail('所选卷已有触摸结果，请查看对应单据；需调整时使用纠正结果。')
@@ -139,7 +144,8 @@ export function applyWashingCommand(
       order = {
         id, no: 'WS-' + new Date(at).toLocaleDateString('sv-SE').replaceAll('-','') + '-' + operationId.replace(/[^A-Za-z0-9]/g, '').slice(0,8).toUpperCase(),
         source: structuredClone(command.source), rollIds: rolls.map(roll => roll.id), handFeel: command.handFeel!,
-        createdAt: at, createdBy: actor.name, acceptance: 'UNASSIGNED', revision: 1,
+        createdAt: at, createdBy: actor.name, assignedFactoryId: WASHING_FACTORY_ID, assignedFactoryName: WASHING_FACTORY_NAME,
+        assignedAt: at, acceptance: 'PENDING', revision: 1,
         rolls: rolls.map(roll => ({ id: roll.id, sourceRollId: roll.id, barcode: roll.barcode, inputQty: roll.qty, unit: roll.unit })),
       }
       if(state.orders.some(row=>row.no===order!.no&&row.id!==order!.id)) order.no += '-' + operationId.replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase()
@@ -181,9 +187,10 @@ export function applyWashingCommand(
     if (order.completedAt && !['PRINT', 'EXCEPTION', 'RESOLVE_EXCEPTION'].includes(command.type)) fail('本单已人工完成，不能新增执行。')
     if (command.type === 'ASSIGN') {
       actorRole(actor, ['计划跟单'])
+      if (command.factory.id !== WASHING_FACTORY_ID) fail('洗水由 GTG 承接，不能派给其他工厂。')
       if (!command.factory.enabled || !command.factory.id || !command.factory.name) fail('请选择已启用的承接染厂。')
       if (order.rolls.some(roll => roll.sentAt)) fail('已经交出实物，不能直接变更染厂。')
-      order.assignedFactoryId = command.factory.id; order.assignedFactoryName = command.factory.name
+      order.assignedFactoryId = WASHING_FACTORY_ID; order.assignedFactoryName = WASHING_FACTORY_NAME
       order.acceptance = 'PENDING'; order.assignedAt = at; delete order.acceptedAt; delete order.rejectionReason
     } else if (command.type === 'ACCEPT' || command.type === 'REJECT') {
       factoryActor(actor, order)

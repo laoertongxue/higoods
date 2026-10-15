@@ -716,6 +716,8 @@ export function renderFcsProductionTechPackSnapshotPage(productionOrderId: strin
       </nav>
 
       ${renderTabContent(activeTab, source)}
+      ${activeTab==='process'?renderActualWashingRoute(snapshot.sourceTechPackVersionId,productionOrderId):''}
     </div>
   `
 }
+import { renderActualWashingRoute } from '../components/actual-washing-route.ts'

@@ -542,7 +542,10 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)\/tech-pack$/,
-      render: (match) => renderFcsProductionTechPackSnapshotPage(match[1]),
+      render: async (match) => {
+        await (await import('../data/fcs/fabric-washing-repository.ts')).ensureWashingViewRecords()
+        return renderFcsProductionTechPackSnapshotPage(match[1])
+      },
     },
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)\/confirmation-print$/,

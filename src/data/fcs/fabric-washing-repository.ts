@@ -71,6 +71,22 @@ export async function ensureWashingRecords(force = false): Promise<void> {
     throw new Error(readFailure)
   }
 }
+/** Route/history readers need the washing facts, not initialization of production writers. */
+export async function ensureWashingViewRecords():Promise<void> {
+  if(saving)throw new Error('上一笔洗水动作尚未保存，请等待完成。')
+  try{
+    const saved=await readPcsRecords([WASHING_COLLECTION])
+    if(saving)throw new Error('上一笔洗水动作尚未保存，请等待完成。')
+    const next=new Map([...records].filter(([,row])=>row.collection!==WASHING_COLLECTION))
+    for(const row of saved.records)if(row.collection===WASHING_COLLECTION)next.set(row.id,row)
+    records=next
+    for(const file of saved.files)blobs.set(file.id,file.blob)
+    loaded=false;readFailure=''
+  }catch(error){
+    readFailure='洗水用户资料无法读取，未按空数据覆盖。'+(error instanceof Error?error.message:String(error))
+    throw new Error(readFailure)
+  }
+}
 export function washingReadError() { return readFailure }
 function overlayRows(key: string): BridgeRow[] {
   return [...current().values()].filter(row => row.collection === WASHING_BRIDGE_COLLECTION).map(row => hydrate(row.value) as BridgeRow).filter(row => row.legacyKey === key)

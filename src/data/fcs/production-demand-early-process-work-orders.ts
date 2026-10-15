@@ -361,26 +361,27 @@ export function ensureProductionDemandEarlyProcessAcceptanceData(onlyProcessCode
     const replacementByScenario = new Map<string, string>()
     // 列表只在内存补齐静态演示场景，不把打开页面当作业务保存。
     // 先读取既有来源，避免初始化阶段遮住已经保存的真实覆盖记录。
-    listEarlyOrders(processCode)
+    const existingBySource = new Map<string,string>()
+    for(const order of listEarlyOrders(processCode)) {
+      const source=order.sourceSnapshot
+      const key=JSON.stringify([source?.productionDemandId,source?.generationRevision,source?.inputMaterialSkuCode,source?.outputMaterialSkuCode])
+      // One initialization read; keep the same first matching identity as Array.find.
+      if(!existingBySource.has(key))existingBySource.set(key,processCode==='DYE'?(order as DyeWorkOrder).dyeOrderId:(order as PrintWorkOrder).printOrderId)
+    }
     const rollback = processCode === 'DYE'
       ? (() => { const before = captureDyeProductionCreationState(); return () => restoreDyeProductionCreationState(before) })()
       : (() => { const before = capturePrintProductionCreationState(); return () => restorePrintProductionCreationState(before) })()
     try { withProductionCreationSourceStage(() => {
     for (const row of EARLY_PROCESS_ACCEPTANCE_ROWS.filter(item => item.processCode === processCode)) {
       const demand = demandById(row.productionDemandId)
-      const candidate = candidateFor(demand, row.processCode)
       const replacesWorkOrderId = row.replacesScenarioId ? replacementByScenario.get(row.replacesScenarioId) : undefined
-      const existing = listEarlyOrders(row.processCode).find((order) => {
-        const source = order.sourceSnapshot
-        return source?.productionDemandId === row.productionDemandId
-          && source.generationRevision === (row.generationRevision || 1)
-          && source.inputMaterialSkuCode === row.inputSku
-          && source.outputMaterialSkuCode === row.outputSku
-      })
+      const sourceKey=JSON.stringify([row.productionDemandId,row.generationRevision||1,row.inputSku,row.outputSku])
+      const existing = existingBySource.get(sourceKey)
       if (existing) {
-        replacementByScenario.set(row.scenarioId, row.processCode === 'DYE' ? (existing as DyeWorkOrder).dyeOrderId : (existing as PrintWorkOrder).printOrderId)
+        replacementByScenario.set(row.scenarioId, existing)
         continue
       }
+      const candidate = candidateFor(demand, row.processCode)
       const result = createProductionDemandEarlyProcessWorkOrder({
         processCode: row.processCode,
         productionDemandId: row.productionDemandId,
@@ -403,6 +404,7 @@ export function ensureProductionDemandEarlyProcessAcceptanceData(onlyProcessCode
         replacesWorkOrderId,
       }, `2026-09-16 ${row.processCode === 'DYE' ? '09' : '10'}:${row.scenarioId.slice(-2)}:00`)
       applyAcceptanceState(row, result, replacementByScenario)
+      existingBySource.set(sourceKey,result.workOrderId)
     }
     }) } catch (error) { rollback(); throw error }
     acceptanceDataEnsured.add(processCode)

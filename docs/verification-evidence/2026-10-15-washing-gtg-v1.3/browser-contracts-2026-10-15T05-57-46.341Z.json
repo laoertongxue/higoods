@@ -1,0 +1,366 @@
+{
+  "at": "2026-10-15T05:57:46.343Z",
+  "base": "http://127.0.0.1:43157",
+  "head": "09881217da6db7ae5bd79fa286165e1c3a02caa5",
+  "environment": {
+    "browser": "Chromium",
+    "timezone": "Asia/Shanghai",
+    "viewport": "1366×768",
+    "node": "v26.8.2"
+  },
+  "cases": [
+    {
+      "id": "CT-02/08/10",
+      "name": "首次读取无判断、无洗水种子、无必要台账整包副本",
+      "status": "PASS",
+      "ms": 2.068416999999954,
+      "detail": {
+        "records": 0,
+        "legacyPrintBytes": 0
+      }
+    },
+    {
+      "id": "CT-02/03/04",
+      "name": "六来源、三手感、无需与未判断按卷混合，缺手感和重复建单阻断",
+      "status": "PASS",
+      "ms": 1355.1163750000005,
+      "detail": {
+        "orders": 18,
+        "sources": [
+          {
+            "type": "PRODUCTION",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "PRODUCTION_ORDER",
+            "productionOrderId": "PO-202603-0003",
+            "target": "全能力测试工厂"
+          },
+          {
+            "type": "PRODUCTION_DEMAND",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "PRODUCTION_DEMAND",
+            "productionOrderId": null,
+            "target": "大货提前加工待匹配仓"
+          },
+          {
+            "type": "PURCHASE",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "STOCK",
+            "productionOrderId": null,
+            "target": "面料中央仓(GKP)"
+          },
+          {
+            "type": "STOCK",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "STOCK",
+            "productionOrderId": null,
+            "target": "面料中央仓(GKP)"
+          },
+          {
+            "type": "SUPPLEMENT",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "CUT_PIECE_SUPPLEMENT",
+            "productionOrderId": null,
+            "target": "全能力测试工厂"
+          },
+          {
+            "type": "DESIGN_REVISION",
+            "sku": "FAB-P200-BLUE-FLORAL",
+            "rootType": "DESIGN_REVISION",
+            "productionOrderId": null,
+            "target": "全能力测试工厂"
+          }
+        ]
+      }
+    },
+    {
+      "id": "WASH-226/227",
+      "name": "GTG 停用时不得静默改派或保存新单，用户工厂覆盖保留",
+      "status": "PASS",
+      "ms": 8.569166000000223,
+      "detail": {
+        "ordersBefore": 18,
+        "ordersAfter": 18,
+        "blocked": true
+      }
+    },
+    {
+      "id": "CT-05/06/07/11",
+      "name": "真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填",
+      "status": "PASS",
+      "ms": 371.8739579999992,
+      "detail": {
+        "orderId": "WASH-31a0b148-143e-4ae1-969e-00055aa7214b",
+        "received": 49,
+        "output": 52,
+        "downstream": 51,
+        "manualComplete": true,
+        "skuUnchanged": true
+      }
+    },
+    {
+      "id": "CT-04/06",
+      "name": "中央仓按原去向实收，独立责任库存且单位不变",
+      "status": "PASS",
+      "ms": 228.27274999999918,
+      "detail": {
+        "id": "WASH-6c413ec6-d1ac-4149-841a-f9de6836fe85/PWO-WASH-DEMO-STOCK-DONE-R3",
+        "orderId": "WASH-6c413ec6-d1ac-4149-841a-f9de6836fe85",
+        "orderNo": "WS-20261015-6C413EC6",
+        "source": {
+          "objectType": "FABRIC",
+          "id": "PWO-WASH-DEMO-STOCK-DONE/BATCH-WASH-STOCK",
+          "printOrderId": "PWO-WASH-DEMO-STOCK-DONE",
+          "printOrderNo": "PH-WASH-4-A",
+          "batchId": "BATCH-WASH-STOCK",
+          "sourceType": "STOCK",
+          "sourceNo": "STOCK-WASH-DEMO-01",
+          "rootSource": {
+            "targetSpuImageUrl": "/materials/pcs-reviewed/jogger-black.jpg",
+            "sourceType": "STOCK",
+            "receivingTeamId": "F090",
+            "receivingTeamName": "全能力测试工厂",
+            "receivingLocationName": "原需求接收位置",
+            "receivingFactoryId": "F090",
+            "receivingFactoryName": "全能力测试工厂",
+            "receivingLocationId": "原需求接收位置",
+            "inputMaterialSkuCode": "FAB-P200-WHITE",
+            "outputMaterialSkuCode": "FAB-P200-BLUE-FLORAL"
+          },
+          "factoryId": "F090",
+          "factoryName": "全能力测试工厂",
+          "materialSku": "FAB-P200-BLUE-FLORAL",
+          "materialName": "蓝白碎花棉府绸",
+          "imageUrl": "/materials/fei-ticket/blue-white-print-cotton.png",
+          "product": {
+            "spu": "SPU-2024-010",
+            "productName": "Celana Jogger Pria",
+            "imageUrl": "/materials/pcs-reviewed/jogger-black.jpg",
+            "imageAlt": "SPU-2024-010 Celana Jogger Pria对应图片"
+          },
+          "materialProperties": {
+            "composition": "100% 棉",
+            "gsm": 200,
+            "widthCm": 160
+          },
+          "taskNo": "TK-WASH-4-A",
+          "salesType": "预售备货",
+          "creationMethod": "备货手动创建",
+          "actualCompleted": true,
+          "blockedReason": "",
+          "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",[[\"PWO-WASH-DEMO-STOCK-DONE-R1\",\"WS-4-R1\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R2\",\"WS-4-R2\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R3\",\"WS-4-R3\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R4\",\"WS-4-R4\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R5\",\"WS-4-R5\",\"FAB-P200-BLUE-FLORAL\",50,true],[\"PWO-WASH-DEMO-STOCK-DONE-R6\",\"WS-4-R6\",\"FAB-P200-BLUE-FLORAL\",50,true]]]",
+          "target": {
+            "id": "WH-FABRIC-001",
+            "name": "面料中央仓(GKP)",
+            "warehouseId": "WH-FABRIC-001"
+          },
+          "rolls": [
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R1",
+              "barcode": "WS-4-R1",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R1\",\"WS-4-R1\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R2",
+              "barcode": "WS-4-R2",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R2\",\"WS-4-R2\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R3",
+              "barcode": "WS-4-R3",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R3\",\"WS-4-R3\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R4",
+              "barcode": "WS-4-R4",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R4\",\"WS-4-R4\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R5",
+              "barcode": "WS-4-R5",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R5\",\"WS-4-R5\",50,true]"
+            },
+            {
+              "id": "PWO-WASH-DEMO-STOCK-DONE-R6",
+              "barcode": "WS-4-R6",
+              "qty": 50,
+              "unit": "Yard",
+              "confirmed": true,
+              "handedOut": false,
+              "revision": "[\"BATCH-WASH-STOCK\",1,1,\"FAB-P200-BLUE-FLORAL\",\"Yard\",\"PWO-WASH-DEMO-STOCK-DONE-R6\",\"WS-4-R6\",50,true]"
+            }
+          ],
+          "demo": true
+        },
+        "barcode": "WS-4-R3",
+        "qty": 50,
+        "unit": "Yard",
+        "warehouseId": "WH-FABRIC-001",
+        "locationId": "A-01",
+        "at": "2026-10-15T05:57:52.091Z",
+        "blocked": false
+      }
+    },
+    {
+      "id": "CT-07",
+      "name": "本人纠正、派厂后协调、异常冻结与负责人恢复保留历史",
+      "status": "PASS",
+      "ms": 98.05349999999999,
+      "detail": {
+        "oldId": "WASH-f58e21ee-b499-49f4-94ae-30291f3737dd",
+        "orderId": "WASH-626ecd52-b6d0-41c6-a196-8882b77a383d",
+        "history": 1,
+        "handFeel": "硬挺手感"
+      }
+    },
+    {
+      "id": "CT-08/10",
+      "name": "备份仅必要 FCS，坏格式/缺附件/重复冲突不覆盖，完整恢复到隔离浏览器",
+      "status": "PASS",
+      "ms": 480.3234999999995,
+      "detail": {
+        "records": 139,
+        "count": 139,
+        "orders": 19,
+        "files": 0
+      }
+    },
+    {
+      "id": "CT-09",
+      "name": "同浏览器两标签竞争同一卷只有一张有效单",
+      "status": "PASS",
+      "ms": 408.0722080000005,
+      "detail": [
+        {
+          "ok": true,
+          "result": {
+            "orderId": "WASH-464e5b1e-dd04-436b-ac76-01ceab30dde4"
+          }
+        },
+        {
+          "ok": false,
+          "error": "PCS 记录已被其他页面修改，请重新读取后再保存。"
+        }
+      ]
+    },
+    {
+      "id": "CT-08",
+      "name": "事务中止不半套保存，输入保留并以同一操作重试",
+      "status": "PASS",
+      "ms": 1185.7128329999996,
+      "detail": {
+        "recordsAfterAbort": 0,
+        "retry": "durable after reload"
+      }
+    },
+    {
+      "id": "CT-08",
+      "name": "IndexedDB 打开失败明确告知，不能显示空列表或保存成功",
+      "status": "PASS",
+      "ms": 163.06195900000057,
+      "detail": "资料暂时无法读取\n\n原有资料已保留，请重新读取。若仍然失败，请联系维护人员处理。\n\nPCS 数据未保存或无法读取，请保留当前输入后重试。（InvalidStateError）\n\n重新读取"
+    },
+    {
+      "id": "CT-08/10",
+      "name": "偏好存储禁用仍可按记录保存洗水业务",
+      "status": "PASS",
+      "ms": 598.5182079999995,
+      "detail": "业务保存未回退 localStorage"
+    },
+    {
+      "id": "CT-10",
+      "name": "旧原图转 Blob，选择性迁移读回后清理，其他旧记录保留",
+      "status": "PASS",
+      "ms": 1678.1903750000001,
+      "detail": {
+        "records": 6,
+        "files": 1,
+        "bytes": 2666204,
+        "oldRecords": 1,
+        "recovered": {
+          "orders": 1,
+          "bytes": 2666204,
+          "sku": "FAB-P200-BLUE-FLORAL"
+        }
+      }
+    },
+    {
+      "id": "PG-04/05/RL-01",
+      "name": "原来源和下游直达读取、无效单号及中央仓库存入口",
+      "status": "PASS",
+      "ms": 1390.8374999999996,
+      "detail": "中央仓入口读取同一实收；无效 ID 显示可理解结果"
+    },
+    {
+      "id": "PD-01/02/03",
+      "name": "PDA 原型会话、本厂单据和适用小屏",
+      "status": "PASS",
+      "ms": 1172.2398329999996,
+      "detail": {
+        "viewport": "390×844",
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "id": "PG-02/PR-01/02",
+      "name": "洗水单和交接卷标预览包含真图、手感、源卷和实际责任方",
+      "status": "PASS",
+      "ms": 464.422958000001,
+      "detail": {
+        "barcodes": 1
+      }
+    }
+  ],
+  "errors": [],
+  "sourceHashes": {
+    "scripts/check-washing-gtg-ui.mjs": "a403360518a99b44ed35ffa3c0d4aa51fc91aef9d8cf39fd603454efe79d1f1e",
+    "src/components/actual-washing-route.ts": "5e80aa0ce89df2a66771874e0abe4a2864470f109b648c1b055b6a76eadc6259",
+    "src/data/fcs/fabric-washing-views.ts": "524886fa82b367e83a0259d1f635aaef2817744c64fb934f67f5a96853aff2e5",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "49080879771d6127a0dd8e96eda53d400d908e5dccbfb4009f4ba47efdec0628",
+    "tests/unit/fabric-washing-views.test.ts": "e3c86f752113923a64bb64cc4f6e77787d9b89f28985a894b64ac47cd449e4ef",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "e7c59be5fa6fe9074cb5ff6f1bf203675380aed3045eaba4abef554c932127a2",
+    "scripts/check-post-print-fabric-washing.mjs": "85bfead884c5e4715cc036218430e65dd31486881edf34f9f4318463752591f4",
+    "scripts/check-printing-washing-entry.mjs": "0d6a213191d4e6e09f65593c3178fcfabcbd00ba325ac29c319a76e93d80bdc2",
+    "src/data/fcs/fabric-washing-model.ts": "e2f56689d6cf4b8a735b14a57408360b199912036ca936894a8d0312f34eaa07",
+    "src/data/fcs/fabric-washing-repository.ts": "858609ee3f4096cb613c570c5452252faaf2ee0146c07d0e75e6e4ee7e4935ac",
+    "src/data/fcs/fabric-washing.ts": "afba9cccb75f8c4940bc8f5875aee322b4816f5bebeaa7facb3489ecf467c1f2",
+    "src/data/fcs/indonesia-factories.ts": "559fd29d0d5a3e9be969de90d47c1342ebcecce9d1682d6507ef4ea94c1a0ee8",
+    "src/pages/fcs-production-tech-pack-snapshot.ts": "1ce5fbc3ede080216404ac081aca446298d1734987b4fc21950f59ec9eea4871",
+    "src/pages/print/printing-sheet-preview.ts": "1351e46e0132a4b0de75d26e8446067ec76f5e809e8949a8adef7043f0ab86b8",
+    "src/pages/print/templates/printing-sheet-template.ts": "c121e33b75418ec748597b8989f940b5dc2fae85e21814ce3629dd19e498187f",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "368afa47ad9df10a7c2a3c2b30fba02e4bda2c7b9cd01878e0cf843fb58320a7",
+    "src/pages/process-factory/printing/dialogs.ts": "0113ad842591111f4197d806ad9644f1d696a77db92240bd514b40fa8ee1d7d4",
+    "src/pages/process-factory/printing/events.ts": "e79bd0b0cfdef87c554bce5a5870dd164cd88db224da86d8ccf39bcb5f0c791b",
+    "src/pages/process-factory/printing/relations.ts": "1a1cb96f5852e5dfc295dc0611fd5584db7bc2c2ad90b3df9164a74c8a267a6d",
+    "src/pages/process-factory/printing/work-orders.ts": "dcc649a46001203948689f118938486c611a72cfc8fbf7d2dcd25a913e579d87",
+    "src/pages/tech-pack/process-domain.ts": "00de97db3067e043f389986c5f92ba26edb5ea9443f3aea19d43232a2ead63e4",
+    "src/router/routes-fcs.ts": "c5ca9fb74d5930a84043d8bb7a397f777fb07a83657b0112a6ba69fb9d6fdd79",
+    "src/router/routes-pcs.ts": "389de71442b1e0ba9092d61c4c5847e4a6f1cf03bd549636b6cbcbb74d7811ac",
+    "tests/unit/fabric-washing.test.ts": "080c33ceb1ac9dec80370141c1837e5975d6d4277b32a6734a885e3c857fd3dd"
+  },
+  "browserVersion": "149.0.7827.55",
+  "summary": {
+    "pass": 15,
+    "fail": 0,
+    "pageErrors": 0
+  }
+}

@@ -30,6 +30,15 @@ export function printingUpstreamNames(order: PrintingWorkOrderBusinessRecord): s
   return facts.names
 }
 export function renderPrintingRelations(order: PrintingWorkOrderBusinessRecord, direction: 'upstream' | 'downstream'): string {
+  if(direction==='downstream'){
+    const washes=printingWashingOrders(order.workOrderId)
+    if(washes.length){
+      const washingRolls=new Set(washes.flatMap(wash=>wash.rolls.map(roll=>roll.sourceRollId)))
+      const remaining=order.barcodes.filter(roll=>!washingRolls.has(roll.id))
+      return `<div class="space-y-2" data-printing-downstream><p class="font-medium text-slate-500">下游</p>${washes.map(wash=>`<section class="space-y-1"><p>下道：洗水</p><p>接收方：${escapeHtml(wash.assignedFactoryName||'GTG')} (染厂)</p><p>接收方编号：${escapeHtml(wash.assignedFactoryId||'ID-F003')}</p><a class="text-blue-700 hover:underline" href="/fcs/craft/dyeing/washing/work-orders/${encodeURIComponent(wash.id)}" target="_blank" rel="noopener">${escapeHtml(wash.no)}</a><p>${wash.rolls.length} 卷 · ${wash.rolls.reduce((n,r)=>n+r.inputQty,0)} ${escapeHtml(wash.rolls[0]?.unit||'')} · ${escapeHtml(wash.handFeel)}</p></section>`).join('')}${remaining.length?`<section class="border-t pt-2"><p>其余 ${remaining.length} 卷原去向：${escapeHtml(order.receivingTargetName||'待核对')}</p></section>`:''}</div>`
+    }
+    if(order.matchStatus&&order.matchStatus!=='MATCHED')return '<div data-printing-downstream><p class="font-medium text-slate-500">下游</p><p class="mt-1 text-amber-700">待匹配生产单后确认下游</p></div>'
+  }
   const facts = factsFor(order)
   if (!facts.relationRead) {
     const source = facts.source ??= getPrintingMaterialReceiptOptions(order.workOrderId)
@@ -43,7 +52,7 @@ export function renderPrintingRelations(order: PrintingWorkOrderBusinessRecord, 
   const refs = direction === 'upstream' ? relation?.predecessors : relation?.successors
   const pending = direction === 'upstream' ? relation?.pendingPredecessors : relation?.pendingSuccessors
   const links = (refs || []).map(ref => ref.href ? `<a class="text-blue-700" href="${escapeHtml(ref.href)}" data-nav="${escapeHtml(ref.href)}">${escapeHtml(ref.processName)} · ${escapeHtml(ref.documentNo)}</a>` : escapeHtml(`${ref.processName} · ${ref.documentNo}`)).join('<br>')
-  if (direction === 'downstream') return `<div class="space-y-1"><p class="font-medium text-slate-500">下游</p>下道：${links || (pending?.length ? escapeHtml(pending.map(item => item.processName).join('、')) + ' · 加工单待生成' : '待确定')}<p>接收方：${escapeHtml(order.receivingTargetName || '接收方待确定')}</p>${order.receivingTargetWarehouseName && order.receivingTargetWarehouseName !== order.receivingTargetName ? `<p>接收仓：${escapeHtml(order.receivingTargetWarehouseName)}</p>` : ''}<p>接收方编号：${escapeHtml(order.receivingTargetId || '待确认')}</p><p>接收人：${escapeHtml(order.handover.receivedBy || '待确认')}</p></div>`
+  if (direction === 'downstream') return `<div class="space-y-1" data-printing-downstream><p class="font-medium text-slate-500">下游</p>下道：${links || (pending?.length ? escapeHtml(pending.map(item => item.processName).join('、')) + ' · 加工单待生成' : '待确定')}<p>接收方：${escapeHtml(order.receivingTargetName || '接收方待确定')}</p>${order.receivingTargetWarehouseName && order.receivingTargetWarehouseName !== order.receivingTargetName ? `<p>接收仓：${escapeHtml(order.receivingTargetWarehouseName)}</p>` : ''}<p>接收方编号：${escapeHtml(order.receivingTargetId || '待确认')}</p><p>接收人：${escapeHtml(order.handover.receivedBy || '待确认')}</p></div>`
   const source = facts.source ??= getPrintingMaterialReceiptOptions(order.workOrderId)
   const ids = new Set([...source.options.map(item => item.recordId), ...(order.actualInput.receipts || []).map(item => item.upstreamRecordId).filter((id): id is string => Boolean(id))])
   const documents = [...ids].flatMap(id => {
@@ -87,3 +96,4 @@ export function printingInputIdentity(order: PrintingWorkOrderBusinessRecord) {
   if (!actual && !order.historicalInputQuantityUnknown && order.actualInput.receivedQty === 0) return { ...order.plannedInput, identityLabel: '计划投入' }
   return { ...order.plannedInput, sku: actual || '', materialName: actual && !/[\u4e00-\u9fff]/.test(actual) ? `实际物料 ${actual}（名称待补充）` : actual || '实际投入物料待补录', imageUrl: '', imageAlt: '实际投入物料图片待补充', gsm: 0, widthCm: 0, identityLabel: '实际投入' }
 }
+import { printingWashingOrders } from '../../../data/fcs/fabric-washing-views.ts'

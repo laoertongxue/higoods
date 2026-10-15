@@ -23,6 +23,7 @@ import {
   listMaterialSkuRecordsByMaterialId,
 } from '../../data/pcs-material-archive-repository.ts'
 import type { MaterialSkuRecord } from '../../data/pcs-material-archive-types.ts'
+import { renderActualWashingRoute } from '../../components/actual-washing-route.ts'
 
 type PatternRouteLane = {
   key: string
@@ -260,6 +261,7 @@ function renderThreeStageRouteOverview(readonly: boolean): string {
         </div>
       </article>
 
+      ${renderActualWashingRoute(state.currentTechnicalVersionId||'')}
       <div class="flex justify-center" aria-hidden="true"><i data-lucide="arrow-down" class="h-5 w-5 text-slate-400"></i></div>
 
       <article class="overflow-hidden rounded-lg border bg-card" data-route-stage="PROD">

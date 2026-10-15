@@ -1,0 +1,78 @@
+FAIL cold-list 1058.7
+PASS refresh-50-row-list 806.8
+PASS row-open 109.4
+PASS close-without-save 47.6
+PASS row-open 47.8
+PASS escape-without-save 28.0
+PASS row-open 47.6
+PASS reject-missing-handfeel 64.2
+PASS save-quota-failure 114.7
+PASS create-and-durable-read 114.6
+PASS view-created-order 64.5
+PASS no-wash-and-durable-read 128.5
+PASS entry-lifecycle-1
+PASS cold-list 917.5
+PASS refresh-50-row-list 813.1
+PASS row-open 114.2
+PASS close-without-save 48.2
+PASS row-open 48.2
+PASS escape-without-save 28.7
+PASS row-open 47.9
+PASS reject-missing-handfeel 65.2
+PASS save-quota-failure 116.4
+PASS create-and-durable-read 131.6
+PASS view-created-order 63.8
+PASS no-wash-and-durable-read 130.3
+PASS entry-lifecycle-2
+PASS cold-list 909.1
+PASS refresh-50-row-list 812.5
+PASS row-open 114.0
+PASS close-without-save 46.8
+PASS row-open 64.7
+PASS escape-without-save 28.6
+PASS row-open 47.8
+PASS reject-missing-handfeel 64.6
+PASS save-quota-failure 131.6
+PASS create-and-durable-read 114.7
+PASS view-created-order 66.2
+PASS no-wash-and-durable-read 113.3
+PASS entry-lifecycle-3
+PASS cold-list 986.7
+PASS refresh-50-row-list 812.9
+PASS row-open 114.3
+PASS close-without-save 48.1
+PASS row-open 48.5
+PASS escape-without-save 29.0
+PASS row-open 48.0
+PASS reject-missing-handfeel 65.6
+PASS save-quota-failure 114.7
+PASS create-and-durable-read 114.9
+PASS view-created-order 66.1
+PASS no-wash-and-durable-read 131.2
+PASS entry-lifecycle-4
+PASS cold-list 894.0
+PASS refresh-50-row-list 829.8
+PASS row-open 114.1
+PASS close-without-save 47.6
+PASS row-open 48.0
+PASS escape-without-save 27.5
+PASS row-open 48.0
+PASS reject-missing-handfeel 64.7
+PASS save-quota-failure 115.2
+PASS create-and-durable-read 114.6
+PASS view-created-order 66.0
+PASS no-wash-and-durable-read 114.5
+PASS entry-lifecycle-5
+PASS row-open 48.1
+PASS close-blocked-during-save 31.1
+PASS escape-blocked-during-save 29.4
+PASS close-blocked-during-save 31.3
+PASS escape-blocked-during-save 31.2
+PASS close-blocked-during-save 31.9
+PASS escape-blocked-during-save 30.1
+PASS close-blocked-during-save 31.6
+PASS escape-blocked-during-save 30.1
+PASS close-blocked-during-save 31.9
+PASS escape-blocked-during-save 30.2
+PASS pending-save-close-guard-local-refresh-and-image
+{ pass: 6, fail: 0, pageErrors: 0, samples: 71, slow: 1 }

@@ -5,18 +5,18 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 const base=process.env.WASH_BASE_URL||'http://127.0.0.1:43157'
-const out=resolve('docs/verification-evidence/2026-10-15-post-print-fabric-washing')
+const out=resolve(process.env.WASH_OUT_DIR||'docs/verification-evidence/2026-10-15-washing-gtg-v1.3')
 const stamp=new Date().toISOString().replaceAll(':','-'),report={at:new Date().toISOString(),base,head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),environment:{browser:'Chromium',timezone:'Asia/Shanghai',viewport:'1366×768',node:process.version},cases:[],errors:[]}
 mkdirSync(out,{recursive:true});mkdirSync('output/playwright/washing',{recursive:true})
 let uiOrderId=''
 const browser=await chromium.launch({headless:true})
 const context=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'})
 const page=await context.newPage();page.on('pageerror',err=>report.errors.push(err.message))
-async function check(id,name,fn){const start=performance.now();try{const detail=await fn();report.cases.push({id,name,status:'PASS',ms:performance.now()-start,detail});console.log('PASS',id,name)}catch(err){report.cases.push({id,name,status:'FAIL',ms:performance.now()-start,error:err.message,stack:err.stack});console.log('FAIL',id,name,err.message)}}
+async function check(id,name,fn){const start=performance.now();try{const detail=await fn();report.cases.push({id,name,status:'PASS',ms:performance.now()-start,detail});console.log('PASS',id,name)}catch(err){report.cases.push({id,name,status:'FAIL',ms:performance.now()-start,error:err.message,stack:err.stack});console.log('FAIL',id,name,err.message);if(process.env.WASH_STOP_ON_FAIL==='1'){await browser.close();throw err}}}
 async function open(p=page,path='/fcs/craft/dyeing/washing/work-orders'){await p.goto(base+path);await p.waitForSelector('[data-washing-list-root], [data-washing-judgment-root], [data-washing-detail-root]',{timeout:15000})}
 async function harness(p=page){return p.evaluate(async()=>{
  const app=await import('/src/data/fcs/fabric-washing.ts'),repo=await import('/src/data/fcs/fabric-washing-repository.ts'),model=await import('/src/data/fcs/fabric-washing-model.ts'),receiving=await import('/src/data/fcs/factory-receiving.ts'),printing=await import('/src/data/fcs/printing-task-domain.ts'),db=await import('/src/data/pcs-record-db.ts'),maintenance=await import('/src/data/fcs/fabric-washing-maintenance.ts')
- await repo.ensureWashingRecords();const site={id:'CONTRACT-SITE',name:'现场触摸责任人',role:'现场判断人员',factoryId:'F090'},planner={id:'CONTRACT-PLAN',name:'跟单',role:'计划跟单'},factory={id:'CONTRACT-FACTORY',name:'本厂执行人',role:'染厂人员',factoryId:'F090'},receiver={id:'CONTRACT-RECEIVER',name:'接收责任人',role:'接收人员',factoryId:'F090'},supervisor={id:'CONTRACT-SUPERVISOR',name:'现场负责人',role:'现场负责人',factoryId:'F090'}
+ await repo.ensureWashingRecords();const site={id:'CONTRACT-SITE',name:'现场触摸责任人',role:'现场判断人员',factoryId:'F090'},planner={id:'CONTRACT-PLAN',name:'跟单',role:'计划跟单'},factory={id:'CONTRACT-FACTORY',name:'GTG 执行人',role:'染厂人员',factoryId:'ID-F003'},receiver={id:'CONTRACT-RECEIVER',name:'接收责任人',role:'接收人员',factoryId:'F090'},supervisor={id:'CONTRACT-SUPERVISOR',name:'现场负责人',role:'现场负责人',factoryId:'F090'}
  const invariant=(ok,message)=>{if(!ok)throw new Error(message)},expectError=async(fn,pattern)=>{try{await fn()}catch(error){if(!new RegExp(pattern).test(error.message))throw error;return error.message}throw new Error('未阻止：'+pattern)}
  window.washHarness={app,repo,model,receiving,printing,db,maintenance,site,planner,factory,receiver,supervisor,invariant,expectError,orders:{},sources:{},act:(command,actor=factory,op=crypto.randomUUID())=>app.submitWashingCommand(command,actor,op)}
  return true
@@ -31,20 +31,35 @@ await check('CT-02/03/04','六来源、三手感、无需与未判断按卷混�
   await h.expectError(()=>h.act({type:'JUDGE',source,rollIds:[source.rolls[2].id],decision:'WASH'},h.site),'手感')
   await h.act({type:'JUDGE',source,rollIds:source.rolls.slice(0,2).map(r=>r.id),decision:'NO_WASH'},h.site)
   for(let n=0;n<3;n++){const op=crypto.randomUUID(),command={type:'JUDGE',source,rollIds:[source.rolls[n+2].id],decision:'WASH',handFeel:feels[n]};const a=await h.act(command,h.site,op),b=await h.act(command,h.site,op);h.invariant(a.orderId===b.orderId,'重试另建单');h.orders[type+'-'+n]=a.orderId;await h.expectError(()=>h.act(command,h.site),'已有触摸结果');}
-  const state=h.repo.readWashingState();h.invariant(h.model.washingRollRelease(state,source.printOrderId,source.rolls[0].id)==='','无需洗水未放行');h.invariant(h.model.washingRollRelease(state,source.printOrderId,source.rolls[5].id).includes('触摸'),'未判断自动放行');h.invariant(h.model.washingRollRelease(state,source.printOrderId,source.rolls[2].id).includes('洗水'),'待洗自动放行');results.push({type,sku:source.materialSku,rootType:source.rootSource.sourceType,productionOrderId:source.productionOrderId||null,target:source.target?.name})
+  const state=h.repo.readWashingState();h.invariant(h.model.washingRollRelease(state,source.printOrderId,source.rolls[0].id)==='','无需洗水未放行 '+type+' '+h.model.washingRollRelease(state,source.printOrderId,source.rolls[0].id)+' '+JSON.stringify(state.judgments.map(j=>({id:j.id,rollId:j.rollId,decision:j.decision,sourceRevision:j.sourceRevision}))));h.invariant(h.model.washingRollRelease(state,source.printOrderId,source.rolls[5].id).includes('触摸'),'未判断自动放行');h.invariant(h.model.washingRollRelease(state,source.printOrderId,source.rolls[2].id).includes('洗水'),'待洗自动放行');results.push({type,sku:source.materialSku,rootType:source.rootSource.sourceType,productionOrderId:source.productionOrderId||null,target:source.target?.name})
  }
- const state=h.repo.readWashingState();h.invariant(state.orders.length===18,'六类三手感数量不符');h.invariant(state.orders.every(o=>!o.assignedFactoryId),'建单强制派厂');h.invariant(!JSON.stringify(state).includes('percentage'),'存在在线比例');return{orders:state.orders.length,sources:results}
+ const state=h.repo.readWashingState();h.invariant(state.orders.length===18,'六类三手感数量不符');h.invariant(state.orders.every(o=>o.assignedFactoryId==='ID-F003'&&o.acceptance==='PENDING'),'建单未直接交由 GTG');h.invariant(!JSON.stringify(state).includes('percentage'),'存在在线比例');return{orders:state.orders.length,sources:results}
 }))
 uiOrderId=await page.evaluate(()=>window.washHarness.orders['PRODUCTION-0'])
 // A separate, actually saved six-source dataset for list-scale acceptance.
 const benchmarkBackup=await page.evaluate(()=>window.washHarness.maintenance.exportWashingBackup())
 const benchmarkContext=await browser.newContext({timezoneId:'Asia/Shanghai'}),benchmarkPage=await benchmarkContext.newPage();await open(benchmarkPage);await harness(benchmarkPage)
-const benchmark=await benchmarkPage.evaluate(async backup=>{const h=window.washHarness;await h.maintenance.restoreWashingBackup(backup);for(const order of h.repo.readWashingState().orders)await h.act({type:'ASSIGN',orderId:order.id,factory:{id:'F090',name:'全能力测试工厂',enabled:true}},h.planner);return h.maintenance.exportWashingBackup()},benchmarkBackup)
-writeFileSync('/tmp/washing-benchmark-18-orders.json',JSON.stringify(benchmark));await benchmarkContext.close()
+const benchmark=await benchmarkPage.evaluate(async backup=>{const h=window.washHarness;await h.maintenance.restoreWashingBackup(backup);for(const order of h.repo.readWashingState().orders)await h.act({type:'ASSIGN',orderId:order.id,factory:{id:'ID-F003',name:'GTG',enabled:true}},h.planner);return h.maintenance.exportWashingBackup()},benchmarkBackup)
+writeFileSync('/tmp/washing-benchmark-18-orders.json',JSON.stringify(benchmark));
+const benchmark36=await benchmarkPage.evaluate(async()=>{const h=window.washHarness;for(const type of ['PRODUCTION','PRODUCTION_DEMAND','PURCHASE','STOCK','SUPPLEMENT','DESIGN_REVISION']){const source=h.app.getWashingSources('PWO-WASH-DEMO-'+type+'-DONE')[0];for(const index of [0,1,5])await h.act({type:'JUDGE',source,rollIds:[source.rolls[index].id],decision:'WASH',handFeel:'柔软手感',...(index<2?{correct:true}:{})},h.site)}return h.maintenance.exportWashingBackup()});
+writeFileSync('output/washing-gtg-v1.3/benchmark-36-orders.json',JSON.stringify(benchmark36));await benchmarkContext.close()
+
+await check('WASH-226/227','GTG 停用时不得静默改派或保存新单，用户工厂覆盖保留',async()=>page.evaluate(async()=>{
+ const h=window.washHarness,master=await import('/src/data/fcs/factory-master-store.ts'),original=master.getFactoryMasterRecordById('ID-F003'),before=h.repo.readWashingState().orders.length
+ h.invariant(!!original,'缺少 GTG 档案')
+ try{
+  master.upsertFactoryMasterRecord({...original,status:'paused',allowExecute:false})
+  const source=h.app.getWashingSources('PWO-WASH-DEMO-PRODUCTION-DONE')[0]
+  await h.expectError(()=>h.act({type:'JUDGE',source,rollIds:[source.rolls[5].id],decision:'WASH',handFeel:'柔软手感'},h.site),'GTG 当前未启用')
+  h.invariant(h.repo.readWashingState().orders.length===before,'停用仍创建洗水单')
+  h.invariant(master.getFactoryMasterRecordById('ID-F003').status==='paused','覆盖了用户停用')
+  return {ordersBefore:before,ordersAfter:h.repo.readWashingState().orders.length,blocked:true}
+ }finally{master.upsertFactoryMasterRecord(original)}
+}))
 
 await check('CT-05/06/07/11','真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填',async()=>page.evaluate(async()=>{
- const h=window.washHarness,orderId=h.orders['PRODUCTION-0'],source=h.sources.PRODUCTION,roll=source.rolls[2],rollIds=[roll.id],position=h.receiving.getDefaultFactoryReceiptPosition('F090'),act=(command,actor=h.factory)=>h.act({orderId,...command},actor),lines=[{rollId:roll.id,barcode:roll.barcode,qty:49}]
- await h.expectError(()=>act({type:'ASSIGN',factory:{id:'ID-F003',name:'停用厂',enabled:true}},h.planner),'未启用|不具备');await act({type:'ASSIGN',factory:{id:'F090',name:'全能力测试工厂',enabled:true}},h.planner)
+ const h=window.washHarness,orderId=h.orders['PRODUCTION-0'],source=h.sources.PRODUCTION,roll=source.rolls[2],rollIds=[roll.id],position=h.receiving.getDefaultFactoryReceiptPosition('ID-F003'),act=(command,actor=h.factory)=>h.act({orderId,...command},actor),lines=[{rollId:roll.id,barcode:roll.barcode,qty:49}]
+ await h.expectError(()=>act({type:'ASSIGN',factory:{id:'ID-F002',name:'其他厂',enabled:true}},h.planner),'未启用|不具备');await act({type:'ASSIGN',factory:{id:'ID-F003',name:'GTG',enabled:true}},h.planner)
  await h.expectError(()=>act({type:'ACCEPT'},{...h.factory,factoryId:'ID-F002'}),'本厂');await act({type:'ACCEPT'});h.invariant(!h.repo.readWashingState().orders.find(o=>o.id===orderId).rolls[0].receivedAt,'派厂自动实收')
  await h.expectError(()=>act({type:'START',rollIds}),'已接收');await h.expectError(()=>act({type:'SEND',rollIds,scannedCodes:['错误卷']},h.site),'实际卷|卷码');await act({type:'SEND',rollIds,scannedCodes:[roll.barcode]},h.site)
  h.invariant(!h.receiving.listFactoryReceipts().some(r=>r.lines.some(l=>l.washingOrderId===orderId)),'交出自动实收');await h.expectError(()=>act({type:'CANCEL',reason:'不能回删',confirmed:true},h.planner),'实物交接');await h.expectError(()=>act({type:'RECEIVE',lines,...position}),'差异');await act({type:'RECEIVE',lines,...position,differenceConfirmed:true})
@@ -53,19 +68,19 @@ await check('CT-05/06/07/11','真实收发、库存、实际领用、新卷标�
  await act({type:'START',rollIds});h.invariant(h.receiving.listFactoryMaterialUses().some(u=>u.washingOrderId===orderId&&u.lines.reduce((n,l)=>n+l.qty,0)===49),'洗水投入未用真实实收')
  await h.expectError(()=>act({type:'OUTPUT',lines:[{rollId:roll.id,qty:0}]}),'零产出');await h.expectError(()=>act({type:'OUTPUT',lines:[{rollId:roll.id,qty:52,barcode:'WS-REPACK-01'}]}),'数量有变化');await act({type:'OUTPUT',lines:[{rollId:roll.id,qty:52,barcode:'WS-REPACK-01'}],differenceConfirmed:true})
  h.invariant(!h.repo.readWashingState().orders.find(o=>o.id===orderId).completedAt,'加工完成自动人工完单');h.invariant(wh.listFactoryWaitHandoverStockItems().some(r=>r.craftCode==='WASH'&&r.fabricRollNo==='WS-REPACK-01'&&r.waitHandoverQty===52),'产出库存未读取洗水事实');await h.expectError(()=>act({type:'COMPLETE'}),'下游实收')
- await act({type:'HANDOUT',rollIds,scannedCodes:['WS-REPACK-01'],target:source.target});await h.expectError(()=>act({type:'DOWNSTREAM_RECEIVE',lines:[{rollId:roll.id,qty:51}],...position,differenceConfirmed:true},{...h.receiver,factoryId:'ID-F002'}),'下游责任方');await act({type:'DOWNSTREAM_RECEIVE',lines:[{rollId:roll.id,qty:51}],...position,differenceConfirmed:true},h.receiver);await act({type:'COMPLETE'})
+ await act({type:'HANDOUT',rollIds,scannedCodes:['WS-REPACK-01'],target:source.target});await h.expectError(()=>act({type:'DOWNSTREAM_RECEIVE',lines:[{rollId:roll.id,qty:51}],...h.receiving.getDefaultFactoryReceiptPosition('F090'),differenceConfirmed:true},{...h.receiver,factoryId:'ID-F002'}),'下游责任方');await act({type:'DOWNSTREAM_RECEIVE',lines:[{rollId:roll.id,qty:51}],...h.receiving.getDefaultFactoryReceiptPosition('F090'),differenceConfirmed:true},h.receiver);await act({type:'COMPLETE'})
  const state=h.repo.readWashingState(),order=state.orders.find(o=>o.id===orderId);h.invariant(!h.model.washingRollRelease(state,source.printOrderId,roll.id),'洗水完成实收仍拦截');h.invariant(h.printing.getPrintingWorkOrderById(source.printOrderId).output.completedQty===300,'洗水重复新增印花产出');return{orderId,received:49,output:52,downstream:51,manualComplete:!!order.completedAt,skuUnchanged:order.source.materialSku===source.materialSku}
 }))
 await check('CT-04/06','中央仓按原去向实收，独立责任库存且单位不变',async()=>page.evaluate(async()=>{
- const h=window.washHarness,orderId=h.orders['STOCK-0'],source=h.sources.STOCK,roll=source.rolls[2],rollIds=[roll.id],position=h.receiving.getDefaultFactoryReceiptPosition('F090'),act=(command,actor=h.factory)=>h.act({orderId,...command},actor),lines=[{rollId:roll.id,barcode:roll.barcode,qty:50}]
- await act({type:'ASSIGN',factory:{id:'F090',name:'全能力测试工厂',enabled:true}},h.planner);await act({type:'ACCEPT'});await act({type:'SEND',rollIds,scannedCodes:[roll.barcode]},h.site);await act({type:'RECEIVE',lines,...position});await act({type:'START',rollIds});await act({type:'OUTPUT',lines});await act({type:'HANDOUT',rollIds,scannedCodes:[roll.barcode],target:source.target})
+ const h=window.washHarness,orderId=h.orders['STOCK-0'],source=h.sources.STOCK,roll=source.rolls[2],rollIds=[roll.id],position=h.receiving.getDefaultFactoryReceiptPosition('ID-F003'),act=(command,actor=h.factory)=>h.act({orderId,...command},actor),lines=[{rollId:roll.id,barcode:roll.barcode,qty:50}]
+ await act({type:'ASSIGN',factory:{id:'ID-F003',name:'GTG',enabled:true}},h.planner);await act({type:'ACCEPT'});await act({type:'SEND',rollIds,scannedCodes:[roll.barcode]},h.site);await act({type:'RECEIVE',lines,...position});await act({type:'START',rollIds});await act({type:'OUTPUT',lines});await act({type:'HANDOUT',rollIds,scannedCodes:[roll.barcode],target:source.target})
  h.invariant(!h.app.washingWarehouseStock().some(s=>s.orderId===orderId),'中央仓尚未收货已经有库存');await h.expectError(()=>act({type:'DOWNSTREAM_RECEIVE',lines,warehouseId:source.target.warehouseId,locationId:'A-01'},h.receiver),'原接收仓');await act({type:'DOWNSTREAM_RECEIVE',lines,warehouseId:source.target.warehouseId,locationId:'A-01'},{...h.receiver,warehouseId:source.target.warehouseId});const stock=h.app.washingWarehouseStock().find(s=>s.orderId===orderId);h.invariant(stock?.qty===50&&stock.unit==='Yard'&&stock.locationId==='A-01','中央仓实收库存不符');return stock
 }))
 await check('CT-07','本人纠正、派厂后协调、异常冻结与负责人恢复保留历史',async()=>page.evaluate(async()=>{
  const h=window.washHarness,oldId=h.orders['SUPPLEMENT-1'],source=h.sources.SUPPLEMENT,rollId=source.rolls[3].id
  await h.expectError(()=>h.act({type:'JUDGE',source,rollIds:[rollId],decision:'WASH',handFeel:'柔软手感',correct:true},{...h.site,id:'其他人员'}),'本人')
  const result=await h.act({type:'JUDGE',source,rollIds:[rollId],decision:'WASH',handFeel:'柔软手感',correct:true},h.site);const state=h.repo.readWashingState();h.invariant(state.orders.find(o=>o.id===oldId).cancelledAt,'纠正删除旧单历史');h.invariant(state.judgments.find(j=>j.rollId===rollId).history.length===1,'原判断未留版本')
- const orderId=result.orderId;await h.act({type:'ASSIGN',orderId,factory:{id:'F090',name:'全能力测试工厂',enabled:true}},h.planner);await h.expectError(()=>h.act({type:'JUDGE',source,rollIds:[rollId],decision:'NO_WASH',correct:true},h.site),'已派厂')
+ const orderId=result.orderId;await h.act({type:'ASSIGN',orderId,factory:{id:'ID-F003',name:'GTG',enabled:true}},h.planner);await h.act({type:'ACCEPT',orderId},h.factory);await h.expectError(()=>h.act({type:'JUDGE',source,rollIds:[rollId],decision:'NO_WASH',correct:true},h.site),'已接单|已交出')
  await h.act({type:'EXCEPTION',orderId,reason:'现场误判待核对',confirmed:true},h.supervisor);await h.expectError(()=>h.act({type:'ACCEPT',orderId},h.factory),'异常');await h.act({type:'RESOLVE_EXCEPTION',orderId,reason:'负责人实物核对并协调完成',confirmed:true,handFeel:'硬挺手感'},h.supervisor)
  const order=h.repo.readWashingState().orders.find(o=>o.id===orderId);h.invariant(order.handFeel==='硬挺手感'&&!order.exception,'纠正未按实际恢复');return{oldId,orderId,history:state.judgments.find(j=>j.rollId===rollId).history.length,handFeel:order.handFeel}
 }))

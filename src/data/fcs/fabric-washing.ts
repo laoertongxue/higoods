@@ -3,13 +3,13 @@ import { listFactoryMasterRecords } from './factory-master-store.ts'
 import { productionOrders } from './production-orders.ts'
 import { registerFabricWashingRelease, registerWashingOutputStock } from './fabric-washing-gates.ts'
 import { readWashingState, registerWashingProjection, executeWashingCommand, ensureWashingRecords, adoptWashingLedgerRows, washingLedgerSnapshot, guardWashingLedger } from './fabric-washing-repository.ts'
-import { assertWashingSource, washingRollRelease, washingInitiationRolls, type WashingSource, type WashingActor, type WashingCommand, type WashingOrder } from './fabric-washing-model.ts'
+import { assertWashingSource, washingRollRelease, washingInitiationRolls, WASHING_FACTORY_ID, WASHING_FACTORY_NAME, type WashingSource, type WashingActor, type WashingCommand, type WashingOrder } from './fabric-washing-model.ts'
 import { FACTORY_RECEIVING_KEY, registerFactoryReceivingSource, assertReceiptPosition, prepareFactoryReceipt, savePreparedFactoryReceipt, listFactoryReceipts, recordWashingMaterialUsage } from './factory-receiving.ts'
 import type { FactoryReceivingSource } from './factory-receiving-types.ts'
 const PRINT_KEY='higoods.formal-print-execution.v1'
 export const WASHING_ROUTE='/fcs/craft/dyeing/washing/work-orders'
 export function listWashingFactories() {
- return listFactoryMasterRecords().filter(f=>f.status==='active'&&f.eligibility?.allowExecute!==false&&f.processAbilities.some(a=>['DYE','WASH'].includes(a.processCode)&&a.status!=='DISABLED'&&a.status!=='PAUSED'&&a.canReceiveTask!==false))
+ return listFactoryMasterRecords().filter(f=>f.id===WASHING_FACTORY_ID&&f.status==='active'&&f.eligibility?.allowExecute!==false&&f.processAbilities.some(a=>['DYE','WASH'].includes(a.processCode)&&a.status!=='DISABLED'&&a.status!=='PAUSED'&&a.canReceiveTask!==false)).map(f=>({...f,name:WASHING_FACTORY_NAME}))
 }
 export function getWashingSources(printOrderId: string): WashingSource[] {
  const raw=getPrintWorkOrderById(printOrderId),view=getPrintingWorkOrderById(printOrderId)
@@ -43,8 +43,9 @@ function buildWashingSources(raw:NonNullable<ReturnType<typeof getPrintWorkOrder
   const target=targetId?{id:targetId,name:view.receivingTargetName||view.receivingTargetWarehouseName,...(raw.receiverKind==='FACTORY'?{factoryId:targetId}:{warehouseId:targetId})}:undefined
   return {objectType:'FABRIC',id:printOrderId+'/'+batch.id,printOrderId,printOrderNo:view.printOrderNo,batchId:batch.id,
    sourceType:view.demandSource.type,sourceNo:view.demandSource.sourceNo,rootSource:structuredClone(raw.sourceSnapshot??{sourceType:raw.sourceType}),
-   productionOrderId:raw.sourceSnapshot?.productionOrderId||raw.sourceProductionOrderId,productionDemandId:view.productionDemandId||undefined,techPackVersionId:raw.sourceSnapshot?.techPackVersionId,
+   productionOrderId:raw.sourceSnapshot?.productionOrderId||raw.sourceProductionOrderId,productionDemandId:view.productionDemandId||undefined,techPackVersionId:raw.sourceSnapshot?.techPackVersionId||production?.techPackSnapshot?.sourceTechPackVersionId,
    factoryId:raw.printFactoryId,factoryName:raw.printFactoryName,materialSku:view.output.sku,materialName:view.output.materialName,imageUrl:view.output.imageUrl,
+   product:structuredClone(view.product),materialProperties:{composition:view.output.composition||'',gsm:view.output.gsm,widthCm:view.output.widthCm},taskNo:view.taskNo,salesType:view.salesType,creationMethod:view.creationMethod,
    actualCompleted:batch.qty>0&&finished>=batch.qty&&rolls.length>0&&rolls.reduce((sum,r)=>sum+r.lengthY,0)<=batch.qty+0.000001,blockedReason,revision,target,
    rolls:rolls.map(r=>({id:r.id,barcode:r.barcode,qty:r.lengthY,unit:view.output.qtyUnit,confirmed:r.quantityConfirmed===true&&r.sku===view.output.sku,handedOut:['已交出','已入库'].includes(r.status),blockedReason:(view.dispatchDocuments??[]).some(doc=>doc.status==='草稿'&&doc.lines.some(line=>line.workOrderId===printOrderId&&line.barcodeIds.includes(r.id)))?'本卷已加入印花交出草稿，请先解除或更正草稿。':undefined,revision:JSON.stringify([batch.id,batch.requirementVersion,view.requirementVersion,view.output.sku,view.output.qtyUnit,r.id,r.barcode,r.lengthY,r.quantityConfirmed])})),demo:printOrderId.includes('DEMO') } satisfies WashingSource
  })
@@ -85,6 +86,7 @@ export async function submitWashingCommand(command:WashingCommand,actor:WashingA
   command={...command,verifiedSource:current}
  }
  if(command.type==='ASSIGN'&&!listWashingFactories().some(f=>f.id===command.factory.id))throw new Error('承接厂未启用或不具备染厂加工能力。')
+ if(command.type==='JUDGE'&&command.decision==='WASH'&&!listWashingFactories().length)throw new Error('GTG 当前未启用或不能接单，洗水单未保存。请核对 GTG 工厂档案后重试。')
  const refreshed=command.type==='JUDGE'?getWashingSources(command.source.printOrderId).find(source=>source.id===command.source.id):undefined
  if(command.type==='JUDGE'&&(!refreshed||refreshed.revision!==command.source.revision))throw new Error('上游面料已变化，请重新读取并实际核对。')
  if(refreshed)assertWashingSource(refreshed)

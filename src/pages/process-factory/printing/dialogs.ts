@@ -299,7 +299,7 @@ export function renderPrintingDialog(): string {
   const order = getPrintingWorkOrderById(currentDialog.workOrderId)
   if (!order) return ''
   if (currentDialog.type === 'washing') return dialogShell({title:'发起洗水',order,wide:true,hideInputSummary:true,closeLabel:'关闭',body:renderWashingJudgmentPanel(order.workOrderId,false,true)})
-  if (currentDialog.type === 'logs') return dialogShell({title:'印花操作日志',order,wide:true,body:`<table class="w-full text-left text-sm"><thead><tr><th class="p-2">时间</th><th class="p-2">操作人</th><th class="p-2">操作</th><th class="p-2">说明</th></tr></thead><tbody>${order.operationLogs.map(log=>`<tr class="border-t"><td class="p-2">${escapeHtml(log.operatedAt)}</td><td class="p-2">${escapeHtml(log.operatorName)}</td><td class="p-2">${escapeHtml(log.action)}</td><td class="p-2">${escapeHtml(log.remark)}</td></tr>`).join('')}</tbody></table>`})
+  if (currentDialog.type === 'logs') return dialogShell({title:'印花操作日志',order,wide:true,body:`<table class="w-full text-left text-sm"><thead><tr><th class="p-2">时间</th><th class="p-2">操作人</th><th class="p-2">操作</th><th class="p-2">说明</th></tr></thead><tbody>${[...order.operationLogs,...printingWashingLogs(order.workOrderId)].sort((a,b)=>(Date.parse(a.operatedAt)||0)-(Date.parse(b.operatedAt)||0)).map(log=>`<tr class="border-t"><td class="p-2">${escapeHtml(Number.isNaN(Date.parse(log.operatedAt))?log.operatedAt:new Date(log.operatedAt).toLocaleString('zh-CN',{hour12:false}))}</td><td class="p-2">${escapeHtml(log.operatorName)}</td><td class="p-2">${escapeHtml(log.action)}</td><td class="p-2">${escapeHtml(log.remark)}</td></tr>`).join('')}</tbody></table>`})
   if (currentDialog.type === 'edit-info') return renderEditInformation(order)
   if (currentDialog.type === 'remarks') return dialogShell({ title:'加工单备注', order, body:`${renderPrintingDemandSource(order)}<p class="mt-4 whitespace-pre-wrap text-sm">${escapeHtml(order.remark || '暂无备注，可在编辑信息中填写')}</p>` })
   if (currentDialog.type === 'start-production' || currentDialog.type === 'production-stage') return renderProductionOperation(order, currentDialog.type === 'start-production')
@@ -331,3 +331,4 @@ export function refreshPrintingDialogSurface(): void {
     },{capture:true})
   }
 }
+import { printingWashingLogs } from '../../../data/fcs/fabric-washing-views.ts'

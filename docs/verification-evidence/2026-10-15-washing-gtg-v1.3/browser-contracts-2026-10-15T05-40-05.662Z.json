@@ -1,0 +1,168 @@
+{
+  "at": "2026-10-15T05:40:05.662Z",
+  "base": "http://127.0.0.1:43157",
+  "head": "09881217da6db7ae5bd79fa286165e1c3a02caa5",
+  "environment": {
+    "browser": "Chromium",
+    "timezone": "Asia/Shanghai",
+    "viewport": "1366×768",
+    "node": "v26.8.2"
+  },
+  "cases": [
+    {
+      "id": "CT-02/08/10",
+      "name": "首次读取无判断、无洗水种子、无必要台账整包副本",
+      "status": "PASS",
+      "ms": 1.868832999999995,
+      "detail": {
+        "records": 0,
+        "legacyPrintBytes": 0
+      }
+    },
+    {
+      "id": "CT-02/03/04",
+      "name": "六来源、三手感、无需与未判断按卷混合，缺手感和重复建单阻断",
+      "status": "FAIL",
+      "ms": 344.60474999999997,
+      "error": "page.evaluate: Error: 无需洗水未放行\n    at Object.invariant (eval at evaluate (:303:30), <anonymous>:4:46)\n    at eval (eval at evaluate (:303:30), <anonymous>:7:43)\n    at async <anonymous>:329:30",
+      "stack": "page.evaluate: Error: 无需洗水未放行\n    at Object.invariant (eval at evaluate (:303:30), <anonymous>:4:46)\n    at eval (eval at evaluate (:303:30), <anonymous>:7:43)\n    at async <anonymous>:329:30\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:28:73\n    at check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:87)\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:28:7"
+    },
+    {
+      "id": "CT-05/06/07/11",
+      "name": "真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填",
+      "status": "FAIL",
+      "ms": 9.051625000000058,
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'rolls')\n    at eval (eval at evaluate (:303:30), <anonymous>:4:184)\n    at async <anonymous>:329:30",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'rolls')\n    at eval (eval at evaluate (:303:30), <anonymous>:4:184)\n    at async <anonymous>:329:30\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:47:76\n    at check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:87)\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:47:7"
+    },
+    {
+      "id": "CT-04/06",
+      "name": "中央仓按原去向实收，独立责任库存且单位不变",
+      "status": "FAIL",
+      "ms": 0.931959000000461,
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'rolls')\n    at eval (eval at evaluate (:303:30), <anonymous>:2:92)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'rolls')\n    at eval (eval at evaluate (:303:30), <anonymous>:2:92)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:61:62\n    at check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:87)\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:61:7"
+    },
+    {
+      "id": "CT-07",
+      "name": "本人纠正、派厂后协调、异常冻结与负责人恢复保留历史",
+      "status": "FAIL",
+      "ms": 0.5927090000004682,
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'rolls')\n    at eval (eval at evaluate (:303:30), <anonymous>:2:102)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'rolls')\n    at eval (eval at evaluate (:303:30), <anonymous>:2:102)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:66:63\n    at check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:87)\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:66:7"
+    },
+    {
+      "id": "CT-08/10",
+      "name": "备份仅必要 FCS，坏格式/缺附件/重复冲突不覆盖，完整恢复到隔离浏览器",
+      "status": "FAIL",
+      "ms": 361.3416669999997,
+      "error": "Expected values to be strictly equal:\n\n0 !== 3\n",
+      "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 3\n\n    at file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:77:307\n    at async check (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:81)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:74:1"
+    },
+    {
+      "id": "CT-09",
+      "name": "同浏览器两标签竞争同一卷只有一张有效单",
+      "status": "PASS",
+      "ms": 439.6612919999998,
+      "detail": [
+        {
+          "ok": true,
+          "result": {
+            "orderId": "WASH-89e63dc3-b0da-401a-9cf3-2269fc0d617f"
+          }
+        },
+        {
+          "ok": false,
+          "error": "所选卷已有触摸结果，请查看对应单据；需调整时使用纠正结果。"
+        }
+      ]
+    },
+    {
+      "id": "CT-08",
+      "name": "事务中止不半套保存，输入保留并以同一操作重试",
+      "status": "PASS",
+      "ms": 1195.5783330000004,
+      "detail": {
+        "recordsAfterAbort": 0,
+        "retry": "durable after reload"
+      }
+    },
+    {
+      "id": "CT-08",
+      "name": "IndexedDB 打开失败明确告知，不能显示空列表或保存成功",
+      "status": "PASS",
+      "ms": 169.51216699999986,
+      "detail": "资料暂时无法读取\n\n原有资料已保留，请重新读取。若仍然失败，请联系维护人员处理。\n\nPCS 数据未保存或无法读取，请保留当前输入后重试。（InvalidStateError）\n\n重新读取"
+    },
+    {
+      "id": "CT-08/10",
+      "name": "偏好存储禁用仍可按记录保存洗水业务",
+      "status": "PASS",
+      "ms": 560.0086670000001,
+      "detail": "业务保存未回退 localStorage"
+    },
+    {
+      "id": "CT-10",
+      "name": "旧原图转 Blob，选择性迁移读回后清理，其他旧记录保留",
+      "status": "FAIL",
+      "ms": 1742.3521659999997,
+      "error": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'source')\n    at eval (eval at evaluate (:303:30), <anonymous>:1:165)\n    at async <anonymous>:329:30",
+      "stack": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'source')\n    at eval (eval at evaluate (:303:30), <anonymous>:1:165)\n    at async <anonymous>:329:30\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:103:118\n    at async check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:81)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:98:1"
+    },
+    {
+      "id": "PG-04/05/RL-01",
+      "name": "原来源和下游直达读取、无效单号及中央仓库存入口",
+      "status": "FAIL",
+      "ms": 30031.661709,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-washing-warehouse-section]') to be visible\u001b[22m\n",
+      "stack": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-washing-warehouse-section]') to be visible\u001b[22m\n\n    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:106:103\n    at async check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:81)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:105:1"
+    },
+    {
+      "id": "PD-01/02/03",
+      "name": "PDA 原型会话、本厂单据和适用小屏",
+      "status": "PASS",
+      "ms": 1267.6113750000004,
+      "detail": {
+        "viewport": "390×844",
+        "horizontalOverflow": false
+      }
+    },
+    {
+      "id": "PG-02/PR-01/02",
+      "name": "洗水单和交接卷标预览包含真图、手感、源卷和实际责任方",
+      "status": "FAIL",
+      "ms": 389.05912499999977,
+      "error": "The input did not match the regular expression /WS-REPACK-01/. Input:\n\n'洗水交接与卷标\\n' +\n  '\\n' +\n  '单号 WS-20261015-14E0861C · 版本 3\\n' +\n  '\\n' +\n  '蓝白碎花棉府绸 · FAB-P200-BLUE-FLORAL\\n' +\n  '\\n' +\n  '目标手感：柔软手感\\n' +\n  '\\n' +\n  '来源 PO-202603-0003 · 印花单 PH-WASH-1-A\\n' +\n  '\\n' +\n  '批次 BATCH-WASH-PRODUCTION\\n' +\n  '\\n' +\n  '印花方 全能力测试工厂 → 承接染厂 GTG → 最终接收方 全能力测试工厂\\n' +\n  '\\n' +\n  '原卷 / 产出卷码\\t原量\\t实收\\t加工产出\\t下游实收\\n' +\n  'WS-1-R3\\n' +\n  '\\t50 Yard\\t—\\t—\\t—\\n' +\n  '\\n' +\n  '登记人 现场触摸责任人 · 2026/10/15 13:40:08'\n",
+      "stack": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /WS-REPACK-01/. Input:\n\n'洗水交接与卷标\\n' +\n  '\\n' +\n  '单号 WS-20261015-14E0861C · 版本 3\\n' +\n  '\\n' +\n  '蓝白碎花棉府绸 · FAB-P200-BLUE-FLORAL\\n' +\n  '\\n' +\n  '目标手感：柔软手感\\n' +\n  '\\n' +\n  '来源 PO-202603-0003 · 印花单 PH-WASH-1-A\\n' +\n  '\\n' +\n  '批次 BATCH-WASH-PRODUCTION\\n' +\n  '\\n' +\n  '印花方 全能力测试工厂 → 承接染厂 GTG → 最终接收方 全能力测试工厂\\n' +\n  '\\n' +\n  '原卷 / 产出卷码\\t原量\\t实收\\t加工产出\\t下游实收\\n' +\n  'WS-1-R3\\n' +\n  '\\t50 Yard\\t—\\t—\\t—\\n' +\n  '\\n' +\n  '登记人 现场触摸责任人 · 2026/10/15 13:40:08'\n\n    at file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:115:788\n    at async check (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:81)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:114:1"
+    }
+  ],
+  "errors": [],
+  "sourceHashes": {
+    "src/components/actual-washing-route.ts": "5e80aa0ce89df2a66771874e0abe4a2864470f109b648c1b055b6a76eadc6259",
+    "src/data/fcs/fabric-washing-views.ts": "70b72482f17a43c11c6cab5d1e3cd5f9994e3847f3b16cc79359394c41690191",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "24a9e7484c119ab00951580aa1b02887ae18899a9892697a0d575eae7da2080f",
+    "tests/unit/fabric-washing-views.test.ts": "4ee9c1124f7aa40a96e54f89d035ecd163f5197ef56f51813259b063825f2a03",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "e7c59be5fa6fe9074cb5ff6f1bf203675380aed3045eaba4abef554c932127a2",
+    "scripts/check-post-print-fabric-washing.mjs": "54486e3a48f8c30827a10fc9f47c77c62b42b96afe006dc74ac82338cfe88acf",
+    "scripts/check-printing-washing-entry.mjs": "0d6a213191d4e6e09f65593c3178fcfabcbd00ba325ac29c319a76e93d80bdc2",
+    "src/data/fcs/fabric-washing-model.ts": "e2f56689d6cf4b8a735b14a57408360b199912036ca936894a8d0312f34eaa07",
+    "src/data/fcs/fabric-washing-repository.ts": "858609ee3f4096cb613c570c5452252faaf2ee0146c07d0e75e6e4ee7e4935ac",
+    "src/data/fcs/fabric-washing.ts": "afba9cccb75f8c4940bc8f5875aee322b4816f5bebeaa7facb3489ecf467c1f2",
+    "src/data/fcs/indonesia-factories.ts": "559fd29d0d5a3e9be969de90d47c1342ebcecce9d1682d6507ef4ea94c1a0ee8",
+    "src/pages/fcs-production-tech-pack-snapshot.ts": "1ce5fbc3ede080216404ac081aca446298d1734987b4fc21950f59ec9eea4871",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "a29ffaf00b3ef2448d8f31b6bf12847aadbbd22c32609a74e741d485e76bdf51",
+    "src/pages/process-factory/printing/dialogs.ts": "0113ad842591111f4197d806ad9644f1d696a77db92240bd514b40fa8ee1d7d4",
+    "src/pages/process-factory/printing/relations.ts": "1a1cb96f5852e5dfc295dc0611fd5584db7bc2c2ad90b3df9164a74c8a267a6d",
+    "src/pages/process-factory/printing/work-orders.ts": "994e02a205681849f28de373a44ad00eddc83f0032c5651da63605bf8bd6ecba",
+    "src/pages/tech-pack/process-domain.ts": "00de97db3067e043f389986c5f92ba26edb5ea9443f3aea19d43232a2ead63e4",
+    "src/router/routes-fcs.ts": "c5ca9fb74d5930a84043d8bb7a397f777fb07a83657b0112a6ba69fb9d6fdd79",
+    "src/router/routes-pcs.ts": "389de71442b1e0ba9092d61c4c5847e4a6f1cf03bd549636b6cbcbb74d7811ac",
+    "tests/unit/fabric-washing.test.ts": "080c33ceb1ac9dec80370141c1837e5975d6d4277b32a6734a885e3c857fd3dd"
+  },
+  "browserVersion": "149.0.7827.55",
+  "summary": {
+    "pass": 6,
+    "fail": 8,
+    "pageErrors": 0
+  }
+}

@@ -4,7 +4,7 @@ import { applyWashingCommand, emptyWashingState, washingInitiationRolls, washing
 
 const site: WashingActor = { id: 'site-1', name: '现场人员', role: '现场判断人员', factoryId: 'PRINT-1' }
 const planner: WashingActor = { id: 'plan-1', name: '计划员', role: '计划跟单' }
-const factory: WashingActor = { id: 'dye-1', name: '染厂人员', role: '染厂人员', factoryId: 'DYE-1' }
+const factory: WashingActor = { id: 'dye-1', name: '染厂人员', role: '染厂人员', factoryId: 'ID-F003' }
 const receiver: WashingActor = { id: 'receive-1', name: '仓管', role: '接收人员', factoryId: 'CUT-1', warehouseId:'W-1' }
 const source = (sourceType: WashingSource['sourceType'] = 'PRODUCTION'): WashingSource => ({
   objectType: 'FABRIC', id: 'PRINT-1/BATCH-1', printOrderId: 'PRINT-1', printOrderNo: '印花单 1', batchId: 'BATCH-1', sourceType, sourceNo: '来源 1',
@@ -22,6 +22,24 @@ function harness() {
   return { act, state: () => state }
 }
 const judge = (s = source(), feel = WASHING_HAND_FEELS[0], rolls = ['R1', 'R2']): WashingCommand => ({ type: 'JUDGE', source: s, rollIds: rolls, decision: 'WASH', handFeel: feel })
+
+test('WASH-226/231: touch initiation immediately assigns GTG and preserves the original downstream', () => {
+  const h = harness(), s = source()
+  h.act(judge(s))
+  const order = h.state().orders[0]
+  assert.equal(order.assignedFactoryId, 'ID-F003')
+  assert.equal(order.assignedFactoryName, 'GTG')
+  assert.equal(order.acceptance, 'PENDING')
+  assert.equal(order.assignedAt, order.createdAt)
+  assert.deepEqual(order.source.target, s.target)
+  assert.equal(order.rolls[0].receivedAt, undefined)
+})
+
+test('WASH-227: another factory cannot replace GTG', () => {
+  const h = harness(), id = h.act(judge())!
+  assert.throws(() => h.act({type:'ASSIGN', orderId:id, factory:{id:'OTHER',name:'其他厂',enabled:true}}, planner), /GTG/)
+  assert.equal(h.state().orders[0].assignedFactoryId, 'ID-F003')
+})
 
 test('WASH-206/208: initiation uses completed physical batches and never mutates source facts', () => {
   const s = source(), before = structuredClone(s)
@@ -65,7 +83,7 @@ test('CT-03/04: all six sources accept three hand feels without a factory or che
       const h = harness(), id = h.act(judge(source(type), feel))!
       const order = h.state().orders.find(row => row.id === id)!
       assert.equal(order.handFeel, feel); assert.equal(order.source.sourceType, type)
-      assert.equal(order.assignedFactoryId, undefined)
+      assert.equal(order.assignedFactoryId, 'ID-F003')
       assert.equal(JSON.stringify(order).includes('percentage'), false)
       assert.equal(order.source.productionOrderId, undefined)
     }
@@ -96,7 +114,7 @@ test('CT-05: no-wash and wash can coexist; undecided rolls remain guarded', () =
 })
 test('CT-06: assignment does not receive; physical receipt and output govern release', () => {
   const h = harness(), id = h.act(judge())!
-  h.act({ type: 'ASSIGN', orderId: id, factory: { id: 'DYE-1', name: '染厂', enabled: true } }, planner)
+  h.act({ type: 'ASSIGN', orderId: id, factory: { id: 'ID-F003', name: 'GTG', enabled: true } }, planner)
   assert.equal(h.state().orders[0].rolls[0].receivedAt, undefined)
   assert.throws(() => h.act({ type: 'START', orderId: id, rollIds: ['R1'] }, factory), /已接收/)
   h.act({ type: 'ACCEPT', orderId: id }, factory)
@@ -115,7 +133,7 @@ test('CT-06: assignment does not receive; physical receipt and output govern rel
 })
 test('CT-07: wrong factory cannot act; a sent order cannot be cancelled', () => {
   const h = harness(), id = h.act(judge())!
-  h.act({ type: 'ASSIGN', orderId: id, factory: { id: 'DYE-1', name: '染厂', enabled: true } }, planner)
+  h.act({ type: 'ASSIGN', orderId: id, factory: { id: 'ID-F003', name: 'GTG', enabled: true } }, planner)
   assert.throws(() => h.act({ type: 'ACCEPT', orderId: id }, { ...factory, factoryId: 'OTHER' }), /本厂/)
   h.act({ type: 'ACCEPT', orderId: id }, factory)
   h.act({ type: 'SEND', orderId: id, rollIds: ['R1'], scannedCodes: ['ROLL-1'] })

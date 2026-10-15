@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-15T05:59:02.613Z",
+  "base": "http://127.0.0.1:43157",
+  "cases": [
+    {
+      "name": "PG-04 通用待接收扫码深链只能进入洗水逐卷实收，不进入 Yard 通用表单",
+      "status": "PASS",
+      "detail": "JS-WS-20261015-5ED64E58-1"
+    }
+  ],
+  "sourceHashes": {
+    "scripts/check-washing-gtg-ui.mjs": "894147570f2f765d401ca6ab4d0b635fa296b699110f1a09380342cac26de8af",
+    "src/components/actual-washing-route.ts": "5e80aa0ce89df2a66771874e0abe4a2864470f109b648c1b055b6a76eadc6259",
+    "src/data/fcs/fabric-washing-views.ts": "524886fa82b367e83a0259d1f635aaef2817744c64fb934f67f5a96853aff2e5",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "49080879771d6127a0dd8e96eda53d400d908e5dccbfb4009f4ba47efdec0628",
+    "tests/unit/fabric-washing-views.test.ts": "e3c86f752113923a64bb64cc4f6e77787d9b89f28985a894b64ac47cd449e4ef",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "c94e2cfb618e2b03950098a24d01a5e69eede2d43bb5d899bc4969c87da518ac",
+    "scripts/check-post-print-fabric-washing.mjs": "85bfead884c5e4715cc036218430e65dd31486881edf34f9f4318463752591f4",
+    "scripts/check-printing-washing-entry.mjs": "0d6a213191d4e6e09f65593c3178fcfabcbd00ba325ac29c319a76e93d80bdc2",
+    "src/data/fcs/fabric-washing-model.ts": "e2f56689d6cf4b8a735b14a57408360b199912036ca936894a8d0312f34eaa07",
+    "src/data/fcs/fabric-washing-repository.ts": "858609ee3f4096cb613c570c5452252faaf2ee0146c07d0e75e6e4ee7e4935ac",
+    "src/data/fcs/fabric-washing.ts": "afba9cccb75f8c4940bc8f5875aee322b4816f5bebeaa7facb3489ecf467c1f2",
+    "src/data/fcs/indonesia-factories.ts": "559fd29d0d5a3e9be969de90d47c1342ebcecce9d1682d6507ef4ea94c1a0ee8",
+    "src/pages/fcs-production-tech-pack-snapshot.ts": "1ce5fbc3ede080216404ac081aca446298d1734987b4fc21950f59ec9eea4871",
+    "src/pages/print/printing-sheet-preview.ts": "1351e46e0132a4b0de75d26e8446067ec76f5e809e8949a8adef7043f0ab86b8",
+    "src/pages/print/templates/printing-sheet-template.ts": "c121e33b75418ec748597b8989f940b5dc2fae85e21814ce3629dd19e498187f",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "368afa47ad9df10a7c2a3c2b30fba02e4bda2c7b9cd01878e0cf843fb58320a7",
+    "src/pages/process-factory/printing/dialogs.ts": "0113ad842591111f4197d806ad9644f1d696a77db92240bd514b40fa8ee1d7d4",
+    "src/pages/process-factory/printing/events.ts": "e79bd0b0cfdef87c554bce5a5870dd164cd88db224da86d8ccf39bcb5f0c791b",
+    "src/pages/process-factory/printing/relations.ts": "1a1cb96f5852e5dfc295dc0611fd5584db7bc2c2ad90b3df9164a74c8a267a6d",
+    "src/pages/process-factory/printing/work-orders.ts": "dcc649a46001203948689f118938486c611a72cfc8fbf7d2dcd25a913e579d87",
+    "src/pages/tech-pack/process-domain.ts": "00de97db3067e043f389986c5f92ba26edb5ea9443f3aea19d43232a2ead63e4",
+    "src/router/routes-fcs.ts": "c5ca9fb74d5930a84043d8bb7a397f777fb07a83657b0112a6ba69fb9d6fdd79",
+    "src/router/routes-pcs.ts": "389de71442b1e0ba9092d61c4c5847e4a6f1cf03bd549636b6cbcbb74d7811ac",
+    "tests/unit/fabric-washing.test.ts": "080c33ceb1ac9dec80370141c1837e5975d6d4277b32a6734a885e3c857fd3dd"
+  },
+  "summary": {
+    "pass": 1,
+    "fail": 0
+  }
+}
