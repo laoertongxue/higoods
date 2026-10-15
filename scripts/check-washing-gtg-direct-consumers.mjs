@@ -24,7 +24,7 @@ async function init(c,backup){
 async function measure(p,family,run,action,complete,nav=false){await p.evaluate(()=>window.directStart=0);await action();await complete();const end=await p.evaluate(()=>window.directReady()),start=await p.evaluate(nav=>performance.timeOrigin+(nav?0:window.directStart),nav);assert.ok(nav||await p.evaluate(()=>window.directStart>0));const sample={family,run,ms:end-start,status:end-start<=1000?'PASS':'FAIL',start:nav?'navigationStart':'actual pointer/key/change',complete:'correct visible result, necessary images/fonts/two animation frames; native durable readback for saves'};report.samples.push(sample);appendFileSync(out+'/direct-samples-'+stamp+'.jsonl',JSON.stringify(sample)+'\n');console.log(sample.status,family,sample.ms.toFixed(2))}
 async function check(name,fn){try{const detail=await fn();report.checks.push({name,status:'PASS',detail})}catch(e){report.checks.push({name,status:'FAIL',error:e.stack});throw e}}
 function fixture(name){const path='output/washing-gtg-v1.3/'+name+'.json',raw=readFileSync(path);report.fixtures[name]=createHash('sha256').update(raw).digest('hex');return JSON.parse(raw)}
-const getOrder=async p=>(await p.evaluate(()=>window.directRead())).find(r=>r.collection==='fcs.fabric-washing.v1'&&r.value.kind==='orders')
+const getOrder=async (p,id)=>(await p.evaluate(()=>window.directRead())).find(r=>r.collection==='fcs.fabric-washing.v1'&&r.value.kind==='orders'&&(!id||r.value.data.id===id))
 async function login(p){await p.goto(base+'/fcs/pda/auth/login');await p.getByRole('textbox',{name:'登录账号',exact:true}).fill('ID-F003_admin');await p.getByRole('textbox',{name:'密码',exact:true}).fill('123456');await p.getByRole('button',{name:'登录',exact:true}).click();await p.getByRole('button',{name:'打开账号信息',exact:true}).waitFor()}
 try{
  if(section==='all'||section==='affected'||section==='warehouse')for(const kind of ['received','output'])for(let run=1;run<=runs;run++)await check('GTG warehouse '+kind+' '+run,async()=>{
@@ -32,9 +32,9 @@ try{
   const c=await browser.newContext({viewport:{width:390,height:844},timezoneId:'Asia/Shanghai'}),p=await init(c,backup),path='/fcs/pda/washing/'+encodeURIComponent(saved.id)
   try{
    await login(p)
-   await measure(p,'PDA-GTG-warehouse-'+kind+'-load-after-login',run,()=>p.goto(base+'/fcs/pda/warehouse/'+(kind==='received'?'wait-process':'wait-handover'),{waitUntil:'domcontentloaded'}),async()=>{await p.locator('[data-nav="'+path+'"]').first().waitFor();assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)},true)
+   await measure(p,'PDA-GTG-warehouse-'+kind+'-load-after-login',run,()=>p.goto(base+'/fcs/pda/warehouse/'+(kind==='received'?'wait-process':'wait-handover'),{waitUntil:'domcontentloaded'}),async()=>{await p.locator('[data-nav="'+path+'"]').first().waitFor();assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.match(await p.locator('body').innerText(),new RegExp('待加工数量\\s*'+(kind==='received'?'50':'0')+'\\s*待交出数量\\s*'+(kind==='received'?'0':'50')))},true)
    if(run===1)await p.screenshot({path:out+'/GTG-warehouse-'+kind+'.png',fullPage:true})
-   await measure(p,'PDA-GTG-warehouse-'+kind+'-open-exact-order',run,()=>p.locator('[data-nav="'+path+'"]').first().click(),async()=>{await p.locator('[data-washing-order="'+saved.id+'"]').waitFor();assert.equal((await getOrder(p)).value.data.id,saved.id);assert.match(await p.locator('[data-washing-order]').innerText(),kind==='received'?/染厂实收 50 Yard/:/加工产出 50 Yard/)})
+   await measure(p,'PDA-GTG-warehouse-'+kind+'-open-exact-order',run,()=>p.locator('[data-nav="'+path+'"]').first().click(),async()=>{await p.locator('[data-washing-order="'+saved.id+'"]').waitFor();assert.equal((await getOrder(p,saved.id)).value.data.id,saved.id);assert.match(await p.locator('[data-washing-order]').innerText(),kind==='received'?/染厂实收 50 Yard/:/加工产出 50 Yard/)})
    return {id:saved.id,factory:'ID-F003',qty:50}
   }finally{await c.close()}
  })

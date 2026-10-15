@@ -1,0 +1,10 @@
+locator.waitFor: Timeout 6000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-nav="/fcs/pda/washing/WASH-06dfe81a-65ad-4cc9-9e25-1786f632ac58"]').first() to be visible[22m
+
+    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-direct-consumers.mjs:35:250
+    at measure (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-direct-consumers.mjs:24:128)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-direct-consumers.mjs:35:4
+    at async check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-direct-consumers.mjs:25:48)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-direct-consumers.mjs:30:136
+{"pass":0,"fail":1,"samples":0,"maxMs":null,"slow":[],"pageErrors":0}

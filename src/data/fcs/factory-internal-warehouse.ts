@@ -3449,9 +3449,9 @@ export function getFactoryWarehouseSummary(input: {
     .filter((item) => withinRange(item.receivedAt))
     .filter((item) => matchesKeyword([item.sourceRecordNo, item.taskNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo]))
     .filter((item) => (input.status ? item.status === input.status : item.status === '已入待加工仓'))
-    .reduce((sum, item) => sum + item.receivedQty, 0)
+    .reduce((sum, item) => sum + (item.washingOrderId ? item.availableQty ?? item.receivedQty : item.receivedQty), 0)
 
-  const waitHandoverQty = store.waitHandoverStockItems
+  const waitHandoverQty = [...store.waitHandoverStockItems, ...washingOutputStock()]
     .filter((item) => byFactory(item))
     .filter((item) => matchesKeyword([item.taskNo, item.handoverOrderNo, item.handoverRecordNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo]))
     .filter((item) => (input.status ? item.status === input.status : item.status === '待交出'))

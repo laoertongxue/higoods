@@ -1,0 +1,20 @@
+{
+  "received": {
+    "orders": 36,
+    "originalSha256": "407422f550de1804320b58576a53a4b5f9d91f0920b7994c8101935672868fd0",
+    "mergedSha256": "c13fae7fb7a20934da890a871923e41066f8476c47884b85a18501363d2088f1",
+    "replacedPendingOrderIds": [
+      "WASH-722c5b97-7a11-4ea0-a113-70996eeb0b5a"
+    ],
+    "activeOrder": "WASH-6ac0519d-722a-4a11-ac85-1f3c2b7b717a"
+  },
+  "output": {
+    "orders": 36,
+    "originalSha256": "b2cb55dd879dfb12924562d1fc260b133727290d4aa00713cce4481c0bcdac55",
+    "mergedSha256": "8fafafc34f4216d3fcb9fb319cf1649732022d17adaf7b54522da317d9656749",
+    "replacedPendingOrderIds": [
+      "WASH-722c5b97-7a11-4ea0-a113-70996eeb0b5a"
+    ],
+    "activeOrder": "WASH-6ac0519d-722a-4a11-ac85-1f3c2b7b717a"
+  }
+}

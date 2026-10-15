@@ -1,0 +1,21 @@
+PASS PDA-GTG-warehouse-received-load-after-login 387.70
+PASS PDA-GTG-warehouse-received-open-exact-order 82.30
+PASS PDA-GTG-warehouse-received-load-after-login 396.70
+PASS PDA-GTG-warehouse-received-open-exact-order 82.40
+PASS PDA-GTG-warehouse-received-load-after-login 372.40
+PASS PDA-GTG-warehouse-received-open-exact-order 82.30
+PASS PDA-GTG-warehouse-received-load-after-login 373.50
+PASS PDA-GTG-warehouse-received-open-exact-order 82.30
+PASS PDA-GTG-warehouse-received-load-after-login 385.20
+PASS PDA-GTG-warehouse-received-open-exact-order 83.20
+PASS PDA-GTG-warehouse-output-load-after-login 334.80
+PASS PDA-GTG-warehouse-output-open-exact-order 82.50
+PASS PDA-GTG-warehouse-output-load-after-login 403.40
+PASS PDA-GTG-warehouse-output-open-exact-order 98.70
+PASS PDA-GTG-warehouse-output-load-after-login 862.00
+PASS PDA-GTG-warehouse-output-open-exact-order 98.60
+PASS PDA-GTG-warehouse-output-load-after-login 842.00
+PASS PDA-GTG-warehouse-output-open-exact-order 95.00
+PASS PDA-GTG-warehouse-output-load-after-login 315.80
+PASS PDA-GTG-warehouse-output-open-exact-order 82.30
+{"pass":10,"fail":0,"samples":20,"maxMs":862,"slow":[],"pageErrors":0}

@@ -1,0 +1,87 @@
+{
+  "sourceDigest": "b7b5b3e4711c22ffb8cd9f306f15f9be89992b0ffe9cb5be2cffc62a7b6475bc",
+  "activeReports": [
+    {
+      "file": "direct-report-2026-10-15T12-01-11.933Z.json",
+      "summary": {
+        "pass": 10,
+        "fail": 0,
+        "samples": 20,
+        "maxMs": 968.5,
+        "slow": [],
+        "pageErrors": 0
+      },
+      "fixtures": {
+        "GTG-received-backup": "df683488d7c5356ef5186be6450e42f24d04e7bb9cc9d495f3b5fdf2ccdddf5c",
+        "GTG-output-backup": "6fdeff5e3cb224300addf7aa4a20527b2511d342c37bb952cad922b87760c50b"
+      }
+    },
+    {
+      "file": "direct-report-2026-10-15T12-05-03.781Z.json",
+      "summary": {
+        "pass": 10,
+        "fail": 0,
+        "samples": 20,
+        "maxMs": 840,
+        "slow": [],
+        "pageErrors": 0
+      },
+      "fixtures": {
+        "GTG-received-backup": "407422f550de1804320b58576a53a4b5f9d91f0920b7994c8101935672868fd0",
+        "GTG-output-backup": "b2cb55dd879dfb12924562d1fc260b133727290d4aa00713cce4481c0bcdac55"
+      }
+    }
+  ],
+  "historicalCalibrationReports": [
+    {
+      "file": "direct-report-2026-10-15T11-57-01.483Z.json",
+      "summary": {
+        "pass": 10,
+        "fail": 0,
+        "samples": 20,
+        "maxMs": 862,
+        "slow": [],
+        "pageErrors": 0
+      },
+      "fixtures": {
+        "GTG-received-backup": "407422f550de1804320b58576a53a4b5f9d91f0920b7994c8101935672868fd0",
+        "GTG-output-backup": "b2cb55dd879dfb12924562d1fc260b133727290d4aa00713cce4481c0bcdac55"
+      }
+    }
+  ],
+  "priorCollectorFailures": [
+    {
+      "file": "direct-report-2026-10-15T11-59-01.887Z.json",
+      "summary": {
+        "pass": 0,
+        "fail": 1,
+        "samples": 0,
+        "maxMs": null,
+        "slow": [],
+        "pageErrors": 0
+      },
+      "fixtures": {
+        "GTG-received-backup": "c13fae7fb7a20934da890a871923e41066f8476c47884b85a18501363d2088f1"
+      }
+    },
+    {
+      "file": "direct-report-2026-10-15T12-00-04.948Z.json",
+      "summary": {
+        "pass": 0,
+        "fail": 1,
+        "samples": 1,
+        "maxMs": 956.10009765625,
+        "slow": [],
+        "pageErrors": 0
+      },
+      "fixtures": {
+        "GTG-received-backup": "df683488d7c5356ef5186be6450e42f24d04e7bb9cc9d495f3b5fdf2ccdddf5c"
+      }
+    }
+  ],
+  "activeSampleCount": 40,
+  "maxMs": 968.5,
+  "unresolvedSlow": 0,
+  "families": "Four cold-load/exact-order families at one-order and 36-order scales, each five samples",
+  "failureRepair": "Heavy fixture first record was pending; old helper read first durable order. Fixture ordering and exact-ID durable lookup corrected, then all 20 heavy and 20 single-order samples replayed. Previous reports remain unchanged."
+}
