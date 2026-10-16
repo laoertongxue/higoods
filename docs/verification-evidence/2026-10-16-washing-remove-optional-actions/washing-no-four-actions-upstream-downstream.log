@@ -1,0 +1,20 @@
+PASS create-first-GTG-order 131.50
+PASS close-and-local-row-update 64.70
+PASS create-split-handfeel-order 131.50
+PASS close-and-local-row-update 48.90
+PASS printing-filter-current-GTG-downstream 49.60
+PASS printing-export-current-GTG-downstream 62.60
+PASS direct-technical-package-load 508.10
+PASS technical-package-actual-route 81.70
+PASS production-snapshot-actual-route 548.10
+PASS GTG-direct-execution-order-load 219.00
+PASS PDA-washing-detail-load-factory 318.80
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+1 !== 0
+
+    at lifecycle (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-ui.mjs:120:56)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-ui.mjs:137:4
+    at async check (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-ui.mjs:48:48)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-gtg-ui.mjs:76:52
+{"checks":1,"passed":0,"failed":1,"samples":12,"maxMs":548.10009765625,"slow":[],"pageErrors":0}

@@ -1,0 +1,244 @@
+{
+  "at": "2026-10-16T01:50:16.767Z",
+  "base": "http://127.0.0.1:43159",
+  "formal": false,
+  "head": "15ba48c625157d58fec75f340466bd83938e99ed",
+  "sources": {
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "d718561961cef706f77a314c0794b5d3361789fa90a7131b50f4d2b8c1bd35fc",
+    "src/pages/process-factory/dyeing/washing/detail-views.ts": "10551b74c5a273b7143af62802aaa436ae303c64d010317fc6a66bef661b9e78",
+    "scripts/check-washing-detail-tabs.mjs": "905799769cfa24542a7ba1eb3fdfddff8d88509a1d4d0ec8a291d665e7c7603d",
+    "scripts/check-washing-gtg-ui.mjs": "e43702ae500e287a50ebc20cb774dff058a7105794152e86a57202648bbeefa0"
+  },
+  "environment": {
+    "timezone": "Asia/Shanghai",
+    "webViewports": [
+      "1366x768",
+      "1280x720",
+      "1024x768"
+    ],
+    "pdaViewport": "390x844",
+    "scale": "6 actual 50 Yard rolls in one order, created through the real print initiation UI",
+    "cold": "Fresh isolated contexts seeded through native IndexedDB before loading any app assets; no user browser data is read or cleared"
+  },
+  "checks": [
+    {
+      "name": "native valid six-roll fixture created through print UI",
+      "result": "PASS",
+      "detail": {
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-437ca259-e7ba-4244-8ea8-2490e5d960c3",
+        "rolls": 6,
+        "input": 300
+      }
+    },
+    {
+      "name": "tabs, draft retention and save 1",
+      "result": "PASS",
+      "detail": {
+        "rolls": 6,
+        "partialOutput": 49,
+        "repacked": true,
+        "draftNodeRetained": true,
+        "allViewsReadOnly": true
+      }
+    },
+    {
+      "name": "responsive views and real image 1366",
+      "result": "PASS",
+      "detail": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "name": "responsive views and real image 1280",
+      "result": "PASS",
+      "detail": {
+        "width": 1280,
+        "height": 720
+      }
+    },
+    {
+      "name": "responsive views and real image 1024",
+      "result": "PASS",
+      "detail": {
+        "width": 1024,
+        "height": 768
+      }
+    },
+    {
+      "name": "legacy unassigned and completed read views",
+      "result": "PASS",
+      "detail": {
+        "legacyPreserved": true,
+        "completedReadOnly": true
+      }
+    },
+    {
+      "name": "PDA keeps task flow without desktop tabs",
+      "result": "PASS",
+      "detail": {
+        "width": 390,
+        "acceptance": "ACCEPTED",
+        "noDesktopNavigation": true
+      }
+    }
+  ],
+  "samples": [
+    {
+      "family": "cold-six-roll-detail",
+      "run": 1,
+      "ms": 291.5,
+      "result": "PASS",
+      "start": "navigationStart",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "refresh-six-roll-detail",
+      "run": 1,
+      "ms": 211,
+      "result": "PASS",
+      "start": "navigationStart",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "save-accept-local-refresh",
+      "run": 1,
+      "ms": 50,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-基本信息",
+      "run": 1,
+      "ms": 48.900146484375,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-交接记录",
+      "run": 1,
+      "ms": 48.800048828125,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-操作日志",
+      "run": 1,
+      "ms": 48.699951171875,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-打印",
+      "run": 1,
+      "ms": 48.89990234375,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-加工执行",
+      "run": 1,
+      "ms": 65.400146484375,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-keyboard-roving-focus",
+      "run": 1,
+      "ms": 32.699951171875,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "print-order-with-retained-draft",
+      "run": 1,
+      "ms": 65.2998046875,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "print-transfer-with-retained-draft",
+      "run": 1,
+      "ms": 47.699951171875,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "invalid-send-retains-draft",
+      "run": 1,
+      "ms": 64.900146484375,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    }
+  ],
+  "errors": [],
+  "browser": "149.0.7827.55",
+  "families": {
+    "cold-six-roll-detail": {
+      "count": 1,
+      "maxMs": 291.5
+    },
+    "refresh-six-roll-detail": {
+      "count": 1,
+      "maxMs": 211
+    },
+    "save-accept-local-refresh": {
+      "count": 1,
+      "maxMs": 50
+    },
+    "tab-基本信息": {
+      "count": 1,
+      "maxMs": 48.900146484375
+    },
+    "tab-交接记录": {
+      "count": 1,
+      "maxMs": 48.800048828125
+    },
+    "tab-操作日志": {
+      "count": 1,
+      "maxMs": 48.699951171875
+    },
+    "tab-打印": {
+      "count": 1,
+      "maxMs": 48.89990234375
+    },
+    "tab-加工执行": {
+      "count": 1,
+      "maxMs": 65.400146484375
+    },
+    "tab-keyboard-roving-focus": {
+      "count": 1,
+      "maxMs": 32.699951171875
+    },
+    "print-order-with-retained-draft": {
+      "count": 1,
+      "maxMs": 65.2998046875
+    },
+    "print-transfer-with-retained-draft": {
+      "count": 1,
+      "maxMs": 47.699951171875
+    },
+    "invalid-send-retains-draft": {
+      "count": 1,
+      "maxMs": 64.900146484375
+    }
+  },
+  "summary": {
+    "checks": 7,
+    "passed": 7,
+    "samples": 12,
+    "maxMs": 291.5,
+    "slow": [],
+    "pageErrors": 0
+  }
+}

@@ -1,0 +1,36 @@
+PASS create-first-GTG-order 113.70
+PASS close-and-local-row-update 64.30
+PASS create-split-handfeel-order 198.70
+PASS close-and-local-row-update 48.50
+PASS printing-filter-current-GTG-downstream 47.80
+PASS printing-export-current-GTG-downstream 48.40
+PASS direct-technical-package-load 492.90
+PASS technical-package-actual-route 65.00
+PASS production-snapshot-actual-route 565.70
+PASS GTG-direct-execution-order-load 204.20
+PASS PDA-washing-detail-load-factory 253.00
+PASS web-detail-refresh-factory 218.70
+PASS web-print-site-send-factory 132.30
+PASS PDA-GTG-physical-receive-factory 231.50
+PASS PDA-GTG-start-factory 182.50
+PASS PDA-GTG-output-factory 181.60
+PASS PDA-GTG-handout-factory 215.10
+PASS original-factory-receive 149.00
+PASS PDA-GTG-manual-complete-factory 181.30
+PASS washing-print-order-factory 81.90
+PASS washing-print-transfer-factory 98.10
+PASS create-original-warehouse-order 315.20
+PASS close-and-local-row-update 33.00
+PASS PDA-washing-detail-load-warehouse 347.80
+PASS web-detail-refresh-warehouse 228.90
+PASS web-print-site-send-warehouse 182.00
+PASS PDA-GTG-physical-receive-warehouse 281.80
+PASS PDA-GTG-start-warehouse 215.40
+PASS PDA-GTG-output-warehouse 198.50
+PASS PDA-GTG-handout-warehouse 145.30
+PASS original-warehouse-receive 132.50
+PASS PDA-GTG-manual-complete-warehouse 183.20
+PASS washing-print-order-warehouse 81.50
+PASS washing-print-transfer-warehouse 81.40
+PASS GTG flow, routes and original downstream 1
+{"checks":1,"passed":1,"failed":0,"samples":35,"maxMs":565.699951171875,"slow":[],"pageErrors":0}

@@ -35,7 +35,7 @@ export interface WashingRoll {
 export interface WashingOrder {
   id: string; no: string; source: WashingSource; rollIds: string[]; handFeel: WashingHandFeel
   createdAt: string; createdBy: string; assignedFactoryId?: string; assignedFactoryName?: string
-  acceptance: 'UNASSIGNED' | 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  acceptance: 'NOT_REQUIRED' | 'UNASSIGNED' | 'PENDING' | 'ACCEPTED' | 'REJECTED'
   rejectionReason?: string; assignedAt?: string; acceptedAt?: string; completedAt?: string; cancelledAt?: string
   exception?: string; revision: number; printedRevision?: number; printedContentSignature?:string
   rolls: WashingRoll[]
@@ -46,6 +46,12 @@ export interface WashingAction {
 }
 export interface WashingState { judgments: WashingJudgment[]; orders: WashingOrder[]; actions: WashingAction[] }
 export const emptyWashingState = (): WashingState => ({ judgments: [], orders: [], actions: [] })
+/** GTG is fixed for new work; no factory acceptance event is required or invented.
+ * Legacy pending GTG orders use the same rule without rewriting saved history. */
+export function washingCanExecute(order:WashingOrder):boolean {
+  return !!order.assignedFactoryId && (order.acceptance==='ACCEPTED'
+    || order.assignedFactoryId===WASHING_FACTORY_ID && ['NOT_REQUIRED','PENDING'].includes(order.acceptance))
+}
 export function washingPrintSignature(order:WashingOrder):string {
  return JSON.stringify([order.handFeel,order.assignedFactoryId,order.source.productionOrderId,order.source.target,order.rolls.map(r=>[r.id,r.barcode,r.outputBarcode,r.inputQty,r.receivedQty,r.outputQty,r.downstreamQty]),order.cancelledAt,order.exception])
 }
@@ -145,7 +151,7 @@ export function applyWashingCommand(
         id, no: 'WS-' + new Date(at).toLocaleDateString('sv-SE').replaceAll('-','') + '-' + operationId.replace(/[^A-Za-z0-9]/g, '').slice(0,8).toUpperCase(),
         source: structuredClone(command.source), rollIds: rolls.map(roll => roll.id), handFeel: command.handFeel!,
         createdAt: at, createdBy: actor.name, assignedFactoryId: WASHING_FACTORY_ID, assignedFactoryName: WASHING_FACTORY_NAME,
-        assignedAt: at, acceptance: 'PENDING', revision: 1,
+        assignedAt: at, acceptance: 'NOT_REQUIRED', revision: 1,
         rolls: rolls.map(roll => ({ id: roll.id, sourceRollId: roll.id, barcode: roll.barcode, inputQty: roll.qty, unit: roll.unit })),
       }
       if(state.orders.some(row=>row.no===order!.no&&row.id!==order!.id)) order.no += '-' + operationId.replace(/[^A-Za-z0-9]/g,'').slice(-8).toUpperCase()
@@ -191,7 +197,7 @@ export function applyWashingCommand(
       if (!command.factory.enabled || !command.factory.id || !command.factory.name) fail('请选择已启用的承接染厂。')
       if (order.rolls.some(roll => roll.sentAt)) fail('已经交出实物，不能直接变更染厂。')
       order.assignedFactoryId = WASHING_FACTORY_ID; order.assignedFactoryName = WASHING_FACTORY_NAME
-      order.acceptance = 'PENDING'; order.assignedAt = at; delete order.acceptedAt; delete order.rejectionReason
+      order.acceptance = 'NOT_REQUIRED'; order.assignedAt = at; delete order.acceptedAt; delete order.rejectionReason
     } else if (command.type === 'ACCEPT' || command.type === 'REJECT') {
       factoryActor(actor, order)
       if (order.acceptance !== 'PENDING') fail('本单当前不是待接单。')
@@ -202,7 +208,7 @@ export function applyWashingCommand(
     } else if (command.type === 'SEND') {
       actorRole(actor, ['现场判断人员'])
       if (actor.factoryId !== order.source.factoryId) fail('只能交出本现场的实物。')
-      if (order.acceptance !== 'ACCEPTED') fail('请先由承接染厂接单。')
+      if (!washingCanExecute(order)) fail('请先核对由 GTG 承接的洗水单。')
       const rolls = scope(order.rolls, command.rollIds); scanning(rolls, command.scannedCodes)
       if (rolls.some(roll => roll.sentAt)) fail('所选卷已经交出，不能重复交出。')
       rolls.forEach(roll => { roll.sentAt = at }); selectedIds = command.rollIds
@@ -228,7 +234,7 @@ export function applyWashingCommand(
       if(new Set(labels).size!==labels.length||labels.some((label,index)=>state.orders.some(o=>o.rolls.some(r=>r.id!==rolls[index].id&&(r.outputBarcode===label||r.barcode===label)))))fail('产出卷码已被其他实物使用，请保留原卷或使用唯一新卷码。')
       command.lines.forEach((line, index) => {
         const roll = rolls[index]
-        if (!roll.startedAt || roll.completedAt || !positive(line.qty)) fail('请选择已开工且未完成的卷，填写实际产出；零产出请登记异常。')
+        if (!roll.startedAt || roll.completedAt || !positive(line.qty)) fail('请选择已开工且未完成的卷，并填写大于零的实际产出。')
         if (line.qty !== roll.receivedQty && !command.differenceConfirmed) fail('加工数量有变化，请核对实际投入与产出后确认。')
         roll.completedAt = at; roll.outputQty = line.qty; roll.outputBarcode = line.barcode?.trim() || roll.barcode
       }); selectedIds = command.lines.map(line => line.rollId)

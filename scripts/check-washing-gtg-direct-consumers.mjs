@@ -65,7 +65,7 @@ try{
   try{
    const before=JSON.stringify((await getOrder(p)).value.data)
    await measure(p,'legacy-unassigned-order-read',run,()=>p.goto(base+path,{waitUntil:'domcontentloaded'}),async()=>{await p.getByRole('button',{name:'交由 GTG 承接',exact:true}).waitFor();assert.equal(JSON.stringify((await getOrder(p)).value.data),before)},true)
-   await measure(p,'legacy-explicit-GTG-assignment',run,()=>p.getByRole('button',{name:'交由 GTG 承接',exact:true}).click(),async()=>{await p.getByRole('button',{name:'接单',exact:true}).waitFor();const saved=(await getOrder(p)).value.data;assert.equal(saved.id,old.id);assert.equal(saved.assignedFactoryId,'ID-F003');assert.equal(saved.acceptance,'PENDING')})
+   await measure(p,'legacy-explicit-GTG-assignment',run,()=>p.getByRole('button',{name:'交由 GTG 承接',exact:true}).click(),async()=>{await p.getByRole('button',{name:'印花交给染厂',exact:true}).waitFor();const saved=(await getOrder(p)).value.data;assert.equal(saved.id,old.id);assert.equal(saved.assignedFactoryId,'ID-F003');assert.equal(saved.acceptance,'NOT_REQUIRED')})
    return {id:old.id,readDidNotRewrite:true,explicitAssignment:'ID-F003'}
   }finally{await c.close()}
  })

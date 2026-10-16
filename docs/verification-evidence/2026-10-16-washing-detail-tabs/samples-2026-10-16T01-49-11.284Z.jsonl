@@ -1,0 +1,3 @@
+{"family":"cold-six-roll-detail","run":1,"ms":278.5,"result":"PASS","start":"navigationStart","end":"correct visible result, required images, fonts and two frames; writes include durable native readback"}
+{"family":"refresh-six-roll-detail","run":1,"ms":208.800048828125,"result":"PASS","start":"navigationStart","end":"correct visible result, required images, fonts and two frames; writes include durable native readback"}
+{"family":"save-accept-local-refresh","run":1,"ms":49.599853515625,"result":"PASS","start":"captured native pointer/key/input/change","end":"correct visible result, required images, fonts and two frames; writes include durable native readback"}

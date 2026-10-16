@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { applyWashingCommand, emptyWashingState, type WashingSource } from '../../src/data/fcs/fabric-washing-model.ts'
-import { printingWashingLogs, printingWashingOrders, technicalWashingOrders, printingDownstreamNames, withPrintingWashingRead } from '../../src/data/fcs/fabric-washing-views.ts'
+import { washingOrderStatus, printingWashingLogs, printingWashingOrders, technicalWashingOrders, printingDownstreamNames, withPrintingWashingRead } from '../../src/data/fcs/fabric-washing-views.ts'
 import { registerWashingProjection } from '../../src/data/fcs/fabric-washing-repository.ts'
 import { washingInformationColumns, washingQuantities, upgradeWashingColumnPreferences } from '../../src/pages/process-factory/dyeing/washing/order-presentation.ts'
 import { normalizeListColumnPreferences } from '../../src/components/ui/list-table-model.ts'
@@ -89,4 +89,19 @@ test('a synchronous print view remains consistent and releases its snapshot afte
     committed=emptyWashingState()
     assert.equal(printingWashingOrders(source.printOrderId).length,0)
   }finally{registerWashingProjection(value=>value)}
+})
+
+
+test('WASH-287: fixed GTG new and legacy pending orders show physical work rather than acceptance tasks',()=>{
+ const {state}=fixture(),order=state.orders[0]
+ for(const acceptance of ['NOT_REQUIRED','PENDING','ACCEPTED'] as const){order.acceptance=acceptance;const before=JSON.stringify(order);assert.equal(washingOrderStatus(order),'待印花交出');assert.equal(JSON.stringify(order),before)}
+ order.acceptance='REJECTED';assert.match(washingOrderStatus(order),/历史拒单/)
+ order.cancelledAt='2026-10-15T10:00:00+08:00';assert.equal(washingOrderStatus(order),'已作废')
+})
+test('WASH-287: time views omit an acceptance placeholder while retaining an actual historical timestamp',()=>{
+ const {state}=fixture(),order=state.orders[0],image=()=>'<img>',link=(name:string)=>name
+ const timeColumn=washingInformationColumns(image,link).find(c=>c.key==='time')!
+ assert.doesNotMatch(timeColumn.render(order),/接单/)
+ order.acceptedAt='2026-10-15T10:00:00+08:00'
+ assert.match(timeColumn.render(order),/历史接单时间/)
 })

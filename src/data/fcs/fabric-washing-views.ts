@@ -1,5 +1,5 @@
 import { readWashingState } from './fabric-washing-repository.ts'
-import type { WashingOrder, WashingState } from './fabric-washing-model.ts'
+import { washingCanExecute, type WashingOrder, type WashingState } from './fabric-washing-model.ts'
 import { productionOrders } from './production-orders.ts'
 
 let printingRead:WashingState|undefined
@@ -61,5 +61,6 @@ export function washingOrderStatus(o:WashingOrder):string {
   if(o.rolls.some(r=>r.startedAt))return '洗水加工中'
   if(o.rolls.some(r=>r.receivedAt))return '已实收待开工'
   if(o.rolls.some(r=>r.sentAt))return '印花已交出待实收'
-  return ({UNASSIGNED:'待确认承接',PENDING:'待接单',ACCEPTED:'已接单待来货',REJECTED:'已拒单'})[o.acceptance]
+  if(washingCanExecute(o))return '待印花交出'
+  return o.acceptance==='REJECTED'?'历史拒单待核对':'待确认 GTG 承接'
 }

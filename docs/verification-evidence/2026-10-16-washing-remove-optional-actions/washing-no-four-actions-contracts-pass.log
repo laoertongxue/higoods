@@ -1,0 +1,36 @@
+PASS CT-02/08/10 首次读取无判断、无洗水种子、无必要台账整包副本
+PASS CT-02/03/04 六来源、三手感、无需与未判断按卷混合，缺手感和重复建单阻断
+PASS WASH-226/227 GTG 停用时不得静默改派或保存新单，用户工厂覆盖保留
+PASS CT-05/06/07/11 真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填
+PASS CT-04/06 中央仓按原去向实收，独立责任库存且单位不变
+PASS CT-07 本人纠正、派厂后协调、异常冻结与负责人恢复保留历史
+PASS CT-08/10 备份仅必要 FCS，坏格式/缺附件/重复冲突不覆盖，完整恢复到隔离浏览器
+PASS CT-09 同浏览器两标签竞争同一卷只有一张有效单
+PASS CT-08 事务中止不半套保存，输入保留并以同一操作重试
+PASS CT-08 IndexedDB 打开失败明确告知，不能显示空列表或保存成功
+PASS CT-08/10 偏好存储禁用仍可按记录保存洗水业务
+PASS CT-10 旧原图转 Blob，选择性迁移读回后清理，其他旧记录保留
+PASS PG-04/05/RL-01 原来源和下游直达读取、无效单号及中央仓库存入口
+PASS PD-01/02/03 PDA 原型会话、本厂单据和适用小屏
+FAIL PG-02/PR-01/02 洗水单和交接卷标预览包含真图、手感、源卷和实际责任方 locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: '洗水加工单预览', exact: true })[22m
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: '洗水加工单预览', exact: true })[22m
+
+    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:128:341
+    at async check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:81)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:127:1 {
+  log: [
+    "  - waiting for getByRole('button', { name: '洗水加工单预览', exact: true })"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v26.8.2

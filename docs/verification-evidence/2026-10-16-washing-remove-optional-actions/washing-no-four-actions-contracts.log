@@ -1,0 +1,34 @@
+PASS CT-02/08/10 首次读取无判断、无洗水种子、无必要台账整包副本
+PASS CT-02/03/04 六来源、三手感、无需与未判断按卷混合，缺手感和重复建单阻断
+PASS WASH-226/227 GTG 停用时不得静默改派或保存新单，用户工厂覆盖保留
+FAIL CT-05/06/07/11 真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填 page.evaluate: Error: 请选择已开工且未完成的卷，并填写大于零的实际产出。
+    at fail (http://127.0.0.1:43160/src/data/fcs/fabric-washing-model.ts:12:9)
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing-model.ts:210:73
+    at Array.forEach (<anonymous>)
+    at applyWashingCommand (http://127.0.0.1:43160/src/data/fcs/fabric-washing-model.ts:208:21)
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:251:21
+    at runWashingRecordCommand (http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:189:20)
+    at async Object.expectError (eval at evaluate (:303:30), <anonymous>:4:102)
+    at async eval (eval at evaluate (:303:30), <anonymous>:10:2)
+    at async <anonymous>:329:30
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.evaluate: Error: 请选择已开工且未完成的卷，并填写大于零的实际产出。
+    at fail (http://127.0.0.1:43160/src/data/fcs/fabric-washing-model.ts:12:9)
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing-model.ts:210:73
+    at Array.forEach (<anonymous>)
+    at applyWashingCommand (http://127.0.0.1:43160/src/data/fcs/fabric-washing-model.ts:208:21)
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:251:21
+    at runWashingRecordCommand (http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:189:20)
+    at async Object.expectError (eval at evaluate (:303:30), <anonymous>:4:102)
+    at async eval (eval at evaluate (:303:30), <anonymous>:10:2)
+    at async <anonymous>:329:30
+    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:60:76
+    at check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:87)
+    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:60:7 {
+  log: []
+}
+
+Node.js v26.8.2

@@ -1,0 +1,15 @@
+PASS CT-11 真实提前匹配事务保存后追加关联，刷新不重建，失败保留洗水事实
+node:fs:2997
+    return binding.writeFileUtf8(
+                   ^
+
+Error: ENOENT: no such file or directory, open 'output/washing-no-optional-actions/edges/edge-contracts-2026-10-16T02-15-51.008Z.json'
+    at writeFileSync (node:fs:2997:20)
+    at file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing-edges.mjs:145:126 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'output/washing-no-optional-actions/edges/edge-contracts-2026-10-16T02-15-51.008Z.json'
+}
+
+Node.js v26.8.2

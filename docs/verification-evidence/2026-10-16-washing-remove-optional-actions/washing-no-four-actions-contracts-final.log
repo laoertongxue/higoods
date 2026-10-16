@@ -1,0 +1,30 @@
+PASS CT-02/08/10 首次读取无判断、无洗水种子、无必要台账整包副本
+PASS CT-02/03/04 六来源、三手感、无需与未判断按卷混合，缺手感和重复建单阻断
+PASS WASH-226/227 GTG 停用时不得静默改派或保存新单，用户工厂覆盖保留
+PASS CT-05/06/07/11 真实收发、库存、实际领用、新卷标、正负差异与完单不互相代填
+PASS CT-04/06 中央仓按原去向实收，独立责任库存且单位不变
+FAIL CT-07 本人纠正、派厂后协调、异常冻结与负责人恢复保留历史 page.evaluate: Error: 原面料已变化或已经交出，请重新读取后核对。
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing.ts:185:158
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:250:31
+    at runWashingRecordCommand (http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:189:20)
+    at async Object.expectError (eval at evaluate (:303:30), <anonymous>:4:102)
+    at async eval (eval at evaluate (:303:30), <anonymous>:5:243)
+    at async <anonymous>:329:30
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.evaluate: Error: 原面料已变化或已经交出，请重新读取后核对。
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing.ts:185:158
+    at http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:250:31
+    at runWashingRecordCommand (http://127.0.0.1:43160/src/data/fcs/fabric-washing-repository.ts:189:20)
+    at async Object.expectError (eval at evaluate (:303:30), <anonymous>:4:102)
+    at async eval (eval at evaluate (:303:30), <anonymous>:5:243)
+    at async <anonymous>:329:30
+    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:79:63
+    at check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:15:87)
+    at /Users/laoer/.codex/worktrees/a266/higoods/scripts/check-post-print-fabric-washing.mjs:79:7 {
+  log: []
+}
+
+Node.js v26.8.2

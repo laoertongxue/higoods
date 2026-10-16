@@ -1,0 +1,20 @@
+{
+  "base": "15ba48c625157d58fec75f340466bd83938e99ed",
+  "files": {
+    "src/data/fcs/fabric-washing-model.ts": "b3dce0d278092e0c05a22edca7df5391d46290128f7716850ca7e7f8aac7d729",
+    "src/data/fcs/fabric-washing-views.ts": "04198580255ea9bb20b81258d2aa417fb112b8da6a6d59d6051717713c4b44c3",
+    "src/data/fcs/fabric-washing-maintenance.ts": "9b9dac31e8fba52a95a911f296df90b0951b7f9155b30ea0b82e9f3be24605af",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "d07717f637d73804ff74cad497e07ae7818f8e8aa6996a9bc0389ef4b2db4417",
+    "tests/unit/fabric-washing.test.ts": "d524579c22899fad783fadf12bce64758a7721131ea5450ebaf47a1306640f2b",
+    "tests/unit/fabric-washing-maintenance.test.ts": "ce9e51ba58b17c54df58f8a38e22b223f6a4f27fffcd816765580f255e5581cb",
+    "tests/unit/fabric-washing-views.test.ts": "e3aca37e29c5434038f8d836c82e89e155854fba6bd797873fe61b931c79bb35",
+    "scripts/check-washing-gtg-direct-consumers.mjs": "3dbd629f70cc9e5728cf15457aa1fdf90adb8649432154a890074500997dfc68",
+    "scripts/check-post-print-fabric-washing.mjs": "821f9555250e199d71a547324a0434c97dae252b538a133ec806a13d0ce8f0fc",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "0168d5beae5f3b5cf09a1466b0e0400b66d0a0e04355b6db1c270e943b4f49cf",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "5a245a6304dc3be80718ae2d5f61a14c9129b8c575c77db5bb7596c111a06f28",
+    "src/pages/process-factory/dyeing/washing/detail-views.ts": "e45be8514d74b0f870d3aea81f4064ad563d0c64b2e2200feff7d5c671f16339",
+    "scripts/check-washing-detail-tabs.mjs": "ac234c440158b85e8eb901593779c273477f4986d37fd62d5ef6eb30d427afee",
+    "scripts/check-washing-gtg-ui.mjs": "6d6bf45637fe8c2e65e55f8086e2857a770ea62cf1cddf6839e81d97d54ff57f"
+  },
+  "digest": "0f7731735932d4de74f4f855b2d0b2a755d9816f882624c665ef4f0edf5a7841"
+}

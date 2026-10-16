@@ -1,0 +1,27 @@
+PASS native valid six-roll fixture created through print UI
+PASS cold-six-roll-detail 277.50
+PASS refresh-six-roll-detail 211.10
+PASS tab-基本信息 48.80
+PASS tab-交接记录 48.70
+PASS tab-操作日志 48.90
+PASS tab-打印 65.40
+PASS tab-加工执行 65.10
+PASS tab-keyboard-roving-focus 32.50
+PASS print-order-with-retained-draft 48.40
+PASS print-transfer-with-retained-draft 49.00
+PASS invalid-send-retains-draft 65.20
+PASS save-印花交给染厂 148.80
+PASS save-登记逐卷实收 149.10
+PASS save-投入洗水 132.40
+PASS save-登记实际产出 65.60
+PASS save-交回原接收方 148.70
+PASS save-登记下游实收 132.20
+PASS tabs, draft retention and save 1
+PASS responsive views and real image 1366
+PASS responsive views and real image 1280
+PASS responsive views and real image 1024
+PASS historical states remain read-only without the four actions
+PASS PDA-six-roll-detail-after-login 235.20
+PASS PDA-receive-without-acceptance 449.10
+PASS PDA executes without acceptance 1
+{"checks":7,"passed":7,"samples":19,"maxMs":449.10009765625,"slow":[],"pageErrors":0}

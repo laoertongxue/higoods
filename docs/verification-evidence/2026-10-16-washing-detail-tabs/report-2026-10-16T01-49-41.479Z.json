@@ -1,0 +1,198 @@
+{
+  "at": "2026-10-16T01:49:41.480Z",
+  "base": "http://127.0.0.1:43159",
+  "formal": false,
+  "head": "15ba48c625157d58fec75f340466bd83938e99ed",
+  "sources": {
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "d718561961cef706f77a314c0794b5d3361789fa90a7131b50f4d2b8c1bd35fc",
+    "src/pages/process-factory/dyeing/washing/detail-views.ts": "10551b74c5a273b7143af62802aaa436ae303c64d010317fc6a66bef661b9e78",
+    "scripts/check-washing-detail-tabs.mjs": "5d9356414933379851307b6e8197eb9d87e7835cab87f056cf2fbdf492dbd0a8",
+    "scripts/check-washing-gtg-ui.mjs": "e43702ae500e287a50ebc20cb774dff058a7105794152e86a57202648bbeefa0"
+  },
+  "environment": {
+    "timezone": "Asia/Shanghai",
+    "webViewports": [
+      "1366x768",
+      "1280x720",
+      "1024x768"
+    ],
+    "pdaViewport": "390x844",
+    "scale": "6 actual 50 Yard rolls in one order, created through the real print initiation UI",
+    "cold": "Fresh isolated contexts seeded through native IndexedDB before loading any app assets; no user browser data is read or cleared"
+  },
+  "checks": [
+    {
+      "name": "native valid six-roll fixture created through print UI",
+      "result": "PASS",
+      "detail": {
+        "href": "/fcs/craft/dyeing/washing/work-orders/WASH-b3a7aceb-1fd8-4f5e-96b4-2fb1906f8bda",
+        "rolls": 6,
+        "input": 300
+      }
+    },
+    {
+      "name": "tabs, draft retention and save 1",
+      "result": "FAIL",
+      "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(predicate((await orders(p))[0]))\n\n    at clickSave (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:44:194)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:79:25\n    at async check (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:26:48)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:54:32"
+    }
+  ],
+  "samples": [
+    {
+      "family": "cold-six-roll-detail",
+      "run": 1,
+      "ms": 272.89990234375,
+      "result": "PASS",
+      "start": "navigationStart",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "refresh-six-roll-detail",
+      "run": 1,
+      "ms": 210.60009765625,
+      "result": "PASS",
+      "start": "navigationStart",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "save-accept-local-refresh",
+      "run": 1,
+      "ms": 50.699951171875,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-基本信息",
+      "run": 1,
+      "ms": 49,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-交接记录",
+      "run": 1,
+      "ms": 48.39990234375,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-操作日志",
+      "run": 1,
+      "ms": 48.800048828125,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-打印",
+      "run": 1,
+      "ms": 48.800048828125,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-加工执行",
+      "run": 1,
+      "ms": 65.2001953125,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "tab-keyboard-roving-focus",
+      "run": 1,
+      "ms": 32.5,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "print-order-with-retained-draft",
+      "run": 1,
+      "ms": 64.60009765625,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "print-transfer-with-retained-draft",
+      "run": 1,
+      "ms": 47.89990234375,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    },
+    {
+      "family": "invalid-send-retains-draft",
+      "run": 1,
+      "ms": 65.699951171875,
+      "result": "PASS",
+      "start": "captured native pointer/key/input/change",
+      "end": "correct visible result, required images, fonts and two frames; writes include durable native readback"
+    }
+  ],
+  "errors": [],
+  "browser": "149.0.7827.55",
+  "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(predicate((await orders(p))[0]))\n\n    at clickSave (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:44:194)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:79:25\n    at async check (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:26:48)\n    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:54:32",
+  "families": {
+    "cold-six-roll-detail": {
+      "count": 1,
+      "maxMs": 272.89990234375
+    },
+    "refresh-six-roll-detail": {
+      "count": 1,
+      "maxMs": 210.60009765625
+    },
+    "save-accept-local-refresh": {
+      "count": 1,
+      "maxMs": 50.699951171875
+    },
+    "tab-基本信息": {
+      "count": 1,
+      "maxMs": 49
+    },
+    "tab-交接记录": {
+      "count": 1,
+      "maxMs": 48.39990234375
+    },
+    "tab-操作日志": {
+      "count": 1,
+      "maxMs": 48.800048828125
+    },
+    "tab-打印": {
+      "count": 1,
+      "maxMs": 48.800048828125
+    },
+    "tab-加工执行": {
+      "count": 1,
+      "maxMs": 65.2001953125
+    },
+    "tab-keyboard-roving-focus": {
+      "count": 1,
+      "maxMs": 32.5
+    },
+    "print-order-with-retained-draft": {
+      "count": 1,
+      "maxMs": 64.60009765625
+    },
+    "print-transfer-with-retained-draft": {
+      "count": 1,
+      "maxMs": 47.89990234375
+    },
+    "invalid-send-retains-draft": {
+      "count": 1,
+      "maxMs": 65.699951171875
+    }
+  },
+  "summary": {
+    "checks": 2,
+    "passed": 1,
+    "samples": 12,
+    "maxMs": 272.89990234375,
+    "slow": [],
+    "pageErrors": 0
+  }
+}

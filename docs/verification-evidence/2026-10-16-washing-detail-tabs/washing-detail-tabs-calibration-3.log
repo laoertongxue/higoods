@@ -1,0 +1,20 @@
+PASS native valid six-roll fixture created through print UI
+PASS cold-six-roll-detail 291.50
+PASS refresh-six-roll-detail 211.00
+PASS save-accept-local-refresh 50.00
+PASS tab-基本信息 48.90
+PASS tab-交接记录 48.80
+PASS tab-操作日志 48.70
+PASS tab-打印 48.90
+PASS tab-加工执行 65.40
+PASS tab-keyboard-roving-focus 32.70
+PASS print-order-with-retained-draft 65.30
+PASS print-transfer-with-retained-draft 47.70
+PASS invalid-send-retains-draft 64.90
+PASS tabs, draft retention and save 1
+PASS responsive views and real image 1366
+PASS responsive views and real image 1280
+PASS responsive views and real image 1024
+PASS legacy unassigned and completed read views
+PASS PDA keeps task flow without desktop tabs
+{"checks":7,"passed":7,"samples":12,"maxMs":291.5,"slow":[],"pageErrors":0}

@@ -29,7 +29,8 @@ test('WASH-226/231: touch initiation immediately assigns GTG and preserves the o
   const order = h.state().orders[0]
   assert.equal(order.assignedFactoryId, 'ID-F003')
   assert.equal(order.assignedFactoryName, 'GTG')
-  assert.equal(order.acceptance, 'PENDING')
+  assert.equal(order.acceptance, 'NOT_REQUIRED')
+  assert.equal(order.acceptedAt,undefined)
   assert.equal(order.assignedAt, order.createdAt)
   assert.deepEqual(order.source.target, s.target)
   assert.equal(order.rolls[0].receivedAt, undefined)
@@ -117,7 +118,6 @@ test('CT-06: assignment does not receive; physical receipt and output govern rel
   h.act({ type: 'ASSIGN', orderId: id, factory: { id: 'ID-F003', name: 'GTG', enabled: true } }, planner)
   assert.equal(h.state().orders[0].rolls[0].receivedAt, undefined)
   assert.throws(() => h.act({ type: 'START', orderId: id, rollIds: ['R1'] }, factory), /已接收/)
-  h.act({ type: 'ACCEPT', orderId: id }, factory)
   h.act({ type: 'SEND', orderId: id, rollIds: ['R1'], scannedCodes: ['ROLL-1'] })
   assert.throws(() => h.act({ type: 'RECEIVE', orderId: id, lines: [{ rollId: 'R1', barcode: 'WRONG', qty: 100 }], warehouseId: 'W-DYE', locationId: 'A1' }, factory), /卷码/)
   h.act({ type: 'RECEIVE', orderId: id, lines: [{ rollId: 'R1', barcode: 'ROLL-1', qty: 100 }], warehouseId: 'W-DYE', locationId: 'A1' }, factory)
@@ -135,7 +135,6 @@ test('CT-07: wrong factory cannot act; a sent order cannot be cancelled', () => 
   const h = harness(), id = h.act(judge())!
   h.act({ type: 'ASSIGN', orderId: id, factory: { id: 'ID-F003', name: 'GTG', enabled: true } }, planner)
   assert.throws(() => h.act({ type: 'ACCEPT', orderId: id }, { ...factory, factoryId: 'OTHER' }), /本厂/)
-  h.act({ type: 'ACCEPT', orderId: id }, factory)
   h.act({ type: 'SEND', orderId: id, rollIds: ['R1'], scannedCodes: ['ROLL-1'] })
   assert.throws(() => h.act({ type: 'CANCEL', orderId: id, reason: '误判', confirmed: true }, planner), /已有实物交接/)
 })
@@ -168,4 +167,26 @@ test('PR-01/02: a committed late target change invalidates the printed content s
  const order=h.state().orders[0];assert.equal(order.printedContentSignature,washingPrintSignature(order))
  order.source.target={id:'NEW-RECEIVER',name:'匹配后的接收方',factoryId:'NEW-RECEIVER'}
  assert.notEqual(order.printedContentSignature,washingPrintSignature(order));assert.equal(order.printedRevision,order.revision)
+})
+
+
+test('WASH-285/287: fixed GTG ships without acceptance and never invents an acceptance event',()=>{
+ const h=harness(),id=h.act(judge())!,before=structuredClone(h.state())
+ assert.equal(h.state().orders[0].acceptedAt,undefined)
+ h.act({type:'SEND',orderId:id,rollIds:['R1'],scannedCodes:['ROLL-1']})
+ assert.ok(h.state().orders[0].rolls[0].sentAt)
+ assert.equal(h.state().orders[0].acceptedAt,undefined)
+ assert.deepEqual(h.state().actions.map(a=>a.action),['JUDGE','SEND'])
+ assert.equal(before.orders[0].rolls[0].sentAt,undefined)
+})
+test('WASH-286: an old pending GTG order can ship without rewriting acceptance history',()=>{
+ const h=harness(),id=h.act(judge())!,old=h.state().orders[0]
+ old.acceptance='PENDING'
+ h.act({type:'SEND',orderId:id,rollIds:['R1'],scannedCodes:['ROLL-1']})
+ assert.equal(h.state().orders[0].acceptance,'PENDING')
+ assert.equal(h.state().orders[0].acceptedAt,undefined)
+ assert.deepEqual(h.state().actions.map(a=>a.action),['JUDGE','SEND'])
+})
+test('WASH-285: unassigned and historically rejected orders remain blocked without fabricated GTG assignment',()=>{
+ for(const acceptance of ['UNASSIGNED','REJECTED'] as const){const h=harness(),id=h.act(judge())!;h.state().orders[0].acceptance=acceptance;assert.throws(()=>h.act({type:'SEND',orderId:id,rollIds:['R1'],scannedCodes:['ROLL-1']}),/核对由 GTG/);assert.equal(h.state().orders[0].rolls[0].sentAt,undefined)}
 })

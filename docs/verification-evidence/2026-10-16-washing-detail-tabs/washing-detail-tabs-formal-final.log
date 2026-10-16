@@ -1,0 +1,116 @@
+PASS native valid six-roll fixture created through print UI
+PASS cold-six-roll-detail 281.70
+PASS refresh-six-roll-detail 210.30
+PASS save-accept-local-refresh 50.10
+PASS tab-基本信息 64.80
+PASS tab-交接记录 65.10
+PASS tab-操作日志 65.30
+PASS tab-打印 48.20
+PASS tab-加工执行 48.60
+PASS tab-keyboard-roving-focus 36.70
+PASS print-order-with-retained-draft 65.30
+PASS print-transfer-with-retained-draft 48.70
+PASS invalid-send-retains-draft 64.10
+PASS save-印花交给染厂 148.40
+PASS save-登记逐卷实收 149.10
+PASS save-投入洗水 132.20
+PASS save-登记实际产出 115.40
+PASS save-交回原接收方 148.60
+PASS save-登记下游实收 132.20
+PASS tabs, draft retention and save 1
+PASS cold-six-roll-detail 284.40
+PASS refresh-six-roll-detail 211.30
+PASS save-accept-local-refresh 51.80
+PASS tab-基本信息 48.50
+PASS tab-交接记录 65.00
+PASS tab-操作日志 64.60
+PASS tab-打印 65.00
+PASS tab-加工执行 64.00
+PASS tab-keyboard-roving-focus 33.70
+PASS print-order-with-retained-draft 65.40
+PASS print-transfer-with-retained-draft 48.80
+PASS invalid-send-retains-draft 65.10
+PASS save-印花交给染厂 148.60
+PASS save-登记逐卷实收 148.90
+PASS save-投入洗水 132.30
+PASS save-登记实际产出 115.10
+PASS save-交回原接收方 148.80
+PASS save-登记下游实收 132.00
+PASS tabs, draft retention and save 2
+PASS cold-six-roll-detail 270.70
+PASS refresh-six-roll-detail 209.60
+PASS save-accept-local-refresh 49.70
+PASS tab-基本信息 65.20
+PASS tab-交接记录 65.10
+PASS tab-操作日志 48.50
+PASS tab-打印 48.60
+PASS tab-加工执行 65.20
+PASS tab-keyboard-roving-focus 37.30
+PASS print-order-with-retained-draft 65.10
+PASS print-transfer-with-retained-draft 48.20
+PASS invalid-send-retains-draft 65.00
+PASS save-印花交给染厂 148.50
+PASS save-登记逐卷实收 148.20
+PASS save-投入洗水 132.00
+PASS save-登记实际产出 65.20
+PASS save-交回原接收方 132.70
+PASS save-登记下游实收 132.00
+PASS tabs, draft retention and save 3
+PASS cold-six-roll-detail 283.20
+PASS refresh-six-roll-detail 221.10
+PASS save-accept-local-refresh 50.20
+PASS tab-基本信息 65.50
+PASS tab-交接记录 65.50
+PASS tab-操作日志 64.30
+PASS tab-打印 65.50
+PASS tab-加工执行 62.90
+PASS tab-keyboard-roving-focus 37.00
+PASS print-order-with-retained-draft 64.80
+PASS print-transfer-with-retained-draft 48.50
+PASS invalid-send-retains-draft 64.90
+PASS save-印花交给染厂 148.20
+PASS save-登记逐卷实收 147.40
+PASS save-投入洗水 132.50
+PASS save-登记实际产出 65.00
+PASS save-交回原接收方 131.90
+PASS save-登记下游实收 132.60
+PASS tabs, draft retention and save 4
+PASS cold-six-roll-detail 279.20
+PASS refresh-six-roll-detail 194.80
+PASS save-accept-local-refresh 52.10
+PASS tab-基本信息 48.90
+PASS tab-交接记录 49.00
+PASS tab-操作日志 48.90
+PASS tab-打印 65.40
+PASS tab-加工执行 62.90
+PASS tab-keyboard-roving-focus 34.30
+PASS print-order-with-retained-draft 64.90
+PASS print-transfer-with-retained-draft 48.60
+PASS invalid-send-retains-draft 65.20
+PASS save-印花交给染厂 148.80
+PASS save-登记逐卷实收 149.00
+PASS save-投入洗水 132.40
+PASS save-登记实际产出 115.50
+PASS save-交回原接收方 148.70
+PASS save-登记下游实收 132.20
+PASS tabs, draft retention and save 5
+PASS responsive views and real image 1366
+PASS responsive views and real image 1280
+PASS responsive views and real image 1024
+PASS legacy unassigned and completed read views
+PASS PDA-six-roll-detail-after-login 304.40
+PASS PDA-accept-local-refresh 49.00
+PASS PDA keeps task flow without desktop tabs 1
+PASS PDA-six-roll-detail-after-login 220.40
+PASS PDA-accept-local-refresh 48.80
+PASS PDA keeps task flow without desktop tabs 2
+PASS PDA-six-roll-detail-after-login 325.50
+PASS PDA-accept-local-refresh 98.90
+PASS PDA keeps task flow without desktop tabs 3
+PASS PDA-six-roll-detail-after-login 225.80
+PASS PDA-accept-local-refresh 48.80
+PASS PDA keeps task flow without desktop tabs 4
+PASS PDA-six-roll-detail-after-login 213.20
+PASS PDA-accept-local-refresh 49.00
+PASS PDA keeps task flow without desktop tabs 5
+{"checks":15,"passed":15,"samples":100,"maxMs":325.5,"slow":[],"pageErrors":0}

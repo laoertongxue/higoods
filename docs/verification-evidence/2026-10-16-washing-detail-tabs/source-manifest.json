@@ -1,0 +1,10 @@
+{
+  "base": "15ba48c625157d58fec75f340466bd83938e99ed",
+  "files": {
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "d00d98c445391956cc3a02463db093df57412c88f27552d0e708fd82648d2bbb",
+    "src/pages/process-factory/dyeing/washing/detail-views.ts": "10551b74c5a273b7143af62802aaa436ae303c64d010317fc6a66bef661b9e78",
+    "scripts/check-washing-detail-tabs.mjs": "73e644e91f8640e26250eb0bd828ddc1b1869967fb35bc0b6746993c0b4ce85a",
+    "scripts/check-washing-gtg-ui.mjs": "301c19105dbcd897ce29e7d0562534a5382a3b703992e0fc0977cedfde3c86d3"
+  },
+  "digest": "b8fe106f65efbf5df106fbfaa39c81ad038871f694d39ae3e6d31079a03ad0f7"
+}

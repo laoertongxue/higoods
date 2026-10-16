@@ -10,10 +10,11 @@ import { getPrintingWorkOrderById, PRINTING_DEMAND_SOURCE_LABEL } from '../../..
 import { getFactoryReceiptLocations, getDefaultFactoryReceiptPosition, listFactoryReceipts, getReceiptMaterialUsed } from '../../../../data/fcs/factory-receiving.ts'
 import { getWashingSources, listWashingCandidates, listWashingFactories, submitWashingCommand, WASHING_ROUTE } from '../../../../data/fcs/fabric-washing.ts'
 import { ensureWashingRecords, readWashingState, washingMigrationWarnings } from '../../../../data/fcs/fabric-washing-repository.ts'
-import { WASHING_HAND_FEELS, washingRollRelease, washingPrintSignature, washingInitiationRolls, type WashingActor, type WashingOrder, type WashingSource, type WashingRole, type WashingCommand } from '../../../../data/fcs/fabric-washing-model.ts'
+import { WASHING_HAND_FEELS, washingRollRelease, washingPrintSignature, washingInitiationRolls, washingCanExecute, type WashingActor, type WashingOrder, type WashingSource, type WashingRole, type WashingCommand } from '../../../../data/fcs/fabric-washing-model.ts'
 import { washingOrderStatus } from '../../../../data/fcs/fabric-washing-views.ts'
 export { washingOrderStatus } from '../../../../data/fcs/fabric-washing-views.ts'
 import { washingInformationColumns, renderWashingInformation, upgradeWashingColumnPreferences } from './order-presentation.ts'
+import { renderWashingDetailTabs, renderWashingDetailPanel, renderWashingDetailSummary, renderWashingDetailBase, renderWashingHandover, renderWashingLogs, washingDetailTab, switchWashingDetailTab, handleWashingDetailTabKey, type WashingDetailTab } from './detail-views.ts'
 import { WASHING_FACTORY_ID } from '../../../../data/fcs/fabric-washing-model.ts'
 import { renderWashingStorageTools, handleWashingStorageAction } from './storage-tools.ts'
 
@@ -44,7 +45,7 @@ export function installWashingImages() {
 function actor(source?:WashingSource,command?:WashingCommand,pda=false):WashingActor {
  const session=pda?getPdaSession():null
  const type=command?.type||'JUDGE'
- const role:WashingRole=['JUDGE','SEND'].includes(type)?'现场判断人员':['ASSIGN','LINK','CANCEL'].includes(type)?'计划跟单':type==='DOWNSTREAM_RECEIVE'?'接收人员':['EXCEPTION','RESOLVE_EXCEPTION'].includes(type)?'现场负责人':'染厂人员'
+ const role:WashingRole=['JUDGE','SEND'].includes(type)?'现场判断人员':['ASSIGN','LINK'].includes(type)?'计划跟单':type==='DOWNSTREAM_RECEIVE'?'接收人员':['RESOLVE_EXCEPTION'].includes(type)?'现场负责人':'染厂人员'
  const order=command&&'orderId'in command?readWashingState().orders.find(o=>o.id===command.orderId):undefined
  return {id:session?.userId||'web-washing-'+role,name:session?.userName||'Web 端操作员',role,
   factoryId:session?.factoryId||(role==='现场判断人员'?source?.factoryId:role==='接收人员'?source?.target?.factoryId:order?.assignedFactoryId||WASHING_FACTORY_ID),
@@ -67,7 +68,8 @@ export function renderWashingFactoryStockSection(factoryId:string|undefined,kind
 }
 const time=(value:string)=>Number.isNaN(new Date(value).getTime())?value:new Date(value).toLocaleString('zh-CN',{hour12:false})
 const qty=(n:number|undefined,unit:string)=>n===undefined?'—':`${n} ${unit}`
-function errorSlot() {return washingMigrationWarnings().map(warning=>`<p class="text-amber-800">${e(warning)} 业务已保存，旧片段尚待清理；保留原资料并关闭旧页后重新核对。</p>`).join('')+'<p class="min-h-5 text-sm text-red-700" role="alert" data-washing-error></p>'}
+function washingWarnings() {return washingMigrationWarnings().map(warning=>`<p class="text-amber-800">${e(warning)} 业务已保存，旧片段尚待清理；保留原资料并关闭旧页后重新核对。</p>`).join('')}
+function errorSlot() {return washingWarnings()+'<p class="min-h-5 text-sm text-red-700" role="alert" data-washing-error></p>'}
 export function isWashingSavePending():boolean { return ui.busy }
 export function renderWashingJudgmentPanel(printOrderId:string,pda=false,initiationOnly=false):string {
  const order=getPrintingWorkOrderById(printOrderId)
@@ -107,7 +109,7 @@ function listContent(pda=false) {
  const paginationHtml=renderTablePagination({currentPage:ui.page,pageSize:ui.pageSize,total:rows.length,pageSizeOptions:[10,20,50],actionPrefix:'fabric-washing',from:rows.length?(ui.page-1)*ui.pageSize+1:0,to:Math.min(ui.page*ui.pageSize,rows.length),totalPages:Math.max(1,Math.ceil(rows.length/ui.pageSize)),skipPageRerender:true})
  installWashingImages()
  if(pda)return `<div class="space-y-3 p-3"><h1 class="text-xl font-semibold">洗水加工单</h1>${filtersHtml}${cardsHtml}${paginationHtml}</div>`
- return renderStandardListPage({title:'洗水加工单',filtersHtml,statsHtml:renderStandardListStats([{label:'筛选结果',value:rows.length},{label:'待接单',value:rows.filter(o=>o.acceptance==='PENDING'&&!o.cancelledAt).length},{label:'异常',value:rows.filter(o=>o.exception).length}]),listTitle:`洗水加工单 · ${rows.length} 条`,listActionsHtml:pda?'':button('列设置','columns'),overlaysHtml:columnsOpen?renderStandardListColumnSettings({title:'洗水列表列设置',columns,preferences,eventPrefix:'fabric-washing',maxFrozenWidth:650,skipPageRerender:true}):'',primaryActionsHtml:button('查看印花产出','candidates')+button('本地资料','storage'),tableHtml,paginationHtml})
+ return renderStandardListPage({title:'洗水加工单',filtersHtml,statsHtml:renderStandardListStats([{label:'筛选结果',value:rows.length},{label:'待印花交出',value:rows.filter(o=>washingCanExecute(o)&&!o.cancelledAt&&!o.exception&&!o.completedAt&&!o.rolls.some(r=>r.sentAt)).length},{label:'异常',value:rows.filter(o=>o.exception).length}]),listTitle:`洗水加工单 · ${rows.length} 条`,listActionsHtml:pda?'':button('列设置','columns'),overlaysHtml:columnsOpen?renderStandardListColumnSettings({title:'洗水列表列设置',columns,preferences,eventPrefix:'fabric-washing',maxFrozenWidth:650,skipPageRerender:true}):'',primaryActionsHtml:button('查看印花产出','candidates')+button('本地资料','storage'),tableHtml,paginationHtml})
 }
 function renderCandidateView(){
  const candidates=listWashingCandidates().sort((a,b)=>Number(b.sources.some(s=>s.actualCompleted))-Number(a.sources.some(s=>s.actualCompleted)))
@@ -126,7 +128,7 @@ export async function renderFabricWashingListPage(pda=false) {
  }catch(err){return `<div class="p-4 text-red-700" role="alert">${e(message(err))} 刷新页面后重试。</div>`}
 }
 function rollState(r:WashingOrder['rolls'][number]) {return r.downstreamReceivedAt?'下游已实收':r.handedOutAt?'交回待实收':r.completedAt?'加工完成':r.startedAt?'洗水加工中':r.receivedAt?'已实收':r.sentAt?'印花已交出':'待印花交出'}
-function detailContent(orderId:string,pda=false):string {
+function detailContent(orderId:string,pda=false,active:WashingDetailTab='execution'):string {
  const o=readWashingState().orders.find(o=>o.id===orderId),session=pda?getPdaSession():null
  if(!o)return '<div class="p-4"><h1>洗水加工单不存在</h1><p>请核对单号或返回洗水加工单列表。</p>'+link('返回列表',pda?'/fcs/pda/washing':WASHING_ROUTE)+'</div>'
  if(session&&![o.assignedFactoryId,o.source.factoryId,o.source.target?.factoryId].includes(session.factoryId))return '<p class="p-4 text-red-700">本单不属于当前工厂，不能查看或处理。</p>'
@@ -135,32 +137,35 @@ function detailContent(orderId:string,pda=false):string {
  const locations=[...new Set(receivingFactories)].flatMap(factoryId=>getFactoryReceiptLocations(factoryId))
  const mainActions:string[]=[]
  if(!o.cancelledAt&&!o.completedAt&&!o.exception){
-  if(!pda){if((o.assignedFactoryId!==WASHING_FACTORY_ID||o.acceptance==='REJECTED')&&!o.rolls.some(r=>r.sentAt))mainActions.push(button(o.acceptance==='REJECTED'?'重新交由 GTG 承接':'交由 GTG 承接','assign'));mainActions.push(button('作废本单','cancel'))}
-  if(canFactory&&o.acceptance==='PENDING')mainActions.push(button('接单','accept','',true),button('拒单','reject'))
-  if(canSite&&o.acceptance==='ACCEPTED'&&o.rolls.some(r=>!r.sentAt))mainActions.push(button('印花交给染厂','send','',true))
-  if(canFactory&&o.acceptance==='ACCEPTED'){
+  if(!pda){if((o.assignedFactoryId!==WASHING_FACTORY_ID||o.acceptance==='REJECTED')&&!o.rolls.some(r=>r.sentAt))mainActions.push(button(o.acceptance==='REJECTED'?'重新交由 GTG 承接':'交由 GTG 承接','assign'))}
+  if(canSite&&washingCanExecute(o)&&o.rolls.some(r=>!r.sentAt))mainActions.push(button('印花交给染厂','send','',true))
+  if(canFactory&&washingCanExecute(o)){
    const available:Array<[boolean,string,string]>=[[o.rolls.some(r=>!!r.sentAt&&!r.receivedAt),'登记逐卷实收','receive'],[o.rolls.some(r=>!!r.receivedAt&&!r.startedAt),'投入洗水','start'],[o.rolls.some(r=>!!r.startedAt&&!r.completedAt),'登记实际产出','output'],[o.rolls.some(r=>!!r.completedAt&&!r.handedOutAt),'交回原接收方','handout'],[o.rolls.every(r=>r.downstreamReceivedAt),'人工完单','complete']]
    available.filter(([ready])=>ready).forEach(([,label,action],i)=>mainActions.push(button(label,action,'',i===0)))
   }
   if(canReceiver&&o.rolls.some(r=>!!r.handedOutAt&&!r.downstreamReceivedAt))mainActions.push(button('登记下游实收','downstream-receive','',true))
  }
- if(!o.cancelledAt&&(!pda||canFactory))mainActions.push(button('登记异常','exception'))
  if(o.exception&&!pda)mainActions.push(button('核对实物并恢复','resolve-exception'))
+ mainActions.sort((a,b)=>Number(b.includes('bg-blue-600'))-Number(a.includes('bg-blue-600')))
  const showEntry=mainActions.some(html=>/data-fabric-washing-action="(?:send|receive|start|output|handout|downstream-receive)"/.test(html))
  const total=(field:'inputQty'|'receivedQty'|'outputQty'|'downstreamQty')=>o.rolls.reduce((n,r)=>n+(r[field]??0),0),unit=o.rolls[0].unit
  installWashingImages()
- return `<div class="space-y-4 p-4" data-washing-order="${e(o.id)}"><header class="flex flex-wrap items-center justify-between gap-3"><div><h1 class="text-xl font-semibold">洗水加工单 ${e(o.no)}</h1><p class="mt-1 text-sm">${e(washingOrderStatus(o))}${o.source.demo?' · 原型演示':''}</p></div>${link('返回列表',pda?'/fcs/pda/washing':WASHING_ROUTE)}</header>
- ${pda?`<section class="space-y-3 rounded-lg border bg-white p-3"><div class="flex gap-3">${washingImage(o.source.imageUrl,o.source.materialName,'h-20 w-20')}<div class="min-w-0 break-words"><strong>${e(o.source.materialName)}</strong><p>${e(o.source.materialSku)}</p><p class="font-semibold text-blue-800">${e(o.handFeel)}</p></div></div><p>印花方：${e(o.source.factoryName)}</p><p>承接染厂：${e(o.assignedFactoryName||'GTG')}</p><p>下游：${e(o.source.target?.name||'原接收方待核对')}</p>${link(o.source.printOrderNo,'/fcs/craft/printing/work-orders/'+encodeURIComponent(o.source.printOrderId))}</section><details class="rounded border bg-white p-3"><summary class="cursor-pointer text-blue-700">加工单完整信息</summary><div class="mt-3">${renderWashingInformation(o,washingImage,link)}</div></details>`:renderWashingInformation(o,washingImage,link)}
- <p class="text-sm text-slate-600">发起：${e(o.createdBy)} · ${e(time(o.createdAt))}</p>${o.rejectionReason?`<p>拒单原因：${e(o.rejectionReason)}</p>`:''}${o.exception?`<p class="text-red-700">异常：${e(o.exception)}</p>`:''}${o.printedRevision&&(o.printedRevision!==o.revision||o.printedContentSignature!==washingPrintSignature(o))?'<p class="text-amber-800">记录已有变更，旧单据需重印。</p>':''}
- <section class="space-y-3 rounded-lg border bg-white p-4"><h2 class="font-semibold">本次实物 · ${o.rolls.length} 卷</h2><div class="grid gap-2 text-sm sm:grid-cols-3"><p>原卷数量 ${qty(total('inputQty'),unit)}</p><p>染厂实收 ${qty(total('receivedQty'),unit)}</p><p>加工产出 ${qty(total('outputQty'),unit)}</p><p>下游实收 ${qty(total('downstreamQty'),unit)}</p><p>已完成数量变化 ${qty(o.rolls.filter(r=>r.completedAt).reduce((n,r)=>n+r.receivedQty!-r.outputQty!,0),unit)}</p><p>未加工实收余量 ${qty(o.rolls.filter(r=>!r.completedAt).reduce((n,r)=>n+(r.receivedQty||0),0),unit)}</p></div>
+ const execution=`<section class="space-y-3 rounded-lg border bg-white p-4"><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="font-semibold">本次实物 · ${o.rolls.length} 卷</h2><div class="flex flex-wrap items-end gap-3">${mainActions.join('')}</div></div><div class="grid gap-2 text-sm sm:grid-cols-3"><p>原卷数量 ${qty(total('inputQty'),unit)}</p><p>染厂实收 ${qty(total('receivedQty'),unit)}</p><p>加工产出 ${qty(total('outputQty'),unit)}</p><p>下游实收 ${qty(total('downstreamQty'),unit)}</p><p>已完成数量变化 ${qty(o.rolls.filter(r=>r.completedAt).reduce((n,r)=>n+r.receivedQty!-r.outputQty!,0),unit)}</p><p>未加工实收余量 ${qty(o.rolls.filter(r=>!r.completedAt).reduce((n,r)=>n+(r.receivedQty||0),0),unit)}</p></div>
  <div class="grid gap-3 ${pda?'':'lg:grid-cols-2'}">${o.rolls.map(r=>`<label class="flex items-start gap-3 rounded-lg border p-3">${showEntry?`<input type="checkbox" data-preserve-native-click="true" class="mt-1 h-5 w-5 shrink-0" data-washing-exec-roll="${e(r.id)}">`:''}<span class="min-w-0 flex-1 break-all"><strong>${e(r.outputBarcode||r.barcode)}</strong><span class="block text-sm">${e(rollState(r))} · 原卷 ${qty(r.inputQty,r.unit)} · 实收 ${qty(r.receivedQty,r.unit)} · 产出 ${qty(r.outputQty,r.unit)}</span>${showEntry?`<span class="block text-sm">本次实测数量（${e(r.unit)}）<input class="mt-1 block min-h-10 w-full rounded border px-2" type="number" min="0" step="any" data-washing-qty="${e(r.id)}" aria-label="${e(r.barcode)}本次实测数量"></span>`:''}${canFactory&&r.startedAt&&!r.completedAt?`<span class="block mt-2 text-sm">重包新卷码（选填）<input class="mt-1 block min-h-10 w-full rounded border px-2" data-washing-output-code="${e(r.id)}" aria-label="${e(r.barcode)}重包新卷码"></span>`:''}${r.outputBarcode&&r.outputBarcode!==r.barcode?`<span class="block text-xs">原卷 ${e(r.barcode)}</span>`:''}</span></label>`).join('')}</div>
  ${showEntry?`${o.source.target?.warehouseId&&canReceiver&&o.rolls.some(r=>r.handedOutAt&&!r.downstreamReceivedAt)?`<label class="block text-sm">本次实际收货库位<input class="mt-1 block min-h-10 w-full rounded border px-2" data-washing-central-location aria-label="本次实际收货库位"></label>`:''}<label class="block text-sm">接收库位<select class="mt-1 block min-h-10 max-w-full rounded border px-2" data-washing-position><option value="">选择实际库位</option>${locations.map(p=>`<option value="${e(p.warehouse.warehouseId+'|'+p.location.locationId)}">${e(p.warehouse.warehouseName+' · '+p.location.locationNo)}</option>`).join('')}</select></label>
  <div class="flex flex-wrap items-end gap-2"><label class="text-sm min-w-0">扫描或手输实际卷码<input class="mt-1 block min-h-10 max-w-full rounded border px-2" data-washing-scan aria-label="扫描或手输实际卷码"></label>${button('核对卷码','scan')}</div><p class="text-sm" data-washing-scans></p>
  <label class="flex gap-2 text-sm"><input type="checkbox" data-preserve-native-click="true" class="h-5 w-5" data-washing-difference>已核对本次所选卷的实交、实收或加工数量变化，确认按实测数量记录。</label>`:''}
- <div class="flex flex-wrap items-end gap-3">${mainActions.join('')}</div>${errorSlot()}<p class="text-sm text-green-700" data-washing-result></p><div data-washing-confirm></div></section>
- <section class="rounded-lg border bg-white p-4"><div class="flex flex-wrap gap-3">${button('洗水加工单预览','print-order')}${button('交接与卷标预览','print-transfer')}</div><div data-washing-print></div></section>
- <details class="rounded-lg border bg-white p-4"><summary class="cursor-pointer font-semibold">判断、执行与实物交接记录</summary><ol class="mt-3 space-y-2 text-sm">${readWashingState().actions.filter(a=>a.orderId===o.id).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||a.id.localeCompare(b.id)).map(a=>`<li class="border-t pt-2">${e(actionName(a.action))} · ${e(a.actor.name)} · ${e(time(a.at))}<p>${a.rollIds.map(id=>e(o.rolls.find(r=>r.id===id)?.barcode||id)).join('、')} ${e(a.note)}</p></li>`).join('')}</ol></details></div>`
+ <div data-washing-confirm></div></section>`
+ const printing=`<section class="rounded-lg border bg-white p-4"><div class="flex flex-wrap gap-3">${button('洗水加工单预览','print-order')}${button('交接与卷标预览','print-transfer')}</div><div data-washing-print></div></section>`
+ const history=renderWashingLogs(o,readWashingState().actions,actionName)
+ const panels=pda?execution+printing+`<details class="rounded-lg border bg-white p-3"><summary class="cursor-pointer font-semibold">判断、执行与实物交接记录</summary><div class="mt-3">${history}</div></details>`:
+  renderWashingDetailPanel('execution',active,execution)+renderWashingDetailPanel('base',active,renderWashingDetailBase(o,washingImage,link))+renderWashingDetailPanel('handover',active,renderWashingHandover(o))+renderWashingDetailPanel('logs',active,history)+renderWashingDetailPanel('print',active,printing)
+ return `<div class="space-y-4 p-4" data-washing-order="${e(o.id)}" data-washing-active-tab="${active}"><header class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-3"><h1 class="break-words text-xl font-semibold">洗水加工单 ${e(o.no)}</h1><span class="rounded-full px-2 py-1 text-xs ${o.cancelledAt||o.exception?'bg-red-50 text-red-700':o.completedAt?'bg-emerald-50 text-emerald-800':'bg-blue-50 text-blue-800'}">${e(washingOrderStatus(o))}</span></div>${o.source.demo?'<p class="mt-1 text-xs text-slate-500">原型演示</p>':''}</div>${link('返回列表',pda?'/fcs/pda/washing':WASHING_ROUTE)}</header>
+ ${pda?`<section class="space-y-3 rounded-lg border bg-white p-3"><div class="flex gap-3">${washingImage(o.source.imageUrl,o.source.materialName,'h-20 w-20')}<div class="min-w-0 break-words"><strong>${e(o.source.materialName)}</strong><p>${e(o.source.materialSku)}</p><p class="font-semibold text-blue-800">${e(o.handFeel)}</p></div></div><p>印花方：${e(o.source.factoryName)}</p><p>承接染厂：${e(o.assignedFactoryName||'GTG')}</p><p>下游：${e(o.source.target?.name||'原接收方待核对')}</p>${link(o.source.printOrderNo,'/fcs/craft/printing/work-orders/'+encodeURIComponent(o.source.printOrderId))}</section><details class="rounded border bg-white p-3"><summary class="cursor-pointer text-blue-700">加工单完整信息</summary><div class="mt-3">${renderWashingInformation(o,washingImage,link)}</div></details>`:renderWashingDetailSummary(o,washingImage)}
+ ${o.rejectionReason?`<p class="text-sm text-amber-800">拒单原因：${e(o.rejectionReason)}</p>`:''}${o.exception?`<p class="text-sm text-red-700">异常：${e(o.exception)}</p>`:''}<p class="empty:hidden text-sm text-amber-800" data-washing-print-warning>${washingPrintWarning(o)}</p>
+ ${pda?'':renderWashingDetailTabs(active)}${washingWarnings()}<div class="empty:hidden text-sm text-red-700" role="alert" data-washing-error></div><p class="empty:hidden text-sm text-green-700" data-washing-result></p>${panels}</div>`
 }
+function washingPrintWarning(o:WashingOrder){return o.printedRevision&&(o.printedRevision!==o.revision||o.printedContentSignature!==washingPrintSignature(o))?'记录已有变更，旧单据需重印。':''}
 const actionNames:Record<string,string>={JUDGE:'触摸判断并创建洗水单',ASSIGN:'派给染厂',ACCEPT:'染厂接单',REJECT:'染厂拒单',SEND:'印花方交出',RECEIVE:'染厂实际接收',START:'投入洗水',OUTPUT:'登记实际产出',HANDOUT:'交回原接收方',DOWNSTREAM_RECEIVE:'下游实际接收',COMPLETE:'人工完单',CANCEL:'作废',EXCEPTION:'登记异常',RESOLVE_EXCEPTION:'核对实物并恢复',PRINT:'打印预览',LINK:'补充生产关联'}
 function actionName(code:string){return actionNames[code]||code}
 export async function renderFabricWashingDetailPage(orderId:string,pda=false) {
@@ -185,7 +190,7 @@ async function save(root:HTMLElement,command:WashingCommand,source?:WashingSourc
 }
 function refresh(root:HTMLElement) {
  const detail=root.closest<HTMLElement>('[data-washing-detail-root]'),judge=root.closest<HTMLElement>('[data-washing-judgment-root]'),list=root.closest<HTMLElement>('[data-washing-list-root]')
- if(detail)detail.innerHTML=detailContent(detail.dataset.washingDetailRoot!,detail.dataset.washingPda==='true')
+ if(detail)detail.innerHTML=detailContent(detail.dataset.washingDetailRoot!,detail.dataset.washingPda==='true',washingDetailTab(detail.querySelector<HTMLElement>('[data-washing-order]')?.dataset.washingActiveTab))
  else if(judge)judge.outerHTML=renderWashingJudgmentPanel(judge.dataset.washingJudgmentRoot!,judge.dataset.washingPda==='true',judge.dataset.washingInitiation==='true')
  else if(list)list.innerHTML=listContent(list.dataset.washingPda==='true')
 }
@@ -206,6 +211,7 @@ export async function handleFabricWashingEvent(target:HTMLElement,event?:Event):
  if(!trigger||event&&event.type!=='click'&&event.type!=='change')return !!target.closest('[data-washing-judgment-root], [data-washing-detail-root], [data-washing-list-root]')
  if(ui.busy)return true
  const action=trigger.dataset.fabricWashingAction,root=trigger.closest<HTMLElement>('[data-washing-source], [data-washing-order], [data-washing-list-root]')||trigger
+ if(action==='detail-tab'){switchWashingDetailTab(root,washingDetailTab(trigger.dataset.washingTab));return true}
  const error=root.querySelector('[data-washing-error]');if(error)error.textContent=''
  try{
   if(action==='image'){openImage(trigger.dataset.imageUrl!,trigger.dataset.imageTitle!);return true}
@@ -241,16 +247,15 @@ export async function handleFabricWashingEvent(target:HTMLElement,event?:Event):
   }
   if(action==='print-browser'){await printWashingPreview(root);return true}
   if(action==='print-order'||action==='print-transfer'){
-   await save(root,{type:'PRINT',orderId:o.id},o.source);const current=readWashingState().orders.find(row=>row.id===o.id)!;const slot=scopedInput(root,'[data-washing-print]');slot.innerHTML=renderWashingPrint(current,action==='print-transfer');return true
+   await save(root,{type:'PRINT',orderId:o.id},o.source);const current=readWashingState().orders.find(row=>row.id===o.id)!;const slot=scopedInput(root,'[data-washing-print]');slot.innerHTML=renderWashingPrint(current,action==='print-transfer');const log=root.querySelector('[data-washing-log]');if(log)log.outerHTML=renderWashingLogs(current,readWashingState().actions,actionName);const warning=root.querySelector('[data-washing-print-warning]');if(warning)warning.textContent=washingPrintWarning(current);return true
   }
-  if(['cancel','reject','exception','resolve-exception'].includes(action||'')){
-   const confirm=scopedInput(root,'[data-washing-confirm]');confirm.innerHTML=`<div class="mt-3 space-y-3 rounded border border-amber-300 bg-amber-50 p-3"><p>${e(o.no)} · ${o.rolls.length} 卷。${action==='cancel'?'作废后停止执行，原触摸结果须重新核对；已有实物交接不能作废。':action==='reject'?'拒单保留原判断和实物，跟单协调后可重新交由 GTG 承接。':action==='exception'?'登记后停止本单新流转，保留全部已发生事实。':'确认已核对本单实物责任，恢复后续流转。'}</p><label>实际原因<textarea class="mt-1 block w-full rounded border p-2" data-washing-reason></textarea></label>${action==='resolve-exception'?`<label>实物协调后的目标手感<select class="block min-h-10 rounded border px-2" data-washing-resolved-feel><option value="">维持当前手感</option>${WASHING_HAND_FEELS.map(f=>`<option>${e(f)}</option>`).join('')}</select></label>`:''}${button('确认'+(action==='cancel'?'作废':action==='reject'?'拒单':action==='exception'?'登记异常':'恢复流转'),'confirm-'+action)}${button('返回填写','dismiss-confirm')}</div>`;return true
+  if(action==='resolve-exception'){
+   const confirm=scopedInput(root,'[data-washing-confirm]');confirm.innerHTML=`<div class="mt-3 space-y-3 rounded border border-amber-300 bg-amber-50 p-3"><p>${e(o.no)} · ${o.rolls.length} 卷。确认已核对本单实物责任，恢复后续流转。</p><label>实际原因<textarea class="mt-1 block w-full rounded border p-2" data-washing-reason></textarea></label><label>实物协调后的目标手感<select class="block min-h-10 rounded border px-2" data-washing-resolved-feel><option value="">维持当前手感</option>${WASHING_HAND_FEELS.map(f=>`<option>${e(f)}</option>`).join('')}</select></label>${button('确认恢复流转','confirm-resolve-exception')}${button('返回填写','dismiss-confirm')}</div>`;return true
   }
   if(action==='dismiss-confirm'){scopedInput(root,'[data-washing-confirm]').innerHTML='';return true}
   let command:WashingCommand
   switch(action){
    case 'assign':{const f=listWashingFactories().find(f=>f.id===WASHING_FACTORY_ID);if(!f)throw new Error('GTG 当前不能接单，请核对工厂档案。');command={type:'ASSIGN',orderId:o.id,factory:{id:f.id,name:'GTG',enabled:true}};break}
-   case 'accept':command={type:'ACCEPT',orderId:o.id};break
    case 'send':command={type:'SEND',orderId:o.id,rollIds:ids,scannedCodes:[...(scans.get(o.id)||[])]};break
    case 'receive':{const value=scopedInput<HTMLSelectElement>(root,'[data-washing-position]').value.split('|');command={type:'RECEIVE',orderId:o.id,lines,warehouseId:value[0]||'',locationId:value[1]||'',differenceConfirmed:checked};break}
    case 'start':command={type:'START',orderId:o.id,rollIds:ids};break
@@ -258,9 +263,6 @@ export async function handleFabricWashingEvent(target:HTMLElement,event?:Event):
    case 'handout':if(!o.source.target)throw new Error('原最终去向待核对，请跟单先核对实际接收方。');command={type:'HANDOUT',orderId:o.id,rollIds:ids,scannedCodes:[...(scans.get(o.id)||[])],target:o.source.target};break
    case 'downstream-receive':command={type:'DOWNSTREAM_RECEIVE',orderId:o.id,lines,differenceConfirmed:checked,...(o.source.target?.warehouseId?{warehouseId:o.source.target.warehouseId,locationId:scopedInput<HTMLInputElement>(root,'[data-washing-central-location]').value}:(()=>{const value=scopedInput<HTMLSelectElement>(root,'[data-washing-position]').value.split('|');return{warehouseId:value[0]||'',locationId:value[1]||''}})())};break
    case 'complete':command={type:'COMPLETE',orderId:o.id};break
-   case 'confirm-cancel':command={type:'CANCEL',orderId:o.id,reason:scopedInput<HTMLTextAreaElement>(root,'[data-washing-reason]').value,confirmed:true};break
-   case 'confirm-reject':command={type:'REJECT',orderId:o.id,reason:scopedInput<HTMLTextAreaElement>(root,'[data-washing-reason]').value};break
-   case 'confirm-exception':command={type:'EXCEPTION',orderId:o.id,reason:scopedInput<HTMLTextAreaElement>(root,'[data-washing-reason]').value,confirmed:true};break
    case 'confirm-resolve-exception':command={type:'RESOLVE_EXCEPTION',orderId:o.id,reason:scopedInput<HTMLTextAreaElement>(root,'[data-washing-reason]').value,confirmed:true,handFeel:(scopedInput<HTMLSelectElement>(root,'[data-washing-resolved-feel]').value||undefined) as any};break
    default:return true
   }
@@ -281,6 +283,7 @@ async function printWashingPreview(root:HTMLElement){
  frame.contentWindow!.focus();frame.contentWindow!.print()
 }
 if(typeof document!=='undefined'){
+ document.addEventListener('keydown',handleWashingDetailTabKey)
  // PDA rendering can await its frame after the HTML string was built. Capture
  // native image events after actual mounting as well as checking cached images.
  for(const type of ['load','error'])document.addEventListener(type,event=>{const img=event.target;if(img instanceof HTMLImageElement&&img.matches('[data-washing-image]'))updateWashingImageStatus(img)},true)
