@@ -1,0 +1,137 @@
+PASS native six-roll fixture through printing initiation
+PASS native sent fixture for list operations
+PASS list-cold-20-orders 263.60
+PASS list-refresh-20-orders 197.60
+PASS list-SPA-entry-20-orders 72.50
+PASS list-page-size-20 57.10
+PASS list-page-size-10 51.90
+PASS list-query-20-orders 31.60
+PASS list-reset-20-orders 32.00
+PASS list-next-page 65.30
+PASS list-previous-page 65.20
+PASS list-sort-20-orders 34.40
+PASS list-open-receive 65.40
+PASS list-cancel-and-restore-row-focus 64.60
+PASS list-abort-retains-form-and-pagination 197.20
+PASS list-retry-receive-after-abort 181.40
+PASS list-open-start 48.10
+PASS list-save-start 164.70
+PASS list-open-output 65.70
+PASS list-save-output 132.20
+PASS list-open-handout 49.10
+PASS list-save-handout 149.00
+PASS list four-dialog flow and state controls 1
+PASS list-cold-20-orders 229.40
+PASS list-refresh-20-orders 148.80
+PASS list-SPA-entry-20-orders 106.30
+PASS list-page-size-20 55.40
+PASS list-page-size-10 43.00
+PASS list-query-20-orders 32.10
+PASS list-reset-20-orders 32.20
+PASS list-next-page 65.50
+PASS list-previous-page 64.70
+PASS list-sort-20-orders 34.70
+PASS list-open-receive 65.50
+PASS list-cancel-and-restore-row-focus 49.60
+PASS list-abort-retains-form-and-pagination 181.30
+PASS list-retry-receive-after-abort 165.90
+PASS list-open-start 66.60
+PASS list-save-start 164.90
+PASS list-open-output 65.60
+PASS list-save-output 132.20
+PASS list-open-handout 48.90
+PASS list-save-handout 148.80
+PASS list four-dialog flow and state controls 2
+PASS list-cold-20-orders 236.40
+PASS list-refresh-20-orders 198.80
+PASS list-SPA-entry-20-orders 111.20
+PASS list-page-size-20 56.10
+PASS list-page-size-10 43.30
+PASS list-query-20-orders 32.20
+PASS list-reset-20-orders 32.40
+PASS list-next-page 65.40
+PASS list-previous-page 65.70
+PASS list-sort-20-orders 34.50
+PASS list-open-receive 65.50
+PASS list-cancel-and-restore-row-focus 48.70
+PASS list-abort-retains-form-and-pagination 165.50
+PASS list-retry-receive-after-abort 182.50
+PASS list-open-start 64.80
+PASS list-save-start 181.30
+PASS list-open-output 65.60
+PASS list-save-output 132.40
+PASS list-open-handout 65.00
+PASS list-save-handout 148.40
+PASS list four-dialog flow and state controls 3
+PASS list-cold-20-orders 254.10
+PASS list-refresh-20-orders 198.90
+PASS list-SPA-entry-20-orders 98.20
+PASS list-page-size-20 56.00
+PASS list-page-size-10 43.10
+PASS list-query-20-orders 31.80
+PASS list-reset-20-orders 32.00
+PASS list-next-page 65.40
+PASS list-previous-page 65.90
+PASS list-sort-20-orders 31.10
+PASS list-open-receive 65.80
+PASS list-cancel-and-restore-row-focus 81.50
+PASS list-abort-retains-form-and-pagination 165.50
+PASS list-retry-receive-after-abort 166.90
+PASS list-open-start 48.90
+PASS list-save-start 164.30
+PASS list-open-output 64.30
+PASS list-save-output 131.60
+PASS list-open-handout 49.10
+PASS list-save-handout 149.70
+PASS list four-dialog flow and state controls 4
+PASS list-cold-20-orders 238.70
+PASS list-refresh-20-orders 198.70
+PASS list-SPA-entry-20-orders 97.80
+PASS list-page-size-20 48.60
+PASS list-page-size-10 43.20
+PASS list-query-20-orders 32.30
+PASS list-reset-20-orders 31.90
+PASS list-next-page 60.10
+PASS list-previous-page 64.30
+PASS list-sort-20-orders 33.20
+PASS list-open-receive 65.10
+PASS list-cancel-and-restore-row-focus 80.30
+PASS list-abort-retains-form-and-pagination 165.60
+PASS list-retry-receive-after-abort 165.80
+PASS list-open-start 64.90
+PASS list-save-start 164.70
+PASS list-open-output 65.60
+PASS list-save-output 132.00
+PASS list-open-handout 65.60
+PASS list-save-handout 165.80
+PASS list four-dialog flow and state controls 5
+PASS list-stale-form-preserved 65.70
+PASS list-stale-button-refreshes-current-state 65.70
+PASS list stale form and stale button do not overwrite peer 1
+PASS list-stale-form-preserved 65.70
+PASS list-stale-button-refreshes-current-state 66.60
+PASS list stale form and stale button do not overwrite peer 2
+PASS list-stale-form-preserved 65.80
+PASS list-stale-button-refreshes-current-state 65.40
+PASS list stale form and stale button do not overwrite peer 3
+PASS list-stale-form-preserved 65.90
+PASS list-stale-button-refreshes-current-state 65.80
+PASS list stale form and stale button do not overwrite peer 4
+PASS list-stale-form-preserved 64.80
+PASS list-stale-button-refreshes-current-state 65.50
+PASS list stale form and stale button do not overwrite peer 5
+PASS list-save-exits-filter-and-clamps-page 365.40
+PASS state filter removes last-page row without clearing query or preferences 1
+PASS list-save-exits-filter-and-clamps-page 348.40
+PASS state filter removes last-page row without clearing query or preferences 2
+PASS list-save-exits-filter-and-clamps-page 437.10
+PASS state filter removes last-page row without clearing query or preferences 3
+PASS list-save-exits-filter-and-clamps-page 347.60
+PASS state filter removes last-page row without clearing query or preferences 4
+PASS list-save-exits-filter-and-clamps-page 348.90
+PASS state filter removes last-page row without clearing query or preferences 5
+PASS list operations layout and image 1366
+PASS list operations layout and image 1280
+PASS list operations layout and image 1024
+PASS PDA and detail retain their physical receipt entry
+{"checks":21,"passed":21,"samples":115,"maxMs":437.10009765625,"slow":[],"pageErrors":0}

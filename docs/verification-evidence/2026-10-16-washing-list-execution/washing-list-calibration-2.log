@@ -1,0 +1,13 @@
+PASS native six-roll fixture through printing initiation
+PASS native sent fixture for list operations
+locator.waitFor: Timeout 6000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-washing-list-order="WASH-e769dd44-c17c-4766-894d-153e74f2d1c0"]') to be visible[22m
+
+    at ready (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:133:47)
+    at measure (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:47:23)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:134:4
+    at async check (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:44:48)
+    at async runListChecks (/Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:130:32)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:219:14
+{"checks":3,"passed":2,"samples":0,"maxMs":null,"slow":[],"pageErrors":0}

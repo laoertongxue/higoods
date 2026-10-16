@@ -1,0 +1,21 @@
+PASS native six-roll fixture through printing initiation
+PASS native sent fixture for list operations
+PASS list-cold-20-orders 228.80
+PASS list-refresh-20-orders 198.60
+PASS list-SPA-entry-20-orders 70.30
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
++ []
+- [
+-   '登记逐卷实收',
+-   '投入洗水',
+-   '登记实际产出',
+-   '交回原接收方'
+- ]
+
+    at file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:138:11
+    at async check (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:44:48)
+    at async runListChecks (file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:130:32)
+    at async file:///Users/laoer/.codex/worktrees/a266/higoods/scripts/check-washing-detail-tabs.mjs:217:14
+{"checks":3,"passed":2,"samples":3,"maxMs":228.800048828125,"slow":[],"pageErrors":0}

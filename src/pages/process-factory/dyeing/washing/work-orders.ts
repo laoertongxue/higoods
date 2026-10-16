@@ -17,7 +17,7 @@ import { washingInformationColumns, renderWashingInformation, upgradeWashingColu
 import { renderWashingDetailTabs, renderWashingDetailPanel, renderWashingDetailSummary, renderWashingDetailBase, renderWashingHandover, renderWashingLogs, washingDetailTab, switchWashingDetailTab, handleWashingDetailTabKey, type WashingDetailTab } from './detail-views.ts'
 import { WASHING_FACTORY_ID } from '../../../../data/fcs/fabric-washing-model.ts'
 import { renderWashingStorageTools, handleWashingStorageAction } from './storage-tools.ts'
-import { isWashingExecutionAction, openWashingExecutionDialog } from './execution-dialog.ts'
+import { isWashingExecutionAction, openWashingExecutionDialog, washingExecutionLabels, washingExecutionRolls } from './execution-dialog.ts'
 
 const ui = { page:1, pageSize:10, query:'', handFeel:'', status:'', busy:false }
 let candidatePage=1
@@ -88,6 +88,11 @@ export function renderWashingJudgmentPanel(printOrderId:string,pda=false,initiat
  installWashingImages()
  return `<section class="space-y-3 ${pda||initiationOnly?'':'rounded-xl border bg-white p-4'}" data-washing-judgment-root="${e(printOrderId)}" data-washing-pda="${pda}" data-washing-initiation="${initiationOnly}" data-skip-page-rerender="true">${initiationOnly?'':'<h2 class="font-semibold">印花后触摸面料</h2>'}${content}<p class="text-sm" data-washing-result></p></section>`
 }
+const listExecutionActions=['receive','start','output','handout'] as const
+function renderWashingListActions(order:WashingOrder,route:string):string {
+ const actions=listExecutionActions.filter(action=>washingExecutionRolls(order,action).length>0)
+ return `<div class="flex flex-col items-start gap-1" role="group" aria-label="${e(order.no)}操作" data-washing-list-order="${e(order.id)}">${link('查看',route+'/'+encodeURIComponent(order.id))}${actions.map(action=>`<button type="button" class="min-h-10 text-left text-sm text-blue-700 hover:underline" data-fabric-washing-action="${action}" data-skip-page-rerender="true">${washingExecutionLabels[action]}</button>`).join('')}</div>`
+}
 function listContent(pda=false) {
  const session=pda?getPdaSession():null
  const all=readWashingState().orders.filter(o=>!session||[o.assignedFactoryId,o.source.factoryId,o.source.target?.factoryId].includes(session.factoryId))
@@ -95,7 +100,7 @@ function listContent(pda=false) {
  ui.page=Math.min(ui.page,Math.max(1,Math.ceil(rows.length/ui.pageSize)))
  let slice:WashingOrder[]=[]
  const route=pda?'/fcs/pda/washing':WASHING_ROUTE
- const columns:StandardListColumn<WashingOrder>[]=[...washingInformationColumns(washingImage,link),{key:'action',title:'操作',width:100,actionColumn:true,render:o=>link('查看',route+'/'+encodeURIComponent(o.id))}]
+ const columns:StandardListColumn<WashingOrder>[]=[...washingInformationColumns(washingImage,link),{key:'action',title:'操作',width:160,actionColumn:true,render:o=>renderWashingListActions(o,route)}]
 
  listColumns=columns
  const preferenceKey=WASHING_ROUTE+':columns'
@@ -110,7 +115,26 @@ function listContent(pda=false) {
  const paginationHtml=renderTablePagination({currentPage:ui.page,pageSize:ui.pageSize,total:rows.length,pageSizeOptions:[10,20,50],actionPrefix:'fabric-washing',from:rows.length?(ui.page-1)*ui.pageSize+1:0,to:Math.min(ui.page*ui.pageSize,rows.length),totalPages:Math.max(1,Math.ceil(rows.length/ui.pageSize)),skipPageRerender:true})
  installWashingImages()
  if(pda)return `<div class="space-y-3 p-3"><h1 class="text-xl font-semibold">洗水加工单</h1>${filtersHtml}${cardsHtml}${paginationHtml}</div>`
- return renderStandardListPage({title:'洗水加工单',filtersHtml,statsHtml:renderStandardListStats([{label:'筛选结果',value:rows.length},{label:'待印花交出',value:rows.filter(o=>washingCanExecute(o)&&!o.cancelledAt&&!o.exception&&!o.completedAt&&!o.rolls.some(r=>r.sentAt)).length},{label:'异常',value:rows.filter(o=>o.exception).length}]),listTitle:`洗水加工单 · ${rows.length} 条`,listActionsHtml:pda?'':button('列设置','columns'),overlaysHtml:columnsOpen?renderStandardListColumnSettings({title:'洗水列表列设置',columns,preferences,eventPrefix:'fabric-washing',maxFrozenWidth:650,skipPageRerender:true}):'',primaryActionsHtml:button('查看印花产出','candidates')+button('本地资料','storage'),tableHtml,paginationHtml})
+ return renderStandardListPage({title:'洗水加工单',filtersHtml,feedbackHtml:'<p class="empty:hidden text-sm text-red-700" role="alert" data-washing-error></p><p class="empty:hidden text-sm text-green-700" role="status" tabindex="-1" data-washing-result></p>',statsHtml:`<div data-washing-list-stats>${renderStandardListStats([{label:'筛选结果',value:rows.length},{label:'待印花交出',value:rows.filter(o=>washingCanExecute(o)&&!o.cancelledAt&&!o.exception&&!o.completedAt&&!o.rolls.some(r=>r.sentAt)).length},{label:'异常',value:rows.filter(o=>o.exception).length}])}</div>`,listTitle:`洗水加工单 · ${rows.length} 条`,listActionsHtml:button('列设置','columns'),overlaysHtml:(columnsOpen?renderStandardListColumnSettings({title:'洗水列表列设置',columns,preferences,eventPrefix:'fabric-washing',maxFrozenWidth:650,skipPageRerender:true}):'')+'<div data-washing-operation-slot></div>',primaryActionsHtml:button('查看印花产出','candidates')+button('本地资料','storage'),tableHtml,paginationHtml:`<div data-washing-list-pagination>${paginationHtml}</div>`})
+}
+/** Keep the query, table shell and scroll container mounted when one order changes. */
+function refreshWashingListResults(root:HTMLElement):void {
+ const template=document.createElement('template');template.innerHTML=listContent(false)
+ const next=template.content
+ const body=root.querySelector('tbody'),nextBody=next.querySelector('tbody')
+ if(body&&nextBody)body.replaceChildren(...nextBody.childNodes)
+ for(const selector of ['[data-washing-list-stats]','[data-washing-list-pagination]']){
+  const current=root.querySelector(selector),replacement=next.querySelector(selector)
+  if(current&&replacement)current.replaceChildren(...replacement.childNodes)
+ }
+ const title=root.querySelector('[data-standard-list-table-section] > header h2'),nextTitle=next.querySelector('[data-standard-list-table-section] > header h2')
+ if(title&&nextTitle)title.textContent=nextTitle.textContent
+ const status=root.querySelector<HTMLSelectElement>('[data-washing-filter="status"]'),nextStatus=next.querySelector<HTMLSelectElement>('[data-washing-filter="status"]')
+ if(status&&nextStatus){
+  const value=status.value;status.replaceChildren(...nextStatus.childNodes)
+  if(value&&![...status.options].some(option=>option.value===value))status.add(new Option(value,value))
+  status.value=value
+ }
 }
 function renderCandidateView(){
  const candidates=listWashingCandidates().sort((a,b)=>Number(b.sources.some(s=>s.actualCompleted))-Number(a.sources.some(s=>s.actualCompleted)))
@@ -178,9 +202,10 @@ async function save(root:HTMLElement,command:WashingCommand,source?:WashingSourc
  const a=actor(source,command,pda),key=root.dataset.washingSource||root.dataset.washingOrder||'washing',intent=JSON.stringify({command,a})
  let operation=operations.get(key);if(!operation||operation.intent!==intent){operation={intent,id:crypto.randomUUID()};operations.set(key,operation)}
  ui.busy=true
- root.querySelectorAll<HTMLButtonElement>('button').forEach(b=>{b.disabled=true})
+ const controls=[...root.querySelectorAll<HTMLButtonElement>('button')].map(button=>({button,disabled:button.disabled}))
+ controls.forEach(({button})=>{button.disabled=true})
  try{const result=await submitWashingCommand(command,a,operation.id);operations.delete(key);return result}
- finally{ui.busy=false;root.querySelectorAll<HTMLButtonElement>('button').forEach(b=>{b.disabled=false})}
+ finally{ui.busy=false;controls.forEach(({button,disabled})=>{button.disabled=disabled})}
 }
 function refresh(root:HTMLElement) {
  const detail=root.closest<HTMLElement>('[data-washing-detail-root]'),judge=root.closest<HTMLElement>('[data-washing-judgment-root]'),list=root.closest<HTMLElement>('[data-washing-list-root]')
@@ -230,8 +255,15 @@ export async function handleFabricWashingEvent(target:HTMLElement,event?:Event):
    const result=await save(root,{type:'JUDGE',source,rollIds:selected(root,'data-washing-judge-roll'),decision:action!.endsWith('wash')?'WASH':'NO_WASH',...(action!.endsWith('wash')?{handFeel:feel as any}:{}),...(action!.startsWith('correct')?{correct:true}:{})},source)
    refresh(root);const current=document.querySelector<HTMLElement>('[data-washing-judgment-root="'+CSS.escape(source.printOrderId)+'"] [data-washing-result]');if(current)current.innerHTML=result.orderId?`已创建 ${link('查看洗水加工单',(pda?'/fcs/pda/washing':WASHING_ROUTE)+'/'+encodeURIComponent(result.orderId))}`:'已保存：所选卷不需要洗水。';return true
   }
-  const o=readWashingState().orders.find(o=>o.id===root.dataset.washingOrder);if(!o)return false
+  const listOrderId=trigger.closest<HTMLElement>('[data-washing-list-order]')?.dataset.washingListOrder
+  if(listOrderId)await ensureWashingRecords(true)
+  const o=readWashingState().orders.find(o=>o.id===(listOrderId||root.dataset.washingOrder))
+  if(!o){if(listOrderId)throw new Error('单据已不存在，请重新查询洗水加工单。');return false}
   if(isWashingExecutionAction(action)){
+   if(listOrderId&&(!listExecutionActions.some(value=>value===action)||!washingExecutionRolls(o,action).length)){
+    refreshWashingListResults(root)
+    throw new Error('单据已更新，当前没有可执行本操作的卷。请核对列表中的最新状态。')
+   }
    const factoryId=action==='receive'?o.assignedFactoryId:action==='downstream-receive'?o.source.target?.factoryId:undefined
    const positions=factoryId?getFactoryReceiptLocations(factoryId).map(p=>({value:p.warehouse.warehouseId+'|'+p.location.locationId,label:p.warehouse.warehouseName+' · '+p.location.locationNo})):[]
    openWashingExecutionDialog(root,o,action,{image:washingImage,button,positions,trigger,
@@ -245,6 +277,15 @@ export async function handleFabricWashingEvent(target:HTMLElement,event?:Event):
      }finally{ui.busy=false}
     },
     saved:command=>{
+     if(listOrderId){
+      refreshWashingListResults(root)
+      const result=root.querySelector<HTMLElement>('[data-washing-result]')
+      if(result)result.textContent=o.no+' · 已保存：'+actionName(command.type)
+      const actions=root.querySelector('[data-washing-list-order="'+CSS.escape(o.id)+'"]')
+      const next=actions?.querySelector<HTMLElement>('button')||actions?.querySelector<HTMLElement>('a')||result
+      next?.focus({preventScroll:true})
+      return
+     }
      refresh(root)
      const detail=document.querySelector<HTMLElement>('[data-washing-order="'+CSS.escape(o.id)+'"]')
      const result=detail?.querySelector('[data-washing-result]');if(result)result.textContent='已保存：'+actionName(command.type)

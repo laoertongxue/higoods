@@ -1,0 +1,33 @@
+PASS native six-roll fixture through printing initiation
+PASS native sent fixture for list operations
+PASS list-cold-20-orders 226.00
+PASS list-refresh-20-orders 197.90
+PASS list-SPA-entry-20-orders 109.70
+PASS list-page-size-20 55.80
+PASS list-page-size-10 42.80
+PASS list-query-20-orders 31.70
+PASS list-reset-20-orders 31.90
+PASS list-next-page 64.30
+PASS list-previous-page 65.40
+PASS list-sort-20-orders 34.00
+PASS list-open-receive 64.80
+PASS list-cancel-and-restore-row-focus 81.30
+PASS list-abort-retains-form-and-pagination 148.90
+PASS list-retry-receive-after-abort 165.60
+PASS list-open-start 65.10
+PASS list-save-start 165.30
+PASS list-open-output 65.40
+PASS list-save-output 131.70
+PASS list-open-handout 65.70
+PASS list-save-handout 149.00
+PASS list four-dialog flow and state controls 1
+PASS list-stale-form-preserved 65.70
+PASS list-stale-button-refreshes-current-state 65.60
+PASS list stale form and stale button do not overwrite peer 1
+PASS list-save-exits-filter-and-clamps-page 347.90
+PASS state filter removes last-page row without clearing query or preferences 1
+PASS list operations layout and image 1366
+PASS list operations layout and image 1280
+PASS list operations layout and image 1024
+PASS PDA and detail retain their physical receipt entry
+{"checks":9,"passed":9,"samples":23,"maxMs":347.900146484375,"slow":[],"pageErrors":1}
