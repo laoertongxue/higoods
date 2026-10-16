@@ -1,0 +1,47 @@
+PASS native six-roll fixture through printing initiation
+PASS Web-cold-six-roll-detail 273.40
+PASS Web-refresh-six-roll-detail 213.70
+PASS Web-open-send 51.50
+PASS cancel-clean-dialog 49.00
+PASS missing-selection-retains-dialog 48.30
+PASS invalid-scan-preserves-checked-rolls 32.10
+PASS Web-save-send 148.90
+PASS Web-open-receive 49.10
+PASS close-dirty-dialog-asks-discard 32.30
+PASS continue-draft-after-close 32.30
+PASS discard-without-persistent-write 49.10
+PASS Web-save-receive 150.10
+PASS Web-open-start 49.30
+PASS Web-save-start 147.30
+PASS Web-open-output 48.20
+PASS quantity-input-updates-selected-scope-and-difference 21.70
+PASS domain-rejection-preserves-output-draft 65.80
+PASS Web-save-output 65.90
+PASS Web-open-handout 48.60
+PASS scan-updates-six-selected-output-rolls 32.30
+PASS Web-save-handout 149.00
+PASS Web-open-downstream-receive 49.10
+PASS Web-save-downstream-receive 132.30
+PASS Web six-dialog flow, cancellation and validation 1
+PASS PDA-detail-after-login 301.20
+PASS PDA-open-receive 48.80
+PASS PDA-save-receive 365.50
+PASS PDA-open-start 48.60
+PASS PDA-save-start 382.00
+PASS PDA-open-output 45.00
+PASS PDA-save-output 348.50
+PASS PDA-open-handout 49.10
+PASS PDA-save-handout 298.90
+PASS PDA four operations use their own dialogs 1
+PASS aborted-save-preserves-form 132.50
+PASS retry-after-aborted-save 149.30
+PASS aborted save retains quantities, positions and retry 1
+PASS stale-save-retains-input 65.70
+PASS concurrent update preserves stale form without overwriting 1
+PASS Web-open-original-central-receipt 51.80
+PASS Web-save-original-central-receipt 132.40
+PASS original central-warehouse receipt has no GTG location or scan input 1
+PASS responsive dialog, keyboard and object image 1366
+PASS responsive dialog, keyboard and object image 1280
+PASS responsive dialog, keyboard and object image 1024
+{"checks":9,"passed":9,"samples":37,"maxMs":382,"slow":[],"pageErrors":0}

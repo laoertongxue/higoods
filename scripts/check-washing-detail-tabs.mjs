@@ -3,14 +3,16 @@ import assert from 'node:assert/strict'
 import { mkdirSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
+import { cpus, loadavg, totalmem, freemem } from 'node:os'
 
 const base=process.env.WASH_BASE_URL||'http://127.0.0.1:43159'
 assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname),'Only isolated local prototype contexts may be written')
 const runs=Number(process.env.WASH_TAB_RUNS||5),formal=process.env.WASH_TAB_FORMAL==='1'
 const out=process.env.WASH_TAB_OUT||'output/washing-detail-tabs',stamp=new Date().toISOString().replaceAll(':','-')
 mkdirSync(out,{recursive:true})
-const sources=['src/data/fcs/fabric-washing-model.ts','src/data/fcs/fabric-washing-views.ts','src/data/fcs/fabric-washing-maintenance.ts','src/pages/process-factory/dyeing/washing/order-presentation.ts','tests/unit/fabric-washing.test.ts','tests/unit/fabric-washing-maintenance.test.ts','tests/unit/fabric-washing-views.test.ts','scripts/check-washing-gtg-direct-consumers.mjs','scripts/check-post-print-fabric-washing.mjs','scripts/check-post-print-fabric-washing-edges.mjs','src/pages/process-factory/dyeing/washing/work-orders.ts','src/pages/process-factory/dyeing/washing/detail-views.ts','scripts/check-washing-detail-tabs.mjs','scripts/check-washing-gtg-ui.mjs']
-const report={at:new Date().toISOString(),base,formal,head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),sources:Object.fromEntries(sources.map(p=>[p,createHash('sha256').update(readFileSync(p)).digest('hex')])),environment:{timezone:'Asia/Shanghai',webViewports:['1366x768','1280x720','1024x768'],pdaViewport:'390x844',scale:'6 actual 50 Yard rolls in one order, created through the real print initiation UI',cold:'Fresh isolated contexts seeded through native IndexedDB before loading any app assets; no user browser data is read or cleared'},checks:[],samples:[],errors:[]}
+const sources=['src/data/fcs/fabric-washing-model.ts','src/data/fcs/fabric-washing-views.ts','src/data/fcs/fabric-washing-maintenance.ts','src/pages/process-factory/dyeing/washing/order-presentation.ts','tests/unit/fabric-washing.test.ts','tests/unit/fabric-washing-maintenance.test.ts','tests/unit/fabric-washing-views.test.ts','scripts/check-washing-gtg-direct-consumers.mjs','scripts/check-post-print-fabric-washing.mjs','scripts/check-post-print-fabric-washing-edges.mjs','src/pages/process-factory/dyeing/washing/work-orders.ts','src/pages/process-factory/dyeing/washing/detail-views.ts','scripts/check-washing-detail-tabs.mjs','scripts/check-washing-gtg-ui.mjs','src/pages/process-factory/dyeing/washing/execution-dialog.ts','tests/unit/washing-execution-dialog.test.ts']
+const report={at:new Date().toISOString(),base,formal,head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),sources:Object.fromEntries(sources.map(p=>[p,createHash('sha256').update(readFileSync(p)).digest('hex')])),environment:{timezone:'Asia/Shanghai',webViewports:['1366x768','1280x720','1024x768'],pdaViewport:'390x844',scale:'6 actual 50 Yard rolls in one order, created through the real print initiation UI',scope:'WASH-291-WASH-302 operation dialogs; existing domain/storage/printing rules unchanged',cold:'Fresh isolated contexts seeded through native IndexedDB before loading any app assets; no user browser data is read or cleared'},checks:[],samples:[],errors:[]}
+report.environment.resources={node:process.version,cores:cpus().length,loadAverage:loadavg(),totalMemory:totalmem(),freeMemory:freemem()}
 report.runtimeAssets=JSON.parse(readFileSync(process.env.WASH_RUNTIME_ASSETS||'output/washing-detail-tabs/runtime-assets.json','utf8'))
 const browser=await chromium.launch({headless:true});report.browser=browser.version()
 const printPath='/fcs/craft/printing/work-orders',washPath='/fcs/craft/dyeing/washing/work-orders'
@@ -20,6 +22,18 @@ async function init(c){
   window.washTabStart=0
   for(const type of ['pointerdown','keydown','input','change'])document.addEventListener(type,()=>{if(!window.washTabStart)window.washTabStart=performance.now()},true)
   window.washTabReady=async()=>{await document.fonts.ready;await Promise.all([...document.images].filter(img=>{const r=img.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0&&r.left<innerWidth&&r.right>0}).map(async img=>{if(!img.complete)await img.decode();if(!img.naturalWidth)throw new Error('Missing visible image '+img.alt)}));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));return performance.timeOrigin+performance.now()}
+  const transaction=IDBDatabase.prototype.transaction
+  IDBDatabase.prototype.transaction=function(...args){const tx=transaction.apply(this,args);if(this.name==='higood-pcs-records'&&args[1]==='readwrite'&&window.washDialogAbortNext){window.washDialogAbortNext=false;queueMicrotask(()=>tx.abort())}return tx}
+  document.addEventListener('click',event=>{
+   const d=event.target.closest?.('[data-washing-operation-action="submit"]')?.closest('[data-washing-operation]');if(!d)return
+   const observer=new MutationObserver(()=>{
+    if(d.getAttribute('aria-busy')==='true'){
+     window.washDialogBusyWitness={fieldsDisabled:d.querySelector('fieldset').disabled,buttonsDisabled:[...d.querySelectorAll('button')].every(b=>b.disabled)}
+     observer.disconnect()
+    }
+   })
+   observer.observe(d,{attributes:true,attributeFilter:['aria-busy']});setTimeout(()=>observer.disconnect(),1000)
+  },true)
   window.washTabRecords=()=>new Promise((resolve,reject)=>{const r=indexedDB.open('higood-pcs-records');r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,tx=db.transaction('records','readonly'),q=tx.objectStore('records').getAll();let rows=[];q.onsuccess=()=>rows=q.result;tx.oncomplete=()=>{db.close();resolve(rows)};tx.onabort=()=>reject(tx.error)}})
  })
  c.on('page',p=>{p.setDefaultTimeout(6000);p.on('pageerror',e=>report.errors.push(e.message))})
@@ -40,118 +54,150 @@ async function nativeSeed(c,records){
 }
 const orders=async p=>(await p.evaluate(()=>window.washTabRecords())).filter(r=>r.collection==='fcs.fabric-washing.v1'&&r.value.kind==='orders').map(r=>r.value.data)
 async function switchTab(p,name){await tab(p,name).click();await tab(p,name).and(p.locator('[aria-selected="true"]')).waitFor()}
-async function selectFirst(p){await p.locator('[data-washing-exec-roll]').first().check()}
-async function scan(p,code){await p.locator('[data-washing-scan]').fill(code);await root(p).getByRole('button',{name:'核对卷码',exact:true}).click();await p.locator('[data-washing-scans]').filter({hasText:code}).waitFor()}
-async function clickSave(p,label,predicate,run){
- const names={'接单':'染厂接单','印花交给染厂':'印花方交出','登记逐卷实收':'染厂实际接收','投入洗水':'投入洗水','登记实际产出':'登记实际产出','交回原接收方':'交回原接收方','登记下游实收':'下游实际接收'}
- const action=()=>root(p).getByRole('button',{name:label,exact:true}).click()
- const complete=async()=>{await p.locator('[data-washing-result]').filter({hasText:'已保存：'+names[label]}).waitFor();assert.ok(predicate((await orders(p))[0]),'Durable result after '+label)}
- if(run)await measure(p,'save-'+label,run,action,complete);else {await action();await complete()}
+const dialog=p=>p.locator('[data-washing-operation][open]')
+const labels={send:'印花交给染厂',receive:'登记逐卷实收',start:'投入洗水',output:'登记实际产出',handout:'交回原接收方','downstream-receive':'登记下游实收'}
+const saved={send:'印花方交出',receive:'染厂实际接收',start:'投入洗水',output:'登记实际产出',handout:'交回原接收方','downstream-receive':'下游实际接收'}
+const screen=p=>new URL(p.url()).pathname.includes('/pda/')?'PDA':'Web'
+function contract(action){return {qty:['receive','output','downstream-receive'].includes(action)?6:0,position:['receive','downstream-receive'].includes(action)?1:0,scan:['send','handout'].includes(action)?1:0,repack:action==='output'?6:0}}
+async function fields(p,action,count=6,central=false){
+ const d=dialog(p),expected=contract(action)
+ assert.equal(await d.locator('[data-washing-exec-roll]').count(),count)
+ for(const [name,n] of [['qty',expected.qty?count:0],['position',central?0:expected.position],['scan',expected.scan],['output-code',expected.repack?count:0]])assert.equal(await d.locator('[data-washing-'+name+']').count(),n,action+': '+name)
+ assert.equal(await d.locator('[data-washing-central-location]').count(),central?1:0)
 }
-let fixture,href,orderId,completedFixture,sentFixture
+async function noInline(p){assert.equal(await root(p).locator('input, select, textarea').count(),0,'Execution page must not mount persistent input fields')}
+async function open(p,action,run,count=6,central=false){
+ const go=()=>root(p).getByRole('button',{name:labels[action],exact:true}).click()
+ const ready=async()=>{await dialog(p).waitFor();await fields(p,action,count,central)}
+ if(run)await measure(p,screen(p)+'-open-'+action,run,go,ready);else{await go();await ready()}
+}
+async function selectAll(p){for(const input of await dialog(p).locator('[data-washing-exec-roll]').all())await input.check()}
+async function position(p,factory){const select=dialog(p).locator('[data-washing-position]'),opts=await select.locator('option').evaluateAll(es=>es.map(e=>({value:e.value,label:e.textContent})));const v=opts.find(x=>x.value&&x.label.includes(factory)&&x.label.includes('A-01-01'));assert.ok(v,'Missing actual '+factory+' position');await select.selectOption(v.value);assert.ok(opts.filter(x=>x.value).every(x=>x.label.includes(factory)),'Other factory locations must not be offered')}
+async function scan(p,code,enter=true){const d=dialog(p);await d.locator('[data-washing-scan]').fill(code);if(enter)await d.locator('[data-washing-scan]').press('Enter');else await d.getByRole('button',{name:'核对卷码',exact:true}).click();await d.locator('[data-washing-scans]').filter({hasText:code}).waitFor()}
+async function fillQuantities(p,value){for(const input of await dialog(p).locator('[data-washing-qty]').all())await input.fill(String(value))}
+async function submit(p,action,run,predicate){
+ const go=()=>dialog(p).getByRole('button',{name:'确认'+labels[action],exact:true}).click()
+ const ready=async()=>{await dialog(p).waitFor({state:'detached'});await p.locator('[data-washing-result]').filter({hasText:'已保存：'+saved[action]}).waitFor();assert.ok(predicate((await orders(p))[0]),'Durable incorrect '+action);await noInline(p);assert.deepEqual(await p.evaluate(()=>window.washDialogBusyWitness),{fieldsDisabled:true,buttonsDisabled:true})}
+ if(run)await measure(p,screen(p)+'-save-'+action,run,go,ready);else{await go();await ready()}
+}
+async function reject(p,action,family,run,pattern){
+ const before=await p.evaluate(()=>window.washTabRecords())
+ await measure(p,family,run,()=>dialog(p).getByRole('button',{name:'确认'+labels[action],exact:true}).click(),async()=>{await dialog(p).locator('[data-washing-operation-error]').filter({hasText:pattern}).waitFor();assert.deepEqual(await p.evaluate(()=>window.washTabRecords()),before);assert.equal(await dialog(p).getByRole('button',{name:'确认'+labels[action],exact:true}).isEnabled(),true)})
+}
+async function closeClean(p){await dialog(p).locator('footer').getByRole('button',{name:'取消',exact:true}).click();await dialog(p).waitFor({state:'detached'})}
+async function discard(p){await dialog(p).locator('footer').getByRole('button',{name:'取消',exact:true}).click();await dialog(p).getByRole('button',{name:'放弃填写并关闭',exact:true}).click();await dialog(p).waitFor({state:'detached'})}
+async function login(p){await p.goto(base+'/fcs/pda/auth/login');await p.getByRole('textbox',{name:'登录账号',exact:true}).fill('ID-F003_admin');await p.getByRole('textbox',{name:'密码',exact:true}).fill('123456');await p.getByRole('button',{name:'登录',exact:true}).click();await p.getByRole('button',{name:'打开账号信息',exact:true}).waitFor()}
+let fixture,href,orderId,sentFixture,completedFixture
 try{
- await check('native valid six-roll fixture created through print UI',async()=>{
+ await check('native six-roll fixture through printing initiation',async()=>{
   const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'});await init(c);const p=await c.newPage()
-  await p.goto(base+printPath);await p.locator('[data-printing-work-orders-root]').waitFor();await p.getByRole('textbox',{name:'综合查询',exact:true}).fill('PH-WASH');await p.getByRole('button',{name:'查询',exact:true}).click()
-  await p.locator('[data-printing-row-actions="PWO-WASH-DEMO-PRODUCTION-DONE"]').getByRole('button',{name:'发起洗水',exact:true}).click()
-  const dialog=p.getByRole('dialog',{name:'发起洗水',exact:true});await dialog.locator('[data-washing-feel]').selectOption('增厚蓬松棉手感');await dialog.getByRole('button',{name:'创建洗水加工单',exact:true}).click();const result=dialog.getByRole('link',{name:'查看洗水加工单',exact:true});await result.waitFor();href=await result.getAttribute('href');orderId=href.split('/').at(-1)
-  fixture=await p.evaluate(()=>window.washTabRecords());const o=(await orders(p))[0];assert.equal(o.rolls.length,6);assert.equal(o.assignedFactoryId,'ID-F003');assert.equal(o.source.target.id,'F090');assert.equal(o.acceptance,'NOT_REQUIRED');assert.equal(o.acceptedAt,undefined);writeFileSync(out+'/six-roll-native-fixture.json',JSON.stringify(fixture,null,2));await c.close();return {href,rolls:6,input:300}
+  try{await p.goto(base+printPath);await p.locator('[data-printing-work-orders-root]').waitFor();await p.getByRole('textbox',{name:'综合查询',exact:true}).fill('PH-WASH');await p.getByRole('button',{name:'查询',exact:true}).click();await p.locator('[data-printing-row-actions="PWO-WASH-DEMO-PRODUCTION-DONE"]').getByRole('button',{name:'发起洗水',exact:true}).click();const d=p.getByRole('dialog',{name:'发起洗水',exact:true});await d.locator('[data-washing-feel]').selectOption('增厚蓬松棉手感');await d.getByRole('button',{name:'创建洗水加工单',exact:true}).click();const result=d.getByRole('link',{name:'查看洗水加工单',exact:true});await result.waitFor();href=await result.getAttribute('href');orderId=href.split('/').at(-1);fixture=await p.evaluate(()=>window.washTabRecords());assert.equal((await orders(p))[0].rolls.length,6);writeFileSync(out+'/six-roll-native-fixture.json',JSON.stringify(fixture));return {orderId,rolls:6,qty:300}}finally{await c.close()}
  })
- for(let run=1;run<=runs;run++)await check('tabs, draft retention and save '+run,async()=>{
+ for(let run=1;run<=runs;run++)await check('Web six-dialog flow, cancellation and validation '+run,async()=>{
   const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,fixture)
   try{
-   await measure(p,'cold-six-roll-detail',run,()=>p.goto(base+href,{waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true)
-   assert.equal(await tab(p,'加工执行').getAttribute('aria-selected'),'true');assert.equal(await p.getByRole('tabpanel').count(),1);assert.equal(await p.locator('[data-washing-tab-panel]').count(),5)
-   await measure(p,'refresh-six-roll-detail',run,()=>p.reload({waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true)
-   for(const name of ['接单','作废本单','拒单','登记异常'])assert.equal(await root(p).getByRole('button',{name,exact:true}).count(),0)
-   assert.equal((await orders(p))[0].acceptedAt,undefined)
-   const mainButton=await root(p).getByRole('button',{name:'印花交给染厂',exact:true}).boundingBox();assert.ok(mainButton.y+mainButton.height<768,'Primary action must be on first screen')
-   await selectFirst(p);await p.locator('[data-washing-qty]').first().fill('47.5');await scan(p,'WS-1-R1');await p.locator('[data-washing-difference]').check()
-   const before=await p.evaluate(()=>{window.washTabExecNode=document.querySelector('[data-washing-exec-roll]');return document.querySelector('[data-washing-position] option[value]:not([value=""])')?.value})
-   if(before)await p.locator('[data-washing-position]').selectOption(before)
-   const initialActions=(await p.evaluate(()=>window.washTabRecords())).filter(r=>r.value.kind==='actions').length
-   for(const label of ['基本信息','交接记录','操作日志','打印','加工执行'])await measure(p,'tab-'+label,run,()=>tab(p,label).click(),async()=>{await tab(p,label).and(p.locator('[aria-selected="true"]')).waitFor();assert.equal(await tab(p,label).getAttribute('aria-selected'),'true');assert.equal(await p.getByRole('tabpanel').count(),1);assert.equal(await p.getByRole('tabpanel').getAttribute('aria-labelledby'),await tab(p,label).getAttribute('id'))})
-   assert.equal((await p.evaluate(()=>window.washTabRecords())).filter(r=>r.value.kind==='actions').length,initialActions,'View changes must not write actions')
-   assert.equal(await p.evaluate(()=>window.washTabExecNode===document.querySelector('[data-washing-exec-roll]')),true,'Tab changes must retain the actual execution DOM')
-   assert.equal(await p.locator('[data-washing-exec-roll]').first().isChecked(),true);assert.equal(await p.locator('[data-washing-qty]').first().inputValue(),'47.5');assert.equal(await p.locator('[data-washing-difference]').isChecked(),true);assert.match(await p.locator('[data-washing-scans]').innerText(),/WS-1-R1/);if(before)assert.equal(await p.locator('[data-washing-position]').inputValue(),before)
-   await measure(p,'tab-keyboard-roving-focus',run,()=>tab(p,'加工执行').press('End'),async()=>{await tab(p,'打印').and(p.locator('[aria-selected="true"]')).waitFor();assert.equal(await tab(p,'打印').getAttribute('aria-selected'),'true');assert.equal(await tab(p,'打印').evaluate(el=>el===document.activeElement),true)})
-   await tab(p,'打印').press('Home');await tab(p,'加工执行').and(p.locator('[aria-selected="true"]')).waitFor();await tab(p,'加工执行').press('ArrowRight');await tab(p,'基本信息').and(p.locator('[aria-selected="true"]')).waitFor();assert.equal(await tab(p,'基本信息').getAttribute('aria-selected'),'true');await tab(p,'基本信息').press('ArrowLeft');await tab(p,'加工执行').and(p.locator('[aria-selected="true"]')).waitFor()
-   await tab(p,'打印').click()
-   for(const [label,family] of [['洗水加工单预览','print-order-with-retained-draft'],['交接与卷标预览','print-transfer-with-retained-draft']])await measure(p,family,run,()=>root(p).getByRole('button',{name:label,exact:true}).click(),async()=>{await p.locator('[data-washing-print-document]').waitFor();assert.match(await p.locator('[data-washing-print-document]').innerText(),/GTG/);assert.equal(await tab(p,'打印').getAttribute('aria-selected'),'true');assert.ok((await orders(p))[0].printedRevision);if(label==='交接与卷标预览')assert.equal(await p.locator('[data-real-barcode]').count(),6)})
-   await switchTab(p,'操作日志');assert.match(await p.getByRole('tabpanel').innerText(),/打印预览/);assert.match(await p.getByRole('tabpanel').innerText(),/Web 端操作员/)
-   await switchTab(p,'加工执行');assert.equal(await p.locator('[data-washing-qty]').first().inputValue(),'47.5');assert.equal(await p.locator('[data-washing-exec-roll]').first().isChecked(),true)
-   await p.locator('[data-washing-exec-roll]').first().uncheck()
-   await measure(p,'invalid-send-retains-draft',run,()=>root(p).getByRole('button',{name:'印花交给染厂',exact:true}).click(),async()=>{await p.locator('[data-washing-error]').filter({hasText:'请选择'}).waitFor();assert.equal((await orders(p))[0].rolls[0].sentAt,undefined);assert.equal(await p.locator('[data-washing-qty]').first().inputValue(),'47.5')})
-   await selectFirst(p);await clickSave(p,'印花交给染厂',o=>!!o.rolls[0].sentAt,run);if(run===1)sentFixture=await p.evaluate(()=>window.washTabRecords())
-   const pos=await p.locator('[data-washing-position] option').evaluateAll(es=>es.map(e=>({value:e.value,label:e.textContent})));await selectFirst(p);await p.locator('[data-washing-position]').selectOption(pos.find(o=>o.value&&o.label.includes('GTG')&&o.label.includes('A-01-01')).value);await p.locator('[data-washing-qty]').first().fill('50');await clickSave(p,'登记逐卷实收',o=>o.rolls[0].receivedQty===50,run)
-   await selectFirst(p);await clickSave(p,'投入洗水',o=>!!o.rolls[0].startedAt,run)
-   await selectFirst(p);await p.locator('[data-washing-qty]').first().fill('49');await p.locator('[data-washing-output-code]').first().fill('TAB-REPACK-'+run);await p.locator('[data-washing-difference]').check();await switchTab(p,'交接记录');await switchTab(p,'加工执行');assert.equal(await p.locator('[data-washing-output-code]').first().inputValue(),'TAB-REPACK-'+run);await clickSave(p,'登记实际产出',o=>o.rolls[0].outputQty===49&&o.rolls[0].outputBarcode==='TAB-REPACK-'+run,run)
-   await selectFirst(p);await scan(p,'TAB-REPACK-'+run);await clickSave(p,'交回原接收方',o=>!!o.rolls[0].handedOutAt,run)
-   await selectFirst(p);await p.locator('[data-washing-qty]').first().fill('49');const targetPos=pos.find(o=>o.value&&o.label.includes('全能力测试工厂')&&o.label.includes('A-01-01'));await p.locator('[data-washing-position]').selectOption(targetPos.value);await clickSave(p,'登记下游实收',o=>o.rolls[0].downstreamQty===49,run)
-   await switchTab(p,'交接记录');assert.match(await p.getByRole('tabpanel').innerText(),/TAB-REPACK/);assert.match(await p.getByRole('tabpanel').innerText(),/49 Yard/);assert.match(await p.getByRole('tabpanel').innerText(),/尚未交出/)
-   await p.reload();await root(p).waitFor();assert.equal((await orders(p))[0].rolls[0].downstreamQty,49);assert.match(await root(p).innerText(),/下游已实收/)
-   if(run===1){completedFixture=await p.evaluate(()=>window.washTabRecords());for(const label of ['加工执行','基本信息','交接记录','操作日志','打印']){await switchTab(p,label);await p.screenshot({path:out+'/'+label+'-1366.png',fullPage:true})}}
-   return {rolls:6,partialOutput:49,repacked:true,draftNodeRetained:true,allViewsReadOnly:true}
+   await measure(p,'Web-cold-six-roll-detail',run,()=>p.goto(base+href,{waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true)
+   await noInline(p);await measure(p,'Web-refresh-six-roll-detail',run,()=>p.reload({waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true)
+   const original=await p.evaluate(()=>{window.washExecNode=document.querySelector('[data-washing-tab-panel="execution"]');return window.washTabRecords()})
+   await open(p,'send',run)
+   await closeClean(p);assert.equal(await root(p).getByRole('button',{name:labels.send,exact:true}).evaluate(el=>el===document.activeElement),true);assert.deepEqual(await p.evaluate(()=>window.washTabRecords()),original)
+   assert.equal(await p.evaluate(()=>window.washExecNode===document.querySelector('[data-washing-tab-panel="execution"]')),true)
+   await open(p,'send');await reject(p,'send','missing-selection-retains-dialog',run,/请选择/)
+   for(let i=1;i<=6;i++)await scan(p,'WS-1-R'+i)
+   const codesBefore=await dialog(p).locator('[data-washing-scans]').innerText()
+   await dialog(p).locator('[data-washing-scan]').fill('WRONG-ROLL')
+   await measure(p,'invalid-scan-preserves-checked-rolls',run,()=>dialog(p).getByRole('button',{name:'核对卷码',exact:true}).click(),async()=>{await dialog(p).locator('[data-washing-operation-error]').filter({hasText:'不在本次可交出范围'}).waitFor();assert.equal(await dialog(p).locator('[data-washing-scans]').innerText(),codesBefore)})
+   await dialog(p).locator('[data-washing-scan]').fill('WS-1-R1');await dialog(p).getByRole('button',{name:'核对卷码',exact:true}).click();assert.match(await dialog(p).locator('[data-washing-operation-error]').innerText(),/重复/)
+   await submit(p,'send',run,o=>o.rolls.every(r=>r.sentAt)&&!o.acceptedAt);if(run===1)sentFixture=await p.evaluate(()=>window.washTabRecords())
+   await open(p,'receive',run);assert.equal(await dialog(p).locator('[data-washing-difference-row]').isVisible(),false)
+   const beforeCleanClose=await p.evaluate(()=>window.washTabRecords())
+   await measure(p,'cancel-clean-dialog',run,()=>dialog(p).locator('footer').getByRole('button',{name:'取消',exact:true}).click(),async()=>{await dialog(p).waitFor({state:'detached'});assert.deepEqual(await p.evaluate(()=>window.washTabRecords()),beforeCleanClose)})
+   await open(p,'receive')
+   await dialog(p).locator('[data-washing-qty]').first().fill('49')
+   await measure(p,'close-dirty-dialog-asks-discard',run,()=>dialog(p).locator('footer').getByRole('button',{name:'取消',exact:true}).click(),()=>dialog(p).getByRole('button',{name:'继续填写',exact:true}).waitFor())
+   await measure(p,'continue-draft-after-close',run,()=>dialog(p).getByRole('button',{name:'继续填写',exact:true}).click(),async()=>{assert.equal(await dialog(p).locator('[data-washing-discard-confirm]').isVisible(),false);assert.equal(await dialog(p).locator('[data-washing-qty]').first().inputValue(),'49')})
+   await dialog(p).locator('footer').getByRole('button',{name:'取消',exact:true}).click();const sentBefore=await p.evaluate(()=>window.washTabRecords())
+   await measure(p,'discard-without-persistent-write',run,()=>dialog(p).getByRole('button',{name:'放弃填写并关闭',exact:true}).click(),async()=>{await dialog(p).waitFor({state:'detached'});assert.deepEqual(await p.evaluate(()=>window.washTabRecords()),sentBefore)})
+   await open(p,'receive');await fillQuantities(p,50);await position(p,'GTG');await submit(p,'receive',run,o=>o.rolls.every(r=>r.receivedQty===50))
+   await open(p,'start',run);await selectAll(p);await submit(p,'start',run,o=>o.rolls.every(r=>r.startedAt))
+   await open(p,'output',run)
+   const qtyInputs=await dialog(p).locator('[data-washing-qty]').all();for(const input of qtyInputs.slice(0,-1))await input.fill('49')
+   await measure(p,'quantity-input-updates-selected-scope-and-difference',run,()=>qtyInputs.at(-1).fill('49'),async()=>{await dialog(p).locator('[data-washing-operation-count]').filter({hasText:'已选 6 / 6 卷'}).waitFor();assert.equal(await dialog(p).locator('[data-washing-difference-row]').isVisible(),true)})
+   for(const [i,input] of (await dialog(p).locator('[data-washing-output-code]').all()).entries())await input.fill('DLG-'+run+'-'+i)
+   await reject(p,'output','domain-rejection-preserves-output-draft',run,/数量有变化/);assert.equal(await qtyInputs[0].inputValue(),'49')
+   await dialog(p).locator('[data-washing-difference]').check()
+   if(run===1){const all=await dialog(p).locator('[data-washing-output-code]').all();await all[1].fill('DLG-1-0');await dialog(p).getByRole('button',{name:'确认'+labels.output,exact:true}).click();await dialog(p).locator('[data-washing-operation-error]').filter({hasText:'卷码'}).waitFor();await all[1].fill('DLG-1-1')}
+   await submit(p,'output',run,o=>o.rolls.every(r=>r.outputQty===49)&&o.rolls[0].outputBarcode==='DLG-'+run+'-0')
+   await open(p,'handout',run);for(let i=0;i<5;i++)await scan(p,'DLG-'+run+'-'+i)
+   await dialog(p).locator('[data-washing-scan]').fill('DLG-'+run+'-5')
+   await measure(p,'scan-updates-six-selected-output-rolls',run,()=>dialog(p).getByRole('button',{name:'核对卷码',exact:true}).click(),()=>dialog(p).locator('[data-washing-operation-count]').filter({hasText:'已选 6 / 6 卷'}).waitFor())
+   await submit(p,'handout',run,o=>o.rolls.every(r=>r.handedOutAt))
+   await open(p,'downstream-receive',run);await fillQuantities(p,49);await position(p,'全能力测试工厂');await submit(p,'downstream-receive',run,o=>o.rolls.every(r=>r.downstreamQty===49))
+   await p.reload();await root(p).waitFor();assert.ok((await orders(p))[0].rolls.every(r=>r.downstreamQty===49));await noInline(p)
+   if(run===1){
+    completedFixture=await p.evaluate(()=>window.washTabRecords());writeFileSync(out+'/completed-native-fixture.json',JSON.stringify(completedFixture))
+    for(const name of ['基本信息','交接记录','操作日志','打印','加工执行']){await switchTab(p,name);assert.equal(await p.getByRole('tabpanel').count(),1)}
+    await tab(p,'加工执行').press('End');assert.equal(await tab(p,'打印').getAttribute('aria-selected'),'true')
+    for(const label of ['洗水加工单预览','交接与卷标预览']){await root(p).getByRole('button',{name:label,exact:true}).click();await p.locator('[data-washing-print-document]').waitFor();if(label==='交接与卷标预览')await p.locator('[data-real-barcode]').first().waitFor();assert.match(await p.locator('[data-washing-print-document]').innerText(),/GTG/)}
+    assert.equal(await p.locator('[data-real-barcode]').count(),6);await switchTab(p,'操作日志');assert.match(await p.getByRole('tabpanel').innerText(),/登记实际产出/);assert.doesNotMatch(await p.getByRole('tabpanel').innerText(),/染厂接单/)
+   }
+   return {rolls:6,input:300,received:300,output:294,downstream:294,allDialogsPassed:true}
   }finally{await c.close()}
  })
- for(const viewport of [{width:1366,height:768},{width:1280,height:720},{width:1024,height:768}])await check('responsive views and real image '+viewport.width,async()=>{
-  const c=await browser.newContext({viewport,timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,completedFixture)
-  try{await p.goto(base+href);await root(p).waitFor();for(const label of ['加工执行','基本信息','交接记录','操作日志','打印']){await switchTab(p,label);await p.evaluate(()=>window.washTabReady());assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await p.getByRole('tabpanel').isVisible(),true);await p.screenshot({path:out+'/'+label+'-'+viewport.width+'.png',fullPage:true})}
-   await root(p).getByRole('button',{name:'查看蓝白碎花棉府绸大图',exact:true}).click();await p.locator('[data-washing-image-overlay]').waitFor();await p.locator('[data-washing-image-overlay]').press('Escape');await p.locator('[data-washing-image-overlay]').waitFor({state:'detached'});return viewport
-  }finally{await c.close()}
- })
- if(process.env.WASH_LEGACY_FIXTURE){
-  const raw=readFileSync(process.env.WASH_LEGACY_FIXTURE),legacy=JSON.parse(raw)
-  report.legacyFixture={path:process.env.WASH_LEGACY_FIXTURE,sha256:createHash('sha256').update(raw).digest('hex'),orders:legacy.records.filter(r=>r.value.kind==='orders').length}
-  assert.equal(report.legacyFixture.orders,36)
-  // This isolated compatibility fixture must remain genuinely legacy even when
-  // the domain checker regenerated its source using the current create rule.
-  for(const record of legacy.records)if(record.value.kind==='orders'){record.value.data.acceptance='PENDING';delete record.value.data.acceptedAt}
-  report.legacyFixture.transform='36 isolated orders set to historical PENDING; no fixture file or user data is modified'
-  for(let run=1;run<=runs;run++)await check('36 legacy pending orders list without acceptance tasks '+run,async()=>{
-   const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,legacy.records)
-   try{
-    const before=await p.evaluate(()=>window.washTabRecords())
-    await measure(p,'cold-36-legacy-pending-list',run,()=>p.goto(base+washPath,{waitUntil:'domcontentloaded'}),async()=>{await p.getByRole('heading',{name:'洗水加工单 · 36 条',exact:true}).waitFor();assert.match(await p.locator('[data-washing-list-root]').innerText(),/待印花交出\s*36/);assert.doesNotMatch(await p.locator('[data-washing-list-root]').innerText(),/待接单/);assert.equal(await p.locator('table tbody tr').count(),10)},true)
-    assert.deepEqual(await p.evaluate(()=>window.washTabRecords()),before,'List reading must not migrate saved legacy orders')
-    if(run===1)await p.screenshot({path:out+'/legacy-list-36.png',fullPage:true});return {orders:36,notRewritten:true}
-   }finally{await c.close()}
-  })
- }
- await check('historical states remain read-only without the four actions',async()=>{
-  for(const status of ['UNASSIGNED','PENDING','REJECTED','EXCEPTION','CANCELLED','COMPLETED']){
-   const rows=structuredClone(fixture),record=rows.find(r=>r.value.kind==='orders'),o=record.value.data
-   if(status==='UNASSIGNED'){delete o.assignedFactoryId;delete o.assignedFactoryName;o.acceptance='UNASSIGNED'}
-   else if(status==='PENDING'){o.acceptance='PENDING'}
-   else if(status==='REJECTED'){o.acceptance='REJECTED';o.rejectionReason='历史拒单事实'}
-   else if(status==='EXCEPTION'){o.exception='历史异常事实'}
-   else if(status==='CANCELLED'){o.cancelledAt=o.createdAt}
-   else{o.acceptance='ACCEPTED';o.acceptedAt=o.createdAt;o.completedAt=o.createdAt;for(const r of o.rolls)Object.assign(r,{sentAt:o.createdAt,receivedAt:o.createdAt,receivedQty:50,startedAt:o.createdAt,completedAt:o.createdAt,outputQty:49,handedOutAt:o.createdAt,downstreamReceivedAt:o.createdAt,downstreamQty:49})}
-   const c=await browser.newContext({viewport:{width:1280,height:720},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,rows)
-   try{await p.goto(base+href);await root(p).waitFor();for(const name of ['接单','作废本单','拒单','登记异常'])assert.equal(await root(p).getByRole('button',{name,exact:true}).count(),0)
-    assert.deepEqual((await orders(p))[0],o,'Opening historical orders must not rewrite them')
-    if(status==='UNASSIGNED')assert.equal(await root(p).getByRole('button',{name:'交由 GTG 承接',exact:true}).isVisible(),true)
-    if(status==='PENDING')assert.equal(await root(p).getByRole('button',{name:'印花交给染厂',exact:true}).isVisible(),true)
-    if(status==='COMPLETED'){await switchTab(p,'交接记录');assert.doesNotMatch(await p.getByRole('tabpanel').innerText(),/尚未/)}
-    await p.screenshot({path:out+'/'+status+'-1280.png',fullPage:true})
-   }finally{await c.close()}
-  }return {legacyPreserved:true,completedReadOnly:true,unsupportedActionsAbsent:true}
- })
- for(let run=1;run<=runs;run++)await check('PDA executes without acceptance '+run,async()=>{
+ for(let run=1;run<=runs;run++)await check('PDA four operations use their own dialogs '+run,async()=>{
   const c=await browser.newContext({viewport:{width:390,height:844},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,sentFixture)
   try{
-   await p.goto(base+'/fcs/pda/auth/login');await p.getByRole('textbox',{name:'登录账号',exact:true}).fill('ID-F003_admin');await p.getByRole('textbox',{name:'密码',exact:true}).fill('123456');await p.getByRole('button',{name:'登录',exact:true}).click();await p.getByRole('button',{name:'打开账号信息',exact:true}).waitFor()
-   await measure(p,'PDA-six-roll-detail-after-login',run,()=>p.goto(base+'/fcs/pda/washing/'+orderId,{waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true)
-   assert.equal(await p.getByRole('tab',{name:'加工执行',exact:true}).count(),0)
-   for(const name of ['接单','作废本单','拒单','登记异常'])assert.equal(await root(p).getByRole('button',{name,exact:true}).count(),0)
-   await selectFirst(p);await p.locator('[data-washing-qty]').first().fill('50');const positions=await p.locator('[data-washing-position] option').evaluateAll(es=>es.map(e=>({value:e.value,label:e.textContent})));await p.locator('[data-washing-position]').selectOption(positions.find(o=>o.value&&o.label.includes('GTG')&&o.label.includes('A-01-01')).value)
-   await measure(p,'PDA-receive-without-acceptance',run,()=>clickSave(p,'登记逐卷实收',o=>o.rolls[0].receivedQty===50),async()=>{assert.equal((await orders(p))[0].acceptedAt,undefined)})
-   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(run===1)await p.screenshot({path:out+'/PDA-390.png',fullPage:true});return {width:390,noAcceptanceEvent:true,received:50}
+   await login(p);await measure(p,'PDA-detail-after-login',run,()=>p.goto(base+'/fcs/pda/washing/'+orderId,{waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true);await noInline(p)
+   for(const action of ['receive','start','output','handout']){
+    await open(p,action,run)
+    if(action==='receive'){await fillQuantities(p,50);await position(p,'GTG')}
+    if(action==='start')await selectAll(p)
+    if(action==='output'){await fillQuantities(p,49);await dialog(p).locator('[data-washing-difference]').check()}
+    if(action==='handout')for(let i=1;i<=6;i++)await scan(p,'WS-1-R'+i)
+    if(run===1){await p.evaluate(()=>window.washTabReady());await p.screenshot({path:out+'/PDA-'+action+'-390.png',fullPage:true});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const box=await dialog(p).locator('footer button').last().boundingBox();assert.ok(box.y>=0&&box.y+box.height<=844,'PDA confirm must remain visible')}
+    await submit(p,action,run,o=>action==='receive'?o.rolls.every(r=>r.receivedQty===50):action==='start'?o.rolls.every(r=>r.startedAt):action==='output'?o.rolls.every(r=>r.outputQty===49):o.rolls.every(r=>r.handedOutAt))
+   }
+   return {viewport:'390x844',operations:4}
   }finally{await c.close()}
+ })
+ for(let run=1;run<=runs;run++)await check('aborted save retains quantities, positions and retry '+run,async()=>{
+  const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,sentFixture)
+  try{
+   await p.goto(base+href);await root(p).waitFor();await open(p,'receive');await dialog(p).locator('[data-washing-qty]').first().fill('49');await position(p,'GTG');await dialog(p).locator('[data-washing-difference]').check()
+   const location=await dialog(p).locator('[data-washing-position]').inputValue();await p.evaluate(()=>{window.washDialogAbortNext=true})
+   await reject(p,'receive','aborted-save-preserves-form',run,/未保存/)
+   assert.equal(await dialog(p).locator('[data-washing-qty]').first().inputValue(),'49');assert.equal(await dialog(p).locator('[data-washing-position]').inputValue(),location);assert.equal(await dialog(p).locator('[data-washing-difference]').isChecked(),true)
+   if(run===1)await p.screenshot({path:out+'/aborted-save-retained.png',fullPage:true})
+   await measure(p,'retry-after-aborted-save',run,()=>submit(p,'receive',0,o=>o.rolls[0].receivedQty===49&&o.rolls.slice(1).every(r=>!r.receivedAt)),async()=>{})
+   const rows=await p.evaluate(()=>window.washTabRecords());assert.equal(rows.filter(r=>r.value.kind==='actions'&&r.value.data.action==='RECEIVE').length,1)
+   return {abortAtomic:true,retained:true,retryOnce:true}
+  }finally{await c.close()}
+ })
+ for(let run=1;run<=runs;run++)await check('concurrent update preserves stale form without overwriting '+run,async()=>{
+  const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,sentFixture),peer=await c.newPage()
+  try{
+   await p.goto(base+href);await root(p).waitFor();await open(p,'receive');await dialog(p).locator('[data-washing-qty]').first().fill('50');await position(p,'GTG')
+   await peer.goto(base+href);await root(peer).waitFor();await open(peer,'receive');await dialog(peer).locator('[data-washing-qty]').nth(1).fill('50');await position(peer,'GTG');await submit(peer,'receive',0,o=>o.rolls[1].receivedQty===50)
+   const before=await p.evaluate(()=>window.washTabRecords())
+   await measure(p,'stale-save-retains-input',run,()=>dialog(p).getByRole('button',{name:'确认'+labels.receive,exact:true}).click(),async()=>{await dialog(p).locator('[data-washing-operation-error]').filter({hasText:'单据已更新'}).waitFor();assert.equal(await dialog(p).locator('[data-washing-qty]').first().inputValue(),'50');assert.deepEqual(await p.evaluate(()=>window.washTabRecords()),before)})
+   await discard(p);await open(p,'receive',0,5);assert.equal(await dialog(p).locator('[data-washing-exec-roll="PWO-WASH-DEMO-PRODUCTION-DONE-R2"]').count(),0)
+   return {staleNotSaved:true,peerKept:true,latestEligible:5}
+  }finally{await c.close()}
+ })
+ for(let run=1;run<=runs;run++)await check('original central-warehouse receipt has no GTG location or scan input '+run,async()=>{
+  const rows=structuredClone(completedFixture),record=rows.find(r=>r.value.kind==='orders'),o=record.value.data
+  o.source.target={id:'WH-FABRIC-001',warehouseId:'WH-FABRIC-001',name:'面料中央仓(GKP)'};for(const r of o.rolls){delete r.downstreamReceivedAt;delete r.downstreamQty;delete r.downstreamWarehouseId;delete r.downstreamLocationId}
+  const c=await browser.newContext({viewport:{width:1366,height:768},timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,rows)
+  try{await p.goto(base+href);await root(p).waitFor();await measure(p,'Web-open-original-central-receipt',run,()=>open(p,'downstream-receive',0,6,true),async()=>{});await fillQuantities(p,49);await dialog(p).locator('[data-washing-central-location]').fill('A-01-01');await measure(p,'Web-save-original-central-receipt',run,()=>submit(p,'downstream-receive',0,o=>o.rolls.every(r=>r.downstreamQty===49&&r.downstreamWarehouseId==='WH-FABRIC-001')),async()=>{});return {warehouse:'WH-FABRIC-001',noScan:true,noForeignPositions:true}}finally{await c.close()}
+ })
+ for(const viewport of [{width:1366,height:768},{width:1280,height:720},{width:1024,height:768}])await check('responsive dialog, keyboard and object image '+viewport.width,async()=>{
+  const c=await browser.newContext({viewport,timezoneId:'Asia/Shanghai'});await init(c);const p=await nativeSeed(c,sentFixture)
+  try{await p.goto(base+href);await root(p).waitFor();await noInline(p);await p.evaluate(()=>window.washTabReady());await p.screenshot({path:out+'/execution-'+viewport.width+'.png',fullPage:true});await open(p,'receive');await p.evaluate(()=>window.washTabReady());assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const box=await dialog(p).locator('footer button').last().boundingBox();assert.ok(box.y>=0&&box.y+box.height<=viewport.height);await p.screenshot({path:out+'/receive-'+viewport.width+'.png',fullPage:true});await dialog(p).getByRole('button',{name:'查看蓝白碎花棉府绸大图',exact:true}).click();await p.locator('[data-washing-image-overlay]').waitFor();await p.locator('[data-washing-image-overlay]').press('Escape');await p.locator('[data-washing-image-overlay]').waitFor({state:'detached'});assert.equal(await dialog(p).isVisible(),true);await dialog(p).press('Escape');await dialog(p).waitFor({state:'detached'});assert.equal(await root(p).getByRole('button',{name:labels.receive,exact:true}).evaluate(el=>el===document.activeElement),true);return viewport}finally{await c.close()}
  })
 }catch(error){report.error=error.stack;console.error(error.stack);process.exitCode=1}
 finally{
  report.families=Object.fromEntries(Object.entries(Object.groupBy(report.samples,s=>s.family)).map(([k,v])=>[k,{count:v.length,maxMs:Math.max(...v.map(s=>s.ms))}]))
+ report.coverage={functional:'six operations Web, four GTG PDA, six physical rolls per order, original factory and central warehouse, cancellation, wrong/duplicate scans, output difference/duplicate label, abort/retry and stale concurrency',performance:'Web and PDA opens/saves kept separate; maximum six-roll operation per family; the quantity-change handler represented by six-roll output; no repetition of unchanged list, backup, migration or print-renderer performance',reused:'previous published domain/storage/printing mapping contracts retained in 2026-10-16-washing-remove-optional-actions; current visible consumers are reread above'}
  report.summary={checks:report.checks.length,passed:report.checks.filter(c=>c.result==='PASS').length,samples:report.samples.length,maxMs:report.samples.length?Math.max(...report.samples.map(s=>s.ms)):null,slow:report.samples.filter(s=>s.ms>1000),pageErrors:report.errors.length}
  if(formal&&(Object.values(report.families).some(f=>f.count<5)||report.summary.slow.length||report.errors.length))process.exitCode=1
  writeFileSync(out+'/report-'+stamp+'.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report.summary));await browser.close()

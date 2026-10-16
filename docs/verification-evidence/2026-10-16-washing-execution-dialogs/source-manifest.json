@@ -1,0 +1,23 @@
+{
+  "base": "565dee4dcd6772b8054b0fd1757ee757360a5c24",
+  "files": {
+    "src/data/fcs/fabric-washing-model.ts": "b3dce0d278092e0c05a22edca7df5391d46290128f7716850ca7e7f8aac7d729",
+    "src/data/fcs/fabric-washing-views.ts": "04198580255ea9bb20b81258d2aa417fb112b8da6a6d59d6051717713c4b44c3",
+    "src/data/fcs/fabric-washing-maintenance.ts": "9b9dac31e8fba52a95a911f296df90b0951b7f9155b30ea0b82e9f3be24605af",
+    "src/pages/process-factory/dyeing/washing/order-presentation.ts": "d07717f637d73804ff74cad497e07ae7818f8e8aa6996a9bc0389ef4b2db4417",
+    "tests/unit/fabric-washing.test.ts": "d524579c22899fad783fadf12bce64758a7721131ea5450ebaf47a1306640f2b",
+    "tests/unit/fabric-washing-maintenance.test.ts": "ce9e51ba58b17c54df58f8a38e22b223f6a4f27fffcd816765580f255e5581cb",
+    "tests/unit/fabric-washing-views.test.ts": "e3aca37e29c5434038f8d836c82e89e155854fba6bd797873fe61b931c79bb35",
+    "scripts/check-washing-gtg-direct-consumers.mjs": "3dbd629f70cc9e5728cf15457aa1fdf90adb8649432154a890074500997dfc68",
+    "scripts/check-post-print-fabric-washing.mjs": "821f9555250e199d71a547324a0434c97dae252b538a133ec806a13d0ce8f0fc",
+    "scripts/check-post-print-fabric-washing-edges.mjs": "0168d5beae5f3b5cf09a1466b0e0400b66d0a0e04355b6db1c270e943b4f49cf",
+    "src/pages/process-factory/dyeing/washing/work-orders.ts": "4ff9fe3788c9d53b79b0947120f0303237422c1ce1559e607bd3fd01297c2bd9",
+    "src/pages/process-factory/dyeing/washing/detail-views.ts": "e45be8514d74b0f870d3aea81f4064ad563d0c64b2e2200feff7d5c671f16339",
+    "scripts/check-washing-detail-tabs.mjs": "8b3d0cb48d7d4153b9ba9488846dc84cc2264c781945d0f94c71c279f5e2253b",
+    "scripts/check-washing-gtg-ui.mjs": "7f5841d0d608c5915d68aef943dcdb3052ba1218a7c49ce894e0b03e88be829d",
+    "src/pages/process-factory/dyeing/washing/execution-dialog.ts": "359e11039b5599353f90678b41ccfc05bfd6036b3a3581af899dc79e92477ea5",
+    "tests/unit/washing-execution-dialog.test.ts": "00cbf24b9e4a168ad292bb35c6ffc0b77952b4bc53f55dbc700559509662ee30"
+  },
+  "digest": "c8e41ecd6d8dd1ebae9a25af01feed084896735b2d426c21cbacda4bcc1a71b7",
+  "sourceReport": "output/playwright/washing-execution-dialogs/formal/report-2026-10-16T03-17-16.705Z.json"
+}

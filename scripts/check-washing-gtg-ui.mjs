@@ -63,11 +63,12 @@ async function create(p,id,index,feel,run,family){
  return href
 }
 async function scan(p,code){await p.locator('[data-washing-scan]').fill(code);await root(p).getByRole('button',{name:'核对卷码',exact:true}).click();await p.locator('[data-washing-scans]').filter({hasText:code}).waitFor()}
+async function openExecution(p,label,run,variant=''){await measure(p,'open-'+label+variant,run,()=>root(p).getByRole('button',{name:label,exact:true}).click(),()=>p.locator('[data-washing-operation][open]').waitFor())}
 async function select(p,qty){await p.locator('[data-washing-exec-roll]').check();if(qty!==undefined)await p.locator('[data-washing-qty]').fill(String(qty))}
 async function position(p,factory){const opts=await p.locator('[data-washing-position] option').evaluateAll(es=>es.map(e=>({value:e.value,text:e.textContent})));const selected=opts.find(o=>o.value&&o.text.includes(factory)&&o.text.includes('A-01-01'));assert.ok(selected,'Missing real '+factory+' position');await p.locator('[data-washing-position]').selectOption(selected.value)}
 async function action(p,label,family,run,expected){
  const saved={'接单':'染厂接单','印花交给染厂':'印花方交出','登记逐卷实收':'染厂实际接收','投入洗水':'投入洗水','登记实际产出':'登记实际产出','交回原接收方':'交回原接收方','登记下游实收':'下游实际接收','人工完单':'人工完单'}[label]
- await measure(p,family,run,()=>root(p).getByRole('button',{name:label,exact:true}).click(),async()=>{await p.locator('[data-washing-result]').filter({hasText:'已保存：'+saved}).waitFor();assert.match(await root(p).innerText(),expected);const all=await orders(p);assert.ok(all.length>0)})
+ await measure(p,family,run,()=>label==='人工完单'?root(p).getByRole('button',{name:label,exact:true}).click():p.locator('[data-washing-operation][open]').getByRole('button',{name:'确认'+label,exact:true}).click(),async()=>{await p.locator('[data-washing-operation]').waitFor({state:'detached'});await p.locator('[data-washing-result]').filter({hasText:'已保存：'+saved}).waitFor();assert.match(await root(p).innerText(),expected);const all=await orders(p);assert.ok(all.length>0)})
 }
 async function load(p,url,family,run){await measure(p,family,run,()=>p.goto(base+url,{waitUntil:'domcontentloaded'}),()=>root(p).waitFor(),true)}
 async function login(p){await p.goto(base+'/fcs/pda/auth/login');await p.getByRole('textbox',{name:'登录账号',exact:true}).fill('ID-F003_admin');await p.getByRole('textbox',{name:'密码',exact:true}).fill('123456');await p.getByRole('button',{name:'登录',exact:true}).click();await p.getByRole('button',{name:'打开账号信息',exact:true}).waitFor()}
@@ -118,12 +119,12 @@ try{
     const id=href.split('/').at(-1),pdaPath='/fcs/pda/washing/'+id,variant=central?'-warehouse':'-factory'
     await load(pda,pdaPath,'PDA-washing-detail-load'+variant,run);assert.equal(await pda.locator('[data-washing-context]').count(),0)
     for(const name of ['接单','作废本单','拒单','登记异常'])assert.equal(await root(pda).getByRole('button',{name,exact:true}).count(),0,'Unexpected washing action '+name)
-    await load(detail,href,'web-detail-refresh'+variant,run);await select(detail);await scan(detail,code);await action(detail,'印花交给染厂','web-print-site-send'+variant,run,/印花已交出/)
-    await pda.reload();await root(pda).waitFor();await select(pda,50);await position(pda,'GTG');await scan(pda,code);await action(pda,'登记逐卷实收','PDA-GTG-physical-receive'+variant,run,/染厂实收 50 Yard/)
-    await select(pda);await action(pda,'投入洗水','PDA-GTG-start'+variant,run,/洗水加工中/)
-    await select(pda,49);await pda.locator('[data-washing-difference]').check();await action(pda,'登记实际产出','PDA-GTG-output'+variant,run,/加工产出 49 Yard/)
-    await select(pda);await scan(pda,code);await action(pda,'交回原接收方','PDA-GTG-handout'+variant,run,/已交回待实收/)
-    await detail.reload();await root(detail).waitFor();await select(detail,49);await scan(detail,code)
+    await load(detail,href,'web-detail-refresh'+variant,run);await openExecution(detail,'印花交给染厂',run,variant);await select(detail);await scan(detail,code);await action(detail,'印花交给染厂','web-print-site-send'+variant,run,/印花已交出/)
+    await pda.reload();await root(pda).waitFor();await openExecution(pda,'登记逐卷实收',run,variant);await select(pda,50);await position(pda,'GTG');await action(pda,'登记逐卷实收','PDA-GTG-physical-receive'+variant,run,/染厂实收 50 Yard/)
+    await openExecution(pda,'投入洗水',run,variant);await select(pda);await action(pda,'投入洗水','PDA-GTG-start'+variant,run,/洗水加工中/)
+    await openExecution(pda,'登记实际产出',run,variant);await select(pda,49);await pda.locator('[data-washing-difference]').check();await action(pda,'登记实际产出','PDA-GTG-output'+variant,run,/加工产出 49 Yard/)
+    await openExecution(pda,'交回原接收方',run,variant);await select(pda);await scan(pda,code);await action(pda,'交回原接收方','PDA-GTG-handout'+variant,run,/已交回待实收/)
+    await detail.reload();await root(detail).waitFor();await openExecution(detail,'登记下游实收',run,variant);await select(detail,49)
     if(central)await detail.locator('[data-washing-central-location]').fill('A-01-01');else await position(detail,'全能力测试工厂')
     await action(detail,'登记下游实收',central?'original-warehouse-receive':'original-factory-receive',run,/下游实收[： ]49 Yard/)
     await pda.reload();await root(pda).waitFor();await action(pda,'人工完单','PDA-GTG-manual-complete'+variant,run,/已人工完成/)
