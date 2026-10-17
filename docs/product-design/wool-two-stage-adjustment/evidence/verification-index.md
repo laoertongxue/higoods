@@ -7,7 +7,7 @@
 - 性能预览：`http://127.0.0.1:4198`；功能测试开发服务：`http://127.0.0.1:5198`。同一工作树与冻结源码。
 - 设备：管理端1366×768/1280×720，主管1024×768，PDA360×800/400×806；隔离Chromium上下文，不清用户数据、不写线上系统。
 - 用户已确认常规500ms、偶尔部分重页面不超过1s。本轮明确例外只有PDA任务队列冷进入≤1000ms；其他加载及交互<500ms，错误或缺图均失败。
-- 业务场景A01—A20对应 [场景补齐表](./acceptance-500ms/business-gap-coverage.md)；交互覆盖见 [入口清单](./remaining-action-coverage.md)。
+- 业务场景A01—A20对应 [场景补齐表](./acceptance-500ms/business-gap-coverage.md)；交互覆盖见 [入口清单](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/evidence/remaining-action-coverage.md)。
 - [增量对抗式审查](./acceptance-500/adversarial-review.md) 及最终运行验收均已通过，详见收口记录。
 
 ## 历史证据

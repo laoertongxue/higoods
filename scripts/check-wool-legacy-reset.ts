@@ -1,3 +1,5 @@
+import { withBrowserBusinessStorage } from '../src/data/browser-storage.ts'
+import { withWoolFactNodeFacade } from './check-wool-node-facade.ts'
 import assert from 'node:assert/strict'
 import type { PdaHandoverHead, PdaHandoverRecord, PdaHandoverStateSnapshot, PdaPickupRecord } from '../src/data/fcs/pda-handover-events.ts'
 import type { WoolDomainStore } from '../src/data/fcs/wool-domain/store.ts'
@@ -99,7 +101,7 @@ function setup() {
   return { store: structuredClone(cleanStore), data, state, input }
 }
 let checks = 1
-function check(label: string, fn: () => void) { fn(); checks++; console.log(`✓ ${label}`) }
+function check(label: string, fn: () => void) { withWoolFactNodeFacade(() => withBrowserBusinessStorage(storage, fn)); checks++; console.log(`✓ ${label}`) }
 check('按真实旧 ID 清理混合接收、送货、分配行，保留新阶段和非毛织事实', () => {
   const { store, input } = setup()
   const result = resetLegacyWoolFacts(store)
@@ -195,7 +197,7 @@ check('合格旧来源任务只生成新配对身份，不继承旧数量和记�
     storage.setItem(LEGACY_WOOL_STORE_KEY, JSON.stringify({ workOrders: { 'OLD-VALID': { woolOrderId: 'OLD-VALID', taskId } }, machines: [],
       handovers: [{ handoverId: 'OLD-VALID-OUT', woolOrderId: 'OLD-VALID', handoverQty: 999 }], processReports: [{ reportId: 'OLD-VALID-REPORT', woolOrderId: 'OLD-VALID', reportedQty: 999 }] }))
     resetLegacyWoolFacts(fresh)
-    wool.replaceWoolStore(fresh)
+    withWoolFactNodeFacade(() => wool.replaceWoolStore(fresh))
     source.ensureRuntimeWoolWorkOrders(productionId)
     source.ensureRuntimeWoolWorkOrders(productionId)
     const current = wool.readWoolStore(), pair = Object.values(current.workOrders).filter(order => order.sourceTaskId === taskId)
@@ -210,7 +212,7 @@ check('合格旧来源任务只生成新配对身份，不继承旧数量和记�
     source.ensureRuntimeWoolWorkOrders()
     assert.ok(Object.values(wool.readWoolStore().workOrders).every(order => !WOOL_DISPATCH_DEMO_ORDER_IDS.has(order.productionOrderId)))
   } finally {
-    runtime.restoreRuntimeDirectDispatchState(previousRuntime); wool.replaceWoolStore(previousWool)
+    runtime.restoreRuntimeDirectDispatchState(previousRuntime); withWoolFactNodeFacade(() => wool.replaceWoolStore(previousWool))
   }
 })
 console.log(`PASS ${checks} legacy wool reset checks`)

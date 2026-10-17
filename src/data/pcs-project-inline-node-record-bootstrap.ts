@@ -716,7 +716,7 @@ function buildSampleCostReviewSeed(input: {
     garmentCategory,
   )
   const optionalRows = normalizeSampleCostOptionalProcessRows([
-    { processName: '印花', costAmount: 3000, costCurrency: 'IDR' },
+    { code: 'PRINT', processName: '印花', costAmount: 3000, costCurrency: 'IDR' },
   ])
   const pricing = calculateSampleCostReview({
     spuCode,

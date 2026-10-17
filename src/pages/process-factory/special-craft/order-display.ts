@@ -71,7 +71,7 @@ function objectLabel(order: Order): string {
   return order.woolPieceKey ? '毛织片' : order.targetObject
 }
 
-function product(order: Order): string {
+export function renderSpecialCraftProductIdentity(order: Order): string {
   const { production, snapshot, wool } = context(order)
   const name = wool?.styleName || production?.demandSnapshot?.spuName || '商品名称未记录'
   const code = wool?.styleNo || production?.demandSnapshot?.spuCode || ''
@@ -79,10 +79,17 @@ function product(order: Order): string {
   return `<div class="flex items-start gap-2">${renderWoolObjectImage(image, `${name} ${code} 商品图`)}<div class="min-w-0"><div class="font-medium">${escapeHtml(name)}</div><div class="break-all text-muted-foreground">${escapeHtml(code)}</div></div></div>`
 }
 
+export function renderSpecialCraftMaterialIdentity(order: Order): string {
+  const { bom, material } = context(order)
+  return bom && order.targetObject !== '成衣'
+    ? `<div class="my-2 flex items-start gap-2">${renderWoolObjectImage(bom.materialImageUrl || material?.skuImageUrl, `${bom.name} ${material?.materialSkuCode || bom.materialCode || ''} 物料图`)}<div class="min-w-0">${field('投入物料', bom.name)}${material?.materialSkuCode ? field('物料 SKU', material.materialSkuCode) : field('物料编号', bom.materialCode)}</div></div>`
+    : ''
+}
+
 function inputs(order: Order): string {
-  const { lines, bom, material, wool, piece, nodeIndex } = context(order)
+  const { lines, bom, wool, piece, nodeIndex } = context(order)
   let input = field('加工对象', objectLabel(order))
-  if (bom && order.targetObject !== '成衣') input += `<div class="my-2 flex items-start gap-2">${renderWoolObjectImage(bom.materialImageUrl || material?.skuImageUrl, `${bom.name} ${material?.materialSkuCode || bom.materialCode || ''} 物料图`)}<div class="min-w-0">${field('投入物料', bom.name)}${material?.materialSkuCode ? field('物料 SKU', material.materialSkuCode) : field('物料编号', bom.materialCode)}</div></div>`
+  if (bom && order.targetObject !== '成衣') input += renderSpecialCraftMaterialIdentity(order)
   else if (order.woolPieceKey) input += field('毛织 SKU', piece?.skuCode)
   else if (order.materialSku) input += field('投入 SKU', order.materialSku)
   const identities = [...new Set(lines.map(line => [line.partName, line.colorName, line.sizeCode].filter(Boolean).join(' / ')))].filter(Boolean)
@@ -151,7 +158,7 @@ export function renderSpecialCraftQuantities(order: Order): string {
 export function createSpecialCraftDisplayColumns(renderDetail: (order: Order) => string): StandardListColumn<Order>[] {
   return [
     { key: 'order', title: '加工单／商品', width: 260, required: true, freezeable: true, sortable: true, sortValue: order => order.taskOrderNo,
-      render: order => group('order', section('documents', field('加工厂', formatSpecialCraftFactoryLabel(order.factoryName, order.factoryId)) + `<div class="rounded border border-blue-100 bg-blue-50 px-2 py-1 text-blue-800">${field('需求来源', order.sourceTriggerLabel || order.generationSourceLabel || (order.woolPieceKey ? '毛织片技术包路线' : '生产单生成'))}</div><div class="leading-5">${escapeHtml(order.operationName)}加工单：${renderDetail(order)}</div>` + field('任务单', order.sourceTaskNo) + field('生产单', order.productionOrderNo)) + section('product', product(order))) },
+      render: order => group('order', section('documents', field('加工厂', formatSpecialCraftFactoryLabel(order.factoryName, order.factoryId)) + `<div class="rounded border border-blue-100 bg-blue-50 px-2 py-1 text-blue-800">${field('需求来源', order.sourceTriggerLabel || order.generationSourceLabel || (order.woolPieceKey ? '毛织片技术包路线' : '生产单生成'))}</div><div class="leading-5">${escapeHtml(order.operationName)}加工单：${renderDetail(order)}</div>` + field('任务单', order.sourceTaskNo) + field('生产单', order.productionOrderNo)) + section('product', renderSpecialCraftProductIdentity(order))) },
     { key: 'inputs', title: '加工投入／上游', width: 270, required: true, freezeable: true, render: inputs },
     { key: 'requirements', title: '加工要求', width: 230, freezeable: true, render: requirements },
     { key: 'progress', title: '处理进度', width: 220, required: true, freezeable: true, sortable: true, sortValue: order => order.status, render: progress },

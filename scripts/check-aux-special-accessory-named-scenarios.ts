@@ -55,6 +55,26 @@ const evidenceRoot = process.env.AUX_SPECIAL_EVIDENCE_DIR
 const planPath = resolve('docs/product-design/辅助工艺、特殊工艺与辅料加工单修复实施计划.md')
 const planText = readFileSync(planPath, 'utf8')
 
+// The plan is executable input. Validate its current identities before reusing
+// evidence, so a retired scenario cannot silently survive a category merge.
+const specialScenarioText = getSpecialScenarioText()
+const expectedSpecialScenarioIds = new Set(AUX_SPECIAL_ACCESSORY_CHAINS.flatMap((chain) => chain.specialScenarioIds))
+assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.filter((chain) => chain.kind === 'SPECIAL_CRAFT').length, 16)
+assert.equal(getExpectedScenarioCount(), 428, '当前16类工艺、捆条与花边应保留428个具名场景')
+assert.equal(expectedSpecialScenarioIds.size, 106, '当前目录应包含106个专项场景')
+assert.deepEqual([...specialScenarioText.keys()].sort(), [...expectedSpecialScenarioIds].sort(), '实施计划专项身份必须与当前目录完全一致')
+for (const [id, text] of specialScenarioText) assert(text.length > 10, `${id} 缺少完整业务要求`)
+const seamChain = AUX_SPECIAL_ACCESSORY_CHAINS.find((chain) => chain.id === 'AUX-07')
+assert.equal(seamChain?.name, '缝边绣')
+assert.equal(seamChain?.operationId, 'AUX-OP-SEAM-EMBROIDERY')
+assert.equal(seamChain?.craftCode, 'CRAFT_3000010')
+assert.equal(seamChain?.factoryId, 'FAC-APF')
+assert(planText.includes('辅助12类、特种4类') && planText.includes('无多工厂Tab'), '计划缺少固定工艺厂与16类列表边界')
+if (process.argv.includes('--plan-only')) {
+  console.log(JSON.stringify({ suite: 'named-scenarios-plan-contract', chains: AUX_SPECIAL_ACCESSORY_CHAINS.length, craftLists: 16, commonScenarios: 322, specialScenarios: specialScenarioText.size, totalScenarios: getExpectedScenarioCount(), status: 'passed', scope: '仅核对现行计划、目录身份与场景完整性；不替代领域、浏览器或现实设备验收' }, null, 2))
+  process.exit(0)
+}
+
 const COMMON_ASSERTIONS: Record<string, string> = {
   'SC-01': '来源需求、任务与具体加工单唯一生成且同步幂等',
   'SC-02': '缺失或非法前置事实明确阻断并可从原需求恢复',
@@ -127,8 +147,6 @@ function getSpecialScenarioText(): Map<string, string> {
   return result
 }
 
-const specialScenarioText = getSpecialScenarioText()
-
 function assertSpecialCraftRuntime(chain: AuxSpecialAccessoryChain): { workOrderId: string; workOrderNo: string } {
   const orders = listSpecialCraftTaskOrders().filter((order) => order.operationId === chain.operationId)
   assert(orders.length > 0, `${chain.id} 没有加工单`)
@@ -138,11 +156,15 @@ function assertSpecialCraftRuntime(chain: AuxSpecialAccessoryChain): { workOrder
   assert(orders.every((order) => order.targetObject === chain.expectedTargetObject), `${chain.id} 加工对象错误`)
   assert(orders.every((order) => (order.outputUnit || order.unit) === chain.outputUnit), `${chain.id} 产出单位错误`)
   assert(orders.every((order) => order.factoryId === chain.factoryId), `${chain.id} 工厂归属错误`)
-  assert(orders.every((order) => order.receiverWarehouseName), `${chain.id} 缺少下游仓库`)
+  assert(orders.filter((order) => !order.woolPieceKey).every((order) => order.receiverWarehouseName), `${chain.id} 普通加工单缺少下游仓库；毛织去向由片路线和配对缝盘单核对`)
 
   if (chain.expectedTargetObject === '已裁部位') {
-    assert(orders.every((order) => order.feiTicketNos.length > 0), `${chain.id} 存在无菲票裁片加工单`)
-    assert(orders.every((order) => order.lineProgress?.every((line) => line.feiTicketNo && line.lineType === 'fei-ticket')))
+    const cutPieceOrders = orders.filter((order) => !order.woolPieceKey)
+    const woolPieceOrders = orders.filter((order) => order.woolPieceKey)
+    assert(cutPieceOrders.every((order) => order.feiTicketNos.length > 0), `${chain.id} 存在无菲票裁片加工单`)
+    assert(cutPieceOrders.every((order) => order.lineProgress?.every((line) => line.feiTicketNo && line.lineType === 'fei-ticket')))
+    assert(woolPieceOrders.every((order) => order.woolOrderId && order.woolRouteNodeId && order.partName && order.unit === '片'), `${chain.id} 毛织来源节点或片身份不完整`)
+    assert(woolPieceOrders.every((order) => order.feiTicketNos.length === 0), `${chain.id} 毛织片不得伪造裁片菲票`)
   }
   if (chain.expectedTargetObject === '成衣') {
     assert(orders.every((order) => order.feiTicketNos.length === 0 && order.unit === '件'))
@@ -454,8 +476,8 @@ for (const chain of AUX_SPECIAL_ACCESSORY_CHAINS) {
 }
 
 const expectedCount = getExpectedScenarioCount()
-assert.equal(expectedCount, 474, '新增布包扣辅件制作后，测试目录应为 474 个具名场景')
-assert.equal(specialScenarioText.size, 116, '实施计划应包含 116 个专项场景')
+assert.equal(expectedCount, 428, '当前16类工艺、捆条与花边应保留428个具名场景')
+assert.equal(specialScenarioText.size, 106, '实施计划应包含106个专项场景')
 assert.equal(recorder.results.length, expectedCount, '具名场景结果数量不等于计划总数')
 assert.equal(new Set(recorder.results.map((result) => result.caseId)).size, expectedCount, '具名场景 ID 不唯一')
 

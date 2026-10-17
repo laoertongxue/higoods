@@ -1,3 +1,4 @@
+import { canonicalSeamCraftCode } from './seam-embroidery-identity.ts'
 // 复用中文排序器，保持相同字典顺序，避免比较每两项时重复创建排序配置。
 const chineseNameCollator = new Intl.Collator('zh-CN')
 
@@ -270,9 +271,7 @@ const AUXILIARY_CRAFT_FACTORY_CRAFT_NAMES = new Set([
   '打揽',
   '烫画',
   '直喷',
-  '贝壳绣',
-  '曲牙绣',
-  '一字贝绣花',
+  '缝边绣',
   '盘扣',
   '花朵',
   '打褶',
@@ -423,8 +422,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     description: '图案类辅助工艺，可明确选择裁片部位或成衣作为加工对象。',
   },
   {
-    craftCode: 'AUX_SHELL_EMBROIDERY',
-    craftName: '贝壳绣',
+    craftCode: 'AUX_SEAM_EMBROIDERY',
+    craftName: '缝边绣',
     craftCategory: 'AUXILIARY',
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
@@ -438,40 +437,6 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     canTriggerFromMaterial: false,
     canGenerateSpecialCraftTask: true,
     description: '裁片部位级辅助工艺，归入辅助工艺管理。',
-  },
-  {
-    craftCode: 'AUX_CURVED_TEETH_EMBROIDERY',
-    craftName: '曲牙绣',
-    craftCategory: 'AUXILIARY',
-    craftCategoryName: '辅助工艺',
-    specialCraftType: 'AUXILIARY',
-    specialCraftTypeName: '辅助工艺',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    managementDomainName: '辅助工艺工厂管理',
-    targetObject: 'CUT_PIECE_PART',
-    targetObjectName: '裁片部位',
-    canSelectInPatternPiece: true,
-    canSelectInBindingArea: false,
-    canTriggerFromMaterial: false,
-    canGenerateSpecialCraftTask: true,
-    description: '裁片部位级辅助工艺，按裁片部位维护。',
-  },
-  {
-    craftCode: 'AUX_STRAIGHT_SHELL_EMBROIDERY',
-    craftName: '一字贝绣花',
-    craftCategory: 'AUXILIARY',
-    craftCategoryName: '辅助工艺',
-    specialCraftType: 'AUXILIARY',
-    specialCraftTypeName: '辅助工艺',
-    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
-    managementDomainName: '辅助工艺工厂管理',
-    targetObject: 'CUT_PIECE_PART',
-    targetObjectName: '裁片部位',
-    canSelectInPatternPiece: true,
-    canSelectInBindingArea: false,
-    canTriggerFromMaterial: false,
-    canGenerateSpecialCraftTask: true,
-    description: '裁片部位级辅助工艺，按裁片部位维护。',
   },
   {
     craftCode: 'AUX_BINDING_STRIP',
@@ -873,7 +838,6 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   131072: 'PROC_KUNTIAO',
   262145: 'PROC_BASE_CONNECT',
   524288: 'PROC_BUTTONHOLE',
-  1048576: 'PROC_SHELL_EMBROIDER',
   2000001: 'PROC_PRINT',
   2000002: 'PROC_PRINT',
   2000003: 'PROC_DYE',
@@ -1308,7 +1272,6 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
   { legacyValue: 262145, legacyCraftName: '基础连接', craftName: '基础连接', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前按普通车缝基线归类' },
   { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 1048576, legacyCraftName: '贝壳绣', craftName: '贝壳绣', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按绣花归类' },
 ]
 
 const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
@@ -1361,9 +1324,7 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
 const MODERN_SPECIAL_CRAFT_LEGACY_VALUE_BY_NAME: Record<string, number> = {
   绣花: 3000001,
   压褶: 3000002,
-  贝壳绣: 3000003,
-  曲牙绣: 3000004,
-  一字贝绣花: 3000005,
+  缝边绣: 3000010,
   模板工序: 3000006,
   激光开袋: 3000007,
   '特种车缝（花样机）': 3000008,
@@ -1625,11 +1586,11 @@ export function listActiveProcessCraftDefinitions(): ProcessCraftDefinition[] {
 }
 
 export function getProcessCraftByCode(craftCode: string): ProcessCraftDefinition | undefined {
-  return processCraftByCode.get(craftCode)
+  return processCraftByCode.get(canonicalSeamCraftCode(craftCode))
 }
 
 export function getProcessCraftByLegacyValue(legacyValue: number): ProcessCraftDefinition | undefined {
-  return processCraftByLegacyValue.get(legacyValue)
+  return getProcessCraftByCode(`CRAFT_${String(legacyValue).padStart(6, '0')}`) ?? processCraftByLegacyValue.get(legacyValue)
 }
 
 export function getSpecialCraftSupportedTargetObjectsByCraftCode(

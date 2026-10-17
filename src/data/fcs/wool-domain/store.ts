@@ -1,4 +1,6 @@
-import { resetLegacyWoolFacts } from './legacy-reset.ts'
+import { pcsRecordStore, registerPcsRepositoryReset, runPcsRecordCommand, withPcsDemoData } from '../../pcs-record-runtime.ts'
+import { normalizeSeamEmbroideryReferences } from '../seam-embroidery-identity.ts'
+import { prepareWoolReceivingBaseline, registerDesignRevisionFcsCacheHooks } from '../design-revision-pcs-storage.ts'
 import { captureFactoryReceivingData, restoreFactoryReceivingData, getFactoryReceivingRevision } from '../factory-receiving.ts'
 import {ensureWoolStageDemoReceivingFacts} from './mock-receiving.ts'
 import {listReceivingAllocations} from '../factory-receiving.ts'
@@ -6,7 +8,6 @@ import {projectFactoryReceiptsIntoWool} from '../factory-receiving-wool.ts'
 import { buildWoolFactWorkflowMockStore } from './mock-data.ts'
 import { installPostFinishingWoolSourceResolver } from '../post-finishing-return-source-fact-bridge.ts'
 import { isKnownFactoryWarehouseLocation } from '../factory-internal-warehouse-locations.ts'
-import { getBrowserLocalStorage } from '../../browser-storage.ts'
 import { WOOL_DEFAULT_WAREHOUSE_BY_LOCATION } from './types.ts'
 import { normalizeWoolBatchNo, validateWoolWarehouseLedger } from './warehouse-ledger.ts'
 import type {
@@ -53,9 +54,8 @@ export interface WoolDomainStore {
   operationLogs: WoolOperationLog[]
 }
 
-type WoolStorage = Pick<Storage, 'getItem' | 'setItem'>
-
 let memoryStore: WoolDomainStore | undefined
+let baselineInitialized = false
 let woolStoreReadCount = 0
 let woolRevision = 0
 let projectedReceivingRevision = -1
@@ -83,11 +83,15 @@ function cloneStore(store: WoolDomainStore): WoolDomainStore {
   return structuredClone(store)
 }
 
-function getStorage(): WoolStorage | null {
-  const candidate = getBrowserLocalStorage()
-  return candidate && typeof candidate.setItem === 'function'
-    ? candidate as WoolStorage
-    : null
+export function initializeWoolRecordBaseline(): void {
+  if (baselineInitialized) return
+  const demo = normalizeSeamEmbroideryReferences(buildWoolFactWorkflowMockStore())
+  withPcsDemoData(() => {
+    prepareWoolReceivingBaseline(() => ensureWoolStageDemoReceivingFacts(demo))
+    validateWoolStore(demo)
+    pcsRecordStore.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(demo))
+  })
+  baselineInitialized = true
 }
 
 function isWoolStageStoreStructure(value: unknown): value is WoolDomainStore {
@@ -861,10 +865,11 @@ export function validateWoolStore(store: WoolDomainStore): void {
 }
 
 function readPersistedStore(): WoolDomainStore | undefined {
-  const raw = getStorage()?.getItem(WOOL_DOMAIN_STORE_KEY)
+  initializeWoolRecordBaseline()
+  const raw = pcsRecordStore.getItem(WOOL_DOMAIN_STORE_KEY)
   if (!raw) return undefined
   let parsed: unknown
-  try { parsed = JSON.parse(raw) } catch { throw new Error('阶段加工数据无法读取，请保留本机记录并联系主管。') }
+  try { parsed = normalizeSeamEmbroideryReferences(JSON.parse(raw)) } catch { throw new Error('阶段加工数据无法读取，请保留本机记录并联系主管。') }
   if (!isWoolStageStoreStructure(parsed)) throw new Error('阶段加工数据结构不完整，不能用演示数据覆盖。')
   validateWoolStore(parsed)
   return parsed
@@ -873,7 +878,6 @@ function readPersistedStore(): WoolDomainStore | undefined {
 /** 裁后列表只读取毛织已保存的实收来源，不初始化或落盘毛织演示链。 */
 export function readWoolStoreForCuttingReceipts(): WoolDomainStore {
   const snapshot = memoryStore ? cloneStore(memoryStore) : readPersistedStore() ?? buildWoolFactWorkflowMockStore()
-  resetLegacyWoolFacts(snapshot)
   projectFactoryReceiptsIntoWool(snapshot)
   return snapshot
 }
@@ -881,21 +885,12 @@ export function readWoolStoreForCuttingReceipts(): WoolDomainStore {
 export function readWoolStore(): WoolDomainStore {
   woolStoreReadCount += 1
   if (!memoryStore) {
-    // Publish memory only after every initialization write succeeds. A failed
-    // receipt batch must not leave projected demo facts or its marker readable.
+    // The static baseline was prepared privately before hydration. Saved legacy
+    // receipts keep their historical factory; never recreate the new fixture
+    // over an existing receiving source during an ordinary read.
     const draft = readPersistedStore() ?? buildWoolFactWorkflowMockStore()
-    resetLegacyWoolFacts(draft)
-    const receivingBefore = captureFactoryReceivingData()
-    const receivingRevisionBefore = getFactoryReceivingRevision()
-    try {
-      ensureWoolStageDemoReceivingFacts(draft)
-      validateWoolStore(draft)
-      getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(draft))
-      memoryStore = draft
-    } catch (error) {
-      if (getFactoryReceivingRevision() !== receivingRevisionBefore) restoreFactoryReceivingData(receivingBefore)
-      throw error
-    }
+    validateWoolStore(draft)
+    memoryStore = draft
   }
   const receivingRevision = getFactoryReceivingRevision()
   if (projectedReceivingRevision !== receivingRevision) {
@@ -923,7 +918,7 @@ export function replaceWoolStore(nextStore: WoolDomainStore): WoolDomainStore {
   const draft = cloneStore(nextStore)
   validateWoolStore(draft)
   const serialized = JSON.stringify(draft)
-  getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, serialized)
+  pcsRecordStore.setItem(WOOL_DOMAIN_STORE_KEY, serialized)
   memoryStore = draft
   projectedReceivingRevision = -1
   woolRevision += 1
@@ -940,7 +935,19 @@ export function commitWoolStore(
   const receivingBefore = publishReceiving ? captureFactoryReceivingData() : undefined
   try {
     publishReceiving?.(draft)
-    getStorage()?.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(draft))
+    // Query-generated orders are projections, not a bulk seed to persist on the
+    // next unrelated action. Freeze only orders already in this read snapshot or
+    // directly referenced by saved facts, retaining each required stage pair.
+    const previous = JSON.parse(pcsRecordStore.getItem(WOOL_DOMAIN_STORE_KEY) || '{}') as Partial<WoolDomainStore>
+    const retained = new Set(Object.keys(previous.workOrders || {}))
+    for (const field of WOOL_STAGE_ARRAY_FIELDS) for (const record of draft[field]) {
+      const value = record as unknown as {woolOrderId?:string;fromWoolOrderId?:string;toWoolOrderId?:string}
+      for (const id of [value.woolOrderId,value.fromWoolOrderId,value.toWoolOrderId]) if (id) retained.add(id)
+    }
+    for (const id of [...retained]) { const paired = draft.workOrders[id]?.pairedWorkOrderId; if (paired) retained.add(paired) }
+    const persisted = {...draft,workOrders:Object.fromEntries(Object.entries(draft.workOrders).filter(([id])=>retained.has(id)))}
+    validateWoolStore(persisted)
+    pcsRecordStore.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(persisted))
     memoryStore = draft
   projectedReceivingRevision = -1
   woolRevision += 1
@@ -950,6 +957,29 @@ export function commitWoolStore(
     throw error
   }
 }
+
+/** Derived runtime orders exist only in memory until an explicit business command saves them. */
+export function projectWoolStore(mutator: (draft: WoolDomainStore) => void): WoolDomainStore {
+  const draft = readWoolStore()
+  mutator(draft)
+  validateWoolStore(draft)
+  memoryStore = draft
+  woolRevision += 1
+  return cloneStore(draft)
+}
+
+/** Browser callers await the existing record transaction before publishing success. */
+export async function runWoolRecordCommand<T>(recipe: () => T): Promise<T> {
+  if (typeof window === 'undefined') return recipe()
+  return runPcsRecordCommand(recipe, crypto.randomUUID(), [WOOL_DOMAIN_STORE_KEY, 'higood-pcs-fcs-design-revision-receiving-v1'])
+}
+
+registerPcsRepositoryReset(clearWoolStoreMemoryCache)
+registerDesignRevisionFcsCacheHooks('wool', {
+  capture: () => ({memoryStore: memoryStore ? cloneStore(memoryStore) : undefined, woolRevision, projectedReceivingRevision}),
+  restore: value => { memoryStore = value.memoryStore ? cloneStore(value.memoryStore) : undefined; woolRevision = value.woolRevision; projectedReceivingRevision = value.projectedReceivingRevision },
+  hydrate: clearWoolStoreMemoryCache,
+})
 
 const disposePostFinishingWoolSourceResolver = installPostFinishingWoolSourceResolver(readWoolStore)
 import.meta.hot?.dispose(disposePostFinishingWoolSourceResolver)

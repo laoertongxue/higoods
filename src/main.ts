@@ -7,6 +7,7 @@ import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } fr
 import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
 import {
   getBrowserSessionStorage,
+  getBrowserLocalStorage,
   readBrowserStorageItem,
   removeBrowserStorageItem,
   writeBrowserStorageItem,
@@ -22,6 +23,7 @@ type StoreRenderMode = 'full' | 'sidebar'
 let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
+let authorizedCostCleanupError: unknown
 
 const getProductionObjectFloatingEntryModule = createRetryableModuleLoader(() => import('./components/production-object-floating-entry'))
 const getProductionObjectOverviewModule = createRetryableModuleLoader(() => import('./components/production-object-overview'))
@@ -965,6 +967,11 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
   }
 }
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  // Direct downstream and print entries read committed wool facts without first
+  // visiting a wool page. Load their shared PCS/FCS dependencies before rendering.
+  if (/^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/finished-inbound$|fcs\/print\/preview$)/.test(normalizedPathname)) {
+    await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
+  }
   // Ordinary procurement pages hydrate their own direct sources; they do not load production/cutting records.
   if (normalizedPathname.startsWith('/pms/') && !normalizedPathname.startsWith('/pms/tmf-')) {
     previousRenderedPagePathname = normalizedPathname
@@ -1054,6 +1061,7 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
 }
 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
+  if (authorizedCostCleanupError) return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(authorizedCostCleanupError)
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
     // Authentication has no production records to hydrate. Loading its own
@@ -1144,6 +1152,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     }
     if (/^\/pcs\/production-preparation\/(plate-making|artwork|color|display-sample|first-sample)\/[^/]+$/.test(normalizedPathname) || /^\/fcs\/craft\/(dyeing|printing)(\/|$)/.test(normalizedPathname)
       || /^\/fcs\/production\/changes(\/|$)/.test(normalizedPathname)
+      || /^\/fcs\/(?:craft\/wool|process-factory\/special-craft|pda\/wool)(\/|$)/.test(normalizedPathname)
       || /^\/fcs\/pda\/(task-receive|exec|handover|factory-receipts)(\/|$)/.test(normalizedPathname)
       || (normalizedPathname === '/fcs/print/preview' && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'PRINTING_ROLL_LABEL')) {
       const { ensurePcsRecordState } = await import('./data/pcs-record-runtime.ts')
@@ -2619,4 +2628,15 @@ window.addEventListener('higood:request-render', () => {
   }
   void renderWithFocusRestore(focusSnapshot)
 })
-void render()
+// Separate, explicitly authorized deletion phase. Ordinary repository reads never
+// persist this projection; a clean browser does not load or write the old source.
+void (async () => {
+  try {
+    const storage = getBrowserLocalStorage()
+    if (storage && storage.getItem('higood-pcs-project-inline-node-records-v2') !== null) {
+      const { cleanupLegacyUncodedSampleOptionalCosts } = await import('./data/pcs-sample-cost-optional-cleanup.ts')
+      cleanupLegacyUncodedSampleOptionalCosts()
+    }
+  } catch (error) { authorizedCostCleanupError = error }
+  await render()
+})()

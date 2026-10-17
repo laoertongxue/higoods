@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: list
 import { escapeHtml as e, localDateTimeText } from '../../../utils.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -107,9 +108,13 @@ export function renderWoolStockAllocationsPage(): string {
   if (typeof document !== 'undefined' && !keyboardInstalled) { keyboardInstalled = true; document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.rowId && document.querySelector('[data-wool-stock-page]')) { state.rowId = ''; state.draft = undefined; refreshOverlay() } }) }
   const back = `<a href="${basePath()}" data-nav="${basePath()}" class="text-sm text-blue-700 underline">返回待接收</a>`
   const overlays = `<div data-wool-stock-columns>${controller.renderColumnSettings()}</div><div data-wool-stock-overlay>${renderOverlay()}</div>`
-  const view = isPda() ? pdaView() : controller.getView()
-  const body = isPda() ? `<div class="space-y-3 p-3">${back}<h1 class="text-lg font-semibold">本厂纱线备料分配</h1><p class="text-sm">${e(getPdaSession()!.factoryName)} · ${e(getPdaSession()!.userName)}</p><p class="text-sm text-blue-700" data-wool-stock-feedback>${e(state.feedback)}</p><div class="rounded border bg-white p-3">${filters()}</div><div class="space-y-3" data-wool-stock-table>${view.tableHtml}</div><div data-wool-stock-pagination>${view.paginationHtml}</div>${overlays}</div>`
-    : renderStandardListPage({ title: '毛织纱线备料 / 关联横机单', primaryActionsHtml: back, feedbackHtml: `<p class="text-sm text-blue-700" data-wool-stock-feedback>${e(state.feedback)}</p>`, filtersHtml: filters(), statsHtml: `<div data-wool-stock-stats>${stats()}</div>`, listTitle: '已收备料明细', listActionsHtml: button('列设置', 'open-column-settings'), tableHtml: `<div data-wool-stock-table>${view.tableHtml}</div>`, paginationHtml: `<div data-wool-stock-pagination>${view.paginationHtml}</div>`, overlaysHtml: overlays })
+  if (isPda()) {
+    const view = pdaView()
+    const body = `<div class="space-y-3 p-3">${back}<h1 class="text-lg font-semibold">本厂纱线备料分配</h1><p class="text-sm">${e(getPdaSession()!.factoryName)} · ${e(getPdaSession()!.userName)}</p><p class="text-sm text-blue-700" data-wool-stock-feedback>${e(state.feedback)}</p><div class="rounded border bg-white p-3">${filters()}</div><div class="space-y-3" data-wool-stock-table>${view.tableHtml}</div><div data-wool-stock-pagination>${view.paginationHtml}</div>${overlays}</div>`
+    return `<div data-wool-receiving-page data-wool-stock-page data-skip-page-rerender="true">${body}</div>`
+  }
+  const view = controller.getView()
+  const body = renderStandardListPage({ title: '毛织纱线备料 / 关联横机单', primaryActionsHtml: back, feedbackHtml: `<p class="text-sm text-blue-700" data-wool-stock-feedback>${e(state.feedback)}</p>`, filtersHtml: filters(), statsHtml: `<div data-wool-stock-stats>${stats()}</div>`, listTitle: '已收备料明细', listActionsHtml: button('列设置', 'open-column-settings'), tableHtml: `<div data-wool-stock-table>${view.tableHtml}</div>`, paginationHtml: `<div data-wool-stock-pagination>${view.paginationHtml}</div>`, overlaysHtml: overlays })
   return `<div data-wool-receiving-page data-wool-stock-page data-skip-page-rerender="true">${body}</div>`
 }
 export function handleWoolStockInput(target: HTMLElement): boolean {
@@ -119,7 +124,7 @@ export function handleWoolStockInput(target: HTMLElement): boolean {
   if (input.dataset.woolStockField === 'pageSize') { controller.setPageSize(Number(input.value)); refresh() }
   return true
 }
-export function handleWoolStockClick(target: HTMLElement): boolean {
+export async function handleWoolStockClick(target: HTMLElement): Promise<boolean> {
   if (!target.closest('[data-wool-stock-page]')) return false
   const element = target.closest<HTMLElement>('[data-wool-stock-action]'), action = element?.dataset.woolStockAction
   if (!action) return false
@@ -137,7 +142,7 @@ export function handleWoolStockClick(target: HTMLElement): boolean {
       state.reviewing = true; refreshOverlay()
     } else if (action === 'save' && state.reviewing && state.draft) {
       if (!listWoolStockAllocationTargets(state.draft.receiptLineId).some(item => item.id === state.draft!.woolOrderId)) throw new Error('接收工厂或目标横机单已变化，请返回重新核对。')
-      const draft = state.draft; allocateReceivedMaterialToOrder(draft); syncWoolStore()
+      const draft = state.draft; await runWoolRecordCommand(() => { allocateReceivedMaterialToOrder(draft); syncWoolStore() })
       state.feedback = `已分配 ${qty(draft.qty)}；本笔备料剩余 ${qty(remainingReceivingAllocationQty(draft.receiptLineId))}。接收与总库存未重复增加。`
       state.rowId = ''; state.draft = undefined; state.reviewing = false; refreshOverlay(); refresh()
     } else if (action === 'prev-page' || action === 'next-page') { controller.stepPage(action === 'prev-page' ? -1 : 1); refresh() }

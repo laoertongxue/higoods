@@ -378,7 +378,7 @@ async function pdaShell(page){
 }
 async function craftChain(page){
  const task=step=>`WSC:WOOL-STAGE-009:WOOL-STAGE-009:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-009:Q1:step${step}`
- const route=step=>`/fcs/process-factory/special-craft/${step===1?'aux-op-embroidery':'aux-op-curved-teeth-embroidery'}/work-orders/${encodeURIComponent(task(step))}`
+ const route=step=>`/fcs/process-factory/special-craft/${step===1?'aux-op-embroidery':'aux-op-seam-embroidery'}/work-orders/${encodeURIComponent(task(step))}`
  const craftAction=code=>`[data-special-craft-web-action="open-web-status-action-dialog"][data-action-code="${code}"]`
  const receiveAction=name=>`[data-wool-receiving-action="${name}"]`
  for(let step=1;step<=2;step++){

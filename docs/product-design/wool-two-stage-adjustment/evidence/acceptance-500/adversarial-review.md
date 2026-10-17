@@ -26,6 +26,6 @@
 
 确定性fake-clock测试包含四种事件顺序。第一组旧代码在181ms后替换table/pager节点，修复后不再替换；第四组旧代码使NO-MATCH筛选丢失、仍显示8行库存，修复后正确显示空结果。两轮红绿原文见本目录 `debounce-red.log` / `debounce-green.log` 与 `debounce-late-select-red.log` / `debounce-late-select-green.log`。没有通过等待或跳过迟到事件掩盖问题。
 
-成衣工艺的未计时开发夹具曾被Vite文档保存重载打断；只在该夹具上下文禁用HMR WebSocket，实际操作计时仍使用独立、没有拦截的预览上下文。两份原失败报告 `remaining-action-performance-before-debounce-fix.json` 和 `remaining-action-performance-1024-before-debounce-fix.json` 原样保留。
+成衣工艺的未计时开发夹具曾被Vite文档保存重载打断；只在该夹具上下文禁用HMR WebSocket，实际操作计时仍使用独立、没有拦截的预览上下文。两份原失败报告 [remaining-action-performance-before-debounce-fix.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance-before-debounce-fix.json) 和 [remaining-action-performance-1024-before-debounce-fix.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance-1024-before-debounce-fix.json) 原样保留。
 
 最终小增量复审：SELECT input在取消timer之前返回后，P2关闭；第四序列红绿日志已由只读审查者核查，未发现其他剩余问题。A08仅补真实UI验收测试，无业务代码变更。最终运行结果与矩阵由主代理收口。

@@ -1,6 +1,6 @@
 # PCS 原型调整：实施工作包与验收计划 R1
 
-计划日期：2026-10-05；状态更新：2026-10-06。**用户已授权执行 R1，各工作包已有本地实现，仍在逐项验收，尚未关闭。** 执行依据为 [方案正文](prototype-adjustment-proposal.md)、[字段字典](field-dictionary.csv)、[原子需求矩阵](requirement-traceability.csv)。本文件没有授权数据库写入、浏览器资料删除、提交或发布。实际结果以 [实施进度](implementation-progress.md) 和 [当前证据索引](current-requirement-evidence.json) 为准。
+计划日期：2026-10-05；状态更新：2026-10-06。**用户已授权执行 R1，各工作包已有本地实现，仍在逐项验收，尚未关闭。** 执行依据为 [方案正文](prototype-adjustment-proposal.md)、[字段字典](field-dictionary.csv)、[原子需求矩阵](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv)。本文件没有授权数据库写入、浏览器资料删除、提交或发布。实际结果以 [实施进度](implementation-progress.md) 和 [当前证据索引](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/current-requirement-evidence.json) 为准。
 
 ## 1. 完成标准与依赖顺序
 

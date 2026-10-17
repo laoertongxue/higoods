@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: list
 
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -674,9 +675,9 @@ function showOverlayError(message: string): void {
   if (errorSurface) errorSurface.innerHTML = renderOverlayError()
 }
 
-function runCommand(action: () => void, successMessage: string): void {
+async function runCommand(action: () => void, successMessage: string): Promise<void> {
   try {
-    action()
+    await runWoolRecordCommand(action)
     state.feedback = successMessage
     state.overlayError = ''
     state.overlay = null
@@ -699,7 +700,7 @@ function updateFilterField(field: keyof WoolListFilters, value: string): void {
   state.currentPage = 1
 }
 
-function saveReport(order: WoolWorkOrder): void {
+async function saveReport(order: WoolWorkOrder): Promise<void> {
   const outputSkuCode = readDialogField('outputSkuCode')
   const qty = Number(readDialogField('qty'))
   const readiness = getWoolOutputReadiness(order.woolOrderId, outputSkuCode)
@@ -709,7 +710,7 @@ function saveReport(order: WoolWorkOrder): void {
     showOverlayError(`最多还可填报 ${readiness.remainingReportQty}${unit}，请将本次数量改为 ${readiness.remainingReportQty}${unit}以内。`)
     return
   }
-  runCommand(() => addWoolProcessReport(order.woolOrderId, {
+  await runCommand(() => addWoolProcessReport(order.woolOrderId, {
     commandId: nextCommandId('REPORT', order.woolOrderId),
     outputSkuCode,
     reportedQty: qty,
@@ -720,21 +721,21 @@ function saveReport(order: WoolWorkOrder): void {
   }), '加工填报已保存，产出已进入对应默认库位。')
 }
 
-function saveHandover(order: WoolWorkOrder): void {
+async function saveHandover(order: WoolWorkOrder): Promise<void> {
   const pieceKey = order.stage === 'KNITTING' ? readDialogField('pieceKey') : undefined
   const piece = order.externalPieces.find(item => item.pieceKey === pieceKey)
   const outputSkuCode = piece?.skuCode || readDialogField('outputSkuCode')
   const handoverQty = Number(readDialogField('qty'))
   const availableQty = pieceKey ? pieceAvailableQty(readWoolStore(), order, pieceKey) : getWoolOutputHandoverAvailableQty(order.woolOrderId, outputSkuCode)
   if (handoverQty > availableQty) { showOverlayError(`最多可交出 ${availableQty}${pieceKey ? '片' : '件'}，请调整本次交出数量。`); return }
-  runCommand(() => addWoolHandover(order.woolOrderId, {
+  await runCommand(() => addWoolHandover(order.woolOrderId, {
     commandId: nextCommandId('HANDOVER', order.woolOrderId), pieceKey, outputSkuCode, handoverQty,
     proofFiles: readProofFiles(), remark: readDialogField('factRemark'), handedOverAt: nowText(), handedOverBy: readDialogField('operator'),
   }), order.stage === 'KNITTING' ? '外发片已交出至对应首工艺厂，等待接收确认。' : '最终交出已保存，等待指定下游接收。')
 }
 
-function saveComplete(order: WoolWorkOrder): void {
-  runCommand(() => completeWoolWorkOrder(order.woolOrderId, {
+async function saveComplete(order: WoolWorkOrder): Promise<void> {
+  await runCommand(() => completeWoolWorkOrder(order.woolOrderId, {
     commandId: nextCommandId('COMPLETE', order.woolOrderId),
     completedAt: nowText(),
     completedBy: 'Web 端毛织主管',
@@ -742,7 +743,7 @@ function saveComplete(order: WoolWorkOrder): void {
   }), order.stage === 'KNITTING' ? '横机加工单已完成，当前横机关联已解除。' : '缝盘加工单已完成。')
 }
 
-function saveQty(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): void {
+async function saveQty(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): Promise<void> {
   const order = listWoolWorkOrders().find((item) => item.woolOrderId === overlay.woolOrderId)
   const afterQty = Number(readDialogField('qty'))
   const maxQty = order ? resolveEditableFactMax(order, overlay) : undefined
@@ -750,7 +751,7 @@ function saveQty(overlay: Extract<BusinessOverlay, { kind: 'qty-edit' }>): void 
     showOverlayError(`该记录最多可修改为 ${maxQty}${overlay.unit}。`)
     return
   }
-  runCommand(() => changeWoolFactQty({
+  await runCommand(() => changeWoolFactQty({
     commandId: nextCommandId('CHANGE-QTY', overlay.recordId),
     recordType: overlay.recordType,
     recordId: overlay.recordId,
@@ -889,9 +890,9 @@ export async function handleCraftWoolStageOrdersEvent(target: HTMLElement): Prom
     return true
   }
   if (!order) return true
-  if (action === 'save-report') saveReport(order)
-  if (action === 'save-handover') saveHandover(order)
-  if (action === 'save-complete') saveComplete(order)
-  if (action === 'save-qty' && state.overlay?.kind === 'qty-edit') saveQty(state.overlay)
+  if (action === 'save-report') await saveReport(order)
+  if (action === 'save-handover') await saveHandover(order)
+  if (action === 'save-complete') await saveComplete(order)
+  if (action === 'save-qty' && state.overlay?.kind === 'qty-edit') await saveQty(state.overlay)
   return true
 }

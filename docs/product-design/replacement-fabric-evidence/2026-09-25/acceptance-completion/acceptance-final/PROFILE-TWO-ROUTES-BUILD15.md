@@ -33,7 +33,7 @@ CDP 同时保存 Profiler 1ms 采样及完整 `devtools.timeline / v8 / v8.gc` t
 
 - `profile-two-routes-build15.js`：诊断脚本。
 - [profile-two-routes-build15.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-two-routes-build15.txt)：CLI原始返回，保留完整CPU/trace。
-- `profile-two-routes-build15.json`：解析后的原始数据，无慢样本筛除。
+- [profile-two-routes-build15.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-two-routes-build15.json)：解析后的原始数据，无慢样本筛除。
 - [profile-two-routes-context-inventory.txt](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-two-routes-context-inventory.txt)：session清单。
 
 CPU / 浏览器窗口已释放。下一轮最终严格验收仍由主代理按同版、完整样本执行，本次不提出无证据产品源码优化。

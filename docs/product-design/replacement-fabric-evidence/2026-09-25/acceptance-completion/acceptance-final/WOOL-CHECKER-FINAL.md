@@ -6,7 +6,7 @@
 
 原 `nonWool()` 依次返回待加工仓、待交出仓、工艺仓；第三项工艺仓首次查询通过 `buildInitialWarehouseRecords → listSpecialCraftTaskOrders` 惰性装配特殊工艺仓储投影。前两项已取得未完成该初始化的副本，因此原 baseline 混合了两个初始化时点。
 
-独立探针 [wool-initialization-probe.ts](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-initialization-probe.ts) 在任何毛织动作前连续读取三次，证据 `wool-initialization-probe-r5.json`：
+独立探针 [wool-initialization-probe.ts](https://github.com/laoertongxue/higoods/blob/e45ceac841b15aad352fbc0fda9274a35c44e01c/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-initialization-probe.ts) 在任何毛织动作前连续读取三次，证据 [wool-initialization-probe-r5.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-initialization-probe-r5.json)：
 
 | 范围 | 首次 | 第二次 | 新增静态投影 | 原记录改变/删除 |
 | --- | ---: | ---: | ---: | ---: |

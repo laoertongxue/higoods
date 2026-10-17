@@ -25,7 +25,7 @@
 | WP09 关联业务 | 采购引用、BOM、物料加工计划、毛织/部位片引用已接入；专项测试及已有毛织 Web/PDA/打印预览证据 | 新建加工计划不查库存的完整页面操作；多纱线→部位片→缝盘与测款关联连续场景 |
 | WP10 存储、导入与交付 | 31 个真实浏览器 IndexedDB 契约通过；按主对象原子导入、读取不写种子、冲突/失败保护 | 导入 100/1000 行五轮性能、真实附件选择、原生确认窗口及尚未覆盖的页面操作 |
 
-工作包均为“实施中”。表内的局部通过不能代替整包关闭；原子需求的实施位置、精确自动化测试名称和页面证据见 [需求证据索引](current-requirement-evidence.json) 与 [追踪矩阵](requirement-traceability.csv)。
+工作包均为“实施中”。表内的局部通过不能代替整包关闭；原子需求的实施位置、精确自动化测试名称和页面证据见 [需求证据索引](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/current-requirement-evidence.json) 与 [追踪矩阵](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv)。
 
 ## 最近修正与回归
 
@@ -43,7 +43,7 @@
 - 构建通过，所含工程检查 **573/573 通过**。
 - 独立全项目类型检查仍有 **3 条错误**。从基准 HEAD 单独导出的源码复测可重现相同 3 条错误，分别位于 FCS 收货来源和 TMF 采购文件；没有把类型检查写成通过。
 - 文档追踪结构与受管文件审查覆盖检查通过；这两项不代表尚未完成的业务验收通过。
-- 路由、Tab、筛选、保存、大数据列表及已闭合动作的范围和原始样本见 [证据说明](evidence/README.md)、[测量汇总](evidence/measurement-summary.json)。每个未取得足量有效样本的动作继续保留待验证状态。
+- 路由、Tab、筛选、保存、大数据列表及已闭合动作的范围和原始样本见 [证据说明](evidence/README.md)、[测量汇总](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/measurement-summary.json)。每个未取得足量有效样本的动作继续保留待验证状态。
 
 ## 下一步
 

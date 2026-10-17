@@ -1,0 +1,535 @@
+{
+  "schema": 1,
+  "retiredAt": "2026-10-17",
+  "sourceCommit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+  "scope": "源树历史资料退役与现行设计更新；原单据和业务记录未删除",
+  "records": [
+    {
+      "path": "docs/fcs-pattern-piece-instance-special-craft.md",
+      "sha256": "0b48841bec0b381781f5d01ab9a9f99c0e7705eb062278957d1d03dbba402c79",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/fcs-pattern-piece-instance-special-craft.md",
+      "action": "update-current-design"
+    },
+    {
+      "path": "docs/fcs-process-craft-dictionary-rebuild.md",
+      "sha256": "260d5b4285dc67a1eac2e6fb6034f1e0369e0f3bc8dcca89fae264e6ca40b53f",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/fcs-process-craft-dictionary-rebuild.md",
+      "action": "update-current-design"
+    },
+    {
+      "path": "docs/product-design/101条需求当前证据索引.md",
+      "sha256": "0ce116d5bcbe9f3128798a569137e2a2009907418e1ccd9f2378e25a903c32c4",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/101%E6%9D%A1%E9%9C%80%E6%B1%82%E5%BD%93%E5%89%8D%E8%AF%81%E6%8D%AE%E7%B4%A2%E5%BC%95.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/product-design/evidence/2026-10-09-cut-piece-release/receipt-v47-actions.jsonl",
+      "sha256": "db456ad2809a3207ff590ef3137a3b458feb823ffa2dbfbf386c54fab40bdff6",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/evidence/2026-10-09-cut-piece-release/receipt-v47-actions.jsonl",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/bag-history-agent-r9.json",
+      "sha256": "6b70e5bc00679aed6a54a4d6368558db69bea48b1b308b99bdbf79bb63653445",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/bag-history-agent-r9.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-boundaries-r3.json",
+      "sha256": "6f97dd36192ba4494780e998bb31bfb63db826f00ee964177b4ed8a1e6112dea",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-boundaries-r3.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-boundaries-r4.json",
+      "sha256": "a1dba52ad51060fa4670b14e0a1345076e9ca25284a212224eb08c8c28be5700",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/batch-ui-boundaries-r4.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r4.json",
+      "sha256": "ebbc25853165788fe5101ab6ec211e658c5ac2714ef76bf938b4f6623967596f",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r4.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r5.json",
+      "sha256": "bef84c7caf38d435d7498352ee4801d07b186188a83eb48cd138223a3cee46af",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r5.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r6.json",
+      "sha256": "b528e3b68f2637a0ca43b2c761c123e42ca8de224a4340b1e54bccdf2745d705",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r6.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r7.json",
+      "sha256": "2293486aa35c3dcd326bd919d9a8f7428ebc7cb4ca0595ee1c791c6db12caac1",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-agent-r7.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-first.json",
+      "sha256": "b455703ecbde8ff6cb1bb9abb585ad3195e20189ef55894c3a7bc944af2fe808",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-first.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-r2.json",
+      "sha256": "0b66e4d263347cd108ed17f5b4c7e201ed1836ae248ec1067e4669c86e00a18b",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/business-boundaries-r2.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/marker-build8-functional.json",
+      "sha256": "da815167f1d079cd9822a87c200f78e7d9ba46e77a890910335a5ca50d50104a",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/marker-build8-functional.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-goods-image-failure-build20.json",
+      "sha256": "5fae92ca08eedd9c6f8cc90286c9c93204798abbd03fba5855b30f39ff69758a",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-goods-image-failure-build20.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-two-routes-build15.json",
+      "sha256": "77491beab52baaa19a71c24c58b06c93f43eca02819c70eede7bbe08c510a244",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/profile-two-routes-build15.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/reassignment-boundaries-first.json",
+      "sha256": "fe1b95fec39f93ea7f7c98f7dd3481d2eab6ce9bb40727ecc582e1dc6c2a4cf1",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/reassignment-boundaries-first.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/reassignment-boundaries-r4.json",
+      "sha256": "dcaa5281f2c8595b9a90271486ff6bf7fcc752602880c84393db5eae5318d303",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/reassignment-boundaries-r4.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build8-functional-r2.json",
+      "sha256": "42206d45043c4890227cc51ce9e6a4ce61f7933548348c95408bcb02e53a755f",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build8-functional-r2.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build8-functional-r4.json",
+      "sha256": "0d56272dfe4d88cf54bbfc5652100e1f4b787112aa02e870c44d0d32b3b0275e",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build8-functional-r4.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build8-functional.json",
+      "sha256": "9cf307427f38a559477620747efdd5eae5645ea18ed2e8076f1432fddd19c785",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build8-functional.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build9.json",
+      "sha256": "751e16964fa027e4b5a20d96f02cbc0c3ea53f0851a411fc40f520d54612b66c",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/simple-handover-build9.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-initialization-probe-r5.json",
+      "sha256": "735ea362e42feda00f3ad035b3ae7066a0e1c200589226413ea953ffd32eaf77",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/wool-initialization-probe-r5.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/wool-two-stage-adjustment/design.md",
+      "sha256": "97624d20ec59ea388636e40ca02dd18897fd98e870c932e58fc7fc2c0c143892",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/design.md",
+      "action": "update-current-design"
+    },
+    {
+      "path": "docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance-1024-before-debounce-fix.json",
+      "sha256": "c746dd09d31dab8e9b48c0e2dff0746c03a01c89925c1defb48a63baeaae6f71",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance-1024-before-debounce-fix.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance-before-debounce-fix.json",
+      "sha256": "f11ca4bc9e68aa708f29f15538310d7c75b7f14f31368505c9edd65f86db4ce4",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/evidence/acceptance-500/remaining-action-performance-before-debounce-fix.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/wool-two-stage-adjustment/evidence/remaining-action-coverage.md",
+      "sha256": "4900486efb7501fed25228253ad27be57fab10b5e3a15d48910b5884e256b77a",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/wool-two-stage-adjustment/evidence/remaining-action-coverage.md",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/product-design/七张生产需求单全流程覆盖审查.md",
+      "sha256": "3cc31c08e20d68e603c6c53be0223005c7ecde3294aeb64c1f6a795bbeb60ba2",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E4%B8%83%E5%BC%A0%E7%94%9F%E4%BA%A7%E9%9C%80%E6%B1%82%E5%8D%95%E5%85%A8%E6%B5%81%E7%A8%8B%E8%A6%86%E7%9B%96%E5%AE%A1%E6%9F%A5.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/product-design/工艺路线57对象交叉索引.md",
+      "sha256": "f38c5561b9babc8a456f8ac4295cc14d0fdf4d6673f906b0e5ed084411c9a96e",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E5%B7%A5%E8%89%BA%E8%B7%AF%E7%BA%BF57%E5%AF%B9%E8%B1%A1%E4%BA%A4%E5%8F%89%E7%B4%A2%E5%BC%95.md",
+      "action": "update-current-design"
+    },
+    {
+      "path": "docs/product-design/生产工艺路线与全阶段加工单增量迭代调整方案.md",
+      "sha256": "286144409e9b4b1bddf28a48e80d3fc4c600823a590a213b3ca08e23c3dddd83",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E7%94%9F%E4%BA%A7%E5%B7%A5%E8%89%BA%E8%B7%AF%E7%BA%BF%E4%B8%8E%E5%85%A8%E9%98%B6%E6%AE%B5%E5%8A%A0%E5%B7%A5%E5%8D%95%E5%A2%9E%E9%87%8F%E8%BF%AD%E4%BB%A3%E8%B0%83%E6%95%B4%E6%96%B9%E6%A1%88.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/product-design/生产工艺路线与全阶段加工单当前情况说明.md",
+      "sha256": "0b967f13b88a60a9d74efe95138a116549bb9ad70bed4762117a38a3540ab88e",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E7%94%9F%E4%BA%A7%E5%B7%A5%E8%89%BA%E8%B7%AF%E7%BA%BF%E4%B8%8E%E5%85%A8%E9%98%B6%E6%AE%B5%E5%8A%A0%E5%B7%A5%E5%8D%95%E5%BD%93%E5%89%8D%E6%83%85%E5%86%B5%E8%AF%B4%E6%98%8E.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/product-design/生产工艺路线与全阶段加工单续作交付证据.md",
+      "sha256": "c05f9e964437d6748440fdc6693389d207b1db47b8aad3e2c75db395980990e3",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E7%94%9F%E4%BA%A7%E5%B7%A5%E8%89%BA%E8%B7%AF%E7%BA%BF%E4%B8%8E%E5%85%A8%E9%98%B6%E6%AE%B5%E5%8A%A0%E5%B7%A5%E5%8D%95%E7%BB%AD%E4%BD%9C%E4%BA%A4%E4%BB%98%E8%AF%81%E6%8D%AE.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/product-design/辅助工艺、特殊工艺与辅料加工单修复实施计划.md",
+      "sha256": "431a0a500c077c8e7aec49e89c2539e8de09f4f3ea91255c8e7fac73add9c861",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E8%BE%85%E5%8A%A9%E5%B7%A5%E8%89%BA%E3%80%81%E7%89%B9%E6%AE%8A%E5%B7%A5%E8%89%BA%E4%B8%8E%E8%BE%85%E6%96%99%E5%8A%A0%E5%B7%A5%E5%8D%95%E4%BF%AE%E5%A4%8D%E5%AE%9E%E6%96%BD%E8%AE%A1%E5%88%92.md",
+      "action": "update-current-design"
+    },
+    {
+      "path": "docs/product-design/辅助工艺、特殊工艺与辅料加工单全链核查报告.md",
+      "sha256": "c4b1ebd7ae587643746f2bc2177a14dba417b5612cd2f535e64c51556305209c",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/%E8%BE%85%E5%8A%A9%E5%B7%A5%E8%89%BA%E3%80%81%E7%89%B9%E6%AE%8A%E5%B7%A5%E8%89%BA%E4%B8%8E%E8%BE%85%E6%96%99%E5%8A%A0%E5%B7%A5%E5%8D%95%E5%85%A8%E9%93%BE%E6%A0%B8%E6%9F%A5%E6%8A%A5%E5%91%8A.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/prototype-review-records/2026-10-17-aux-special-order-structure.md",
+      "sha256": "e64b90445798278a9e34381143e40c5ddfd59f0d91224ccb6f0672d87ad14855",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/2026-10-17-aux-special-order-structure.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/build33/pda-performance-2026-09-23T20-19-41.804Z.json",
+      "sha256": "f9e205cae82668801ea2db74e2d5209f00621bb4b3c055bcba883948977a302b",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/build33/pda-performance-2026-09-23T20-19-41.804Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/build42/overlay-final-attempt/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/error-context.md",
+      "sha256": "09ae5356a56d4f7f6bc357e9350a90788a31c6ef79e71455d188912b01a83a67",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/build42/overlay-final-attempt/pcs-design-revision-factory-overlays-print-%E5%B7%A5%E5%8E%82%E6%9F%A5%E7%9C%8B%E7%BC%96%E8%BE%91%E6%97%A5%E5%BF%97%E5%8D%B7%E7%A0%81%E5%92%8C%E5%A4%87%E6%B3%A8%E5%85%A5%E5%8F%A3%E4%BA%94%E6%AC%A1/error-context.md",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/build43/pda-routes/performance.json",
+      "sha256": "dc5478367f3c9c0c498e02df9d53e02fb8c19fee4ac462496a30cd411f2fa53c",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/build43/pda-routes/performance.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T18-47-45.264Z.json",
+      "sha256": "c7b3988055218ea2aea129d74d8e0b07f94cfea933bf0e76065cddd65f43a8b0",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T18-47-45.264Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-01-02.393Z.json",
+      "sha256": "35044ada930fb595b9a80e7f040b7c5f389ee6cf686d36fc24d8e14005479b61",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-01-02.393Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-34-54.497Z.json",
+      "sha256": "23de25b850fbe152cd1fb172ea37ba2cd231fa373833d4ad2f5a451c50489f9d",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-34-54.497Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-42-59.619Z.json",
+      "sha256": "56dc3145050a7aa65fa14caa225bb7f6014efa595a49a38a97b780a7d0e75558",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-42-59.619Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-46-55.621Z.json",
+      "sha256": "7c13660daa4f674493cd22f4184dc675424f9c7858d2a9099af1489e8b903669",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-46-55.621Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-52-04.588Z.json",
+      "sha256": "e0be33ed5d4bf7ea9b1bec57d7548b68bd23a17a7dee0592a8ce6b136c8f88fa",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-52-04.588Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-55-16.700Z.json",
+      "sha256": "f00df804fe22b398765ac1d08f90e0d9f300ab62d5c4864b0eb75ea858fe2587",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-55-16.700Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-58-48.203Z.json",
+      "sha256": "867d66ed5fa5ae6c1faa4b3c731159237ab5f8fea9300b0488011b9bd63a7600",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T19-58-48.203Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T20-06-18.342Z.json",
+      "sha256": "d55964007199afd9f007d6b61d0891a6996d84965df93812763327569064892d",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T20-06-18.342Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T20-10-31.814Z.json",
+      "sha256": "53d4c8057ed2f4f1af7f4078ced104bc10b301f2dd2e3f9906d99cf4e894b398",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T20-10-31.814Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T20-17-05.823Z.json",
+      "sha256": "4956039578607628573d9fcd29f1ca612b6423e8e14656579996a87e26d04406",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-26-32/pda-performance-2026-09-23T20-17-05.823Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/release-main/performance/pda-performance-2026-09-23T23-45-09.776Z.json",
+      "sha256": "2c456d2bd2b2636a564bce682e03b522b4ecb6a69477bc3d147e994396c918c2",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/release-main/performance/pda-performance-2026-09-23T23-45-09.776Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/drawer-before-error-context.md",
+      "sha256": "642cc09da8548fef5c5b9ea2c93820d88dfec908d891c0e18124b1eea4522736",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/drawer-before-error-context.md",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/reviews/2026-10-04-product-material-domain-audit-v2/README.md",
+      "sha256": "6ef5fac10bb72efa189d71edff679071d2919adf9e1fec4d608ae9c21f4c9b01",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-04-product-material-domain-audit-v2/README.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/reviews/2026-10-04-product-material-domain-audit-v2/prototype-config-options.csv",
+      "sha256": "92dd17d6e4e9db09d40e06aaae31a060bd5049dc7bf90a8a087162391bb6403c",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-04-product-material-domain-audit-v2/prototype-config-options.csv",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/closure/technical-production-link-current.txt",
+      "sha256": "5df1f79767b9c1b30b55b128edec16396fa49dff20502f8274d7b9b0563dd268",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/closure/technical-production-link-current.txt",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/config-source-reconciliation.json",
+      "sha256": "d92877b90c27221be1ef4f87c4cb3acb545305a407c0b44da042a6e96430cef5",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/config-source-reconciliation.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/wool-print-release.json",
+      "sha256": "193c912c3bc11c64b5e0c1f252eda0ac08956959af35d35aa725a2db54697e54",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/wool-print-release.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/verification-evidence/2026-10-15-post-print-fabric-washing/edge-contracts-2026-10-14T23-39-20.726Z.json",
+      "sha256": "31c721cbb3606ae1391c1ca8abab732f9769c81730ac161362ba27544b8f27d4",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/verification-evidence/2026-10-15-post-print-fabric-washing/edge-contracts-2026-10-14T23-39-20.726Z.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/verification-evidence/2026-10-15-post-print-fabric-washing/failures/receipt-attempt-1/error-context.md",
+      "sha256": "1537a2c0de61236409eb4c48a81f98321a5ae0d0882940f9af603c9b65105685",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/verification-evidence/2026-10-15-post-print-fabric-washing/failures/receipt-attempt-1/error-context.md",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/verification-evidence/2026-10-15-post-print-fabric-washing/failures/wool-query-completion-probe/error-context.md",
+      "sha256": "b216bc281c87a1eb1f7d3bb32adfa2b0b6af67266a1ba963ec304faea753c669",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/verification-evidence/2026-10-15-post-print-fabric-washing/failures/wool-query-completion-probe/error-context.md",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/生产工艺路线与全阶段加工单增量迭代调整方案.md",
+      "sha256": "0e90274d7ac1aff733b5cad10b8ed7183a7845724ed9ed8e9a4a5c449c12a408",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/%E7%94%9F%E4%BA%A7%E5%B7%A5%E8%89%BA%E8%B7%AF%E7%BA%BF%E4%B8%8E%E5%85%A8%E9%98%B6%E6%AE%B5%E5%8A%A0%E5%B7%A5%E5%8D%95%E5%A2%9E%E9%87%8F%E8%BF%AD%E4%BB%A3%E8%B0%83%E6%95%B4%E6%96%B9%E6%A1%88.md",
+      "action": "replace-with-versioned-history-entry"
+    },
+    {
+      "path": "docs/verification-evidence/2026-10-15-post-print-fabric-washing/backup-real-blob.json",
+      "sha256": "9a2aa655c849610364d4aacd6708bc2d4455121acc651749bd32de37a8ff8d61",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/verification-evidence/2026-10-15-post-print-fabric-washing/backup-real-blob.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-34-38/dr-gap-build38.log",
+      "sha256": "71b60d12a6da1d4b4c303cceff231b559f333d5cfcac050f79cfa6245d5286a4",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/cold-history-34-38/dr-gap-build38.log",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/post-finishing-native-final35.report.json",
+      "sha256": "5cf566dc26eae2a7a5458237ca23f2b2c71c5a21b808bbb0b947b897e269c4d7",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/post-finishing-native-final35.report.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native.report.json",
+      "sha256": "e062818c710741f4bed29bdbf969d28081ace0d978fd10545e09a7834e7cf561",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native.report.json",
+      "action": "retire-frozen-source"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native-list-compat.report.json",
+      "sha256": "038af98119f691fb41f97d0d29081f1e38b22bd44c67b961d7987bf39adab524",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native-list-compat.report.json",
+      "action": "retire-frozen-source"
+    }
+  ],
+  "frozenConsumers": [
+    {
+      "path": "docs/product-design/evidence/2026-10-09-cut-piece-release/task-receipt.json",
+      "sha256": "2fbf5716350531a2f52a9ac5a54075384b59433d3b61b360a8e53ed878da0460",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/evidence/2026-10-09-cut-piece-release/task-receipt.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/task-receipt-final-16.json",
+      "sha256": "e2082204d54caad6330e94d05afd6677767bb839b5a5708201928f3a31ab5a8e",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/task-receipt-final-16.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/task-receipt.json",
+      "sha256": "246e1acef2326cc4a4c1d8e02bb3adfbb75ccbbc148b2a1fd31c48e19a91f22f",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/task-receipt.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/verification-evidence/2026-10-15-post-print-fabric-washing/failures/receipt-attempt-1/task-receipt.json",
+      "sha256": "4de92aa7d39d3ef1fd901f3feaddf005cc6b65708de7c31509f9f1ede9528650",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/verification-evidence/2026-10-15-post-print-fabric-washing/failures/receipt-attempt-1/task-receipt.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/source-baseline.json",
+      "sha256": "9fc91ed30fe2cb265480aae2f207209237ca867286d261561c4d15664a9d1870",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/source-baseline.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/current-requirement-evidence.json",
+      "sha256": "087cf97be977195c021043b2d35518f0bc18c4ff3b9826ee1318acd7c9a41b0e",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/current-requirement-evidence.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv",
+      "sha256": "54b2fb747d40d7f4e0e11176bfcc86c0c7cee159a8440aec9052722280a39376",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/measurement-summary.json",
+      "sha256": "a1968049e1dd6f28c3f9f9c1880ff8d68b569591b2f13dc0d3abef0cb7d5bb99",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/measurement-summary.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/evidence-index.json",
+      "sha256": "183d44208f645248a70b0cdddeb6cbbb57019dca3d29617f3bad1329c787c87f",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/evidence-index.json",
+      "rule": "保留原文件字节；输入引用只在该固定Git版本解析，不代表当前树收据有效"
+    },
+    {
+      "path": "docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/artifact-sha256.json",
+      "sha256": "d76b8b6a0fec362d7e85e1f5522e220055d205cbd0ff14cea4e7991614e4c55f",
+      "commit": "821b9ea54040ec03662acbe6ae3d2c62608fe273",
+      "url": "https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/artifact-sha256.json",
+      "rule": "保留原文件字节；文件哈希表及其输入只在该固定Git版本解析，不代表当前树收据有效"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: list
 import { escapeHtml as e, localDateTimeText } from '../../../utils.ts'
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -196,7 +197,7 @@ export function handleWoolPendingReceiptsInput(target: HTMLElement): boolean {
   return true
 }
 
-export function handleWoolPendingReceiptsClick(target: HTMLElement): boolean {
+export async function handleWoolPendingReceiptsClick(target: HTMLElement): Promise<boolean> {
   if (target.closest('[data-wool-stock-page]')) return handleWoolStockClick(target)
   if (!target.closest('[data-wool-receiving-page]')) return false
   const element = target.closest<HTMLElement>('[data-wool-receiving-action]'), action = element?.dataset.woolReceivingAction, id = element?.dataset.id || ''
@@ -217,7 +218,7 @@ export function handleWoolPendingReceiptsClick(target: HTMLElement): boolean {
       state.draft = draft; state.reviewing = true
       refreshOverlay()
     } else if (action === 'edit') { state.reviewing = false; refreshOverlay() }
-    else if (action === 'save' && state.draft) { const receipt = confirmFactoryMaterialReceipt(state.draft); readWoolStore(); state.feedback = `接收记录 ${receipt.id} 已保存；本次实收 ${receipt.lines.map(line => quantity(line.qty, line.unit)).join('、')}。`; state.overlay = undefined; state.draft = undefined; refreshOverlay(); refresh() }
+    else if (action === 'save' && state.draft) { const draft = state.draft; const receipt = await runWoolRecordCommand(() => { const saved = confirmFactoryMaterialReceipt(draft); readWoolStore(); return saved }); state.feedback = `接收记录 ${receipt.id} 已保存；本次实收 ${receipt.lines.map(line => quantity(line.qty, line.unit)).join('、')}。`; state.overlay = undefined; state.draft = undefined; refreshOverlay(); refresh() }
     else if (action === 'prev-page' || action === 'next-page') { controller.stepPage(action === 'prev-page' ? -1 : 1); refresh() }
     else if (action === 'sort-column') { controller.cycleSort(element?.dataset.columnKey || ''); refresh() }
     else if (action === 'open-column-settings' || action === 'close-column-settings') { state.showColumnSettings = action === 'open-column-settings'; controller.refresh({ table: false, pagination: false, overlays: true }) }

@@ -149,6 +149,7 @@ test('PDA handlers wait for part-ticket hydration, and the real detail is not mo
   const events: string[] = []
   let mounted = ''
   const dependencies = {
+    authorizedCostCleanupError: undefined,
     renderSerial: 0,
     appStore: { getState: () => ({ pathname: '/fcs/pda/exec/TASK-SEW-000513-F090-3' }) },
     ensureInitialPdaLoadingShell: () => {},
@@ -196,6 +197,7 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
     const events: string[] = []
     let pmsInitializationStarted = false
     const dependencies = {
+      authorizedCostCleanupError: undefined,
       startPmsInitialization: () => {
         if (pmsInitializationStarted) return
         pmsInitializationStarted = true

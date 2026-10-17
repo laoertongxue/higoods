@@ -42,7 +42,7 @@ const assertNotIncludes = (source: string, needle: string, message: string) => {
   assert(!source.includes(needle), message)
 }
 
-const expectedAuxiliaryCrafts = ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣花']
+const expectedAuxiliaryCrafts = ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '缝边绣',]
 const expectedSpecialTypeCrafts = ['模板工序', '激光开袋', '特种车缝（花样机）', '橡筋定长切割']
 
 const dictionaryDefinitions = listSelectableSpecialCraftDefinitions()
@@ -95,18 +95,18 @@ assert(auxiliaryTaskOrders.length > 0, '必须存在辅助工艺加工单 mock �
 assert(specialTypeTaskOrders.length > 0, '必须存在特种工艺加工单 mock 数据')
 assert(!allTaskOrders.some((taskOrder) => taskOrder.operationName === '捆条'), '捆条不得进入特殊工艺加工单池')
 assert(
-  allTaskOrders.every((taskOrder) => taskOrder.generationSource === 'PRODUCTION_ORDER'),
+  allTaskOrders.every((taskOrder) => (taskOrder.generationSource === 'PRODUCTION_ORDER' || Boolean(taskOrder.woolOrderId && taskOrder.woolPieceKey && taskOrder.woolRouteNodeId && taskOrder.sourceTaskId))),
   '特殊工艺加工单必须由生产单自动拆分生成',
 )
 assert(
-  allTaskOrders.every((taskOrder) => taskOrder.assignmentStatus === 'WAIT_ASSIGN' || taskOrder.assignmentStatus === 'ASSIGNED'),
+  allTaskOrders.every((taskOrder) => taskOrder.assignmentStatus === 'WAIT_ASSIGN' || taskOrder.assignmentStatus === 'ASSIGNED' || Boolean(taskOrder.woolOrderId && taskOrder.factoryId)),
   '特殊工艺加工单初始分配状态必须可解释',
 )
 for (const operation of allOperations) {
   const operationTaskOrders = getSpecialCraftTaskOrders(operation.operationId)
   assert(operationTaskOrders.length > 0, `${operation.operationName} 必须存在从生产单技术包生成的加工单数据`)
   assert(
-    operationTaskOrders.every((taskOrder) => taskOrder.generationSource === 'PRODUCTION_ORDER'),
+    operationTaskOrders.every((taskOrder) => (taskOrder.generationSource === 'PRODUCTION_ORDER' || Boolean(taskOrder.woolOrderId && taskOrder.woolPieceKey && taskOrder.woolRouteNodeId && taskOrder.sourceTaskId))),
     `${operation.operationName} 加工单必须来自生产单自动拆分任务`,
   )
 }
@@ -118,7 +118,7 @@ const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orde
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
 const cuttingBindingSource = read('src/pages/process-factory/cutting/special-processes.ts')
 const bindingOrderSource = read('src/pages/process-factory/cutting/binding-strip-orders.ts')
-const pdaExecSource = read('src/pages/pda-exec.ts')
+const pdaExecSource = read('src/pages/pda-exec-detail.ts')
 const pdaReceiveSource = read('src/pages/pda-task-receive-detail.ts')
 
 assertIncludes(menuSource, '辅助工艺工厂管理', '菜单必须存在辅助工艺工厂管理')

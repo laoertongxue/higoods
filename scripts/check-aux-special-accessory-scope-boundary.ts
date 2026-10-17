@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
+import { readWoolStore } from '../src/data/fcs/wool-domain/store.ts'
 import { listProcessActionDefinitions } from '../src/data/fcs/process-action-writeback-service.ts'
 import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
@@ -23,10 +24,10 @@ const allowedActionCodes = new Set([
   'SPECIAL_CRAFT_COMPLETE_ORDER',
 ])
 
-recorder.check({ caseId: 'SCOPE-CATALOG-001', chainId: 'ALL', assertion: '范围目录必须恰好包含 20 条链' }, () => {
-  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.length, 20)
-  assert.equal(new Set(AUX_SPECIAL_ACCESSORY_CHAINS.map((chain) => chain.id)).size, 20)
-  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.filter((chain) => chain.kind === 'SPECIAL_CRAFT').length, 18)
+recorder.check({ caseId: 'SCOPE-CATALOG-001', chainId: 'ALL', assertion: '范围目录必须包含16类工艺及捆条／花边，共18条链' }, () => {
+  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.length, 18)
+  assert.equal(new Set(AUX_SPECIAL_ACCESSORY_CHAINS.map((chain) => chain.id)).size, 18)
+  assert.equal(AUX_SPECIAL_ACCESSORY_CHAINS.filter((chain) => chain.kind === 'SPECIAL_CRAFT').length, 16)
 })
 
 const actionDefinitions = listProcessActionDefinitions('SPECIAL_CRAFT')
@@ -53,7 +54,24 @@ for (const order of listSpecialCraftTaskOrders()) {
     assert(pda.includes(order.taskOrderNo), 'PDA 必须以具体加工单号为主信息')
     assert(pda.includes(order.sourceTaskNo || order.sourceTaskId || ''), 'PDA 基本信息必须保留来源任务号')
     assert(web.includes(order.taskOrderNo), 'Web 必须以具体加工单号为主信息')
-    assert(web.includes(order.sourceTaskId || ''), 'Web 基本信息必须保留来源任务 ID')
+    assert(order.sourceTaskNo, '加工单必须有可识别的业务来源任务号')
+    assert(web.includes(order.sourceTaskNo), 'Web 基本信息必须保留业务来源任务号')
+    assert.equal(order.factoryId, chain?.factoryId, '工艺执行厂必须是固定专属厂')
+    if (order.woolPieceKey) {
+      const sourceOrder = readWoolStore().workOrders[order.woolOrderId || '']
+      const piece = sourceOrder?.externalPieces.find((item) => item.pieceKey === order.woolPieceKey)
+      const node = piece?.routeNodes.find((item) => item.sourceEntryId === order.woolRouteNodeId)
+      assert(sourceOrder && piece && node, '毛织片必须回到实际毛织单、物理片与工艺路线节点')
+      assert.equal(order.sourceTaskId, sourceOrder.sourceTaskId)
+      assert.equal(order.sourceTaskNo, sourceOrder.taskNo)
+      assert.equal(order.craftCode, node.craftCode)
+      assert.equal(order.factoryId, node.factoryId)
+      assert.notEqual(order.generationSource, 'PRODUCTION_ORDER', '毛织路线投影不能伪造普通生产单生成来源')
+      assert.equal(order.feiTicketNos.length, 0, '毛织片不能伪造裁片菲票')
+    } else {
+      assert.equal(order.generationSource, 'PRODUCTION_ORDER')
+      assert(order.assignmentStatus, '普通生产单加工单必须有真实派工状态')
+    }
   })
 }
 

@@ -6,10 +6,10 @@ import { appendStageReport } from './stage-facts.ts'
 import { stageReportedQty, stageHandoverQty, stageCompletionBlock } from './stage-rules.ts'
 import { woolWarehouseFlowSignedQty } from './warehouse-ledger.ts'
 
-export const WOOL_MOCK_SCENARIO_CODES = ['WHOLE_NO_CRAFT', 'PART_NO_CRAFT', 'MIXED_PIECES', 'MULTI_FACTORY', 'MULTI_STEP', 'PARTIAL_RETURN', 'REPEATED_CRAFT', 'ROUTE_BLOCKED'] as const
+export const WOOL_MOCK_SCENARIO_CODES = ['WHOLE_NO_CRAFT', 'PART_NO_CRAFT', 'MIXED_PIECES', 'MULTI_STEP', 'PARTIAL_RETURN', 'REPEATED_CRAFT', 'ROUTE_BLOCKED'] as const
 export type WoolMockScenarioCode = typeof WOOL_MOCK_SCENARIO_CODES[number]
 const AT = '2026-09-18 08:00:00'
-const SCENARIOS = ['整件无外加工／纱线待接收', '部位无外加工／待开工', '整件无外加工／自动衔接中', '部位无外加工／加工完成待交出', '整件无外加工／两阶段闭合', '部位外加工／来纱待接收', '整件外加工／横机待开工', '部位外加工／部分横机产出', '整件多工艺／横机已完成、外厂待加工', '部位多厂／部分回货可缝盘', '整件多工艺／部分回货与部分缝盘', '部位混合 SKU／部分外加工与无外加工', '整件同名工艺多节点／全流程闭合', '部位外加工／首工艺未派工']
+const SCENARIOS = ['整件无外加工／纱线待接收', '部位无外加工／待开工', '整件无外加工／自动衔接中', '部位无外加工／加工完成待交出', '整件无外加工／两阶段闭合', '部位外加工／来纱待接收', '整件外加工／横机待开工', '部位外加工／部分横机产出', '整件多工艺／横机已完成、外厂待加工', '部位多工艺／部分回货可缝盘', '整件多工艺／部分回货与部分缝盘', '部位混合 SKU／部分外加工与无外加工', '整件同名工艺多节点／全流程闭合', '部位外加工／首工艺未派工']
 export function woolDemoNumber(order: WoolWorkOrder): number { return order.demoSource && /^WOOL-STAGE-\d+$/.test(order.pairId) ? Number(order.pairId.split('-').at(-1)) : 0 }
 
 /** Independent new demonstration demands. They never link to nonexistent production documents. */
@@ -26,16 +26,16 @@ export function buildWoolFactWorkflowMockStore(): WoolDomainStore {
     const key = String(n).padStart(3, '0'), pairId = `WOOL-STAGE-${key}`
     const sku = 'CARDIGAN-CREAM-M', kind = n % 2 ? 'WHOLE_GARMENT' : 'PART_PANEL'
     const pieces: WoolExternalPiece[] = n > 5 ? [1, 2].map(i => {
-      const crafts = n === 13 && i === 1 ? ['绣花', '曲牙绣', '绣花'] : n >= 9 && i === 1 ? ['绣花', '曲牙绣'] : [i === 1 ? '绣花' : '曲牙绣']
+      const crafts = n === 13 && i === 1 ? ['绣花', '缝边绣', '绣花'] : n >= 9 && i === 1 ? ['绣花', '缝边绣'] : [i === 1 ? '绣花' : '缝边绣']
       return { pieceKey: `${pairId}:Q${i}:${sku}`, patternPackageId: `${pairId}:pattern`, pieceInstanceId: `Q${i}`,
         pieceName: `Q / 第${i}片`, skuCode: sku, pieceCountPerGarment: 1,
         issues: n === 14 ? ['首工艺尚未分配加工厂'] : [],
         routeNodes: crafts.map((craft, j) => ({
           taskOrderId: `WSC:${pairId}:${pairId}:Q${i}:${sku}:${pairId}:Q${i}:step${j + 1}`,
           sourceEntryId: `${pairId}:Q${i}:step${j + 1}`, predecessorEntryIds: j ? [`${pairId}:Q${i}:step${j}`] : [],
-          craftCode: craft === '绣花' ? 'CRAFT_3000001' : 'CRAFT_3000004', craftName: craft,
-          factoryId: n === 14 ? '' : craft === '绣花' ? 'FAC-APF' : 'F090',
-          factoryName: n === 14 ? '' : craft === '绣花' ? 'APF - 辅助工艺' : '全能力测试工厂',
+          craftCode: craft === '绣花' ? 'CRAFT_3000001' : 'CRAFT_3000010', craftName: craft,
+          factoryId: n === 14 ? '' : 'FAC-APF',
+          factoryName: n === 14 ? '' : 'APF - 辅助工艺',
         })),
       }
     }) : []

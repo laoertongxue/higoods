@@ -7,7 +7,7 @@ import { shouldGenerateInternalCraftOrderForProductionOrder } from '../../src/da
 import { listEnabledSpecialCraftOperationDefinitions, buildSpecialCraftTaskDetailPath } from '../../src/data/fcs/special-craft-operations.ts'
 import { generateSpecialCraftTaskOrdersFromProductionOrder } from '../../src/data/fcs/special-craft-task-generation.ts'
 import { resetSpecialCraftTaskStore, getSpecialCraftTaskOrderById } from '../../src/data/fcs/special-craft-task-orders.ts'
-import { readWoolStore, replaceWoolStore } from '../../src/data/fcs/wool-domain/store.ts'
+import { readWoolStore, replaceWoolStore, runWoolRecordCommand } from '../../src/data/fcs/wool-domain/store.ts'
 import { addWoolHandover } from '../../src/data/fcs/wool-domain/commands.ts'
 
 export async function prepareWoolFinalDownstreamReviewScenario() {
@@ -63,9 +63,11 @@ export async function prepareWoolFinalDownstreamReviewScenario() {
     if (row.outputSkuCode === oldSku) row.outputSkuCode = sku.skuCode
     if (row.objectSkuCode === oldSku) row.objectSkuCode = sku.skuCode
   }
-  replaceWoolStore(wool)
   const at = '2026-09-18 09:10:00'
-  const handovers = [12,8].map((qty,index) => addWoolHandover(link.woolOrderId,{commandId:`review-final-${index}`,outputSkuCode:sku.skuCode,handoverQty:qty,handedOverAt:at,handedOverBy:'毛织组长（隔离验收）'}))
+  const handovers = await runWoolRecordCommand(() => {
+    replaceWoolStore(wool)
+    return [12,8].map((qty,index) => addWoolHandover(link.woolOrderId,{commandId:`review-final-${index}`,outputSkuCode:sku.skuCode,handoverQty:qty,handedOverAt:at,handedOverBy:'毛织组长（隔离验收）'}))
+  })
   getSpecialCraftTaskOrderById(task.taskOrderId)
   return {route:buildSpecialCraftTaskDetailPath(operation,task.taskOrderId),taskId:task.taskOrderId,skuCode:sku.skuCode,styleNo:link.styleNo,styleImageUrl,woolOrderId:link.woolOrderId,handovers:handovers.map(h=>({handoverId:h.handoverId,qty:h.handoverQty})),factoryId:task.factoryId}
 }

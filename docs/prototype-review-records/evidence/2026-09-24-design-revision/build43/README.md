@@ -13,7 +13,7 @@
 | 构建、类型、核心业务契约 | [build.log](build.log) | 426/426 单元测试，生产构建通过 |
 | 工厂 12 路由全部适用筛选、工厂切换含更多菜单、排序、分页、列显示/冻结/拖动、导出 | [factory-entry](factory-entry/performance.json) | 464 类，每类 5 次；2320 样本；最大 149.40000000596046ms |
 | 工厂首次进入、刷新、站内离开及返回 | [factory-routes](factory-routes/performance.json) | 12×4×5；冷进入最大 627.3999999985099ms（加工单列表授权例外），刷新最大 438.3999999985099ms；其他项均 <500ms |
-| PDA 接单列表/详情、执行列表/详情、交出、收货，含中央工厂收货 | [pda-routes](pda-routes/performance.json) | 13 个工厂身份＋路由组合×2×5；冷进入最大 499.20000000298023ms，刷新最大 382ms |
+| PDA 接单列表/详情、执行列表/详情、交出、收货，含中央工厂收货 | [pda-routes](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-09-24-design-revision/build43/pda-routes/performance.json) | 13 个工厂身份＋路由组合×2×5；冷进入最大 499.20000000298023ms，刷新最大 382ms |
 | 工厂弹层、图片、Esc、备注保存、日志和条码 | [overlays](overlays/run.log) 及目录内 JSON | 染色 44 类、印花 33 类，各 5 次；最大 182.5ms |
 | 接单、实际工序填报、原卷实收、交出扫码防错、状态筛选和底部导航 | [browser](browser/run.log) 及目录内逐例 JSON | 包含染→印→中央工厂三段实收；刷新持久化、重复扫码不重复入库、终态与旧汇总交出入口防错 |
 | PCS 筛选、列拖动、批量复制和跨页导航 | browser 中 list-performance.json | 52 类×5；冷进入最大 302.5ms，刷新最大 114.9ms |

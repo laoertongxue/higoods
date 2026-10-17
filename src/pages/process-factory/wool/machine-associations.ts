@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: list
 
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -729,7 +730,7 @@ function readCheckedMachineIds(): string[] {
   ).map((item) => item.dataset.woolMachineAssociationsMachineId || '').filter(Boolean)
 }
 
-function saveAssociation(): void {
+async function saveAssociation(): Promise<void> {
   const model = buildWoolMachineAssociationWorkbenchModel({
     productionOrderId: state.selectedProductionOrderId,
     ...(state.lockedWoolOrderId
@@ -775,12 +776,12 @@ function saveAssociation(): void {
     return
   }
   try {
-    saveWoolMachineAssociationSelection(model, machineIds, {
+    await runWoolRecordCommand(() => saveWoolMachineAssociationSelection(model, machineIds, {
       operatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
       operatedBy: 'Web 端毛织主管',
       expectedAssociationSnapshot: state.confirmedAssociationSnapshot
         ?? captureWoolReplaceMachineAssociationSnapshot(woolOrderId, machineIds),
-    })
+    }))
     state.feedback = machineIds.length
       ? '横机整组关联已保存。'
       : '当前加工单的横机关联已全部解除。'
@@ -916,7 +917,7 @@ export async function handleCraftWoolMachineAssociationsEvent(target: HTMLElemen
     return true
   }
   if (action === 'save-association') {
-    saveAssociation()
+    await saveAssociation()
     return true
   }
   return true

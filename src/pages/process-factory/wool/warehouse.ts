@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 import {renderWoolObjectImage} from './stage-display.ts'
 import {getFactoryReceiptLocations} from '../../../data/fcs/factory-receiving.ts'
 // @page-pattern: list
@@ -606,7 +607,7 @@ function currentView(mode: WarehouseMode) {
   state.currentPage = paging.currentPage
   return {
     rows,
-    tableHtml: renderStandardListTable({
+    tableOptions: {
       columns,
       rows: paging.rows,
       preferences: preferences(mode),
@@ -614,8 +615,8 @@ function currentView(mode: WarehouseMode) {
       eventPrefix: EVENT_PREFIX,
       emptyText: '当前筛选条件下暂无仓库事实',
       skipPageRerender: true,
-    }),
-    paginationHtml: renderTablePagination({
+    },
+    paginationOptions: {
       total: paging.total,
       from: paging.from,
       to: paging.to,
@@ -626,7 +627,7 @@ function currentView(mode: WarehouseMode) {
       fieldPrefix: EVENT_PREFIX,
       pageSizeOptions: PAGE_SIZE_OPTIONS,
       skipPageRerender: true,
-    }),
+    },
   }
 }
 
@@ -871,8 +872,8 @@ function renderPageFromRuntime(mode: WarehouseMode): string {
     filtersHtml: renderFilters(mode),
     listTitle: tabsForMode(mode).find((tab) => tab.key === state.activeTab)?.label ?? '库存',
     listActionsHtml: `<div class="flex max-w-full flex-wrap items-center justify-end gap-2"><div data-wool-warehouse-tabs>${renderTabBar(mode)}</div><button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-wool-warehouse-action="open-column-settings" data-skip-page-rerender="true">列设置</button></div>`,
-    tableHtml: `<div data-wool-warehouse-table-surface>${view.tableHtml}</div>`,
-    paginationHtml: `<div data-wool-warehouse-pagination-surface>${view.paginationHtml}</div>`,
+    tableHtml: `<div data-wool-warehouse-table-surface>${renderStandardListTable(view.tableOptions)}</div>`,
+    paginationHtml: `<div data-wool-warehouse-pagination-surface>${renderTablePagination(view.paginationOptions)}</div>`,
     overlaysHtml: `<div data-wool-warehouse-column-overlays>${renderColumnOverlay(mode)}</div><div data-wool-warehouse-business-overlays>${renderBusinessOverlay(mode)}</div>`,
     className: 'min-w-0',
   })}</div>`
@@ -917,13 +918,13 @@ function refreshFromRuntime(mode: WarehouseMode, options: {
     const pagination = root.querySelector<HTMLElement>('[data-wool-warehouse-pagination-surface]')
     const scrollLeft = table?.querySelector<HTMLElement>('[data-standard-list-scroll]')?.scrollLeft ?? 0
     if (table) {
-      table.innerHTML = view.tableHtml
+      table.innerHTML = renderStandardListTable(view.tableOptions)
       const scroll = table.querySelector<HTMLElement>('[data-standard-list-scroll]')
       if (scroll) scroll.scrollLeft = Math.min(scrollLeft, Math.max(0, scroll.scrollWidth - scroll.clientWidth))
       hydrate(table)
     }
     if (pagination) {
-      pagination.innerHTML = view.paginationHtml
+      pagination.innerHTML = renderTablePagination(view.paginationOptions)
       hydrate(pagination)
     }
   }
@@ -985,7 +986,7 @@ function captureOverlayDraft(
   overlay.draft = Object.fromEntries(fields.map((field) => [field, dialogRawValue(field)]))
 }
 
-function saveOverlay(mode: WarehouseMode, action: string): void {
+async function saveOverlay(mode: WarehouseMode, action: string): Promise<void> {
   const state = states[mode]
   const overlay = state.overlay
   if (!overlay || overlay.kind === 'detail') return
@@ -994,6 +995,8 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
   try {
     const operatedAt = nowText()
     const operator = dialogValue('operator')
+    let savedFeedback = state.feedback
+    await runWoolRecordCommand(() => {
     if (action === 'save-issue') {
       issueWoolYarn(row.woolOrderId, {
         commandId: nextCommandId('ISSUE', row.woolOrderId),
@@ -1004,7 +1007,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         issuedAt: operatedAt,
         issuedBy: operator,
       })
-      state.feedback = `已为 ${row.woolOrderNo} 记录纱线领用`
+      savedFeedback = `已为 ${row.woolOrderNo} 记录纱线领用`
     } else if (action === 'save-return') {
       returnWoolYarn(row.woolOrderId, {
         commandId: nextCommandId('RETURN', row.woolOrderId),
@@ -1015,7 +1018,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         returnedAt: operatedAt,
         returnedBy: operator,
       })
-      state.feedback = `已为 ${row.woolOrderNo} 记录纱线退回`
+      savedFeedback = `已为 ${row.woolOrderNo} 记录纱线退回`
     } else if (action === 'save-adjust') {
       adjustWoolWarehouseStock({
         commandId: nextCommandId('ADJUST', row.woolOrderId),
@@ -1028,7 +1031,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         operatedAt,
         operatedBy: operator,
       })
-      state.feedback = `已调整 ${row.woolOrderNo} / ${row.objectSkuCode} 库存`
+      savedFeedback = `已调整 ${row.woolOrderNo} / ${row.objectSkuCode} 库存`
     } else if (action === 'save-transfer-out') {
       const [toWarehouseId = '', toLocationId = ''] = dialogValue('target').split('|')
       transferWoolWarehouseStock({
@@ -1047,7 +1050,7 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         operatedAt,
         operatedBy: operator,
       })
-      state.feedback = `已从 ${row.locationId} 转出库存`
+      savedFeedback = `已从 ${row.locationId} 转出库存`
     } else if (action === 'save-transfer-back' && row.flow) {
       transferWoolWarehouseStock({
         commandId: nextCommandId('TRANSFER-BACK', row.woolOrderId),
@@ -1064,8 +1067,10 @@ function saveOverlay(mode: WarehouseMode, action: string): void {
         operatedAt,
         operatedBy: operator,
       })
-      state.feedback = `已转回 ${row.locationId}`
+      savedFeedback = `已转回 ${row.locationId}`
     }
+    })
+    state.feedback = savedFeedback
     state.overlay = null
     state.overlayError = ''
     refresh(mode, { table: true, tabs: true, overlays: true, feedback: true })
@@ -1286,7 +1291,7 @@ export async function handleCraftWoolWarehouseEvent(
     return true
   }
   if (action.startsWith('save-')) {
-    saveOverlay(mode, action)
+    await saveOverlay(mode, action)
     return true
   }
   return true

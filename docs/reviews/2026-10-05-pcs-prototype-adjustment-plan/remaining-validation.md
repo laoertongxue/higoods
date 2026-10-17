@@ -23,7 +23,7 @@
 
 基础配置模板引用后修改、停用历史引用；五类主档独立新建；组合成员版本；单位跨维换算与历史系数；发布BOM冻结/未发布BOM更新、缺汇率；平台覆盖与恢复继承、映射改绑与OMS时间窗；双端并发、旧回调、回环防护、WMS共享额度变化；多纱线投入→横机部位片→缝盘；错误文件/升级阻塞恢复；实物打印与实际设备扫码。这些不能由本轮点名流程或纯契约测试连带关闭。
 
-BOM相邻页面已重放旧物料来源缺失的保存阻断，未删除旧BOM或绕过校验；完整正常BOM新建保存另行形成证据。整个R1仍以 [原子追踪矩阵](requirement-traceability.csv) 的状态为准，不能宣称158条均已验收。
+BOM相邻页面已重放旧物料来源缺失的保存阻断，未删除旧BOM或绕过校验；完整正常BOM新建保存另行形成证据。整个R1仍以 [原子追踪矩阵](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv) 的状态为准，不能宣称158条均已验收。
 
 ## 全项目类型检查
 

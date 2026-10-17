@@ -10,7 +10,7 @@
 - 页面设备：Codex 内置浏览器，DOM实际视口1280×720。只打开页面、切换菜单/配置面板、读取已渲染内容，没有提交业务表单。
 - CodeGraph 已初始化，读取时未报告相关文件待同步；通过 context/explore 查询档案、配置、渠道及毛织对象。本轮直接读已定位文件补充字段与文字证据。
 - 调查前已有脏文件：`AGENTS.md`、`src/main.ts`、`src/router/route-renderers.ts`，`src/pages/pcs-local-data.ts` 已删除，`pcs-storage-error.ts`及前轮review文档未跟踪。它们属于此前工作，本次没有吸收、重写、提交或发布。
-- 本次只新增本目录方案、表格及文档生成/验证材料。初始来源哈希保存在 [source-baseline.json](source-baseline.json)，结束核对见 [一致性检查](document-validation.md)。
+- 本次只新增本目录方案、表格及文档生成/验证材料。初始来源哈希保存在 [source-baseline.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/source-baseline.json)，结束核对见 [一致性检查](document-validation.md)。
 
 ## 2. 当前页面观察
 

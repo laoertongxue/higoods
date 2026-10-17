@@ -1479,7 +1479,6 @@ function resolveGeneratedTaskStandardPrice(processCode: string): number | undefi
     PROC_DIRECT_PRINT: 2200,
     PROC_DATIAO: 1600,
     PROC_EMBROIDER: 2400,
-    PROC_SHELL_EMBROIDER: 2600,
     PROC_PLEAT: 2100,
     PROC_WOOL: 3000,
   }

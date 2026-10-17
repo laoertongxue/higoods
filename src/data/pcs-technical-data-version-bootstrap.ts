@@ -134,14 +134,14 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     },
     'SPU-2024-015': {
       袖片: [
-        buildSpecialCraftConfig('CRAFT_3000003', '贝壳绣'),
+        buildSpecialCraftConfig('CRAFT_3000010', '缝边绣'),
       ],
     },
     'SPU-2024-016': {
-      前片: [buildSpecialCraftConfig('CRAFT_3000004', '曲牙绣')],
+      前片: [buildSpecialCraftConfig('CRAFT_3000010', '缝边绣')],
     },
     'SPU-2024-017': {
-      后片: [buildSpecialCraftConfig('CRAFT_3000005', '一字贝绣花')],
+      后片: [buildSpecialCraftConfig('CRAFT_3000010', '缝边绣')],
     },
   }
   const getPieceSpecialCrafts = (pieceName: string) => specialCraftsBySpuAndPiece[demand.spuCode]?.[pieceName] ?? []

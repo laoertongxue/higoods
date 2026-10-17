@@ -457,3 +457,13 @@ test('面辅料采购对齐两份浏览器专项使用独立预览，不能仅�
  assert(!command.includes('pms-peripheral.spec.ts'))
  assert.deepEqual(routeAffectedChecks(['tests/material-purchase-unregistered.spec.ts']).unknownPaths,['tests/material-purchase-unregistered.spec.ts'])
 })
+
+test('缝边绣历史测试仅身份调整由保守契约接入，真实毛织浏览器使用独立运行器',()=>{
+  for(const path of ['tests/factory-base-connect-chain.spec.ts','tests/factory-capacity-profile.spec.ts','tests/factory-profile-process-abilities.spec.ts','tests/pattern-piece-instance-special-craft.spec.ts','tests/process-craft-dictionary-rebuild.spec.ts','tests/production-craft-dict-formula-layout.spec.ts','tests/production-craft-dict-output-value-rules.spec.ts']) {
+    const route=routeAffectedChecks([path]);assert.deepEqual(route.unknownPaths,[])
+    assert.deepEqual(route.fastChecks,['node --experimental-strip-types --test tests/workflow-governance/seam-test-identity-update.test.ts'])
+  }
+  const route=routeAffectedChecks(['tests/browser-contracts/wool-record-storage.test.ts']);assert.deepEqual(route.unknownPaths,[])
+  assert.deepEqual(route.fastChecks,['node --import tsx --test tests/browser-contracts/wool-record-storage.test.ts'])
+  assert.deepEqual(routeAffectedChecks(['tests/factory-unregistered.spec.ts']).unknownPaths,['tests/factory-unregistered.spec.ts'])
+})

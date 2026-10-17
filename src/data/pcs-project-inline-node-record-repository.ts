@@ -6,6 +6,7 @@ import {
   type PcsProjectInlineNodeRef,
 } from './pcs-project-inline-node-record-types.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from './pcs-project-inline-node-record-bootstrap.ts'
+import { normalizeSampleOptionalCostReferences, cleanupLegacyUncodedSampleOptionalCosts as cleanupLegacyOptionalCosts } from './pcs-sample-cost-optional-cleanup.ts'
 import {
   getProjectById,
   getProjectNodeRecordById,
@@ -31,6 +32,7 @@ const INLINE_NODE_RECORD_STORAGE_KEY = 'higood-pcs-project-inline-node-records-v
 const INLINE_NODE_RECORD_STORE_VERSION = 2
 
 let memorySnapshot: PcsProjectInlineNodeRecordStoreSnapshot | null = null
+let memorySourceRaw: string | null | undefined
 
 export interface SaveProjectInlineNodeFieldEntryResult {
   ok: boolean
@@ -63,6 +65,11 @@ const SAMPLE_COST_REVIEW_PAYLOAD_KEYS = [
   'sewingCostCurrency',
   'sewingCostCny',
   'optionalProcessCostCny',
+  'optionalCostCleanupVersion',
+  'materialCostLines',
+  'dyeingRuleLines',
+  'fixedProcessLines',
+  'optionalProcessLines',
   'costTotal',
   'salesPrice',
   'salesCurrency',
@@ -398,7 +405,7 @@ function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
     payload.shootImageNote = typeof payload.shootImageNote === 'string' ? payload.shootImageNote : ''
   }
 
-  return {
+  return normalizeSampleOptionalCostReferences({
     ...record,
     recordId: record.recordId || '',
     recordCode: record.recordCode || '',
@@ -425,7 +432,7 @@ function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
     updatedAt: record.updatedAt || record.createdAt || '',
     updatedBy: record.updatedBy || record.createdBy || '',
     legacyProjectRef: record.legacyProjectRef ?? null,
-  } as T
+  } as T)
 }
 
 function cloneSnapshot(snapshot: PcsProjectInlineNodeRecordStoreSnapshot): PcsProjectInlineNodeRecordStoreSnapshot {
@@ -592,8 +599,13 @@ function hydrateSnapshot(
   return {
     version: INLINE_NODE_RECORD_STORE_VERSION,
     records: cleanedRecords
-      .map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord))
-      .map((record) => (shouldRefreshSampleCostPricing ? refreshGeneratedSampleCostReviewPricing(record) : record))
+      .map((source) => {
+        const stats = {deletedRows:0}
+        const record = normalizeSampleOptionalCostReferences(cloneValue(source),stats)
+        const normalized = normalizeRecord(record as PcsProjectInlineNodeRecord)
+        const cleanedOptionalCosts = asLooseRecord(normalized.payload).optionalCostCleanupVersion === 1 || asLooseRecord(normalized.detailSnapshot).optionalCostCleanupVersion === 1
+        return shouldRefreshSampleCostPricing && !stats.deletedRows && !cleanedOptionalCosts ? refreshGeneratedSampleCostReviewPricing(normalized) : normalized
+      })
       .sort(compareRecords),
   }
 }
@@ -620,6 +632,7 @@ function loadSnapshot(): PcsProjectInlineNodeRecordStoreSnapshot {
 
   try {
     const raw = localStorage.getItem(INLINE_NODE_RECORD_STORAGE_KEY)
+    memorySourceRaw = raw
     if (!raw) {
       memorySnapshot = buildSeedSnapshot()
       return cloneSnapshot(memorySnapshot)
@@ -635,10 +648,24 @@ function loadSnapshot(): PcsProjectInlineNodeRecordStoreSnapshot {
 }
 
 function persistSnapshot(snapshot: PcsProjectInlineNodeRecordStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
+  const next = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY, JSON.stringify(memorySnapshot))
+    const previous = localStorage.getItem(INLINE_NODE_RECORD_STORAGE_KEY)
+    if (memorySourceRaw !== undefined && previous !== memorySourceRaw) throw new Error('旧版本页面已改动项目资料，本次未保存。请关闭旧页面后重新读取。')
+    const raw = JSON.stringify(next)
+    localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY,raw)
+    if (localStorage.getItem(INLINE_NODE_RECORD_STORAGE_KEY)!==raw) {
+      throw new Error('项目资料保存后读回不一致，可能被其他页面改动；当前资料已保留，保存尚未确认完成，请保留输入后重新读取。')
+    }
+    memorySourceRaw = raw
   }
+  memorySnapshot = next
+}
+
+export function cleanupLegacyUncodedSampleOptionalCosts(): {changed:boolean;deletedRows:number} {
+  const result = cleanupLegacyOptionalCosts()
+  if (result.changed) { memorySnapshot = null; memorySourceRaw = undefined }
+  return result
 }
 
 export function listProjectInlineNodeRecords(): PcsProjectInlineNodeRecord[] {

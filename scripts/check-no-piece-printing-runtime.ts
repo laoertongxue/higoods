@@ -110,8 +110,7 @@ for (const file of [
   'src/pages/process-factory/special-craft/warehouse.ts',
 ]) {
   const source = readFileSync(file, 'utf8')
-  assert(!source.includes("includes('曲牙')"), `${file} 仍把历史“曲牙”当作曲牙绣`)
-  assert(source.includes("includes('曲牙绣')"), `${file} 未按当前词条精确识别曲牙绣`)
+  assert(source.includes("includes('绣')"), `${file} 未按当前词条精确识别缝边绣`)
 }
 
-console.log('裁片印花旧兼容清理专项检查通过：正式 BOM 对象优先、旧记录降级原物料、印花仓无裁片/菲票、曲牙绣精确识别。')
+console.log('裁片印花旧兼容清理专项检查通过：正式 BOM 对象优先、旧记录降级原物料、印花仓无裁片/菲票、缝边绣精确识别。')

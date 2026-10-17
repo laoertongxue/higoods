@@ -1,3 +1,5 @@
+> 2026-10-17 证据路径维护：本文原业务结论、采样数值和确认版本未改写。已退役原始报告按固定Git提交读取，相关本地路径已改为历史版本链接；这不表示本文业务在当前工艺统一版本重新验收。完整映射见[历史资料恢复索引](../retired-craft-history.md)。
+
 # 后道回货与执行质检调整——main 发布整合审查
 
 按 `AGENTS.md` 当前 REVIEW-01 / EVIDENCE-01 执行。本记录绑定后道调整及其发布整合；历史故障审查原文、版本、失败样本均保留，不重标为当前通过。
@@ -19,8 +21,8 @@
 | 检查项 | 结论 | 证据 / 问题及处理 |
 | --- | --- | --- |
 | 编号及真实父单关系 | 通过 | domain-full-flow.log；15 条跨端 UI；无后道分支 ZJ-CH，零合格不生成空单 |
-| 单人单任务与精确领取 | 通过 | native.report.json；browser-contract.json；当前执行页自动续做且无取消 |
-| 清单与执行职责 | 通过 | native.report.json；focused-0-0-1366.png；清单只查询及打印 |
+| 单人单任务与精确领取 | 通过 | [native.report.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native.report.json)；browser-contract.json；当前执行页自动续做且无取消 |
+| 清单与执行职责 | 通过 | [native.report.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native.report.json)；focused-0-0-1366.png；清单只查询及打印 |
 | 颜色图片、失败态及大图关闭 | 通过 | browser-contract.json；原 final35 图片契约按相同源码复用 |
 | 当前后道关联存储事务及失败恢复 | 通过 | 39 项浏览器契约，含失败回滚、旧资料转换、多标签冲突及附件生命周期 |
 | 交接数量、授权及日志 | 通过 | cross-terminal.json；15 条流程逐 SKU 和来源核对 |
@@ -77,7 +79,7 @@
 ### 页面证据
 
 - 版本：工作树 /Users/laoer/.codex/worktrees/post-finishing-main-release/higoods；分支 codex/post-finishing-qc-main-release；基准 HEAD 4bb4fe1721a4c4ab85ac378ed555b841c31f9c19；运行文件集合 SHA256 0b2f0d2d4afad30bbccb44f33017303dc746acfea2c806c6dfd70d2cd4ed632b；dev43213，生产构建preview43212；Node26.8.2；Chromium149.0.7827.55；Asia/Shanghai。逐文件及上游差异见 integration-manifest-list-compat.json。
-- 证据：evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native.report.json（23项全过、无跳过/失败/flaky），cross-terminal-list-compat.json（15条），browser-contract-list-compat-passed.json（39项），focused-performance-list-compat.json（470样本）；设备与实际命名路由均在报告。当前仓库1366交互255样本通过，见 warehouse-interactions-3-1366.json；仓库8页签×三设备DOM完整一致，原仓库事件处理器和详情模板字节未变，其他尺寸原交互证据依EVIDENCE-01保留原身份；补充全尺寸复测单独记录于 output/verification/post-finishing-main-publication。原 final35 全入口/全交互证据仍绑定原工作树8fb6、HEAD99e25a0、final35源哈希，不改标为当前HEAD；其中29个运行文件与当前字节一致；warehouse.ts 的标准列表接入另行复验，锁文件未变，受上游初始化/样式依赖影响的重点入口另用当前构建复测。
+- 证据：[native.report.json](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/prototype-review-records/evidence/2026-10-10-post-finishing-qc/publication-2026-10-11/native.report.json)（23项全过、无跳过/失败/flaky），cross-terminal-list-compat.json（15条），browser-contract-list-compat-passed.json（39项），focused-performance-list-compat.json（470样本）；设备与实际命名路由均在报告。当前仓库1366交互255样本通过，见 warehouse-interactions-3-1366.json；仓库8页签×三设备DOM完整一致，原仓库事件处理器和详情模板字节未变，其他尺寸原交互证据依EVIDENCE-01保留原身份；补充全尺寸复测单独记录于 output/verification/post-finishing-main-publication。原 final35 全入口/全交互证据仍绑定原工作树8fb6、HEAD99e25a0、final35源哈希，不改标为当前HEAD；其中29个运行文件与当前字节一致；warehouse.ts 的标准列表接入另行复验，锁文件未变，受上游初始化/样式依赖影响的重点入口另用当前构建复测。
 
 ### 性能结论
 

@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: list
 
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -456,7 +457,7 @@ function dialogField(name: string): string {
   )?.value.trim() || ''
 }
 
-function saveStatus(): void {
+async function saveStatus(): Promise<void> {
   const machine = listWoolMachineViews().find((item) => item.machineId === state.overlayMachineId)
   if (!machine) return
   const nextStatus = dialogField('nextStatus') as WoolMachineAvailability
@@ -495,14 +496,14 @@ function saveStatus(): void {
     return
   }
   try {
-    changeWoolMachineAvailability(machine.machineId, {
+    await runWoolRecordCommand(() => changeWoolMachineAvailability(machine.machineId, {
       nextStatus,
       reason,
       operatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
       operatedBy: 'Web 端设备主管',
       confirmedImpact: Boolean(impact),
       expectedAssociationSnapshot: state.confirmedAssociationSnapshot ?? currentSnapshot,
-    })
+    }))
     state.feedback = impact
       ? `${machine.machineNo} 已解除当前关联并改为${statusLabel(nextStatus)}。`
       : `${machine.machineNo} 已改为${statusLabel(nextStatus)}。`
@@ -625,7 +626,7 @@ export async function handleCraftWoolMachinesEvent(target: HTMLElement): Promise
     return true
   }
   if (action === 'save-status') {
-    saveStatus()
+    await saveStatus()
     return true
   }
   return true

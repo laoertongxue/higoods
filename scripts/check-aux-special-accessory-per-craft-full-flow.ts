@@ -463,10 +463,19 @@ function runSpecialCraftFullFlow(chainId: string, workOrderId: string, sequence:
   }
 }
 
-const allSpecialWorkOrders = listSpecialCraftTaskOrders().map((order) => ({
-  workOrderId: order.taskOrderId,
-  operationId: order.operationId,
-}))
+const projectedSpecialOrders = listSpecialCraftTaskOrders()
+const woolRouteOrders = projectedSpecialOrders.filter((order) => order.woolPieceKey)
+for (const order of woolRouteOrders) recorder.notApplicable({
+  caseId: `WOOL-ROUTE-FLOW-${order.taskOrderId}`,
+  chainId: AUX_SPECIAL_ACCESSORY_CHAINS.find((chain) => chain.operationId === order.operationId)?.id || order.operationId,
+  workOrderId: order.taskOrderId, workOrderNo: order.taskOrderNo,
+  assertion: '毛织片按实际交出批次接收，不能用普通工艺单清零夹具和整单接收模拟',
+  evidence: { sourceKind: 'WOOL_ROUTE', sourceTaskNo: order.sourceTaskNo, woolOrderId: order.woolOrderId, pieceKey: order.woolPieceKey, routeNodeId: order.woolRouteNodeId, verificationOwner: '毛织片工艺实际批次全链与STORE迁移契约单独验证；此行不计为毛织动作通过' },
+})
+const allSpecialWorkOrders = projectedSpecialOrders.filter((order) => !order.woolPieceKey).map((order) => {
+  assert.equal(order.generationSource, 'PRODUCTION_ORDER', '普通四动作夹具只适用于生产单生成加工单')
+  return { workOrderId: order.taskOrderId, operationId: order.operationId }
+})
 const configuredSpecialWorkOrderLimit = Number(process.env.AUX_FLOW_LIMIT || 0)
 const specialWorkOrders = Number.isInteger(configuredSpecialWorkOrderLimit) && configuredSpecialWorkOrderLimit > 0
   ? allSpecialWorkOrders.slice(0, configuredSpecialWorkOrderLimit)
@@ -773,8 +782,9 @@ recorder.finish({
   chainCount: AUX_SPECIAL_ACCESSORY_CHAINS.length,
   workOrderCount: specialWorkOrders.length + bindingWorkOrderIds.length + laceWorkOrderIds.length,
   specialCraftWorkOrderCount: specialWorkOrders.length,
+  woolRouteOrdersOutsideOrdinaryFixture: woolRouteOrders.length,
   bindingWorkOrderCount: bindingWorkOrderIds.length,
   laceWorkOrderCount: laceWorkOrderIds.length,
-  flowRule: '范围内每张加工单逐单调用真实领域动作；辅助/特殊工艺与捆条执行多批接收、多批填报、多批交出和完成，花边执行接收、三批填报、两批交出、完成及 WLS/PMS 回写',
+  flowRule: '普通PRODUCTION_ORDER工艺单及捆条逐单调用多批接收／加工／交出／完成；花边验证Web/WLS/PMS；毛织路线单按实际批次的独立工艺与STORE契约验证，不计作本普通夹具通过',
 })
 process.exit(0)

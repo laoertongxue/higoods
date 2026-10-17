@@ -2,7 +2,7 @@
 
 核查日期：2026-10-05。范围：WP07 / WP08，`CHAN-001～019`、`SYNC-001～012`，以及直接相关的测款渠道上架、共享 WLS 来源、未保存提醒和渠道导入。
 
-依据：[原型调整方案 §11、§12](./prototype-adjustment-proposal.md)、[实施与验证计划 WP07 / WP08](./implementation-and-validation-plan.md)、[原子需求矩阵](./requirement-traceability.csv)。本记录只补充实施证据，不改动总体矩阵状态。
+依据：[原型调整方案 §11、§12](./prototype-adjustment-proposal.md)、[实施与验证计划 WP07 / WP08](./implementation-and-validation-plan.md)、[原子需求矩阵](https://github.com/laoertongxue/higoods/blob/821b9ea54040ec03662acbe6ae3d2c62608fe273/docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv)。本记录只补充实施证据，不改动总体矩阵状态。
 
 ## 1. 版本、执行范围与结论边界
 

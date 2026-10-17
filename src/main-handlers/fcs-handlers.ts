@@ -546,7 +546,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
 
   return (
-    handleWoolPendingReceiptsClick(target) ||
+    await handleWoolPendingReceiptsClick(target) ||
     await handleCraftPrintingEvent(target) ||
     await handleCraftDyeingEvent(target) ||
     await handleFactoryWarehouseSharedEvent(target) ||
@@ -557,7 +557,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftWoolMachinesEvent(target) ||
     await handlePostFinishingEvent(target, event) ||
     handleSpecialCraftTaskOrdersEvent(target, event) ||
-    handleSpecialCraftTaskDetailEvent(target) ||
+    await handleSpecialCraftTaskDetailEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||
     await handleCutOrderReleaseIntegrationEvent(target) ||
     await handleCraftCuttingCutOrdersEvent(target) ||

@@ -1,3 +1,5 @@
+import { canonicalSeamCraftCode, normalizeSeamEmbroideryReferences, SEAM_EMBROIDERY } from './seam-embroidery-identity.ts'
+import { getProcessCraftByCode, getProcessDefinitionByCode } from './process-craft-dict.ts'
 import { KOL_GOTO_FACTORY_ID, TEST_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import {
   getBrowserLocalStorage,
@@ -122,8 +124,52 @@ function assertSewingFactoryHasPpic(factory: Factory): void {
   throw new Error('正式车缝工厂必须分配有效PPIC，且只能分配一名启用中的人员，人员ID与姓名必须一致')
 }
 
+/** Re-parent only the migrated craft, without broadening another capability's permissions. */
+function normalizeFactoryProcessAbilities(abilities: Factory['processAbilities']): Factory['processAbilities'] {
+  const seam = getProcessCraftByCode(SEAM_EMBROIDERY.craftCode)!
+  const process = getProcessDefinitionByCode(seam.processCode)!
+  const prepared = abilities.flatMap((ability) => {
+    const names = new Map(ability.craftCodes.map((code, index) => [canonicalSeamCraftCode(code), ability.craftNames?.[index] || code]))
+    const item = normalizeSeamEmbroideryReferences(structuredClone(ability))
+    item.craftCodes = [...new Set(ability.craftCodes.map(canonicalSeamCraftCode))]
+    item.craftNames = item.craftCodes.map(code => getProcessCraftByCode(code)?.craftName || names.get(code) || code)
+    if (!item.craftCodes.includes(seam.craftCode)) return [item]
+    const moved = { ...item, processCode: seam.processCode, processName: process.processName, parentProcessCode: process.parentProcessCode,
+      ...('systemProcessCode' in item ? {systemProcessCode:process.systemProcessCode} : {}),
+    }
+    if (item.processCode === seam.processCode) return [moved]
+    const otherCodes = item.craftCodes.filter(code => code !== seam.craftCode)
+    return [
+      ...(otherCodes.length ? [{...item,craftCodes:otherCodes,craftNames:otherCodes.map(code => getProcessCraftByCode(code)?.craftName || names.get(code) || code)}] : []),
+      {...moved,craftCodes:[seam.craftCode],craftNames:[seam.craftName]},
+    ]
+  })
+  if (!prepared.some(item => item.processCode === seam.processCode && item.craftCodes.includes(seam.craftCode))) return prepared
+  const result: Factory['processAbilities'] = []
+  for (const item of prepared) {
+    if (item.processCode !== seam.processCode) { result.push(item); continue }
+    const current = result.find(row => row.processCode === seam.processCode)
+    if (!current) { result.push({...item,processName:process.processName,parentProcessCode:process.parentProcessCode}); continue }
+    for (const [key, value] of Object.entries(item)) {
+      if (['craftCodes','craftNames','capacityNodeCodes','processName','parentProcessCode'].includes(key) || value === undefined) continue
+      const previous = (current as unknown as Record<string,unknown>)[key]
+      if (previous !== undefined && JSON.stringify(previous) !== JSON.stringify(value)) {
+        const label = ({abilityId:'能力编号',abilityName:'能力名称',abilityScope:'能力范围',canReceiveTask:'接单权限',capacityManaged:'产能管理',status:'能力状态',systemProcessCode:'系统父工序'} as Record<string,string>)[key] || '能力属性'
+        throw new Error(`缝边绣工厂能力配置存在冲突（${label}），原资料已保留，请核对后保存。`)
+      }
+      ;(current as unknown as Record<string,unknown>)[key] = value
+    }
+    current.craftCodes = [...new Set([...current.craftCodes,...item.craftCodes])]
+    current.craftNames = current.craftCodes.map(code => getProcessCraftByCode(code)?.craftName || item.craftNames?.[item.craftCodes.indexOf(code)] || current.craftNames?.[current.craftCodes.indexOf(code)] || code)
+    if (current.capacityNodeCodes || item.capacityNodeCodes) current.capacityNodeCodes = [...new Set([...(current.capacityNodeCodes || []),...(item.capacityNodeCodes || [])])]
+  }
+  return result
+}
+
 function cloneFactory(factory: Factory): Factory {
-  const normalizedFactory = withLegacySewingFactoryPpicBackfill(withDefaultTaskAcceptanceConfig(factory))
+  const privateFactory = structuredClone(withLegacySewingFactoryPpicBackfill(withDefaultTaskAcceptanceConfig(factory)))
+  const processAbilities = normalizeFactoryProcessAbilities(privateFactory.processAbilities)
+  const normalizedFactory = normalizeSeamEmbroideryReferences(privateFactory)
   return {
     ...normalizedFactory,
     factoryShortName: normalizedFactory.factoryShortName || normalizedFactory.code || normalizedFactory.name,
@@ -137,20 +183,7 @@ function cloneFactory(factory: Factory): Factory {
     identityFile: normalizedFactory.identityFile ? { ...normalizedFactory.identityFile } : normalizedFactory.identityFile,
     selectedCapabilities: normalizedFactory.selectedCapabilities ? normalizedFactory.selectedCapabilities.map((item) => ({ ...item })) : undefined,
     machines: normalizedFactory.machines ? normalizedFactory.machines.map((item) => ({ ...item })) : undefined,
-    processAbilities: normalizedFactory.processAbilities.map((item) => ({
-      processCode: item.processCode,
-      craftCodes: [...item.craftCodes],
-      capacityNodeCodes: item.capacityNodeCodes ? [...item.capacityNodeCodes] : undefined,
-      abilityId: item.abilityId,
-      processName: item.processName,
-      craftNames: item.craftNames ? [...item.craftNames] : undefined,
-      abilityName: item.abilityName,
-      abilityScope: item.abilityScope,
-      canReceiveTask: item.canReceiveTask,
-      capacityManaged: item.capacityManaged,
-      status: item.status,
-      parentProcessCode: item.parentProcessCode,
-    })),
+    processAbilities,
     eligibility: { ...normalizedFactory.eligibility },
     taskAcceptanceConfig: cloneTaskAcceptanceConfig(normalizedFactory.taskAcceptanceConfig),
   }
@@ -286,15 +319,14 @@ function loadFactoryMasterRecords(): Factory[] {
     return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
   }
 
-  try {
-    const parsed = JSON.parse(stored)
-    if (!Array.isArray(parsed)) {
-      return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
-    }
-    return mergeSeedFactories(parsed as Factory[]).map((factory) => cloneFactory(factory))
-  } catch {
+  let parsed: unknown
+  try { parsed = JSON.parse(stored) } catch {
     return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
   }
+  if (!Array.isArray(parsed)) return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
+  // A real capability conflict is not a JSON parse failure. Never replace the
+  // user's saved factory profiles with demonstration records after that error.
+  return mergeSeedFactories(parsed as Factory[]).map((factory) => cloneFactory(factory))
 }
 
 function persistFactoryMasterRecords(): void {

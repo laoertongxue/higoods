@@ -38,7 +38,7 @@ const specialCrafts = listSpecialCrafts()
 
 const auxiliaryNames = names(listAuxiliaryCrafts())
 const specialTypeNames = names(listSpecialTypeCrafts())
-for (const craft of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣花', '捆条']) {
+for (const craft of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '缝边绣', '捆条']) {
   assert(auxiliaryNames.includes(craft), `辅助工艺缺少${craft}`)
 }
 for (const craft of ['模板工序', '激光开袋', '特种车缝（花样机）', '橡筋定长切割']) {
@@ -49,9 +49,11 @@ assert(specialCrafts.some((item) => item.craftCategoryName === '特种工艺'), 
 
 assert(getCraftTargetObject('橡筋定长切割') === 'ACCESSORY', '橡筋定长切割适用对象必须为辅料')
 assert(getCraftTargetObject('捆条') === 'FABRIC', '捆条适用对象必须为面料')
-for (const craft of specialCrafts.filter((item) => !['捆条', '橡筋定长切割', '盘扣', '烫画'].includes(item.craftName))) {
+for (const craft of specialCrafts.filter((item) => !['捆条', '橡筋定长切割', '盘扣', '烫画', '布包扣'].includes(item.craftName))) {
   assert(craft.targetObject === 'CUT_PIECE_PART', `${craft.craftName} 适用对象应为裁片部位`)
 }
+
+for (const name of ['布包扣']) assert(getCraftTargetObject(name) === 'ACCESSORY', `${name}必须产出独立辅件`)
 
 assert(canSelectCraftInPatternPiece('捆条') === false, '捆条不得在裁片明细逐片特殊工艺中选择')
 assert(canSelectCraftInPatternPiece('橡筋定长切割') === false, '橡筋定长切割不得在裁片明细逐片特殊工艺中选择')

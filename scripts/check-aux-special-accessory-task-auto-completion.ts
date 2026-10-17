@@ -30,7 +30,10 @@ import {
 } from './aux-special-accessory-test-catalog.ts'
 
 const recorder = new VerificationRecorder('task-auto-completion')
-const specialOrders = listSpecialCraftTaskOrders()
+const allSpecialOrders = listSpecialCraftTaskOrders()
+const specialOrders = allSpecialOrders.filter((order) => !order.woolPieceKey)
+assert(specialOrders.every((order) => order.generationSource === 'PRODUCTION_ORDER'))
+const woolRouteOrders = allSpecialOrders.filter((order) => order.woolPieceKey)
 
 for (const chain of AUX_SPECIAL_ACCESSORY_CHAINS.filter((item) => item.kind === 'SPECIAL_CRAFT')) {
   const operationOrders = specialOrders.filter((order) => order.operationId === chain.operationId)
@@ -129,6 +132,17 @@ for (const chain of AUX_SPECIAL_ACCESSORY_CHAINS.filter((item) => item.kind === 
   }
 }
 
+// Wool route orders aggregate through their own piece/route facts, not the
+// ordinary processTasks registry. Their identities remain covered by scope and
+// work-order-identity; the wool flow/store contracts own writes and completion.
+for (const order of woolRouteOrders) recorder.notApplicable({
+  caseId: `TASK-WOOL-ROUTE-${order.taskOrderId}`,
+  chainId: getChainByOperationId(order.operationId)?.id || order.operationId,
+  workOrderId: order.taskOrderId, workOrderNo: order.taskOrderNo,
+  assertion: '毛织片来源任务不进入普通生产任务聚合；不得虚构processTasks条目',
+  evidence: { sourceKind: 'WOOL_ROUTE', sourceTaskId: order.sourceTaskId, sourceTaskNo: order.sourceTaskNo, woolOrderId: order.woolOrderId, pieceKey: order.woolPieceKey, routeNodeId: order.woolRouteNodeId, verificationOwner: '毛织片工艺全链及当前STORE迁移契约；本普通任务聚合套件不声称验证该写入链' },
+})
+
 const bindingSnapshot = captureBindingProcessOrderStore()
 try {
   for (const sourceTask of listBindingProcessSourceTasks()) {
@@ -192,7 +206,8 @@ for (const order of listLaceProductionOrders()) {
 }
 
 recorder.finish({
-  specialCraftChainCount: 17,
+  specialCraftChainCount: AUX_SPECIAL_ACCESSORY_CHAINS.filter((chain) => chain.kind === 'SPECIAL_CRAFT').length,
+  woolRouteOrdersOutsideOrdinaryTaskRegistry: woolRouteOrders.length,
   bindingTaskCount: listBindingProcessSourceTasks().length,
   laceWorkOrderCount: listLaceProductionOrders().length,
   rule: '任务仅聚合；全部子加工单完成后自动完成，不提供任务手工完工',

@@ -48,8 +48,8 @@ function renderRelationCard(title: string, body: string, testId: string): string
   `
 }
 
-export function renderProcessOrderTaskRelations(documentId: string): string {
-  const view = getProcessOrderTaskRelationView(documentId)
+export function renderProcessOrderTaskRelations(documentId: string, productionOrderId?: string): string {
+  const view = getProcessOrderTaskRelationView(documentId, productionOrderId)
   if (!view) return ''
   const predecessorItems = [
     ...view.predecessors.map(renderDocument),

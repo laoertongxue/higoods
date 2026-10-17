@@ -1,14 +1,19 @@
 import { parseEngineeringBomSnapshot } from './pcs-engineering-bom-storage.ts'
 import type { PcsStoredRecord } from './pcs-record-db.ts'
+import { normalizeSeamEmbroideryReferences, needsSeamEmbroideryNormalization } from './fcs/seam-embroidery-identity.ts'
+import { normalizeSampleOptionalCostReferences } from './pcs-sample-cost-optional-cleanup.ts'
 
 export type PcsRecordEntry = { position: number; data: unknown }
 type StoredInput = Omit<PcsStoredRecord, 'version'>
-type Metadata = { array: boolean; fields?: Record<string, unknown>; groups?: string[] }
+type Metadata = { array: boolean; fields?: Record<string, unknown>; groups?: string[]; objectGroups?: string[] }
+const woolKey = 'higood-fcs-wool-stage-store-v3'
 
 /** Convert the previous field name at the storage boundary, including saved references. */
 export function normalizePcsRecordSnapshot(key: string, raw: string): unknown {
   const value = key === 'higood-pcs-engineering-bom-pricing-plan-store-v2'
     ? parseEngineeringBomSnapshot(raw) : JSON.parse(raw)
+  if (needsSeamEmbroideryNormalization(raw)) normalizeSeamEmbroideryReferences(value)
+  if (raw.includes('sampleCostOptionalProcessRows') || raw.includes('"optionalProcessLines"')) normalizeSampleOptionalCostReferences(value)
   // JSON parsing has already created a private tree. Update the few legacy
   // references there instead of allocating another copy of every saved field.
   const rename = (item: unknown): void => {
@@ -45,6 +50,11 @@ export function pcsRecordIdentity(key: string, group: string, value: unknown, po
   if (!value || typeof value !== 'object') return String(position)
   const item = value as Record<string, unknown>
   const text = (name: string) => typeof item[name] === 'string' && item[name] ? String(item[name]) : undefined
+  if (key === woolKey) {
+    const name = ({ workOrders:'woolOrderId', craftRecords:'recordId', internalReceipts:'receiptId', pieceReceipts:'receiptId', yarnReceipts:'receiptId', yarnIssues:'issueId', yarnReturns:'returnId', processReports:'reportId', handovers:'handoverId', qtyChangeLogs:'changeId', warehouseFlows:'flowId', completions:'completionId', machines:'machineId', machineAssociations:'machineId', machineAssociationLogs:'logId', operationLogs:'operationLogId' } as Record<string,string>)[group]
+    if (name && text(name)) return text(name)!
+    throw new Error('毛织记录缺少自身稳定编号，未保存。')
+  }
   if (key === 'higood-pcs-material-config-v1' && group === 'templates' && text('templateId')) return item.version===undefined?String(item.templateId):`${item.templateId}:v${item.version}`
   if (key === 'higood-pcs-config-workspace-store-v1' && group === 'options' && text('dimensionId') && text('id')) return `${item.dimensionId}:${item.id}`
   if (key === 'higood-pcs-channel-catalog-v1' || key === 'higood-pcs-channel-store-v1') {
@@ -74,6 +84,17 @@ export function decodePcsRecordSnapshot(key: string, raw: string): StoredInput[]
   const result: StoredInput[] = []
   const groups: Record<string, unknown[]> = Array.isArray(value) ? { items: value } : Object.fromEntries(Object.entries(value).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>
   const metadata: Metadata = Array.isArray(value) ? { array: true } : { array: false, fields: Object.fromEntries(Object.entries(value).filter(([, v]) => !Array.isArray(v))), groups: Object.keys(groups) }
+  if (key === woolKey) {
+    const orders = (value as {workOrders?: unknown}).workOrders
+    if (!orders || typeof orders !== 'object' || Array.isArray(orders)) throw new Error('毛织加工单结构不完整，原记录已保留。')
+    groups.workOrders = Object.entries(orders).map(([id, order]) => {
+      if (!order || typeof order !== 'object' || (order as {woolOrderId?: string}).woolOrderId !== id) throw new Error('毛织加工单身份不一致，未保存。')
+      return order
+    })
+    delete metadata.fields!.workOrders
+    metadata.objectGroups = ['workOrders']
+    metadata.groups = Object.keys(groups)
+  }
   result.push({ id: `${key}/meta`, collection: key, value: metadata })
   for (const [group, values] of Object.entries(groups)) {
     const seen = new Set<string>()
@@ -105,7 +126,8 @@ export function assemblePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], 
   }
   const read = (group: string) => (grouped.get(`${key}/${group}`) ?? []).sort((a, b) => a.position - b.position).map(row => row.data)
   const groups = [...new Set([...(seedMeta?.groups ?? []), ...(metadata.groups ?? [])])]
-  return metadata.array ? read('items') : { ...seedMeta?.fields, ...metadata.fields, ...Object.fromEntries(groups.map(group => [group, read(group)])) }
+  const objectGroups = new Set([...(seedMeta?.objectGroups || []), ...(metadata.objectGroups || [])])
+  return metadata.array ? read('items') : { ...seedMeta?.fields, ...metadata.fields, ...Object.fromEntries(groups.map(group => [group, objectGroups.has(group) ? Object.fromEntries(read(group).map(item => [pcsRecordIdentity(key, group, item, 0), item])) : read(group)])) }
 }
 
 export function encodePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], seed?: string, seedIdFilter?: (id: string) => boolean, serialize: (value: unknown) => string = JSON.stringify): string | null {
@@ -116,6 +138,8 @@ export function encodePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], se
   // legacy field/format needs another parse; current large collections used to
   // be parsed, recursively copied and serialized twice on every refresh.
   const legacy = raw.includes('"styleCodes"')
+    || key === woolKey || needsSeamEmbroideryNormalization(raw)
+    || raw.includes('sampleCostOptionalProcessRows') || raw.includes('"optionalProcessLines"')
     || (key === 'higood-pcs-config-workspace-store-v1' && raw.includes('"flatOptions"'))
     || (key === 'higood-pcs-engineering-bom-pricing-plan-store-v2' && raw.includes('"higood-bom-dictionary-v1"'))
   return legacy ? JSON.stringify(normalizePcsRecordSnapshot(key, raw)) : raw

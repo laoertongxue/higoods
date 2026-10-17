@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import type { FactoryReceiptInput } from '../src/data/fcs/factory-receiving-types.ts'
 
+// Domain-only Node facade; real IndexedDB transactions are checked separately.
 const values = new Map<string, string>()
 const storage = { getItem: (key: string) => values.get(key) || null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) }
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage })
-Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: storage, sessionStorage: storage, addEventListener() {}, dispatchEvent() {}, location: { pathname: '/fcs/craft/wool/pending-receipts', search: '' } } })
 Object.defineProperty(globalThis, 'document', { configurable: true, value: { addEventListener() {} } })
 const core = await import('../src/data/fcs/factory-receiving.ts')
 const { confirmFactoryMaterialReceipt } = await import('../src/data/fcs/factory-receiving-links.ts')
@@ -14,6 +14,8 @@ const { addWoolHandover } = await import('../src/data/fcs/wool-domain/commands.t
 const { executeWoolCraftAction } = await import('../src/data/fcs/wool-domain/craft-flow.ts')
 const { setPdaSession, listAllFactoryPdaUsers, createPdaSessionFromUser } = await import('../src/data/fcs/store-domain-pda.ts')
 
+// Prepare the immutable baseline before replacing the private Node fixture.
+wool.readWoolStore()
 // A private pair avoids relying on changing demo completion/receipt scenarios.
 const seed = buildWoolFactWorkflowMockStore(), oldPair = 'WOOL-STAGE-009', pair = 'WOOL-RECEIVE-TEST'
 const isolated = structuredClone(seed)

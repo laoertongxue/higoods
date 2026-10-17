@@ -1,8 +1,10 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { renderDialog } from '../../../components/ui/dialog.ts'
 import { renderButton } from '../../../components/ui/button.ts'
 import { renderWoolObjectImage } from '../wool/stage-display.ts'
 import type { SpecialCraftTaskOrder } from '../../../data/fcs/special-craft-task-orders.ts'
 import { renderWoolCraftDetail,handleWoolCraftActionUi } from '../wool/craft-actions.ts'
+import { renderSpecialCraftProductIdentity, renderSpecialCraftMaterialIdentity } from './order-display.ts'
 import {
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftTaskOrdersPath,
@@ -393,6 +395,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
 
   const content = `
     <section class="border-y bg-white py-3">
+      <div class="mb-3 flex flex-wrap items-start gap-4 text-sm" data-special-craft-object-identity>${renderSpecialCraftProductIdentity(taskOrder)}${renderSpecialCraftMaterialIdentity(taskOrder)}</div>
       <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
         <div>
           <div class="text-xs text-muted-foreground">加工单号</div>
@@ -412,7 +415,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         </div>
       </div>
     </section>
-    ${renderProcessOrderTaskRelations(taskOrder.taskOrderId)}
+    ${renderProcessOrderTaskRelations(taskOrder.taskOrderId, taskOrder.productionOrderId)}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <main class="min-w-0 space-y-4">
         ${renderTaskDetailTabs(taskDetailHref, activeTab)}
@@ -467,7 +470,7 @@ export function renderWoolFinalCraftReceiptDialog(task: SpecialCraftTaskOrder): 
   return `<div id="wool-final-receipt-dialog" data-task-id="${escapeHtml(task.taskOrderId)}" data-command="${escapeHtml(getSpecialCraftActionRevision(task))}" data-skip-page-rerender="true">${renderDialog({title:'接收缝盘成衣',description:'勾选本次到货批次，按实际到货填写件数。未勾选的批次继续待接收。',closeAction:{prefix:'wool-final',action:'close'},width:'lg'}, `<div class="max-h-[55vh] space-y-3 overflow-y-auto">${rows || '<p>暂无本厂、本工艺节点待接收的缝盘交出批次。</p>'}</div><p data-wool-final-error class="mt-2 text-sm text-red-700" role="alert"></p>`, footer)}</div>`
 }
 
-function handleWoolFinalReceipt(target: HTMLElement): boolean {
+async function handleWoolFinalReceipt(target: HTMLElement): Promise<boolean> {
   const action = target.closest<HTMLElement>('[data-wool-final-action]')?.dataset.woolFinalAction
   if (!action) return false
   const dialog = document.getElementById('wool-final-receipt-dialog')!
@@ -481,7 +484,7 @@ function handleWoolFinalReceipt(target: HTMLElement): boolean {
       if (!qty.value.trim()) throw new Error('请填写已勾选批次的实收件数')
       return {handoverId,actualReceivedQty:Number(qty.value)}
     })
-    const result = executeProcessWebAction({sourceType:'SPECIAL_CRAFT',sourceId:task.taskOrderId,actionCode:'SPECIAL_CRAFT_CONFIRM_RECEIVE',operatorName:'Web 端操作员',operatedAt:new Date().toLocaleString('sv-SE'),objectType:'成衣',qtyUnit:'件',objectQty:receipts.reduce((sum,row)=>sum+row.actualReceivedQty,0),woolFinalReceipts:receipts,confirmationKey:`WEB-FINAL:${task.taskOrderId}:${dialog.dataset.command}`})
+    const result = await runDesignRevisionFcsCommand(task.taskOrderId, () => executeProcessWebAction({sourceType:'SPECIAL_CRAFT',sourceId:task.taskOrderId,actionCode:'SPECIAL_CRAFT_CONFIRM_RECEIVE',operatorName:'Web 端操作员',operatedAt:new Date().toLocaleString('sv-SE'),objectType:'成衣',qtyUnit:'件',objectQty:receipts.reduce((sum,row)=>sum+row.actualReceivedQty,0),woolFinalReceipts:receipts,confirmationKey:`WEB-FINAL:${task.taskOrderId}:${dialog.dataset.command}`}))
     dialog.remove(); showToast(result.message)
     const content = document.querySelector<HTMLElement>('[data-wool-final-craft-content]')
     if (content) {
@@ -494,8 +497,8 @@ function handleWoolFinalReceipt(target: HTMLElement): boolean {
   return true
 }
 
-export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean {
-  if (handleWoolFinalReceipt(target)) return true
+export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Promise<boolean> {
+  if (await handleWoolFinalReceipt(target)) return true
   if(handleWoolCraftActionUi(target))return true
   const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
     toast: showToast,
@@ -665,9 +668,8 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
       outputInput?.focus()
       return true
     }
-    dialog.remove()
     try {
-      const result = executeProcessWebAction({
+      const result = await runDesignRevisionFcsCommand(workOrderId, () => executeProcessWebAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrderId,
         actionCode,
@@ -683,10 +685,12 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
           : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
             ? `盘扣交至${taskOrder.receiverWarehouseName || '中央辅料仓'}`
             : '盘扣加工单操作',
-      })
+      }))
+      dialog.remove()
       showToast(result.message)
     } catch (error) {
       showToast(error instanceof Error ? error.message : '盘扣加工单操作失败')
+      return true
     }
     const current = appStore.getState().pathname || '/'
     appStore.navigate(current, { historyMode: 'replace' })
@@ -715,10 +719,8 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
         if (skuCode && qty >= 0) skuQtyBySkuCode[skuCode] = qty
       })
     }
-    dialog.remove()
-
     try {
-      const result = executeProcessWebAction({
+      const result = await runDesignRevisionFcsCommand(workOrderId, () => executeProcessWebAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrderId,
         actionCode,
@@ -731,10 +733,12 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
         skuQtyBySkuCode: actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? undefined : skuQtyBySkuCode,
         skuScrapQtyBySkuCode: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && taskOrder?.demandLines ? Object.fromEntries(taskOrder.demandLines.map((line) => [line.skuCode, 0])) : undefined,
         skuDamageQtyBySkuCode: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && taskOrder?.demandLines ? Object.fromEntries(taskOrder.demandLines.map((line) => [line.skuCode, 0])) : undefined,
-      })
+      }))
+      dialog.remove()
       showToast(result.message)
     } catch (error) {
       showToast(error instanceof Error ? error.message : '操作失败')
+      return true
     }
     const current = appStore.getState().pathname || '/'
     appStore.navigate(current, { historyMode: 'replace' })
@@ -766,11 +770,9 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
       })
     }
 
-    dialog.remove()
-
     const totalQty = Object.values(feiQtyByTicketNo).reduce((s, q) => s + q, 0)
     try {
-      const result = executeProcessWebAction({
+      const result = await runDesignRevisionFcsCommand(workOrderId, () => executeProcessWebAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrderId,
         actionCode,
@@ -781,10 +783,12 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
         qtyUnit: '片',
         feiQtyByTicketNo: actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? undefined : feiQtyByTicketNo,
         remark: `逐菲票确认，合计 ${totalQty} 片`,
-      })
+      }))
+      dialog.remove()
       showToast(result.message)
     } catch (error) {
       showToast(error instanceof Error ? error.message : '操作失败')
+      return true
     }
     const current = appStore.getState().pathname || '/'
     appStore.navigate(current, { historyMode: 'replace' })

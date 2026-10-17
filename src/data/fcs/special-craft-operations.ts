@@ -1,3 +1,4 @@
+import { canonicalSeamCraftCode } from './seam-embroidery-identity.ts'
 import {
   getSpecialCraftSupportedTargetObjectLabels,
   getSpecialCraftTargetObjectLabel,
@@ -197,26 +198,12 @@ const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSee
     mustReturnToCuttingFactory: false,
     remark: '支持裁片部位或成衣直喷；加工单必须保存明确对象，不从印花类型转换。',
   },
-  贝壳绣: {
-    operationId: 'AUX-OP-SHELL-EMBROIDERY',
+  缝边绣: {
+    operationId: 'AUX-OP-SEAM-EMBROIDERY',
     defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
-    remark: '按贝壳绣辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
-  },
-  曲牙绣: {
-    operationId: 'AUX-OP-CURVED-TEETH-EMBROIDERY',
-    defaultTargetObject: 'CUT_PIECE',
-    requiresFeiTicketScan: true,
-    mustReturnToCuttingFactory: true,
-    remark: '按曲牙绣辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
-  },
-  一字贝绣花: {
-    operationId: 'AUX-OP-STRAIGHT-SHELL-EMBROIDERY',
-    defaultTargetObject: 'CUT_PIECE',
-    requiresFeiTicketScan: true,
-    mustReturnToCuttingFactory: true,
-    remark: '按一字贝绣花辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+    remark: '按缝边绣辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   盘扣: {
     operationId: 'AUX-OP-BUTTON-LOOP',
@@ -434,7 +421,7 @@ export function getSpecialCraftOperationById(operationId: string): SpecialCraftO
 }
 
 export function getSpecialCraftOperationByCraftCode(craftCode: string): SpecialCraftOperationDefinition | undefined {
-  const matched = specialCraftOperationByCraftCode.get(craftCode)
+  const matched = specialCraftOperationByCraftCode.get(canonicalSeamCraftCode(craftCode))
   return matched ? cloneOperationDefinition(matched) : undefined
 }
 

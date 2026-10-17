@@ -15,7 +15,6 @@ import {
 } from '../../../data/fcs/special-craft-task-orders.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
-  formatSpecialCraftFactoryLabel,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
   renderSpecialCraftPageLayout,
@@ -139,7 +138,6 @@ interface TaskListState {
   timeRange: string
   columnSettingsOpen: boolean
   draggedColumnKey: string
-  factoryId: string
   prefsLoaded: boolean
 }
 
@@ -157,7 +155,6 @@ function getState(operationId: string): TaskListState {
     timeRange: 'ALL',
     columnSettingsOpen: false,
     draggedColumnKey: '',
-    factoryId: '',
     prefsLoaded: false,
   }
   stateByOperation.set(operationId, fresh)
@@ -270,7 +267,6 @@ function renderColumnSettings(state: TaskListState): string {
 function buildFilters(state: TaskListState) {
   return {
     keyword: state.keyword || undefined,
-    factoryId: state.factoryId || undefined,
     status: state.statusFilter === '全部' ? undefined : state.statusFilter,
     timeRange: state.timeRange as 'TODAY' | '7D' | '30D' | 'ALL',
   }
@@ -303,7 +299,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
     state.sort = null
     state.columnSettingsOpen = false
   }
-  const taskOrders = getSpecialCraftTaskOrders(operation.operationId, {...buildFilters(state), factoryId: factoryGuard.factoryId || state.factoryId || undefined})
+  const taskOrders = getSpecialCraftTaskOrders(operation.operationId, {...buildFilters(state), factoryId: factoryGuard.factoryId || undefined})
   resetSpecialCraftDisplayContext()
   const expandedRows = expandRows(taskOrders)
 
@@ -321,7 +317,6 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
   const content = renderStandardListPage({
     title: `${operation.operationName}加工单`,
     primaryActionsHtml: ['AUX-OP-EMBROIDERY', 'AUX-OP-HEAT-TRANSFER'].includes(operation.operationId) ? `<button class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/process/material-plans?processType=${operation.operationId==='AUX-OP-EMBROIDERY'?'EMBROIDERY':'HEAT_TRANSFER'}">物料加工计划</button>` : '',
-    statusTabsHtml: renderFactoryTabs(operation.operationId, state, factoryGuard.factoryId),
     filtersHtml: `<div data-craft-filters>${renderFilters(state)}</div>`,
     statsHtml: `<div data-craft-stats>${renderStats(uniqueTaskOrders)}</div>`,
     listTitle: `加工单列表（${taskOrders.length}）`,
@@ -569,24 +564,13 @@ function handleTaskListEvent(target: Element, event?: Event): boolean {
   return false
 }
 
-function renderFactoryTabs(operationId: string, state: TaskListState, fixedFactoryId: string | null): string {
-  if (fixedFactoryId) return ''
-  const orders = getSpecialCraftTaskOrders(operationId)
-  const factories = [...new Map(orders.filter(order => order.factoryId).map(order => [order.factoryId, formatSpecialCraftFactoryLabel(order.factoryName, order.factoryId)])).entries()]
-  if (factories.length < 2) return ''
-  return `<div class="flex flex-wrap gap-1 border-b border-slate-300 bg-slate-50 px-3 pt-3" role="tablist" aria-label="加工厂切换">${[['','全部加工厂'],...factories].map(([id,name])=>`<button type="button" role="tab" aria-selected="${state.factoryId === id}" class="-mb-px rounded-t-lg border px-5 py-2.5 text-sm font-semibold ${state.factoryId === id ? 'border-b-white border-t-4 border-t-sky-600 bg-white text-sky-700' : 'border-slate-300 text-slate-500 hover:bg-white'}" data-special-craft-task-list-action="factory-tab" data-factory-id="${escapeHtml(id)}">${escapeHtml(name)} <span class="text-xs font-normal">${orders.filter(order => !id || order.factoryId === id).length}</span></button>`).join('')}</div>`
-}
-
 export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event): boolean {
   const operationId = getActiveOperationId()
   const root = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-craft-orders-root]')
   if (!operationId || !root) return handleTaskListEvent(target,event)
   const state = getState(operationId)
   const action = target.closest<HTMLElement>('[data-special-craft-task-list-action]')?.dataset.specialCraftTaskListAction
-  if (action === 'factory-tab') {
-    state.factoryId = target.closest<HTMLElement>('[data-factory-id]')?.dataset.factoryId || ''
-    state.page = 1
-  } else if (!handleTaskListEvent(target,event)) return false
+  if (!handleTaskListEvent(target,event)) return false
   if (event && ['dragstart','dragover','dragend'].includes(event.type)) return true
   const field = target.closest<HTMLElement>('[data-special-craft-task-list-field]')?.dataset.specialCraftTaskListField
   if (field && ['keyword','timeRange','statusFilter'].includes(field)) return true
@@ -600,7 +584,7 @@ export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event
   next.innerHTML = renderSpecialCraftTaskOrdersPage(operationId)
   const surfaces = action === 'open-column-settings' || action === 'close-column-settings'
     ? ['[data-craft-overlays]']
-    : ['[data-craft-table]','[data-craft-pagination]','[data-craft-stats]','[data-craft-overlays]','[data-standard-list-table-section] > header','[data-standard-list-status-tabs]']
+    : ['[data-craft-table]','[data-craft-pagination]','[data-craft-stats]','[data-craft-overlays]','[data-standard-list-table-section] > header']
   if (action === 'reset-filters') surfaces.push('[data-craft-filters]')
   for (const selector of surfaces) {
     const current = root.querySelector<HTMLElement>(selector)

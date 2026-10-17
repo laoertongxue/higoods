@@ -370,7 +370,7 @@ function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessT
   const formalSpecialCraftTaskIds = new Set(specialCraftOrders.map((order) => order.sourceTaskId).filter(Boolean))
   const woolTaskIds = new Set(woolWorkOrders.map((order) => order.taskId))
   const allRelationSources = readRelationSources(
-    designRevisionScope ? new Set(['DYE', 'PRINT']) : executionTasks && scopedEntries.length ? new Set(scopedEntries.map(entry => entry.processCode)) : undefined,
+    designRevisionScope ? new Set(['DYE', 'PRINT']) : productionOrderId && scopedEntries.length ? new Set(scopedEntries.map(entry => entry.processCode)) : undefined,
   )
   const relationSources = designRevisionScope
     ? allRelationSources.filter(order => order.sourceSnapshot.designRevisionTaskId === designRevisionScope || order.workOrderId === designRevisionScope)
@@ -1025,7 +1025,7 @@ export function buildProcessOrderTaskRelationViewFromDocuments(
   })
 }
 
-export function getProcessOrderTaskRelationView(documentId: string): ProcessOrderTaskRelationView | undefined {
+export function getProcessOrderTaskRelationView(documentId: string, productionOrderIdHint?: string): ProcessOrderTaskRelationView | undefined {
   // Runtime instances (including split/merged instances) must be resolved by the
   // existing reader, never by stripping an ID suffix. Their source route is the
   // original task's route; quantities/details remain the current runtime scope.
@@ -1038,6 +1038,11 @@ export function getProcessOrderTaskRelationView(documentId: string): ProcessOrde
     const executionTasks: ProcessTask[] = instances.map(task => ({ ...task, qty: task.scopeQty, detailRows: task.scopeDetailRows }))
     const documents = buildDocumentRefs(runtimeTask.productionOrderId, executionTasks, sourceTask.taskId)
     return buildProcessOrderTaskRelationViewFromDocuments(documentId, documents)
+  }
+  // Detail callers already know the production order. Preserve the existing
+  // cross-order explicit references while avoiding every unrelated route graph.
+  if (productionOrderIdHint) {
+    return buildProcessOrderTaskRelationViewFromDocuments(documentId, buildDocumentRefs(productionOrderIdHint))
   }
   const preparationSource = readRelationSources().find(order =>
     order.workOrderId === documentId || order.workOrderNo === documentId,

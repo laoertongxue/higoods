@@ -46,8 +46,8 @@ function entry(
 /**
  * 方案第五、六、七章的完整交付登记册。
  *
- * 这里登记的是“现有原型中的执行承载体或明确非加工单对象”，并不把 57 项
- * 强行改造成 57 张不同实体。共用专项域的条目仍逐项列出，避免用一条
+ * 这里登记的是“现有原型中的执行承载体或明确非加工单对象”，并不把 当前对象
+ * 强行改造成 每张不同实体。共用专项域的条目仍逐项列出，避免用一条
  * “辅助/特种工艺已覆盖”笼统结论掩盖具体工艺。
  */
 export const PROCESS_ROUTE_FULL_STAGE_DELIVERY: DeliveryEntry[] = [
@@ -78,9 +78,7 @@ export const PROCESS_ROUTE_FULL_STAGE_DELIVERY: DeliveryEntry[] = [
   entry('PROD-013', '打揽加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:special-craft-task-generation', 'check:process-order-task-relations']),
   entry('PROD-014', '烫画加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:tech-pack-special-craft-target-object-and-versioning', 'check:special-craft-task-generation']),
   entry('PROD-015', '直喷加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:tech-pack-special-craft-target-object-and-versioning', 'check:no-piece-printing-runtime']),
-  entry('PROD-016', '贝壳绣加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:special-craft-task-generation', 'check:process-order-task-relations']),
-  entry('PROD-017', '曲牙绣加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:process-craft-final-taxonomy', 'check:no-piece-printing-runtime']),
-  entry('PROD-018', '一字贝绣花加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:special-craft-task-generation', 'check:process-order-task-relations']),
+  entry('PROD-016', '缝边绣加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:special-craft-task-generation', 'check:process-order-task-relations']),
   entry('PROD-019', '盘扣加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', 'src/data/fcs/binding-process-pda-scan.ts', relationCarrier], ['check:button-loop-auxiliary-crafts', 'check:aux-special-accessory:domain']),
   entry('PROD-020', '花朵加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:aux-special-accessory:named-scenarios', 'check:process-order-task-relations']),
   entry('PROD-021', '打褶加工单', 'PROD', '保留并接入', '通用任务项关系', ['src/data/fcs/special-craft-task-orders.ts', relationCarrier, 'src/pages/process-factory/special-craft/task-detail.ts'], ['check:process-craft-final-taxonomy', 'check:aux-special-accessory:named-scenarios']),
@@ -116,12 +114,12 @@ function expectedIds(prefix: Stage, count: number): string[] {
 }
 
 const ids = PROCESS_ROUTE_FULL_STAGE_DELIVERY.map((item) => item.id)
-assert.equal(PROCESS_ROUTE_FULL_STAGE_DELIVERY.length, 56, '交付登记册必须完整覆盖 11 个准备项、28 个生产项、17 个后道项')
+assert.equal(PROCESS_ROUTE_FULL_STAGE_DELIVERY.length, 54, '交付登记册必须完整覆盖 11 个准备项、26 个生产项、17 个后道项')
 assert.equal(new Set(ids).size, ids.length, '交付登记编号不得重复')
 for (const [stage, count] of [['PREP', 12], ['PROD', 28], ['POST', 17]] as const) {
   assert.deepEqual(
     PROCESS_ROUTE_FULL_STAGE_DELIVERY.filter((item) => item.stage === stage).map((item) => item.id),
-    expectedIds(stage, count).filter(id => id !== 'PREP-009'),
+    expectedIds(stage, count).filter(id => !['PREP-009', 'PROD-017', 'PROD-018'].includes(id)),
     `${stage} 登记项必须连续且无遗漏`,
   )
 }
@@ -140,10 +138,9 @@ for (const item of PROCESS_ROUTE_FULL_STAGE_DELIVERY) {
 
 assert.equal(listInactiveProcessCraftDefinitions().length, 0, '工艺字典不得保留停用历史词条')
 const activeCrafts = listActiveProcessCraftDefinitions()
-for (const craftName of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣花', '盘扣', '花朵', '打褶', '烫钻', '模板工序', '激光开袋', '特种车缝（花样机）', '橡筋定长切割', '布包扣']) {
+for (const craftName of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '缝边绣', '盘扣', '花朵', '打褶', '烫钻', '模板工序', '激光开袋', '特种车缝（花样机）', '橡筋定长切割', '布包扣']) {
   assert(activeCrafts.some((craft) => craft.craftName === craftName), `生产登记工艺缺少当前有效词条：${craftName}`)
 }
-assert(!activeCrafts.some((craft) => craft.craftName === '曲牙'), '旧曲牙词条不得继续存在')
 assert.deepEqual(getProcessCraftByCode('CRAFT_008192')?.inputObjectTypes, ['CUT_PIECE_PART', 'GARMENT_SEMI'], '烫画必须同时支持裁片和成衣')
 assert.deepEqual(getProcessCraftByCode('CRAFT_016384')?.inputObjectTypes, ['CUT_PIECE_PART', 'GARMENT_SEMI'], '直喷必须同时支持裁片和成衣')
 assert.deepEqual(getProcessCraftByCode('CRAFT_032768')?.outputObjectTypes, ['ACCESSORY'], '布包扣产出必须是包布钮辅件')
@@ -168,4 +165,4 @@ for (const scope of ['src', 'scripts', 'tests', 'docs']) {
 for (const item of PROCESS_ROUTE_FULL_STAGE_DELIVERY) {
   console.log(`[PASS] ${item.id} ${item.name}｜${item.handling}｜${item.relationMode}｜${item.checks.map((check) => `npm run ${check}`).join('；')}`)
 }
-console.log('全阶段逐项登记检查通过：PREP 11 + PROD 28 + POST 17 = 56 项，编号、承载位置、关系模式、旧事实删除和验证绑定均完整。')
+console.log('全阶段逐项登记检查通过：PREP 11 + PROD 26 + POST 17 = 54 项，编号、承载位置、关系模式、旧事实删除和验证绑定均完整。')

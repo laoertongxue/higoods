@@ -5,6 +5,7 @@ import { isPcsNewStaticRecord } from './pcs-record-static-versions.ts'
 
 // 同步领域函数只修改本次动作的工作副本；持久提交在页面继续显示成功之前完成。
 export const PCS_LEGACY_KEYS = [
+  'higood-fcs-wool-stage-store-v3',
   'higood-fcs-production-tech-pack-publish-evaluations-v1',
   'higood-pcs-testing-orders-v1', 'higood-pcs-sample-management-v1', 'higood-pcs-engineering-master-store-v1',
   'higood-pcs-design-revision-v1', 'higood-pcs-engineering-bom-pricing-plan-store-v2',
@@ -330,7 +331,12 @@ async function assertLegacySourceCurrent(source: LegacySource): Promise<void> {
   if (encode(source.recordSource, rows, baseline.get(source.recordSource)) !== source.legacyRaw) throw new Error('旧版本页面已修改渠道资料，本次未保存。请关闭旧页面后重新读取。')
 }
 async function persistedLegacyRows(source: LegacySource): Promise<Array<Omit<PcsStoredRecord, 'version'>>> {
-  const rows = decode(source.key, JSON.stringify(await transformFiles(normalizePcsRecordSnapshot(source.key, source.raw), false)))
+  const normalized = normalizePcsRecordSnapshot(source.key, source.raw)
+  if (source.key === 'higood-fcs-wool-stage-store-v3') {
+    const { validateWoolStore } = await import('./fcs/wool-domain/store.ts')
+    validateWoolStore(normalized as Parameters<typeof validateWoolStore>[0])
+  }
+  const rows = decode(source.key, JSON.stringify(await transformFiles(normalized, false)))
   if (!source.overlay) return rows
   const existing = new Map(stored.map(row => [row.id, row]))
   for (const row of rows) {
@@ -510,13 +516,27 @@ async function preparePcsRecordState(collections: readonly string[]): Promise<vo
   })
   const baselineReady = ready
   const next = hydrationQueue.then(async () => {
-    if (!collections.length || collections.some(key => key.startsWith('higood-pcs-fcs-'))) {
+    if (!collections.length || collections.some(key => key.startsWith('higood-pcs-fcs-') || key === 'higood-fcs-wool-stage-store-v3')) {
       await baselineReady
       fcsBridge ??= await import('./fcs/design-revision-pcs-storage.ts')
       for (const key of fcsBridge.PCS_FCS_COLLECTIONS) { keys.add(key); if (!baseline.has(key)) baseline.set(key, '[]') }
-      fcsBridge.configureDesignRevisionPcsStorage({ getItem: key => pcsRecordStore.getItem(key), setItem: (key, raw) => pcsRecordStore.setItem(key, raw), isStaging: () => staging })
+      let indexedRows = stored, persistedRowIds = new Set(stored.filter(row => !row.deleted).map(row => row.id))
+      fcsBridge.configureDesignRevisionPcsStorage({
+        getItem: key => pcsRecordStore.getItem(key), getBaselineItem: key => baseline.get(key) ?? null,
+        isPersistedRow(key, rowId) {
+          if (indexedRows !== stored) { indexedRows = stored; persistedRowIds = new Set(stored.filter(row => !row.deleted).map(row => row.id)) }
+          return persistedRowIds.has(`${key}/items/${encodeURIComponent(rowId)}`)
+        },
+        persistenceToken: () => stored,
+        setItem: (key, raw) => pcsRecordStore.setItem(key, raw), isStaging: () => staging,
+      })
     }
     const requested = new Set(collections.length ? collections : keys)
+    if (requested.has('higood-fcs-wool-stage-store-v3')) {
+      const { initializeWoolRecordBaseline } = await import('./fcs/wool-domain/store.ts')
+      initializeWoolRecordBaseline()
+      requested.add('higood-pcs-fcs-design-revision-receiving-v1')
+    }
     // Legacy channel conversion depends on canonical SKU/SPU identity; load the
     // complete dependency set together before exposing either channel view.
     if (requested.has('higood-pcs-channel-catalog-v1') || requested.has('higood-pcs-channel-store-v1')) {

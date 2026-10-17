@@ -6,6 +6,7 @@ import {
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
 } from '../src/data/fcs/special-craft-task-orders.ts'
+import { readWoolStore } from '../src/data/fcs/wool-domain/store.ts'
 import { getSpecialCraftPdaCandidateByWorkOrderId } from '../src/data/fcs/special-craft-pda-scan.ts'
 import { renderPdaWorkOrderExecDetailPage } from '../src/pages/pda-exec-detail.ts'
 import {
@@ -95,7 +96,7 @@ for (const order of specialOrders) {
     const webHtml = renderSpecialCraftWorkOrderDetailPage(buildSpecialCraftOperationSlug(order.operationId), order.taskOrderId)
     assert(webHtml.includes(order.taskOrderNo), 'Web 详情必须显示加工单号')
     assert(webHtml.includes(order.taskOrderId), 'Web 详情 DOM 必须保留加工单 ID')
-    assert(webHtml.includes(order.sourceTaskId || ''), 'Web 基本信息必须显示来源任务 ID')
+    assert(order.sourceTaskNo && webHtml.includes(order.sourceTaskNo), 'Web 基本信息必须显示业务来源任务号')
     if (order.status !== '已完结') {
       assert(webHtml.includes(`data-source-id="${order.taskOrderId}"`), 'Web 可执行动作载荷必须使用具体 workOrderId')
     }
@@ -124,9 +125,33 @@ for (const order of specialOrders) {
       assert.equal(order.inputUnit || order.unit, chain.inputUnit)
     }
     assert(order.planQty > 0, '计划数量必须大于 0')
-    assert((order.demandLines?.length || 0) > 0 || order.operationId === 'AUX-OP-BUTTON-LOOP', '必须有正式需求明细')
+    if (order.woolPieceKey) {
+      const sourceOrder = readWoolStore().workOrders[order.woolOrderId || '']
+      const piece = sourceOrder?.externalPieces.find((item) => item.pieceKey === order.woolPieceKey)
+      const node = piece?.routeNodes.find((item) => item.sourceEntryId === order.woolRouteNodeId)
+      assert(sourceOrder && piece && node, '毛织加工单必须关联实际片和路线节点')
+      assert.equal(order.sourceTaskId, sourceOrder.sourceTaskId)
+      assert.equal(order.sourceTaskNo, sourceOrder.taskNo)
+      assert.equal(order.sourceEntryId, node.sourceEntryId)
+      assert.equal(order.routeObjectKey, piece.pieceKey)
+      assert.equal(order.craftCode, node.craftCode)
+      assert.equal(order.factoryId, node.factoryId)
+      assert.equal(order.feiTicketNos.length, 0)
+      assert.notEqual(order.generationSource, 'PRODUCTION_ORDER')
+      const nextNode = piece.routeNodes[piece.routeNodes.indexOf(node) + 1]
+      const pairedOrder = readWoolStore().workOrders[sourceOrder.pairedWorkOrderId]
+      if (nextNode) {
+        const nextChain = AUX_SPECIAL_ACCESSORY_CHAINS.find((item) => item.craftCode === nextNode.craftCode)
+        assert(nextChain && nextNode.factoryId === nextChain.factoryId, '毛织直接下游必须是下一工艺的固定专属厂')
+      } else {
+        assert(pairedOrder?.stage === 'LINKING' && pairedOrder.factoryId, '末道工艺必须回到配对缝盘加工单')
+      }
+    } else {
+      assert.equal(order.generationSource, 'PRODUCTION_ORDER')
+      assert((order.demandLines?.length || 0) > 0 || order.operationId === 'AUX-OP-BUTTON-LOOP', '普通生产单加工单必须有正式需求明细')
+    }
     assert(order.productionOrderId && order.productionOrderNo, '必须保留来源生产单')
-    assert(order.receiverWarehouseName, '必须明确加工后去向仓库')
+    if (!order.woolPieceKey) assert(order.receiverWarehouseName, '普通加工单必须明确加工后去向仓库')
   })
 }
 
@@ -264,7 +289,7 @@ const expectedWorkOrderCount = specialOrders.length + bindingOrders.length + lac
 recorder.check({
   caseId: 'WO-COVERAGE-ALL',
   chainId: 'ALL',
-  assertion: '20 条链均有业务数据，且每张加工单恰有至少 3 条独立数据验证',
+  assertion: '18 条链均有业务数据，且每张加工单恰有至少 3 条独立数据验证',
   evidence: {
     specialOrderCount: specialOrders.length,
     bindingOrderCount: bindingOrders.length,

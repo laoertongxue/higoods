@@ -113,7 +113,7 @@ assert.equal(coveredButtonCraft?.processCode, 'SPECIAL_CRAFT', '布包扣必须�
 assert.deepEqual(coveredButtonCraft?.inputObjectTypes, ['BOM_MATERIAL'], '布包扣必须投入对应制作物料')
 assert.deepEqual(coveredButtonCraft?.outputObjectTypes, ['ACCESSORY'], '布包扣必须产出包布钮辅件')
 const coveredButtonOperation = getSpecialCraftOperationById(COVERED_BUTTON_OPERATION_ID)
-assert.equal(listEnabledSpecialCraftOperationDefinitions().length, 18, '辅助/特种工艺执行载体必须包含 18 类 operation')
+assert.equal(listEnabledSpecialCraftOperationDefinitions().length, 16, '辅助/特种工艺执行载体必须包含 16 类 operation')
 assert.equal(coveredButtonOperation?.craftCode, 'CRAFT_032768', '布包扣 operation 必须绑定权威工艺编码')
 assert.equal(coveredButtonOperation?.targetObject, '辅料', '布包扣加工单的产出对象必须是辅料')
 assert.equal(coveredButtonOperation?.quantityMode, 'MATERIAL_INPUT_OUTPUT', '布包扣必须区分 BOM 制作物料投入与辅件产出')
@@ -123,7 +123,7 @@ assert.equal(getSpecialCraftWorkOrderBusinessType(COVERED_BUTTON_OPERATION_ID), 
 assert(getProcessCraftByCode('CRAFT_3000002')?.craftName === '压褶', '压褶必须保留独立工艺身份')
 assert(getProcessCraftByCode('CRAFT_3100003')?.craftName === '打褶', '打褶必须保留独立工艺身份')
 assert.equal(getProcessCraftByLegacyValue(262144), undefined, '已淘汰的车缝映射不得保留')
-assert.equal(getProcessCraftByCode('CRAFT_3000004')?.craftName, '曲牙绣', '曲牙类只保留曲牙绣')
+assert.equal(getProcessCraftByCode('CRAFT_3000010')?.craftName, '缝边绣', '只保留统一缝边绣')
 
 const craftDictPage = read('src/pages/production-craft-dict.ts')
 const craftDictSource = read('src/data/fcs/process-craft-dict.ts')

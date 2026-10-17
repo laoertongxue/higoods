@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../data/fcs/wool-domain/store.ts'
 import {appStore} from '../state/store.ts'
 import {pieceAvailableQty} from '../data/fcs/wool-domain/stage-rules.ts'
 import {
@@ -692,16 +693,19 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
     refreshOverlay(root, order)
     return true
   }
+  const savingOverlay = state.overlay
+  void (async () => {
   const operatedAt = nowText()
   const operatedBy = getPdaSession()?.userName || 'PDA 毛织操作员'
-  const currentAction = state.overlay.action
+  const currentAction = savingOverlay.action
   const draft = draftFor(currentAction, projection)
   try {
+    await runWoolRecordCommand(() => {
     if (currentAction === 'RECEIVE_YARN' || currentAction === 'RECEIVE_PIECES') {
       throw new Error('请从统一待接收入口按来源批次确认')
     } else if (currentAction === 'REPORT_PROCESS') {
       addWoolProcessReport(order.woolOrderId, {
-        commandId: state.overlay.commandId,
+        commandId: savingOverlay.commandId,
         outputSkuCode: draft.outputSkuCode,
         reportedQty: Number(draft.qty),
         reportedAt: operatedAt,
@@ -711,7 +715,7 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
       })
     } else if (currentAction === 'HANDOVER') {
       addWoolHandover(order.woolOrderId, {
-        commandId: state.overlay.commandId,
+        commandId: savingOverlay.commandId,
         outputSkuCode: draft.outputSkuCode,
         pieceKey: draft.pieceKey,
         handoverQty: Number(draft.qty),
@@ -727,12 +731,13 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
       })
     } else {
       completeWoolWorkOrder(order.woolOrderId, {
-        commandId: state.overlay.commandId,
+        commandId: savingOverlay.commandId,
         completedAt: operatedAt,
         completedBy: operatedBy,
         remark: draft.remark,
       })
     }
+    })
     state.feedback = `${ACTION_LABELS[currentAction]}已保存，Web 端同步更新。`
     delete state.draftsByAction[currentAction]
     state.overlay = null
@@ -742,5 +747,6 @@ export function handlePdaWoolExecutionEvent(target: HTMLElement): boolean {
     state.error = error instanceof Error ? error.message : '保存失败，请检查后重试。'
     refreshOverlay(root, order)
   }
+  })()
   return true
 }

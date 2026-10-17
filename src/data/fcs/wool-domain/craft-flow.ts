@@ -2,6 +2,7 @@ import { woolSkuGenerationIssues } from './stage-rules.ts'
 import { listFactoryReceipts, listFactoryReceivingSources, registerFactoryReceivingSource } from '../factory-receiving.ts'
 import type { FactoryReceivingSource } from '../factory-receiving-types.ts'
 import { listEnabledSpecialCraftOperationDefinitions } from '../special-craft-operations.ts'
+import { getDedicatedSpecialCraftFactoryId } from '../special-craft-dedicated-factories.ts'
 import type { SpecialCraftTaskOrder } from '../special-craft-task-orders.ts'
 import { commitWoolStore, readWoolStore, type WoolDomainStore } from './store.ts'
 import { readWoolQuerySnapshot, readWoolReceivingQuerySnapshot } from './queries.ts'
@@ -30,6 +31,8 @@ export function registerWoolPieceHandover(handoverId:string, store:WoolDomainSto
   const h = store.handovers.find(h => h.handoverId === handoverId)
   if (!h?.pieceKey) return
   const order=store.workOrders[h.woolOrderId], piece=order.externalPieces.find(p=>p.pieceKey===h.pieceKey)!, node=piece.routeNodes[0]
+  const operation = listEnabledSpecialCraftOperationDefinitions().find(operation => operation.craftCode === node.craftCode)
+  if (!operation || node.factoryId !== getDedicatedSpecialCraftFactoryId(operation.operationId)) throw new Error('历史工厂归属与现行承接工厂不一致，原交出事实保留，不能向旧厂新发片；请先核对归属。')
   registerFactoryReceivingSource(sourceForBatch(order,piece,{id:h.handoverId,qty:h.handoverQty,at:h.handedOverAt,by:h.handedOverBy,
     factoryId:node.factoryId,factoryName:node.factoryName,target:node,routeNodeId:node.sourceEntryId,
     sourceFactoryId:order.factoryId,sourceFactoryName:order.factoryName}))
@@ -68,14 +71,22 @@ export function listWoolCraftTaskOrders():SpecialCraftTaskOrder[]{
       returnedQty:handed,currentQty:Math.max(0,received-completed),waitHandoverQty:Math.max(0,completed-handed),writebackQty:handed,unit:'片',
       status:facts.some(r=>r.action==='COMPLETE')?'已完结':received>0?'加工中':'待接收',abnormalStatus:'无异常',dueAt:order.plannedCompletionAt,
       createdAt:order.createdAt,updatedAt:facts.at(-1)?.operatedAt||order.updatedAt,nodeRecords:[],warehouseLinks:[],
+      validationWarnings: node.factoryId !== getDedicatedSpecialCraftFactoryId(op.operationId) ? ['历史工厂归属与现行承接工厂不一致，保留历史记录；新加工与交出已阻断，请先核对归属。'] : [],
       remark:`毛织外发片；${node.craftName}。按技术包逐片路线交接，末工艺回缝盘。`})
   }
   return result
+}
+export function getWoolCraftFactoryConflict(task: SpecialCraftTaskOrder): string {
+  const expected = getDedicatedSpecialCraftFactoryId(task.operationId)
+  return task.woolPieceKey && expected && task.factoryId !== expected
+    ? `历史承接工厂 ${task.factoryName} 与现行工艺承接工厂不一致。历史接收、加工及交出记录保留；本单暂不能继续处理，请先核对工厂归属。` : ''
 }
 export function executeWoolCraftAction(input:{taskOrderId:string;actionCode:string;qty?:number;operatorName:string;operatedAt:string;commandId:string}):void{
   const store=readWoolStore(), c=context(store,input.taskOrderId)
   if(!c)throw new Error('毛织工艺单不存在')
   const {order,piece,node,index}=c
+  const operation = listEnabledSpecialCraftOperationDefinitions().find(operation => operation.craftCode === node.craftCode)
+  if (!operation || node.factoryId !== getDedicatedSpecialCraftFactoryId(operation.operationId)) throw new Error('历史工厂归属与现行承接工厂不一致，原事实已保留，不能继续加工或交出；请先核对工厂归属。')
   if(piece.issues.length||woolSkuGenerationIssues(order, piece.skuCode).length)throw new Error('该片路线尚未确定')
   if(input.actionCode==='SPECIAL_CRAFT_CONFIRM_RECEIVE')throw new Error('请从待接收按实际交出批次确认接收毛织片')
   const action=input.actionCode==='SPECIAL_CRAFT_PROCESS_REPORT'?'PROCESS_REPORT':input.actionCode==='SPECIAL_CRAFT_SUBMIT_HANDOVER'?'HANDOVER':input.actionCode==='SPECIAL_CRAFT_COMPLETE_ORDER'?'COMPLETE':null

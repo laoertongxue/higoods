@@ -1,4 +1,5 @@
 import { validateProductionCreatedProcessSources } from './production-created-process-source-types.ts'
+import { needsSeamEmbroideryNormalization, normalizeSeamEmbroideryReferences } from './seam-embroidery-identity.ts'
 import { cuttingRecordUuid, cuttingRecordFingerprint, cuttingRecordBytesFingerprint } from './cutting/cutting-record-identity.ts'
 import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, diffCuttingRecords, type CuttingStoredRecord, type CuttingRecordSnapshot, type CuttingRecordChange, readCuttingRecordFile } from './cutting/cutting-record-repository.ts'
 
@@ -57,6 +58,7 @@ export function decodeProductionContextRecords(key: string, raw: string | null):
   if (raw === null) return []
   let data: unknown
   try { data = JSON.parse(raw) } catch { fail('上游记录格式错误') }
+  if (needsSeamEmbroideryNormalization(raw)) normalizeSeamEmbroideryReferences(data)
   if (!object(data)) fail('上游记录格式错误')
   let result: CuttingStoredRecord[]
   if (key === PRODUCTION_CONTEXT_KEYS.orders) {
@@ -152,7 +154,10 @@ function collections(key: string): string[] {
 }
 export function encodeProductionContextRecords(key: string, records: CuttingStoredRecord[]): string | null {
   const names = collections(key).map(name => prefix + name)
-  const selected = records.filter(item => names.includes(item.collection))
+  const selected = records.filter(item => names.includes(item.collection)).map(item => {
+    const raw = JSON.stringify(item.value)
+    return needsSeamEmbroideryNormalization(raw) ? { ...item, value: normalizeSeamEmbroideryReferences(JSON.parse(raw)) } : item
+  })
   if (!selected.length) return null
   const values = (name: string) => selected.filter(item => item.collection === prefix + name).map(item => item.value as Json)
   if (selected.some(item => !object(item.value))) fail('已保存来源实体格式错误')

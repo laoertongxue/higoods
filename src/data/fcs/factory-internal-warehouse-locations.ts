@@ -173,9 +173,8 @@ export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
     { areaId: 'AUX-WP-AREA-05', areaName: '打条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-06', areaName: '压褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-06'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-07', areaName: '打揽-裁片库区', shelfList: buildDefaultShelf('AUX-WP-07'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-08', areaName: '贝壳绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-08'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-09', areaName: '曲牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-09'), status: 'AVAILABLE' },
-    { areaId: 'AUX-WP-AREA-10', areaName: '一字贝绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-10'), status: 'AVAILABLE' },
+    // 合并工艺库区不代表搬移实物；原有货架和库位编号继续用于追溯。
+    { areaId: 'AUX-WP-AREA-08', areaName: '缝边绣-裁片库区', shelfList: ['08', '09', '10'].flatMap(no => buildDefaultShelf(`AUX-WP-${no}`)), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-11', areaName: '盘扣-捆条库区', shelfList: buildDefaultShelf('AUX-WP-11'), status: 'AVAILABLE', remark: '投入为捆条菲票，产出为盘扣成品' },
     { areaId: 'AUX-WP-AREA-12', areaName: '花朵-裁片库区', shelfList: buildDefaultShelf('AUX-WP-12'), status: 'AVAILABLE' },
     { areaId: 'AUX-WP-AREA-13', areaName: '打褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-13'), status: 'AVAILABLE' },

@@ -1,3 +1,5 @@
+import { canonicalSeamCraftCode, normalizeSeamEmbroideryReferences } from './fcs/seam-embroidery-identity.ts'
+import { getProcessCraftByCode } from './fcs/process-craft-dict.ts'
 export type SampleCostCurrency = 'RMB' | 'IDR'
 export type SampleCostGarmentCategory = '梭织' | '毛织' | '毛织&梭织'
 export type SampleCostMaterialType = 'fabric' | 'yarn'
@@ -39,6 +41,10 @@ export interface SampleCostMaterialLineInput {
 export type SampleCostFixedProcessOverrides = Partial<Record<SampleCostFixedProcessCode, string | number | null>>
 
 export interface SampleCostOptionalProcessInput {
+  id?: string
+  craftCode?: string
+  code?: string
+  cost?: SampleCostMoneyValue
   processName?: string
   costAmount?: string | number | null
   costCurrency?: SampleCostCurrency | string
@@ -84,6 +90,7 @@ export interface SampleCostMaterialLineRecord {
 export interface SampleCostProcessLineRecord {
   id: string
   code?: SampleCostFixedProcessCode
+  craftCode?: string
   processName: string
   cost: SampleCostMoneyValue
   costCny: number
@@ -225,8 +232,7 @@ export const sampleCostOptionalProcessOptions = [
   '打揽',
   '打条',
   '绣花',
-  '曲牙绣',
-  '贝壳绣',
+  '缝边绣',
 ]
 
 const fixedProcessItems: Record<SampleCostGarmentCategory, Array<{ code: SampleCostFixedProcessCode; label: string; amount: number; editable?: boolean }>> = {
@@ -422,12 +428,35 @@ export function normalizeSampleCostOptionalProcessRows(
   rows: SampleCostOptionalProcessInput[] | null | undefined,
 ): SampleCostOptionalProcessInput[] {
   return (rows || [])
-    .map((row) => ({
+    .map((source) => {
+      const row = normalizeSampleCostOptionalProcessIdentity(structuredClone(source))
+      return {
+      ...row,
       processName: String(row.processName || '').trim(),
-      costAmount: toSampleCostNumber(row.costAmount),
-      costCurrency: normalizeSampleCostCurrency(row.costCurrency, 'IDR'),
-    }))
+      costAmount: toSampleCostNumber(row.costAmount ?? row.cost?.amount),
+      costCurrency: normalizeSampleCostCurrency(row.costCurrency ?? row.cost?.currency, 'IDR'),
+    }})
     .filter((row) => row.processName || toSampleCostNumber(row.costAmount) > 0)
+}
+
+/** A historical cost's identity/name may change; its amount, currency and ID do not. */
+export function normalizeSampleCostOptionalProcessIdentity<T extends object>(source: T): T {
+  const code = canonicalSeamCraftCode(getSampleCostOptionalCraftCode(source))
+  const previousName = (source as {processName?:string}).processName
+  const row = normalizeSeamEmbroideryReferences(source) as T & {processName?:string;lineText?:string}
+  const definition = getProcessCraftByCode(code)
+  if (definition) {
+    row.processName = definition.craftName
+    if (previousName && typeof row.lineText === 'string') row.lineText = row.lineText.replaceAll(previousName,definition.craftName)
+  }
+  return row
+}
+
+/** An explicit custom process code is valid; a name alone is never an identity. */
+export function getSampleCostOptionalCraftCode(row: unknown): string {
+  if (!row || typeof row !== 'object') return ''
+  const value = row as SampleCostOptionalProcessInput
+  return [value.craftCode,value.code].find(code => typeof code === 'string' && code.trim())?.trim() || ''
 }
 
 function yardsToMeters(usageYards: number): number {
@@ -570,7 +599,8 @@ export function calculateSampleCostReview(input: SampleCostReviewInput): SampleC
     const cost = normalizeSampleCostMoney(line.costAmount, line.costCurrency, 'IDR')
     const costCny = convertSampleCostMoneyToCny(cost, exchangeRate)
     return {
-      id: `${processName}-${index}`,
+      id: line.id || `${processName}-${index}`,
+      craftCode: getSampleCostOptionalCraftCode(line),
       processName,
       cost,
       costCny,

@@ -688,7 +688,7 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
     const normalizedCraftName = craftName.trim()
     const meta = normalizedCraftName.includes('直喷') || normalizedCraftName.includes('烫画')
       ? { areaName: '印花厂库区', locationPrefix: 'PF' }
-      : normalizedCraftName.includes('绣') || normalizedCraftName.includes('贝壳') || normalizedCraftName.includes('曲牙绣')
+      : normalizedCraftName.includes('绣')
         ? { areaName: '毛织厂库区', locationPrefix: 'WF' }
         : normalizedCraftName.includes('打条') || normalizedCraftName.includes('压褶')
           ? { areaName: '裁片仓库区', locationPrefix: 'CP' }

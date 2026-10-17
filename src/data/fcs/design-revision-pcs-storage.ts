@@ -8,11 +8,12 @@ export const PCS_FCS_COLLECTIONS = [
 const remarkPrefix = 'higood:dye-work-order:remark:'
 const legacyKeys = ['higoods.formal-dye-execution.v1', 'higoods.formal-print-execution.v1', 'higood.formal-merged-handout-actions.v1', 'higood-factory-material-receiving-v1']
 type Row = { id: string; path: string; key: string; value: any; tuple: boolean }
-type Hooks = { getItem(key: string): string | null; setItem(key: string, raw: string): void; isStaging(): boolean }
+type Hooks = { getItem(key: string): string | null; getBaselineItem?(key: string): string | null; isPersistedRow?(key: string, rowId: string): boolean; persistenceToken?(): unknown; setItem(key: string, raw: string): void; isStaging(): boolean }
 let hooks: Hooks | undefined
+let preparingWoolBaseline = false
 const stagedRaw = new Map<string, string>()
 // 四个集合各保留一份只读合并结果；任一实际源字符串变化即重新计算。
-const mergedReads = new Map<number, { nativeRaw: string | null; localRaw: string; result: string | null }>()
+const mergedReads = new Map<number, { nativeRaw: string | null; localRaw: string; baselineRaw: string; persistenceToken: unknown; result: string | null }>()
 export function configureDesignRevisionPcsStorage(value: Hooks): void { hooks = value }
 function native(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
   let storage: Storage
@@ -59,11 +60,19 @@ function rebuild(index: number, original: any, rows: Row[]): any {
   return output
 }
 function localRows(index: number): Row[] { return JSON.parse(hooks?.getItem(PCS_FCS_COLLECTIONS[index]) ?? '[]') }
+function mergeRows(index: number, original: any, overlays: Row[], baselineRaw: string): Row[] {
+  const rows = new Map(entries(index, original).map(row => [row.id, row]))
+  const seeds = new Map((JSON.parse(baselineRaw) as Row[]).map(row => [row.id, JSON.stringify(row)]))
+  for (const row of overlays) {
+    // Fixed demonstrations fill missing records. An old user's source/receipt
+    // with the same ID keeps its factory, quantity and operation facts intact.
+    if (!rows.has(row.id) || hooks?.isPersistedRow?.(PCS_FCS_COLLECTIONS[index], row.id) || seeds.get(row.id) !== JSON.stringify(row)) rows.set(row.id, row)
+  }
+  return [...rows.values()]
+}
 function merged(index: number): any {
   const original = parse(index, native()?.getItem(legacyKeys[index]) ?? null) ?? empty(index)
-  const rows = new Map(entries(index, original).map(row => [row.id, row]))
-  localRows(index).forEach(row => rows.set(row.id, row))
-  return rebuild(index, original, [...rows.values()])
+  return rebuild(index, original, mergeRows(index, original, localRows(index), hooks?.getBaselineItem?.(PCS_FCS_COLLECTIONS[index]) ?? '[]'))
 }
 type Ownership = { orders: Set<string>; tasks: Set<string>; heads: Set<string>; records: Set<string>; sources: Set<string>; receiptLines: Set<string> }
 function ownership(documents: any[]): Ownership {
@@ -87,6 +96,7 @@ function ownership(documents: any[]): Ownership {
   for (const [, head] of documents[2]?.handoverHeadAdditions ?? []) if (own.tasks.has(head.taskId) || own.orders.has(head.sourceDocId)) own.heads.add(head.handoverId)
   for (const [id, rows] of documents[2]?.handoutRecordAdditions ?? []) if (own.heads.has(id)) for (const row of rows) own.records.add(row.recordId)
   const receiving = documents[3] ?? empty(3)
+  for (const source of receiving.sources ?? []) if (source.id?.startsWith('WDEMO-') || source.lines?.some((line: any) => line.woolOrderId || line.woolCraftOrderId || line.woolPieceKey)) own.sources.add(source.id)
   for (const source of receiving.sources ?? []) if (source.lines?.some((line: any) => own.orders.has(line.dyeOrderId) || own.orders.has(line.printingOrderId))) own.sources.add(source.id)
   // Mixed documents remain one record. Include all source documents referenced by
   // a connected delivery/receipt, instead of maintaining two versions of one receipt.
@@ -106,7 +116,7 @@ function belongs(index: number, row: Row, own: Ownership): boolean {
   if (index === 2) return own.heads.has(row.key) || own.tasks.has(row.key) || own.records.has(row.key) || own.heads.has(value.handoverId) || own.tasks.has(value.taskId)
   if (row.path === 'sources') return own.sources.has(row.key)
   if (row.path === 'deliveries' || row.path === 'receipts') return value.lines?.some((line: any) => own.sources.has(line.sourceId))
-  return own.orders.has(value.dyeOrderId) || own.orders.has(value.printingOrderId) || own.receiptLines.has(value.receiptLineId) || value.lines?.some((line: any) => own.receiptLines.has(line.receiptLineId))
+  return Boolean(value.woolOrderId) || own.orders.has(value.dyeOrderId) || own.orders.has(value.printingOrderId) || own.receiptLines.has(value.receiptLineId) || value.lines?.some((line: any) => own.receiptLines.has(line.receiptLineId))
 }
 export interface DesignRevisionLegacySlice { key: string; raw: string; legacyKey: string; legacyRaw: string; auxiliary?: Record<string, string> }
 export function enumerateLegacySlices(): DesignRevisionLegacySlice[] {
@@ -145,22 +155,26 @@ function getUnscopedDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setIt
       if (hooks?.isStaging() && stagedRaw.has(key)) return stagedRaw.get(key)!
       const index = legacyKeys.indexOf(key)
       if (index < 0) return native()?.getItem(key) ?? null
+      if (preparingWoolBaseline && index === 3) return null
       const original = native()?.getItem(key) ?? null
       const localRaw = hooks?.getItem(PCS_FCS_COLLECTIONS[index]) ?? '[]'
+      const baselineRaw = hooks?.getBaselineItem?.(PCS_FCS_COLLECTIONS[index]) ?? '[]'
+      const persistenceToken = hooks?.persistenceToken?.()
       const cached = mergedReads.get(index)
-      if (cached?.nativeRaw === original && cached.localRaw === localRaw) return cached.result
+      if (cached?.nativeRaw === original && cached.localRaw === localRaw && cached.baselineRaw === baselineRaw && cached.persistenceToken === persistenceToken) return cached.result
       const overlays = JSON.parse(localRaw) as Row[]
       let result = original
       if (overlays.length) {
         const document = parse(index, original) ?? empty(index)
-        const rows = new Map(entries(index, document).map(row => [row.id, row]))
-        overlays.forEach(row => rows.set(row.id, row))
-        result = stringify(index, rebuild(index, document, [...rows.values()]))
+        result = stringify(index, rebuild(index, document, mergeRows(index, document, overlays, baselineRaw)))
       }
-      mergedReads.set(index, { nativeRaw: original, localRaw, result })
+      mergedReads.set(index, { nativeRaw: original, localRaw, baselineRaw, persistenceToken, result })
       return result
     },
     setItem(key, raw) {
+      // Synchronous Node/domain facades may supply an explicit test storage.
+      // Browser commands still require the configured PCS transaction below.
+      if (!hooks && typeof window === 'undefined') { native()?.setItem(key, raw); return }
       if (key.startsWith(remarkPrefix) && isDesignRevisionFcsTarget(key.slice(remarkPrefix.length))) {
         if (!hooks?.isStaging()) throw new Error('设计改款备注必须通过业务动作保存。')
         const id=key.slice(remarkPrefix.length),rows=localRows(0).filter(row=>!(row.path==='remarks'&&row.key===id)); rows.push({id:`remarks/${encodeURIComponent(id)}`,path:'remarks',key:id,tuple:false,value:{id,remark:raw}}); hooks.setItem(PCS_FCS_COLLECTIONS[0],JSON.stringify(rows)); return
@@ -195,6 +209,40 @@ function getUnscopedDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setIt
   }
 }
 const cacheHooks = new Map<string, { capture(): unknown; restore(value: any): void; hydrate?(): void }>()
+/** Build the fixed receiving baseline in private memory, excluding any legacy/user rows. */
+export function prepareWoolReceivingBaseline(run: () => void): void {
+  const receiving = cacheHooks.get('receiving')
+  const before = receiving?.capture() as {cache?: Record<string, any>; receivingRevision: number} | undefined
+  let fixed: Record<string, any> | undefined
+  preparingWoolBaseline = true
+  try {
+    receiving?.restore({ cache: undefined, receivingRevision: 0 })
+    run()
+    const snapshot = receiving?.capture() as {cache?: Record<string, any>} | undefined
+    fixed = snapshot?.cache
+    if (hooks && snapshot?.cache) {
+      const own = ownership([empty(0), empty(1), empty(2), snapshot.cache])
+      hooks.setItem(PCS_FCS_COLLECTIONS[3], JSON.stringify(entries(3, snapshot.cache).filter(row => belongs(3, row, own))))
+    }
+  } finally {
+    if (receiving && before) {
+      // A synchronous domain caller may already have loaded receiving before
+      // wool's fixed baseline. Fill only missing demo facts in that cache, with
+      // every existing source/receipt still authoritative.
+      const restored = structuredClone(before)
+      let added = false
+      if (restored.cache && fixed) for (const path of ['sources','deliveries','receipts','allocations','materialUses']) {
+        const rows = restored.cache[path] ?? [], ids = new Set(rows.map((row: {id:string}) => row.id))
+        const missing = (fixed[path] ?? []).filter((row: {id:string}) => !ids.has(row.id))
+        added ||= missing.length > 0
+        restored.cache[path] = [...missing, ...rows]
+      }
+      if (added) restored.receivingRevision += 1
+      receiving.restore(restored)
+    }
+    preparingWoolBaseline = false
+  }
+}
 export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
   const storage = getUnscopedDesignRevisionFcsStorage()
   return {

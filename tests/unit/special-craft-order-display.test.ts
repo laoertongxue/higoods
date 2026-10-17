@@ -26,8 +26,9 @@ test('布包扣实际投入量与产出量分别使用原单位，不用产出�
 })
 
 test('橡筋即使旧枚举为 SAME_UNIT 也按实际米→条分开展示', () => {
-  const order = getSpecialCraftTaskOrders('SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING').find(order => order.inputPlannedQty === 685.44)!
-  assert.ok(order)
+  const source = getSpecialCraftTaskOrders('SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING')[0]
+  assert.ok(source)
+  const order = {...source, inputPlannedQty:685.44, inputReceivedQty:651.17, planQty:1600}
   assert.equal(order.quantityMode, 'SAME_UNIT')
   const result = text(renderSpecialCraftQuantities(order))
   assert.match(result, /计划投入：685.44 米/)
@@ -43,7 +44,7 @@ test('普通加工单和毛织片的已交出数量使用现有 returnedQty，�
 })
 
 test('混合工艺里的毛织片不伪称菲票，保留毛织路线和片名', () => {
-  const orders = ['AUX-OP-EMBROIDERY', 'AUX-OP-CURVED-TEETH-EMBROIDERY'].flatMap(id => getSpecialCraftTaskOrders(id)).filter(order => order.woolPieceKey)
+  const orders = ['AUX-OP-EMBROIDERY', 'AUX-OP-SEAM-EMBROIDERY'].flatMap(id => getSpecialCraftTaskOrders(id)).filter(order => order.woolPieceKey)
   assert.equal(orders.length, 22)
   resetSpecialCraftDisplayContext()
   const columns = createSpecialCraftDisplayColumns(order => order.taskOrderNo)
@@ -81,8 +82,10 @@ test('交出接收是下游实收时间，不能冒充本厂接收时间', () =>
 
 
 test('历史交出字段缺失时只读精确同单位单笔，不把缺失当零或多笔相加', () => {
-  const original = getSpecialCraftTaskOrders('AUX-OP-DALAN').find(order => order.taskOrderNo === 'AUX-202603-082-8-06')!
-  const records = getHandoverRecordsByWorkOrderId(original.taskOrderId)
+  const original = getSpecialCraftTaskOrders('AUX-OP-DALAN')[0]
+  const source = getSpecialCraftTaskOrders('AUX-OP-DALAN').flatMap(order => getHandoverRecordsByWorkOrderId(order.taskOrderId))[0]
+  assert.ok(source)
+  const records = [{...source, workOrderId:original.taskOrderId, qtyUnit:original.outputUnit || original.unit, handoverObjectQty:1000}]
   assert.equal(records.length, 1)
   const order = {...original, handedOverQty:undefined, returnedQty:undefined}
   assert.equal(resolveSpecialCraftHandedOverQty(order, records), 1000)
@@ -117,7 +120,7 @@ test('最近真实时间按发生时间比较，不依赖记录顺序且忽略�
 
 
 test('毛织片展示业务SKU，不把内部pieceKey当投入SKU', () => {
-  const order = getSpecialCraftTaskOrders('AUX-OP-CURVED-TEETH-EMBROIDERY').find(order => order.taskOrderNo === 'HJ260918-006-Q2-step1')!
+  const order = getSpecialCraftTaskOrders('AUX-OP-SEAM-EMBROIDERY').find(order => order.taskOrderNo === 'HJ260918-006-Q2-step1')!
   assert.ok(order)
   resetSpecialCraftDisplayContext()
   const input = text(createSpecialCraftDisplayColumns(order => order.taskOrderNo).find(column => column.key === 'inputs')!.render(order, 0))

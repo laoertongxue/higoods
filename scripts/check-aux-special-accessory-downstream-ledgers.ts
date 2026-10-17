@@ -302,8 +302,9 @@ function verifyDownstream(source: DownstreamSource): void {
 
 for (const chain of AUX_SPECIAL_ACCESSORY_CHAINS.filter((item) => item.kind === 'SPECIAL_CRAFT')) {
   try {
-    const order = listSpecialCraftTaskOrders().find((item) => item.operationId === chain.operationId)
-    assert(order, `${chain.id} 缺少可测试加工单`)
+    const order = listSpecialCraftTaskOrders().find((item) => item.operationId === chain.operationId && !item.woolPieceKey)
+    assert(order, `${chain.id} 缺少可测试普通加工单`)
+    assert.equal(order.generationSource, 'PRODUCTION_ORDER')
     assert.equal(getSpecialCraftTaskOrderById(order.taskOrderId)?.taskOrderId, order.taskOrderId)
     verifyDownstream({
       chainId: chain.id,
@@ -329,6 +330,14 @@ for (const chain of AUX_SPECIAL_ACCESSORY_CHAINS.filter((item) => item.kind === 
     recorder.check({ caseId: `DOWNSTREAM-${chain.id}`, chainId: chain.id, assertion: '逐工艺下游账与打印必须通过' }, () => { throw error })
   }
 }
+
+for (const order of listSpecialCraftTaskOrders().filter((item) => item.woolPieceKey)) recorder.notApplicable({
+  caseId: `DOWNSTREAM-WOOL-ROUTE-${order.taskOrderId}`,
+  chainId: AUX_SPECIAL_ACCESSORY_CHAINS.find((chain) => chain.operationId === order.operationId)?.id || order.operationId,
+  workOrderId: order.taskOrderId, workOrderNo: order.taskOrderNo,
+  assertion: '毛织片下游实收属于片路线交接，不能伪造普通仓库/QC/价格任务账',
+  evidence: { sourceKind: 'WOOL_ROUTE', sourceTaskNo: order.sourceTaskNo, woolOrderId: order.woolOrderId, pieceKey: order.woolPieceKey, routeNodeId: order.woolRouteNodeId, verificationOwner: '毛织片工艺交出／直接下游实收及当前STORE契约；本普通下游账套件不声称验证该链' },
+})
 
 try {
   const order: BindingProcessOrder | undefined = buildBindingProcessOrders()[0]
@@ -443,5 +452,5 @@ try {
 
 recorder.finish({
   chainCount: AUX_SPECIAL_ACCESSORY_CHAINS.length,
-  downstreamRule: '17 种工艺 + 捆条逐项验证交出/实收/QC/结算/打印；花边验证 Web/WLS/PMS 下游',
+  downstreamRule: '16类普通生产单工艺 + 捆条验证交出／实收／QC／结算／打印；花边验证Web/WLS/PMS；毛织路线单登记独立片工艺下游契约归属',
 })

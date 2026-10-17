@@ -9,7 +9,7 @@ test('工序工艺字典展示保留阶段、加工工艺和裁床工艺口径',
   const body = page.locator('body')
   await expect(body).toContainText('准备阶段')
 
-  for (const craft of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝绣花', '捆条']) {
+  for (const craft of ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '缝边绣', '捆条']) {
     await expect(body).toContainText(craft)
   }
 

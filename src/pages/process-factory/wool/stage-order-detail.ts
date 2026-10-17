@@ -1,3 +1,4 @@
+import { runWoolRecordCommand } from '../../../data/fcs/wool-domain/store.ts'
 import {yarnWeightText} from '../../../data/fcs/yarn-weight.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
@@ -936,7 +937,7 @@ function openEdit(actionNode: HTMLElement): void {
   state.overlayError = ''
 }
 
-function saveEdit(order: WoolWorkOrder): void {
+async function saveEdit(order: WoolWorkOrder): Promise<void> {
   if (!state.overlay || state.overlay.kind !== 'edit') return
   const overlay = state.overlay
   const afterQty = Number(readField('afterQty'))
@@ -945,7 +946,7 @@ function saveEdit(order: WoolWorkOrder): void {
     return
   }
   try {
-    changeWoolFactQty({
+    await runWoolRecordCommand(() => changeWoolFactQty({
       commandId: commandId(overlay.recordId),
       recordType: overlay.recordType,
       recordId: overlay.recordId,
@@ -954,7 +955,7 @@ function saveEdit(order: WoolWorkOrder): void {
       reason: readField('reason'),
       changedAt: nowText(),
       changedBy: currentOperator(),
-    })
+    }))
     state.overlay = null
     state.overlayError = ''
     state.feedback = '数量已修改，相关库存已按差额同步。'
@@ -1049,7 +1050,7 @@ export async function handleCraftWoolStageOrderDetailEvent(target: HTMLElement):
     return true
   }
   if (action === 'save-edit') {
-    saveEdit(order)
+    await saveEdit(order)
     return true
   }
   return false

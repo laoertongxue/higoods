@@ -3,7 +3,7 @@ import { WOOL_DISPATCH_DEMO_ORDER_IDS } from '../process-tasks.ts'
 import { getProductionOrderTechPackSnapshot } from '../production-order-tech-pack-runtime.ts'
 import { productionOrders } from '../production-orders.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks } from '../runtime-process-tasks.ts'
-import { commitWoolStore, readWoolStore, getWoolStoreRevision, type WoolDomainStore } from './store.ts'
+import { projectWoolStore, readWoolStore, getWoolStoreRevision, type WoolDomainStore } from './store.ts'
 import type {
   WoolOutputPlanLine,
   WoolWorkOrder,
@@ -383,7 +383,7 @@ export function buildWoolOrderFromRuntimeTask(taskId: string): WoolWorkOrder {
     updatedBy: '生产任务生成',
   }
   let committedOrder: WoolWorkOrder | undefined
-  const committedStore = commitWoolStore((draft) => {
+  const committedStore = projectWoolStore((draft) => {
     const conflictForTest = runtimeOrderCommitConflictForTest
     runtimeOrderCommitConflictForTest = null
     if (conflictForTest) {

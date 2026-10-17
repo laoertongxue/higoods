@@ -53,6 +53,15 @@ const PMS_ROUTE_RETIREMENT_TESTS = new Set([
 ])
 const PMS_ROUTE_RETIREMENT_CHECK = 'node --experimental-strip-types --test tests/workflow-governance/pms-retired-test-routes.test.ts'
 
+// Only canonical identity literals and associated local variable names changed.
+// This conservative AST contract cannot certify or bypass edits to legacy drivers.
+const SEAM_IDENTITY_ONLY_TESTS = new Set([
+  'tests/factory-base-connect-chain.spec.ts', 'tests/factory-capacity-profile.spec.ts',
+  'tests/factory-profile-process-abilities.spec.ts', 'tests/pattern-piece-instance-special-craft.spec.ts',
+  'tests/process-craft-dictionary-rebuild.spec.ts', 'tests/production-craft-dict-formula-layout.spec.ts',
+  'tests/production-craft-dict-output-value-rules.spec.ts',
+])
+
 const RETIRED_DISPATCH_TESTS = new Set([
   'tests/dispatch-board-assignment.spec.ts',
   'tests/capacity-dynamic-status.spec.ts',
@@ -95,6 +104,14 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     }
     if (path === 'tests/pcs-production-engineering-full-flow.spec.ts' || path === 'scripts/check-pcs-engineering-test-import-migration.ts') {
       add(fastChecks, 'node --import tsx scripts/check-pcs-engineering-test-import-migration.ts --scope worktree')
+      continue
+    }
+    if (SEAM_IDENTITY_ONLY_TESTS.has(path)) {
+      add(fastChecks, 'node --experimental-strip-types --test tests/workflow-governance/seam-test-identity-update.test.ts')
+      continue
+    }
+    if (path === 'tests/browser-contracts/wool-record-storage.test.ts') {
+      add(fastChecks, 'node --import tsx --test tests/browser-contracts/wool-record-storage.test.ts')
       continue
     }
     if (path === 'tests/helpers/pms-memory-idb.ts') {
