@@ -1,3 +1,4 @@
+import { PRINT_EXECUTION_STORAGE_KEY } from './process-execution-storage-keys.ts'
 import { buildWashingPrintDemoOrders } from './fabric-washing-mock.ts'
 import { assertFabricWashingRelease, setReadingStaticPrintHistory, withStaticPrintHistory } from './fabric-washing-gates.ts'
 import { registerWashingLedgerSnapshot, isWashingStorageTarget, withWashingStaticRead } from './fabric-washing-storage-bridge.ts'
@@ -691,7 +692,6 @@ export function applyProductionCreatedPrintSources(): void {
   }
 }
 
-const PRINT_EXECUTION_STORAGE_KEY = 'higoods.formal-print-execution.v1'
 let printMutationDepth = 0
 let printPersistenceReadError: string | null = null
 function formalPrintIds(): Set<string> {

@@ -19,7 +19,9 @@ import {
 } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
+import { getProcessOrderTaskRelationView, type ProcessOrderTaskSourceReader } from '../../../data/fcs/process-order-task-link-core.ts'
+import { readPreparedProcessOrderTaskDetail } from '../../../data/fcs/process-order-task-detail-read.ts'
+import { renderProcessOrderTaskRelationView } from '../../process-order-task-relations-view.ts'
 import {
   renderGarmentSkuConfirmDialog,
   renderCutPieceFeiTicketConfirmDialog,
@@ -127,7 +129,11 @@ function isAccessoryTarget(targetObject: string): boolean {
   return targetObject === '辅料'
 }
 
-export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrderId: string): string {
+export async function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrderId: string): Promise<string> {
+  return readPreparedProcessOrderTaskDetail((readSources) => renderSpecialCraftTaskDetail(operationSlug, taskOrderId, readSources))
+}
+
+function renderSpecialCraftTaskDetail(operationSlug: string, taskOrderId: string, readSources: ProcessOrderTaskSourceReader): string {
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   const taskOrder = getSpecialCraftTaskOrderById(decodeURIComponent(taskOrderId))
 
@@ -422,7 +428,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         </div>
       </div>
     </section>
-    ${renderProcessOrderTaskRelations(taskOrder.taskOrderId, taskOrder.productionOrderId)}
+    ${renderProcessOrderTaskRelationView(getProcessOrderTaskRelationView(readSources, taskOrder.taskOrderId, taskOrder.productionOrderId))}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <main class="min-w-0 space-y-4">
         ${renderTaskDetailTabs(taskDetailHref, activeTab)}
@@ -483,6 +489,10 @@ async function handleWoolFinalReceipt(target: HTMLElement): Promise<boolean> {
   const dialog = document.getElementById('wool-final-receipt-dialog')!
   if (action === 'close') { dialog?.remove(); return true }
   if (action !== 'receive' || !dialog) return false
+  const pathname = appStore.getState().pathname
+  const content = document.querySelector<HTMLElement>('[data-wool-final-craft-content]')
+  const isCurrentContent = () => appStore.getState().pathname === pathname
+    && (!content || (content.isConnected && document.querySelector('[data-wool-final-craft-content]') === content))
   try {
     const task = getSpecialCraftTaskOrderById(dialog.dataset.taskId!)!
     const receipts = Array.from(dialog.querySelectorAll<HTMLInputElement>('[data-wool-final-select]')).filter(input => input.checked).map(input => {
@@ -493,15 +503,21 @@ async function handleWoolFinalReceipt(target: HTMLElement): Promise<boolean> {
     })
     const [{ runDesignRevisionFcsCommand }, { executeProcessWebAction }] = await loadSpecialCraftCommandModules()
     const result = await runDesignRevisionFcsCommand(task.taskOrderId, () => executeProcessWebAction({sourceType:'SPECIAL_CRAFT',sourceId:task.taskOrderId,actionCode:'SPECIAL_CRAFT_CONFIRM_RECEIVE',operatorName:'Web 端操作员',operatedAt:new Date().toLocaleString('sv-SE'),objectType:'成衣',qtyUnit:'件',objectQty:receipts.reduce((sum,row)=>sum+row.actualReceivedQty,0),woolFinalReceipts:receipts,confirmationKey:`WEB-FINAL:${task.taskOrderId}:${dialog.dataset.command}`}))
-    dialog.remove(); showToast(result.message)
-    const content = document.querySelector<HTMLElement>('[data-wool-final-craft-content]')
+    dialog.remove()
+    if (!isCurrentContent()) return true
+    showToast(result.message)
     if (content) {
+      const html = await renderSpecialCraftTaskDetailPage(task.operationId, task.taskOrderId)
+      if (!isCurrentContent()) return true
       const template = document.createElement('template')
-      template.innerHTML = renderSpecialCraftTaskDetailPage(task.operationId, task.taskOrderId)
+      template.innerHTML = html
       const fresh = template.content.querySelector('[data-wool-final-craft-content]')
       if (fresh) content.replaceWith(fresh)
     }
-  } catch (error) { dialog.querySelector('[data-wool-final-error]')!.textContent = error instanceof Error ? error.message : String(error) }
+  } catch (error) {
+    const errorNode = dialog.querySelector('[data-wool-final-error]')
+    if (dialog.isConnected && isCurrentContent() && errorNode) errorNode.textContent = error instanceof Error ? error.message : String(error)
+  }
   return true
 }
 

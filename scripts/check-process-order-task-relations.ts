@@ -268,16 +268,18 @@ for (const woolOrder of woolOrders) {
   const woolView = getProcessOrderTaskRelationView(woolOrder.taskId)
   assert(woolView, `${woolOrder.woolOrderNo} 必须进入统一任务项关系索引`)
   assert.equal(woolView.current.documentNo, woolOrder.woolOrderNo)
-  assert.equal(woolView.current.href, `/fcs/craft/wool/work-orders/${encodeURIComponent(woolOrder.woolOrderId)}`)
+  const stagePath = woolOrder.stage === 'KNITTING' ? 'knitting-orders' : 'linking-orders'
+  assert.equal(woolView.current.href, `/fcs/craft/wool/${stagePath}/${encodeURIComponent(woolOrder.woolOrderId)}`)
   assert(woolView.demandSource.includes(woolOrder.productionOrderNo), `${woolOrder.woolOrderNo} 缺少生产单需求来源`)
   assert.equal(woolView.taskDetails.length, woolOrder.outputPlanLines.length, `${woolOrder.woolOrderNo} 任务明细必须逐产出 SKU 展开`)
   assert(
-    woolView.current.objectLabel === (woolOrder.kind === 'PART_PANEL' ? '纱线 → 毛织横机片' : '纱线 → 成衣'),
+    woolView.current.objectLabel === (woolOrder.stage === 'KNITTING' ? '纱线 → 毛织片'
+      : woolOrder.kind === 'PART_PANEL' ? '毛织片 → 毛织横机片' : '毛织片 → 成衣'),
     `${woolOrder.woolOrderNo} 的投入产出对象类型错误`,
   )
 }
 const woolDetailSource = readFileSync(join(root, 'src/pages/process-factory/wool/stage-order-detail.ts'), 'utf8')
-assert(woolDetailSource.includes('renderProcessOrderTaskRelations(order.taskId)'), '毛织加工单详情必须以生产任务身份展示统一任务项关系')
+assert(woolDetailSource.includes("order.demoSource ? '' : renderProcessOrderTaskRelations(order.sourceTaskId)"), '正式毛织加工单详情必须以原生产来源任务身份展示关系，演示单保持其原展示范围')
 
 const specialCraftOrders = listSpecialCraftTaskOrders().filter((order) => Boolean(order.sourceEntryId))
 assert(specialCraftOrders.length > 0, '辅助/特种工艺必须存在带路线 occurrence 的正式加工单')
@@ -314,6 +316,6 @@ if (sameCraftDifferentOccurrences.length > 0) {
   assert(anotherView && anotherView.current.documentId !== specialCraftView.current.documentId, '同名不同 occurrence 不得共用一张关系卡')
 }
 const specialCraftDetailSource = readFileSync(join(root, 'src/pages/process-factory/special-craft/task-detail.ts'), 'utf8')
-assert(specialCraftDetailSource.includes('renderProcessOrderTaskRelations(taskOrder.taskOrderId)'), '辅助/特种工艺详情必须按加工单 ID 展示关系，不得借来源任务 ID')
+assert(specialCraftDetailSource.includes('renderProcessOrderTaskRelationView(getProcessOrderTaskRelationView(readSources, taskOrder.taskOrderId, taskOrder.productionOrderId))'), '辅助/特种工艺详情必须按本加工单 ID 和生产单展示关系，不得借来源任务 ID')
 
 console.log(`加工单任务项关系专项检查通过：${links.length} 条显式关系，准备/生产可追溯，后道保持专用模型。`)

@@ -258,6 +258,8 @@ export function getDesignRevisionFcsStorage(): Pick<Storage, 'getItem' | 'setIte
   }
 }
 export function registerDesignRevisionFcsCacheHooks(name: string, value: { capture(): unknown; restore(value: any): void; hydrate?(): void }): void { cacheHooks.set(name, value) }
+// Top-level owner hooks exist even when no generation command has run.
+export function hasDesignRevisionFcsCacheOwner(name: 'print' | 'dye'): boolean { return cacheHooks.has(name) }
 export function captureDesignRevisionFcsCaches(): Array<[string, unknown]> { return [...cacheHooks].map(([name, hook]) => [name, hook.capture()]) }
 export function restoreDesignRevisionFcsCaches(snapshot: unknown): void { for (const [name, value] of snapshot as Array<[string, unknown]>) cacheHooks.get(name)?.restore(value) }
 

@@ -1,3 +1,4 @@
+import { DYE_EXECUTION_STORAGE_KEY } from './process-execution-storage-keys.ts'
 import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
 import { isProductionCreationSourceStage, withProductionCreationSourceStage, recordProductionCreatedProcessSource, listProductionCreatedProcessSources, shouldApplyProductionCreatedProcessSource } from './production-created-process-sources.ts'
 import {assertTmfDyeCutContinuation,assertTmfDyePrintContinuation} from './tmf-process-continuation.ts'
@@ -484,7 +485,6 @@ export function applyProductionCreatedDyeSources(): void {
   }
 }
 
-const DYE_EXECUTION_STORAGE_KEY = 'higoods.formal-dye-execution.v1'
 let dyeMutationDepth = 0
 let confirmingDyeDispatch = false
 let dyePersistenceReadError: string | null = null

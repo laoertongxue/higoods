@@ -38,6 +38,13 @@ test('reading an auxiliary work-order list does not load complete print or prepa
     'src/data/fcs/cutting/production-material-prep.ts']) assert.ok(!dependencies.has(file), file)
 })
 
+test('reading an auxiliary work-order detail does not statically load complete print or dye execution', () => {
+  const dependencies = staticDependencies('src/pages/process-factory/special-craft/task-detail.ts')
+  for (const file of ['src/data/fcs/printing-task-domain.ts', 'src/data/fcs/dyeing-task-domain.ts']) {
+    assert.ok(!dependencies.has(file), file)
+  }
+})
+
 test('handover source labels retain the original public map without execution imports', async () => {
   const leaf = await import('../../src/data/fcs/process-work-order-source-labels.ts')
   const original = await import('../../src/data/fcs/process-work-order-domain.ts')
