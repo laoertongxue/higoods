@@ -1,3 +1,4 @@
+import { staticImageThumbnail, staticImagePreview } from '../../../utils/static-image-thumbnail.ts'
 import { woolOrderGenerationIssues } from '../../../data/fcs/wool-domain/stage-rules.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { productionOrders } from '../../../data/fcs/production-orders.ts'
@@ -22,7 +23,8 @@ export function woolStageDetailPath(order: WoolWorkOrder): string { return `${wo
 
 export function renderWoolObjectImage(url: string | undefined, label: string): string {
   if (!url) return '<span class="inline-flex h-12 w-12 shrink-0 items-center rounded border border-amber-200 px-1 text-center text-[10px] text-amber-800">真实图片待补</span>'
-  return `<button type="button" class="relative h-12 w-12 shrink-0 cursor-zoom-in overflow-hidden rounded border bg-white" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(label)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(label)}大图"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
+  const preview = staticImagePreview(url)
+  return `<button type="button" class="relative h-12 w-12 shrink-0 cursor-zoom-in overflow-hidden rounded border bg-white" data-pda-image-preview-url="${escapeHtml(url)}"${preview ? ` data-pda-image-preview-display-url="${escapeHtml(preview)}"` : ''} data-pda-image-preview-title="${escapeHtml(label)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(label)}大图"><img src="${escapeHtml(staticImageThumbnail(url))}" alt="${escapeHtml(label)}" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
 }
 
 function field(label: string, value: string): string { return `<div class="leading-5"><span class="text-muted-foreground">${escapeHtml(label)}：</span><span class="break-words">${escapeHtml(value)}</span></div>` }

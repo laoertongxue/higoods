@@ -22,8 +22,9 @@ export function handlePdaImagePreviewEvent(target: HTMLElement): boolean {
 
   const openNode = target.closest<HTMLElement>('[data-pda-image-preview-url]')
   if (!openNode) return false
-  const imageUrl = safeImageUrl(openNode.dataset.pdaImagePreviewUrl)
-  if (!imageUrl) return false
+  const originalUrl = safeImageUrl(openNode.dataset.pdaImagePreviewUrl)
+  if (!originalUrl) return false
+  const imageUrl = safeImageUrl(openNode.dataset.pdaImagePreviewDisplayUrl) || originalUrl
 
   const title = openNode.dataset.pdaImagePreviewTitle?.trim() || '款式图片'
   focusReturnTarget = openNode

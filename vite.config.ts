@@ -131,7 +131,45 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           '/src/data/fcs/cutting/cutting-event-repository.ts',
           '/src/data/fcs/cutting/generated-cut-release.ts',
         ]
+        // These entry points are dynamically discovered by the existing PCS/FCS
+        // restoration sequence. Preload their static closure without evaluating
+        // them: hydration, permissions and rendering keep their original order.
+        const craftReadInitialization = [
+          '/src/data/pcs-record-runtime.ts',
+          '/src/data/pcs-record-bootstrap.ts',
+          '/src/data/fcs/design-revision-pcs-storage.ts',
+          '/src/data/fcs/wool-domain/store.ts',
+          '/src/data/fcs/production-context-records.ts',
+          '/src/data/fcs/cutting/part-ticket-records.ts',
+          '/src/data/fcs/production-context-actions.ts',
+        ]
+        const craftRouteRegistry = ['/src/router/routes-fcs.ts', '/src/router/route-renderers-fcs.ts']
+        const craftOperation = '(?:aux-op-(?:embroidery|strip|pleating|dalan|heat-transfer|direct-print|seam-embroidery|button-loop|covered-button-making|flower-making|gathering|hotfix-rhinestone)|spc-op-(?:template-process|laser-pocket|pattern-machine-sewing|elastic-fixed-length-cutting))'
+        const craftPath = '^/fcs/process-factory/special-craft/' + craftOperation + '/work-orders'
+        const craftImages = [
+          '/thumbnails/materials/pcs-reviewed/hood-grey.webp', '/thumbnails/materials/pcs-reviewed/polo-white.webp',
+          '/thumbnails/materials/pcs-reviewed/tee-navy.webp', '/thumbnails/materials/pcs-reviewed/shorts-navy.webp',
+          '/thumbnails/materials/pcs-reviewed/dress-red-print.webp', '/thumbnails/materials/pcs-reviewed/jogger-black.webp',
+          '/thumbnails/cardigan-sample.webp', '/thumbnails/production-confirmation-demo/grey-zip-hoodie.webp',
+        ]
+        const woolImages = ['/thumbnails/cardigan-sample.webp']
+        const baselineData = Object.values(context.bundle).find(item => item.type === 'asset' && /pcs-record-baseline-.*\.json$/.test(item.fileName))?.fileName || ''
         const entries = [
+          ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization, ...craftRouteRegistry,
+          ]), craftImages, craftPath + '/?$', baselineData],
+          ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/special-craft/work-order-detail.ts', ...craftReadInitialization, ...craftRouteRegistry,
+          ]), craftImages, craftPath + '/[^/]+/?$', baselineData],
+          ['/fcs/craft/wool/', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/wool/stage-orders.ts', ...craftReadInitialization,
+          ]), woolImages, '^/fcs/craft/wool/(?:knitting-orders|linking-orders)/?$', baselineData],
+          ['/fcs/craft/wool/', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/wool/stage-order-detail.ts', ...craftReadInitialization,
+          ]), woolImages, '^/fcs/craft/wool/(?:knitting-orders|linking-orders)/[^/]+/?$', baselineData],
+          ['/fcs/craft/wool/pending-receipts', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/wool/pending-receipts.ts', ...craftReadInitialization,
+          ]), woolImages, '^/fcs/(?:craft|pda)/wool/pending-receipts/?$', baselineData],
           ['/fcs/sewing-outsourcing/daily-return-report', routeStaticChunks(context.bundle, [
             '/src/pages/sewing-outsourcing/daily-return-report.ts',
             ...returnReadInitialization,
@@ -175,7 +213,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
         ]
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);if((entry[3]!==true&&location.pathname===entry[0])||genericExec){var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});break}}` }]
+          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';link.href='/'+entry[4];document.head.appendChild(link)}break}}` }]
       },
     },
   }

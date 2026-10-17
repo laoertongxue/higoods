@@ -19,6 +19,40 @@
     "thumbnail": "/thumbnails/lace-dress-sample.webp",
     "sourceSha256": "49f6db7ebcbdaf1564ac4c3f94d1ea5bcfa6382db8adeaff322c29955bc5e405"
   },
+  "/materials/accessory-elastic-band.jpg": {
+    "thumbnail": "/thumbnails/materials/accessory-elastic-band.webp",
+    "sourceSha256": "6039bd84259e99101656b0112c187be1cb1403741f1addc0b2fad0bc3afb1898",
+    "preview": "/previews/materials/accessory-elastic-band.webp",
+    "previewSha256": "84d315ffe075abb852a8f0ab5dd265f8afc6b66b444978c536e95d81f4ddde3e"
+  },
+  "/materials/fabric-main.jpg": {
+    "thumbnail": "/thumbnails/materials/fabric-main.webp",
+    "sourceSha256": "11bca49ce3bad2cab2e26629e5f70e2ec4fa368765f3bfb7b5d60065a09bcb72"
+  },
+  "/materials/fei-ticket/black-splice-fabric.png": {
+    "thumbnail": "/thumbnails/materials/fei-ticket/black-splice-fabric.webp",
+    "sourceSha256": "d79c2cfce758becdeb554d8bbca1176cfe1f63f4a58e90011010220a37279ad3",
+    "preview": "/previews/materials/fei-ticket/black-splice-fabric.webp",
+    "previewSha256": "0365417f596d6b339aa9affe083fc38973756145c795a44dd838054404608b07"
+  },
+  "/materials/fei-ticket/black-stretch-twill.png": {
+    "thumbnail": "/thumbnails/materials/fei-ticket/black-stretch-twill.webp",
+    "sourceSha256": "06d0f0c7af6bd859b745ef6fd06a7798ad15a4edc275e0042e4bb7c14d5ed4e1",
+    "preview": "/previews/materials/fei-ticket/black-stretch-twill.webp",
+    "previewSha256": "1f32ccb22958d5ef7c6194b8d59b1e5b5deab469989721ef83beffec5a6a1408"
+  },
+  "/materials/fei-ticket/fog-grey-sweatshirt-fleece.png": {
+    "thumbnail": "/thumbnails/materials/fei-ticket/fog-grey-sweatshirt-fleece.webp",
+    "sourceSha256": "7ace80a749e0c7d06a3888025707e6082acd73fe19e5aff82363be018bf3a7f3",
+    "preview": "/previews/materials/fei-ticket/fog-grey-sweatshirt-fleece.webp",
+    "previewSha256": "c3714d4c35b23d837df165ee3cd218b7b444d1e1f18ddc49c6bb6c79e154b485"
+  },
+  "/materials/fei-ticket/white-poplin.png": {
+    "thumbnail": "/thumbnails/materials/fei-ticket/white-poplin.webp",
+    "sourceSha256": "458870c433109166715b3386fc95775f334ce482d8c122397965765f214cddf3",
+    "preview": "/previews/materials/fei-ticket/white-poplin.webp",
+    "previewSha256": "92cfe8448f7276fd418c3bd956ecbb151c89377a1b010897cb6e5edabf1e18f2"
+  },
   "/materials/pcs-reviewed/aline-black.jpg": {
     "thumbnail": "/thumbnails/materials/pcs-reviewed/aline-black.webp",
     "sourceSha256": "011af1337701367e5489ca243d9798ab188285f75b9603e92c403c247be13e89"
@@ -137,7 +171,9 @@
   },
   "/materials/pcs-reviewed/hood-grey.jpg": {
     "thumbnail": "/thumbnails/materials/pcs-reviewed/hood-grey.webp",
-    "sourceSha256": "cf536b1b1d3051edcff421418b3fc463163e4fe5a82799e3fec940092460025e"
+    "sourceSha256": "cf536b1b1d3051edcff421418b3fc463163e4fe5a82799e3fec940092460025e",
+    "preview": "/previews/materials/pcs-reviewed/hood-grey.webp",
+    "previewSha256": "d22b41632aaa0c7f07b66512f8c6036e3daa8de745a513112729d23bfb3fbce4"
   },
   "/materials/pcs-reviewed/hood-white.jpg": {
     "thumbnail": "/thumbnails/materials/pcs-reviewed/hood-white.webp",
@@ -265,7 +301,9 @@
   },
   "/materials/pcs-reviewed/shirt-floral-blue.jpg": {
     "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-floral-blue.webp",
-    "sourceSha256": "b5b19d31c1a663eb437cf18fb4353e52804749b0b1d0bcbec83727e93425517e"
+    "sourceSha256": "b5b19d31c1a663eb437cf18fb4353e52804749b0b1d0bcbec83727e93425517e",
+    "preview": "/previews/materials/pcs-reviewed/shirt-floral-blue.webp",
+    "previewSha256": "8fb5ef0b9d9731da1b0e31589a17748340d48ee498d525707f67fc7118ffb4c9"
   },
   "/materials/pcs-reviewed/shirt-khaki.jpg": {
     "thumbnail": "/thumbnails/materials/pcs-reviewed/shirt-khaki.webp",
@@ -311,6 +349,10 @@
     "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-black.webp",
     "sourceSha256": "4baaa3c6c9c776fe45d2b258820c47d6d19931813935dd4a926a1b244d397fce"
   },
+  "/materials/pcs-reviewed/tee-navy.png": {
+    "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-navy.webp",
+    "sourceSha256": "6ec14b62bc528f58631b3bd39160540f3e7ada5e76da7dc56912016ef6c8058d"
+  },
   "/materials/pcs-reviewed/tee-red.jpg": {
     "thumbnail": "/thumbnails/materials/pcs-reviewed/tee-red.webp",
     "sourceSha256": "b2e5defe903646b21c67686a2d1d28165c6707c7833d169f9cc3d88e95416a30"
@@ -345,7 +387,9 @@
   },
   "/production-confirmation-demo/grey-zip-hoodie.png": {
     "thumbnail": "/thumbnails/production-confirmation-demo/grey-zip-hoodie.webp",
-    "sourceSha256": "bdfa30b2f50cb537cd13bb8b10c2eb22c685bf4b5f23e6f11c2abd28c9acf279"
+    "sourceSha256": "bdfa30b2f50cb537cd13bb8b10c2eb22c685bf4b5f23e6f11c2abd28c9acf279",
+    "preview": "/previews/production-confirmation-demo/grey-zip-hoodie.webp",
+    "previewSha256": "a7151321ec21922f4347516b3b332bfe2770c2a0a7e40845c174dc4e744f440c"
   },
   "/shirt-sample.jpg": {
     "thumbnail": "/thumbnails/shirt-sample.webp",

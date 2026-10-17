@@ -80,7 +80,7 @@ test('管理端款式与纱线大图可按钮遮罩及Esc关闭，图片失败�
    await expect(host).toHaveCount(0)
   }
  }
- await page.route('**/cardigan-sample.jpg',route=>route.abort())
+ await page.route('**/thumbnails/cardigan-sample.webp',route=>route.abort())
  await page.goto('/fcs/craft/wool/knitting-orders')
  await expect(page.locator('[data-pda-image-preview-url="/cardigan-sample.jpg"]').first()).toContainText('图片加载失败')
 })
