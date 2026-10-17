@@ -1,6 +1,6 @@
 import { localDateTimeText } from '../../utils.ts'
 import { syncPdaPickupHeadForMaterialRequest, capturePdaHandoverState, restorePdaHandoverState } from './pda-handover-events.ts'
-import {getMaterialPrepOrderProjection} from './cutting/production-material-prep.ts'
+import type { MaterialPrepOrderProjection } from './cutting/production-material-prep.ts'
 import {
   productionOrders,
   initialProductionOrderIds,
@@ -16,6 +16,8 @@ import {
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from './runtime-process-tasks.ts'
+
+type MaterialPrepProjectionReader = (prepOrderId: string) => MaterialPrepOrderProjection | null
 
 export type MaterialTaskType = 'PRINT' | 'DYE' | 'CUT' | 'SEW' | 'POST'
 export type MaterialDraftStatus = 'pending' | 'created' | 'not_applicable'
@@ -1057,9 +1059,9 @@ function getDraftById(draftId: string): MaterialRequestDraft | undefined {
   return materialRequestDrafts.find((draft) => draft.draftId === draftId)
 }
 
-function rebuildDraftLines(draft: MaterialRequestDraft): MaterialRequestDraftLine[] {
+function rebuildDraftLines(draft: MaterialRequestDraft, getMaterialPrepOrderProjection: MaterialPrepProjectionReader): MaterialRequestDraftLine[] {
   if (!initialProductionOrderIds.has(draft.productionOrderId)) {
-    prepareMaterialRequestDraftsForOrder(draft.productionOrderId)
+    prepareMaterialRequestDraftsForOrder(draft.productionOrderId, getMaterialPrepOrderProjection)
     return draft.lines.map(line => ({ ...line, selected: true, confirmedQty: line.suggestedQty }))
   }
   const order = getOrderById(draft.productionOrderId)
@@ -1072,7 +1074,7 @@ function rebuildDraftLines(draft: MaterialRequestDraft): MaterialRequestDraftLin
 }
 
 // 新正式单沿已确认配料的首消费任务生成建议，不把计划或上道理论产出当实收。
-export function prepareMaterialRequestDraftsForOrder(orderId: string): void {
+export function prepareMaterialRequestDraftsForOrder(orderId: string, getMaterialPrepOrderProjection: MaterialPrepProjectionReader): void {
   ensureMaterialRequestDraftSeedData()
   if (initialProductionOrderIds.has(orderId)) return
   const order = getOrderById(orderId)
@@ -1347,11 +1349,11 @@ export function setMaterialDraftLineConfirmedQty(
   })
 }
 
-export function restoreMaterialDraftSuggestion(draftId: string, operatorName = '跟单员'): void {
+export function restoreMaterialDraftSuggestion(draftId: string, operatorName = '跟单员', getMaterialPrepOrderProjection: MaterialPrepProjectionReader): void {
   const draft = getDraftById(draftId)
   if (!draft || draft.draftStatus === 'created') return
 
-  draft.lines = rebuildDraftLines(draft)
+  draft.lines = rebuildDraftLines(draft, getMaterialPrepOrderProjection)
   draft.needMaterial = true
   draft.draftStatus = 'pending'
   draft.materialMode = 'warehouse_delivery'
@@ -1451,6 +1453,7 @@ export function addMaterialToDraft(draftId: string, optionKeys: string[], operat
 export function confirmMaterialRequestDraft(
   draftId: string,
   operator: { id: string; name: string },
+  getMaterialPrepOrderProjection: MaterialPrepProjectionReader,
 ): { ok: true; request: MaterialRequestRecord } | { ok: false; reason: string } {
   try { return runMaterialRequestAction(() => {
   const draft = getDraftById(draftId)

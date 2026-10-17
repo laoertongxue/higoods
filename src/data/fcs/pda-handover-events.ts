@@ -39,10 +39,10 @@ import {
   installCompleteHandoutReaders,
   installPdaHandoverStateAccess,
 } from './pda-handover-handout-registry.ts'
-import {
-  PROCESS_WORK_ORDER_SOURCE_LABEL,
-  type ProcessWorkOrderSourceSnapshot,
-  type ProcessWorkOrderSourceType,
+import { PROCESS_WORK_ORDER_SOURCE_LABEL } from './process-work-order-source-labels.ts'
+import type {
+  ProcessWorkOrderSourceSnapshot,
+  ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import { resolveTerminalProcessOrderReceivingTarget } from './process-order-receiving-target.ts'
 

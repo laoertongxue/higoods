@@ -1,6 +1,6 @@
 import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { localDateTimeText } from '../../utils.ts'
-import { prepareMaterialRequestDraftsForOrder } from '../../data/fcs/material-request-drafts.ts'
+import { getMaterialRequestDraftById, prepareMaterialRequestDraftsForOrder } from '../../data/fcs/material-request-drafts.ts'
 import { completeProductionOrderManually } from '../../data/fcs/production-orders.ts'
 import {
   state,
@@ -1558,6 +1558,51 @@ function updateProductionField(
   }
 }
 
+type PreparedMaterialDraftAction = 'open-material-draft-drawer' | 'restore-material-draft-suggestion' | 'confirm-material-request-draft'
+let materialDraftActionLoading = false
+
+async function handleMaterialDraftPreparedAction(actionNode: HTMLElement, action: PreparedMaterialDraftAction): Promise<boolean> {
+  if (materialDraftActionLoading) return true
+  const isOpen = action === 'open-material-draft-drawer'
+  const orderId = actionNode.dataset.orderId
+  const draftId = actionNode.dataset.draftId
+  const drawerOrderId = state.materialDraftOrderId
+  if (isOpen ? !orderId : !draftId || !drawerOrderId) return true
+  const openingUrl = window.location.href
+  const isCurrent = () => actionNode.isConnected && window.location.href === openingUrl
+    && state.materialDraftOrderId === drawerOrderId
+  materialDraftActionLoading = true
+  try {
+    const { getMaterialPrepOrderProjection } = await import('../../data/fcs/cutting/production-material-prep.ts')
+    if (!isCurrent()) return true
+    if (isOpen) {
+      prepareMaterialRequestDraftsForOrder(orderId!, getMaterialPrepOrderProjection)
+      state.ordersActionMenuId = null
+      state.materialDraftOrderId = orderId!
+      state.materialDraftAddDraftId = null
+      state.materialDraftAddSelections = new Set<string>()
+    } else {
+      const draft = getMaterialRequestDraftById(draftId!)
+      if (!draft || draft.productionOrderId !== drawerOrderId || draft.draftStatus === 'created') {
+        showPlanMessage('接收草稿已变化，请重新打开当前订单的接收草稿。', 'error')
+        return true
+      }
+      if (action === 'restore-material-draft-suggestion') {
+        restoreMaterialDraftSuggestion(draftId!, currentUser.name, getMaterialPrepOrderProjection)
+        showPlanMessage('已恢复系统建议')
+      } else {
+        const result = confirmMaterialRequestDraft(draftId!, { id: currentUser.id, name: currentUser.name }, getMaterialPrepOrderProjection)
+        showPlanMessage(result.ok ? `接收需求已创建：${result.request.materialRequestNo}` : `创建失败：${result.reason}`, result.ok ? undefined : 'error')
+      }
+    }
+  } catch (error) {
+    if (isCurrent()) showPlanMessage(error instanceof Error ? error.message : '接收资料暂时无法读取，请重新点击当前操作。', 'error')
+  } finally {
+    materialDraftActionLoading = false
+  }
+  return true
+}
+
 export function handleProductionEvent(target: HTMLElement, event?: Event): boolean | Promise<boolean> {
   if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target, event)) return true
 
@@ -2025,14 +2070,7 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
   }
 
   if (action === 'open-material-draft-drawer') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-    prepareMaterialRequestDraftsForOrder(orderId)
-    state.ordersActionMenuId = null
-    state.materialDraftOrderId = orderId
-    state.materialDraftAddDraftId = null
-    state.materialDraftAddSelections = new Set<string>()
-    return true
+    return handleMaterialDraftPreparedAction(actionNode, action)
   }
 
   if (action === 'close-material-draft-drawer') {
@@ -2099,25 +2137,11 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
   }
 
   if (action === 'restore-material-draft-suggestion') {
-    const draftId = actionNode.dataset.draftId
-    if (!draftId) return true
-    restoreMaterialDraftSuggestion(draftId, currentUser.name)
-    showPlanMessage('已恢复系统建议')
-    return true
+    return handleMaterialDraftPreparedAction(actionNode, action)
   }
 
   if (action === 'confirm-material-request-draft') {
-    const draftId = actionNode.dataset.draftId
-    if (!draftId) return true
-
-    const result = confirmMaterialRequestDraft(draftId, { id: currentUser.id, name: currentUser.name })
-    if (!result.ok) {
-      showPlanMessage(`创建失败：${result.reason}`, 'error')
-      return true
-    }
-
-    showPlanMessage(`接收需求已创建：${result.request.materialRequestNo}`)
-    return true
+    return handleMaterialDraftPreparedAction(actionNode, action)
   }
 
   if (action === 'copy-demand-legacy') {

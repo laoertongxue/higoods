@@ -46,7 +46,8 @@ import {
   type MaterialLedgerProjection,
 } from './material-ledger.ts'
 
-export const PRODUCTION_MATERIAL_PREP_STORAGE_KEY = 'productionMaterialPrepWorkflow'
+import { PRODUCTION_MATERIAL_PREP_STORAGE_KEY, roundQty, listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './material-prep-record-read.ts'
+export { PRODUCTION_MATERIAL_PREP_STORAGE_KEY, listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './material-prep-record-read.ts'
 
 export type UpstreamSourceType = '中转仓库存' | '辅料仓库存' | '纱线仓库存' | '包材仓库存' | '采购' | '印花' | '染色' | '无上游'
 export type UpstreamProgressStatus = '已到仓可配' | '采购中' | '印花中' | '染色中' | '待到仓' | '无需跟进'
@@ -1691,10 +1692,6 @@ export const materialPrepInitialStockInputs: MaterialPrepInitialStockInput[] = [
 
 /** Frozen BOM scope for newly created orders. Never expand demo materials or manufacture stock/tasks. */
 
-
-
-
-
 /** 物料账只需识别真实 BOM 裁片单，不展开配料任务、加工单或仓储汇总。 */
 
 
@@ -2936,10 +2933,6 @@ function mergeMissingSeedRecords<T>(
   return [...cloneRecord(missingSeeds), ...cloneRecord(currentRecords)]
 }
 
-function roundQty(value: number): number {
-  return Number(Number(value || 0).toFixed(2))
-}
-
 function nowText(date = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
@@ -3316,22 +3309,6 @@ export function hydrateProductionMaterialPrepStore(
   return deserializeProductionMaterialPrepStore(storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null)
 }
 
-// 发料投影只读取已落盘确认事实，不触发历史迁移、任务生成或单位重算。
-export function listStoredConfirmedMaterialPrepRecords(
-  prepOrderId: string,
-  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
-): MaterialPrepRecord[] {
-  try {
-    const raw = storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as Partial<ProductionMaterialPrepWorkflowStore>
-    return Array.isArray(parsed.prepRecords)
-      ? parsed.prepRecords.filter(record => record?.prepOrderId === prepOrderId && record.recordStatus === 'CONFIRMED'
-        && Array.isArray(record.items) && record.items.every(item => item && Number.isFinite(item.preparedQty) && item.preparedQty >= 0))
-      : []
-  } catch { return [] }
-}
-
 export function persistProductionMaterialPrepStore(
   store: ProductionMaterialPrepWorkflowStore,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
@@ -3378,44 +3355,6 @@ function listRuntimePickupRecords(storage: BrowserStorageLike | null): PickupRec
 
 function getClosedOrder(store: ProductionMaterialPrepWorkflowStore, prepOrderId: string) {
   return store.closedOrders.find((item) => item.prepOrderId === prepOrderId) || null
-}
-
-export function getMaterialPrepRecordItems(record: MaterialPrepRecord): MaterialPrepRecordItem[] {
-  const explicitItems = Array.isArray(record.items) && record.items.length > 0
-    ? record.items
-    : [
-        {
-          prepRecordItemId: `${record.prepRecordId}:item:${record.prepLineId}`,
-          prepLineId: record.prepLineId,
-          preparedQty: record.preparedQty,
-          rollCount: record.rollCount,
-          stockWarehouseName: undefined,
-          stockWarehouseArea: '',
-          stockLocationCode: '',
-          stockAvailableQty: 0,
-          warehouseArea: record.warehouseArea,
-          locationCode: record.locationCode,
-          sourceStockEventId: record.sourceStockEventId,
-          remark: record.remark,
-        },
-      ]
-
-  return explicitItems.map((item, index) => ({
-    prepRecordItemId: item.prepRecordItemId || `${record.prepRecordId}:item:${index + 1}`,
-    prepLineId: item.prepLineId || record.prepLineId,
-    preparedQty: roundQty(Number(item.preparedQty || 0)),
-    rollCount: Math.max(Math.round(item.rollCount ?? 1), 0),
-    sourceMaterialSku: "sourceMaterialSku" in item ? item.sourceMaterialSku : undefined,
-    sourceUnit: "sourceUnit" in item ? item.sourceUnit : undefined,
-    stockWarehouseName: item.stockWarehouseName,
-    stockWarehouseArea: item.stockWarehouseArea || item.warehouseArea || record.warehouseArea,
-    stockLocationCode: item.stockLocationCode || item.locationCode || record.locationCode,
-    stockAvailableQty: Number(item.stockAvailableQty || 0),
-    warehouseArea: item.warehouseArea || record.warehouseArea,
-    locationCode: item.locationCode || record.locationCode,
-    sourceStockEventId: item.sourceStockEventId || record.sourceStockEventId,
-    remark: item.remark || record.remark,
-  }))
 }
 
 function getRecordTotalPreparedQty(record: MaterialPrepRecord): number | null {

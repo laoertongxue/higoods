@@ -1,7 +1,7 @@
 import {listWarehouseReceivingSources,getSourceActualReceipts} from './factory-receiving.ts'
 import { getOriginalPickupWarehouseHandedQty, getOriginalHandoutQuantities } from './pda-handover-events.ts'
 import { initialProductionOrderIds } from './production-orders.ts'
-import { listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './cutting/production-material-prep.ts'
+import { listStoredConfirmedMaterialPrepRecords, getMaterialPrepRecordItems } from './cutting/material-prep-record-read.ts'
 import {
   listMaterialRequestDraftsByOrder,
   listMaterialRequests,
