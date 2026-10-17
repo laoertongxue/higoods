@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { pcsRecordStore, withPcsDemoData } from '../../src/data/pcs-record-runtime.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { listEnabledSpecialCraftOperationDefinitions, canFactorySeeSpecialCraftOperation } from '../../src/data/fcs/special-craft-operations.ts'
@@ -8,6 +10,10 @@ import { renderSpecialCraftTaskOrdersPage } from '../../src/pages/process-factor
 import { canonicalSeamCraftCode, normalizeSeamEmbroideryReferences } from '../../src/data/fcs/seam-embroidery-identity.ts'
 import { buildCraftWarehouseAreas, resolveEnabledFactoryWarehouseLocation } from '../../src/data/fcs/factory-internal-warehouse-locations.ts'
 import { decodeProductionContextRecords, encodeProductionContextRecords, PRODUCTION_CONTEXT_KEYS } from '../../src/data/fcs/production-context-records.ts'
+
+// Page rendering consumes the published PCS view prepared by the real entry.
+const publishedPcs = JSON.parse(readFileSync(new URL('../../src/data/generated/pcs-record-baseline.json', import.meta.url), 'utf8'))
+withPcsDemoData(() => pcsRecordStore.setItem('higood-pcs-material-archive-store-v2', publishedPcs['higood-pcs-material-archive-store-v2']))
 
 const seamOperationId = 'AUX-OP-SEAM-EMBROIDERY'
 const retiredValues = new Set([1048576, 3000003, 3000004, 3000005])

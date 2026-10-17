@@ -1,8 +1,14 @@
+import { readFileSync } from 'node:fs'
+import { pcsRecordStore, withPcsDemoData } from '../../src/data/pcs-record-runtime.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { getHandoverRecordsByWorkOrderId } from '../../src/data/fcs/process-warehouse-domain.ts'
 import { getSpecialCraftTaskOrders } from '../../src/data/fcs/special-craft-task-orders.ts'
 import { createSpecialCraftDisplayColumns, renderSpecialCraftQuantities, resetSpecialCraftDisplayContext, resolveSpecialCraftHandedOverQty, latestSpecialCraftRecordedTime } from '../../src/pages/process-factory/special-craft/order-display.ts'
+
+// Page rendering consumes the published PCS view prepared by the real entry.
+const publishedPcs = JSON.parse(readFileSync(new URL('../../src/data/generated/pcs-record-baseline.json', import.meta.url), 'utf8'))
+withPcsDemoData(() => pcsRecordStore.setItem('higood-pcs-material-archive-store-v2', publishedPcs['higood-pcs-material-archive-store-v2']))
 
 const text = (html: string) => html.replace(/<[^>]*>/g, '')
 

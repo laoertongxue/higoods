@@ -4,7 +4,7 @@ import { getSpecialCraftBindingSummaryByTaskOrderId } from '../../../data/fcs/cu
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 import { listFactoryReceipts } from '../../../data/fcs/factory-receiving.ts'
 import { reviewedStyleImage } from '../../../data/pcs-reviewed-image-catalog.ts'
-import { getMaterialSkuRecordById } from '../../../data/pcs-material-archive-repository.ts'
+import { readPcsMaterialSkuIdentity } from '../../../data/pcs-material-sku-identity.ts'
 import { productionOrders } from '../../../data/fcs/production-orders.ts'
 import { resolveAuxiliaryWarehouseFlow } from '../../../data/fcs/special-craft-operations.ts'
 import type { SpecialCraftTaskOrder } from '../../../data/fcs/special-craft-task-orders.ts'
@@ -55,7 +55,7 @@ function buildContext(order: Order) {
   const bom = snapshot?.bomItems.find(item => lines.some(line => line.sourceBomItemId && line.sourceBomItemId === item.id))
     || snapshot?.bomItems.find(item => (item.materialSkuId || item.materialCode) === order.materialSku)
   const receiptTimes = order.woolPieceKey ? listFactoryReceipts().filter(receipt => receipt.lines.some(line => line.woolCraftOrderId === order.taskOrderId)).map(receipt => receipt.receivedAt) : []
-  const material = bom?.materialSkuId ? getMaterialSkuRecordById(bom.materialSkuId) : null
+  const material = bom?.materialSkuId ? readPcsMaterialSkuIdentity(bom.materialSkuId) : null
   return { production, snapshot, wool, piece, nodeIndex, lines, bom, material, receiptTimes, handovers: handoverRecords(order) }
 }
 

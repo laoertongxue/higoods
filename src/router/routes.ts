@@ -1,3 +1,4 @@
+import { isIsolatedCraftReadEntry } from '../main-infrastructure/craft-read-entry.ts'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import type { RouteRegistry } from './route-types'
 import { renderWlsFabricDemandBoardPage, renderWlsInboundPage, renderWlsFinishedInboundPage } from './route-renderers'
@@ -337,6 +338,16 @@ export async function resolvePage(pathname: string): Promise<string> {
   if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) {
     const { renderProductionFulfillmentPage } = await import('../pages/production-fulfillment')
     return renderProductionFulfillmentPage(normalizedPathname)
+  }
+
+  // Reuse the original renderers after the main entry has prepared PCS/FCS.
+  // Matching a bounded craft page does not require the broad FCS route table.
+  const craftOrderEntry = /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders(?:\/([^/]+))?$/.exec(normalizedPathname)
+  if (craftOrderEntry && isIsolatedCraftReadEntry(normalizedPathname)) {
+    const pages = await import('./route-renderers-fcs')
+    return craftOrderEntry[2]
+      ? pages.renderSpecialCraftWorkOrderDetailPage(craftOrderEntry[1], decodeURIComponent(craftOrderEntry[2]))
+      : pages.renderSpecialCraftTaskOrdersPage(craftOrderEntry[1])
   }
 
   // These physical workflow entries use the same existing renderers and storage

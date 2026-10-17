@@ -6,15 +6,15 @@ import ts from 'typescript'
 import { buildSpecialCraftTaskOrdersPath, listEnabledSpecialCraftOperationDefinitions } from '../../src/data/fcs/special-craft-operations.ts'
 
 const initialization = [
+  '/src/data/pms/idb-storage.ts',
   '/src/data/pcs-record-runtime.ts',
   '/src/data/pcs-record-bootstrap.ts',
   '/src/data/fcs/design-revision-pcs-storage.ts',
   '/src/data/fcs/wool-domain/store.ts',
   '/src/data/fcs/production-context-records.ts',
   '/src/data/fcs/cutting/part-ticket-records.ts',
-  '/src/data/fcs/production-context-actions.ts',
 ]
-const registry = ['/src/router/routes-fcs.ts', '/src/router/route-renderers-fcs.ts']
+const registry = ['/src/router/route-renderers-fcs.ts']
 const pages = {
   craftList: '/src/pages/process-factory/special-craft/task-orders.ts',
   craftDetail: '/src/pages/process-factory/special-craft/work-order-detail.ts',

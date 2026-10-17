@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
+import { isIsolatedCraftReadEntry } from '../../src/main-infrastructure/craft-read-entry.ts'
 import {
   getMobileTaskAccessResult,
   getMobileTaskProcessType,
@@ -149,6 +150,7 @@ test('PDA handlers wait for part-ticket hydration, and the real detail is not mo
   const events: string[] = []
   let mounted = ''
   const dependencies = {
+    isIsolatedCraftReadEntry,
     authorizedCostCleanupError: undefined,
     renderSerial: 0,
     appStore: { getState: () => ({ pathname: '/fcs/pda/exec/TASK-SEW-000513-F090-3' }) },
@@ -197,6 +199,7 @@ test('ordinary sewing detail leaves unrelated PMS initialization pending until a
     const events: string[] = []
     let pmsInitializationStarted = false
     const dependencies = {
+      isIsolatedCraftReadEntry,
       authorizedCostCleanupError: undefined,
       startPmsInitialization: () => {
         if (pmsInitializationStarted) return

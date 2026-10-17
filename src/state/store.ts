@@ -198,7 +198,11 @@ function pruneRemovedPfosTabs(allTabs: AllSystemTabs): AllSystemTabs {
   const pfosTabs = allTabs.pfos
   if (!pfosTabs) return allTabs
 
-  const nextTabs = pfosTabs.tabs.filter((tab) => !isRemovedCuttingGroupTab(tab))
+  const nextTabs = pfosTabs.tabs.filter((tab) =>
+    !isRemovedCuttingGroupTab(tab) &&
+    !(/^\/fcs\/process-factory\/special-craft\/[^/]+\/work-orders$/.test(normalizePathname(tab.href)) &&
+      !findMenuItemByPath(tab.href)),
+  )
   const nextActiveKey = nextTabs.some((tab) => tab.key === pfosTabs.activeKey)
     ? pfosTabs.activeKey
     : (nextTabs[0]?.key ?? '')

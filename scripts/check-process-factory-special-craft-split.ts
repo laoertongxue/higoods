@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData } from '../src/data/pcs-record-runtime.ts'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -41,6 +42,10 @@ const assertIncludes = (source: string, needle: string, message: string) => {
 const assertNotIncludes = (source: string, needle: string, message: string) => {
   assert(!source.includes(needle), message)
 }
+
+// The browser entry prepares published PCS records before rendering these pages.
+const publishedPcs = JSON.parse(read('src/data/generated/pcs-record-baseline.json'))
+withPcsDemoData(() => pcsRecordStore.setItem('higood-pcs-material-archive-store-v2', publishedPcs['higood-pcs-material-archive-store-v2']))
 
 const expectedAuxiliaryCrafts = ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '缝边绣',]
 const expectedSpecialTypeCrafts = ['模板工序', '激光开袋', '特种车缝（花样机）', '橡筋定长切割']

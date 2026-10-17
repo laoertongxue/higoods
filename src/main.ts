@@ -15,6 +15,7 @@ import {
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
 import { createRetryableModuleLoader } from './main-infrastructure/retryable-module-loader'
+import { isIsolatedCraftReadEntry } from './main-infrastructure/craft-read-entry'
 import { resolvePage } from './router/routes'
 import { appStore } from './state/store'
 
@@ -370,6 +371,12 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath.startsWith('/fcs/process-factory/special-craft/') && isIsolatedCraftReadEntry(pagePath)) {
+    const list = await import('./pages/process-factory/special-craft/task-orders.ts')
+    if (list.handleSpecialCraftTaskOrdersEvent(eventTarget, event)) return true
+    const detail = await import('./pages/process-factory/special-craft/task-detail.ts')
+    return detail.handleSpecialCraftTaskDetailEvent(eventTarget)
+  }
   if (pagePath === '/fcs/pda/auth/login') {
     const page = await import('./pages/pda-login.ts')
     return page.handlePdaLoginEvent(eventTarget)
@@ -944,7 +951,7 @@ async function hydratePartTicketsForEntry(normalizedPathname: string, snapshot?:
   await partTicketEntryHydration
 }
 async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string): Promise<void> {
-  // 后道仍读取生产单与裁片来源。没有保存过分配产物时，静态默认值已由
+  // 后道及限定工艺页仍读取生产单与裁片来源。没有保存过分配产物时，静态默认值已由
   // 各自来源提供，无需首次进入就加载整套车缝、结算及分配保存模块。
   // 有持久覆盖值或随后进入其他生产页面时，按原规则恢复全部分配产物。
   const productionContext = await import('./data/fcs/production-context-records.ts')
@@ -959,7 +966,7 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
   const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
     '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
     '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
-  if ((!postFinishingEntry && !dailyReturnReadEntry) || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
+  if ((!postFinishingEntry && !dailyReturnReadEntry && !isIsolatedCraftReadEntry(normalizedPathname)) || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
     productionSourceEffectsHydration ??= import('./data/fcs/production-context-actions.ts')
       .then(sourceActions => sourceActions.hydrateProductionSourceEffects())
       .catch(error => { productionSourceEffectsHydration = undefined; throw error })
@@ -1124,7 +1131,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     // 无关采购、请款和供应商列表的全部初始化，避免阻塞PDA实际任务。
     const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
       || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
-    if (!isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
+    if (!isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
     if (normalizedPathname.startsWith('/pms/')) {
       await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
     }
@@ -1366,6 +1373,16 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     }
     if (reloadForDynamicModuleLoadError(error, '路由模块')) {
       return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
+    }
+    // A material read may discover an attachment failure after the broad PCS
+    // preparation completed. Preserve that owner's reason and actual reread
+    // action only when the page consumed this exact failed collection.
+    if (isIsolatedCraftReadEntry(pathname)) {
+      const records = await import('./data/pcs-record-runtime.ts')
+      const reason = records.getPcsCollectionFailure('higood-pcs-material-archive-store-v2')
+      if (reason && error instanceof Error && error.message === reason) {
+        return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(error)
+      }
     }
     console.error('路由模块加载失败，进入降级页', error)
     if (pathname.startsWith('/pms/')) {
