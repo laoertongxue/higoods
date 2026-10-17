@@ -1,4 +1,3 @@
-import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { renderDialog } from '../../../components/ui/dialog.ts'
 import { renderButton } from '../../../components/ui/button.ts'
 import { renderWoolObjectImage } from '../wool/stage-display.ts'
@@ -20,7 +19,6 @@ import {
 } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 import {
   renderGarmentSkuConfirmDialog,
@@ -28,10 +26,7 @@ import {
   renderButtonLoopTaskActionDialog,
 } from './shared.ts'
 
-import {
-  handleProcessWebStatusActionDialogEvent,
-  openProcessWebStatusActionDialog,
-} from '../shared/web-status-action-dialog.ts'
+import { openProcessWebStatusActionDialog } from '../shared/web-status-action-dialog-view.ts'
 import {
   formatQty,
   formatSpecialCraftFactoryLabel,
@@ -47,6 +42,18 @@ import {
 } from './shared.ts'
 
 type SpecialCraftTaskDetailTab = 'overview' | 'demand' | 'warehouse' | 'events'
+
+// A read-only detail does not need execution/writeback domains. Load the same
+// commands before opening a confirmation form, then reuse them at submission.
+function loadSpecialCraftCommandModules() {
+  return Promise.all([
+    import('../../../data/fcs/design-revision-pcs-command.ts'),
+    import('../../../data/fcs/process-web-status-actions.ts'),
+    import('../shared/web-status-action-dialog.ts'),
+  ])
+}
+
+let openingSpecialCraftDialog = false
 
 const specialCraftTaskDetailTabs: Array<{ key: SpecialCraftTaskDetailTab; label: string }> = [
   { key: 'overview', label: '概览' },
@@ -484,6 +491,7 @@ async function handleWoolFinalReceipt(target: HTMLElement): Promise<boolean> {
       if (!qty.value.trim()) throw new Error('请填写已勾选批次的实收件数')
       return {handoverId,actualReceivedQty:Number(qty.value)}
     })
+    const [{ runDesignRevisionFcsCommand }, { executeProcessWebAction }] = await loadSpecialCraftCommandModules()
     const result = await runDesignRevisionFcsCommand(task.taskOrderId, () => executeProcessWebAction({sourceType:'SPECIAL_CRAFT',sourceId:task.taskOrderId,actionCode:'SPECIAL_CRAFT_CONFIRM_RECEIVE',operatorName:'Web 端操作员',operatedAt:new Date().toLocaleString('sv-SE'),objectType:'成衣',qtyUnit:'件',objectQty:receipts.reduce((sum,row)=>sum+row.actualReceivedQty,0),woolFinalReceipts:receipts,confirmationKey:`WEB-FINAL:${task.taskOrderId}:${dialog.dataset.command}`}))
     dialog.remove(); showToast(result.message)
     const content = document.querySelector<HTMLElement>('[data-wool-final-craft-content]')
@@ -498,9 +506,12 @@ async function handleWoolFinalReceipt(target: HTMLElement): Promise<boolean> {
 }
 
 export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Promise<boolean> {
+  if (openingSpecialCraftDialog && target.closest<HTMLElement>('[data-special-craft-web-action]')?.dataset.specialCraftWebAction === 'open-web-status-action-dialog') return true
   if (await handleWoolFinalReceipt(target)) return true
   if(handleWoolCraftActionUi(target))return true
-  const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
+  const dialogModule = target.closest('[data-process-web-status-action]')
+    ? await import('../shared/web-status-action-dialog.ts') : null
+  const dialogHandled = dialogModule?.handleProcessWebStatusActionDialogEvent(target, {
     toast: showToast,
     refresh: () => {
       const current = appStore.getState().pathname || '/'
@@ -509,7 +520,7 @@ export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Pr
       params.set('actionResultAt', String(Date.now()))
       appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
     },
-  })
+  }) ?? null
   if (dialogHandled !== null) return dialogHandled
 
   const taskActionNode = target.closest<HTMLElement>('[data-special-craft-task-action]')
@@ -544,103 +555,112 @@ export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Pr
       || actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
     if (isCustomDialog) {
-      if (taskOrder.woolFinalInputOrderIds?.length && actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
-        document.getElementById('wool-final-receipt-dialog')?.remove()
-        ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWoolFinalCraftReceiptDialog(taskOrder))
-        const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { document.getElementById('wool-final-receipt-dialog')?.remove(); document.removeEventListener('keydown', closeOnEscape) } }
-        document.addEventListener('keydown', closeOnEscape)
-        return true
-      }
+      if (openingSpecialCraftDialog) return true
+      openingSpecialCraftDialog = true
+      const openingPath = appStore.getState().pathname
+      try {
+        await loadSpecialCraftCommandModules()
+        if (!actionNode.isConnected || appStore.getState().pathname !== openingPath) return true
+        if (taskOrder.woolFinalInputOrderIds?.length && actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+          document.getElementById('wool-final-receipt-dialog')?.remove()
+          ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', renderWoolFinalCraftReceiptDialog(taskOrder))
+          const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { document.getElementById('wool-final-receipt-dialog')?.remove(); document.removeEventListener('keydown', closeOnEscape) } }
+          document.addEventListener('keydown', closeOnEscape)
+          return true
+        }
 
-      if (taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
-        ;(document.getElementById('app') || document.body).insertAdjacentHTML(
-          'beforeend',
-          renderButtonLoopTaskActionDialog(taskOrder, actionCode),
-        )
-        return true
-      }
-      const isGarment = taskOrder.targetObject === '成衣'
-      const isCutPiece = isCutPieceTarget(taskOrder.targetObject)
-      const lines = taskOrder.demandLines || []
-      const readonly = actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
+        if (taskOrder.quantityMode === 'TICKET_INPUT_OUTPUT') {
+          ;(document.getElementById('app') || document.body).insertAdjacentHTML(
+            'beforeend',
+            renderButtonLoopTaskActionDialog(taskOrder, actionCode),
+          )
+          return true
+        }
+        const isGarment = taskOrder.targetObject === '成衣'
+        const isCutPiece = isCutPieceTarget(taskOrder.targetObject)
+        const lines = taskOrder.demandLines || []
+        const readonly = actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
-      if (!isGarment && !isCutPiece) {
-        openProcessWebStatusActionDialog({ actionNode, sourceType: 'SPECIAL_CRAFT' })
-        return true
-      }
+        if (!isGarment && !isCutPiece) {
+          openProcessWebStatusActionDialog({ actionNode, sourceType: 'SPECIAL_CRAFT' })
+          return true
+        }
 
-      if (isGarment) {
-        const progressBySkuCode = new Map((taskOrder.lineProgress || [])
-          .filter((row) => row.lineType === 'sku' && row.skuCode)
-          .map((row) => [row.skuCode!, row]))
-        const linesWithProgress = lines.map((line) => {
-          const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
-          const progress = progressBySkuCode.get(skuCode)
-          return {
-            ...line,
-            skuCode,
-            receivedQty: progress?.receivedQty ?? 0,
-            completedQty: progress?.completedQty ?? 0,
-            returnedQty: progress?.returnedQty ?? 0,
-          }
-        })
-        const title =
-          actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐 SKU 确认实收件数'
-          : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐 SKU 确认完工件数'
-          : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐 SKU 确认交出件数'
-          : '完成加工单 - 核对汇总后完结'
-        const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, linesWithProgress, 'planPieceQty', {
-          showReceived: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' || readonly,
-          showCompleted: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' || readonly,
-          showHandover: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' || readonly,
-          readonly,
-          receivedQty: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? Math.max(taskOrder.planQty - taskOrder.receivedQty, 0) : taskOrder.receivedQty,
-          completedQty: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? Math.max(taskOrder.receivedQty - taskOrder.completedQty, 0) : taskOrder.completedQty,
-          returnedQty: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? Math.max(taskOrder.completedQty - (taskOrder.returnedQty || 0), 0) : (taskOrder.returnedQty || 0),
-        })
-        ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', dialogHtml)
-      } else {
-        const progressByFeiTicketNo = new Map((taskOrder.lineProgress || [])
-          .filter((row) => row.lineType === 'fei-ticket' && row.feiTicketNo)
-          .map((row) => [row.feiTicketNo!, row]))
-        const feiGroups = new Map<string, { feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number }>()
-        lines.forEach((line) => {
-          const ticketNos = line.feiTicketNos?.length ? line.feiTicketNos : ['无菲票']
-          const ticketQty = line.planPieceQty / ticketNos.length
-          ticketNos.forEach((ticketNo) => {
-            if (feiGroups.has(ticketNo)) {
-              feiGroups.get(ticketNo)!.planQty += ticketQty
-            } else {
-              feiGroups.set(ticketNo, { feiTicketNo: ticketNo, partName: line.partName, colorName: line.colorName, sizeCode: line.sizeCode, planQty: ticketQty })
+        if (isGarment) {
+          const progressBySkuCode = new Map((taskOrder.lineProgress || [])
+            .filter((row) => row.lineType === 'sku' && row.skuCode)
+            .map((row) => [row.skuCode!, row]))
+          const linesWithProgress = lines.map((line) => {
+            const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+            const progress = progressBySkuCode.get(skuCode)
+            return {
+              ...line,
+              skuCode,
+              receivedQty: progress?.receivedQty ?? 0,
+              completedQty: progress?.completedQty ?? 0,
+              returnedQty: progress?.returnedQty ?? 0,
             }
           })
-        })
-        const groups = [...feiGroups.values()].map((g) => {
-          const progress = progressByFeiTicketNo.get(g.feiTicketNo)
-          return {
-            ...g,
-            defaultQty: g.planQty,
-            receivedQty: progress?.receivedQty ?? 0,
-            completedQty: progress?.completedQty ?? 0,
-            returnedQty: progress?.returnedQty ?? 0,
-          }
-        })
-        const title =
-          actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐菲票确认实收数量'
-          : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐菲票确认完工数量'
-          : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐菲票确认交出数量'
-          : '完成加工单 - 核对汇总后完结'
-        const dialogHtml = renderCutPieceFeiTicketConfirmDialog(sourceId, actionCode, title, groups, {
-          showReceived: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' || readonly,
-          showCompleted: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' || readonly,
-          showHandover: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' || readonly,
-          showWriteback: readonly,
-          readonly,
-          writebackQty: taskOrder.writebackQty || 0,
-        })
-        ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', dialogHtml)
+          const title =
+            actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐 SKU 确认实收件数'
+            : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐 SKU 确认完工件数'
+            : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐 SKU 确认交出件数'
+            : '完成加工单 - 核对汇总后完结'
+          const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, linesWithProgress, 'planPieceQty', {
+            showReceived: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' || readonly,
+            showCompleted: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' || readonly,
+            showHandover: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' || readonly,
+            readonly,
+            receivedQty: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? Math.max(taskOrder.planQty - taskOrder.receivedQty, 0) : taskOrder.receivedQty,
+            completedQty: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? Math.max(taskOrder.receivedQty - taskOrder.completedQty, 0) : taskOrder.completedQty,
+            returnedQty: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? Math.max(taskOrder.completedQty - (taskOrder.returnedQty || 0), 0) : (taskOrder.returnedQty || 0),
+          })
+          ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', dialogHtml)
+        } else {
+          const progressByFeiTicketNo = new Map((taskOrder.lineProgress || [])
+            .filter((row) => row.lineType === 'fei-ticket' && row.feiTicketNo)
+            .map((row) => [row.feiTicketNo!, row]))
+          const feiGroups = new Map<string, { feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number }>()
+          lines.forEach((line) => {
+            const ticketNos = line.feiTicketNos?.length ? line.feiTicketNos : ['无菲票']
+            const ticketQty = line.planPieceQty / ticketNos.length
+            ticketNos.forEach((ticketNo) => {
+              if (feiGroups.has(ticketNo)) {
+                feiGroups.get(ticketNo)!.planQty += ticketQty
+              } else {
+                feiGroups.set(ticketNo, { feiTicketNo: ticketNo, partName: line.partName, colorName: line.colorName, sizeCode: line.sizeCode, planQty: ticketQty })
+              }
+            })
+          })
+          const groups = [...feiGroups.values()].map((g) => {
+            const progress = progressByFeiTicketNo.get(g.feiTicketNo)
+            return {
+              ...g,
+              defaultQty: g.planQty,
+              receivedQty: progress?.receivedQty ?? 0,
+              completedQty: progress?.completedQty ?? 0,
+              returnedQty: progress?.returnedQty ?? 0,
+            }
+          })
+          const title =
+            actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐菲票确认实收数量'
+            : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐菲票确认完工数量'
+            : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐菲票确认交出数量'
+            : '完成加工单 - 核对汇总后完结'
+          const dialogHtml = renderCutPieceFeiTicketConfirmDialog(sourceId, actionCode, title, groups, {
+            showReceived: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' || readonly,
+            showCompleted: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' || readonly,
+            showHandover: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' || readonly,
+            showWriteback: readonly,
+            readonly,
+            writebackQty: taskOrder.writebackQty || 0,
+          })
+          ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', dialogHtml)
+        }
+        return true
+      } finally {
+        openingSpecialCraftDialog = false
       }
-      return true
     }
 
     return true
@@ -669,6 +689,7 @@ export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Pr
       return true
     }
     try {
+      const [{ runDesignRevisionFcsCommand }, { executeProcessWebAction }] = await loadSpecialCraftCommandModules()
       const result = await runDesignRevisionFcsCommand(workOrderId, () => executeProcessWebAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrderId,
@@ -720,6 +741,7 @@ export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Pr
       })
     }
     try {
+      const [{ runDesignRevisionFcsCommand }, { executeProcessWebAction }] = await loadSpecialCraftCommandModules()
       const result = await runDesignRevisionFcsCommand(workOrderId, () => executeProcessWebAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrderId,
@@ -772,6 +794,7 @@ export async function handleSpecialCraftTaskDetailEvent(target: HTMLElement): Pr
 
     const totalQty = Object.values(feiQtyByTicketNo).reduce((s, q) => s + q, 0)
     try {
+      const [{ runDesignRevisionFcsCommand }, { executeProcessWebAction }] = await loadSpecialCraftCommandModules()
       const result = await runDesignRevisionFcsCommand(workOrderId, () => executeProcessWebAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrderId,
