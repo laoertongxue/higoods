@@ -203,3 +203,16 @@ test('required craft list baseline is discovered first at high priority, with ot
   assert.equal(links.some(link => link.as === 'fetch'), false)
   assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(pages.craftList))
 })
+
+test('storage preload priority follows its real owner after chunk coalescing', () => {
+  const bundle = fixtureBundle()
+  const storage = '/src/data/pms/idb-storage.ts'
+  delete bundle[fileFor(storage)]
+  const owner = 'assets/coalesced-owner-fixture.js'
+  bundle[owner] = { type: 'chunk', fileName: owner, modules: { [`/workspace${storage}`]: {} }, imports: ['assets/shared.js'], dynamicImports: [] }
+  const links = navigationLinks('/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders', preloadScript(bundle))
+  const modules = links.filter(link => link.rel === 'modulepreload')
+  assert.equal(modules[0].href, '/' + owner, 'restoration storage must remain first without relying on its old filename')
+  assert.equal(modules[0].fetchPriority, 'high')
+  assert.equal(modules.filter(link => link.href === '/' + owner).length, 1)
+})

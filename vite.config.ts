@@ -4,6 +4,156 @@ import { brotliCompressSync, constants, gzipSync } from 'node:zlib'
 import type { OutputBundle } from 'rollup'
 import { defineConfig, type Plugin } from 'vite'
 
+// These bounded groups share the same observable initialization dependency set.
+// Keep storage hydration, source resolvers and business owners in their original
+// dependency order. The full emitted-graph check also covers every lazy entry;
+// do not collect a new dependency closure into a group here.
+const craftStartupChunkGroups: Record<string, readonly string[]> = {
+  'wool-craft-shared': [
+    '/src/pages/process-factory/wool/craft-actions.ts',
+    '/src/pages/process-factory/wool/shared.ts',
+    '/src/pages/process-factory/wool/stage-display.ts',
+  ],
+  'generated-fei-tickets': [
+    '/src/data/fcs/cutting/generated-fei-tickets.ts',
+    '/src/data/fcs/cutting/material-ledger.ts',
+    '/src/data/fcs/cutting/material-prep-cut-order-read.ts',
+    '/src/data/fcs/cutting/material-prep-seed-identities.ts',
+    '/src/data/fcs/cutting/order-progress.ts',
+    '/src/data/fcs/cutting/qr-codes.ts',
+    '/src/data/fcs/cutting/qr-payload.ts',
+    '/src/data/fcs/cutting/spreading-differences.ts',
+    '/src/pages/process-factory/cutting/cutting-table-resource.ts',
+    '/src/pages/process-factory/cutting/marker-spreading-model.ts',
+  ],
+  'craft-order-list': [
+    '/src/data/pcs-material-sku-identity.ts',
+    '/src/pages/process-factory/special-craft/order-display.ts',
+    '/src/pages/process-factory/special-craft/task-orders.ts',
+  ],
+  'pcs-record-core': [
+    '/src/data/fcs/post-finishing-records.ts',
+    '/src/data/pcs-engineering-bom-storage.ts',
+    '/src/data/pcs-record-codec.ts',
+    '/src/data/pcs-record-db.ts',
+    '/src/data/pcs-record-position.ts',
+    '/src/data/pcs-record-runtime.ts',
+    '/src/data/pcs-record-static-versions.ts',
+  ],
+  'post-finishing-full-flow': [
+    '/src/data/fcs/kol-goto-special-flow.ts',
+    '/src/data/fcs/post-finishing-current-read-model.ts',
+    '/src/data/fcs/post-finishing-document-numbering.ts',
+    '/src/data/fcs/post-finishing-full-flow.ts',
+    '/src/data/fcs/post-finishing-operation-log.ts',
+    '/src/data/fcs/post-finishing-qc-reference.ts',
+    '/src/data/fcs/post-finishing-return-source-adapter.ts',
+    '/src/data/fcs/post-finishing-return-source-fact-bridge.ts',
+    '/src/data/fcs/ppic-daily-return.ts',
+  ],
+  'runtime-process-tasks': [
+    '/src/data/fcs/cutting/cutting-task-routing.ts',
+    '/src/data/fcs/cutting/generated-cut-orders.ts',
+    '/src/data/fcs/cutting/special-craft-release-demo-tasks.ts',
+    '/src/data/fcs/factory-receiving-wool.ts',
+    '/src/data/fcs/process-order-receiving-target.ts',
+    '/src/data/fcs/process-tasks.ts',
+    '/src/data/fcs/process-types.ts',
+    '/src/data/fcs/production-artifact-generation.ts',
+    '/src/data/fcs/production-material-bom.ts',
+    '/src/data/fcs/runtime-process-tasks.ts',
+    '/src/data/fcs/sewing-delivery-receipt-facts.ts',
+    '/src/data/fcs/special-craft-source-task-registry.ts',
+    '/src/data/fcs/task-detail-rows.ts',
+    '/src/data/fcs/task-generation-boundaries.ts',
+    '/src/data/fcs/task-handover-domain.ts',
+    '/src/data/fcs/task-qr.ts',
+    '/src/data/fcs/wool-domain/commands.ts',
+    '/src/data/fcs/wool-domain/craft-flow.ts',
+    '/src/data/fcs/wool-domain/machine-associations.ts',
+    '/src/data/fcs/wool-domain/mobile.ts',
+    '/src/data/fcs/wool-domain/mock-data.ts',
+    '/src/data/fcs/wool-domain/mock-receiving.ts',
+    '/src/data/fcs/wool-domain/piece-source.ts',
+    '/src/data/fcs/wool-domain/queries.ts',
+    '/src/data/fcs/wool-domain/stage-correction.ts',
+    '/src/data/fcs/wool-domain/stage-facts.ts',
+    '/src/data/fcs/wool-domain/stage-rules.ts',
+    '/src/data/fcs/wool-domain/store.ts',
+    '/src/data/fcs/wool-domain/tech-pack-source.ts',
+    '/src/data/fcs/wool-domain/types.ts',
+    '/src/data/fcs/wool-domain/warehouse-ledger.ts',
+  ],
+  'production-orders': [
+    '/src/data/fcs/cutting/replacement-fabric-demo.ts',
+    '/src/data/fcs/kol-goto-tech-pack-fixtures.ts',
+    '/src/data/fcs/production-frozen-snapshot.ts',
+    '/src/data/fcs/production-order-demo-tech-packs.json',
+    '/src/data/fcs/production-order-tech-pack-runtime.ts',
+    '/src/data/fcs/production-orders.ts',
+  ],
+  'craft-image-storage': [
+    '/src/data/fcs/cutting/whole-bag-handover-read-contract.ts',
+    '/src/data/pms/idb-storage.ts',
+    '/src/data/pms/runtime.ts',
+    '/src/utils/static-image-thumbnail.ts',
+    '/src/utils/static-image-thumbnails.json',
+  ],
+  'craft-display-support': [
+    '/src/components/ui/process-order-list-presentation.ts',
+    '/src/data/fcs/cutting/cutting-event-scope.ts',
+    '/src/data/fcs/cutting/cutting-record-identity.ts',
+    '/src/data/fcs/cutting/cutting-record-repository.ts',
+    '/src/data/fcs/cutting/cutting-runtime-chronology.ts',
+    '/src/data/fcs/cutting/cutting-runtime-event-ledger.ts',
+    '/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts',
+    '/src/data/fcs/cutting/part-ticket-records.ts',
+    '/src/data/fcs/cutting/storage/fei-tickets-storage.ts',
+    '/src/data/fcs/dispatch-acceptance-sla.ts',
+    '/src/data/fcs/factory-types.ts',
+    '/src/data/fcs/fcs-route-links.ts',
+    '/src/data/fcs/merged-production-task.ts',
+    '/src/data/fcs/print-service.ts',
+    '/src/data/fcs/production-context-records.ts',
+    '/src/data/fcs/production-created-process-source-types.ts',
+    '/src/data/fcs/production-material-image-assets.ts',
+    '/src/data/fcs/runtime-task-read-bridge.ts',
+    '/src/data/fcs/sewing-delivery-sla.ts',
+    '/src/data/fcs/sewing-return-calendar.ts',
+    '/src/data/fcs/store-domain-pda.ts',
+    '/src/data/fcs/task-fulfillment-policy.ts',
+    '/src/data/fcs/third-party-factory-rating.ts',
+    '/src/data/fcs/third-party-factory-trial-assessment.ts',
+    '/src/data/pcs-sample-cost-optional-cleanup.ts',
+    '/src/data/pcs-sample-cost-review-pricing.ts',
+  ],
+  'pda-handover-events': [
+    '/src/data/fcs/cutting/material-prep-record-read.ts',
+    '/src/data/fcs/factory-internal-warehouse.ts',
+    '/src/data/fcs/factory-receiving-warehouse.ts',
+    '/src/data/fcs/material-request-drafts.ts',
+    '/src/data/fcs/pda-handover-events.ts',
+    '/src/data/fcs/pda-handover-handout-registry.ts',
+    '/src/data/fcs/pda-task-mock-factory.ts',
+    '/src/data/fcs/pda-task-scenario-matrix.ts',
+    '/src/data/fcs/process-order-input-transfer-fixtures.ts',
+    '/src/data/fcs/process-work-order-source-labels.ts',
+    '/src/data/fcs/warehouse-material-execution.ts',
+    '/src/data/fcs/water-soluble-output-demos.ts',
+    '/src/data/fcs/water-soluble-pda-actor.ts',
+    '/src/data/fcs/water-soluble-task-domain.ts',
+    '/src/data/fcs/wool-domain/craft-warehouse.ts',
+  ],
+}
+
+function craftStartupChunkName(id: string): string | undefined {
+  if (id.includes('\0') || /\.css(?:$|\?)/.test(id)) return undefined
+  for (const [name, sources] of Object.entries(craftStartupChunkGroups)) {
+    if (sources.some(source => id.endsWith(source))) return name
+  }
+  return undefined
+}
+
 function ensureStaticPlaceholderAsset(root: string): void {
   const source = resolve(root, 'public/placeholder.svg')
   const target = resolve(root, 'dist-manifest/placeholder.svg')
@@ -173,6 +323,18 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           'spc-op-elastic-fixed-length-cutting': ['/thumbnails/materials/accessory-elastic-band.webp', '/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
         }
         const woolImages = ['/thumbnails/cardigan-sample.webp']
+        const priorityOwners = [
+          ['/src/data/pms/idb-storage.ts', 3],
+          ['/src/data/fcs/factory-internal-warehouse.ts', 2],
+          ['/src/data/fcs/runtime-process-tasks.ts', 2],
+          ['/src/data/fcs/cutting/transfer-bag-operations.ts', 2],
+          ['/src/data/fcs/cutting/generated-fei-tickets.ts', 2],
+        ] as const
+        const modulePriorities: Record<string, number> = {}
+        for (const [source, rank] of priorityOwners) {
+          const owner = routeStaticChunks(context.bundle, [source])[0]
+          if (owner) modulePriorities[owner] = Math.max(modulePriorities[owner] || 0, rank)
+        }
         const baselineData = Object.values(context.bundle).find(item => item.type === 'asset' && /pcs-record-baseline-.*\.json$/.test(item.fileName))?.fileName || ''
         const entries = [
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
@@ -233,7 +395,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
         ]
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var preloadData=function(){if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';if(entry[5])link.fetchPriority='high';link.href='/'+entry[4];document.head.appendChild(link)}};if(entry[5])preloadData();var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});(entry[6]?entry[6][location.pathname.split('/')[4]]||[]:entry[2]).forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(!entry[5])preloadData();break}}` }]
+          `var modulePriorities=${JSON.stringify(modulePriorities)};for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var preloadData=function(){if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';if(entry[5])link.fetchPriority='high';link.href='/'+entry[4];document.head.appendChild(link)}};if(entry[5])preloadData();var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return modulePriorities[file]||(file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1)};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(modulePriorities[file]||file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});(entry[6]?entry[6][location.pathname.split('/')[4]]||[]:entry[2]).forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(!entry[5])preloadData();break}}` }]
       },
     },
   }
@@ -258,8 +420,14 @@ function compressedPreviewAssets(): Plugin {
         '/src/data/fcs/cutting/cutting-event-repository.ts',
         '/src/data/fcs/cutting/generated-cut-release.ts',
       ]))
+      const craftFiles = new Set(routeStaticChunks(bundle, [
+        '/src/pages/process-factory/special-craft/task-orders.ts',
+        '/src/data/pms/idb-storage.ts', '/src/data/pcs-record-bootstrap.ts',
+        '/src/data/fcs/design-revision-pcs-storage.ts', '/src/data/fcs/wool-domain/store.ts',
+        '/src/data/fcs/production-context-records.ts', '/src/data/fcs/cutting/part-ticket-records.ts',
+      ]))
       for (const item of Object.values(bundle)) {
-        const critical = dailyReadFiles.has(item.fileName) || /^(?:pcs-record-baseline-|printing-task-domain-|index-|app-shared-|factory-internal-warehouse-|runtime-process-tasks-|transfer-bag-operations-|generated-fei-tickets-|ppic-|daily-return-|cut-piece-release-)/.test(item.fileName.split('/').at(-1) || '')
+        const critical = craftFiles.has(item.fileName) || dailyReadFiles.has(item.fileName) || /^(?:pcs-record-baseline-|printing-task-domain-|index-|app-shared-|factory-internal-warehouse-|runtime-process-tasks-|transfer-bag-operations-|generated-fei-tickets-|ppic-|daily-return-|cut-piece-release-)/.test(item.fileName.split('/').at(-1) || '')
         const selected = item.type === 'chunk'
           ? critical || sewingFiles.has(item.fileName) || item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
           : item.fileName.endsWith('.css') || /pcs-record-baseline-.*\.json$/.test(item.fileName)
@@ -325,30 +493,8 @@ export default defineConfig({
       output: {
         onlyExplicitManualChunks: true,
         manualChunks(id, { getModuleInfo, getModuleIds }) {
-          // Co-load bounded helper groups already required by craft lists. Keep
-          // business owners separate; do not collect their dependency graph.
-          if ([
-            '/src/data/fcs/runtime-task-read-bridge.ts',
-            '/src/data/fcs/print-service.ts',
-            '/src/data/fcs/production-material-image-assets.ts',
-            '/src/data/fcs/factory-types.ts',
-            '/src/data/fcs/cutting/storage/fei-tickets-storage.ts',
-            '/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts',
-            '/src/data/fcs/cutting/cutting-record-identity.ts',
-            '/src/components/ui/process-order-list-presentation.ts',
-            '/src/data/fcs/fcs-route-links.ts',
-            '/src/data/pcs-sample-cost-review-pricing.ts',
-            '/src/data/pcs-sample-cost-optional-cleanup.ts',
-          ].some(file => id.endsWith(file))) return 'craft-display-support'
-          if ([
-            '/src/data/fcs/task-generation-boundaries.ts',
-            '/src/data/fcs/cutting/cutting-task-routing.ts',
-            '/src/data/fcs/wool-domain/machine-associations.ts',
-          ].some(file => id.endsWith(file))) return 'craft-routing-support'
-          if ([
-            '/src/data/fcs/wool-domain/mobile.ts',
-            '/src/data/fcs/task-handover-domain.ts',
-          ].some(file => id.endsWith(file))) return 'craft-handover-support'
+          const craftChunk = craftStartupChunkName(id)
+          if (craftChunk) return craftChunk
           // Group the actual static dependency closure of the requested DDS module.
           // Keeping its 30+ small shared chunks separate serializes cold HTTP/1.1 fetches.
           const ids = [...getModuleIds()]
@@ -389,13 +535,6 @@ export default defineConfig({
             '/src/data/process-craft-dict.ts',
             '/src/data/pcs-tmf-material-reference-seeds.ts',
           ]
-          if (['sewing-return-calendar', 'task-fulfillment-policy', 'merged-production-task', 'sewing-delivery-sla']
-            .some(file => id.endsWith(`/src/data/fcs/${file}.ts`))) return 'sewing-return-policy-shared'
-          // PCS must begin its record read without waiting for the unrelated
-          // production-source modules to parse. This closure contains only the
-          // existing storage codec/runtime; business repositories stay separate.
-          if (['pcs-record-db', 'pcs-record-codec', 'pcs-record-runtime', 'pcs-record-position', 'pcs-record-static-versions', 'pcs-engineering-bom-storage']
-            .some(file => id.endsWith(`/src/data/${file}.ts`))) return 'pcs-record-core'
           if (tmfDomainModules.some(modulePath => id.includes(modulePath))) return 'tmf-domain-shared'
           if (ddsModules.has(id) && !id.endsWith('.css')) {
             // Shared shell dependencies must never pull the DDS page into other routes.

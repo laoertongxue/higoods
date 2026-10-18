@@ -605,9 +605,24 @@ export function listStatementConfirmedDeductionRows(): StatementConfirmedDeducti
 export function listStatementBuildScopes(): StatementBuildScopeViewModel[] {
   const scopeMap = new Map<string, StatementBuildScopeViewModel>()
 
-  for (const item of listStatementEligiblePreSettlementLedgers().map((ledger) =>
-    mapLedgerToStatementSourceItem(ledger, new Map()),
-  )) {
+  for (const ledger of listStatementEligiblePreSettlementLedgers()) {
+    // Scope totals need ledger facts only; full source traces belong to detail rows.
+    const isEarning = ledger.ledgerType === 'TASK_EARNING'
+    const item = {
+      settlementPartyType: 'FACTORY',
+      settlementPartyId: ledger.factoryId,
+      settlementPartyLabel: buildPartyLabel('FACTORY', ledger.factoryId),
+      settlementCycleId: ledger.settlementCycleId,
+      settlementCycleLabel: ledger.settlementCycleLabel,
+      settlementCycleStartAt: ledger.settlementCycleStartAt,
+      settlementCycleEndAt: ledger.settlementCycleEndAt,
+      plannedPrepaymentAt: ledger.plannedPrepaymentAt,
+      sourceType: isEarning ? 'TASK_EARNING' : 'QUALITY_DEDUCTION',
+      qty: ledger.qty,
+      earningAmount: isEarning ? ledger.settlementAmount : 0,
+      qualityDeductionAmount: isEarning ? 0 : ledger.settlementAmount,
+      netAmount: isEarning ? ledger.settlementAmount : -ledger.settlementAmount,
+    }
     const key = `${normalizeSettlementPartyId(item.settlementPartyId)}__${item.settlementCycleId}`
     const existed = scopeMap.get(key)
     if (existed) {
