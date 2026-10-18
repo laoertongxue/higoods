@@ -63,7 +63,7 @@ function preloadScript(bundle = fixtureBundle()): string {
   return plugin.transformIndexHtml.handler('', { bundle }).map((entry: { children: string }) => entry.children).join('\n')
 }
 
-type Link = { rel?: string; href?: string; as?: string; crossOrigin?: string }
+type Link = { rel?: string; href?: string; as?: string; crossOrigin?: string; fetchPriority?: string }
 function navigationLinks(pathname: string, script = preloadScript()): Link[] {
   const links: Link[] = []
   const context: Record<string, unknown> = {
@@ -94,7 +94,7 @@ test('all 16 canonical craft list/detail routes discover their own page and rest
       for (const trailing of ['', '/']) {
         const links = navigationLinks(`${path}${suffix}${trailing}`)
         assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(page, Boolean(suffix)), path + suffix + trailing)
-        assert.deepEqual(links.filter(link => link.as === 'fetch'), [{ rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', href: '/assets/pcs-record-baseline-fixture.json' }])
+        assert.deepEqual(links.filter(link => link.as === 'fetch'), [{ rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', ...(!suffix ? { fetchPriority: 'high' } : {}), href: '/assets/pcs-record-baseline-fixture.json' }])
       }
     }
   }
@@ -166,4 +166,28 @@ test('removing a list-only registry seed still follows a real owner static depen
   owner.imports.push(fileFor(registry[0]))
   const links = navigationLinks('/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders', preloadScript(bundle))
   assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(pages.craftList, true))
+})
+
+test('required craft list baseline is discovered first at high priority, with other entrances retaining their link order', () => {
+  for (const operation of listEnabledSpecialCraftOperationDefinitions()) {
+    const path = buildSpecialCraftTaskOrdersPath(operation)
+    for (const trailing of ['', '/']) {
+      const links = navigationLinks(path + trailing)
+      assert.deepEqual(links[0], { rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', fetchPriority: 'high', href: '/assets/pcs-record-baseline-fixture.json' }, path + trailing)
+      assert.equal(links.filter(link => link.as === 'fetch').length, 1, 'baseline must not be duplicated')
+    }
+    const detail = navigationLinks(path + '/ORDER%2F001')
+    assert.equal(detail[0].rel, 'modulepreload')
+    assert.deepEqual(detail.at(-1), { rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', href: '/assets/pcs-record-baseline-fixture.json' })
+  }
+  for (const path of ['/fcs/craft/wool/knitting-orders', '/fcs/craft/wool/linking-orders/WOOL-001', '/fcs/craft/wool/pending-receipts', '/fcs/pda/wool/pending-receipts']) {
+    const links = navigationLinks(path)
+    assert.equal(links[0].rel, 'modulepreload', path)
+    assert.deepEqual(links.at(-1), { rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', href: '/assets/pcs-record-baseline-fixture.json' }, path)
+  }
+  const bundle = fixtureBundle()
+  delete bundle['assets/pcs-record-baseline-fixture.json']
+  const links = navigationLinks('/fcs/process-factory/special-craft/aux-op-dalan/work-orders', preloadScript(bundle))
+  assert.equal(links.some(link => link.as === 'fetch'), false)
+  assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(pages.craftList))
 })
