@@ -305,6 +305,19 @@ export default defineConfig({
       output: {
         onlyExplicitManualChunks: true,
         manualChunks(id, { getModuleInfo, getModuleIds }) {
+          // The craft list always consumes these eight small leaf chunks together.
+          // Pack their 13KB of existing code into one request. Keep the business
+          // owners and their initialization separate; never collect their graph.
+          if ([
+            '/src/data/fcs/runtime-task-read-bridge.ts',
+            '/src/data/fcs/print-service.ts',
+            '/src/data/fcs/production-material-image-assets.ts',
+            '/src/data/fcs/factory-types.ts',
+            '/src/data/fcs/cutting/storage/fei-tickets-storage.ts',
+            '/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts',
+            '/src/data/fcs/cutting/cutting-record-identity.ts',
+            '/src/components/ui/process-order-list-presentation.ts',
+          ].some(file => id.endsWith(file))) return 'craft-display-support'
           // Group the actual static dependency closure of the requested DDS module.
           // Keeping its 30+ small shared chunks separate serializes cold HTTP/1.1 fetches.
           const ids = [...getModuleIds()]
