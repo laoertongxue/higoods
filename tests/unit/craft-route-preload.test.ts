@@ -126,17 +126,29 @@ test('unknown, nested, print and adjacent routes do not acquire craft/wool prelo
   ]) assert.deepEqual(navigationLinks(path), [], path)
 })
 
-test('craft images are bounded existing thumbnails plus tee-navy and preloading cannot evaluate or touch storage', () => {
+test('craft list hints cover actual first-screen images without preloading other crafts or evaluating modules', () => {
   const script = preloadScript()
-  const images = navigationLinks('/fcs/process-factory/special-craft/aux-op-dalan/work-orders', script)
-    .filter(link => link.as === 'image').map(link => link.href)
-  assert.deepEqual(images.slice().sort(), [
+  const imagesFor = (operation: string, suffix = '') => navigationLinks(`/fcs/process-factory/special-craft/${operation}/work-orders${suffix}`, script)
+    .filter(link => link.as === 'image').map(link => link.href).sort()
+  const hood = '/thumbnails/materials/pcs-reviewed/hood-grey.webp'
+  const elastic = '/thumbnails/materials/accessory-elastic-band.webp'
+  assert.deepEqual(imagesFor('aux-op-dalan'), [hood])
+  assert.deepEqual(imagesFor('aux-op-covered-button-making'), [elastic, hood])
+  assert.deepEqual(imagesFor('spc-op-elastic-fixed-length-cutting'), [elastic, hood])
+  assert.deepEqual(imagesFor('aux-op-gathering'), ['/thumbnails/materials/pcs-reviewed/tee-red.webp'])
+  assert.deepEqual(imagesFor('aux-op-dalan', '/ORDER%2F001'), [
     '/thumbnails/materials/pcs-reviewed/hood-grey.webp', '/thumbnails/materials/pcs-reviewed/polo-white.webp',
     '/thumbnails/materials/pcs-reviewed/tee-navy.webp', '/thumbnails/materials/pcs-reviewed/shorts-navy.webp',
     '/thumbnails/materials/pcs-reviewed/dress-red-print.webp', '/thumbnails/materials/pcs-reviewed/jogger-black.webp',
     '/thumbnails/cardigan-sample.webp', '/thumbnails/production-confirmation-demo/grey-zip-hoodie.webp',
   ].sort())
-  for (const image of images) assert.ok(existsSync(new URL(`../../public${image}`, import.meta.url)), image)
+  for (const operation of listEnabledSpecialCraftOperationDefinitions()) {
+    const path = buildSpecialCraftTaskOrdersPath(operation)
+    const images = navigationLinks(path, script).filter(link => link.as === 'image').map(link => link.href)
+    assert.ok(images.length >= 1 && images.length <= 2, path + ': only first-screen craft images are hinted')
+    assert.equal(new Set(images).size, images.length)
+    for (const image of images) assert.ok(existsSync(new URL(`../../public${image}`, import.meta.url)), image)
+  }
   assert.equal(script.includes('import('), false)
   assert.equal(script.includes('unrelated-lazy.js'), false, 'only static dependency closure is preloaded')
   assert.equal(new Set(navigationLinks('/fcs/process-factory/special-craft/aux-op-dalan/work-orders').map(link => link.href)).size,

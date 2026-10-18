@@ -152,12 +152,32 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           '/thumbnails/materials/pcs-reviewed/dress-red-print.webp', '/thumbnails/materials/pcs-reviewed/jogger-black.webp',
           '/thumbnails/cardigan-sample.webp', '/thumbnails/production-confirmation-demo/grey-zip-hoodie.webp',
         ]
+        // Lists need their actual first-screen images, not all other crafts' images.
+        // These are fetch hints only; the page keeps all image elements and sources.
+        const craftListImages = {
+          'aux-op-dalan': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'aux-op-strip': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'aux-op-heat-transfer': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'aux-op-direct-print': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'aux-op-covered-button-making': ['/thumbnails/materials/accessory-elastic-band.webp', '/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'aux-op-embroidery': ['/thumbnails/materials/pcs-reviewed/dress-red-print.webp'],
+          'aux-op-pleating': ['/thumbnails/materials/pcs-reviewed/jogger-black.webp'],
+          'aux-op-seam-embroidery': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'aux-op-button-loop': ['/thumbnails/materials/pcs-reviewed/polo-white.webp'],
+          'aux-op-flower-making': ['/thumbnails/materials/pcs-reviewed/jogger-black.webp'],
+          'aux-op-gathering': ['/thumbnails/materials/pcs-reviewed/tee-red.webp'],
+          'aux-op-hotfix-rhinestone': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'spc-op-template-process': ['/thumbnails/materials/pcs-reviewed/shorts-navy.webp'],
+          'spc-op-laser-pocket': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'spc-op-pattern-machine-sewing': ['/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+          'spc-op-elastic-fixed-length-cutting': ['/thumbnails/materials/accessory-elastic-band.webp', '/thumbnails/materials/pcs-reviewed/hood-grey.webp'],
+        }
         const woolImages = ['/thumbnails/cardigan-sample.webp']
         const baselineData = Object.values(context.bundle).find(item => item.type === 'asset' && /pcs-record-baseline-.*\.json$/.test(item.fileName))?.fileName || ''
         const entries = [
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization,
-          ]), craftImages, craftPath + '/?$', baselineData, true],
+          ]), [], craftPath + '/?$', baselineData, true, craftListImages],
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/special-craft/work-order-detail.ts', ...craftReadInitialization, ...craftRouteRegistry,
           ]), craftImages, craftPath + '/[^/]+/?$', baselineData],
@@ -213,7 +233,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
         ]
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var preloadData=function(){if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';if(entry[5])link.fetchPriority='high';link.href='/'+entry[4];document.head.appendChild(link)}};if(entry[5])preloadData();var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});entry[2].forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(!entry[5])preloadData();break}}` }]
+          `for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var preloadData=function(){if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';if(entry[5])link.fetchPriority='high';link.href='/'+entry[4];document.head.appendChild(link)}};if(entry[5])preloadData();var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});(entry[6]?entry[6][location.pathname.split('/')[4]]||[]:entry[2]).forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(!entry[5])preloadData();break}}` }]
       },
     },
   }
@@ -305,9 +325,8 @@ export default defineConfig({
       output: {
         onlyExplicitManualChunks: true,
         manualChunks(id, { getModuleInfo, getModuleIds }) {
-          // The craft list always consumes these eight small leaf chunks together.
-          // Pack their 13KB of existing code into one request. Keep the business
-          // owners and their initialization separate; never collect their graph.
+          // Co-load bounded helper groups already required by craft lists. Keep
+          // business owners separate; do not collect their dependency graph.
           if ([
             '/src/data/fcs/runtime-task-read-bridge.ts',
             '/src/data/fcs/print-service.ts',
@@ -317,7 +336,19 @@ export default defineConfig({
             '/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts',
             '/src/data/fcs/cutting/cutting-record-identity.ts',
             '/src/components/ui/process-order-list-presentation.ts',
+            '/src/data/fcs/fcs-route-links.ts',
+            '/src/data/pcs-sample-cost-review-pricing.ts',
+            '/src/data/pcs-sample-cost-optional-cleanup.ts',
           ].some(file => id.endsWith(file))) return 'craft-display-support'
+          if ([
+            '/src/data/fcs/task-generation-boundaries.ts',
+            '/src/data/fcs/cutting/cutting-task-routing.ts',
+            '/src/data/fcs/wool-domain/machine-associations.ts',
+          ].some(file => id.endsWith(file))) return 'craft-routing-support'
+          if ([
+            '/src/data/fcs/wool-domain/mobile.ts',
+            '/src/data/fcs/task-handover-domain.ts',
+          ].some(file => id.endsWith(file))) return 'craft-handover-support'
           // Group the actual static dependency closure of the requested DDS module.
           // Keeping its 30+ small shared chunks separate serializes cold HTTP/1.1 fetches.
           const ids = [...getModuleIds()]
@@ -358,7 +389,7 @@ export default defineConfig({
             '/src/data/process-craft-dict.ts',
             '/src/data/pcs-tmf-material-reference-seeds.ts',
           ]
-          if (['sewing-return-calendar', 'task-fulfillment-policy', 'merged-production-task']
+          if (['sewing-return-calendar', 'task-fulfillment-policy', 'merged-production-task', 'sewing-delivery-sla']
             .some(file => id.endsWith(`/src/data/fcs/${file}.ts`))) return 'sewing-return-policy-shared'
           // PCS must begin its record read without waiting for the unrelated
           // production-source modules to parse. This closure contains only the
