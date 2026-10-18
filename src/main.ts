@@ -371,6 +371,18 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/settlement/adjustments') {
+    return (await import('./pages/adjustments.ts')).handleAdjustmentsEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/settlement/statements') {
+    return (await import('./pages/statements.ts')).handleStatementsEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/quality/deduction-analysis') {
+    return (await import('./pages/deduction-analysis.ts')).handleDeductionAnalysisEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/craft/dyeing/reports') {
+    return (await import('./pages/process-factory/dyeing/events.ts')).handleCraftDyeingEvent(eventTarget)
+  }
   if (pagePath.startsWith('/fcs/process-factory/special-craft/') && isIsolatedCraftReadEntry(pagePath)) {
     const list = await import('./pages/process-factory/special-craft/task-orders.ts')
     if (list.handleSpecialCraftTaskOrdersEvent(eventTarget, event)) return true
@@ -764,6 +776,14 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 async function closeDialogsOnEscape(): Promise<boolean> {
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/settlement/statements') {
+    const page = await import('./pages/statements.ts')
+    if (!page.isStatementsDialogOpen()) return false
+    const target = document.createElement('button')
+    target.dataset.stmAction = 'close-detail'
+    return page.handleStatementsEvent(target)
+  }
+  if (['/fcs/settlement/adjustments', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports'].includes(pagePath)) return false
   if (pagePath === '/wls/finished-inbound') {
     return (await import('./pages/wls-finished-inbound.ts')).closeWlsFinishedInboundOverlays()
   }
@@ -1399,9 +1419,11 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       const reason = error instanceof Error ? error.message : '采购资料暂时无法读取。'
       return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>采购资料未能读取，当前不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">原记录没有被覆盖。恢复浏览器存储权限后重新读取。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-pms-record-retry>重新读取</button></section>`
     }
-    if (pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
+    const sourceReportEntry = /^\/fcs\/(?:settlement\/(?:adjustments|statements)|quality\/deduction-analysis|craft\/dyeing\/reports)$/.test(pathname.split('?')[0].split('#')[0])
+    if (sourceReportEntry || pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
       const reason = error instanceof Error ? error.message : String(error)
-      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
+      const recoveryHint = sourceReportEntry ? '请核对原记录，修正后重新读取；原记录没有被覆盖，请勿清除网站数据。' : '请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。'
+      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">${recoveryHint}</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
     }
     return '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>'
   }

@@ -45,9 +45,17 @@ export function latestSpecialCraftRecordedTime(values: Array<string | undefined>
     .reduce<string | undefined>((latest, value) => !latest || Date.parse(value.replace(' ', 'T')) > Date.parse(latest.replace(' ', 'T')) ? value : latest, undefined)
 }
 
+let productionSnapshots = new Map<string, ReturnType<typeof getProductionOrderTechPackSnapshot>>()
+function productionSnapshot(productionOrderId: string) {
+  if (!productionSnapshots.has(productionOrderId)) {
+    productionSnapshots.set(productionOrderId, getProductionOrderTechPackSnapshot(productionOrderId))
+  }
+  return productionSnapshots.get(productionOrderId)
+}
+
 function buildContext(order: Order) {
   const production = productionOrders.find(item => item.productionOrderId === order.productionOrderId)
-  const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
+  const snapshot = productionSnapshot(order.productionOrderId)
   const wool = order.woolOrderId ? readWoolQuerySnapshot().workOrders[order.woolOrderId] : undefined
   const piece = wool?.externalPieces.find(item => item.pieceKey === order.woolPieceKey)
   const nodeIndex = piece?.routeNodes.findIndex(item => item.sourceEntryId === order.woolRouteNodeId) ?? -1
@@ -60,7 +68,7 @@ function buildContext(order: Order) {
 }
 
 let contexts = new WeakMap<Order, ReturnType<typeof buildContext>>()
-export function resetSpecialCraftDisplayContext(): void { contexts = new WeakMap(); handoversByOrder = undefined }
+export function resetSpecialCraftDisplayContext(): void { contexts = new WeakMap(); handoversByOrder = undefined; productionSnapshots = new Map() }
 function context(order: Order) {
   let result = contexts.get(order)
   if (!result) { result = buildContext(order); contexts.set(order, result) }

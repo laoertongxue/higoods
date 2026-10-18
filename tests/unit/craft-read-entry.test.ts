@@ -92,3 +92,10 @@ test('helper has no imports and evaluates/calls without browser, storage or fetc
   assert.equal(predicate('/fcs/pda/exec/%FF%3AKNITTING'), false)
   assert.equal(predicate('/pms/purchase-suggestions'), false)
 })
+
+test('four affected settlement/quality/dye-report read entries are exact and do not include action or detail routes', () => {
+  for (const base of ['/fcs/settlement/adjustments', '/fcs/settlement/statements', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
+    for (const path of [base, base + '?source=list', base + '#details']) assert.equal(isIsolatedCraftReadEntry(path), true, path)
+    for (const suffix of ['-extra', '/', '/detail', '//']) assert.equal(isIsolatedCraftReadEntry(base + suffix), false, base + suffix)
+  }
+})

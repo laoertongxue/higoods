@@ -3,7 +3,7 @@ import { renderButton } from '../../../components/ui/button.ts'
 import { renderWoolObjectImage } from '../wool/stage-display.ts'
 import type { SpecialCraftTaskOrder } from '../../../data/fcs/special-craft-task-orders.ts'
 import { renderWoolCraftDetail,handleWoolCraftActionUi } from '../wool/craft-actions.ts'
-import { renderSpecialCraftProductIdentity, renderSpecialCraftMaterialIdentity } from './order-display.ts'
+import { renderSpecialCraftProductIdentity, renderSpecialCraftMaterialIdentity, resetSpecialCraftDisplayContext } from './order-display.ts'
 import {
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftTaskOrdersPath,
@@ -130,7 +130,10 @@ function isAccessoryTarget(targetObject: string): boolean {
 }
 
 export async function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrderId: string): Promise<string> {
-  return readPreparedProcessOrderTaskDetail((readSources) => renderSpecialCraftTaskDetail(operationSlug, taskOrderId, readSources))
+  return readPreparedProcessOrderTaskDetail((readSources) => {
+    resetSpecialCraftDisplayContext()
+    return renderSpecialCraftTaskDetail(operationSlug, taskOrderId, readSources)
+  })
 }
 
 function renderSpecialCraftTaskDetail(operationSlug: string, taskOrderId: string, readSources: ProcessOrderTaskSourceReader): string {

@@ -342,6 +342,15 @@ export async function resolvePage(pathname: string): Promise<string> {
 
   // Reuse the original renderers after the main entry has prepared PCS/FCS.
   // Matching a bounded craft page does not require the broad FCS route table.
+  if (/^\/fcs\/(?:settlement\/(?:adjustments|statements)|quality\/deduction-analysis|craft\/dyeing\/reports)$/.test(normalizedPathname)) {
+    // Keep the original wrappers: dyeing reports still restore washing records
+    // and show the same recovery message if that restoration fails.
+    const pages = await import('./route-renderers-fcs')
+    if (normalizedPathname === '/fcs/settlement/adjustments') return pages.renderAdjustmentsPage()
+    if (normalizedPathname === '/fcs/settlement/statements') return pages.renderStatementsPage()
+    if (normalizedPathname === '/fcs/quality/deduction-analysis') return pages.renderDeductionAnalysisPage()
+    return pages.renderCraftDyeingReportsPage()
+  }
   const craftOrderEntry = /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders(?:\/([^/]+))?$/.exec(normalizedPathname)
   if (craftOrderEntry && isIsolatedCraftReadEntry(normalizedPathname)) {
     if (!craftOrderEntry[2]) {

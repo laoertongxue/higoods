@@ -294,6 +294,9 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           '/src/data/fcs/cutting/part-ticket-records.ts',
         ]
         const craftRouteRegistry = ['/src/router/route-renderers-fcs.ts']
+        // These are the original awaited restoration dependencies. Their bytes
+        // must arrive before restoration can run alongside render-only downloads.
+        const craftReadGateFiles = routeStaticChunks(context.bundle, craftReadInitialization)
         const craftOperation = '(?:aux-op-(?:embroidery|strip|pleating|dalan|heat-transfer|direct-print|seam-embroidery|button-loop|covered-button-making|flower-making|gathering|hotfix-rhinestone)|spc-op-(?:template-process|laser-pocket|pattern-machine-sewing|elastic-fixed-length-cutting))'
         const craftPath = '^/fcs/process-factory/special-craft/' + craftOperation + '/work-orders'
         const craftImages = [
@@ -337,6 +340,18 @@ function preloadStaticFirstScreenRoutes(): Plugin {
         }
         const baselineData = Object.values(context.bundle).find(item => item.type === 'asset' && /pcs-record-baseline-.*\.json$/.test(item.fileName))?.fileName || ''
         const entries = [
+          ...[
+            ['/fcs/settlement/adjustments', '/src/pages/adjustments.ts'],
+            ['/fcs/settlement/statements', '/src/pages/statements.ts'],
+            ['/fcs/quality/deduction-analysis', '/src/pages/deduction-analysis.ts'],
+          ].map(([path, source]) => [path, routeStaticChunks(context.bundle!, [source, ...craftRouteRegistry,
+            '/src/data/pms/idb-storage.ts', '/src/data/fcs/production-context-records.ts',
+            '/src/data/fcs/cutting/part-ticket-records.ts',
+          ]), [], '^' + path + '$']),
+          ['/fcs/craft/dyeing/reports', routeStaticChunks(context.bundle, [
+            '/src/pages/process-factory/dyeing/reports.ts', ...craftRouteRegistry, ...craftReadInitialization,
+            '/src/data/fcs/fabric-washing.ts', '/src/data/fcs/fabric-washing-repository.ts',
+          ]), [], '^/fcs/craft/dyeing/reports$', baselineData],
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization,
           ]), [], craftPath + '/?$', baselineData, true, craftListImages],
@@ -395,7 +410,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
           ['/pcs/products/specifications', [], ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']],
         ]
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `var modulePriorities=${JSON.stringify(modulePriorities)};for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var preloadData=function(){if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';if(entry[5])link.fetchPriority='high';link.href='/'+entry[4];document.head.appendChild(link)}};if(entry[5])preloadData();var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){return modulePriorities[file]||(file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1)};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(modulePriorities[file]||file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});(entry[6]?entry[6][location.pathname.split('/')[4]]||[]:entry[2]).forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(!entry[5])preloadData();break}}` }]
+          `var craftReadGateFiles=${JSON.stringify(craftReadGateFiles)},modulePriorities=${JSON.stringify(modulePriorities)};for(var entry of ${JSON.stringify(entries)}){var genericExec=entry[3]===true&&new RegExp('^/fcs/pda/exec/[^/]+$').test(location.pathname)&&!location.pathname.startsWith('/fcs/pda/exec/PF-POST-')&&!/(?:[:]|%3A)(?:KNITTING|LINKING)$/i.test(location.pathname);var craftRead=typeof entry[3]==='string'&&new RegExp(entry[3]).test(location.pathname);if((entry[3]===undefined&&location.pathname===entry[0])||genericExec||craftRead){var preloadData=function(){if(entry[4]){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';if(entry[5])link.fetchPriority='high';link.href='/'+entry[4];document.head.appendChild(link)}};if(entry[5])preloadData();var returnRead=entry[0].startsWith('/fcs/')&&entry[0]!=='/fcs/pda/auth/login';var modules=returnRead?entry[1].slice().sort(function(a,b){var rank=function(file){if(entry[5])return craftReadGateFiles.includes(file)?(modulePriorities[file]===3?4:3):1;return modulePriorities[file]||(file.includes('/idb-storage-')?3:/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file)?2:1)};return rank(b)-rank(a)}):entry[1];modules.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';if(returnRead&&(entry[5]?craftReadGateFiles.includes(file):(modulePriorities[file]||file.includes('/idb-storage-')||/(?:factory-internal-warehouse|runtime-process-tasks|transfer-bag-operations|generated-fei-tickets)-/.test(file))))link.fetchPriority='high';link.href='/'+file;document.head.appendChild(link)});(entry[6]?entry[6][location.pathname.split('/')[4]]||[]:entry[2]).forEach(function(src){var link=document.createElement('link');link.rel='preload';link.as='image';if(returnRead)link.fetchPriority='high';link.href=src;document.head.appendChild(link)});if(!entry[5])preloadData();break}}` }]
       },
     },
   }

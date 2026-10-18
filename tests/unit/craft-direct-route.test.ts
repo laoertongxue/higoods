@@ -57,3 +57,38 @@ test('list owner import failure propagates to the existing main error boundary',
   assert.deepEqual(session.ownerImports, ['../pages/process-factory/special-craft/task-orders'])
   assert.deepEqual(session.calls, [])
 })
+
+test('affected four exact routes call the original lazy wrapper, including dyeing restoration and failure boundaries', async () => {
+  const source = readFileSync(new URL('../../src/router/routes.ts', import.meta.url), 'utf8')
+  const ast = ts.createSourceFile('routes.ts', source, ts.ScriptTarget.Latest, true)
+  const fn = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'resolvePage')!
+  const code = ts.transpileModule(fn.getText(ast).replace('export ', '').replaceAll('import(', 'loadModule('), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const expected = new Map([
+    ['/fcs/settlement/adjustments', 'renderAdjustmentsPage'],
+    ['/fcs/settlement/statements', 'renderStatementsPage'],
+    ['/fcs/quality/deduction-analysis', 'renderDeductionAnalysisPage'],
+    ['/fcs/craft/dyeing/reports', 'renderCraftDyeingReportsPage'],
+  ])
+  const calls: string[] = [], state = { failure: false }
+  const wrappers = Object.fromEntries([...expected.values()].map(name => [name, () => { calls.push(name);if (state.failure) throw Error('original wrapper failure');return name }]))
+  const dependencies = {
+    isIsolatedCraftReadEntry, normalizePathname: (path: string) => path.split(/[?#]/)[0], exactBaseRoutes: {},
+    loadModule: async (path: string) => { assert.equal(path, './route-renderers-fcs');calls.push('wrapper');return wrappers },
+    getRoutesByPathname: async () => { calls.push('registry');return {} }, resolveFromRegistry: async () => 'registry',
+  }
+  const execute = new Function('dependencies', 'pathname', `with(dependencies){${code};return resolvePage(pathname)}`)
+  for (const [path, name] of expected) {
+    for (const suffix of ['', '?filter=all#top']) {
+      calls.length = 0
+      assert.equal(await execute(dependencies, path + suffix), name)
+      assert.deepEqual(calls, ['wrapper', name])
+    }
+    calls.length = 0
+    assert.equal(await execute(dependencies, path + '/nested'), 'registry')
+    assert.deepEqual(calls, ['registry'])
+    state.failure = true
+    await assert.rejects(execute(dependencies, path), /original wrapper failure/)
+    state.failure = false
+    assert.equal(await execute(dependencies, path), name)
+  }
+})

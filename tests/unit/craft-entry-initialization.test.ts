@@ -191,3 +191,107 @@ test('canonical craft controls reuse their existing list/detail handlers without
   assert.equal(await execute(dependencies, target, event), true)
   assert.deepEqual(calls, ['aggregate'])
 })
+
+test('affected financial and dye-report entries retain preparation after PCS where required, with PMS deferred', async () => {
+  const execute = actualFunction('renderCurrentPageContent'), events: string[] = []
+  const dependencies = {
+    authorizedCostCleanupError: undefined, isIsolatedCraftReadEntry,
+    reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
+    Image: class { src = ''; decode() { return Promise.resolve() } },
+    startPmsInitialization: () => { events.push('PMS') },
+    loadModule: async () => ({ ensurePcsRecordState: async () => { events.push('PCS') } }),
+    preparePageRouteEntry: async () => { events.push('FCS') },
+    resolvePage: async (path: string) => { events.push('page');return path },
+  }
+  for (const path of ['/fcs/settlement/adjustments', '/fcs/settlement/statements', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
+    events.length = 0
+    assert.equal(await execute(dependencies, path), path)
+    assert.deepEqual(events, path.endsWith('/reports') ? ['PCS', 'FCS', 'page'] : ['FCS', 'page'], path)
+  }
+})
+
+test('four affected read entries skip absent effects, restore saved effects, and preserve failure/retry', async () => {
+  for (const path of ['/fcs/settlement/adjustments', '/fcs/settlement/statements', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
+    const session = effectsSession(null)
+    await session.run(path)
+    assert.deepEqual(session.events, [], path)
+    session.state.raw = '{invalid saved effects'
+    session.state.fail = true
+    await assert.rejects(session.run(path), /saved effects unavailable/)
+    session.state.raw = '{"version":1,"entries":[]}'
+    session.state.fail = false
+    await session.run(path)
+    assert.deepEqual(session.events, ['load effects', 'restore effects', 'load effects', 'restore effects'], path)
+  }
+})
+
+test('affected page controls return the original owner result without the aggregate, including draft-only false', async () => {
+  const execute = actualDispatcher(), calls: string[] = [], state = { path: '', handled: false }
+  const owners = new Map([
+    ['/fcs/settlement/adjustments', ['./pages/adjustments.ts', 'handleAdjustmentsEvent']],
+    ['/fcs/settlement/statements', ['./pages/statements.ts', 'handleStatementsEvent']],
+    ['/fcs/quality/deduction-analysis', ['./pages/deduction-analysis.ts', 'handleDeductionAnalysisEvent']],
+    ['/fcs/craft/dyeing/reports', ['./pages/process-factory/dyeing/events.ts', 'handleCraftDyeingEvent']],
+  ])
+  const dependencies = new Proxy({
+    appStore: { getState: () => ({ pathname: state.path }) }, isIsolatedCraftReadEntry,
+    getCurrentHandlerSystem: () => 'fcs',
+    getFcsHandlersModule: async () => { throw Error('unrelated aggregate loaded') },
+    loadModule: async (path: string) => {
+      const [expected, handler] = owners.get(state.path)!
+      assert.equal(path, expected);calls.push(path)
+      return { [handler]: async () => state.handled }
+    },
+  }, { has: (_object, key) => !['dependencies', 'target', 'event'].includes(String(key)), get: (object, key) => Reflect.has(object, key) ? Reflect.get(object, key) : Reflect.has(globalThis, key) ? Reflect.get(globalThis, key) : () => false })
+  for (const [path, [owner]] of owners) for (const handled of [false, true]) {
+    state.path = path;state.handled = handled;calls.length = 0
+    assert.equal(await execute(dependencies, { closest: () => null }, { type: 'change' }), handled)
+    assert.deepEqual(calls, [owner])
+  }
+})
+
+test('affected Escape keeps the existing statement close-detail operation and avoids unrelated closers', async () => {
+  const execute = actualFunction('closeDialogsOnEscape'), calls: string[] = [], state = { path: '', open: false }
+  const dependencies = {
+    appStore: { getState: () => ({ pathname: state.path }) },
+    loadModule: async (path: string) => { assert.equal(path, './pages/statements.ts');calls.push('statements');return {
+      isStatementsDialogOpen: () => state.open,
+      handleStatementsEvent: (target: { dataset: { stmAction?: string } }) => { calls.push(target.dataset.stmAction!);return true },
+    } },
+    document: { createElement: () => ({ dataset: {} }) },
+    isProductionRoutePath: () => false,
+    getCurrentHandlerSystem: () => 'fcs', getFcsHandlersModule: () => { throw Error('unrelated aggregate loaded') },
+  }
+  for (const path of ['/fcs/settlement/adjustments', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
+    state.path = path;assert.equal(await execute(dependencies, ''), false)
+  }
+  assert.deepEqual(calls, [])
+  state.path = '/fcs/settlement/statements'
+  assert.equal(await execute(dependencies, ''), false)
+  state.open = true
+  assert.equal(await execute(dependencies, ''), true)
+  assert.deepEqual(calls, ['statements', 'statements', 'close-detail'])
+})
+
+test('four affected pages expose actual malformed-source reason and existing reload recovery without displaying normal data', async () => {
+  const execute = actualFunction('renderCurrentPageContent')
+  const reason = '分配关联记录身份错误，未覆盖原数据。'
+  const dependencies = {
+    authorizedCostCleanupError: undefined, isIsolatedCraftReadEntry,
+    reloadForDynamicModuleLoadError: () => false, console: { error() {} },
+    Image: class { src = ''; decode() { return Promise.resolve() } }, startPmsInitialization() {},
+    normalizePathname: (path: string) => path.split(/[?#]/)[0],
+    escapeHtml: (value: string) => value.replaceAll('<', '&lt;'),
+    loadModule: async () => ({ ensurePcsRecordState: async () => {}, getPcsCollectionFailure: () => '' }),
+    preparePageRouteEntry: async () => { throw Error(reason) },
+    resolvePage: async () => { throw Error('normal renderer must stay blocked') },
+  }
+  for (const path of ['/fcs/settlement/adjustments', '/fcs/settlement/statements', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports']) {
+    const html = await execute(dependencies, path)
+    assert.match(html, /role="alert"/)
+    assert.ok(html.includes(reason), path)
+    assert.match(html, /data-cutting-record-retry/)
+    assert.match(html, /原记录没有被覆盖/)
+  }
+  assert.equal(await execute(dependencies, '/fcs/quality/unrelated'), '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>')
+})

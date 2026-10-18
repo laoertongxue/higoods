@@ -1672,7 +1672,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       if (!targetFactory || !isNonSewingFactory(targetFactory)) return
       const warehouse = waitProcessWarehouseMap.get(targetFactory.id)
       if (!warehouse) return
-      getPdaPickupRecordsByHead(head.handoverId)
+      getPdaPickupRecordsByHead(head.handoverId, head)
         .filter((record) => shouldSeedInboundFromPickupRecord(record))
         .forEach((record, index) => {
           inboundRecords.push(buildInboundRecordFromPickupRecordInput({ head, record, warehouse, factory: targetFactory, recordIndex: index }))
@@ -1686,7 +1686,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       if (!receivingFactory || !isNonSewingFactory(receivingFactory)) return
       const warehouse = waitProcessWarehouseMap.get(receivingFactory.id)
       if (!warehouse) return
-      getPdaHandoverRecordsByHead(head.handoverId).forEach((record, index) => {
+      getPdaHandoverRecordsByHead(head.handoverId, head).forEach((record, index) => {
         inboundRecords.push(buildInboundRecordFromHandoverReceive(head, record, receivingFactory, warehouse, index))
       })
     })
@@ -1871,7 +1871,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
         waitHandoverStockItems.push(pendingItem)
       }
 
-      getPdaHandoverRecordsByHead(head.handoverId).forEach((record, index) => {
+      getPdaHandoverRecordsByHead(head.handoverId, head).forEach((record, index) => {
         const outbound = buildOutboundRecordFromHandoverRecord(head, record, sourceFactory, warehouse, index)
         outboundRecords.push(outbound)
         const stockItem = buildWaitHandoverStockItemFromOutbound(outbound)

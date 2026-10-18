@@ -4212,8 +4212,9 @@ export function readCurrentPreparationHandoverRecord(recordId:string):PdaHandove
   return findPdaHandoverRecord(recordId)
 }
 
-export function getPdaPickupRecordsByHead(handoverId: string): PdaPickupRecord[] {
-  const head = findHead(handoverId)
+export function getPdaPickupRecordsByHead(handoverId: string, currentHead?: PdaHandoverHead): PdaPickupRecord[] {
+  // A synchronous batch reader already holds this head, as for handout records.
+  const head = currentHead?.handoverId === handoverId ? currentHead : findHead(handoverId)
   if (!head || head.headType !== 'PICKUP') return []
   return getPickupRecordsForHeadInternal(head)
 }
