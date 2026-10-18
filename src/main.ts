@@ -1071,6 +1071,16 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
   if (authorizedCostCleanupError) return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(authorizedCostCleanupError)
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // These page owners read no production/cutting sources. Keep their direct
+    // entries independent; later business navigation still prepares its records.
+    if (/^\/fcs\/craft\/workbench\/overview\/?$/.test(normalizedPathname)) {
+      previousRenderedPagePathname = normalizedPathname
+      return (await import('./pages/process-factory/workbench/overview.ts')).renderCraftWorkbenchOverviewPage()
+    }
+    if (/^\/fcs\/factories\/profile\/?$/.test(normalizedPathname)) {
+      previousRenderedPagePathname = normalizedPathname
+      return (await getFactoryProfilePageModule()).renderFactoryProfilePage()
+    }
     // Authentication has no production records to hydrate. Loading its own
     // renderer also keeps unrelated execution routes out of this first visit.
     if (normalizedPathname === '/fcs/pda/auth/login') {

@@ -3,6 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import { isIsolatedCraftReadEntry } from '../../src/main-infrastructure/craft-read-entry.ts'
+import { renderCraftWorkbenchOverviewPage } from '../../src/pages/process-factory/workbench/overview.ts'
 
 function actualFunction(name: string) {
   const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
@@ -13,6 +14,67 @@ function actualFunction(name: string) {
   return new Function('dependencies', 'pathname', `with (dependencies) { ${code};return ${name}(pathname) }`)
 }
 const craft = '/fcs/process-factory/special-craft/aux-op-seam-embroidery/work-orders'
+
+test('static craft overview renders its original content before unrelated procurement and production initialization', async () => {
+  const execute = actualFunction('renderCurrentPageContent'), events: string[] = []
+  const dependencies = {
+    authorizedCostCleanupError: undefined, isIsolatedCraftReadEntry,
+    previousRenderedPagePathname: '/fcs/craft/cutting/supplement-management',
+    reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
+    Image: class { src = ''; decode() { return Promise.resolve() } },
+    startPmsInitialization: () => { events.push('PMS') },
+    preparePageRouteEntry: async () => { events.push('production') },
+    resolvePage: async () => { events.push('registry');return 'generic-route' },
+    loadModule: async (path: string) => {
+      assert.equal(path, './pages/process-factory/workbench/overview.ts')
+      events.push('overview');return { renderCraftWorkbenchOverviewPage }
+    },
+  }
+  for (const path of ['/fcs/craft/workbench/overview', '/fcs/craft/workbench/overview/?tab=x#top']) {
+    events.length = 0
+    assert.equal(await execute(dependencies, path), renderCraftWorkbenchOverviewPage())
+    assert.deepEqual(events, ['overview'])
+    assert.equal(dependencies.previousRenderedPagePathname, path.split('?')[0].split('#')[0])
+  }
+  for (const path of ['/fcs/craft/workbench/overview-extra', '/fcs/craft/workbench/overview/child', '/fcs/workbench/overview']) {
+    events.length = 0
+    assert.equal(await execute(dependencies, path), 'generic-route')
+    assert.deepEqual(events, ['PMS', 'production', 'registry'])
+  }
+})
+
+test('factory profile uses its existing page owner without unrelated initialization and retains the prior cleanup error guard', async () => {
+  const execute = actualFunction('renderCurrentPageContent'), events: string[] = []
+  const dependencies = {
+    authorizedCostCleanupError: undefined as Error | undefined, isIsolatedCraftReadEntry,
+    previousRenderedPagePathname: '/fcs/craft/cutting/supplement-management',
+    reloadForDynamicModuleLoadError: (error: unknown) => { throw error },
+    Image: class { src = ''; decode() { return Promise.resolve() } },
+    startPmsInitialization: () => { events.push('PMS') },
+    preparePageRouteEntry: async () => { events.push('production') },
+    resolvePage: async () => { events.push('registry');return 'generic-route' },
+    getFactoryProfilePageModule: async () => ({ renderFactoryProfilePage: () => { events.push('profile');return 'existing-profile' } }),
+    loadModule: async (path: string) => {
+      assert.equal(path, './pages/pcs-storage-error.ts')
+      return { renderPcsStorageError: (error: Error) => error.message }
+    },
+  }
+  for (const path of ['/fcs/factories/profile', '/fcs/factories/profile/?view=x#top']) {
+    events.length = 0
+    assert.equal(await execute(dependencies, path), 'existing-profile')
+    assert.deepEqual(events, ['profile'])
+    assert.equal(dependencies.previousRenderedPagePathname, path.split('?')[0].split('#')[0])
+  }
+  events.length = 0
+  assert.equal(await execute(dependencies, '/fcs/factories/profile-extra'), 'generic-route')
+  assert.deepEqual(events, ['PMS', 'production', 'registry'])
+  dependencies.authorizedCostCleanupError = new Error('existing cleanup read failed')
+  events.length = 0
+  for (const path of ['/fcs/craft/workbench/overview', '/fcs/factories/profile']) {
+    assert.equal(await execute(dependencies, path), 'existing cleanup read failed')
+  }
+  assert.deepEqual(events, [])
+})
 
 test('craft entry leaves PMS pending, preserves PCS/FCS read gates and later procurement initializes normally', async () => {
   const execute = actualFunction('renderCurrentPageContent'), events: string[] = []
