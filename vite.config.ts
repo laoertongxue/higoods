@@ -156,7 +156,7 @@ function preloadStaticFirstScreenRoutes(): Plugin {
         const baselineData = Object.values(context.bundle).find(item => item.type === 'asset' && /pcs-record-baseline-.*\.json$/.test(item.fileName))?.fileName || ''
         const entries = [
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
-            '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization, ...craftRouteRegistry,
+            '/src/pages/process-factory/special-craft/task-orders.ts', ...craftReadInitialization,
           ]), craftImages, craftPath + '/?$', baselineData],
           ['/fcs/process-factory/special-craft/', routeStaticChunks(context.bundle, [
             '/src/pages/process-factory/special-craft/work-order-detail.ts', ...craftReadInitialization, ...craftRouteRegistry,

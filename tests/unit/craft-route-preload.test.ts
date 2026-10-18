@@ -93,7 +93,7 @@ test('all 16 canonical craft list/detail routes discover their own page and rest
     for (const [suffix, page] of [['', pages.craftList], ['/ORDER%2F001', pages.craftDetail]]) {
       for (const trailing of ['', '/']) {
         const links = navigationLinks(`${path}${suffix}${trailing}`)
-        assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(page, true), path + suffix + trailing)
+        assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(page, Boolean(suffix)), path + suffix + trailing)
         assert.deepEqual(links.filter(link => link.as === 'fetch'), [{ rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', href: '/assets/pcs-record-baseline-fixture.json' }])
       }
     }
@@ -158,4 +158,12 @@ test('baseline absence emits no invalid fetch and unrelated existing route rules
       '/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp',
     ])
   }
+})
+
+test('removing a list-only registry seed still follows a real owner static dependency', () => {
+  const bundle = fixtureBundle()
+  const owner = bundle[fileFor(pages.craftList)] as { imports: string[] }
+  owner.imports.push(fileFor(registry[0]))
+  const links = navigationLinks('/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders', preloadScript(bundle))
+  assert.deepEqual(links.filter(link => link.rel === 'modulepreload').map(link => link.href).sort(), expectedModules(pages.craftList, true))
 })

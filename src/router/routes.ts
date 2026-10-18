@@ -344,10 +344,11 @@ export async function resolvePage(pathname: string): Promise<string> {
   // Matching a bounded craft page does not require the broad FCS route table.
   const craftOrderEntry = /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders(?:\/([^/]+))?$/.exec(normalizedPathname)
   if (craftOrderEntry && isIsolatedCraftReadEntry(normalizedPathname)) {
+    if (!craftOrderEntry[2]) {
+      return (await import('../pages/process-factory/special-craft/task-orders')).renderSpecialCraftTaskOrdersPage(craftOrderEntry[1])
+    }
     const pages = await import('./route-renderers-fcs')
-    return craftOrderEntry[2]
-      ? pages.renderSpecialCraftWorkOrderDetailPage(craftOrderEntry[1], decodeURIComponent(craftOrderEntry[2]))
-      : pages.renderSpecialCraftTaskOrdersPage(craftOrderEntry[1])
+    return pages.renderSpecialCraftWorkOrderDetailPage(craftOrderEntry[1], decodeURIComponent(craftOrderEntry[2]))
   }
 
   // These physical workflow entries use the same existing renderers and storage
