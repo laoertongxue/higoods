@@ -145,16 +145,20 @@ function normalizeFactoryProcessAbilities(abilities: Factory['processAbilities']
     ]
   })
   if (!prepared.some(item => item.processCode === seam.processCode && item.craftCodes.includes(seam.craftCode))) return prepared
+  // Abilities are grouped by parent process. Re-parenting can legitimately
+  // combine different generated IDs/names/scopes; keep the existing target
+  // identity and validate the actual business settings separately.
+  const targetAbility = abilities.find(item => item.processCode === seam.processCode)
   const result: Factory['processAbilities'] = []
   for (const item of prepared) {
     if (item.processCode !== seam.processCode) { result.push(item); continue }
     const current = result.find(row => row.processCode === seam.processCode)
     if (!current) { result.push({...item,processName:process.processName,parentProcessCode:process.parentProcessCode}); continue }
     for (const [key, value] of Object.entries(item)) {
-      if (['craftCodes','craftNames','capacityNodeCodes','processName','parentProcessCode'].includes(key) || value === undefined) continue
+      if (['craftCodes','craftNames','capacityNodeCodes','processName','parentProcessCode','abilityId','abilityName','abilityScope'].includes(key) || value === undefined) continue
       const previous = (current as unknown as Record<string,unknown>)[key]
       if (previous !== undefined && JSON.stringify(previous) !== JSON.stringify(value)) {
-        const label = ({abilityId:'能力编号',abilityName:'能力名称',abilityScope:'能力范围',canReceiveTask:'接单权限',capacityManaged:'产能管理',status:'能力状态',systemProcessCode:'系统父工序'} as Record<string,string>)[key] || '能力属性'
+        const label = ({canReceiveTask:'接单权限',capacityManaged:'产能管理',status:'能力状态',systemProcessCode:'系统父工序'} as Record<string,string>)[key] || '能力属性'
         throw new Error(`缝边绣工厂能力配置存在冲突（${label}），原资料已保留，请核对后保存。`)
       }
       ;(current as unknown as Record<string,unknown>)[key] = value
@@ -162,6 +166,15 @@ function normalizeFactoryProcessAbilities(abilities: Factory['processAbilities']
     current.craftCodes = [...new Set([...current.craftCodes,...item.craftCodes])]
     current.craftNames = current.craftCodes.map(code => getProcessCraftByCode(code)?.craftName || item.craftNames?.[item.craftCodes.indexOf(code)] || current.craftNames?.[current.craftCodes.indexOf(code)] || code)
     if (current.capacityNodeCodes || item.capacityNodeCodes) current.capacityNodeCodes = [...new Set([...(current.capacityNodeCodes || []),...(item.capacityNodeCodes || [])])]
+    if (current.abilityId !== undefined || item.abilityId !== undefined) {
+      current.abilityId = targetAbility?.abilityId?.trim() ? targetAbility.abilityId : `ABILITY_${seam.processCode}`
+    }
+    if (current.abilityName !== undefined || item.abilityName !== undefined) {
+      current.abilityName = current.craftCodes.length === 1 ? `${process.processName} - ${current.craftNames[0]}` : process.processName
+    }
+    if (current.abilityScope !== undefined || item.abilityScope !== undefined) {
+      current.abilityScope = current.craftCodes.length === 1 ? 'CRAFT' : 'PROCESS'
+    }
   }
   return result
 }
