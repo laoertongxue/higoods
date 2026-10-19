@@ -74,6 +74,17 @@ const events = new Map<string, SewingMaterialHandoverEvent>()
 const commandEventIds = new Map<string, string>()
 let eventSequence = 0
 
+/** 本范围只读桥：事实仍只有一份，仓库事务提交后由原有消费器读取。 */
+export interface SewingMaterialHandoverBridge {
+  context(assignmentId: string): SewingMaterialHandoverContext | undefined
+  contexts(): SewingMaterialHandoverContext[]
+  events(assignmentId: string): SewingMaterialHandoverEvent[]
+  ownsLines(assignmentId: string, requirementLineIds: readonly string[]): boolean
+}
+let warehouseBridge: SewingMaterialHandoverBridge | null = null
+export function installSewingMaterialHandoverBridge(bridge: SewingMaterialHandoverBridge): void { warehouseBridge = bridge }
+
+
 function clone<T>(value: T): T {
   return structuredClone(value)
 }
@@ -96,17 +107,23 @@ function includesSewing(processCodes: readonly string[]): boolean {
 }
 
 export function initializeSewingMaterialHandoverForAssignment(
-  input: SewingSampleAssignmentSnapshot & { assignedQty: number },
+  input: SewingSampleAssignmentSnapshot & { assignedQty: number; skuLines?: readonly { skuCode: string; qty: number }[] },
 ): SewingMaterialHandoverContext | null {
   if (!includesSewing(input.processCodes)) return null
   if (!input.ppicId || !input.ppicName) throw new Error('车缝任务必须冻结PPIC后才能建立物料交出账')
+  const canonical = warehouseBridge?.context(input.assignmentId)
+  if (canonical) return clone(canonical)
   const existing = contexts.get(input.assignmentId)
   if (existing) return clone(existing)
   const snapshot = getProductionOrderTechPackSnapshot(input.productionOrderId)
   const includeFabric = isCuttingSewingIronPack(input.processCodes)
   const requirementLines: SewingMaterialRequirementLine[] = (snapshot?.bomItems || [])
     .filter((item) => item.type === '辅料' || (includeFabric && item.type === '面料'))
-    .map((item, index) => ({
+    .map((item, index) => {
+      const applicable = item.applicableSkuCodes || []
+      if (applicable.length && !input.skuLines) throw new Error('限定 SKU 的物料缺少任务 SKU 范围，不能使用整单数量')
+      const assignedGarmentQty = applicable.length ? input.skuLines!.filter(row => applicable.includes(row.skuCode)).reduce((sum, row) => sum + row.qty, 0) : input.assignedQty
+      return ({
       requirementLineId: `MAT-REQ-${input.assignmentId}-${String(index + 1).padStart(3, '0')}`,
       bomItemId: item.id,
       materialType: item.type as '面料' | '辅料',
@@ -116,10 +133,10 @@ export function initializeSewingMaterialHandoverForAssignment(
       unit: item.unit || (item.type === '面料' ? '米' : '件'),
       unitConsumption: item.unitConsumption,
       lossRate: item.lossRate,
-      assignedGarmentQty: input.assignedQty,
-      requiredQty: roundQuantity(input.assignedQty * item.unitConsumption * (1 + item.lossRate)),
+      assignedGarmentQty,
+      requiredQty: roundQuantity(assignedGarmentQty * item.unitConsumption * (1 + item.lossRate)),
       imageUrl: item.materialImageUrl,
-    }))
+    }) }).filter(line => line.requiredQty > 0)
   const context: SewingMaterialHandoverContext = {
     assignmentId: input.assignmentId,
     runtimeTaskId: input.runtimeTaskId,
@@ -153,6 +170,7 @@ export function recordSewingMaterialHandover(input: {
   handedOverByRole: 'CUTTING_WAREHOUSE' | 'MATERIAL_WAREHOUSE' | 'PPIC'
   lines: SewingMaterialHandoverLineInput[]
 }): SewingMaterialHandoverEvent {
+  if (warehouseBridge?.ownsLines(input.assignmentId, input.lines.map(line => line.requirementLineId))) throw new Error('本任务辅料须在对应辅料仓的车缝领料中确认实交。')
   const priorEventId = commandEventIds.get(input.commandId)
   if (priorEventId) return clone(events.get(priorEventId)!)
   if (input.handedOverByRole === 'PPIC') throw new Error('PPIC只能查看面辅料交出，不得代替仓库填写实交数量')
@@ -197,9 +215,9 @@ export function recordSewingMaterialHandover(input: {
 }
 
 export function getSewingMaterialHandoverProjection(assignmentId: string): SewingMaterialHandoverProjection {
-  const context = contexts.get(assignmentId)
+  const context = warehouseBridge?.context(assignmentId) || contexts.get(assignmentId)
   if (!context) throw new Error(`分配${assignmentId}没有面辅料交出账`)
-  const handoverEvents = [...events.values()].filter((event) => event.assignmentId === assignmentId)
+  const handoverEvents = [...new Map([...events.values()].filter(event => event.assignmentId === assignmentId).concat(warehouseBridge?.events(assignmentId) || []).map(event => [event.handoverEventId, event])).values()]
   const handedOverByLine = new Map<string, number>()
   handoverEvents.forEach((event) => event.lines.forEach((line) => {
     handedOverByLine.set(
@@ -227,7 +245,7 @@ export function getSewingMaterialHandoverProjection(assignmentId: string): Sewin
 }
 
 export function listSewingMaterialHandoverContexts(): SewingMaterialHandoverContext[] {
-  return [...contexts.values()].map(clone)
+  return [...new Map([...contexts.values(), ...(warehouseBridge?.contexts() || [])].map(context => [context.assignmentId, context])).values()].map(clone)
 }
 
 export function resetSewingMaterialHandoversForTests(): void {

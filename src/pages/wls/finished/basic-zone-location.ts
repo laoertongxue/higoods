@@ -18,8 +18,13 @@ import {
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { renderDialog } from '../../../components/ui/dialog.ts'
+import {
+  listAccessoryWarehouseLocations,
+  listAccessoryWarehouseZones,
+} from '../../../data/wls/accessory-warehouse-master.ts'
 
-type ZoneRow = { id: string; zoneName: string; warehouseName: string; locationCount: number; zoneType: string; enabled: boolean }
+type ZoneRow = { id: string; zoneName: string; warehouseName: string; warehouseCode?: string; locationCount: number; zoneType: string; enabled: boolean }
 
 const seedData: ZoneRow[] = [
   { id: 'ZONE-A', zoneName: 'A区', warehouseName: '成衣仓', locationCount: 24, zoneType: '存储', enabled: true },
@@ -30,6 +35,7 @@ const seedData: ZoneRow[] = [
   { id: 'ZONE-T1', zoneName: '存储区', warehouseName: '中转仓', locationCount: 16, zoneType: '存储', enabled: true },
   { id: 'ZONE-T2', zoneName: '拣货区', warehouseName: '中转仓', locationCount: 10, zoneType: '拣货', enabled: true },
   { id: 'ZONE-K1', zoneName: 'KOL区', warehouseName: '成衣仓', locationCount: 4, zoneType: 'kol', enabled: true },
+  ...listAccessoryWarehouseZones(),
 ]
 
 const ZONE_TYPES = ['拣货', '存储', '打包', '退货', 'kol', '暂存']
@@ -75,7 +81,7 @@ const columns: StandardListColumn<ZoneRow>[] = [
   { key: 'enabled', title: '是否启用', width: 90, sortable: true, sortValue: r => r.enabled,
     render: r => `<span class="rounded-full px-2 py-0.5 text-xs ${r.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${r.enabled ? '启用' : '停用'}</span>` },
   { key: 'actions', title: '操作', width: 240, required: true, actionColumn: true,
-    render: () => `<button class="text-[var(--link)] hover:underline text-xs">查看库位</button><button class="text-[var(--link)] hover:underline text-xs ml-2">编辑类型</button><button class="text-[var(--link)] hover:underline text-xs ml-2">编辑</button><button class="text-red-500 hover:underline text-xs ml-2">删除</button>` },
+    render: r => `<button class="text-[var(--link)] hover:underline text-xs" data-${EVENT_PREFIX}-action="view-locations" data-zone-id="${escapeHtml(r.id)}" aria-label="查看${escapeHtml(r.warehouseName)}${escapeHtml(r.zoneName)}库位">查看库位</button>${r.warehouseCode ? '' : '<button class="text-[var(--link)] hover:underline text-xs ml-2">编辑类型</button><button class="text-[var(--link)] hover:underline text-xs ml-2">编辑</button><button class="text-red-500 hover:underline text-xs ml-2">删除</button>'}` },
 ]
 
 const columnRules = columns.map(c => ({ key: c.key, required: c.required, freezeable: c.freezeable, actionColumn: c.actionColumn }))
@@ -164,9 +170,62 @@ function persistPreferences(): void {
   if (typeof window !== 'undefined') saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
 }
 
+let locationDetailTrigger: HTMLElement | null = null
+
+function closeLocationDetails(restoreFocus = true): void {
+  const region = rootElement()?.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-location-overlay]`)
+  if (region) region.innerHTML = ''
+  if (typeof document !== 'undefined') document.removeEventListener('keydown', handleLocationDetailsKeydown)
+  if (restoreFocus && locationDetailTrigger?.isConnected) locationDetailTrigger.focus()
+  locationDetailTrigger = null
+}
+
+function handleLocationDetailsKeydown(event: KeyboardEvent): void {
+  const dialog = rootElement()?.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-location-overlay] [role="dialog"]`)
+  if (!dialog) { closeLocationDetails(false); return }
+  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeLocationDetails(); return }
+  if (event.key !== 'Tab') return
+  const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button:not([disabled])')]
+  const first = buttons[0]
+  const last = buttons[buttons.length - 1]
+  if (!first || !last) return
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+}
+
+function openLocationDetails(zoneId: string, trigger: HTMLElement): void {
+  const zone = seedData.find((row) => row.id === zoneId)
+  const region = rootElement()?.querySelector<HTMLElement>(`[data-${EVENT_PREFIX}-location-overlay]`)
+  if (!zone || !region) return
+  const locations = zone.warehouseCode
+    ? listAccessoryWarehouseLocations(zone.warehouseCode).filter((location) => location.zoneId === zone.id)
+    : []
+  const title = `${zone.warehouseName} · ${zone.zoneName}`
+  const content = locations.length
+    ? `<div class="max-h-[50vh] space-y-2 overflow-y-auto">${locations.map((location) => `<div class="flex items-center justify-between gap-4 rounded-md border p-3"><div class="min-w-0"><span class="block text-xs text-muted-foreground">库位编码</span><span class="break-all font-medium">${escapeHtml(location.locationCode)}</span></div><span class="shrink-0 rounded-full px-2 py-0.5 text-xs ${location.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${location.enabled ? '启用' : '停用'}</span></div>`).join('')}</div><p class="mt-3 text-xs text-muted-foreground">共 ${locations.length} 个库位，均为演示配置。</p>`
+    : '<p class="text-sm text-muted-foreground">该历史演示库区未提供库位明细。</p>'
+  closeLocationDetails(false)
+  locationDetailTrigger = trigger
+  region.innerHTML = renderDialog(
+    { title, width: 'lg', closeAction: { prefix: EVENT_PREFIX, action: 'close-locations', skipPageRerender: true } },
+    content,
+    renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-locations', skipPageRerender: true }),
+  )
+  const panel = region.querySelector<HTMLElement>('.relative.bg-background')
+  panel?.setAttribute('role', 'dialog')
+  panel?.setAttribute('aria-modal', 'true')
+  panel?.setAttribute('aria-label', `${title}库位`)
+  const closeButtons = region.querySelectorAll<HTMLButtonElement>('button')
+  closeButtons[0]?.setAttribute('aria-label', '关闭库位明细')
+  hydrateIcons(region)
+  document.addEventListener('keydown', handleLocationDetailsKeydown)
+  closeButtons[closeButtons.length - 1]?.focus()
+}
+
 export function renderBasicZoneLocation(): string {
+  if (!rootElement()) closeLocationDetails(false)
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
-  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div></div>`
+  return `<div data-${EVENT_PREFIX}-root data-skip-page-rerender="true"><div data-${EVENT_PREFIX}-workspace>${renderWorkspace()}</div><div data-${EVENT_PREFIX}-location-overlay data-skip-page-rerender="true"></div></div>`
 }
 
 export function handleBasicZoneLocationEvent(target: HTMLElement, event?: Event): boolean {
@@ -192,6 +251,8 @@ export function handleBasicZoneLocationEvent(target: HTMLElement, event?: Event)
   const action = actionNode?.dataset.wlsBasicZoneLocationAction
   if (!actionNode || !action) return false
   if (event?.type === 'change' && !['toggle-column-visibility', 'toggle-column-freeze'].includes(action)) return true
+  if (action === 'view-locations') { openLocationDetails(actionNode.dataset.zoneId || '', actionNode); return true }
+  if (action === 'close-locations') { closeLocationDetails(); return true }
   if (action === 'prev-page' || action === 'next-page') { state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1)); refreshWorkspace(); return true }
   if (action === 'sort-column') {
     const key = actionNode.dataset.columnKey || actionNode.dataset.column_key || ''

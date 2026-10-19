@@ -78,6 +78,71 @@ export interface SewingPickupHandoverResult {
   quantities: Array<{ lineId: string; actualQty: number }>
 }
 
+export interface SewingPickupIssueInput {
+  assignmentId: string
+  objectKind: SewingPickupObjectKind
+  printedAt: string
+  printedByPpicId: string
+  printedByPpicName: string
+  reprintReason?: string
+}
+export interface SewingPickupConfirmInput {
+  commandId: string
+  versionId: string
+  recordedAt: string
+  recordedBy: string
+  actorFactoryId: string
+  recordedByRole: 'CUTTING_WAREHOUSE' | 'MATERIAL_WAREHOUSE' | 'PPIC'
+  quantities: Array<{ lineId: string; actualQty: number }>
+}
+export interface SewingPickupWarehouseBridge {
+  ownsAssignment(assignmentId: string): boolean
+  usesCanonical(assignmentId: string): boolean
+  versions(): SewingPickupSlipVersion[]
+  results(): SewingPickupHandoverResult[]
+  availability(assignmentId: string, kind: SewingPickupObjectKind): { available: boolean; reason: string }
+  issue(input: SewingPickupIssueInput): Promise<SewingPickupSlipVersion>
+  record(input: SewingPickupConfirmInput): Promise<SewingPickupHandoverResult>
+  pickupPath(assignmentId: string, versionId?: string): string | undefined
+}
+let warehouseBridge: SewingPickupWarehouseBridge | null = null
+export function installSewingPickupWarehouseBridge(bridge: SewingPickupWarehouseBridge): void { warehouseBridge = bridge }
+function allVersions(): SewingPickupSlipVersion[] {
+  return [...new Map([...versions.values()].filter(row => row.objectKind === 'CUT_PIECE' || !warehouseBridge?.usesCanonical(row.assignmentId)).concat(warehouseBridge?.versions() || []).map(row => [row.versionId, row])).values()]
+}
+export function getSewingPickupWarehousePath(assignmentId: string, versionId?: string): string | undefined { return warehouseBridge?.pickupPath(assignmentId, versionId) }
+export function isWarehouseManagedSewingAssignment(assignmentId: string): boolean { return Boolean(warehouseBridge?.ownsAssignment(assignmentId)) }
+export async function issueSewingPickupSlipPersisted(input: SewingPickupIssueInput): Promise<SewingPickupSlipVersion> {
+  if (warehouseBridge?.ownsAssignment(input.assignmentId)) return warehouseBridge.issue(input)
+  return issueSewingPickupSlip(input)
+}
+export async function recordSewingPickupHandoverPersisted(input: SewingPickupConfirmInput): Promise<SewingPickupHandoverResult> {
+  const version = getSewingPickupSlipVersion(input.versionId)
+  if (version && version.objectKind !== 'CUT_PIECE' && warehouseBridge?.ownsAssignment(version.assignmentId)) return warehouseBridge.record(input)
+  return recordSewingPickupHandover(input)
+}
+/** 显式迁移用；读取不写入，不把旧源当作新事实自动重放。 */
+export function readLegacySewingPickupStorage(): { raw: string | null; versions: SewingPickupSlipVersion[]; handoverResults: SewingPickupHandoverResult[] } {
+  const raw = getBrowserLocalStorage()?.getItem(STORAGE_KEY) ?? null
+  if (!raw) return { raw, versions: [], handoverResults: [] }
+  const parsed = JSON.parse(raw)
+  if (parsed.version !== 1 || !Array.isArray(parsed.versions) || !Array.isArray(parsed.handoverResults)) throw new Error('旧车缝领料资料格式无法核对，保留原资料。')
+  return { raw, versions: clone(parsed.versions), handoverResults: clone(parsed.handoverResults) }
+}
+export function cleanupLegacySewingPickupStorage(expectedRaw: string | null, ownedVersionIds: readonly string[]): void {
+  const storage = getBrowserLocalStorage()
+  if ((storage?.getItem(STORAGE_KEY) ?? null) !== expectedRaw) throw new Error('旧标签页已改动车缝领料资料，请刷新后重新核对。')
+  const parsed = readLegacySewingPickupStorage()
+  const owned = new Set(ownedVersionIds)
+  const original = parsed.raw ? JSON.parse(parsed.raw) : { version: 1 }
+  const remaining = { ...original, versions: parsed.versions.filter(row => !owned.has(row.versionId)), handoverResults: parsed.handoverResults.filter(row => !owned.has(row.versionId)) }
+  if (remaining.versions.length || remaining.handoverResults.length || Object.keys(remaining).some(key => !['version', 'versions', 'handoverResults'].includes(key))) storage?.setItem?.(STORAGE_KEY, JSON.stringify(remaining))
+  else storage?.removeItem?.(STORAGE_KEY)
+  for (const id of owned) versions.delete(id)
+  for (const [id, result] of handoverResults) if (owned.has(result.versionId)) handoverResults.delete(id)
+  for (const [id, versionId] of currentVersionIdBySlip) if (owned.has(versionId)) currentVersionIdBySlip.delete(id)
+}
+
 const STORAGE_KEY = 'higood:ppic:sewing-pickup-slips:v1'
 const versions = new Map<string, SewingPickupSlipVersion>()
 const currentVersionIdBySlip = new Map<string, string>()
@@ -110,8 +175,13 @@ function slipId(assignmentId: string, objectKind: SewingPickupObjectKind): strin
 
 function load(): void {
   if (loaded) return
+  let raw: string | null | undefined
+  try { raw = getBrowserLocalStorage()?.getItem(STORAGE_KEY) }
+  catch {
+    if (warehouseBridge?.versions().length) { loaded = true; return }
+    throw new Error('旧车缝领料资料无法读取，请先核对本机资料。')
+  }
   loaded = true
-  const raw = getBrowserLocalStorage()?.getItem(STORAGE_KEY)
   if (!raw) return
   try {
     const parsed = JSON.parse(raw) as {
@@ -132,7 +202,7 @@ function load(): void {
     })
     handoverResults.forEach((result) => {
       const version = versions.get(result.versionId)
-      if (!version) return
+      if (!version || (version.objectKind !== 'CUT_PIECE' && warehouseBridge?.ownsAssignment(version.assignmentId))) return
       try {
         ensureSourceContext(version)
         applyHandoverToExistingLedger(version, result)
@@ -293,6 +363,7 @@ export function getSewingPickupAvailability(
   objectKind: SewingPickupObjectKind,
 ): { available: boolean; reason: string } {
   if (objectKind === 'CUT_PIECE') return { available: false, reason: '请打印任务单，并在裁床待交出仓使用简易裁片交出。' }
+  if (warehouseBridge?.ownsAssignment(assignmentId)) return warehouseBridge.availability(assignmentId, objectKind)
   try {
     const assignment = requireAssignment(assignmentId)
     const snapshot = getProductionOrderTechPackSnapshot(assignment.productionOrderId)
@@ -316,6 +387,7 @@ export function issueSewingPickupSlip(input: {
   printedByPpicName: string
   reprintReason?: string
 }): SewingPickupSlipVersion {
+  if (warehouseBridge?.ownsAssignment(input.assignmentId)) throw new Error('本任务领料凭证已迁至辅料仓资料，请使用当前任务页打印。')
   if (input.objectKind === 'CUT_PIECE') throw new Error('裁片改用任务单，请从任务打印入口打印。')
   load()
   const assignment = requireAssignment(input.assignmentId)
@@ -377,22 +449,21 @@ export function getCurrentSewingPickupSlip(
   objectKind: SewingPickupObjectKind,
 ): SewingPickupSlipVersion | null {
   load()
-  const versionId = currentVersionIdBySlip.get(slipId(assignmentId, objectKind))
-  const version = versionId ? versions.get(versionId) : undefined
+  const version = allVersions().filter(row => row.slipId === slipId(assignmentId, objectKind) && row.status === 'CURRENT').sort((a, b) => b.versionNo - a.versionNo)[0]
   return version ? clone(version) : null
 }
 
 export function getSewingPickupSlipVersion(versionId: string): SewingPickupSlipVersion | null {
   load()
-  const version = versions.get(versionId)
+  const version = allVersions().find(row => row.versionId === versionId)
   // Retired cut-piece papers are historical snapshots, even after their assignment expires.
-  if (version && version.objectKind !== 'CUT_PIECE') ensureSourceContext(version)
+  if (version && version.objectKind !== 'CUT_PIECE' && !warehouseBridge?.ownsAssignment(version.assignmentId)) ensureSourceContext(version)
   return version ? clone(version) : null
 }
 
 export function listSewingPickupHandoverResults(versionId: string): SewingPickupHandoverResult[] {
   load()
-  return [...handoverResults.values()]
+  return [...new Map([...handoverResults.values()].filter(row => versions.get(row.versionId)?.objectKind === 'CUT_PIECE' || !warehouseBridge?.usesCanonical(versions.get(row.versionId)?.assignmentId || '')).concat(warehouseBridge?.results() || []).map(row => [row.commandId, row])).values()]
     .filter((item) => item.versionId === versionId)
     .sort((left, right) => left.recordedAt.localeCompare(right.recordedAt))
     .map(clone)
@@ -426,6 +497,8 @@ export function recordSewingPickupHandover(input: {
   quantities: Array<{ lineId: string; actualQty: number }>
 }): SewingPickupHandoverResult {
   load()
+  const managedVersion = allVersions().find(row => row.versionId === input.versionId)
+  if (managedVersion && managedVersion.objectKind !== 'CUT_PIECE' && warehouseBridge?.ownsAssignment(managedVersion.assignmentId)) throw new Error('本任务领料已迁至对应辅料仓，请从当前领料入口办理。')
   const prior = handoverResults.get(input.commandId)
   if (prior) return clone(prior)
   const version = versions.get(input.versionId)

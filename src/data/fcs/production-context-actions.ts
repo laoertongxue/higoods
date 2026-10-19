@@ -13,6 +13,10 @@ import { captureSewingMaterialState, restoreSewingMaterialState } from './sewing
 import { captureProductionReturnState, restoreProductionReturnState } from './production-return-fulfillment.ts'
 import { captureProductionContractState, restoreProductionContractState } from './production-contracts.ts'
 import { captureRuntimeTaskTenderRecordStore, restoreRuntimeTaskTenderRecordStore } from './runtime-task-tenders.ts'
+import { buildAccessoryFactoryLinkChange } from '../wls/accessory-warehouse-factory-link.ts'
+import { listRuntimeProcessTasks } from './runtime-process-tasks.ts'
+import { listEffectiveTaskAssignments } from './effective-task-assignments.ts'
+import { listFactoryMasterRecords } from './factory-master-store.ts'
 
 type Entry = [string, unknown]
 function captureEffects(): Entry[] {
@@ -81,11 +85,13 @@ export async function saveProductionSourceAction<T>(input:{id:string;intent:stri
   const release=await import('./cut-piece-release.ts')
   const awaitDiffCuttingRecords=await import('./cutting/cutting-record-repository.ts')
   let releaseBefore:ReturnType<typeof release.captureCutPieceReleaseRecords>=[]
+  let accessoryBefore:CuttingRecordSnapshot['records']=[]
   const captureAll=()=>({source:capture(),release:release.captureCutPieceReleaseState(),additional:input.captureAdditional?.()})
   const restoreAll=(value:unknown)=>{const state=value as ReturnType<typeof captureAll>;restore(state.source);release.restoreCutPieceReleaseState(state.release);input.restoreAdditional?.(state.additional)}
   const eventRepo=await import('./cutting/cutting-event-repository.ts')
   const part=await import('./cutting/part-ticket-records.ts')
   const prepareSnapshot=async(snapshot:CuttingRecordSnapshot)=>{
+    accessoryBefore=snapshot.records.filter(row=>row.id.startsWith('accessory-warehouse:'))
     await part.hydratePartTicketRecords(snapshot)
     eventRepo.prepareCommittedCuttingEventSnapshot(snapshot)
     await release.hydrateCutPieceReleaseRecords(snapshot)
@@ -93,9 +99,12 @@ export async function saveProductionSourceAction<T>(input:{id:string;intent:stri
   }
   const prepareChange=(result:T):CuttingRecordChange=>{
     const extra=input.prepareChange?.(result) || {puts:[]}
+    const accessory=accessoryBefore.some(row=>row.collection==='accessory-warehouse:preparation')
+      ? buildAccessoryFactoryLinkChange({records:accessoryBefore,tasks:listRuntimeProcessTasks(),assignments:listEffectiveTaskAssignments(),
+        factories:listFactoryMasterRecords(),commandId:input.id,at:new Date().toISOString(),by:'生产计划员'}) : {puts:[]}
     const {diffCuttingRecords}=awaitDiffCuttingRecords
     const releaseChange=diffCuttingRecords(releaseBefore,release.captureCutPieceReleaseRecords())
-    const puts=[...releaseChange.puts,...extra.puts,...part.partTicketInitializationRecords(),...eventRepo.cuttingEventScopeInitializationRecords()]
+    const puts=[...releaseChange.puts,...extra.puts,...accessory.puts,...part.partTicketInitializationRecords(),...eventRepo.cuttingEventScopeInitializationRecords()]
     return {...extra,puts:[...new Map(puts.map(record=>[record.id,record])).values()],deletes:[...(extra.deletes || []),...(releaseChange.deletes || [])]}
   }
   const assertAdditionalSourcesCurrent=()=>{part.assertPartTicketLegacyUnchanged();eventRepo.assertManagedScopeCurrent();input.assertAdditionalSourcesCurrent?.()}

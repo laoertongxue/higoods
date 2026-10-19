@@ -1,0 +1,1438 @@
+{
+  "format": "higoods-isolated-browser-fixture",
+  "version": 1,
+  "createdAt": "2026-10-19T12:42:31.903Z",
+  "sourceOrigin": "http://127.0.0.1:5173",
+  "purpose": "Pure isolated test initial state before explicit legacy migration. Install JSON into a fresh dist context without source imports/prewarm. No performance acceptance.",
+  "stage": "待显式迁移；未执行迁移或备份动作",
+  "scenario": "sewing-legacy",
+  "setupReadback": {
+    "inspection": {
+      "state": "待迁移",
+      "versionCount": 1,
+      "resultCount": 1,
+      "message": "本生产范围存在旧 PPIC 领料凭证及实交历史，请先迁移，避免重复交出。"
+    },
+    "canonicalRecordCount": 9,
+    "preparationId": "prep-order-PO-AW-SEW-CONTRACT",
+    "assignmentId": "AW-TEST-ASG-0",
+    "legacyKey": "higood:ppic:sewing-pickup-slips:v1",
+    "versions": [
+      "PPIC-PICKUP-AW-TEST-ASG-0-ACCESSORY-V1",
+      "UNRELATED-V1"
+    ],
+    "existingHandover": {
+      "materialSku": "AW-DEMO-ZIPPER",
+      "unit": "条",
+      "actualQty": 7,
+      "commandId": "OLD-HAND"
+    },
+    "retainedUnrelatedVersionId": "UNRELATED-V1",
+    "userMetadata": {
+      "preserved": true
+    },
+    "upstreamFixture": {
+      "preparationId": "prep-order-PO-AW-SEW-CONTRACT",
+      "productionOrderId": "PO-AW-SEW-CONTRACT",
+      "warehouseCode": "HILON-2",
+      "assignmentIds": [
+        "AW-TEST-ASG-0",
+        "AW-TEST-ASG-1"
+      ]
+    }
+  },
+  "uiContract": {
+    "route": "/wls/accessory-warehouses/hilon/pickups",
+    "migrate": "[data-accessory-pickup-action=\"migrate\"]",
+    "migrateButtonName": "迁移原领料凭证和实交历史",
+    "backupRoute": "/wls/accessory-warehouses/gtp/preparation",
+    "openMaintenance": "[data-accessory-action=\"data\"]",
+    "backup": "[data-accessory-action=\"export-backup\"]",
+    "completePredicate": {
+      "ui": "role=status contains 原领料凭证和实交历史迁移完成 and migration button absent",
+      "durable": "migration sewing-pickup-v1 phase COMPLETE; canonical slip+handover OLD-HAND actual7条; old raw retains only UNRELATED-V1, handoverResults=[], userMetadata.preserved=true"
+    },
+    "backupCompletePredicate": "Wait for actual download event and completed file path; file size>0 and JSON decodes, then verify expected scope records/source/Blob entries. Clicking the button alone is not completion."
+  },
+  "readOnlyDumpRepeatedEqual": true,
+  "databases": [
+    {
+      "name": "higood-cutting-records-v1",
+      "version": 1,
+      "stores": [
+        {
+          "name": "commands",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "fixture-received",
+              "value": {
+                "id": "fixture-received",
+                "intent": "accessory:1c2e6909be43d205fea74dbe409925007fc3ae22b08f941f445ba0a0e48573c0",
+                "result": true,
+                "at": "2026-10-19T12:42:31.829Z"
+              }
+            },
+            {
+              "key": "fixture-upstream",
+              "value": {
+                "id": "fixture-upstream",
+                "intent": "fixture",
+                "at": "2026-10-19",
+                "result": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "files",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "meta",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "revision",
+              "value": {
+                "id": "revision",
+                "value": 2
+              }
+            }
+          ]
+        },
+        {
+          "name": "records",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "accessory-warehouse:preparation:prep-order-PO-AW-SEW-CONTRACT",
+              "value": {
+                "id": "accessory-warehouse:preparation:prep-order-PO-AW-SEW-CONTRACT",
+                "collection": "accessory-warehouse:preparation",
+                "value": {
+                  "id": "prep-order-PO-AW-SEW-CONTRACT",
+                  "productionOrderId": "PO-AW-SEW-CONTRACT",
+                  "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                  "styleName": "辅料流转演示款 F01",
+                  "styleImageUrl": "/shirt-sample.jpg",
+                  "techPackVersion": "TP-AW-SPU-AW-F01-V1",
+                  "cuttingFactoryId": "SEA-CUTTING-001",
+                  "cuttingFactoryName": "sea cutting",
+                  "version": 1,
+                  "status": "已配齐",
+                  "remark": "",
+                  "lines": [
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+                      "materialSku": "AW-DEMO-ZIPPER",
+                      "materialName": "拉链",
+                      "imageUrl": "/materials/accessory-zipper.jpg",
+                      "color": "标准色",
+                      "spec": "金属拉链（演示）",
+                      "unit": "条",
+                      "requiredQty": 100,
+                      "preparedQty": 100,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "其他",
+                      "requiresCutting": false,
+                      "allocations": [
+                        {
+                          "locationId": "WH-FITTING-001-LOCATION-A-1",
+                          "qty": 100
+                        }
+                      ]
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+                      "materialSku": "AW-DEMO-BUTTON",
+                      "materialName": "纽扣",
+                      "imageUrl": "/materials/accessory-button.jpg",
+                      "color": "标准色",
+                      "spec": "标准纽扣（演示）",
+                      "unit": "粒",
+                      "requiredQty": 200,
+                      "preparedQty": 200,
+                      "availableQty": 1200,
+                      "locationId": "",
+                      "purpose": "其他",
+                      "requiresCutting": false,
+                      "allocations": [
+                        {
+                          "locationId": "WH-FITTING-001-LOCATION-A-1",
+                          "qty": 200
+                        }
+                      ]
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+                      "materialSku": "AW-DEMO-PRICE-TAG",
+                      "materialName": "价格吊牌",
+                      "imageUrl": "/materials/accessory-flow/price-tag.jpg",
+                      "color": "标准色",
+                      "spec": "单件价格吊牌（演示）",
+                      "unit": "张",
+                      "requiredQty": 100,
+                      "preparedQty": 100,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "价格吊牌",
+                      "requiresCutting": false,
+                      "allocations": [
+                        {
+                          "locationId": "WH-FITTING-001-LOCATION-A-1",
+                          "qty": 100
+                        }
+                      ]
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+                      "materialSku": "AW-DEMO-BRAND-TAG",
+                      "materialName": "品牌吊牌",
+                      "imageUrl": "/materials/accessory-flow/brand-tag.jpg",
+                      "color": "标准色",
+                      "spec": "单件品牌吊牌（演示）",
+                      "unit": "张",
+                      "requiredQty": 100,
+                      "preparedQty": 100,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "品牌吊牌",
+                      "requiresCutting": false,
+                      "allocations": [
+                        {
+                          "locationId": "WH-FITTING-001-LOCATION-A-1",
+                          "qty": 100
+                        }
+                      ]
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+                      "materialSku": "AW-DEMO-TAG-FASTENER",
+                      "materialName": "吊粒",
+                      "imageUrl": "/materials/accessory-flow/tag-fastener.png",
+                      "color": "标准色",
+                      "spec": "单件吊粒（演示）",
+                      "unit": "条",
+                      "requiredQty": 100,
+                      "preparedQty": 100,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "吊粒",
+                      "requiresCutting": false,
+                      "allocations": [
+                        {
+                          "locationId": "WH-FITTING-001-LOCATION-A-1",
+                          "qty": 100
+                        }
+                      ]
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+                      "materialSku": "AW-DEMO-SEWING-THREAD",
+                      "materialName": "车缝线",
+                      "imageUrl": "/materials/yarn-stitching.jpg",
+                      "color": "黑色",
+                      "spec": "黑色车缝线（演示）",
+                      "unit": "公斤",
+                      "requiredQty": 1,
+                      "preparedQty": 1,
+                      "availableQty": 12,
+                      "locationId": "",
+                      "purpose": "车缝线",
+                      "requiresCutting": false,
+                      "allocations": [
+                        {
+                          "locationId": "WH-FITTING-001-LOCATION-A-1",
+                          "qty": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "history": []
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:receipt:RECEIPT:AW-RECEIVED:HILON-2:V2",
+              "value": {
+                "id": "accessory-warehouse:receipt:RECEIPT:AW-RECEIVED:HILON-2:V2",
+                "collection": "accessory-warehouse:receipt",
+                "value": {
+                  "id": "RECEIPT:AW-RECEIVED:HILON-2:V2",
+                  "transferId": "AW-RECEIVED",
+                  "warehouseCode": "HILON-2",
+                  "status": "已收货",
+                  "version": 2,
+                  "lines": [
+                    {
+                      "lineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+                      "qty": 100,
+                      "locationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "lineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+                      "qty": 200,
+                      "locationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "lineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+                      "qty": 100,
+                      "locationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "lineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+                      "qty": 100,
+                      "locationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "lineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+                      "qty": 100,
+                      "locationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "lineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+                      "qty": 1,
+                      "locationId": "HILON-2-LOCATION-A-1"
+                    }
+                  ],
+                  "receivedAt": "2026-10-19",
+                  "receivedBy": "测试仓管"
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-BRAND-TAG:%E5%BC%A0",
+              "value": {
+                "id": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-BRAND-TAG:%E5%BC%A0",
+                "collection": "accessory-warehouse:stock",
+                "value": {
+                  "id": "ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-BRAND-TAG:%E5%BC%A0",
+                  "warehouseCode": "HILON-2",
+                  "locationId": "HILON-2-LOCATION-A-1",
+                  "materialSku": "AW-DEMO-BRAND-TAG",
+                  "unit": "张",
+                  "onHandQty": 100,
+                  "reservedQty": 0,
+                  "version": 1
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-BUTTON:%E7%B2%92",
+              "value": {
+                "id": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-BUTTON:%E7%B2%92",
+                "collection": "accessory-warehouse:stock",
+                "value": {
+                  "id": "ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-BUTTON:%E7%B2%92",
+                  "warehouseCode": "HILON-2",
+                  "locationId": "HILON-2-LOCATION-A-1",
+                  "materialSku": "AW-DEMO-BUTTON",
+                  "unit": "粒",
+                  "onHandQty": 200,
+                  "reservedQty": 0,
+                  "version": 1
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-PRICE-TAG:%E5%BC%A0",
+              "value": {
+                "id": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-PRICE-TAG:%E5%BC%A0",
+                "collection": "accessory-warehouse:stock",
+                "value": {
+                  "id": "ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-PRICE-TAG:%E5%BC%A0",
+                  "warehouseCode": "HILON-2",
+                  "locationId": "HILON-2-LOCATION-A-1",
+                  "materialSku": "AW-DEMO-PRICE-TAG",
+                  "unit": "张",
+                  "onHandQty": 100,
+                  "reservedQty": 0,
+                  "version": 1
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-SEWING-THREAD:%E5%85%AC%E6%96%A4",
+              "value": {
+                "id": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-SEWING-THREAD:%E5%85%AC%E6%96%A4",
+                "collection": "accessory-warehouse:stock",
+                "value": {
+                  "id": "ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-SEWING-THREAD:%E5%85%AC%E6%96%A4",
+                  "warehouseCode": "HILON-2",
+                  "locationId": "HILON-2-LOCATION-A-1",
+                  "materialSku": "AW-DEMO-SEWING-THREAD",
+                  "unit": "公斤",
+                  "onHandQty": 1,
+                  "reservedQty": 0,
+                  "version": 1
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-TAG-FASTENER:%E6%9D%A1",
+              "value": {
+                "id": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-TAG-FASTENER:%E6%9D%A1",
+                "collection": "accessory-warehouse:stock",
+                "value": {
+                  "id": "ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-TAG-FASTENER:%E6%9D%A1",
+                  "warehouseCode": "HILON-2",
+                  "locationId": "HILON-2-LOCATION-A-1",
+                  "materialSku": "AW-DEMO-TAG-FASTENER",
+                  "unit": "条",
+                  "onHandQty": 100,
+                  "reservedQty": 0,
+                  "version": 1
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-ZIPPER:%E6%9D%A1",
+              "value": {
+                "id": "accessory-warehouse:stock:ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-ZIPPER:%E6%9D%A1",
+                "collection": "accessory-warehouse:stock",
+                "value": {
+                  "id": "ACCESSORY-STOCK:HILON-2:HILON-2-LOCATION-A-1:AW-DEMO-ZIPPER:%E6%9D%A1",
+                  "warehouseCode": "HILON-2",
+                  "locationId": "HILON-2-LOCATION-A-1",
+                  "materialSku": "AW-DEMO-ZIPPER",
+                  "unit": "条",
+                  "onHandQty": 100,
+                  "reservedQty": 0,
+                  "version": 1
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:transfer:AW-RECEIVED",
+              "value": {
+                "id": "accessory-warehouse:transfer:AW-RECEIVED",
+                "collection": "accessory-warehouse:transfer",
+                "value": {
+                  "id": "AW-RECEIVED",
+                  "preparationId": "prep-order-PO-AW-SEW-CONTRACT",
+                  "productionOrderId": "PO-AW-SEW-CONTRACT",
+                  "kind": "GTP_TO_SITE",
+                  "fromWarehouse": "WH-FITTING-001",
+                  "toWarehouse": "HILON-2",
+                  "status": "已收货",
+                  "version": 3,
+                  "createdAt": "2026-10-19",
+                  "createdBy": "测试仓管",
+                  "history": [],
+                  "receivedAt": "2026-10-19",
+                  "receivedBy": "测试仓管",
+                  "lines": [
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+                      "sourceLineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+                      "materialSku": "AW-DEMO-ZIPPER",
+                      "materialName": "拉链",
+                      "imageUrl": "/materials/accessory-zipper.jpg",
+                      "color": "标准色",
+                      "spec": "金属拉链（演示）",
+                      "unit": "条",
+                      "purpose": "其他",
+                      "requiresCutting": false,
+                      "qty": 100,
+                      "fromLocationId": "WH-FITTING-001-LOCATION-A-1",
+                      "toLocationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+                      "sourceLineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+                      "materialSku": "AW-DEMO-BUTTON",
+                      "materialName": "纽扣",
+                      "imageUrl": "/materials/accessory-button.jpg",
+                      "color": "标准色",
+                      "spec": "标准纽扣（演示）",
+                      "unit": "粒",
+                      "purpose": "其他",
+                      "requiresCutting": false,
+                      "qty": 200,
+                      "fromLocationId": "WH-FITTING-001-LOCATION-A-1",
+                      "toLocationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+                      "sourceLineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+                      "materialSku": "AW-DEMO-PRICE-TAG",
+                      "materialName": "价格吊牌",
+                      "imageUrl": "/materials/accessory-flow/price-tag.jpg",
+                      "color": "标准色",
+                      "spec": "单件价格吊牌（演示）",
+                      "unit": "张",
+                      "purpose": "价格吊牌",
+                      "requiresCutting": false,
+                      "qty": 100,
+                      "fromLocationId": "WH-FITTING-001-LOCATION-A-1",
+                      "toLocationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+                      "sourceLineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+                      "materialSku": "AW-DEMO-BRAND-TAG",
+                      "materialName": "品牌吊牌",
+                      "imageUrl": "/materials/accessory-flow/brand-tag.jpg",
+                      "color": "标准色",
+                      "spec": "单件品牌吊牌（演示）",
+                      "unit": "张",
+                      "purpose": "品牌吊牌",
+                      "requiresCutting": false,
+                      "qty": 100,
+                      "fromLocationId": "WH-FITTING-001-LOCATION-A-1",
+                      "toLocationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+                      "sourceLineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+                      "materialSku": "AW-DEMO-TAG-FASTENER",
+                      "materialName": "吊粒",
+                      "imageUrl": "/materials/accessory-flow/tag-fastener.png",
+                      "color": "标准色",
+                      "spec": "单件吊粒（演示）",
+                      "unit": "条",
+                      "purpose": "吊粒",
+                      "requiresCutting": false,
+                      "qty": 100,
+                      "fromLocationId": "WH-FITTING-001-LOCATION-A-1",
+                      "toLocationId": "HILON-2-LOCATION-A-1"
+                    },
+                    {
+                      "id": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+                      "sourceLineId": "prep-order-PO-AW-SEW-CONTRACT:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+                      "materialSku": "AW-DEMO-SEWING-THREAD",
+                      "materialName": "车缝线",
+                      "imageUrl": "/materials/yarn-stitching.jpg",
+                      "color": "黑色",
+                      "spec": "黑色车缝线（演示）",
+                      "unit": "公斤",
+                      "purpose": "车缝线",
+                      "requiresCutting": false,
+                      "qty": 1,
+                      "fromLocationId": "WH-FITTING-001-LOCATION-A-1",
+                      "toLocationId": "HILON-2-LOCATION-A-1"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "key": "production-context:assignment-current:PO-AW-SEW-CONTRACT:CUT_PANEL",
+              "value": {
+                "id": "production-context:assignment-current:PO-AW-SEW-CONTRACT:CUT_PANEL",
+                "collection": "production-context:assignment-current",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:CUT_PANEL",
+                  "value": [
+                    "PO-AW-SEW-CONTRACT:CUT-ASSIGNMENT-V1"
+                  ]
+                }
+              }
+            },
+            {
+              "key": "production-context:assignment-current:PO-AW-SEW-CONTRACT:SEW-A",
+              "value": {
+                "id": "production-context:assignment-current:PO-AW-SEW-CONTRACT:SEW-A",
+                "collection": "production-context:assignment-current",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:SEW-A",
+                  "value": [
+                    "AW-TEST-ASG-0"
+                  ]
+                }
+              }
+            },
+            {
+              "key": "production-context:assignment-current:PO-AW-SEW-CONTRACT:SEW-B",
+              "value": {
+                "id": "production-context:assignment-current:PO-AW-SEW-CONTRACT:SEW-B",
+                "collection": "production-context:assignment-current",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:SEW-B",
+                  "value": [
+                    "AW-TEST-ASG-1"
+                  ]
+                }
+              }
+            },
+            {
+              "key": "production-context:assignment-meta:sequence",
+              "value": {
+                "id": "production-context:assignment-meta:sequence",
+                "collection": "production-context:assignment-meta",
+                "value": {
+                  "auditSeq": 0,
+                  "assignmentSeq": 2
+                }
+              }
+            },
+            {
+              "key": "production-context:assignments:AW-TEST-ASG-0",
+              "value": {
+                "id": "production-context:assignments:AW-TEST-ASG-0",
+                "collection": "production-context:assignments",
+                "value": {
+                  "key": "AW-TEST-ASG-0",
+                  "value": {
+                    "assignmentId": "AW-TEST-ASG-0",
+                    "indexedRuntimeSnapshot": true,
+                    "runtimeTaskId": "PO-AW-SEW-CONTRACT:SEW-A",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "taskNo": "AW-SEW-A",
+                    "factoryId": "FACTORY-SEW-A",
+                    "factoryName": "测试三方车缝0",
+                    "source": "DIRECT_DISPATCH",
+                    "assignedQty": 40,
+                    "skuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "processCodes": [
+                      "SEW"
+                    ],
+                    "frozenPrice": 0,
+                    "priceCurrency": "IDR",
+                    "priceUnit": "件",
+                    "businessAssignedAt": "2026-10-19",
+                    "operatedAt": "2026-10-19",
+                    "operatedBy": "跟单",
+                    "ppicId": "PPIC-ACTIVE-006",
+                    "ppicName": "陈琳",
+                    "status": "EFFECTIVE"
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:assignments:AW-TEST-ASG-1",
+              "value": {
+                "id": "production-context:assignments:AW-TEST-ASG-1",
+                "collection": "production-context:assignments",
+                "value": {
+                  "key": "AW-TEST-ASG-1",
+                  "value": {
+                    "assignmentId": "AW-TEST-ASG-1",
+                    "indexedRuntimeSnapshot": true,
+                    "runtimeTaskId": "PO-AW-SEW-CONTRACT:SEW-B",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "taskNo": "AW-SEW-B",
+                    "factoryId": "FACTORY-SEW-B",
+                    "factoryName": "测试三方车缝1",
+                    "source": "DIRECT_DISPATCH",
+                    "assignedQty": 60,
+                    "skuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 20
+                      },
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-L",
+                        "size": "L",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "processCodes": [
+                      "SEW"
+                    ],
+                    "frozenPrice": 0,
+                    "priceCurrency": "IDR",
+                    "priceUnit": "件",
+                    "businessAssignedAt": "2026-10-19",
+                    "operatedAt": "2026-10-19",
+                    "operatedBy": "跟单",
+                    "ppicId": "PPIC-ACTIVE-006",
+                    "ppicName": "陈琳",
+                    "status": "EFFECTIVE"
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:assignments:PO-AW-SEW-CONTRACT:CUT-ASSIGNMENT-V1",
+              "value": {
+                "id": "production-context:assignments:PO-AW-SEW-CONTRACT:CUT-ASSIGNMENT-V1",
+                "collection": "production-context:assignments",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:CUT-ASSIGNMENT-V1",
+                  "value": {
+                    "assignmentId": "PO-AW-SEW-CONTRACT:CUT-ASSIGNMENT-V1",
+                    "indexedRuntimeSnapshot": true,
+                    "runtimeTaskId": "PO-AW-SEW-CONTRACT:CUT_PANEL",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "taskNo": "TASK-PO-AW-SEW-CONTRACT-CUT",
+                    "factoryId": "SEA-CUTTING-001",
+                    "factoryName": "sea cutting",
+                    "source": "DIRECT_DISPATCH",
+                    "assignedQty": 100,
+                    "skuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 60
+                      },
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-L",
+                        "size": "L",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "processCodes": [
+                      "CUT_PANEL"
+                    ],
+                    "frozenPrice": 0,
+                    "priceCurrency": "IDR",
+                    "priceUnit": "件",
+                    "businessAssignedAt": "2026-10-19 09:00:00",
+                    "operatedAt": "2026-10-19 09:00:00",
+                    "operatedBy": "演示分配员",
+                    "status": "EFFECTIVE"
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:orders:PO-AW-SEW-CONTRACT",
+              "value": {
+                "id": "production-context:orders:PO-AW-SEW-CONTRACT",
+                "collection": "production-context:orders",
+                "value": {
+                  "productionOrderId": "PO-AW-SEW-CONTRACT",
+                  "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                  "demandId": "DEM-AW-202610-F01",
+                  "sourceDemandIds": [
+                    "DEM-AW-202610-F01"
+                  ],
+                  "legacyOrderNo": "DEMO-AW-F01",
+                  "status": "WAIT_ASSIGNMENT",
+                  "lockedLegacy": false,
+                  "mainFactoryId": "PENDING-SEWING-MAIN-FACTORY",
+                  "mainFactorySnapshot": {
+                    "id": "PENDING-SEWING-MAIN-FACTORY",
+                    "code": "待定",
+                    "name": "待车缝任务分配确定",
+                    "tier": "PENDING",
+                    "type": "SEWING",
+                    "status": "待指定",
+                    "province": "-",
+                    "city": "-",
+                    "tags": [
+                      "车缝任务分配后回写"
+                    ]
+                  },
+                  "mainFactoryStatus": "PENDING_SEWING_ASSIGNMENT",
+                  "mainFactorySource": "ORDER_CREATE",
+                  "ownerPartyType": "LEGAL_ENTITY",
+                  "ownerPartyId": "HIGOOD-ID-DEMO",
+                  "selectedTechPackVersionId": "TP-AW-SPU-AW-F01-V1",
+                  "techPackSnapshot": {
+                    "snapshotId": "PO-AW-SEW-CONTRACT:TP-V1",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "styleId": "STYLE-SPU-AW-F01",
+                    "styleCode": "SPU-AW-F01",
+                    "styleName": "辅料流转演示款 F01",
+                    "status": "RELEASED",
+                    "versionLabel": "V1",
+                    "sourceTechPackVersionId": "TP-AW-SPU-AW-F01-V1",
+                    "sourceTechPackVersionCode": "TP-AW-SPU-AW-F01-V1",
+                    "sourceTechPackVersionLabel": "V1",
+                    "sourcePublishedAt": "2026-10-19 09:00:00",
+                    "snapshotAt": "2026-10-19 09:00:00",
+                    "snapshotBy": "演示跟单",
+                    "patternDesc": "裁剪 → 车缝 → 后道",
+                    "bomItems": [
+                      {
+                        "id": "AW-BOM-FABRIC",
+                        "type": "面料",
+                        "name": "主身面料",
+                        "materialCode": "AW-DEMO-FABRIC",
+                        "materialImageUrl": "/materials/fabric-main.jpg",
+                        "spec": "布料（演示）",
+                        "colorLabel": "黑色",
+                        "unit": "米",
+                        "unitConsumption": 1.5,
+                        "lossRate": 0,
+                        "supplier": "演示供应商",
+                        "usageProcessCodes": [
+                          "CUT_PANEL"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      },
+                      {
+                        "id": "AW-BOM-AW-DEMO-ZIPPER",
+                        "type": "辅料",
+                        "name": "拉链",
+                        "materialCode": "AW-DEMO-ZIPPER",
+                        "materialImageUrl": "/materials/accessory-zipper.jpg",
+                        "spec": "金属拉链（演示）",
+                        "colorLabel": "标准色",
+                        "unit": "条",
+                        "unitConsumption": 1,
+                        "lossRate": 0,
+                        "supplier": "演示辅料供应商",
+                        "usageProcessCodes": [
+                          "SEW"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      },
+                      {
+                        "id": "AW-BOM-AW-DEMO-BUTTON",
+                        "type": "辅料",
+                        "name": "纽扣",
+                        "materialCode": "AW-DEMO-BUTTON",
+                        "materialImageUrl": "/materials/accessory-button.jpg",
+                        "spec": "标准纽扣（演示）",
+                        "colorLabel": "标准色",
+                        "unit": "粒",
+                        "unitConsumption": 2,
+                        "lossRate": 0,
+                        "supplier": "演示辅料供应商",
+                        "usageProcessCodes": [
+                          "SEW"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      },
+                      {
+                        "id": "AW-BOM-AW-DEMO-PRICE-TAG",
+                        "type": "包装材料",
+                        "name": "价格吊牌",
+                        "materialCode": "AW-DEMO-PRICE-TAG",
+                        "materialImageUrl": "/materials/accessory-flow/price-tag.jpg",
+                        "spec": "单件价格吊牌（演示）",
+                        "colorLabel": "标准色",
+                        "unit": "张",
+                        "unitConsumption": 1,
+                        "lossRate": 0,
+                        "supplier": "演示辅料供应商",
+                        "usageProcessCodes": [
+                          "SEW"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      },
+                      {
+                        "id": "AW-BOM-AW-DEMO-BRAND-TAG",
+                        "type": "包装材料",
+                        "name": "品牌吊牌",
+                        "materialCode": "AW-DEMO-BRAND-TAG",
+                        "materialImageUrl": "/materials/accessory-flow/brand-tag.jpg",
+                        "spec": "单件品牌吊牌（演示）",
+                        "colorLabel": "标准色",
+                        "unit": "张",
+                        "unitConsumption": 1,
+                        "lossRate": 0,
+                        "supplier": "演示辅料供应商",
+                        "usageProcessCodes": [
+                          "SEW"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      },
+                      {
+                        "id": "AW-BOM-AW-DEMO-TAG-FASTENER",
+                        "type": "辅料",
+                        "name": "吊粒",
+                        "materialCode": "AW-DEMO-TAG-FASTENER",
+                        "materialImageUrl": "/materials/accessory-flow/tag-fastener.png",
+                        "spec": "单件吊粒（演示）",
+                        "colorLabel": "标准色",
+                        "unit": "条",
+                        "unitConsumption": 1,
+                        "lossRate": 0,
+                        "supplier": "演示辅料供应商",
+                        "usageProcessCodes": [
+                          "SEW"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      },
+                      {
+                        "id": "AW-BOM-AW-DEMO-SEWING-THREAD",
+                        "type": "纱线",
+                        "name": "车缝线",
+                        "materialCode": "AW-DEMO-SEWING-THREAD",
+                        "materialImageUrl": "/materials/yarn-stitching.jpg",
+                        "spec": "黑色车缝线（演示）",
+                        "colorLabel": "黑色",
+                        "unit": "公斤",
+                        "unitConsumption": 0.01,
+                        "lossRate": 0,
+                        "supplier": "演示辅料供应商",
+                        "usageProcessCodes": [
+                          "SEW"
+                        ],
+                        "applicableSkuCodes": [
+                          "SPU-AW-F01-BLACK-M",
+                          "SPU-AW-F01-BLACK-L"
+                        ]
+                      }
+                    ],
+                    "patternFiles": [],
+                    "processEntries": [
+                      {
+                        "id": "AW-PROCESS-CUT",
+                        "entryType": "PROCESS_BASELINE",
+                        "stageCode": "PROD",
+                        "stageName": "生产",
+                        "processCode": "CUT_PANEL",
+                        "processName": "裁剪",
+                        "assignmentGranularity": "ORDER",
+                        "defaultDocType": "TASK",
+                        "taskTypeMode": "PROCESS",
+                        "isSpecialCraft": false,
+                        "linkedBomItemIds": [
+                          "AW-BOM-FABRIC"
+                        ],
+                        "routeStepNo": 1
+                      },
+                      {
+                        "id": "AW-PROCESS-SEW",
+                        "entryType": "PROCESS_BASELINE",
+                        "stageCode": "PROD",
+                        "stageName": "生产",
+                        "processCode": "SEW",
+                        "processName": "车缝",
+                        "assignmentGranularity": "ORDER",
+                        "defaultDocType": "TASK",
+                        "taskTypeMode": "PROCESS",
+                        "isSpecialCraft": false,
+                        "linkedBomItemIds": [
+                          "AW-BOM-AW-DEMO-ZIPPER",
+                          "AW-BOM-AW-DEMO-BUTTON",
+                          "AW-BOM-AW-DEMO-PRICE-TAG",
+                          "AW-BOM-AW-DEMO-BRAND-TAG",
+                          "AW-BOM-AW-DEMO-TAG-FASTENER",
+                          "AW-BOM-AW-DEMO-SEWING-THREAD"
+                        ],
+                        "predecessorEntryIds": [
+                          "AW-PROCESS-CUT"
+                        ],
+                        "routeStepNo": 2
+                      }
+                    ],
+                    "sizeTable": [],
+                    "sizeMeasurements": [],
+                    "colorMaterialMappings": [],
+                    "cutPieceParts": [],
+                    "imageSnapshot": {
+                      "productImages": [
+                        "/shirt-sample.jpg"
+                      ],
+                      "styleImages": [
+                        "/shirt-sample.jpg"
+                      ],
+                      "sampleImages": [],
+                      "materialImages": [
+                        "/materials/fabric-main.jpg"
+                      ],
+                      "accessoryImages": [
+                        "/materials/accessory-zipper.jpg",
+                        "/materials/accessory-button.jpg",
+                        "/materials/accessory-flow/price-tag.jpg",
+                        "/materials/accessory-flow/brand-tag.jpg",
+                        "/materials/accessory-flow/tag-fastener.png",
+                        "/materials/yarn-stitching.jpg"
+                      ],
+                      "patternImages": [],
+                      "markerImages": [],
+                      "artworkImages": []
+                    },
+                    "patternDesigns": [],
+                    "linkedDesignRevisionTaskIds": [],
+                    "linkedPatternTaskIds": [],
+                    "linkedArtworkTaskIds": [],
+                    "completenessScore": 100
+                  },
+                  "demandSnapshot": {
+                    "demandId": "DEM-AW-202610-F01",
+                    "spuCode": "SPU-AW-F01",
+                    "spuName": "辅料流转演示款 F01",
+                    "buyerName": "演示买手",
+                    "merchandiserName": "演示跟单",
+                    "saleType": "备货",
+                    "priority": "NORMAL",
+                    "requiredDeliveryDate": "2026-11-19",
+                    "constraintsNote": "固定原型演示资料，不代表现场订单。",
+                    "skuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 60
+                      },
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-L",
+                        "size": "L",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ]
+                  },
+                  "sourceDemandSnapshots": [
+                    {
+                      "demandId": "DEM-AW-202610-F01",
+                      "spuCode": "SPU-AW-F01",
+                      "spuName": "辅料流转演示款 F01",
+                      "buyerName": "演示买手",
+                      "merchandiserName": "演示跟单",
+                      "saleType": "备货",
+                      "priority": "NORMAL",
+                      "requiredDeliveryDate": "2026-11-19",
+                      "constraintsNote": "固定原型演示资料，不代表现场订单。",
+                      "skuLines": [
+                        {
+                          "skuCode": "SPU-AW-F01-BLACK-M",
+                          "size": "M",
+                          "color": "黑色",
+                          "qty": 60
+                        },
+                        {
+                          "skuCode": "SPU-AW-F01-BLACK-L",
+                          "size": "L",
+                          "color": "黑色",
+                          "qty": 40
+                        }
+                      ]
+                    }
+                  ],
+                  "assignmentSummary": {
+                    "directCount": 1,
+                    "biddingCount": 0,
+                    "totalTasks": 2,
+                    "unassignedCount": 1
+                  },
+                  "assignmentProgress": {
+                    "status": "IN_PROGRESS",
+                    "directAssignedCount": 1,
+                    "biddingLaunchedCount": 0,
+                    "biddingAwardedCount": 0
+                  },
+                  "biddingSummary": {
+                    "activeTenderCount": 0,
+                    "overdueTenderCount": 0
+                  },
+                  "directDispatchSummary": {
+                    "assignedFactoryCount": 1,
+                    "rejectedCount": 0,
+                    "overdueAckCount": 0
+                  },
+                  "taskBreakdownSummary": {
+                    "isBrokenDown": true,
+                    "taskTypesTop3": [
+                      "裁剪",
+                      "车缝"
+                    ],
+                    "lastBreakdownAt": "2026-10-19 09:00:00",
+                    "lastBreakdownBy": "演示跟单",
+                    "generatedTaskUnitCount": 2,
+                    "singleProcessTaskCount": 2
+                  },
+                  "ledgerDetails": {
+                    "materialIssues": [],
+                    "taskFactories": [],
+                    "keyTimes": [],
+                    "quantityQuality": []
+                  },
+                  "riskFlags": [],
+                  "auditLogs": [
+                    {
+                      "id": "PO-AW-SEW-CONTRACT:CREATED",
+                      "action": "演示生产单",
+                      "detail": "F01：裁剪已分配 sea cutting；未配置自动选厂规则。",
+                      "at": "2026-10-19 09:00:00",
+                      "by": "固定演示资料"
+                    }
+                  ],
+                  "createdAt": "2026-10-19 09:00:00",
+                  "updatedAt": "2026-10-19 09:00:00"
+                }
+              }
+            },
+            {
+              "key": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:CUT_PANEL",
+              "value": {
+                "id": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:CUT_PANEL",
+                "collection": "production-context:reassignedTasks",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:CUT_PANEL",
+                  "value": {
+                    "taskId": "PO-AW-SEW-CONTRACT:CUT_PANEL",
+                    "taskNo": "TASK-PO-AW-SEW-CONTRACT-CUT",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "baseTaskId": "PO-AW-SEW-CONTRACT:CUT_PANEL",
+                    "baseQty": 100,
+                    "baseDependsOnTaskIds": [],
+                    "dependsOnTaskIds": [],
+                    "seq": 1,
+                    "processCode": "PROC_CUT",
+                    "processBusinessCode": "CUT_PANEL",
+                    "processNameZh": "裁剪",
+                    "stage": "CUTTING",
+                    "stageCode": "PROD",
+                    "qty": 100,
+                    "qtyUnit": "件",
+                    "assignmentMode": "DIRECT",
+                    "assignmentStatus": "ASSIGNED",
+                    "ownerSuggestion": {
+                      "kind": "RECOMMENDED_FACTORY_POOL"
+                    },
+                    "assignedFactoryId": "SEA-CUTTING-001",
+                    "assignedFactoryName": "sea cutting",
+                    "qcPoints": [],
+                    "attachments": [],
+                    "status": "NOT_STARTED",
+                    "scopeType": "ORDER",
+                    "scopeKey": "PO-AW-SEW-CONTRACT",
+                    "scopeLabel": "整单 100 件",
+                    "scopeQty": 100,
+                    "assignedQty": 100,
+                    "scopeSkuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 60
+                      },
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-L",
+                        "size": "L",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "scopeDetailRows": [],
+                    "executionEnabled": true,
+                    "taskUnitType": "SINGLE_PROCESS_TASK",
+                    "sourceEntryId": "AW-PROCESS-CUT",
+                    "sourceEntryType": "PROCESS_BASELINE",
+                    "routeStepNo": 1,
+                    "dispatchedAt": "2026-10-19 09:00:00",
+                    "dispatchedBy": "演示分配员",
+                    "businessAssignedAt": "2026-10-19 09:00:00",
+                    "assignmentOperatedAt": "2026-10-19 09:00:00",
+                    "createdAt": "2026-10-19 09:00:00",
+                    "updatedAt": "2026-10-19 09:00:00",
+                    "auditLogs": [
+                      {
+                        "id": "PO-AW-SEW-CONTRACT:CUT_PANEL:DEMO",
+                        "action": "固定演示任务",
+                        "detail": "已分配 sea cutting",
+                        "at": "2026-10-19 09:00:00",
+                        "by": "固定演示资料"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:SEW",
+              "value": {
+                "id": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:SEW",
+                "collection": "production-context:reassignedTasks",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:SEW",
+                  "value": {
+                    "taskId": "PO-AW-SEW-CONTRACT:SEW",
+                    "taskNo": "TASK-PO-AW-SEW-CONTRACT-SEW",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "baseTaskId": "PO-AW-SEW-CONTRACT:SEW",
+                    "baseQty": 100,
+                    "baseDependsOnTaskIds": [
+                      "PO-AW-SEW-CONTRACT:CUT_PANEL"
+                    ],
+                    "dependsOnTaskIds": [
+                      "PO-AW-SEW-CONTRACT:CUT_PANEL"
+                    ],
+                    "seq": 2,
+                    "processCode": "PROC_SEW",
+                    "processBusinessCode": "SEW",
+                    "processNameZh": "车缝",
+                    "stage": "SEWING",
+                    "stageCode": "PROD",
+                    "qty": 100,
+                    "qtyUnit": "件",
+                    "assignmentMode": "DIRECT",
+                    "assignmentStatus": "UNASSIGNED",
+                    "ownerSuggestion": {
+                      "kind": "RECOMMENDED_FACTORY_POOL"
+                    },
+                    "qcPoints": [],
+                    "attachments": [],
+                    "status": "NOT_STARTED",
+                    "scopeType": "ORDER",
+                    "scopeKey": "PO-AW-SEW-CONTRACT",
+                    "scopeLabel": "整单 100 件",
+                    "scopeQty": 100,
+                    "scopeSkuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 60
+                      },
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-L",
+                        "size": "L",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "scopeDetailRows": [],
+                    "executionEnabled": false,
+                    "taskUnitType": "SINGLE_PROCESS_TASK",
+                    "sourceEntryId": "AW-PROCESS-SEW",
+                    "sourceEntryType": "PROCESS_BASELINE",
+                    "routeStepNo": 2,
+                    "createdAt": "2026-10-19 09:00:00",
+                    "updatedAt": "2026-10-19 09:00:00",
+                    "auditLogs": [
+                      {
+                        "id": "PO-AW-SEW-CONTRACT:SEW:DEMO",
+                        "action": "固定演示任务",
+                        "detail": "等待任务分配",
+                        "at": "2026-10-19 09:00:00",
+                        "by": "固定演示资料"
+                      }
+                    ],
+                    "isSplitSource": true
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:SEW-A",
+              "value": {
+                "id": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:SEW-A",
+                "collection": "production-context:reassignedTasks",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:SEW-A",
+                  "value": {
+                    "taskId": "PO-AW-SEW-CONTRACT:SEW-A",
+                    "taskNo": "AW-SEW-A",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "baseTaskId": "PO-AW-SEW-CONTRACT:SEW",
+                    "baseQty": 40,
+                    "baseDependsOnTaskIds": [
+                      "PO-AW-SEW-CONTRACT:CUT_PANEL"
+                    ],
+                    "dependsOnTaskIds": [
+                      "PO-AW-SEW-CONTRACT:CUT_PANEL"
+                    ],
+                    "seq": 2,
+                    "processCode": "PROC_SEW",
+                    "processBusinessCode": "SEW",
+                    "processNameZh": "车缝",
+                    "stage": "SEWING",
+                    "stageCode": "PROD",
+                    "qty": 40,
+                    "qtyUnit": "件",
+                    "assignmentMode": "DIRECT",
+                    "assignmentStatus": "ASSIGNED",
+                    "ownerSuggestion": {
+                      "kind": "RECOMMENDED_FACTORY_POOL"
+                    },
+                    "qcPoints": [],
+                    "attachments": [],
+                    "status": "NOT_STARTED",
+                    "scopeType": "ORDER",
+                    "scopeKey": "PO-AW-SEW-CONTRACT",
+                    "scopeLabel": "整单 100 件",
+                    "scopeQty": 40,
+                    "scopeSkuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "scopeDetailRows": [],
+                    "executionEnabled": true,
+                    "taskUnitType": "SINGLE_PROCESS_TASK",
+                    "sourceEntryId": "AW-PROCESS-SEW",
+                    "sourceEntryType": "PROCESS_BASELINE",
+                    "routeStepNo": 2,
+                    "createdAt": "2026-10-19 09:00:00",
+                    "updatedAt": "2026-10-19 09:00:00",
+                    "auditLogs": [
+                      {
+                        "id": "PO-AW-SEW-CONTRACT:SEW:DEMO",
+                        "action": "固定演示任务",
+                        "detail": "等待任务分配",
+                        "at": "2026-10-19 09:00:00",
+                        "by": "固定演示资料"
+                      }
+                    ],
+                    "assignedFactoryId": "FACTORY-SEW-A"
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:SEW-B",
+              "value": {
+                "id": "production-context:reassignedTasks:PO-AW-SEW-CONTRACT:SEW-B",
+                "collection": "production-context:reassignedTasks",
+                "value": {
+                  "key": "PO-AW-SEW-CONTRACT:SEW-B",
+                  "value": {
+                    "taskId": "PO-AW-SEW-CONTRACT:SEW-B",
+                    "taskNo": "AW-SEW-B",
+                    "productionOrderId": "PO-AW-SEW-CONTRACT",
+                    "productionOrderNo": "PO-AW-SEW-CONTRACT",
+                    "baseTaskId": "PO-AW-SEW-CONTRACT:SEW",
+                    "baseQty": 60,
+                    "baseDependsOnTaskIds": [
+                      "PO-AW-SEW-CONTRACT:CUT_PANEL"
+                    ],
+                    "dependsOnTaskIds": [
+                      "PO-AW-SEW-CONTRACT:CUT_PANEL"
+                    ],
+                    "seq": 2,
+                    "processCode": "PROC_SEW",
+                    "processBusinessCode": "SEW",
+                    "processNameZh": "车缝",
+                    "stage": "SEWING",
+                    "stageCode": "PROD",
+                    "qty": 60,
+                    "qtyUnit": "件",
+                    "assignmentMode": "DIRECT",
+                    "assignmentStatus": "ASSIGNED",
+                    "ownerSuggestion": {
+                      "kind": "RECOMMENDED_FACTORY_POOL"
+                    },
+                    "qcPoints": [],
+                    "attachments": [],
+                    "status": "NOT_STARTED",
+                    "scopeType": "ORDER",
+                    "scopeKey": "PO-AW-SEW-CONTRACT",
+                    "scopeLabel": "整单 100 件",
+                    "scopeQty": 60,
+                    "scopeSkuLines": [
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-M",
+                        "size": "M",
+                        "color": "黑色",
+                        "qty": 20
+                      },
+                      {
+                        "skuCode": "SPU-AW-F01-BLACK-L",
+                        "size": "L",
+                        "color": "黑色",
+                        "qty": 40
+                      }
+                    ],
+                    "scopeDetailRows": [],
+                    "executionEnabled": true,
+                    "taskUnitType": "SINGLE_PROCESS_TASK",
+                    "sourceEntryId": "AW-PROCESS-SEW",
+                    "sourceEntryType": "PROCESS_BASELINE",
+                    "routeStepNo": 2,
+                    "createdAt": "2026-10-19 09:00:00",
+                    "updatedAt": "2026-10-19 09:00:00",
+                    "auditLogs": [
+                      {
+                        "id": "PO-AW-SEW-CONTRACT:SEW:DEMO",
+                        "action": "固定演示任务",
+                        "detail": "等待任务分配",
+                        "at": "2026-10-19 09:00:00",
+                        "by": "固定演示资料"
+                      }
+                    ],
+                    "assignedFactoryId": "FACTORY-SEW-B"
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:runtime-meta:sequence",
+              "value": {
+                "id": "production-context:runtime-meta:sequence",
+                "collection": "production-context:runtime-meta",
+                "value": {
+                  "auditSeq": 0
+                }
+              }
+            },
+            {
+              "key": "production-context:taskOverrides:TASKGEN-AW-SEW-CONTRACT-001__ORDER",
+              "value": {
+                "id": "production-context:taskOverrides:TASKGEN-AW-SEW-CONTRACT-001__ORDER",
+                "collection": "production-context:taskOverrides",
+                "value": {
+                  "key": "TASKGEN-AW-SEW-CONTRACT-001__ORDER",
+                  "value": {
+                    "taskId": "TASKGEN-AW-SEW-CONTRACT-001__ORDER",
+                    "executionEnabled": false,
+                    "isSplitSource": true
+                  }
+                }
+              }
+            },
+            {
+              "key": "production-context:taskOverrides:TASKGEN-AW-SEW-CONTRACT-002__ORDER",
+              "value": {
+                "id": "production-context:taskOverrides:TASKGEN-AW-SEW-CONTRACT-002__ORDER",
+                "collection": "production-context:taskOverrides",
+                "value": {
+                  "key": "TASKGEN-AW-SEW-CONTRACT-002__ORDER",
+                  "value": {
+                    "taskId": "TASKGEN-AW-SEW-CONTRACT-002__ORDER",
+                    "executionEnabled": false,
+                    "isSplitSource": true
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "localStorage": {
+    "higood:ppic:sewing-pickup-slips:v1": "{\"version\":1,\"versions\":[{\"slipId\":\"PPIC-PICKUP-AW-TEST-ASG-0-ACCESSORY\",\"slipNo\":\"LL-OLD-A\",\"versionId\":\"PPIC-PICKUP-AW-TEST-ASG-0-ACCESSORY-V1\",\"versionNo\":1,\"versionLabel\":\"V1\",\"status\":\"CURRENT\",\"assignmentId\":\"AW-TEST-ASG-0\",\"runtimeTaskId\":\"PO-AW-SEW-CONTRACT:SEW-A\",\"taskNo\":\"AW-SEW-A\",\"productionOrderId\":\"PO-AW-SEW-CONTRACT\",\"productionOrderNo\":\"PO-AW-SEW-CONTRACT\",\"taskKindLabel\":\"独立车缝\",\"factoryId\":\"FACTORY-SEW-A\",\"factoryName\":\"测试三方车缝0\",\"ppicId\":\"PPIC-ACTIVE-006\",\"ppicName\":\"陈琳\",\"warehouseName\":\"旧辅料仓\",\"objectKind\":\"ACCESSORY\",\"styleCode\":\"STYLE-OLD\",\"styleName\":\"原款式\",\"styleImageUrl\":\"/shirt-sample.jpg\",\"lines\":[{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-001\",\"sourceLineId\":\"MAT-REQ-AW-TEST-ASG-0-001\",\"objectType\":\"辅料\",\"objectCode\":\"AW-DEMO-ZIPPER\",\"objectName\":\"拉链\",\"color\":\"金属拉链（演示）\",\"size\":\"不适用\",\"part\":\"辅料\",\"unit\":\"条\",\"requiredQty\":40,\"previouslyHandedOverQty\":0,\"availableQty\":40,\"imageUrl\":\"/materials/accessory-zipper.jpg\"},{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-002\",\"sourceLineId\":\"MAT-REQ-AW-TEST-ASG-0-002\",\"objectType\":\"辅料\",\"objectCode\":\"AW-DEMO-BUTTON\",\"objectName\":\"纽扣\",\"color\":\"标准纽扣（演示）\",\"size\":\"不适用\",\"part\":\"辅料\",\"unit\":\"粒\",\"requiredQty\":80,\"previouslyHandedOverQty\":0,\"availableQty\":80,\"imageUrl\":\"/materials/accessory-button.jpg\"},{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-003\",\"sourceLineId\":\"MAT-REQ-AW-TEST-ASG-0-003\",\"objectType\":\"辅料\",\"objectCode\":\"AW-DEMO-TAG-FASTENER\",\"objectName\":\"吊粒\",\"color\":\"单件吊粒（演示）\",\"size\":\"不适用\",\"part\":\"辅料\",\"unit\":\"条\",\"requiredQty\":40,\"previouslyHandedOverQty\":0,\"availableQty\":40,\"imageUrl\":\"/materials/accessory-flow/tag-fastener.png\"}],\"printedAt\":\"2026-10-18\",\"printedByPpicId\":\"PPIC-ACTIVE-006\",\"printedByPpicName\":\"陈琳\"},{\"slipId\":\"UNRELATED-SLIP\",\"slipNo\":\"LL-OLD-A\",\"versionId\":\"UNRELATED-V1\",\"versionNo\":1,\"versionLabel\":\"V1\",\"status\":\"CURRENT\",\"assignmentId\":\"UNRELATED-ASG\",\"runtimeTaskId\":\"PO-AW-SEW-CONTRACT:SEW-A\",\"taskNo\":\"AW-SEW-A\",\"productionOrderId\":\"PO-UNRELATED\",\"productionOrderNo\":\"PO-AW-SEW-CONTRACT\",\"taskKindLabel\":\"独立车缝\",\"factoryId\":\"FACTORY-SEW-A\",\"factoryName\":\"测试三方车缝0\",\"ppicId\":\"PPIC-ACTIVE-006\",\"ppicName\":\"陈琳\",\"warehouseName\":\"旧辅料仓\",\"objectKind\":\"ACCESSORY\",\"styleCode\":\"STYLE-OLD\",\"styleName\":\"无关用户款式\",\"styleImageUrl\":\"/shirt-sample.jpg\",\"lines\":[{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-001\",\"sourceLineId\":\"MAT-REQ-AW-TEST-ASG-0-001\",\"objectType\":\"辅料\",\"objectCode\":\"AW-DEMO-ZIPPER\",\"objectName\":\"拉链\",\"color\":\"金属拉链（演示）\",\"size\":\"不适用\",\"part\":\"辅料\",\"unit\":\"条\",\"requiredQty\":40,\"previouslyHandedOverQty\":0,\"availableQty\":40,\"imageUrl\":\"/materials/accessory-zipper.jpg\"},{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-002\",\"sourceLineId\":\"MAT-REQ-AW-TEST-ASG-0-002\",\"objectType\":\"辅料\",\"objectCode\":\"AW-DEMO-BUTTON\",\"objectName\":\"纽扣\",\"color\":\"标准纽扣（演示）\",\"size\":\"不适用\",\"part\":\"辅料\",\"unit\":\"粒\",\"requiredQty\":80,\"previouslyHandedOverQty\":0,\"availableQty\":80,\"imageUrl\":\"/materials/accessory-button.jpg\"},{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-003\",\"sourceLineId\":\"MAT-REQ-AW-TEST-ASG-0-003\",\"objectType\":\"辅料\",\"objectCode\":\"AW-DEMO-TAG-FASTENER\",\"objectName\":\"吊粒\",\"color\":\"单件吊粒（演示）\",\"size\":\"不适用\",\"part\":\"辅料\",\"unit\":\"条\",\"requiredQty\":40,\"previouslyHandedOverQty\":0,\"availableQty\":40,\"imageUrl\":\"/materials/accessory-flow/tag-fastener.png\"}],\"printedAt\":\"2026-10-18\",\"printedByPpicId\":\"PPIC-ACTIVE-006\",\"printedByPpicName\":\"陈琳\"}],\"handoverResults\":[{\"commandId\":\"OLD-HAND\",\"versionId\":\"PPIC-PICKUP-AW-TEST-ASG-0-ACCESSORY-V1\",\"sourceRecordId\":\"OLD-SOURCE\",\"sourceRecordNo\":\"OLD-SOURCE\",\"recordedAt\":\"2026-10-18T12:00:00Z\",\"recordedBy\":\"旧仓管\",\"actorFactoryId\":\"OLD-WH\",\"objectKind\":\"ACCESSORY\",\"recordedByRole\":\"MATERIAL_WAREHOUSE\",\"quantities\":[{\"lineId\":\"PICKUP-LINE-MAT-REQ-AW-TEST-ASG-0-001\",\"actualQty\":7}]}],\"userMetadata\":{\"preserved\":true}}"
+  },
+  "sessionStorage": {}
+}

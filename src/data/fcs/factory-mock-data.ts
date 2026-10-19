@@ -29,6 +29,10 @@ export const OWN_WOOL_FACTORY_CODE = 'WOOL-OWN-001'
 export const OWN_WOOL_FACTORY_NAME = '周哥毛织厂'
 export const DEDICATED_CUTTING_FACTORY_ID = 'OWN-CUTTING-001'
 export const DEDICATED_CUTTING_FACTORY_NAME = 'HiGood 裁床厂'
+export const SEA_CUTTING_FACTORY_ID = 'SEA-CUTTING-001'
+export const SEA_CUTTING_FACTORY_NAME = 'sea cutting'
+export const SEA_CUTTING2_FACTORY_ID = 'SEA-CUTTING-002'
+export const SEA_CUTTING2_FACTORY_NAME = 'sea cutting2'
 export const DEDICATED_POST_FACTORY_ID = 'PF-DEDICATED-001'
 export const DEDICATED_POST_FACTORY_CODE = 'POST-FIN-001'
 export const DEDICATED_POST_FACTORY_NAME = 'HiGood 后道工厂'
@@ -292,6 +296,40 @@ const dedicatedCuttingFactory: Factory = {
   eligibility: { allowDispatch: true, allowBid: false, allowExecute: true, allowSettle: true },
 }
 
+// 本地原型的两地裁床档案；独立身份，不替换我方原有裁床厂或配置自动分配规则。
+const accessorySiteCuttingFactories: Factory[] = [
+  { id: SEA_CUTTING_FACTORY_ID, name: SEA_CUTTING_FACTORY_NAME, site: 'HILON' },
+  { id: SEA_CUTTING2_FACTORY_ID, name: SEA_CUTTING2_FACTORY_NAME, site: 'Mahameru' },
+].map<Factory>(({ id, name, site }) => ({
+  id,
+  code: id,
+  name,
+  factoryShortName: name,
+  address: `原型演示：${site} 裁床作业区`,
+  contact: '裁床负责人（演示）',
+  phone: '',
+  status: 'active',
+  cooperationMode: 'exclusive',
+  processAbilities: [createProcessAbility('CUT_PANEL', { tags: [], factoryType: 'CENTRAL_CUTTING' })]
+    .filter((item): item is FactoryProcessAbility => Boolean(item)),
+  qualityScore: 90,
+  deliveryScore: 90,
+  createdAt: '2026-10-19 09:00:00',
+  updatedAt: '2026-10-19 09:00:00',
+  factoryTier: 'CENTRAL',
+  factoryType: 'CENTRAL_CUTTING',
+  pdaEnabled: true,
+  pdaTenantId: id,
+  isTestFactory: false,
+  sourceChannel: '本地原型演示',
+  taskAcceptanceConfig: {
+    singleProcessEnabled: true,
+    canAcceptSewingIronPack: false,
+    canAcceptCuttingSewingIronPack: false,
+  },
+  eligibility: { allowDispatch: true, allowBid: false, allowExecute: true, allowSettle: false },
+}))
+
 const ownWoolFactory: Factory = {
   id: OWN_WOOL_FACTORY_ID,
   code: OWN_WOOL_FACTORY_CODE,
@@ -495,6 +533,7 @@ export const mockFactories: Factory[] = [
   ...generatedFactories,
   allProcessCraftTestFactory,
   dedicatedCuttingFactory,
+  ...accessorySiteCuttingFactories,
   ownWoolFactory,
   ...specialCraftDedicatedFactories,
 ]

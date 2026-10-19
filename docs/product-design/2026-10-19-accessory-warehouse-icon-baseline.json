@@ -1,0 +1,950 @@
+{
+  "source": "src/data/app-shell-config.ts + src/icons/shell-icons.ts",
+  "sourceHead": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "date": "2026-10-19",
+  "scope": "静态配置读取，不是浏览器图标验收",
+  "groupCount": 12,
+  "nodeCount": 134,
+  "missingCount": 61,
+  "unregisteredCount": 13,
+  "nodes": [
+    {
+      "path": "WLS / 生产配料管理",
+      "key": null,
+      "href": null,
+      "icon": "PackageCheck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 生产配料管理 / 染色配料",
+      "key": "wls-prep-dyeing",
+      "href": "/wls/production-prep/dyeing",
+      "icon": "Droplets",
+      "registered": true
+    },
+    {
+      "path": "WLS / 生产配料管理 / 印花配料",
+      "key": "wls-prep-printing",
+      "href": "/wls/production-prep/printing",
+      "icon": "Palette",
+      "registered": true
+    },
+    {
+      "path": "WLS / 生产配料管理 / 车缝配料",
+      "key": "wls-prep-sewing",
+      "href": "/wls/production-prep/sewing",
+      "icon": "Component",
+      "registered": true
+    },
+    {
+      "path": "WLS / 生产配料管理 / 其它配料",
+      "key": "wls-prep-other",
+      "href": "/wls/production-prep/other",
+      "icon": "Package",
+      "registered": true
+    },
+    {
+      "path": "WLS / 生产配料管理 / 毛织配料",
+      "key": "wls-prep-knitting",
+      "href": "/wls/production-prep/knitting",
+      "icon": "Shirt",
+      "registered": true
+    },
+    {
+      "path": "WLS / 生产配料管理 / 面料需求看板列表",
+      "key": "wls-fabric-demand-board",
+      "href": "/wls/fabric-demand-board",
+      "icon": "PanelsTopLeft",
+      "registered": true
+    },
+    {
+      "path": "WLS / PDA管理",
+      "key": null,
+      "href": null,
+      "icon": "ScanBarcode",
+      "registered": false
+    },
+    {
+      "path": "WLS / PDA管理 / PDA管理",
+      "key": "wls-pda",
+      "href": "/wls/pda",
+      "icon": "ScanBarcode",
+      "registered": false
+    },
+    {
+      "path": "WLS / 基础数据",
+      "key": null,
+      "href": null,
+      "icon": "Database",
+      "registered": true
+    },
+    {
+      "path": "WLS / 基础数据 / 仓库管理",
+      "key": "wls-basic-warehouse",
+      "href": "/wls/basic/warehouse",
+      "icon": "Warehouse",
+      "registered": true
+    },
+    {
+      "path": "WLS / 基础数据 / 库区库位管理",
+      "key": "wls-basic-zone-location",
+      "href": "/wls/basic/zone-location",
+      "icon": "MapPin",
+      "registered": true
+    },
+    {
+      "path": "WLS / 基础数据 / 主体管理",
+      "key": "wls-basic-subject",
+      "href": "/wls/basic/subject",
+      "icon": "Users",
+      "registered": true
+    },
+    {
+      "path": "WLS / 基础数据 / 订单编码管理",
+      "key": "wls-basic-barcode-rule",
+      "href": "/wls/basic/barcode-rule",
+      "icon": "Barcode",
+      "registered": false
+    },
+    {
+      "path": "WLS / 基础数据 / 集货标签管理",
+      "key": "wls-finished-basic-basket",
+      "href": "/wls/finished/basic/basket",
+      "icon": "Tags",
+      "registered": true
+    },
+    {
+      "path": "WLS / 入库管理",
+      "key": null,
+      "href": null,
+      "icon": "ArrowDownToLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 入库管理 / 成衣入库",
+      "key": "wls-garment-inbound",
+      "href": null,
+      "icon": "ArrowDownToLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 入库管理 / 成衣入库 / 预入库管理",
+      "key": "wls-finished-pre-inbound",
+      "href": "/wls/finished/pre-inbound",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 入库管理 / 成衣入库 / 入库单列表",
+      "key": "wls-finished-putaway",
+      "href": "/wls/finished/putaway",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 入库管理 / 成衣入库 / 成衣换码管理",
+      "key": "wls-garment-relabel-tasks",
+      "href": "/wls/garment-relabel-tasks",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 入库管理 / 退件入库",
+      "key": "wls-return-inbound-group",
+      "href": null,
+      "icon": "RotateCcw",
+      "registered": true
+    },
+    {
+      "path": "WLS / 入库管理 / 退件入库 / 退货入库列表",
+      "key": "wls-finished-return-inbound",
+      "href": "/wls/finished/return-inbound",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理",
+      "key": null,
+      "href": null,
+      "icon": "ArrowUpFromLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库",
+      "key": "wls-garment-outbound",
+      "href": null,
+      "icon": "ArrowUpFromLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 拣货单管理",
+      "key": "wls-finished-wave-manage",
+      "href": "/wls/finished/wave-manage",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 扫码拣货",
+      "key": "wls-online-scan-pick",
+      "href": "/wls/online/scan-pick",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 打单揽收统计",
+      "key": "wls-online-print-collect",
+      "href": "/wls/online/print-collect",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / KOL待打单管理",
+      "key": "wls-online-kol-print",
+      "href": "/wls/online/kol-print",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / SKU扫码发货",
+      "key": "wls-finished-ship-scan",
+      "href": "/wls/finished/ship-scan",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 按单扫码发货",
+      "key": "wls-online-order-scan-ship",
+      "href": "/wls/online/order-scan-ship",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 出库单管理",
+      "key": "wls-finished-outbound-orders",
+      "href": "/wls/finished/outbound-orders",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 借出单管理",
+      "key": "wls-online-loan",
+      "href": "/wls/online/loan",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / Shopee订单管理",
+      "key": "wls-online-shopee",
+      "href": "/wls/online/shopee",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣出库 / 推广任务单管理",
+      "key": "wls-online-promo",
+      "href": "/wls/online/promo",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 中转出库",
+      "key": "wls-transit-outbound-group",
+      "href": null,
+      "icon": "Truck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 出库管理 / 中转出库 / 中转领料单",
+      "key": "wls-raw-requisition-list",
+      "href": "/wls/raw/requisition-list",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 中转出库 / 中转配料单",
+      "key": "wls-raw-issue-list",
+      "href": "/wls/raw/issue-list",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 中转出库 / 中转出库单",
+      "key": "wls-transit-outbound-manage",
+      "href": "/wls/transit/outbound-manage",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣集货",
+      "key": "wls-collection-group",
+      "href": null,
+      "icon": "ShoppingBag",
+      "registered": true
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣集货 / 集货预出库管理",
+      "key": "wls-finished-collection-orders",
+      "href": "/wls/finished/collection/orders",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣集货 / 集货拣货单管理",
+      "key": "wls-finished-collection-picking",
+      "href": "/wls/finished/collection/picking",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣集货 / 集货分拣单管理",
+      "key": "wls-finished-collection-sorting",
+      "href": "/wls/finished/collection/sorting",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣集货 / 集货箱订单管理",
+      "key": "wls-finished-basic-collection-box",
+      "href": "/wls/finished/basic/collection-box",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 出库管理 / 成衣集货 / 集货单扫码发货",
+      "key": "wls-finished-pda-ship-scan",
+      "href": "/wls/finished/pda-ship-scan",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理",
+      "key": null,
+      "href": null,
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 库存管理 / 成衣库存查询",
+      "key": "wls-garment-stock-query",
+      "href": null,
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 库存管理 / 成衣库存查询 / 即时库存查询",
+      "key": "wls-finished-stock-realtime",
+      "href": "/wls/finished/stock/realtime",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 成衣库存查询 / 库存流水查询",
+      "key": "wls-finished-stock-flow",
+      "href": "/wls/finished/stock/flow",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 成衣库存查询 / 仓位库存查询",
+      "key": "wls-finished-stock-location",
+      "href": "/wls/finished/stock/location",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 成衣库存查询 / 仓库库存管理",
+      "key": "wls-online-warehouse-stock",
+      "href": "/wls/online/warehouse-stock",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 中转库存查询",
+      "key": "wls-transit-stock-query",
+      "href": null,
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 库存管理 / 中转库存查询 / 即时库存查询",
+      "key": "wls-transit-inventory",
+      "href": "/wls/transit/inventory",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 中转库存查询 / 库存流水查询",
+      "key": "wls-online-transit-flow",
+      "href": "/wls/online/transit-flow",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 中转库存查询 / 仓位库存查询",
+      "key": "wls-transit-location",
+      "href": "/wls/transit/location",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库内操作",
+      "key": "wls-stock-move",
+      "href": null,
+      "icon": "ArrowRightLeft",
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库内操作 / 成衣移货",
+      "key": "wls-finished-stock-transfer",
+      "href": "/wls/finished/stock/transfer",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库内操作 / 中转移货",
+      "key": "wls-online-transit-move",
+      "href": "/wls/online/transit-move",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库存调拨",
+      "key": "wls-stock-transfer-group",
+      "href": null,
+      "icon": "ArrowRightLeft",
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库存调拨 / 成衣调拨",
+      "key": "wls-online-garment-transfer",
+      "href": "/wls/online/garment-transfer",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库存调拨 / 中转调拨",
+      "key": "wls-transit-warehouse-transfer",
+      "href": "/wls/transit/warehouse-transfer",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库存盘点",
+      "key": "wls-stock-count-group",
+      "href": null,
+      "icon": "ClipboardCheck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 库存管理 / 库存盘点 / 成衣仓盘点",
+      "key": "wls-finished-stock-inventory-count",
+      "href": "/wls/finished/stock/inventory-count",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 库存管理 / 库存盘点 / 中转仓盘点",
+      "key": "wls-online-transit-count",
+      "href": "/wls/online/transit-count",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / KOL移货申请",
+      "key": null,
+      "href": null,
+      "icon": "MoveRight",
+      "registered": false
+    },
+    {
+      "path": "WLS / KOL移货申请 / KOL移货申请",
+      "key": "wls-online-kol-move",
+      "href": "/wls/online/kol-move",
+      "icon": "MoveRight",
+      "registered": false
+    },
+    {
+      "path": "WLS / 产能统计",
+      "key": null,
+      "href": null,
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 产能统计 / 回货入库",
+      "key": "wls-online-capacity-return",
+      "href": "/wls/online/capacity-return",
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 产能统计 / 退货入库",
+      "key": "wls-online-capacity-return-in",
+      "href": "/wls/online/capacity-return-in",
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 产能统计 / 成衣上架",
+      "key": "wls-online-capacity-putaway",
+      "href": "/wls/online/capacity-putaway",
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 产能统计 / 库存盘点",
+      "key": "wls-online-capacity-count",
+      "href": "/wls/online/capacity-count",
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 产能统计 / 成衣拣货",
+      "key": "wls-online-capacity-pick",
+      "href": "/wls/online/capacity-pick",
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 产能统计 / 发货扫描",
+      "key": "wls-online-capacity-ship",
+      "href": "/wls/online/capacity-ship",
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon",
+      "key": null,
+      "href": null,
+      "icon": "Truck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 裁片配料单",
+      "key": "wls-hilon-cutting-prep",
+      "href": "/wls/online/hilon-cutting-all",
+      "icon": "Scissors",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 预入库管理",
+      "key": "wls-transit-receive-manage",
+      "href": "/wls/transit/receive-manage",
+      "icon": "ClipboardList",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 收货单管理",
+      "key": "wls-transit-inbound-manage",
+      "href": "/wls/transit/inbound-manage",
+      "icon": "PackageCheck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 上架单管理",
+      "key": "wls-transit-putaway-manage",
+      "href": "/wls/transit/putaway-manage",
+      "icon": "ArrowUpToLine",
+      "registered": false
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 中转仓库存",
+      "key": "wls-hilon-inventory",
+      "href": "/wls/transit/inventory",
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 中转仓库位",
+      "key": "wls-hilon-location",
+      "href": "/wls/transit/location",
+      "icon": "MapPin",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 生产单校验",
+      "key": "wls-transit-kit-center",
+      "href": "/wls/transit/kit-center",
+      "icon": "ShieldCheck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 配料单管理",
+      "key": "wls-transit-allocation-manage",
+      "href": "/wls/transit/allocation-manage",
+      "icon": "ListOrdered",
+      "registered": false
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 出库单管理",
+      "key": "wls-hilon-outbound",
+      "href": "/wls/transit/outbound-manage",
+      "icon": "ArrowUpFromLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 作业单管理",
+      "key": "wls-transit-work-area",
+      "href": "/wls/transit/work-area-manage",
+      "icon": "Warehouse",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 裁剪厂分配",
+      "key": "wls-online-hilon-cutting-factory",
+      "href": "/wls/online/hilon-cutting-factory",
+      "icon": "Factory",
+      "registered": true
+    },
+    {
+      "path": "WLS / 老中转仓Hilon / 裁片配料单All",
+      "key": "wls-online-hilon-cutting-all",
+      "href": "/wls/online/hilon-cutting-all",
+      "icon": "Scissors",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru",
+      "key": null,
+      "href": null,
+      "icon": "Truck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 裁片配料单",
+      "key": "wls-online-mahameru-cutting",
+      "href": "/wls/online/mahameru-cutting",
+      "icon": "Scissors",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 预入库管理",
+      "key": "wls-online-mahameru-receive",
+      "href": "/wls/online/mahameru-receive",
+      "icon": "ClipboardList",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 收货单管理",
+      "key": "wls-online-mahameru-inbound",
+      "href": "/wls/online/mahameru-inbound",
+      "icon": "PackageCheck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 上架单管理",
+      "key": "wls-online-mahameru-putaway",
+      "href": "/wls/online/mahameru-putaway",
+      "icon": "ArrowUpToLine",
+      "registered": false
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 中转仓库存",
+      "key": "wls-online-mahameru-inventory",
+      "href": "/wls/online/mahameru-inventory",
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 中转仓库位",
+      "key": "wls-online-mahameru-location",
+      "href": "/wls/online/mahameru-location",
+      "icon": "MapPin",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 生产单校验",
+      "key": "wls-online-mahameru-kit",
+      "href": "/wls/online/mahameru-kit",
+      "icon": "ShieldCheck",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 配料单管理",
+      "key": "wls-online-mahameru-allocation",
+      "href": "/wls/online/mahameru-allocation",
+      "icon": "ListOrdered",
+      "registered": false
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 出库单管理",
+      "key": "wls-online-mahameru-outbound",
+      "href": "/wls/online/mahameru-outbound",
+      "icon": "ArrowUpFromLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 作业单管理",
+      "key": "wls-online-mahameru-work",
+      "href": "/wls/online/mahameru-work",
+      "icon": "Warehouse",
+      "registered": true
+    },
+    {
+      "path": "WLS / 新中转仓Mahameru / 裁剪厂分配",
+      "key": "wls-online-mahameru-cutting-factory",
+      "href": "/wls/online/mahameru-cutting-factory",
+      "icon": "Factory",
+      "registered": true
+    },
+    {
+      "path": "WLS / 成衣管理",
+      "key": null,
+      "href": null,
+      "icon": "Shirt",
+      "registered": true
+    },
+    {
+      "path": "WLS / 成衣管理 / 入库管理",
+      "key": "wls-finished-inbound",
+      "href": "/wls/finished-inbound",
+      "icon": "ArrowDownToLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 成衣管理 / 出库管理",
+      "key": "wls-garment-manage-outbound",
+      "href": null,
+      "icon": "ArrowUpFromLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 成衣管理 / 出库管理 / 预出库管理",
+      "key": "wls-finished-pre-outbound",
+      "href": "/wls/finished/pre-outbound",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 成衣管理 / 出库管理 / 拣货单管理",
+      "key": "wls-online-garment-pick",
+      "href": "/wls/finished/wave-manage",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 成衣管理 / 库存管理",
+      "key": "wls-online-garment-inventory",
+      "href": "/wls/online/garment-inventory",
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 原料管理",
+      "key": null,
+      "href": null,
+      "icon": "Layers",
+      "registered": true
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理",
+      "key": "wls-raw-inbound-group",
+      "href": null,
+      "icon": "ArrowDownToLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 织带到货列表",
+      "key": "wls-accessory-base-materials",
+      "href": "/wls/accessory-base-materials",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 织带半成品到货列表",
+      "key": "wls-accessory-continuous-stock",
+      "href": "/wls/accessory-continuous-stock",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 采购到货列表",
+      "key": "wls-raw-arrival-list",
+      "href": "/wls/raw/arrival-list",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 染色到货列表",
+      "key": "wls-online-dye-arrival",
+      "href": "/wls/online/dye-arrival",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 印花到货列表",
+      "key": "wls-online-print-arrival",
+      "href": "/wls/online/print-arrival",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 手动入库单列表",
+      "key": "wls-raw-inbound-list",
+      "href": "/wls/raw/inbound-list",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 入库管理 / 绣花到货列表",
+      "key": "wls-online-embroidery-arrival",
+      "href": "/wls/online/embroidery-arrival",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 调拨管理",
+      "key": "wls-raw-transfer-group",
+      "href": null,
+      "icon": "ArrowRightLeft",
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 调拨管理 / 所有调拨单",
+      "key": "wls-raw-stock-fabric-transfer",
+      "href": "/wls/raw/stock/fabric-transfer",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 调拨管理 / 等待调拨",
+      "key": "wls-raw-stock-accessory-transfer",
+      "href": "/wls/raw/stock/accessory-transfer",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 调拨管理 / 调拨待交出",
+      "key": "wls-online-transfer-wait-handover",
+      "href": "/wls/online/transfer-wait-handover",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 调拨管理 / 调拨交出",
+      "key": "wls-online-transfer-handover",
+      "href": "/wls/online/transfer-handover",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 调拨管理 / 等待入库",
+      "key": "wls-online-transfer-wait-inbound",
+      "href": "/wls/online/transfer-wait-inbound",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 上架管理",
+      "key": "wls-raw-putaway-group",
+      "href": null,
+      "icon": "ArrowUpToLine",
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 上架管理 / 待上架列表",
+      "key": "wls-online-raw-putaway",
+      "href": "/wls/online/raw-putaway",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 上架管理 / 原料条码列表",
+      "key": "wls-online-raw-barcode",
+      "href": "/wls/online/raw-barcode",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 出库管理",
+      "key": "wls-raw-outbound-group",
+      "href": null,
+      "icon": "ArrowUpFromLine",
+      "registered": true
+    },
+    {
+      "path": "WLS / 原料管理 / 出库管理 / 手动出库列表",
+      "key": "wls-raw-outbound-list",
+      "href": "/wls/raw/outbound-list",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 出库管理 / 领料出库列表",
+      "key": "wls-online-material-requisition",
+      "href": "/wls/raw/requisition-list",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 出库管理 / 耗材出库列表",
+      "key": "wls-online-consumable-outbound",
+      "href": "/wls/online/consumable-outbound",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理",
+      "key": "wls-raw-stock-group",
+      "href": null,
+      "icon": "Archive",
+      "registered": true
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理 / 原料移货",
+      "key": "wls-online-raw-move",
+      "href": "/wls/online/raw-move",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理 / 库存查询",
+      "key": "wls-raw-stock-realtime",
+      "href": "/wls/raw/stock/realtime",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理 / 库存流水查询",
+      "key": "wls-raw-stock-flow",
+      "href": "/wls/raw/stock/flow",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理 / 仓位库存查询",
+      "key": "wls-raw-stock-location",
+      "href": "/wls/raw/stock/location",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理 / 库存盘点",
+      "key": "wls-raw-stock-fabric-count",
+      "href": "/wls/raw/stock/fabric-inventory-count",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 库存管理 / 面料条码异常",
+      "key": "wls-online-barcode-exception",
+      "href": "/wls/online/barcode-exception",
+      "icon": null,
+      "registered": false
+    },
+    {
+      "path": "WLS / 原料管理 / 物料监控",
+      "key": "wls-raw-monitor-group",
+      "href": null,
+      "icon": "BarChart3",
+      "registered": true
+    },
+    {
+      "path": "WLS / 原料管理 / 物料监控 / 备货面料库存监控",
+      "key": "wls-online-stock-monitor",
+      "href": "/wls/online/stock-monitor",
+      "icon": null,
+      "registered": false
+    }
+  ]
+}

@@ -29,6 +29,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
     }
+    if (['renderSewingOutsourcingTasksPage', 'renderSewingMaterialHandoverPage', 'renderPdaHandoverPage', 'renderPrintPreviewPage'].includes(exportName)) {
+      await (await import('../data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+    }
+    if (exportName === 'renderUnifiedDispatchWorkbenchPage') await (await import('../data/wls/accessory-warehouse-records.ts')).ensureAccessoryWarehouseRecords()
     const renderer = module[exportName]
 
     if (typeof renderer !== 'function') {
@@ -266,7 +270,7 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
     return getPmsRoutes()
   }
 
-  if (normalizedPathname.startsWith('/wls/finished') || normalizedPathname.startsWith('/wls/transit') || normalizedPathname.startsWith('/wls/raw') || normalizedPathname.startsWith('/wls/basic') || normalizedPathname.startsWith('/wls/production-prep') || normalizedPathname.startsWith('/wls/online') || normalizedPathname === '/wls/pda') {
+  if (normalizedPathname.startsWith('/wls/finished') || normalizedPathname.startsWith('/wls/transit') || normalizedPathname.startsWith('/wls/raw') || normalizedPathname.startsWith('/wls/basic') || normalizedPathname.startsWith('/wls/accessory-warehouses/') || normalizedPathname.startsWith('/wls/online') || normalizedPathname === '/wls/pda') {
     return getWlsRoutes()
   }
 
@@ -320,6 +324,16 @@ function resolveFromRegistry(
 
 export async function resolvePage(pathname: string): Promise<string> {
   const normalizedPathname = normalizePathname(pathname)
+
+  if (normalizedPathname.startsWith('/wls/accessory-warehouses/')) {
+    const registry = (await import('./routes-accessory-warehouses.ts')).routes
+    const content = await resolveFromRegistry(registry, normalizedPathname)
+    if (content !== null) return content
+    return renderRouteNotFound(pathname)
+  }
+  if (normalizedPathname === '/fcs/material-prep/sewing') {
+    return (await import('../pages/fcs/material-prep/sewing.ts')).renderFcsSewingPrepPage()
+  }
 
   if (
     normalizedPathname === '/fcs/print/preview'
@@ -411,6 +425,15 @@ export async function resolvePage(pathname: string): Promise<string> {
   // 后道命名页复用原渲染器与记录读取，不为命中一个页面先载入
   // 整份 FCS 路由表的染整交接、质量扣款等静态来源。
   if (normalizedPathname.startsWith('/fcs/craft/post-finishing/')) {
+    if (normalizedPathname === '/fcs/craft/post-finishing/material-transfers') {
+      // This page prepares the complete material scope itself. The generic
+      // post-finishing wrapper would read it twice and register return/QC
+      // sources that neither this list nor its receipt command consumes.
+      const page = await import('../pages/process-factory/post-finishing/material-transfers.ts')
+      const content = await page.renderPostFinishingMaterialTransfersPage()
+      const notice = await import('../pages/process-factory/post-finishing/storage-notice.ts')
+      return notice.renderPostFinishingStorageNotice() + content
+    }
     const pages = await import('./route-renderers-fcs')
     const suffix = normalizedPathname.slice('/fcs/craft/post-finishing/'.length)
     const exact: Record<string, () => Promise<string>> = {

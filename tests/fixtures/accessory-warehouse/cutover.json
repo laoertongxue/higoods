@@ -1,0 +1,705 @@
+{
+  "snapshot": {
+    "records": [
+      {
+        "id": "accessory-warehouse:preparation:prep-order-PO-AW-202610-F01",
+        "collection": "accessory-warehouse:preparation",
+        "value": {
+          "id": "prep-order-PO-AW-202610-F01",
+          "productionOrderId": "PO-AW-202610-F01",
+          "productionOrderNo": "PO-AW-202610-F01",
+          "styleName": "辅料流转演示款 F01",
+          "styleImageUrl": "/shirt-sample.jpg",
+          "techPackVersion": "TP-AW-SPU-AW-F01-V1",
+          "cuttingFactoryId": "SEA-CUTTING-001",
+          "cuttingFactoryName": "sea cutting",
+          "version": 2,
+          "status": "已配齐",
+          "remark": "",
+          "lines": [
+            {
+              "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+              "materialSku": "AW-DEMO-ZIPPER",
+              "materialName": "拉链",
+              "imageUrl": "/materials/accessory-zipper.jpg",
+              "color": "标准色",
+              "spec": "金属拉链（演示）",
+              "unit": "条",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 500,
+              "locationId": "WH-FITTING-001-LOCATION-A-1",
+              "purpose": "其他",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-1",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+              "materialSku": "AW-DEMO-BUTTON",
+              "materialName": "纽扣",
+              "imageUrl": "/materials/accessory-button.jpg",
+              "color": "标准色",
+              "spec": "标准纽扣（演示）",
+              "unit": "粒",
+              "requiredQty": 200,
+              "preparedQty": 200,
+              "availableQty": 1000,
+              "locationId": "WH-FITTING-001-LOCATION-A-2",
+              "purpose": "其他",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-2",
+                  "qty": 200
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+              "materialSku": "AW-DEMO-PRICE-TAG",
+              "materialName": "价格吊牌",
+              "imageUrl": "/materials/accessory-flow/price-tag.jpg",
+              "color": "标准色",
+              "spec": "单件价格吊牌（演示）",
+              "unit": "张",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 500,
+              "locationId": "WH-FITTING-001-LOCATION-A-3",
+              "purpose": "价格吊牌",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-3",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+              "materialSku": "AW-DEMO-BRAND-TAG",
+              "materialName": "品牌吊牌",
+              "imageUrl": "/materials/accessory-flow/brand-tag.jpg",
+              "color": "标准色",
+              "spec": "单件品牌吊牌（演示）",
+              "unit": "张",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 500,
+              "locationId": "WH-FITTING-001-LOCATION-B-1",
+              "purpose": "品牌吊牌",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-B-1",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+              "materialSku": "AW-DEMO-TAG-FASTENER",
+              "materialName": "吊粒",
+              "imageUrl": "/materials/accessory-flow/tag-fastener.png",
+              "color": "标准色",
+              "spec": "单件吊粒（演示）",
+              "unit": "条",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 500,
+              "locationId": "WH-FITTING-001-LOCATION-B-2",
+              "purpose": "吊粒",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-B-2",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+              "materialSku": "AW-DEMO-SEWING-THREAD",
+              "materialName": "车缝线",
+              "imageUrl": "/materials/yarn-stitching.jpg",
+              "color": "黑色",
+              "spec": "黑色车缝线（演示）",
+              "unit": "公斤",
+              "requiredQty": 1,
+              "preparedQty": 1,
+              "availableQty": 11,
+              "locationId": "WH-FITTING-001-LOCATION-B-3",
+              "purpose": "车缝线",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-B-3",
+                  "qty": 1
+                }
+              ]
+            }
+          ],
+          "history": [
+            {
+              "at": "2026-10-18T14:00:00.000Z",
+              "by": "阶段一原仓管（测试初态）",
+              "action": "登记配料",
+              "detail": "拉链 100条（WH-FITTING-001-LOCATION-A-1）；纽扣 200粒（WH-FITTING-001-LOCATION-A-2）；价格吊牌 100张（WH-FITTING-001-LOCATION-A-3）；品牌吊牌 100张（WH-FITTING-001-LOCATION-B-1）；吊粒 100条（WH-FITTING-001-LOCATION-B-2）；车缝线 1公斤（WH-FITTING-001-LOCATION-B-3）"
+            },
+            {
+              "at": "2026-10-18T14:00:00.000Z",
+              "by": "阶段一原仓管（测试初态）",
+              "action": "完成配齐",
+              "detail": "全部辅料逐行配齐，建立整单调拨"
+            }
+          ],
+          "completedAt": "2026-10-18T14:00:00.000Z",
+          "completedBy": "阶段一原仓管（测试初态）",
+          "completionVersion": 2
+        }
+      },
+      {
+        "id": "accessory-warehouse:preparation:prep-order-PO-AW-202610-F02",
+        "collection": "accessory-warehouse:preparation",
+        "value": {
+          "id": "prep-order-PO-AW-202610-F02",
+          "productionOrderId": "PO-AW-202610-F02",
+          "productionOrderNo": "PO-AW-202610-F02",
+          "styleName": "辅料流转演示款 F02",
+          "styleImageUrl": "/shirt-sample.jpg",
+          "techPackVersion": "TP-AW-SPU-AW-F02-V1",
+          "cuttingFactoryId": "SEA-CUTTING-002",
+          "cuttingFactoryName": "sea cutting2",
+          "version": 1,
+          "status": "配料中",
+          "remark": "",
+          "lines": [
+            {
+              "id": "prep-order-PO-AW-202610-F02:TP-AW-SPU-AW-F02-V1:AW-BOM-AW-DEMO-ZIPPER",
+              "materialSku": "AW-DEMO-ZIPPER",
+              "materialName": "拉链",
+              "imageUrl": "/materials/accessory-zipper.jpg",
+              "color": "标准色",
+              "spec": "金属拉链（演示）",
+              "unit": "条",
+              "requiredQty": 100,
+              "preparedQty": 50,
+              "availableQty": 350,
+              "locationId": "WH-FITTING-001-LOCATION-A-1",
+              "purpose": "其他",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-1",
+                  "qty": 50
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F02:TP-AW-SPU-AW-F02-V1:AW-BOM-AW-DEMO-BUTTON",
+              "materialSku": "AW-DEMO-BUTTON",
+              "materialName": "纽扣",
+              "imageUrl": "/materials/accessory-button.jpg",
+              "color": "标准色",
+              "spec": "标准纽扣（演示）",
+              "unit": "粒",
+              "requiredQty": 200,
+              "preparedQty": 0,
+              "availableQty": 800,
+              "locationId": "",
+              "purpose": "其他",
+              "requiresCutting": false
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F02:TP-AW-SPU-AW-F02-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+              "materialSku": "AW-DEMO-PRICE-TAG",
+              "materialName": "价格吊牌",
+              "imageUrl": "/materials/accessory-flow/price-tag.jpg",
+              "color": "标准色",
+              "spec": "单件价格吊牌（演示）",
+              "unit": "张",
+              "requiredQty": 100,
+              "preparedQty": 0,
+              "availableQty": 400,
+              "locationId": "",
+              "purpose": "价格吊牌",
+              "requiresCutting": false
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F02:TP-AW-SPU-AW-F02-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+              "materialSku": "AW-DEMO-BRAND-TAG",
+              "materialName": "品牌吊牌",
+              "imageUrl": "/materials/accessory-flow/brand-tag.jpg",
+              "color": "标准色",
+              "spec": "单件品牌吊牌（演示）",
+              "unit": "张",
+              "requiredQty": 100,
+              "preparedQty": 0,
+              "availableQty": 400,
+              "locationId": "",
+              "purpose": "品牌吊牌",
+              "requiresCutting": false
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F02:TP-AW-SPU-AW-F02-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+              "materialSku": "AW-DEMO-TAG-FASTENER",
+              "materialName": "吊粒",
+              "imageUrl": "/materials/accessory-flow/tag-fastener.png",
+              "color": "标准色",
+              "spec": "单件吊粒（演示）",
+              "unit": "条",
+              "requiredQty": 100,
+              "preparedQty": 0,
+              "availableQty": 400,
+              "locationId": "",
+              "purpose": "吊粒",
+              "requiresCutting": false
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F02:TP-AW-SPU-AW-F02-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+              "materialSku": "AW-DEMO-SEWING-THREAD",
+              "materialName": "车缝线",
+              "imageUrl": "/materials/yarn-stitching.jpg",
+              "color": "黑色",
+              "spec": "黑色车缝线（演示）",
+              "unit": "公斤",
+              "requiredQty": 1,
+              "preparedQty": 0,
+              "availableQty": 10,
+              "locationId": "",
+              "purpose": "车缝线",
+              "requiresCutting": false
+            }
+          ],
+          "history": [
+            {
+              "at": "2026-10-18T14:00:00.000Z",
+              "by": "阶段一原仓管（测试初态）",
+              "action": "登记配料",
+              "detail": "拉链 50条（WH-FITTING-001-LOCATION-A-1）"
+            }
+          ]
+        }
+      },
+      {
+        "id": "accessory-warehouse:preparation:prep-order-PO-AW-202610-F03",
+        "collection": "accessory-warehouse:preparation",
+        "value": {
+          "id": "prep-order-PO-AW-202610-F03",
+          "productionOrderId": "PO-AW-202610-F03",
+          "productionOrderNo": "PO-AW-202610-F03",
+          "styleName": "辅料流转演示款 F03",
+          "styleImageUrl": "/shirt-sample.jpg",
+          "techPackVersion": "TP-AW-SPU-AW-F03-V1",
+          "cuttingFactoryId": null,
+          "cuttingFactoryName": null,
+          "version": 2,
+          "status": "已配齐",
+          "remark": "",
+          "lines": [
+            {
+              "id": "prep-order-PO-AW-202610-F03:TP-AW-SPU-AW-F03-V1:AW-BOM-AW-DEMO-ZIPPER",
+              "materialSku": "AW-DEMO-ZIPPER",
+              "materialName": "拉链",
+              "imageUrl": "/materials/accessory-zipper.jpg",
+              "color": "标准色",
+              "spec": "金属拉链（演示）",
+              "unit": "条",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 400,
+              "locationId": "WH-FITTING-001-LOCATION-A-1",
+              "purpose": "其他",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-1",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F03:TP-AW-SPU-AW-F03-V1:AW-BOM-AW-DEMO-BUTTON",
+              "materialSku": "AW-DEMO-BUTTON",
+              "materialName": "纽扣",
+              "imageUrl": "/materials/accessory-button.jpg",
+              "color": "标准色",
+              "spec": "标准纽扣（演示）",
+              "unit": "粒",
+              "requiredQty": 200,
+              "preparedQty": 200,
+              "availableQty": 800,
+              "locationId": "WH-FITTING-001-LOCATION-A-2",
+              "purpose": "其他",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-2",
+                  "qty": 200
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F03:TP-AW-SPU-AW-F03-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+              "materialSku": "AW-DEMO-PRICE-TAG",
+              "materialName": "价格吊牌",
+              "imageUrl": "/materials/accessory-flow/price-tag.jpg",
+              "color": "标准色",
+              "spec": "单件价格吊牌（演示）",
+              "unit": "张",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 400,
+              "locationId": "WH-FITTING-001-LOCATION-A-3",
+              "purpose": "价格吊牌",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-A-3",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F03:TP-AW-SPU-AW-F03-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+              "materialSku": "AW-DEMO-BRAND-TAG",
+              "materialName": "品牌吊牌",
+              "imageUrl": "/materials/accessory-flow/brand-tag.jpg",
+              "color": "标准色",
+              "spec": "单件品牌吊牌（演示）",
+              "unit": "张",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 400,
+              "locationId": "WH-FITTING-001-LOCATION-B-1",
+              "purpose": "品牌吊牌",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-B-1",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F03:TP-AW-SPU-AW-F03-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+              "materialSku": "AW-DEMO-TAG-FASTENER",
+              "materialName": "吊粒",
+              "imageUrl": "/materials/accessory-flow/tag-fastener.png",
+              "color": "标准色",
+              "spec": "单件吊粒（演示）",
+              "unit": "条",
+              "requiredQty": 100,
+              "preparedQty": 100,
+              "availableQty": 400,
+              "locationId": "WH-FITTING-001-LOCATION-B-2",
+              "purpose": "吊粒",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-B-2",
+                  "qty": 100
+                }
+              ]
+            },
+            {
+              "id": "prep-order-PO-AW-202610-F03:TP-AW-SPU-AW-F03-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+              "materialSku": "AW-DEMO-SEWING-THREAD",
+              "materialName": "车缝线",
+              "imageUrl": "/materials/yarn-stitching.jpg",
+              "color": "黑色",
+              "spec": "黑色车缝线（演示）",
+              "unit": "公斤",
+              "requiredQty": 1,
+              "preparedQty": 1,
+              "availableQty": 10,
+              "locationId": "WH-FITTING-001-LOCATION-B-3",
+              "purpose": "车缝线",
+              "requiresCutting": false,
+              "allocations": [
+                {
+                  "locationId": "WH-FITTING-001-LOCATION-B-3",
+                  "qty": 1
+                }
+              ]
+            }
+          ],
+          "history": [
+            {
+              "at": "2026-10-18T14:00:00.000Z",
+              "by": "阶段一原仓管（测试初态）",
+              "action": "登记配料",
+              "detail": "拉链 100条（WH-FITTING-001-LOCATION-A-1）；纽扣 200粒（WH-FITTING-001-LOCATION-A-2）；价格吊牌 100张（WH-FITTING-001-LOCATION-A-3）；品牌吊牌 100张（WH-FITTING-001-LOCATION-B-1）；吊粒 100条（WH-FITTING-001-LOCATION-B-2）；车缝线 1公斤（WH-FITTING-001-LOCATION-B-3）"
+            },
+            {
+              "at": "2026-10-18T14:00:00.000Z",
+              "by": "阶段一原仓管（测试初态）",
+              "action": "完成配齐",
+              "detail": "全部辅料逐行配齐，建立整单调拨"
+            }
+          ],
+          "completedAt": "2026-10-18T14:00:00.000Z",
+          "completedBy": "阶段一原仓管（测试初态）",
+          "completionVersion": 2
+        }
+      },
+      {
+        "id": "accessory-warehouse:stock:ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-A-1:AW-DEMO-ZIPPER:%E6%9D%A1",
+        "collection": "accessory-warehouse:stock",
+        "value": {
+          "id": "ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-A-1:AW-DEMO-ZIPPER:%E6%9D%A1",
+          "warehouseCode": "WH-FITTING-001",
+          "locationId": "WH-FITTING-001-LOCATION-A-1",
+          "materialSku": "AW-DEMO-ZIPPER",
+          "unit": "条",
+          "onHandQty": 600,
+          "reservedQty": 250,
+          "version": 3,
+          "sourceRefs": [
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "operationId": "AC47-FIXTURE-RESERVE-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "operationId": "AC47-FIXTURE-RESERVE-F03",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F02",
+              "qty": 50
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F02",
+              "operationId": "AC47-FIXTURE-RESERVE-F02",
+              "qty": 50
+            }
+          ]
+        }
+      },
+      {
+        "id": "accessory-warehouse:stock:ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-A-2:AW-DEMO-BUTTON:%E7%B2%92",
+        "collection": "accessory-warehouse:stock",
+        "value": {
+          "id": "ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-A-2:AW-DEMO-BUTTON:%E7%B2%92",
+          "warehouseCode": "WH-FITTING-001",
+          "locationId": "WH-FITTING-001-LOCATION-A-2",
+          "materialSku": "AW-DEMO-BUTTON",
+          "unit": "粒",
+          "onHandQty": 1200,
+          "reservedQty": 400,
+          "version": 2,
+          "sourceRefs": [
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "qty": 200
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "operationId": "AC47-FIXTURE-RESERVE-F01",
+              "qty": 200
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "qty": 200
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "operationId": "AC47-FIXTURE-RESERVE-F03",
+              "qty": 200
+            }
+          ]
+        }
+      },
+      {
+        "id": "accessory-warehouse:stock:ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-A-3:AW-DEMO-PRICE-TAG:%E5%BC%A0",
+        "collection": "accessory-warehouse:stock",
+        "value": {
+          "id": "ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-A-3:AW-DEMO-PRICE-TAG:%E5%BC%A0",
+          "warehouseCode": "WH-FITTING-001",
+          "locationId": "WH-FITTING-001-LOCATION-A-3",
+          "materialSku": "AW-DEMO-PRICE-TAG",
+          "unit": "张",
+          "onHandQty": 600,
+          "reservedQty": 200,
+          "version": 2,
+          "sourceRefs": [
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "operationId": "AC47-FIXTURE-RESERVE-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "operationId": "AC47-FIXTURE-RESERVE-F03",
+              "qty": 100
+            }
+          ]
+        }
+      },
+      {
+        "id": "accessory-warehouse:stock:ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-B-1:AW-DEMO-BRAND-TAG:%E5%BC%A0",
+        "collection": "accessory-warehouse:stock",
+        "value": {
+          "id": "ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-B-1:AW-DEMO-BRAND-TAG:%E5%BC%A0",
+          "warehouseCode": "WH-FITTING-001",
+          "locationId": "WH-FITTING-001-LOCATION-B-1",
+          "materialSku": "AW-DEMO-BRAND-TAG",
+          "unit": "张",
+          "onHandQty": 600,
+          "reservedQty": 200,
+          "version": 2,
+          "sourceRefs": [
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "operationId": "AC47-FIXTURE-RESERVE-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "operationId": "AC47-FIXTURE-RESERVE-F03",
+              "qty": 100
+            }
+          ]
+        }
+      },
+      {
+        "id": "accessory-warehouse:stock:ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-B-2:AW-DEMO-TAG-FASTENER:%E6%9D%A1",
+        "collection": "accessory-warehouse:stock",
+        "value": {
+          "id": "ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-B-2:AW-DEMO-TAG-FASTENER:%E6%9D%A1",
+          "warehouseCode": "WH-FITTING-001",
+          "locationId": "WH-FITTING-001-LOCATION-B-2",
+          "materialSku": "AW-DEMO-TAG-FASTENER",
+          "unit": "条",
+          "onHandQty": 600,
+          "reservedQty": 200,
+          "version": 2,
+          "sourceRefs": [
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "operationId": "AC47-FIXTURE-RESERVE-F01",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "qty": 100
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "operationId": "AC47-FIXTURE-RESERVE-F03",
+              "qty": 100
+            }
+          ]
+        }
+      },
+      {
+        "id": "accessory-warehouse:stock:ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-B-3:AW-DEMO-SEWING-THREAD:%E5%85%AC%E6%96%A4",
+        "collection": "accessory-warehouse:stock",
+        "value": {
+          "id": "ACCESSORY-STOCK:WH-FITTING-001:WH-FITTING-001-LOCATION-B-3:AW-DEMO-SEWING-THREAD:%E5%85%AC%E6%96%A4",
+          "warehouseCode": "WH-FITTING-001",
+          "locationId": "WH-FITTING-001-LOCATION-B-3",
+          "materialSku": "AW-DEMO-SEWING-THREAD",
+          "unit": "公斤",
+          "onHandQty": 12,
+          "reservedQty": 2,
+          "version": 2,
+          "sourceRefs": [
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "qty": 1
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F01",
+              "operationId": "AC47-FIXTURE-RESERVE-F01",
+              "qty": 1
+            },
+            {
+              "kind": "RESERVATION",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "qty": 1
+            },
+            {
+              "kind": "RESERVE",
+              "sourceId": "prep-order-PO-AW-202610-F03",
+              "operationId": "AC47-FIXTURE-RESERVE-F03",
+              "qty": 1
+            }
+          ]
+        }
+      }
+    ],
+    "revision": 1,
+    "commands": [
+      {
+        "id": "AC47-STAGE1-INITIAL-STATE",
+        "intent": "accessory:b10874574a001090c3955b51f5ee3cba1eaa251b7dbb573101cd72758ebb1a27",
+        "result": [
+          "prep-order-PO-AW-202610-F01",
+          "prep-order-PO-AW-202610-F03",
+          "prep-order-PO-AW-202610-F02"
+        ],
+        "at": "2026-10-19T12:18:19.392Z"
+      }
+    ]
+  }
+}

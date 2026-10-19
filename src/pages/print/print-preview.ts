@@ -15,8 +15,8 @@ import {
 } from '../../data/fcs/cutting/manual-fei-tickets.ts'
 
 type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
-/** 任务单、部位票和中转袋标签只加载对应模板。 */
-async function loadPrintAdapter(documentType: PrintDocumentType): Promise<PrintAdapter> {
+/** 任务单、领料单、部位票和中转袋标签只加载对应模板。 */
+async function loadPrintAdapter(documentType: PrintDocumentType, sourceId?: string): Promise<PrintAdapter> {
   if (documentType === 'POST_FINISHING_QC_ORDER') {
     const qc = await import('./templates/post-finishing-qc-print-template.ts')
     return {
@@ -30,6 +30,29 @@ async function loadPrintAdapter(documentType: PrintDocumentType): Promise<PrintA
   if (documentType === 'DISPATCH_TASK_SHEET') {
     const sheet = await import('./templates/dispatch-task-sheet-template.ts')
     return { buildPrintDocument: sheet.buildDispatchTaskSheetPrintDocument, renderPrintDocument: sheet.renderDispatchTaskSheetTemplate }
+  }
+  if (documentType === 'PICKUP_SLIP') {
+    const { getSewingPickupSlipVersion } = await import('../../data/fcs/sewing-pickup-slips.ts')
+    if (sourceId && getSewingPickupSlipVersion(decodeParam(sourceId))) {
+      const slip = await import('./templates/ppic-pickup-slip-template.ts')
+      return {
+        buildPrintDocument(input) {
+          if (input.sourceType !== 'PICKUP_SLIP_RECORD') throw new Error(`未找到打印模板：${input.documentType} / ${input.sourceType}`)
+          const version = getSewingPickupSlipVersion(input.sourceId)
+          if (!version) throw new Error('未找到领料单版本，请核对二维码')
+          return slip.buildPpicPickupSlipPrintDocument(input, version)
+        },
+        renderPrintDocument: slip.renderMaterialSlipTemplate,
+      }
+    }
+    const slip = await import('./templates/material-slip-template.ts')
+    return {
+      buildPrintDocument(input) {
+        if (input.sourceType !== 'PICKUP_SLIP_RECORD') throw new Error(`未找到打印模板：${input.documentType} / ${input.sourceType}`)
+        return slip.buildPickupSlipPrintDocument(input)
+      },
+      renderPrintDocument: slip.renderMaterialSlipTemplate,
+    }
   }
   if (documentType === 'PRINTING_ROLL_LABEL') {
     const { ensurePcsRecordState } = await import('../../data/pcs-record-runtime.ts')
@@ -205,6 +228,10 @@ export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promi
   const action = actionNode.dataset.printPreviewAction
   if (action !== 'print' && action !== 'download-pdf') return false
   const input = resolveInput()
+  if (input.documentType === 'PICKUP_SLIP') {
+    void preparePickupSlipPrint(actionNode)
+    return true
+  }
   if (['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET', 'TRANSFER_BAG_GOODS_LABEL'].includes(input.documentType)) {
     void prepareVerifiedDocumentPrint(actionNode)
     return true
@@ -240,6 +267,52 @@ export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promi
   }
   window.print()
   return true
+}
+
+async function preparePickupSlipPrint(button: HTMLElement): Promise<void> {
+  const root = button.closest<HTMLElement>('[data-pickup-slip-preview]')
+  if (!root || root.dataset.preparingPrint === 'true') return
+  const pathname = appStore.getState().pathname
+  const current = () => root.isConnected && document.querySelector('[data-pickup-slip-preview]') === root && appStore.getState().pathname === pathname
+  root.dataset.preparingPrint = 'true'
+  const feedback = root.querySelector<HTMLElement>('[data-print-ready-feedback]')
+  const controls = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-print-preview-action]'))
+  controls.forEach(control => { control.disabled = true })
+  if (feedback) feedback.textContent = '正在准备图片和二维码…'
+  try {
+    if (root.querySelector('[data-print-image-missing]')) throw new Error('图片尚未维护，打印未开始；请补齐图片后重试。')
+    const images = Array.from(root.querySelectorAll<HTMLImageElement>('img[data-print-image]'))
+    if (!images.length) throw new Error('图片尚未加载，打印未开始；请重新打开领料单。')
+    await Promise.all(images.map(async img => {
+      try {
+        await Promise.race([img.decode(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error('图片加载超时')), 10000))])
+        if (!img.naturalWidth) throw new Error('图片未加载')
+        if (current()) updatePrintImageState(img, 'loaded')
+      } catch {
+        if (current()) updatePrintImageState(img, 'error')
+        throw new Error(`${img.alt || '图片'}尚未加载，打印未开始；请重试图片后重新打印。`)
+      }
+    }))
+    if (!current()) return
+    await document.fonts.ready
+    if (!current()) return
+    const qrCodes = Array.from(root.querySelectorAll('[data-real-qr]'))
+    if (!qrCodes.length) throw new Error('二维码尚未生成，打印未开始；请重新打开领料单。')
+    const deadline = Date.now() + 5000
+    while (qrCodes.some(node => !node.querySelector('svg'))) {
+      if (!current()) return
+      if (Date.now() > deadline) throw new Error('二维码尚未生成，打印未开始；请稍后重试。')
+      await new Promise(resolve => setTimeout(resolve, 40))
+    }
+    if (!current()) return
+    if (feedback) feedback.textContent = '图片和二维码已就绪。'
+    window.print()
+  } catch (error) {
+    if (current() && feedback) feedback.textContent = error instanceof Error ? error.message : String(error)
+  } finally {
+    controls.forEach(control => { control.disabled = false })
+    delete root.dataset.preparingPrint
+  }
 }
 
 async function prepareVerifiedDocumentPrint(button: HTMLElement): Promise<void> {
@@ -329,7 +402,7 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
   }
 
   try {
-    const {buildPrintDocument, renderPrintDocument} = await loadPrintAdapter(resolved.documentType)
+    const {buildPrintDocument, renderPrintDocument} = await loadPrintAdapter(resolved.documentType, resolved.sourceId)
     const document = buildPrintDocument({
       documentType: resolved.documentType,
       sourceType: decodeParam(resolved.sourceType),
@@ -340,10 +413,22 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
       labelSize: resolved.labelSize,
     } as PrintDocumentBuildInput)
 
+    const pickupSlipPreview = resolved.documentType === 'PICKUP_SLIP'
+    const documentHtml = renderPrintDocument(document)
     if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') window.setTimeout(bindPrintImages, 0)
     return `
       ${renderUnifiedPrintStyles()}
-      <div class="print-preview-root" ${['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET', 'TRANSFER_BAG_GOODS_LABEL'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
+      ${pickupSlipPreview ? `<style>
+        @media screen {
+          [data-pickup-slip-preview] { min-width: 0; max-width: 100%; }
+          [data-pickup-slip-preview] .pickup-slip-preview-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+          [data-pickup-slip-preview] .pickup-slip-preview-scroll:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+        }
+        @media print {
+          [data-pickup-slip-preview] [data-print-image-url] { outline: none !important; box-shadow: none !important; }
+        }
+      </style>` : ''}
+      <div class="print-preview-root" ${pickupSlipPreview ? 'data-pickup-slip-preview' : ''} ${pickupSlipPreview || ['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET', 'TRANSFER_BAG_GOODS_LABEL'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
         <div class="print-preview-toolbar print-hidden">
           <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 shadow-sm">
             <div>
@@ -362,7 +447,8 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
           </div>
         </div>
         <p class="print-hidden px-3 text-sm" role="status" data-print-ready-feedback></p>
-        ${renderPrintDocument(document)}
+        ${pickupSlipPreview ? '<p class="print-hidden px-3 pb-3 text-xs text-slate-600 md:hidden">左右滑动查看完整领料单。</p>' : ''}
+        ${pickupSlipPreview ? `<div class="pickup-slip-preview-scroll" role="region" tabindex="0" aria-label="领料单预览，可左右滚动">${documentHtml}</div>` : documentHtml}
       </div>
     `
   } catch (error) {

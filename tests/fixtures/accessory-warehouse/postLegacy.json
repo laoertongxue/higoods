@@ -1,0 +1,286 @@
+{
+  "format": "higoods-isolated-browser-fixture",
+  "version": 1,
+  "createdAt": "2026-10-19T12:42:32.616Z",
+  "sourceOrigin": "http://127.0.0.1:5173",
+  "purpose": "Pure isolated test initial state before explicit legacy migration. Install JSON into a fresh dist context without source imports/prewarm. No performance acceptance.",
+  "stage": "待显式迁移；未执行迁移或备份动作",
+  "scenario": "post-legacy",
+  "setupReadback": {
+    "inspection": {
+      "state": "待迁移",
+      "transferCount": 1,
+      "stockCount": 1,
+      "demonstrationTransferCount": 0,
+      "retainedOriginal": true,
+      "issues": [],
+      "message": "本次相交的旧后道辅料需显式归档转换；其他后道资料不受影响。"
+    },
+    "legacyTransferId": "OLD-POST-1",
+    "legacyStockId": "OLD-POST-STOCK-1",
+    "productionOrderNo": "PO-AW-202610-F01",
+    "materialSku": "AW-DEMO-ZIPPER",
+    "unit": "条",
+    "historicalInboundQty": 10,
+    "currentQty": 7,
+    "sourceWarehouseName": "HILON辅料仓",
+    "locationCode": "PF-MAT-A01-01",
+    "attachment": {
+      "id": "POST-OWN-FILE",
+      "type": "image/png",
+      "bytes": 31,
+      "text": "original scope attachment bytes"
+    },
+    "unrelatedQcId": "UNRELATED-QC",
+    "retainedOriginal": true,
+    "canonicalRecordCount": 0
+  },
+  "uiContract": {
+    "route": "/fcs/craft/post-finishing/material-transfers",
+    "migrate": "[data-post-finishing-material-transfers-action=\"migrate\"]",
+    "migrateButtonName": "归档并核验原辅料",
+    "backup": "[data-post-finishing-material-transfers-action=\"backup\"]",
+    "completePredicate": {
+      "ui": "[data-post-material-migration] contains 原后道辅料：已完成 and migrate button absent",
+      "durable": "post-legacy-batch phase COMPLETE; OLD-POST-1 canonical history received; DLN physical7条 not10 orBOM100; archive copies source and Blob; original PCS source+UNRELATED-QC unchanged, retainedOriginal=true"
+    },
+    "backupCompletePredicate": "Wait for actual download event and completed file path; file size>0 and JSON decodes, then verify expected scope records/source/Blob entries. Clicking the button alone is not completion."
+  },
+  "readOnlyDumpRepeatedEqual": true,
+  "databases": [
+    {
+      "name": "higood-cutting-records-v1",
+      "version": 1,
+      "stores": [
+        {
+          "name": "commands",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "files",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "meta",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "records",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        }
+      ]
+    },
+    {
+      "name": "higood-pcs-records",
+      "version": 2,
+      "stores": [
+        {
+          "name": "files",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "POST-OWN-FILE",
+              "value": {
+                "id": "POST-OWN-FILE",
+                "blob": {
+                  "__fixtureType": "Blob",
+                  "type": "image/png",
+                  "bytes": [
+                    111,
+                    114,
+                    105,
+                    103,
+                    105,
+                    110,
+                    97,
+                    108,
+                    32,
+                    115,
+                    99,
+                    111,
+                    112,
+                    101,
+                    32,
+                    97,
+                    116,
+                    116,
+                    97,
+                    99,
+                    104,
+                    109,
+                    101,
+                    110,
+                    116,
+                    32,
+                    98,
+                    121,
+                    116,
+                    101,
+                    115
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "meta",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "operations",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [
+            {
+              "name": "createdAt",
+              "keyPath": "createdAt",
+              "unique": false,
+              "multiEntry": false
+            }
+          ],
+          "rows": [
+            {
+              "key": "POST-LEGACY-FIXTURE",
+              "value": {
+                "id": "POST-LEGACY-FIXTURE",
+                "intentHash": "819527e9e7f15bc9f2dd81eeff2450a5c0832de3aceb80030e526ce5ece76643",
+                "createdAt": "2026-10-19T12:42:32.349Z"
+              }
+            }
+          ]
+        },
+        {
+          "name": "records",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "higood-fcs-post-finishing-records/flow/materialStocks/OLD-POST-STOCK-1",
+              "value": {
+                "id": "higood-fcs-post-finishing-records/flow/materialStocks/OLD-POST-STOCK-1",
+                "collection": "flow/materialStocks",
+                "value": {
+                  "stockId": "OLD-POST-STOCK-1",
+                  "transferOrderId": "OLD-POST-1",
+                  "transferOrderNo": "OLD-HD-001",
+                  "productionOrderNo": "PO-AW-202610-F01",
+                  "material": {
+                    "transferLineId": "OLD-POST-L1",
+                    "materialName": "拉链",
+                    "materialCode": "AW-DEMO-ZIPPER",
+                    "materialSpuCode": "",
+                    "specification": "金属拉链（演示）",
+                    "unit": "条",
+                    "requestedQty": 10,
+                    "preparedQty": 10,
+                    "imageUrl": "pcs-file:POST-OWN-FILE"
+                  },
+                  "currentQty": 7,
+                  "inboundQty": 10,
+                  "areaName": "后道辅料暂存区",
+                  "locationCode": "PF-MAT-A01-01",
+                  "inboundAt": "2026-10-01T01:00:00Z",
+                  "inboundBy": {
+                    "actorId": "OLD-POST",
+                    "actorName": "原后道仓管",
+                    "roleName": "仓管"
+                  }
+                },
+                "version": 1
+              }
+            },
+            {
+              "key": "higood-fcs-post-finishing-records/flow/materialTransferOrders/OLD-POST-1",
+              "value": {
+                "id": "higood-fcs-post-finishing-records/flow/materialTransferOrders/OLD-POST-1",
+                "collection": "flow/materialTransferOrders",
+                "value": {
+                  "transferOrderId": "OLD-POST-1",
+                  "transferOrderNo": "OLD-HD-001",
+                  "productionOrderId": "PO-AW-202610-F01",
+                  "productionOrderNo": "PO-AW-202610-F01",
+                  "styleNo": "",
+                  "styleName": "辅料流转演示款 F01",
+                  "styleImageUrl": "/shirt-sample.jpg",
+                  "sewingTaskNo": "",
+                  "responsibility": {
+                    "sewingTaskType": "INDEPENDENT_SEWING",
+                    "taskTypeLabel": "仅车缝",
+                    "responsibilityMode": "POST_FACTORY",
+                    "responsibilityLabel": "后道工厂负责",
+                    "source": "PPIC任务分配",
+                    "frozenAt": "2026-10-01T00:00:00Z",
+                    "defaultProcessItems": [],
+                    "processItemsEditable": false
+                  },
+                  "sourceWarehouseName": "HILON辅料仓",
+                  "targetWarehouseName": "后道待加工仓",
+                  "targetAreaName": "后道辅料暂存区",
+                  "targetLocationCode": "PF-MAT-A01-01",
+                  "status": "已入库",
+                  "lines": [
+                    {
+                      "transferLineId": "OLD-POST-L1",
+                      "materialName": "拉链",
+                      "materialCode": "AW-DEMO-ZIPPER",
+                      "materialSpuCode": "",
+                      "specification": "金属拉链（演示）",
+                      "unit": "条",
+                      "requestedQty": 10,
+                      "preparedQty": 10,
+                      "imageUrl": "pcs-file:POST-OWN-FILE"
+                    }
+                  ],
+                  "statusHistory": [],
+                  "createdAt": "2026-10-01T00:00:00Z",
+                  "updatedAt": "2026-10-01T01:00:00Z",
+                  "inboundAt": "2026-10-01T01:00:00Z",
+                  "inboundBy": {
+                    "actorId": "OLD-POST",
+                    "actorName": "原后道仓管",
+                    "roleName": "仓管"
+                  }
+                },
+                "version": 1
+              }
+            },
+            {
+              "key": "higood-fcs-post-finishing-records/flow/qcTasks/UNRELATED-QC",
+              "value": {
+                "id": "higood-fcs-post-finishing-records/flow/qcTasks/UNRELATED-QC",
+                "collection": "flow/qcTasks",
+                "value": {
+                  "qcTaskId": "UNRELATED-QC",
+                  "productionOrderNo": "UNRELATED",
+                  "status": "待质检"
+                },
+                "version": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "localStorage": {},
+  "sessionStorage": {}
+}

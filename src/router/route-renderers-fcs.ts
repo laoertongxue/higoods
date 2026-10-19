@@ -66,6 +66,11 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
       ensureSimpleCutPieceHandoverFixtures()
     }
+    if (['renderSewingOutsourcingTasksPage', 'renderSewingMaterialHandoverPage', 'renderPdaHandoverPage', 'renderPrintPreviewPage'].includes(exportName)) {
+      await (await import('../data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+    }
+    if (exportName === 'renderUnifiedDispatchWorkbenchPage') await (await import('../data/wls/accessory-warehouse-records.ts')).ensureAccessoryWarehouseRecords()
+    if (postFinishingScope) await (await import('../data/wls/accessory-warehouse-post-finishing.ts')).prepareAccessoryPostFinishing()
     const renderer = module[exportName]
 
     if (typeof renderer !== 'function') {

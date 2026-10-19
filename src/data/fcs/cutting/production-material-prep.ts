@@ -877,6 +877,91 @@ export function classifyPrepLineType(line: { materialType: MaterialPrepMaterialT
   return '其他配料'
 }
 
+/** 本次正式迁往 GTP 的最小物料范围；旧共享配料键的其他工艺仍可使用。 */
+export function isAccessoryWarehouseScopeLine(
+  line: Pick<MaterialPrepLine, 'prepLineId' | 'materialSku' | 'materialName'> & { materialType?: MaterialPrepMaterialType },
+  order: Pick<MaterialPrepOrder, 'prepOrderId' | 'productionOrderId' | 'spu'>,
+  snapshotOverride?: ProductionOrder['techPackSnapshot'],
+): boolean {
+  const snapshot = snapshotOverride === undefined ? productionOrders.find(item => item.productionOrderId === order.productionOrderId)?.techPackSnapshot : snapshotOverride
+  const bom = snapshot?.bomItems.find(item => line.prepLineId === `${order.prepOrderId}:${snapshot.sourceTechPackVersionId}:${item.id}`)
+  if (bom && snapshot) {
+    if (bom.linkedPatternIds?.length || snapshot.patternFiles.some(pattern => pattern.linkedBomItemId === bom.id)
+      || snapshot.colorMaterialMappings.some(mapping => mapping.lines.some(item => item.bomItemId === bom.id && Boolean(item.patternId)))) return false
+    const processCodes = [...(bom.usageProcessCodes || []), ...snapshot.processEntries
+      .filter(entry => entry.linkedBomItemIds?.includes(bom.id) || entry.consumedBomItemIds?.includes(bom.id)).map(entry => entry.processCode)]
+    if (processCodes.some(code => ['CUT', 'CUT_PANEL', 'CUTTING', 'WOOL', 'PROC_WOOL'].includes(code))) return false
+  }
+  const type = line.materialType || inferMaterialType({ materialName: line.materialName, materialSku: line.materialSku, spec: '' })
+  return type === '辅料' || (type === '纱线' && (line.materialSku === `${order.spu}-bom-yarn-stitching`
+    || ['车缝线', '缝纫线'].includes(bom?.name || line.materialName)))
+    || (type === '包材' && ['价格吊牌', '品牌吊牌', '吊粒'].includes(bom?.name || line.materialName))
+}
+
+function assertRetiredAccessoryLegacyWritesUnchanged(before: ProductionMaterialPrepWorkflowStore, after: ProductionMaterialPrepWorkflowStore): void {
+  const orders = listCurrentMaterialPrepOrders(before.prepRecords)
+  const managedOrders = new Set(orders.filter(order => order.lines.some(line => isAccessoryWarehouseScopeLine(line, order))).map(order => order.prepOrderId))
+  const scope = new Set(orders.flatMap(order => order.lines.filter(line => isAccessoryWarehouseScopeLine(line, order)).map(line => line.prepLineId)))
+  const signature = (store: ProductionMaterialPrepWorkflowStore) => {
+    const prepRecords = store.prepRecords.flatMap(record => {
+      const items = (record.items?.length ? record.items : getMaterialPrepRecordItems(record)).filter(item => scope.has(item.prepLineId))
+      return items.length ? [{ id: record.prepRecordId, status: record.recordStatus, confirmedAt: record.confirmedAt,
+        confirmedBy: record.confirmedBy, rejectedAt: record.rejectedAt, rejectedBy: record.rejectedBy, items }] : []
+    })
+    const scopedPrepIds = new Set(prepRecords.map(record => record.id))
+    const pickupRecords = store.pickupRecords.flatMap(record => {
+      const allocations = record.sourceAllocations?.filter(item => scope.has(item.prepLineId))
+      if (allocations?.length) return [{ ...record, sourceAllocations: allocations, pickedQty: allocations.reduce((sum, item) => sum + item.pickedQty, 0) }]
+      return scope.has(record.prepLineId) ? [record] : []
+    })
+    const pickupIds = new Set(pickupRecords.map(record => record.pickupRecordId))
+    return JSON.stringify({ prepRecords, pickupRecords,
+      returns: store.pickupReturnRecords.filter(record => scope.has(record.prepLineId)),
+      rejects: store.rejectRecords.filter(record => scope.has(record.prepLineId) || scopedPrepIds.has(record.prepRecordId)),
+      sessions: store.pickupSessions.filter(record => record.pickupRecordIds.some(id => pickupIds.has(id))),
+      closures: store.closedOrders.filter(record => managedOrders.has(record.prepOrderId)),
+    })
+  }
+  if (signature(before) !== signature(after)) throw new Error('无需裁剪的辅料已迁往辅料中央仓（GTP）。本次旧配料操作未保存，请从 GTP 车缝配料办理；其他工艺物料可单独操作。')
+}
+
+/** 旧键允许其他工艺继续保存，但不得把 hydrate 补出的 GTP 演示记录重新写回。 */
+function preserveOriginalAccessoryLegacyRows(store: ProductionMaterialPrepWorkflowStore, raw: string | null): ProductionMaterialPrepWorkflowStore {
+  const original = raw ? JSON.parse(raw) as Partial<ProductionMaterialPrepWorkflowStore> : {}
+  const orders = listCurrentMaterialPrepOrders(store.prepRecords)
+  const managedOrders = new Set(orders.filter(order => order.lines.some(line => isAccessoryWarehouseScopeLine(line, order))).map(order => order.prepOrderId))
+  const scope = new Set(orders.flatMap(order => order.lines.filter(line => isAccessoryWarehouseScopeLine(line, order)).map(line => line.prepLineId)))
+  const sourcePreps = new Map((original.prepRecords || []).map(record => [record.prepRecordId, record]))
+  const exclusivePrepIds = new Set(store.prepRecords.filter(record => getMaterialPrepRecordItems(record).every(item => scope.has(item.prepLineId))).map(record => record.prepRecordId))
+  const prepRecords = store.prepRecords.flatMap(record => {
+    const items = getMaterialPrepRecordItems(record), owned = items.filter(item => scope.has(item.prepLineId))
+    if (!owned.length) return [record]
+    const remaining = items.filter(item => !scope.has(item.prepLineId)), previous = sourcePreps.get(record.prepRecordId)
+    const previousOwned = previous ? (previous.items?.length ? previous.items : getMaterialPrepRecordItems(previous)).filter(item => scope.has(item.prepLineId)) : []
+    if (!remaining.length) return previousOwned.length && previous ? [previous] : []
+    return [normalizePrepRecordQuantities({ ...record, prepLineId: previousOwned[0]?.prepLineId || remaining[0].prepLineId,
+      items: [...previousOwned, ...remaining] })]
+  })
+  const originalPickupIds = new Set((original.pickupRecords || []).map(record => record.pickupRecordId))
+  const pickupRecords = store.pickupRecords.flatMap(record => {
+    if (originalPickupIds.has(record.pickupRecordId)) return [record]
+    const allocations = record.sourceAllocations?.filter(item => !scope.has(item.prepLineId))
+    if (record.sourceAllocations?.some(item => scope.has(item.prepLineId))) return allocations?.length ? [{ ...record,
+      prepLineId: allocations[0].prepLineId, sourceAllocations: allocations, pickedQty: roundQty(allocations.reduce((sum, item) => sum + item.pickedQty, 0)) }] : []
+    return scope.has(record.prepLineId) ? [] : [record]
+  })
+  const returnIds = new Set((original.pickupReturnRecords || []).map(record => record.returnRecordId))
+  const rejectIds = new Set((original.rejectRecords || []).map(record => record.rejectId))
+  const stagingIds = new Set((original.stagingRecords || []).map(record => record.stagingRecordId))
+  const closedIds = new Set((original.closedOrders || []).map(record => record.prepOrderId))
+  return { ...original, ...store, prepRecords, pickupRecords,
+    pickupReturnRecords: store.pickupReturnRecords.filter(record => !scope.has(record.prepLineId) || returnIds.has(record.returnRecordId)),
+    rejectRecords: store.rejectRecords.filter(record => !scope.has(record.prepLineId) && !exclusivePrepIds.has(record.prepRecordId) || rejectIds.has(record.rejectId)),
+    stagingRecords: store.stagingRecords.filter(record => !exclusivePrepIds.has(record.prepRecordId) || stagingIds.has(record.stagingRecordId)),
+    closedOrders: store.closedOrders.filter(record => !managedOrders.has(record.prepOrderId) || closedIds.has(record.prepOrderId)),
+  }
+}
+
 function resolveTemplateImage(type: MaterialPrepMaterialType, line: Pick<MaterialPrepSeedLine, 'materialSku' | 'materialName'>): string {
   const template = standardMaterialTemplates[type].find((item) => line.materialSku.includes(item.code))
   if (template) return template.imageUrl
@@ -3313,7 +3398,9 @@ export function persistProductionMaterialPrepStore(
   store: ProductionMaterialPrepWorkflowStore,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): ProductionMaterialPrepWorkflowStore {
-  storage?.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(store))
+  assertRetiredAccessoryLegacyWritesUnchanged(hydrateProductionMaterialPrepStore(storage), store)
+  const raw = storage?.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) ?? null
+  storage?.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(preserveOriginalAccessoryLegacyRows(store, raw)))
   invalidateMaterialPrepProjectionCache()
   return store
 }

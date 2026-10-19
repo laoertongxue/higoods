@@ -1,118 +1,115 @@
 // @page-pattern: list
-
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
-import { paginateStandardListRows, type StandardListColumnPreferences } from '../../../components/ui/list-table-model.ts'
+import { paginateStandardListRows } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
-import {
-  getPostFinishingMaterialTransferOrder,
-  listPostFinishingMaterialTransferOrders,
-  type PostFinishingMaterialTransferOrder,
-  type PostFinishingMaterialTransferStatus,
-} from '../../../data/fcs/post-finishing-full-flow.ts'
-import { appStore } from '../../../state/store.ts'
+import { listPostFinishingMaterialTransferOrders, getPostFinishingMaterialTransferOrder, type PostFinishingMaterialTransferOrder } from '../../../data/fcs/post-finishing-full-flow.ts'
+import { prepareAccessoryPostFinishing, isManagedAccessoryPostTransfer, receiveAccessoryPostTransfer, listAccessoryPostLocations, inspectLegacyAccessoryPostMigration, migrateLegacyAccessoryPost, exportLegacyAccessoryPostBackup } from '../../../data/wls/accessory-warehouse-post-finishing.ts'
+import { accessoryImage, accessoryOverlay, focusAccessoryOverlay, restoreAccessoryFocus, trapAccessoryOverlayFocus } from '../../wls/accessory-warehouses/shared.ts'
 import { escapeHtml } from '../../../utils.ts'
-
-function query(): URLSearchParams {
-  return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
-}
-
-function navigate(overrides: Record<string, string | null>): void {
-  const params = query()
-  Object.entries(overrides).forEach(([key, value]) => value === null ? params.delete(key) : params.set(key, value))
-  appStore.navigate(`/fcs/craft/post-finishing/material-transfers${params.size ? `?${params.toString()}` : ''}`)
-}
-
-function statusBadge(status: PostFinishingMaterialTransferStatus): string {
-  const tone: Record<PostFinishingMaterialTransferStatus, string> = {
-    申请调拨: 'border-slate-300 bg-slate-50 text-slate-700',
-    待调拨: 'border-amber-300 bg-amber-50 text-amber-800',
-    待入库: 'border-blue-300 bg-blue-50 text-blue-800',
-    已入库: 'border-emerald-300 bg-emerald-50 text-emerald-800',
-  }
-  return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${tone[status]}">${escapeHtml(status)}</span>`
-}
-
-function imageButton(url: string, label: string): string {
-  return `<button type="button" class="relative flex h-11 w-11 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-md border bg-slate-50" data-post-finishing-action="full-flow-zoom-image" data-image-url="${escapeHtml(url)}" data-image-label="${escapeHtml(label)}"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/><span class="px-1 text-center text-[9px] text-slate-500">图片加载中…</span></button>`
-}
-
-function legacyResponsibilityLabel(responsibility: PostFinishingMaterialTransferOrder['responsibility']): string {
-  return (responsibility as typeof responsibility & { label?: string }).label || ''
-}
-
+const path = '/fcs/craft/post-finishing/material-transfers', prefix = 'post-finishing-material-transfers'
+let selectedId = '', dirty = false, busy = false, message = '', error = '', mountedPath = ''
+let drafts = new Map<string, string>(), role = '仓管'
+let pending: Parameters<typeof receiveAccessoryPostTransfer>[0] | null = null
+const root = () => document.querySelector<HTMLElement>('[data-post-material-root]')
+const query = () => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
+const qty = (value: number, unit: string) => `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 6 })} ${escapeHtml(unit)}`
+const button = (label: string, action: string, id = '', disabled = false) => `<button type="button" class="rounded border px-3 py-2 text-sm disabled:opacity-50" data-${prefix}-action="${action}" data-id="${escapeHtml(id)}" ${disabled ? 'disabled' : ''}>${label}</button>`
+function updateUrl(values: Record<string, string | null>): void { const params = query(); for (const [key, value] of Object.entries(values)) value === null ? params.delete(key) : params.set(key, value); window.history.pushState(null, '', `${path}${params.size ? `?${params}` : ''}`); mountedPath = window.location.pathname + window.location.search }
+function totals(record: PostFinishingMaterialTransferOrder): string { return [...new Set(record.lines.map(line => line.unit))].map(unit => qty(record.lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.preparedQty, 0), unit)).join('<br>') }
+function code(value: string): string { return /-bom-|prep-line-|::/.test(value) ? '' : value }
 const columns: StandardListColumn<PostFinishingMaterialTransferOrder>[] = [
-  { key: 'order', title: '调拨单号', width: 180, required: true, freezeable: true, render: (row) => `<div class="font-mono font-semibold text-blue-700">${escapeHtml(row.transferOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(new Date(row.createdAt).toLocaleString('zh-CN'))}</div>` },
-  { key: 'production', title: '生产单 / 后道责任', width: 210, required: true, render: (row) => `<div class="font-mono font-semibold">${escapeHtml(row.productionOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.sewingTaskNo)}</div><div class="mt-1 text-xs text-blue-700">${escapeHtml(legacyResponsibilityLabel(row.responsibility))}</div>` },
-  { key: 'style', title: '款式', width: 280, required: true, render: (row) => `<div class="flex items-center gap-3">${imageButton(row.styleImageUrl, `${row.styleNo} ${row.styleName} 款式图`)}<div class="min-w-0"><div class="font-mono text-xs font-semibold">${escapeHtml(row.styleNo)}</div><div class="mt-1 max-w-48 truncate text-xs" title="${escapeHtml(row.styleName)}">${escapeHtml(row.styleName)}</div></div></div>` },
-  { key: 'route', title: '调拨方向', width: 210, required: true, render: (row) => `<div>${escapeHtml(row.sourceWarehouseName)} → ${escapeHtml(row.targetWarehouseName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.targetAreaName)} / ${escapeHtml(row.targetLocationCode)}</div>` },
-  { key: 'material', title: '物料', width: 160, required: true, align: 'center', render: (row) => `${row.lines.length} 种 / ${row.lines.reduce((sum, line) => sum + line.preparedQty, 0)} ${escapeHtml(row.lines[0]?.unit || '件')}` },
-  { key: 'status', title: '调出方状态', width: 110, required: true, render: (row) => statusBadge(row.status) },
-  { key: 'updated', title: '最近更新', width: 150, required: true, render: (row) => escapeHtml(new Date(row.updatedAt).toLocaleString('zh-CN')) },
-  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true, render: (row) => `<a data-nav="/fcs/craft/post-finishing/material-transfers?transferId=${encodeURIComponent(row.transferOrderId)}" class="text-xs font-medium text-blue-700 hover:underline">查看详情</a>` },
+  { key: 'order', title: '调拨单', width: 230, required: true, render: row => `<strong>${escapeHtml(row.transferOrderNo)}</strong><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.productionOrderNo)}</p>` },
+  { key: 'style', title: '款式', width: 270, required: true, render: row => `<div class="flex items-center gap-3">${accessoryImage(row.styleImageUrl, row.styleName)}<div>${escapeHtml(row.styleName)}<p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.responsibility.responsibilityLabel)}</p></div></div>` },
+  { key: 'route', title: '来源 → 去向', width: 240, render: row => `<p>${escapeHtml(row.sourceWarehouseName)} → ${escapeHtml(row.targetWarehouseName)}</p><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.targetLocationCode)}</p>` },
+  { key: 'quantity', title: '整单数量', width: 140, render: totals },
+  { key: 'status', title: '当前状态', width: 100, render: row => `<strong>${escapeHtml(row.status)}</strong>` },
+  { key: 'actions', title: '操作', width: 180, required: true, actionColumn: true, render: row => button(isManagedAccessoryPostTransfer(row.transferOrderId) && row.status === '待入库' ? '查看并收货上架' : '查看详情', 'detail', row.transferOrderId) },
 ]
-
-function renderDetailDrawer(record?: PostFinishingMaterialTransferOrder): string {
-  if (!record) return ''
-  const requested = record.lines.reduce((sum, line) => sum + line.requestedQty, 0)
-  const prepared = record.lines.reduce((sum, line) => sum + line.preparedQty, 0)
-  return `<div class="fixed inset-0 z-[150] bg-black/30" data-nav="/fcs/craft/post-finishing/material-transfers"></div><aside class="fixed inset-y-0 right-0 z-[160] w-full max-w-4xl overflow-y-auto border-l bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-label="后道辅料调拨单详情" data-material-transfer-detail="${escapeHtml(record.transferOrderId)}"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold">后道辅料调拨单详情</h2><p class="mt-1 font-mono text-sm text-muted-foreground">${escapeHtml(record.transferOrderNo)}</p></div><a data-nav="/fcs/craft/post-finishing/material-transfers" class="rounded-md border px-3 py-2 text-sm">关闭</a></div>
-    <section class="mt-5 rounded-xl border bg-card p-4"><div class="flex items-start gap-3">${imageButton(record.styleImageUrl, `${record.styleNo} ${record.styleName} 款式图`)}<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><div><div class="font-mono font-semibold">${escapeHtml(record.productionOrderNo)}</div><div class="mt-1 text-sm">${escapeHtml(record.styleNo)} · ${escapeHtml(record.styleName)}</div></div>${statusBadge(record.status)}</div><div class="mt-3 grid gap-3 text-sm md:grid-cols-3"><div><span class="text-xs text-muted-foreground">任务责任</span><div>${escapeHtml(legacyResponsibilityLabel(record.responsibility))}</div></div><div><span class="text-xs text-muted-foreground">调拨方向</span><div>${escapeHtml(record.sourceWarehouseName)} → ${escapeHtml(record.targetWarehouseName)}</div></div><div><span class="text-xs text-muted-foreground">目标库位</span><div>${escapeHtml(record.targetAreaName)} / ${escapeHtml(record.targetLocationCode)}</div></div></div></div></div></section>
-    <section class="mt-4 rounded-xl border bg-card p-4"><div class="flex items-center justify-between"><div><h3 class="font-semibold">物料明细</h3><p class="mt-1 text-xs text-muted-foreground">不允许分批入库；入库数量以调出方实际配料数量为准。</p></div><div class="text-right text-xs text-muted-foreground">申请 ${requested} / 实配 ${prepared}</div></div><div class="mt-3 overflow-x-auto"><table class="min-w-[780px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物料</th><th class="px-3 py-2">物料编码 / SPU</th><th class="px-3 py-2">规格</th><th class="px-3 py-2 text-right">申请</th><th class="px-3 py-2 text-right">调出方实配</th></tr></thead><tbody class="divide-y">${record.lines.map((line) => `<tr><td class="px-3 py-3"><div class="flex items-center gap-3">${imageButton(line.imageUrl, `${line.materialCode} ${line.materialName} 物料图`)}<span>${escapeHtml(line.materialName)}</span></div></td><td class="px-3 py-3"><div class="font-mono text-xs">${escapeHtml(line.materialCode)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialSpuCode)}</div></td><td class="px-3 py-3">${escapeHtml(line.specification)}</td><td class="px-3 py-3 text-right">${line.requestedQty} ${escapeHtml(line.unit)}</td><td class="px-3 py-3 text-right font-semibold">${line.preparedQty} ${escapeHtml(line.unit)}</td></tr>`).join('')}</tbody></table></div></section>
-    <section class="mt-4 rounded-xl border bg-card p-4"><h3 class="font-semibold">状态进度</h3><div class="mt-3 space-y-3">${record.statusHistory.map((item, index) => `<div class="flex gap-3"><div class="mt-1 h-3 w-3 shrink-0 rounded-full ${index === record.statusHistory.length - 1 ? 'bg-blue-600' : 'bg-emerald-500'}"></div><div class="min-w-0 flex-1 border-b pb-3"><div class="flex flex-wrap items-center justify-between gap-2"><strong>${escapeHtml(item.status)}</strong><span class="text-xs text-muted-foreground">${escapeHtml(new Date(item.operatedAt).toLocaleString('zh-CN'))}</span></div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.operatorName)} · ${escapeHtml(item.remark)}</div></div></div>`).join('')}</div></section>
-  </aside>`
+function migrationCard(): string {
+  const migration = inspectLegacyAccessoryPostMigration()
+  if (migration.state === '无需迁移' && !migration.demonstrationTransferCount) return ''
+  return `<section class="rounded border border-amber-200 bg-amber-50 p-3 text-sm" data-post-material-migration><strong>原后道辅料：${migration.state}</strong><p class="mt-1">${escapeHtml(migration.message)}</p>${migration.issues.map(issue => `<p class="mt-1 text-red-700">${escapeHtml(issue)}</p>`).join('')}<div class="mt-2 flex flex-wrap gap-2">${button('导出原辅料备份', 'backup')}${migration.state === '待迁移' || migration.state === '待验证' ? button(busy ? '正在归档…' : '归档并核验原辅料', 'migrate', '', busy) : ''}</div></section>`
 }
-
-export function renderPostFinishingMaterialTransfersPage(): string {
-  const current = query()
-  const keyword = current.get('keyword')?.trim().toLowerCase() || ''
-  const status = current.get('status') || ''
-  const sourceWarehouse = current.get('sourceWarehouse') || ''
-  const createdFrom = current.get('createdFrom') || ''
-  const createdTo = current.get('createdTo') || ''
-  const allRows = listPostFinishingMaterialTransferOrders()
-  const rows = allRows.filter((row) => {
-    const searchable = [row.transferOrderNo, row.productionOrderNo, row.sewingTaskNo, row.styleNo, row.styleName, ...row.lines.flatMap((line) => [line.materialName, line.materialCode, line.materialSpuCode])].join(' ').toLowerCase()
-    const createdDate = row.createdAt.slice(0, 10)
-    return (!keyword || searchable.includes(keyword))
-      && (!status || row.status === status)
-      && (!sourceWarehouse || row.sourceWarehouseName === sourceWarehouse)
-      && (!createdFrom || createdDate >= createdFrom)
-      && (!createdTo || createdDate <= createdTo)
-  })
-  const pageSize = Math.max(10, Math.min(50, Number(current.get('pageSize') || 20)))
-  const slice = paginateStandardListRows(rows, Number(current.get('page') || 1), pageSize)
-  const preferences: StandardListColumnPreferences = { order: columns.map((column) => column.key), visibleKeys: columns.map((column) => column.key), frozenKeys: ['order'], pageSize }
-  const selected = current.get('transferId') ? getPostFinishingMaterialTransferOrder(current.get('transferId') || '') : undefined
-  const sourceWarehouses = [...new Set(allRows.map((row) => row.sourceWarehouseName))]
+function renderList(): string {
+  const params = query(), keyword = (params.get('keyword') || '').trim().toLowerCase(), status = params.get('status') || '', source = params.get('sourceWarehouse') || '', createdFrom = params.get('createdFrom') || '', createdTo = params.get('createdTo') || ''
+  const all = listPostFinishingMaterialTransferOrders(), rows = all.filter(row => (!keyword || [row.transferOrderNo, row.productionOrderNo, row.styleName, ...row.lines.map(line => line.materialName)].join(' ').toLowerCase().includes(keyword)) && (!status || row.status === status) && (!source || row.sourceWarehouseName === source) && (!createdFrom || row.createdAt.slice(0, 10) >= createdFrom) && (!createdTo || row.createdAt.slice(0, 10) <= createdTo))
+  const requested = Number(params.get('pageSize') || 10), pageSize = [10, 20, 50].includes(requested) ? requested : 10, page = paginateStandardListRows(rows, Number(params.get('page') || 1), pageSize)
   return renderStandardListPage({
-    title: '后道辅料调拨单',
-    feedbackHtml: '<div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">本页只查看调出方准备进度；后道领料回厂后在 PDA 整单入库。物料差异不使用成衣回货授权规则。</div>',
-    statsHtml: renderStandardListStats([
-      { label: '调拨单', value: `${allRows.length} 张` },
-      { label: '待调拨', value: `${allRows.filter((row) => ['申请调拨', '待调拨'].includes(row.status)).length} 张` },
-      { label: '待入库', value: `${allRows.filter((row) => row.status === '待入库').length} 张` },
-      { label: '已入库', value: `${allRows.filter((row) => row.status === '已入库').length} 张` },
-    ]),
-    filtersHtml: `<form action="/fcs/craft/post-finishing/material-transfers" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3 xl:grid-cols-6"><label class="text-xs text-muted-foreground md:col-span-2">调拨单号 / 生产单号<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="调拨单/生产单/任务/款式/物料"/></label><label class="text-xs text-muted-foreground">来源仓<select name="sourceWarehouse" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${sourceWarehouses.map((value) => `<option value="${escapeHtml(value)}" ${value === sourceWarehouse ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">调出方状态<select name="status" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"><option value="">全部</option>${(['申请调拨', '待调拨', '待入库', '已入库'] as PostFinishingMaterialTransferStatus[]).map((value) => `<option value="${value}" ${value === status ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label class="text-xs text-muted-foreground">创建开始<input type="date" name="createdFrom" value="${escapeHtml(createdFrom)}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"/></label><label class="text-xs text-muted-foreground">创建结束<input type="date" name="createdTo" value="${escapeHtml(createdTo)}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm"/></label><div class="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-6"><a data-nav="/fcs/craft/post-finishing/material-transfers" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
-    listTitle: '调拨单列表',
-    tableHtml: renderStandardListTable({ columns, rows: slice.rows, preferences, sort: null, eventPrefix: 'post-finishing-material-transfers', emptyText: '暂无符合条件的后道辅料调拨单。' }),
-    paginationHtml: renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing-material-transfers', fieldPrefix: 'post-finishing-material-transfers' }),
-    overlaysHtml: renderDetailDrawer(selected),
+    title: '后道辅料调拨单', feedbackHtml: `${migrationCard()}${message ? `<p role="status" class="rounded bg-green-50 p-3 text-sm">${escapeHtml(message)}</p>` : ''}`,
+    filtersHtml: `<form data-post-material-query class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-3"><label class="grid gap-1 text-sm">调拨单 / 生产单 / 款式 / 物料<input name="keyword" value="${escapeHtml(params.get('keyword') || '')}" class="h-9 rounded border px-3"></label><label class="grid gap-1 text-sm">来源仓<select name="sourceWarehouse" class="h-9 rounded border px-3"><option value="">全部</option>${[...new Set(all.map(row => row.sourceWarehouseName))].map(value => `<option ${source === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label><label class="grid gap-1 text-sm">当前状态<select name="status" class="h-9 rounded border px-3"><option value="">全部</option>${['申请调拨', '待调拨', '待入库', '已入库'].map(value => `<option ${status === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label><label class="grid gap-1 text-sm">创建开始<input class="h-9 rounded border px-3" name="createdFrom" type="date" value="${escapeHtml(createdFrom)}"></label><label class="grid gap-1 text-sm">创建结束<input class="h-9 rounded border px-3" name="createdTo" type="date" value="${escapeHtml(createdTo)}"></label><div class="flex items-end justify-end gap-2">${button('查询', 'query')}${button('重置', 'reset')}</div></form>`,
+    statsHtml: renderStandardListStats([{ label: '筛选调拨单', value: rows.length }, { label: '待调拨', value: rows.filter(row => ['申请调拨', '待调拨'].includes(row.status)).length }, { label: '待入库', value: rows.filter(row => row.status === '待入库').length }, { label: '已入库', value: rows.filter(row => row.status === '已入库').length }]),
+    listTitle: '调拨单列表', tableHtml: renderStandardListTable({ columns, rows: page.rows, preferences: { order: columns.map(row => row.key), visibleKeys: columns.map(row => row.key), frozenKeys: [], pageSize }, sort: null, eventPrefix: prefix }), paginationHtml: renderTablePagination({ ...page, actionPrefix: prefix, pageSizeOptions: [10, 20, 50], skipPageRerender: true }),
   })
 }
-
+function renderDetail(): string {
+  const record = getPostFinishingMaterialTransferOrder(selectedId)
+  if (!record) return ''
+  const managed = isManagedAccessoryPostTransfer(record.transferOrderId), receive = managed && record.status === '待入库'
+  const columns: StandardListColumn<PostFinishingMaterialTransferOrder['lines'][number]>[] = [
+    { key: 'material', title: '物料', width: 270, required: true, render: line => `<div class="flex items-center gap-3">${accessoryImage(line.imageUrl, line.materialName)}<div><strong>${escapeHtml(line.materialName)}</strong><p class="text-xs text-muted-foreground">${escapeHtml(code(line.materialCode))}</p><p class="text-xs text-muted-foreground">${escapeHtml(line.specification)}</p></div></div>` },
+    { key: 'expected', title: '应收', width: 120, render: line => qty(line.preparedQty, line.unit) },
+    { key: 'received', title: '实收数量', width: 160, render: line => receive ? `<label class="flex items-center gap-2"><input aria-label="${escapeHtml(line.materialName)}实收数量" class="h-10 w-24 rounded border px-2" inputmode="decimal" data-post-material-qty="${escapeHtml(line.transferLineId)}" value="${escapeHtml(drafts.get(`qty:${line.transferLineId}`) || '')}">${escapeHtml(line.unit)}</label>` : record.status === '已入库' ? qty(line.preparedQty, line.unit) : '尚未入库' },
+  ]
+  if (receive) columns.push({ key: 'location', title: '上架库位', width: 180, render: line => `<select class="h-10 rounded border px-2" aria-label="${escapeHtml(line.materialName)}上架库位" data-post-material-location="${escapeHtml(line.transferLineId)}"><option value="">选择后道库位</option>${listAccessoryPostLocations().map(location => `<option value="${location.id}" ${drafts.get(`location:${line.transferLineId}`) === location.id ? 'selected' : ''}>${location.locationCode}</option>`).join('')}</select>` })
+  return accessoryOverlay('后道辅料调拨单详情', `<div class="space-y-4"><div class="flex items-center gap-3">${accessoryImage(record.styleImageUrl, record.styleName)}<div><strong>${escapeHtml(record.productionOrderNo)}</strong><p>${escapeHtml(record.styleName)}</p><p class="mt-1 text-sm">${escapeHtml(record.sourceWarehouseName)} → ${escapeHtml(record.targetWarehouseName)} · ${escapeHtml(record.status)}</p></div></div>${receive ? '<p class="rounded bg-blue-50 p-3 text-sm">逐行登记实际收到的辅料和后道库位，整单一致后一次收货上架。</p>' : ''}<div class="overflow-x-auto">${renderStandardListTable({ columns, rows: record.lines, preferences: { order: columns.map(column => column.key), visibleKeys: columns.map(column => column.key), frozenKeys: [], pageSize: record.lines.length }, sort: null, eventPrefix: prefix })}</div>${receive ? `<div class="flex flex-wrap gap-3"><label class="grid gap-1 text-sm">演示角色<select class="h-10 rounded border px-2" data-post-material-role><option ${role === '仓管' ? 'selected' : ''}>仓管</option><option ${role === 'PPIC' ? 'selected' : ''}>PPIC</option></select></label><label class="grid gap-1 text-sm">后道仓管<input class="h-10 rounded border px-3" data-post-material-actor value="${escapeHtml(drafts.get('actor') || 'DLN 仓管（演示）')}"></label></div>` : ''}<p role="alert" class="whitespace-pre-wrap text-sm text-red-600" data-post-material-error>${escapeHtml(error)}</p><section><h3 class="font-semibold">操作记录</h3><ol class="mt-2 space-y-2">${record.statusHistory.map(item => `<li class="rounded border p-3 text-sm"><strong>${escapeHtml(item.status)}</strong><p>${escapeHtml(item.remark)}</p><p class="text-xs text-muted-foreground">${escapeHtml(item.operatorName)} · ${escapeHtml(item.operatedAt)}</p></li>`).join('')}</ol></section></div>`, receive ? button(busy ? '正在保存…' : '确认收货并上架', 'receive', record.transferOrderId, busy || role !== '仓管') : '', 'post-material-close')
+}
+function refreshList(): void { const host = root()?.querySelector('[data-post-material-workspace]'); if (host) host.innerHTML = renderList() }
+function refreshDetail(): void { const host = root()?.querySelector('[data-post-material-detail]'); if (host) host.innerHTML = renderDetail() }
+function closeDetail(): void { if (busy || (dirty && !window.confirm('实收和上架输入尚未保存。关闭将丢弃输入，是否关闭？'))) return; selectedId = ''; dirty = false; drafts.clear(); pending = null; error = ''; updateUrl({ transferId: null }); root()?.querySelector('[data-post-material-detail]')?.replaceChildren(); restoreAccessoryFocus() }
+function showError(value: unknown): void { error = value instanceof Error ? value.message : String(value); const host = root()?.querySelector('[data-post-material-error]'); if (host) host.textContent = error; else { message = error; refreshList() } }
+async function receive(): Promise<void> {
+  if (busy) return
+  try {
+    const record = getPostFinishingMaterialTransferOrder(selectedId)
+    if (!record || !isManagedAccessoryPostTransfer(record.transferOrderId) || role !== '仓管') throw new Error('仅后道仓管可在当前辅料调拨单确认收货上架。')
+    pending ||= { id: record.transferOrderId, actor: { warehouseCode: 'DLN', role: '仓管', name: drafts.has('actor') ? drafts.get('actor')!.trim() : 'DLN 仓管（演示）' }, commandId: crypto.randomUUID(), at: new Date().toISOString(), lines: record.lines.map(line => ({ lineId: line.transferLineId, qty: Number(drafts.get(`qty:${line.transferLineId}`) || ''), locationId: drafts.get(`location:${line.transferLineId}`) || '' })) }
+    busy = true
+    const controls = [...root()!.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('[data-post-material-detail] input,[data-post-material-detail] button,[data-post-material-detail] select')].map(node => ({ node, disabled: node.disabled }))
+    controls.forEach(({ node }) => { node.disabled = true })
+    try { const result = await receiveAccessoryPostTransfer(pending); busy = false; dirty = false; pending = null; message = result.alreadyInbound ? '该单已收货上架，无需再次提交。' : '整单收货上架已保存，后道辅料库存已更新。'; closeDetail(); refreshList() }
+    finally { busy = false; controls.forEach(({ node, disabled }) => { node.disabled = disabled }) }
+  } catch (value) { busy = false; showError(value) }
+}
+function download(blob: Blob, name: string): void { const url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) }
+export async function renderPostFinishingMaterialTransfersPage(): Promise<string> {
+  try {
+    await prepareAccessoryPostFinishing()
+    mountedPath = typeof window === 'undefined' ? path : window.location.pathname + window.location.search
+    selectedId = query().get('transferId') || ''; drafts.clear(); pending = null; dirty = false; error = ''; role = '仓管'
+    return `<div data-post-material-root data-skip-page-rerender="true"><div data-post-material-workspace>${renderList()}</div><div data-post-material-detail>${renderDetail()}</div><div data-post-material-image></div></div>`
+  } catch (value) { return `<section role="alert" class="rounded border border-red-200 bg-red-50 p-4"><h1 class="font-semibold">后道辅料资料无法读取</h1><p class="mt-2 text-sm">${escapeHtml(value instanceof Error ? value.message : String(value))}</p><button class="mt-3 rounded border px-3 py-2" data-nav="${path}">重新读取</button></section>` }
+}
 export function handlePostFinishingMaterialTransfersEvent(target: HTMLElement, event?: Event): boolean {
-  if (typeof window === 'undefined' || window.location.pathname !== '/fcs/craft/post-finishing/material-transfers') return false
-  const action = target.closest<HTMLElement>('[data-post-finishing-material-transfers-action]')?.dataset.postFinishingMaterialTransfersAction
-  if (action === 'prev-page' || action === 'next-page') {
-    navigate({ page: String(Math.max(1, Number(query().get('page') || 1) + (action === 'prev-page' ? -1 : 1))), transferId: null })
-    return true
+  if (!root()) return false
+  const input = target.closest<HTMLInputElement | HTMLSelectElement>('[data-post-material-qty],[data-post-material-location],[data-post-material-actor],[data-post-material-role]')
+  if (input && (event?.type === 'input' || event?.type === 'change')) {
+    if (busy) return true
+    if (input.hasAttribute('data-post-material-role')) { if (event.type === 'change') { role = input.value; refreshDetail() }; return true }
+    drafts.set(input.dataset.postMaterialQty ? `qty:${input.dataset.postMaterialQty}` : input.dataset.postMaterialLocation ? `location:${input.dataset.postMaterialLocation}` : 'actor', input.value); dirty = true; pending = null; return true
   }
-  const pageSize = target.closest<HTMLSelectElement>('[data-post-finishing-material-transfers-field="pageSize"]')
-  if (pageSize && event?.type === 'change') {
-    navigate({ page: '1', pageSize: pageSize.value, transferId: null })
-    return true
+  const image = target.closest<HTMLElement>('[data-accessory-action]')
+  if (image && (!event || event.type === 'click')) {
+    if (image.dataset.accessoryAction === 'post-material-close') { closeDetail(); return true }
+    if (image.dataset.accessoryAction === 'post-material-close-image') { root()?.querySelector('[data-post-material-image]')?.replaceChildren(); restoreAccessoryFocus(); return true }
+    if (image.dataset.accessoryAction === 'image') { const host = root()?.querySelector('[data-post-material-image]'); if (host) { host.innerHTML = accessoryOverlay(image.dataset.label || '图片', `<img class="mx-auto max-h-[70vh] max-w-full object-contain" src="${escapeHtml(image.dataset.image || '')}" alt="${escapeHtml(image.dataset.label || '')}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><p hidden class="p-3 text-sm text-red-600">图片加载失败，关闭后重试。</p>`, '', 'post-material-close-image'); focusAccessoryOverlay() }; return true }
   }
+  const node = target.closest<HTMLElement>(`[data-${prefix}-action]`), action = node?.dataset.postFinishingMaterialTransfersAction
+  const size = target.closest<HTMLSelectElement>(`[data-${prefix}-field="pageSize"]`)
+  if (size && event?.type === 'change') { updateUrl({ pageSize: size.value, page: null }); refreshList(); return true }
+  if (!node || !action || (event && event.type !== 'click')) return false
+  if (busy) return true
+  if (action === 'detail') { selectedId = node.dataset.id || ''; drafts = new Map([['actor', 'DLN 仓管（演示）']]); dirty = false; error = ''; pending = null; updateUrl({ transferId: selectedId }); refreshDetail(); focusAccessoryOverlay(); return true }
+  if (action === 'receive') { void receive(); return true }
+  if (action === 'query' || action === 'reset') { const form = root()?.querySelector<HTMLFormElement>('[data-post-material-query]'); const values = form ? new FormData(form) : new FormData(); updateUrl(Object.fromEntries(['keyword', 'status', 'sourceWarehouse', 'createdFrom', 'createdTo'].map(name => [name, action === 'reset' ? null : String(values.get(name) || '') || null]))); updateUrl({ page: null }); refreshList(); return true }
+  if (action === 'prev-page' || action === 'next-page') { updateUrl({ page: String(Math.max(1, Number(query().get('page') || 1) + (action === 'next-page' ? 1 : -1))) }); refreshList(); return true }
+  if (action === 'backup') { void exportLegacyAccessoryPostBackup().then(blob => download(blob, '原后道辅料备份.json')).catch(showError); return true }
+  if (action === 'migrate') { busy = true; void migrateLegacyAccessoryPost({ commandId: crypto.randomUUID(), actor: '后道资料管理员（演示）', at: new Date().toISOString() }).then(result => { message = result.message }).catch(showError).finally(() => { busy = false; refreshList() }); return true }
   return false
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', event => { if (!root()) return; trapAccessoryOverlayFocus(event); if (event.key === 'Escape') { if (root()?.querySelector('[data-post-material-image]')?.childElementCount) { root()?.querySelector('[data-post-material-image]')?.replaceChildren(); restoreAccessoryFocus() } else if (selectedId) closeDetail() } })
+  window.addEventListener('beforeunload', event => { if (root() && (dirty || busy)) { event.preventDefault(); event.returnValue = '' } })
+  window.addEventListener('higood:before-history-navigation', event => { if (!root() || (!dirty && !busy)) return; if (busy || !window.confirm('实收和上架输入尚未保存。离开将丢弃输入，是否离开？')) { event.preventDefault(); window.history.pushState(null, '', mountedPath) } else { dirty = false; selectedId = ''; pending = null; drafts.clear() } })
+  document.addEventListener('click', event => { if (!root() || (!dirty && !busy)) return; const node = event.target instanceof Element ? event.target.closest('[data-nav],[data-system],[data-system-id],[data-system-switch],a[href]') : null; if (node && (busy || !window.confirm('实收和上架输入尚未保存。离开将丢弃输入，是否离开？'))) { event.preventDefault(); event.stopImmediatePropagation() } else if (node) { dirty = false; selectedId = ''; pending = null; drafts.clear() } }, true)
 }

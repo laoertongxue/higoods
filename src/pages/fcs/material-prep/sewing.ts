@@ -10,6 +10,7 @@ import {
   confirmMaterialPrepRecord,
   getMaterialPrepRecordItems,
   getMaterialPrepOrderProjection,
+  isAccessoryWarehouseScopeLine,
   materialPrepStatusLabelMap,
   materialPrepRecordStatusLabelMap,
   pickupStatusLabelMap,
@@ -36,6 +37,13 @@ import {
   renderMaterialPickupRecordCodeButton,
 } from './shared.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { prepareAccessoryWarehouseSources, listAccessoryPreparations, getAccessoryPreparation, listAccessoryWarehouseSourceIssues } from '../../../data/wls/accessory-warehouse-sources.ts'
+import {
+  retainLegacySewingProjection,
+  renderAccessoryPreparationFollowupList,
+  renderAccessoryPreparationFollowupDetail,
+  handleAccessoryPreparationReadonlyEvent,
+} from './accessory-preparation-readonly.ts'
 
 type MaterialPrepDetailTab = 'demand' | 'inventory' | 'tasks' | 'records' | 'pickup'
 
@@ -63,6 +71,44 @@ function filterOrders(): MaterialPrepOrderProjection[] {
   return listMaterialPrepOrderProjections().filter(p =>
     p.lines.some(l => classifyPrepLineType(l) === categoryLabel)
   )
+}
+
+function orderHasAccessoryScope(prepOrderId: string): boolean {
+  const projection = getMaterialPrepOrderProjection(prepOrderId)
+  return Boolean(projection?.lines.some(line => isAccessoryWarehouseScopeLine(line, projection.order)))
+}
+
+function recordHasAccessoryScope(record: MaterialPrepRecord): boolean {
+  const projection = getMaterialPrepOrderProjection(record.prepOrderId)
+  if (!projection) return true
+  const actual = projection.prepRecords.find(candidate => candidate.prepRecordId === record.prepRecordId) || record
+  const ids = new Set(getMaterialPrepRecordItems(actual).map(item => item.prepLineId))
+  return projection.lines.some(line => ids.has(line.prepLineId) && isAccessoryWarehouseScopeLine(line, projection.order))
+}
+
+/** 按实际来源阻断旧入口；不依赖可见按钮，也不把混单中其余物料一并退役。 */
+function blockRetiredAccessoryWrite(action: string, node: HTMLElement): boolean {
+  if (!['create-prep-record', 'pick-record', 'stage-record', 'confirm-record', 'close-order'].includes(action)) return false
+  let blocked = false
+  if (action === 'pick-record' || action === 'stage-record' || action === 'confirm-record') {
+    const id = node.dataset.prepRecordId || ''
+    const record = listMaterialPrepOrderProjections().flatMap(projection => projection.prepRecords).find(candidate => candidate.prepRecordId === id)
+    if (!record) { window.alert('原配料记录无法核对，请重新打开页面。'); return true }
+    blocked = recordHasAccessoryScope(record)
+  } else {
+    const projection = getMaterialPrepOrderProjection(node.dataset.prepOrderId || '')
+    if (!projection) { window.alert('原配料单无法核对，请重新打开页面。'); return true }
+    if (action === 'close-order') blocked = projection.lines.some(line => isAccessoryWarehouseScopeLine(line, projection.order))
+    else {
+      const form = node.closest('[data-fcs-prep-form]')
+      const selected = new Set([...form?.querySelectorAll<HTMLElement>('[data-prep-line-id]') || []]
+        .filter(row => Number(row.querySelector<HTMLInputElement>('[data-fcs-prep-line-qty]')?.value || 0) > 0)
+        .map(row => row.dataset.prepLineId))
+      blocked = projection.lines.some(line => selected.has(line.prepLineId) && isAccessoryWarehouseScopeLine(line, projection.order))
+    }
+  }
+  if (blocked) window.alert('本单无需裁剪的辅料已由辅料中央仓（GTP）办理，请前往 GTP；此处仅查看配料进度和记录。')
+  return blocked
 }
 
 function getSearchParams(): URLSearchParams {
@@ -781,7 +827,7 @@ function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string
 }
 
 function renderPrepModal(projection: MaterialPrepOrderProjection): string {
-  const lines = projection.lines.filter(l => classifyPrepLineType(l) === categoryLabel && l.canPrepQty > 0)
+  const lines = projection.lines.filter(l => classifyPrepLineType(l) === categoryLabel && l.canPrepQty > 0 && !isAccessoryWarehouseScopeLine(l, projection.order))
   const closeHref = buildDetailStateHref(projection, { detailTab: 'records' })
   if (!lines.length) return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
@@ -902,8 +948,8 @@ function renderPrepRecords(projection: MaterialPrepOrderProjection): string {
     <section class="rounded-lg border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-base font-semibold">配料记录</h3>
-        ${!projection.order.isClosed ? `<button type="button" data-nav="${escapeHtml(buildPrepModalHref(projection))}" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white">新增配料记录</button>` : ''}
-        ${!projection.order.isClosed && projection.order.overallPrepStatus !== 'READY'
+        ${!projection.order.isClosed && projection.lines.some(line => classifyPrepLineType(line) === categoryLabel && !isAccessoryWarehouseScopeLine(line, projection.order)) ? `<button type="button" data-nav="${escapeHtml(buildPrepModalHref(projection))}" class="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white">新增配料记录</button>` : ''}
+        ${!projection.order.isClosed && projection.order.overallPrepStatus !== 'READY' && !orderHasAccessoryScope(projection.order.prepOrderId)
           ? `<button type="button" data-nav="${escapeHtml(buildClosePrepOrderHref(projection))}" class="rounded-md border border-rose-200 px-3 py-2 text-xs text-rose-700 hover:bg-rose-50">关闭配料单</button>`
           : ''}
       </div>
@@ -923,7 +969,7 @@ function renderPrepRecords(projection: MaterialPrepOrderProjection): string {
         </div>
       </div>
       <div class="mt-3 space-y-3">
-        ${records.length ? records.map((record) => renderPrepRecordStatusRow(record, projection.order.isClosed)).join('') : '<div class="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">暂无配料记录。</div>'}
+        ${records.length ? records.map((record) => renderPrepRecordStatusRow(record, projection.order.isClosed || recordHasAccessoryScope(record))).join('') : '<div class="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">暂无配料记录。</div>'}
       </div>
     </section>
   `
@@ -1009,15 +1055,15 @@ function renderDetail(projection: MaterialPrepOrderProjection, activeTab: Materi
   `
 }
 
-function renderDetailPage(): string {
+function renderDetailPage(projectionOverride?: MaterialPrepOrderProjection): string {
   const params = getSearchParams()
   const prepOrderId = params.get('prepOrderId')
   const backTab = normalizeMaterialPrepStatus(params.get('fromTab'))
   const keyword = params.get('keyword') || ''
   const backHref = buildHref({ tab: backTab, prepOrderId: undefined, fromTab: undefined, detailTab: undefined, keyword: keyword || undefined })
   const activeDetailTab = getActiveDetailTab(params)
-  const showPrepModal = params.get('prepModal') === '1'
-  const showCloseModal = params.get('closeModal') === '1'
+  const showPrepModal = params.get('prepModal') === '1' && (!projectionOverride || projectionOverride.lines.some(line => classifyPrepLineType(line) === categoryLabel))
+  const showCloseModal = params.get('closeModal') === '1' && !orderHasAccessoryScope(prepOrderId || '')
 
   if (!prepOrderId) {
     return `
@@ -1034,7 +1080,7 @@ function renderDetailPage(): string {
     `
   }
 
-  const projection = getMaterialPrepOrderProjection(prepOrderId)
+  const projection = projectionOverride || getMaterialPrepOrderProjection(prepOrderId)
   if (!projection) {
     return `
       <div class="space-y-5 p-6">
@@ -1051,7 +1097,7 @@ function renderDetailPage(): string {
   }
 
   return `
-    <div class="space-y-5 p-6" data-production-object-type-hints="MATERIAL_PREP_ORDER MATERIAL_PREP_RECORD MATERIAL_PICKUP_RECORD">
+    <div class="space-y-5 p-6" data-skip-page-rerender="true" data-production-object-type-hints="MATERIAL_PREP_ORDER MATERIAL_PREP_RECORD MATERIAL_PICKUP_RECORD">
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div class="text-sm text-muted-foreground">生产协同系统 / 配料管理 / ${escapeHtml(categoryLabel)}</div>
@@ -1066,7 +1112,7 @@ function renderDetailPage(): string {
         <div class="flex flex-wrap gap-2">
           ${renderMaterialPrepOrderCodeButton(projection, { label: '生产总览', className: 'rounded-md border border-blue-200 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50' })}
           <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(backHref)}">返回配料列表</button>
-          ${!projection.order.isClosed && projection.order.overallPrepStatus !== 'READY'
+          ${!projection.order.isClosed && projection.order.overallPrepStatus !== 'READY' && !orderHasAccessoryScope(projection.order.prepOrderId)
             ? `<button type="button" data-nav="${escapeHtml(buildClosePrepOrderHref(projection))}" class="rounded-md border border-rose-200 px-4 py-2 text-sm text-rose-700 hover:bg-rose-50">关闭配料单</button>`
             : ''}
         </div>
@@ -1079,38 +1125,42 @@ function renderDetailPage(): string {
   `
 }
 
-export function renderFcsSewingPrepPage(): string {
+export async function renderFcsSewingPrepPage(): Promise<string> {
   const params = getSearchParams()
   const prepOrderId = params.get('prepOrderId')
-  if (prepOrderId) return renderDetailPage()
-
-  const activeTab = normalizeMaterialPrepStatus(params.get('tab'))
-  const keyword = params.get('keyword') || ''
-  const allRows = filterOrders()
-  const keywordFiltered = filterByKeyword(allRows, keyword)
-  const rows = keywordFiltered.filter((row) => row.order.overallPrepStatus === activeTab)
-
-  return `
-    <div class="space-y-5 p-6">
-      <header>
-        <div>
-          <div class="text-sm text-muted-foreground">生产协同系统 / 配料管理</div>
-          <h1 class="mt-1 text-2xl font-bold">${escapeHtml(categoryLabel)}</h1>
-          <p class="mt-2 text-sm text-muted-foreground">按生产单组织${escapeHtml(categoryLabel)}配料，让配料人员知道哪些无库存可配、哪些部分有库存可配、哪些全部都有充足库存、哪些被打回重配、哪些已配齐。车缝配料数量受裁片放行约束限制。</p>
-        </div>
-      </header>
-
-      ${renderSearchBar(keyword)}
-      ${renderTabs(allRows, activeTab)}
-      ${renderOrderTable(rows, activeTab)}
-    </div>
-  `
+  let preparations: ReturnType<typeof listAccessoryPreparations>
+  try { await prepareAccessoryWarehouseSources(); preparations = listAccessoryPreparations() }
+  catch (error) {
+    let legacyHtml = ''
+    try {
+      const legacy = prepOrderId ? getMaterialPrepOrderProjection(prepOrderId) : null
+      const retained = legacy ? retainLegacySewingProjection(legacy) : null
+      if (retained) legacyHtml = renderDetailPage(retained)
+    } catch { /* 旧来源也无法读取时只展示真实错误，不用空投影替代。 */ }
+    const retryHref = typeof window === 'undefined' ? pageBasePath : window.location.pathname + window.location.search
+    return `<section class="m-4 rounded border border-red-200 bg-red-50 p-4" role="alert"><h1 class="font-semibold">辅料配料资料无法读取</h1><p class="mt-2 text-sm">${escapeHtml(error instanceof Error ? error.message : String(error))}</p><button class="mt-3 rounded border px-3 py-2 text-sm" data-nav="${escapeHtml(retryHref)}">重新读取</button></section>${legacyHtml}`
+  }
+  if (prepOrderId) {
+    const projection = getMaterialPrepOrderProjection(prepOrderId)
+    const preparation = getAccessoryPreparation(prepOrderId)
+    const retained = projection ? retainLegacySewingProjection(projection) : null
+    if (preparation) return renderAccessoryPreparationFollowupDetail(preparation, listAccessoryWarehouseSourceIssues(prepOrderId), Boolean(retained)) + (retained ? `<section data-fcs-legacy-materials>${renderDetailPage(retained)}</section>` : '')
+    if (projection?.lines.some(line => isAccessoryWarehouseScopeLine(line, projection.order))) {
+      const issues = listAccessoryWarehouseSourceIssues(prepOrderId)
+      return `<section class="m-4 rounded border border-amber-200 bg-amber-50 p-4" role="alert"><h1 class="font-semibold">辅料配料资料待核对</h1><p class="mt-2 text-sm">${escapeHtml(issues.map(issue => issue.message).join('；') || '当前辅料资料暂不能展示，请前往 GTP 核对。')}</p><button class="mt-3 rounded border px-3 py-2 text-sm" data-nav="/wls/accessory-warehouses/gtp/preparation">前往 GTP 核对</button></section>${retained ? `<section data-fcs-legacy-materials>${renderDetailPage(retained)}</section>` : ''}`
+    }
+    return renderDetailPage(retained || undefined)
+  }
+  const legacy = filterOrders().flatMap(projection => { const retained = retainLegacySewingProjection(projection); return retained ? [retained] : [] })
+  return renderAccessoryPreparationFollowupList(preparations, legacy, params.get('keyword') || '')
 }
 
 export function handleFcsSewingPrepEvent(target: HTMLElement): boolean {
+  if (handleAccessoryPreparationReadonlyEvent(target)) return true
   const actionNode = target.closest<HTMLElement>('[data-fcs-material-prep-action]')
   const action = actionNode?.dataset.fcsMaterialPrepAction
   if (!actionNode || !action) return false
+  if (blockRetiredAccessoryWrite(action, actionNode)) return true
 
   if (action === 'search-apply') {
     const input = document.querySelector<HTMLInputElement>('[data-fcs-material-prep-action="search-input"]')
@@ -1123,6 +1173,7 @@ export function handleFcsSewingPrepEvent(target: HTMLElement): boolean {
     }
     params.delete('prepOrderId')
     params.delete('detailTab')
+    params.delete('page')
     const query = params.toString()
     window.history.pushState({}, '', `${pageBasePath}${query ? `?${query}` : ''}`)
     window.dispatchEvent(new PopStateEvent('popstate'))

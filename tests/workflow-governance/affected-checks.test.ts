@@ -467,3 +467,17 @@ test('缝边绣历史测试仅身份调整由保守契约接入，真实毛织�
   assert.deepEqual(route.fastChecks,['node --import tsx --test tests/browser-contracts/wool-record-storage.test.ts'])
   assert.deepEqual(routeAffectedChecks(['tests/factory-unregistered.spec.ts']).unknownPaths,['tests/factory-unregistered.spec.ts'])
 })
+
+
+test('辅料仓显式浏览器契约和共用夹具绑定fresh顺序运行器，未知测试仍阻断', async () => {
+  const { ACCESSORY_BROWSER_CONTRACT_PATHS, ACCESSORY_BROWSER_FIXTURE_PATHS } = await import('../../scripts/check-accessory-warehouse-browser-contracts.ts')
+  for (const path of [...ACCESSORY_BROWSER_CONTRACT_PATHS, ...ACCESSORY_BROWSER_FIXTURE_PATHS, 'scripts/check-accessory-warehouse-browser-contracts.ts']) {
+    const route = routeAffectedChecks([path])
+    assert.deepEqual(route.unknownPaths, [])
+    assert.deepEqual(route.fastChecks, [])
+    assert.deepEqual(route.fullChecks, ['npm run build', 'node --import tsx scripts/check-accessory-warehouse-browser-contracts.ts'])
+  }
+  assert.deepEqual(routeAffectedChecks(['tests/browser-contracts/accessory-unregistered.test.ts']).unknownPaths, ['tests/browser-contracts/accessory-unregistered.test.ts'])
+  assert.deepEqual(routeAffectedChecks(['tests/browser-contracts/helpers/unregistered-fixture.ts']).unknownPaths, ['tests/browser-contracts/helpers/unregistered-fixture.ts'])
+  assert.deepEqual(routeAffectedChecks([...ACCESSORY_BROWSER_CONTRACT_PATHS]).fullChecks, ['npm run build', 'node --import tsx scripts/check-accessory-warehouse-browser-contracts.ts'])
+})

@@ -1,6 +1,7 @@
 // WLS 列表页事件分发。页面模块已随 routes-wls 在渲染时加载，
 // 这里静态引用不会增加首屏成本；未注册的路径返回 false，交给通用外壳处理。
 import { handleRawPdaEvent } from '../pages/wls/raw/pda.ts'
+import { handleGtpPreparationEvent } from '../pages/wls/accessory-warehouses/gtp-preparation.ts'
 import { handleFinishedPdaShipScanEvent } from '../pages/wls/finished/pda-ship-scan.ts'
 import { handleFinishedPdaEvent } from '../pages/wls/finished/pda.ts'
 import { handleFinishedMultiItemPackingEvent } from '../pages/wls/finished/multi-item-packing.ts'
@@ -61,7 +62,6 @@ import { handleTransitWarehouseTransferEvent } from '../pages/wls/transit/wareho
 import { handleTransitWorkAreaManageEvent } from '../pages/wls/transit/work-area-manage.ts'
 import { handleWaveManageEvent } from '../pages/wls/finished/wave-manage.ts'
 import { handleWlsAccessoryReceiptsEvent } from '../pages/wls-accessory-receipts.ts'
-import { handleWlsProductionPrepEvent } from '../pages/wls/production-prep/allocation.ts'
 import { finishedOnlineWlsEventHandlers } from '../pages/wls/finished-online/routes.ts'
 import { stockOnlineWlsRoutes } from '../pages/wls/stock-online/routes.ts'
 import { capacityOnlineWlsEventHandlers } from '../pages/wls/capacity-online/routes.ts'
@@ -72,12 +72,8 @@ import { handleGarmentInventoryEvent } from '../pages/wls/garment-inventory/page
 type WlsPageEventHandler = (target: HTMLElement, event?: Event) => boolean
 
 const pageEventHandlers: Record<string, WlsPageEventHandler> = {
+  '/wls/accessory-warehouses/gtp/preparation': handleGtpPreparationEvent,
   '/wls/accessory-receipts': handleWlsAccessoryReceiptsEvent,
-  '/wls/production-prep/dyeing': handleWlsProductionPrepEvent,
-  '/wls/production-prep/printing': handleWlsProductionPrepEvent,
-  '/wls/production-prep/sewing': handleWlsProductionPrepEvent,
-  '/wls/production-prep/other': handleWlsProductionPrepEvent,
-  '/wls/production-prep/knitting': handleWlsProductionPrepEvent,
   '/wls/finished/dashboard': handleFinishedDashboardEvent,
   '/wls/raw/pda': handleRawPdaEvent,
   '/wls/finished/pda': handleFinishedPdaEvent,

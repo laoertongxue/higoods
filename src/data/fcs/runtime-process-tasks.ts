@@ -1,4 +1,5 @@
 import { REPLACEMENT_FABRIC_DEMOS, REPLACEMENT_FABRIC_DEMO_ASSIGNED_AT } from './cutting/replacement-fabric-demo.ts'
+import { ACCESSORY_WAREHOUSE_DEMOS } from '../wls/accessory-warehouse-demo.ts'
 import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { indonesiaFactories } from './indonesia-factories.ts'
@@ -1454,6 +1455,20 @@ function ensureDispatchBoardSeedData(): void {
   if (runtimeStorageFailure) throw runtimeStorageFailure
   if (dispatchBoardSeedReady) return
   dispatchBoardSeedReady = true
+
+  // 采用原生成器的运行任务身份；已确认裁剪工厂只是演示输入，不新增第二套任务或选厂规则。
+  for (const fixture of ACCESSORY_WAREHOUSE_DEMOS) {
+    const source = fixture.tasks.find(task => task.processBusinessCode === 'CUT_PANEL')
+    if (!source?.assignedFactoryId) continue
+    const identity = resolveInitialOrderRuntimeTaskIdentity(fixture.order.productionOrderId, 'CUT_PANEL')
+    if (!identity) throw new Error('辅料演示生产单缺少唯一裁剪任务来源。')
+    seedRuntimeTaskOverride(identity.runtimeTaskId, {
+      assignmentMode: 'DIRECT', assignmentStatus: 'ASSIGNED', assignedFactoryId: source.assignedFactoryId,
+      assignedFactoryName: source.assignedFactoryName, acceptanceStatus: 'ACCEPTED', status: 'NOT_STARTED',
+      dispatchedAt: source.dispatchedAt, businessAssignedAt: source.businessAssignedAt, dispatchedBy: source.dispatchedBy,
+      dispatchRemark: '固定演示输入：裁剪工厂已确认；未执行自动分配规则。',
+    }, [{ id: `${fixture.key}:CUTTING-INPUT`, action: 'MOCK_INPUT', detail: '生产单创建时已确认裁剪工厂的固定演示输入。', at: source.dispatchedAt!, by: '演示来源' }])
+  }
 
   for (const demo of REPLACEMENT_FABRIC_DEMOS) {
     for (const [process, factoryId, factoryName] of [['CUT_PANEL', TEST_FACTORY_ID, TEST_FACTORY_NAME], ['SEW', 'ID-F003', '万隆车缝厂']] as const) {

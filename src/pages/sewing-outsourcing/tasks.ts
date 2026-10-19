@@ -12,7 +12,8 @@ import { formatOperationLocalWallClock } from '../../data/fcs/sewing-delivery-sl
 import {
   getCurrentSewingPickupSlip,
   getSewingPickupAvailability,
-  issueSewingPickupSlip,
+  issueSewingPickupSlipPersisted,
+  getSewingPickupWarehousePath,
   type SewingPickupObjectKind,
 } from '../../data/fcs/sewing-pickup-slips.ts'
 import {
@@ -26,6 +27,7 @@ import { escapeHtml } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
 import { getEffectiveTaskAssignment } from '../../data/fcs/effective-task-assignments.ts'
 import { getCutPieceDispatchReadinessForTask, getCutPieceReleaseSummaryForProductionOrder, getCutPieceReleaseMatrix, withCutPieceReleaseReadSnapshot } from '../../data/fcs/cut-piece-release.ts'
+import { getSewingMaterialHandoverProjection } from '../../data/fcs/sewing-material-handover.ts'
 import { getMaterialPrepDispatchReadinessForTask } from '../../data/fcs/cutting/production-material-prep.ts'
 
 type DialogState =
@@ -89,16 +91,18 @@ function pickupAction(row: SewingOutsourcingWorkbenchTaskRow, kind: SewingPickup
     return `<span class="text-xs text-slate-400" title="${escapeHtml(availability.reason)}">${escapeHtml(label)}（${escapeHtml(availability.reason)}）</span>`
   }
   const current = getCurrentSewingPickupSlip(row.assignmentId, kind)
-  return `<button class="text-xs font-semibold text-blue-700 hover:underline" data-ppic-task-action="print-pickup" data-row-id="${escapeHtml(row.rowId)}" data-pickup-kind="${kind}">${current ? '补打' : '打印'}${escapeHtml(label)}</button>`
+  return `<button class="text-xs font-semibold text-blue-700 hover:underline" data-ppic-task-action="print-pickup" data-skip-page-rerender="true" data-row-id="${escapeHtml(row.rowId)}" data-pickup-kind="${kind}">${current ? '补打' : '打印'}${escapeHtml(label)}</button>`
 }
 
 function pickupActions(row: SewingOutsourcingWorkbenchTaskRow): string {
+  const path = getSewingPickupWarehousePath(row.assignmentId)
+  const link = path ? `<a class="text-xs font-semibold text-blue-700 hover:underline" data-nav="${escapeHtml(path)}">本仓车缝领料</a><a class="text-xs font-semibold text-blue-700 hover:underline" data-nav="/fcs/sewing-outsourcing/material-handover?assignmentId=${encodeURIComponent(row.assignmentId)}">实交记录</a>` : ''
   if (row.taskKind === 'CUTTING_SEWING_IRON_PACK') {
-    return pickupAction(row, 'FABRIC_ACCESSORY', '面辅料领料单')
+    return pickupAction(row, 'FABRIC_ACCESSORY', '面辅料领料单') + link
   }
   return [
     `<button type="button" class="text-xs font-semibold text-blue-700 hover:underline" data-ppic-task-action="print-task-sheet" data-row-id="${escapeHtml(row.rowId)}">打印任务单</button>`,
-    pickupAction(row, 'ACCESSORY', '辅料领料单'),
+    pickupAction(row, 'ACCESSORY', '辅料领料单'), link,
   ].join('')
 }
 
@@ -173,7 +177,12 @@ function renderPreparationFollowUp(row: SewingOutsourcingWorkbenchTaskRow, detai
   const materialText = facts.material.lines.length
     ? facts.material.lines.filter((line) => !line.ready).map((line) => `${line.materialName}待配 ${line.remainingPrepQty.toLocaleString()} ${line.unit}`).join('；') || '辅料已配齐'
     : '辅料资料待核对'
-  const summary = `<p class="text-xs ${risk > 0 || riskUnknown ? 'font-semibold text-amber-800' : 'text-slate-600'}">${facts.release?.hasRecord ? `放行 V${facts.releaseSummary?.latestReleaseVersion ?? '待核对'} · 本任务当前风险 ${riskUnknown ? '待核对' : `${risk.toLocaleString()} 件`}` : row.taskKind === 'CUTTING_SEWING_IRON_PACK' ? '承接厂自裁，沿用面辅料交接' : '放行资料待核对，原分配保留'}</p>${facts.craftDataIncomplete ? '<p class="mt-1 text-xs text-violet-700">裁片资料待核对，工艺数量待确认</p>' : ''}${facts.craftRequiredPieceQty ? `<p class="mt-1 text-xs text-amber-800">需工艺 ${facts.craftRequiredPieceQty.toLocaleString()} 片 · 最终回仓 ${facts.craftDataIncomplete ? '待核对' : `${facts.finalReturnedPieceQty.toLocaleString()} 片`} · 待最终回仓 ${facts.craftDataIncomplete ? '待核对' : `${facts.pendingFinalReturnPieceQty.toLocaleString()} 片`}${facts.awaitingReturnPieceQty ? `（其中加工完成待回仓 ${facts.awaitingReturnPieceQty.toLocaleString()} 片）` : ''}${facts.craftDifferencePieceQty ? ` · 回仓差异 ${facts.craftDifferencePieceQty.toLocaleString()} 片` : ''}</p>` : ''}${facts.unknownCraftCount ? `<p class="mt-1 text-xs text-violet-700">${facts.unknownCraftCount} 张票工艺要求待核对</p>` : ''}<p class="mt-1 text-xs text-amber-800">${escapeHtml(materialText)}</p>`
+  const pickupPath = getSewingPickupWarehousePath(row.assignmentId)
+  let actual = ''
+  if (pickupPath) {
+    try { const projection = getSewingMaterialHandoverProjection(row.assignmentId); actual = `<p class="mt-1 text-xs text-blue-800">本任务已实交 ${projection.lines.filter(line => line.cumulativeHandedOverQty > 0).length} 项 · ${projection.handoverEvents.length} 次交出</p>` } catch { actual = '<p class="mt-1 text-xs text-amber-800">本任务实交资料待核对</p>' }
+  }
+  const summary = `${actual}<p class="text-xs ${risk > 0 || riskUnknown ? 'font-semibold text-amber-800' : 'text-slate-600'}">${facts.release?.hasRecord ? `放行 V${facts.releaseSummary?.latestReleaseVersion ?? '待核对'} · 本任务当前风险 ${riskUnknown ? '待核对' : `${risk.toLocaleString()} 件`}` : row.taskKind === 'CUTTING_SEWING_IRON_PACK' ? '承接厂自裁，沿用面辅料交接' : '放行资料待核对，原分配保留'}</p>${facts.craftDataIncomplete ? '<p class="mt-1 text-xs text-violet-700">裁片资料待核对，工艺数量待确认</p>' : ''}${facts.craftRequiredPieceQty ? `<p class="mt-1 text-xs text-amber-800">需工艺 ${facts.craftRequiredPieceQty.toLocaleString()} 片 · 最终回仓 ${facts.craftDataIncomplete ? '待核对' : `${facts.finalReturnedPieceQty.toLocaleString()} 片`} · 待最终回仓 ${facts.craftDataIncomplete ? '待核对' : `${facts.pendingFinalReturnPieceQty.toLocaleString()} 片`}${facts.awaitingReturnPieceQty ? `（其中加工完成待回仓 ${facts.awaitingReturnPieceQty.toLocaleString()} 片）` : ''}${facts.craftDifferencePieceQty ? ` · 回仓差异 ${facts.craftDifferencePieceQty.toLocaleString()} 片` : ''}</p>` : ''}${facts.unknownCraftCount ? `<p class="mt-1 text-xs text-violet-700">${facts.unknownCraftCount} 张票工艺要求待核对</p>` : ''}<p class="mt-1 text-xs text-amber-800">${escapeHtml(materialText)}</p>`
   if (!detailed) return `<div class="space-y-1" data-ppic-preparation-follow-up>${summary}</div>`
   const cutRows = facts.release?.lines.map((line) => `<tr class="border-t"><td class="p-2">${escapeHtml(line.color)} / ${escapeHtml(line.size)}</td><td class="p-2 text-right">${number(line.completeKitQty)}</td><td class="p-2 text-right">${number(line.releaseConfirmQty)}</td><td class="p-2 text-right">${number(line.allocatedQty)}</td><td class="p-2 text-right">${number(line.availableQty)}</td><td class="p-2 text-right">${number(line.riskReleaseQty)}</td></tr>`).join('') || ''
   const materialRows = facts.material.lines.map((line) => `<tr class="border-t"><td class="p-2">${escapeHtml(line.materialName)}${line.materialSku && !/^tdv_/i.test(line.materialSku) ? `<p class="text-xs text-slate-500">${escapeHtml(line.materialSku)}</p>` : ''}</td><td class="p-2 text-right">${line.requiredQty.toLocaleString()} ${escapeHtml(line.unit)}</td><td class="p-2 text-right">${line.confirmedPrepQty.toLocaleString()} ${escapeHtml(line.unit)}</td><td class="p-2 text-right">${line.remainingPrepQty.toLocaleString()} ${escapeHtml(line.unit)}</td></tr>`).join('')
@@ -237,7 +246,7 @@ function renderSewingOutsourcingTasksContent(): string {
     listTitle: '车缝外发执行任务主清单',
     tableHtml: `${state.feedback ? `<div class="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.feedback)}</div>` : ''}${renderStandardListTable({ columns, rows: pageRows, preferences: { ...preferences, pageSize: state.pageSize }, sort: null, eventPrefix: 'ppic-task', emptyText: '暂无符合条件的车缝执行任务' })}`,
     paginationHtml: renderTablePagination({ total: allRows.length, from: allRows.length ? start + 1 : 0, to: Math.min(start + state.pageSize, allRows.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: 'ppic-task', fieldPrefix: 'ppic-task', pageSizeOptions: [20, 50] }),
-    overlaysHtml: renderDialog(),
+    overlaysHtml: `<div data-ppic-task-overlays>${renderDialog()}</div>`,
   })}</div>`
 }
 
@@ -258,11 +267,12 @@ export function isSewingOutsourcingTasksDialogOpen(): boolean { return state.dia
 export function closeSewingOutsourcingTasksDialog(): boolean {
   if (!state.dialog) return false
   state.dialog = null
-  refresh()
+  const host = document.querySelector<HTMLElement>('[data-ppic-task-overlays]')
+  if (host) host.innerHTML = renderDialog()
   return true
 }
 
-export function handleSewingOutsourcingTasksEvent(target: HTMLElement): boolean {
+export async function handleSewingOutsourcingTasksEvent(target: HTMLElement): Promise<boolean> {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-ppic-task-field]')
   if (field && !state.dialog) {
     const name = field.dataset.ppicTaskField
@@ -306,32 +316,36 @@ export function handleSewingOutsourcingTasksEvent(target: HTMLElement): boolean 
     } catch (error) { state.feedback = error instanceof Error ? error.message : '任务单读取失败，请重试。' }
   }
   else if (action === 'print-pickup') {
+    if (node.dataset.saving === 'true') return true
+    node.dataset.saving = 'true'
+    if (node instanceof HTMLButtonElement) node.disabled = true
     const row = getSewingOutsourcingWorkbenchRow(node.dataset.rowId || '', {
       viewerPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
       leaderView: false,
     })
     const objectKind = node.dataset.pickupKind as SewingPickupObjectKind
-    if (!row || !['ACCESSORY', 'FABRIC_ACCESSORY'].includes(objectKind)) return false
+    if (!row || !['ACCESSORY', 'FABRIC_ACCESSORY'].includes(objectKind)) { delete node.dataset.saving; if (node instanceof HTMLButtonElement) node.disabled = false; return false }
     try {
-      const version = issueSewingPickupSlip({
+      const version = await issueSewingPickupSlipPersisted({
         assignmentId: row.assignmentId,
         objectKind,
         printedAt: formatOperationLocalWallClock(),
         printedByPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
         printedByPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
       })
-      appStore.navigate(buildUnifiedPrintPreviewLink({
-        documentType: 'PICKUP_SLIP',
-        sourceType: 'PICKUP_SLIP_RECORD',
-        sourceId: version.versionId,
-      }))
+      const href = buildUnifiedPrintPreviewLink({ documentType: 'PICKUP_SLIP', sourceType: 'PICKUP_SLIP_RECORD', sourceId: version.versionId })
+      // 当前点击先完成，之后由导航订阅单独读取打印页，避免同次点击重复异步渲染。
+      window.setTimeout(() => appStore.navigate(href), 0)
       return true
     } catch (error) {
       state.feedback = error instanceof Error ? error.message : String(error)
-    }
+    } finally { delete node.dataset.saving; if (node instanceof HTMLButtonElement) node.disabled = false }
   }
-  else if (action === 'preview-image') state.dialog = { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' }
-  else if (action === 'detail') state.dialog = { kind: 'DETAIL', rowId: node.dataset.rowId || '' }
+  else if (action === 'preview-image' || action === 'detail') {
+    state.dialog = action === 'preview-image' ? { kind: 'IMAGE', imageUrl: node.dataset.imageUrl || '', label: node.dataset.imageLabel || '款式' } : { kind: 'DETAIL', rowId: node.dataset.rowId || '' }
+    const host = document.querySelector<HTMLElement>('[data-ppic-task-overlays]'); if (host) host.innerHTML = renderDialog()
+    return true
+  }
   else if (action === 'prev-page') state.page = Math.max(1, state.page - 1)
   else if (action === 'next-page') state.page += 1
   else return false

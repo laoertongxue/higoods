@@ -1,0 +1,327 @@
+{
+  "format": "higoods-isolated-browser-fixture",
+  "version": 1,
+  "createdAt": "2026-10-19T12:12:48.368Z",
+  "sourceOrigin": "http://127.0.0.1:43246",
+  "purpose": "Test fixture only: canonicalFixture saved SITE_TO_POST before receipt UI; cold dist installation without source imports",
+  "pendingPostTransferId": "POST-UI-1",
+  "productionOrderNo": "PO-AW-202610-F01",
+  "canonicalFixture": {
+    "id": "POST-UI-1",
+    "productionOrderNo": "PO-AW-202610-F01",
+    "names": [
+      "拉链",
+      "纽扣"
+    ],
+    "lineIds": [
+      "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+      "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON"
+    ],
+    "quantities": [
+      10,
+      20
+    ]
+  },
+  "databases": [
+    {
+      "name": "higood-cutting-records-v1",
+      "version": 1,
+      "stores": [
+        {
+          "name": "commands",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "POST-UI-FIXTURE",
+              "value": {
+                "id": "POST-UI-FIXTURE",
+                "intent": "accessory:605d6b28bc12fbd9be18722e1a45e225964bd94a369f8eb74b757a9c1a0afa6c",
+                "result": "POST-UI-1",
+                "at": "2026-10-19T12:12:48.246Z"
+              }
+            }
+          ]
+        },
+        {
+          "name": "files",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "meta",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "revision",
+              "value": {
+                "id": "revision",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "name": "records",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": [
+            {
+              "key": "accessory-warehouse:preparation:prep-order-PO-AW-202610-F01",
+              "value": {
+                "id": "accessory-warehouse:preparation:prep-order-PO-AW-202610-F01",
+                "collection": "accessory-warehouse:preparation",
+                "value": {
+                  "id": "prep-order-PO-AW-202610-F01",
+                  "productionOrderId": "PO-AW-202610-F01",
+                  "productionOrderNo": "PO-AW-202610-F01",
+                  "styleName": "辅料流转演示款 F01",
+                  "styleImageUrl": "/shirt-sample.jpg",
+                  "techPackVersion": "TP-AW-SPU-AW-F01-V1",
+                  "cuttingFactoryId": "SEA-CUTTING-001",
+                  "cuttingFactoryName": "sea cutting",
+                  "version": 0,
+                  "status": "待配料",
+                  "remark": "",
+                  "lines": [
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+                      "materialSku": "AW-DEMO-ZIPPER",
+                      "materialName": "拉链",
+                      "imageUrl": "/materials/accessory-zipper.jpg",
+                      "color": "标准色",
+                      "spec": "金属拉链（演示）",
+                      "unit": "条",
+                      "requiredQty": 100,
+                      "preparedQty": 0,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "其他",
+                      "requiresCutting": false
+                    },
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+                      "materialSku": "AW-DEMO-BUTTON",
+                      "materialName": "纽扣",
+                      "imageUrl": "/materials/accessory-button.jpg",
+                      "color": "标准色",
+                      "spec": "标准纽扣（演示）",
+                      "unit": "粒",
+                      "requiredQty": 200,
+                      "preparedQty": 0,
+                      "availableQty": 1200,
+                      "locationId": "",
+                      "purpose": "其他",
+                      "requiresCutting": false
+                    },
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-PRICE-TAG",
+                      "materialSku": "AW-DEMO-PRICE-TAG",
+                      "materialName": "价格吊牌",
+                      "imageUrl": "/materials/accessory-flow/price-tag.jpg",
+                      "color": "标准色",
+                      "spec": "单件价格吊牌（演示）",
+                      "unit": "张",
+                      "requiredQty": 100,
+                      "preparedQty": 0,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "价格吊牌",
+                      "requiresCutting": false
+                    },
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BRAND-TAG",
+                      "materialSku": "AW-DEMO-BRAND-TAG",
+                      "materialName": "品牌吊牌",
+                      "imageUrl": "/materials/accessory-flow/brand-tag.jpg",
+                      "color": "标准色",
+                      "spec": "单件品牌吊牌（演示）",
+                      "unit": "张",
+                      "requiredQty": 100,
+                      "preparedQty": 0,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "品牌吊牌",
+                      "requiresCutting": false
+                    },
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-TAG-FASTENER",
+                      "materialSku": "AW-DEMO-TAG-FASTENER",
+                      "materialName": "吊粒",
+                      "imageUrl": "/materials/accessory-flow/tag-fastener.png",
+                      "color": "标准色",
+                      "spec": "单件吊粒（演示）",
+                      "unit": "条",
+                      "requiredQty": 100,
+                      "preparedQty": 0,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "吊粒",
+                      "requiresCutting": false
+                    },
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-SEWING-THREAD",
+                      "materialSku": "AW-DEMO-SEWING-THREAD",
+                      "materialName": "车缝线",
+                      "imageUrl": "/materials/yarn-stitching.jpg",
+                      "color": "黑色",
+                      "spec": "黑色车缝线（演示）",
+                      "unit": "公斤",
+                      "requiredQty": 1,
+                      "preparedQty": 0,
+                      "availableQty": 12,
+                      "locationId": "",
+                      "purpose": "车缝线",
+                      "requiresCutting": false
+                    }
+                  ],
+                  "history": []
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:receipt:POST-UI-RECEIPT",
+              "value": {
+                "id": "accessory-warehouse:receipt:POST-UI-RECEIPT",
+                "collection": "accessory-warehouse:receipt",
+                "value": {
+                  "id": "POST-UI-RECEIPT",
+                  "transferId": "POST-UI-1",
+                  "warehouseCode": "DLN",
+                  "status": "待收货",
+                  "version": 1,
+                  "lines": []
+                }
+              }
+            },
+            {
+              "key": "accessory-warehouse:transfer:POST-UI-1",
+              "value": {
+                "id": "accessory-warehouse:transfer:POST-UI-1",
+                "collection": "accessory-warehouse:transfer",
+                "value": {
+                  "id": "POST-UI-1",
+                  "kind": "SITE_TO_POST",
+                  "preparationId": "prep-order-PO-AW-202610-F01",
+                  "productionOrderId": "PO-AW-202610-F01",
+                  "sourceTransferId": "POST-UI-SOURCE",
+                  "fromWarehouse": "HILON-2",
+                  "toWarehouse": "DLN",
+                  "status": "已出库待收货",
+                  "version": 1,
+                  "lines": [
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-ZIPPER",
+                      "materialSku": "AW-DEMO-ZIPPER",
+                      "materialName": "拉链",
+                      "imageUrl": "/materials/accessory-zipper.jpg",
+                      "color": "标准色",
+                      "spec": "金属拉链（演示）",
+                      "unit": "条",
+                      "requiredQty": 100,
+                      "preparedQty": 0,
+                      "availableQty": 600,
+                      "locationId": "",
+                      "purpose": "其他",
+                      "requiresCutting": false,
+                      "qty": 10,
+                      "fromLocationId": "HILON-SOURCE"
+                    },
+                    {
+                      "id": "prep-order-PO-AW-202610-F01:TP-AW-SPU-AW-F01-V1:AW-BOM-AW-DEMO-BUTTON",
+                      "materialSku": "AW-DEMO-BUTTON",
+                      "materialName": "纽扣",
+                      "imageUrl": "/materials/accessory-button.jpg",
+                      "color": "标准色",
+                      "spec": "标准纽扣（演示）",
+                      "unit": "粒",
+                      "requiredQty": 200,
+                      "preparedQty": 0,
+                      "availableQty": 1200,
+                      "locationId": "",
+                      "purpose": "其他",
+                      "requiresCutting": false,
+                      "qty": 20,
+                      "fromLocationId": "HILON-SOURCE"
+                    }
+                  ],
+                  "createdAt": "2026-10-19T09:00:00.000Z",
+                  "createdBy": "演示仓管",
+                  "responsibilityKey": "TASK-UI-V1",
+                  "history": [
+                    {
+                      "at": "2026-10-19T09:00:00.000Z",
+                      "by": "演示仓管",
+                      "action": "建立后道调拨",
+                      "detail": "按有效独立车缝任务范围排除四类辅料"
+                    },
+                    {
+                      "action": "整单出库",
+                      "at": "2026-10-19T09:00:00.000Z",
+                      "by": "HILON演示仓管",
+                      "detail": "隔离浏览器中已保存的后道在途记录。"
+                    }
+                  ],
+                  "dispatchedAt": "2026-10-19T09:00:00.000Z",
+                  "dispatchedBy": "HILON演示仓管"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "higood-pcs-records",
+      "version": 2,
+      "stores": [
+        {
+          "name": "files",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "meta",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        },
+        {
+          "name": "operations",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [
+            {
+              "name": "createdAt",
+              "keyPath": "createdAt",
+              "unique": false,
+              "multiEntry": false
+            }
+          ],
+          "rows": []
+        },
+        {
+          "name": "records",
+          "keyPath": "id",
+          "autoIncrement": false,
+          "indexes": [],
+          "rows": []
+        }
+      ]
+    }
+  ],
+  "localStorage": {
+    "fcs_pda_session": "{\"userId\":\"ID-F002_admin\",\"loginId\":\"ID-F002_admin\",\"userName\":\"PT_Prima_管理员\",\"roleId\":\"ROLE_ADMIN\",\"factoryId\":\"ID-F002\",\"factoryName\":\"PT Prima Printing Center\",\"loggedAt\":\"2026-10-19 12:12:48\"}",
+    "fcs_pda_user_store_v1": "[{\"userId\":\"ID-F001_operator\",\"factoryId\":\"ID-F001\",\"name\":\"PT_Sinar_操作工\",\"loginId\":\"ID-F001_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F001_admin\",\"factoryId\":\"ID-F001\",\"name\":\"PT_Sinar_管理员\",\"loginId\":\"ID-F001_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F002_operator\",\"factoryId\":\"ID-F002\",\"name\":\"PT_Prima_操作工\",\"loginId\":\"ID-F002_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F002_admin\",\"factoryId\":\"ID-F002\",\"name\":\"PT_Prima_管理员\",\"loginId\":\"ID-F002_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F003_operator\",\"factoryId\":\"ID-F003\",\"name\":\"PT_Cahaya_操作工\",\"loginId\":\"ID-F003_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F003_admin\",\"factoryId\":\"ID-F003\",\"name\":\"PT_Cahaya_管理员\",\"loginId\":\"ID-F003_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F004_operator\",\"factoryId\":\"ID-F004\",\"name\":\"PT_Mulia_操作工\",\"loginId\":\"ID-F004_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F004_admin\",\"factoryId\":\"ID-F004\",\"name\":\"PT_Mulia_管理员\",\"loginId\":\"ID-F004_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F005_operator\",\"factoryId\":\"ID-F005\",\"name\":\"PT_Nusa_操作工\",\"loginId\":\"ID-F005_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F005_admin\",\"factoryId\":\"ID-F005\",\"name\":\"PT_Nusa_管理员\",\"loginId\":\"ID-F005_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F006_operator\",\"factoryId\":\"ID-F006\",\"name\":\"PT_Indo_操作工\",\"loginId\":\"ID-F006_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F006_admin\",\"factoryId\":\"ID-F006\",\"name\":\"PT_Indo_管理员\",\"loginId\":\"ID-F006_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F007_operator\",\"factoryId\":\"ID-F007\",\"name\":\"PT_Indah_操作工\",\"loginId\":\"ID-F007_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F007_admin\",\"factoryId\":\"ID-F007\",\"name\":\"PT_Indah_管理员\",\"loginId\":\"ID-F007_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F009_operator\",\"factoryId\":\"ID-F009\",\"name\":\"PT_Wool_操作工\",\"loginId\":\"ID-F009_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F009_admin\",\"factoryId\":\"ID-F009\",\"name\":\"PT_Wool_管理员\",\"loginId\":\"ID-F009_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-TMF_operator\",\"factoryId\":\"FAC-TMF\",\"name\":\"TMF_-_操作工\",\"loginId\":\"FAC-TMF_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-TMF_admin\",\"factoryId\":\"FAC-TMF\",\"name\":\"TMF_-_管理员\",\"loginId\":\"FAC-TMF_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F011_operator\",\"factoryId\":\"ID-F011\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F011_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F011_admin\",\"factoryId\":\"ID-F011\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F011_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F012_operator\",\"factoryId\":\"ID-F012\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F012_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F012_admin\",\"factoryId\":\"ID-F012\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F012_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F014_operator\",\"factoryId\":\"ID-F014\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F014_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F014_admin\",\"factoryId\":\"ID-F014\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F014_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F015_operator\",\"factoryId\":\"ID-F015\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F015_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F015_admin\",\"factoryId\":\"ID-F015\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F015_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F017_operator\",\"factoryId\":\"ID-F017\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F017_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F017_admin\",\"factoryId\":\"ID-F017\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F017_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F018_operator\",\"factoryId\":\"ID-F018\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F018_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F018_admin\",\"factoryId\":\"ID-F018\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F018_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F019_operator\",\"factoryId\":\"ID-F019\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F019_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F019_admin\",\"factoryId\":\"ID-F019\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F019_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F020_operator\",\"factoryId\":\"ID-F020\",\"name\":\"CV_Satellite_操作工\",\"loginId\":\"ID-F020_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F020_admin\",\"factoryId\":\"ID-F020\",\"name\":\"CV_Satellite_管理员\",\"loginId\":\"ID-F020_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F021_operator\",\"factoryId\":\"ID-F021\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F021_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F021_admin\",\"factoryId\":\"ID-F021\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F021_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F022_operator\",\"factoryId\":\"ID-F022\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F022_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F022_admin\",\"factoryId\":\"ID-F022\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F022_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F024_operator\",\"factoryId\":\"ID-F024\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F024_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F024_admin\",\"factoryId\":\"ID-F024\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F024_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F025_operator\",\"factoryId\":\"ID-F025\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F025_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F025_admin\",\"factoryId\":\"ID-F025\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F025_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F027_operator\",\"factoryId\":\"ID-F027\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F027_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F027_admin\",\"factoryId\":\"ID-F027\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F027_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F028_operator\",\"factoryId\":\"ID-F028\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F028_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F028_admin\",\"factoryId\":\"ID-F028\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F028_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F029_operator\",\"factoryId\":\"ID-F029\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F029_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F029_admin\",\"factoryId\":\"ID-F029\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F029_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F030_operator\",\"factoryId\":\"ID-F030\",\"name\":\"CV_Micro_操作工\",\"loginId\":\"ID-F030_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-F030_admin\",\"factoryId\":\"ID-F030\",\"name\":\"CV_Micro_管理员\",\"loginId\":\"ID-F030_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-SEW-FULL_operator\",\"factoryId\":\"ID-SEW-FULL\",\"name\":\"全能力测试车缝工厂_操作工\",\"loginId\":\"ID-SEW-FULL_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"ID-SEW-FULL_admin\",\"factoryId\":\"ID-SEW-FULL\",\"name\":\"全能力测试车缝工厂_管理员\",\"loginId\":\"ID-SEW-FULL_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-APF_operator\",\"factoryId\":\"FAC-APF\",\"name\":\"APF_-_操作工\",\"loginId\":\"FAC-APF_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-APF_admin\",\"factoryId\":\"FAC-APF\",\"name\":\"APF_-_管理员\",\"loginId\":\"FAC-APF_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-SPF_operator\",\"factoryId\":\"FAC-SPF\",\"name\":\"SPF_-_操作工\",\"loginId\":\"FAC-SPF_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-SPF_admin\",\"factoryId\":\"FAC-SPF\",\"name\":\"SPF_-_管理员\",\"loginId\":\"FAC-SPF_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"F090_operator\",\"factoryId\":\"F090\",\"name\":\"全能力测试工厂_操作工\",\"loginId\":\"F090_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"F090_admin\",\"factoryId\":\"F090\",\"name\":\"全能力测试工厂_管理员\",\"loginId\":\"F090_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"OWN-CUTTING-001_operator\",\"factoryId\":\"OWN-CUTTING-001\",\"name\":\"HiGood_裁床厂_操作工\",\"loginId\":\"OWN-CUTTING-001_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"OWN-CUTTING-001_admin\",\"factoryId\":\"OWN-CUTTING-001\",\"name\":\"HiGood_裁床厂_管理员\",\"loginId\":\"OWN-CUTTING-001_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"OWN_WOOL_FACTORY_operator\",\"factoryId\":\"OWN_WOOL_FACTORY\",\"name\":\"周哥毛织厂_操作工\",\"loginId\":\"OWN_WOOL_FACTORY_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"OWN_WOOL_FACTORY_admin\",\"factoryId\":\"OWN_WOOL_FACTORY\",\"name\":\"周哥毛织厂_管理员\",\"loginId\":\"OWN_WOOL_FACTORY_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"PF-DEDICATED-001_operator\",\"factoryId\":\"PF-DEDICATED-001\",\"name\":\"HiGood_后道工厂_操作工\",\"loginId\":\"PF-DEDICATED-001_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"PF-DEDICATED-001_admin\",\"factoryId\":\"PF-DEDICATED-001\",\"name\":\"HiGood_后道工厂_管理员\",\"loginId\":\"PF-DEDICATED-001_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"KOL-GOTO-001_operator\",\"factoryId\":\"KOL-GOTO-001\",\"name\":\"kol_goto_操作工\",\"loginId\":\"KOL-GOTO-001_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"KOL-GOTO-001_admin\",\"factoryId\":\"KOL-GOTO-001\",\"name\":\"kol_goto_管理员\",\"loginId\":\"KOL-GOTO-001_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"DYE-GOTO-GLOBAL_operator\",\"factoryId\":\"DYE-GOTO-GLOBAL\",\"name\":\"goto_global_操作工\",\"loginId\":\"DYE-GOTO-GLOBAL_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"DYE-GOTO-GLOBAL_admin\",\"factoryId\":\"DYE-GOTO-GLOBAL\",\"name\":\"goto_global_管理员\",\"loginId\":\"DYE-GOTO-GLOBAL_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-FLOWER_operator\",\"factoryId\":\"FAC-FLOWER\",\"name\":\"FLOWER_操作工\",\"loginId\":\"FAC-FLOWER_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-FLOWER_admin\",\"factoryId\":\"FAC-FLOWER\",\"name\":\"FLOWER_管理员\",\"loginId\":\"FAC-FLOWER_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-APF_operator\",\"factoryId\":\"FAC-APF\",\"name\":\"APF_-_操作工\",\"loginId\":\"FAC-APF_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-APF_admin\",\"factoryId\":\"FAC-APF\",\"name\":\"APF_-_管理员\",\"loginId\":\"FAC-APF_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-SPF_operator\",\"factoryId\":\"FAC-SPF\",\"name\":\"SPF_-_操作工\",\"loginId\":\"FAC-SPF_operator\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_OPERATOR\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"FAC-SPF_admin\",\"factoryId\":\"FAC-SPF\",\"name\":\"SPF_-_管理员\",\"loginId\":\"FAC-SPF_admin\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2024-01-01 00:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"createdAt\":\"2024-01-01 00:00:00\",\"createdBy\":\"SYSTEM\"},{\"userId\":\"PDAU-FACTORY-ONBOARD-0034-ADMIN\",\"factoryId\":\"FACTORY-ONBOARD-0034\",\"name\":\"申请人34\",\"loginId\":\"onboarding_34\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2026-05-09 16:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"roleName\":\"工厂管理员\",\"onboardingApplicationId\":\"FOA-0034\",\"convertedAt\":\"2026-05-09 16:00:00\",\"isTemporary\":false,\"createdAt\":\"2026-05-09 16:00:00\",\"createdBy\":\"平台转档\"},{\"userId\":\"PDAU-FACTORY-ONBOARD-0035-ADMIN\",\"factoryId\":\"FACTORY-ONBOARD-0035\",\"name\":\"申请人35\",\"loginId\":\"onboarding_35\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2026-05-09 16:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"roleName\":\"工厂管理员\",\"onboardingApplicationId\":\"FOA-0035\",\"convertedAt\":\"2026-05-09 16:00:00\",\"isTemporary\":false,\"createdAt\":\"2026-05-09 16:00:00\",\"createdBy\":\"平台转档\"},{\"userId\":\"PDAU-FACTORY-ONBOARD-0036-ADMIN\",\"factoryId\":\"FACTORY-ONBOARD-0036\",\"name\":\"申请人36\",\"loginId\":\"onboarding_36\",\"passwordHash\":\"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92\",\"passwordUpdatedAt\":\"2026-05-09 16:00:00\",\"status\":\"ACTIVE\",\"roleId\":\"ROLE_ADMIN\",\"roleName\":\"工厂管理员\",\"onboardingApplicationId\":\"FOA-0036\",\"convertedAt\":\"2026-05-09 16:00:00\",\"isTemporary\":false,\"createdAt\":\"2026-05-09 16:00:00\",\"createdBy\":\"平台转档\"}]"
+  },
+  "sessionStorage": {}
+}

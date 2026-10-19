@@ -1,4 +1,5 @@
 import { withWashingRecords } from '../data/fcs/fabric-washing-repository.ts'
+import { routes as accessoryWarehouseRoutes } from './routes-accessory-warehouses.ts'
 import type { RouteRegistry } from './route-types'
 import { renderTmfPdaOutputReceipts } from '../pages/wls/raw/tmf-output-receipts'
 import { renderFinishedDashboard } from '../pages/wls/finished/dashboard'
@@ -64,13 +65,6 @@ import { renderRawAccessoryTransfer } from '../pages/wls/raw/accessory-transfer'
 import { renderRawFabricScore } from '../pages/wls/raw/fabric-score'
 import { renderRawPda } from '../pages/wls/raw/pda'
 import { renderWlsPdaHomePage } from '../pages/wls/pda-home'
-import {
-  renderWlsDyeingPrepPage,
-  renderWlsKnittingPrepPage,
-  renderWlsOtherPrepPage,
-  renderWlsPrintingPrepPage,
-  renderWlsSewingPrepPage,
-} from '../pages/wls/production-prep/allocation'
 import { finishedOnlineWlsRoutes } from '../pages/wls/finished-online/routes'
 import { stockOnlineWlsRoutes } from '../pages/wls/stock-online/routes'
 import { capacityOnlineWlsRoutes } from '../pages/wls/capacity-online/routes'
@@ -89,6 +83,7 @@ function placeholder(title: string) {
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    ...accessoryWarehouseRoutes.exactRoutes,
     // ── 成衣仓 · 工作台 ──
     '/wls/finished/dashboard': () => renderFinishedDashboard(),
     '/wls/finished/pda': () => renderFinishedPda(),
@@ -208,11 +203,6 @@ export const routes: RouteRegistry = {
     '/wls/basic/processor': () => renderBasicProcessor(),
 
     '/wls/pda': () => renderWlsPdaHomePage(),
-    '/wls/production-prep/dyeing': () => renderWlsDyeingPrepPage(),
-    '/wls/production-prep/printing': () => renderWlsPrintingPrepPage(),
-    '/wls/production-prep/sewing': () => renderWlsSewingPrepPage(),
-    '/wls/production-prep/other': () => renderWlsOtherPrepPage(),
-    '/wls/production-prep/knitting': () => renderWlsKnittingPrepPage(),
 
     // ── 2026-10-14 WLS 全量对齐：46 个 /wls/online/* 占位页已迁移为真实页面 ──
     ...onlineRouteEntries,

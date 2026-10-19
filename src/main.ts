@@ -360,6 +360,12 @@ window.addEventListener('error', (event) => {
 })
 
 async function dispatchPageEvent(target: Element, event?: Event): Promise<boolean> {
+  const accessoryRecovery = target.closest<HTMLElement>('[data-accessory-read-error] [data-accessory-action]')
+  if (accessoryRecovery) {
+    if (event?.type !== 'click') return true
+    if (accessoryRecovery.dataset.accessoryAction === 'reload') { await renderPageContentOnly(); return true }
+    return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(accessoryRecovery, event)
+  }
   const eventTarget = target as HTMLElement
   if (target.closest('[data-fabric-washing-action], [data-washing-context-role], [data-washing-context-factory], [data-washing-judgment-root], [data-washing-detail-root], [data-washing-list-root]')) {
     const page = await import('./pages/process-factory/dyeing/washing/work-orders.ts')
@@ -371,6 +377,9 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/craft/post-finishing/material-transfers' && target.closest('[data-post-material-root]')) {
+    return (await import('./pages/process-factory/post-finishing/material-transfers.ts')).handlePostFinishingMaterialTransfersEvent(eventTarget, event)
+  }
   if (pagePath === '/fcs/settlement/adjustments') {
     return (await import('./pages/adjustments.ts')).handleAdjustmentsEvent(eventTarget)
   }
@@ -420,6 +429,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   if (pagePath === '/fcs/sewing-outsourcing/cut-piece-handover') {
     const page = await import('./pages/sewing-outsourcing/cut-piece-handover.ts')
     return page.handleSewingCutPieceHandoverEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/material-handover' && target.closest('[data-sewing-material-page]')) {
+    if (event && event.type !== 'click') return false
+    return (await import('./pages/sewing-outsourcing/material-handover.ts')).handleSewingMaterialHandoverEvent(eventTarget)
   }
   if (pagePath === '/fcs/sewing-outsourcing/tasks') {
     const page = await import('./pages/sewing-outsourcing/tasks.ts')
@@ -579,6 +592,19 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       console.error('面料需求看板事件处理器加载失败，已降级为不处理', error)
       return false
     }
+  }
+  if (pagePath === '/wls/accessory-warehouses/gtp/preparation') {
+    return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(eventTarget, event)
+  }
+  if (pagePath.startsWith('/wls/accessory-warehouses/')) {
+    const recovery = eventTarget.closest<HTMLElement>('[data-accessory-read-error] [data-accessory-action]')
+    if (recovery?.dataset.accessoryAction === 'reload' && event?.type === 'click') { await renderPageContentOnly(); return true }
+    if (recovery?.dataset.accessoryAction === 'data') return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(eventTarget, event)
+    if (pagePath.endsWith('/pickups')) return (await import('./pages/wls/accessory-warehouses/pickups.ts')).handleAccessorySewingPickupEvent(eventTarget, event)
+    return (await import('./pages/wls/accessory-warehouses/transfers.ts')).handleAccessoryTransferEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/material-prep/sewing') {
+    return (await import('./pages/fcs/material-prep/sewing.ts')).handleFcsSewingPrepEvent(eventTarget)
   }
   if (pagePath.startsWith('/wls/')) {
     const wlsPageHandlers = await getWlsPageHandlersModule()
@@ -1115,6 +1141,57 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       // Keep this direct entry isolated from unrelated production records.
       await logs.hydratePmsLogsFromIdb()
       return await page.renderPmsPurchaseSuggestionsPage()
+    }
+    // 辅料仓与FCS配料跟进由页面读取同一份必要资料并提供存储故障恢复；
+    // 冷入口不先经过其他工艺/分配演示的初始化，避免在专页捕获前失败。
+    if (normalizedPathname.startsWith('/wls/accessory-warehouses/') || normalizedPathname === '/fcs/material-prep/sewing') return await resolvePage(pathname)
+    if (normalizedPathname === '/fcs/sewing-outsourcing/material-handover') {
+      const records = await import('./data/wls/accessory-warehouse-records.ts')
+      return await records.withAccessoryWarehouseRecords(async () => (await import('./pages/sewing-outsourcing/material-handover.ts')).renderSewingMaterialHandoverPage(),
+        (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing)
+    }
+    if (normalizedPathname === '/fcs/craft/post-finishing/material-transfers') return await resolvePage(pathname)
+    if (normalizedPathname === '/fcs/pda/handover') {
+      const pickupVersionId = new URLSearchParams(pathname.split('?')[1] || '').get('sewingPickupVersionId')
+      if (pickupVersionId) {
+        await (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+        const slips = await import('./data/fcs/sewing-pickup-slips.ts')
+        const version = slips.getSewingPickupSlipVersion(pickupVersionId)
+        if (version && version.objectKind !== 'CUT_PIECE' && slips.isWarehouseManagedSewingAssignment(version.assignmentId)) {
+          await hydratePartTicketsForEntry(normalizedPathname)
+          return (await getPdaHandoverPageModule()).renderPdaHandoverPage()
+        }
+      }
+      const materialOrderNo = new URLSearchParams(pathname.split('?')[1] || '').get('materialOrderNo')
+      if (materialOrderNo) {
+        const accessoryPost = await import('./data/wls/accessory-warehouse-post-finishing.ts')
+        await accessoryPost.prepareAccessoryPostFinishing()
+        // 已指定的本轮辅料调拨只读取其收货事实；普通交接页仍由原入口准备。
+        if (accessoryPost.isManagedAccessoryPostTransfer(materialOrderNo)) {
+          // PDA identity dependencies also read the original part-ticket scope.
+          await hydratePartTicketsForEntry(normalizedPathname)
+          const runtime = (await import('./pages/pda-runtime.ts')).getPdaRuntimeContext()
+          const access = await import('./pages/pda-accessory-post-access.ts')
+          if (runtime && !access.isPostFinishingFactoryId(runtime.factoryId)) return access.renderAccessoryPostFactoryAccessBlock()
+          return (await getPdaHandoverPageModule()).renderPdaHandoverPage()
+        }
+      }
+    }
+    if (normalizedPathname === '/fcs/print/preview' && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'PICKUP_SLIP') {
+      await hydratePartTicketsForEntry(normalizedPathname)
+      await (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+      const sourceId = new URLSearchParams(pathname.split('?')[1] || '').get('sourceId') || ''
+      const slips = await import('./data/fcs/sewing-pickup-slips.ts')
+      const version = slips.getSewingPickupSlipVersion(sourceId)
+      if (version && version.objectKind !== 'CUT_PIECE' && slips.isWarehouseManagedSewingAssignment(version.assignmentId)) {
+        // Canonical slips print their committed version, including all frozen
+        // lines and pictures. They do not consume live PCS or finishing scopes.
+        return (await import('./pages/print/print-preview.ts')).renderPrintPreviewPage()
+      }
+      if (version) {
+        await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
+        return await resolvePage(pathname)
+      }
     }
     // Static timing pages and registered source documents do not initialize
     // unrelated live module stores or run their legacy seed/migration actions.

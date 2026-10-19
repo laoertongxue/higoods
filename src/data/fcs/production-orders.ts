@@ -26,6 +26,7 @@ import type { ProcessWorkOrderSourceSnapshot } from './process-work-order-domain
 import type { MergedProductionTaskType } from './merged-production-task.ts'
 import { applyKolGotoTechPackFixture } from './kol-goto-tech-pack-fixtures.ts'
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
+import { ACCESSORY_WAREHOUSE_DEMOS } from '../wls/accessory-warehouse-demo.ts'
 
 export type ProductionOrderStatus = ProductionOrderRuntimeStatus
 
@@ -1631,6 +1632,7 @@ productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   ...buildReplacementFabricDemoOrders(seededProductionOrders[1]),
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
   ...postFinishingSourceOrders,
+  ...ACCESSORY_WAREHOUSE_DEMOS.map(fixture => structuredClone(fixture.order)),
 )
 export const productionOrders = productionOrderRuntimeStore as ProductionOrder[]
 // Stable identities of actual initial fixtures, before any demand conversion adds orders.

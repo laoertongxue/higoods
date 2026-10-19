@@ -1,4 +1,5 @@
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
+import { ACCESSORY_WAREHOUSE_DEMOS } from '../wls/accessory-warehouse-demo.ts'
 
 export type LegacyType = 'ID_PURCHASE' | 'GOODS_PURCHASE'
 export type SourceSystem = 'LEGACY' | 'NEW'
@@ -603,6 +604,7 @@ function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
 
 export const productionDemands: ProductionDemand[] = [
   ...seedProductionDemands,
+  ...ACCESSORY_WAREHOUSE_DEMOS.map(fixture => structuredClone(fixture.demand)),
   ...POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((source) => createDemandSeed({
     demandId: source.demandId, legacyType: 'GOODS_PURCHASE', legacyOrderNo: source.no,
     sourceSystem: 'NEW', spuCode: source.spuCode, spuName: source.styleName,

@@ -101,6 +101,8 @@ import {
   restoreSpecialCraftTaskOrdersAfterMergedTaskCancellation,
 } from '../data/fcs/special-craft-task-orders.ts'
 import { escapeHtml } from '../utils.ts'
+import { listAccessoryRecords } from '../data/wls/accessory-warehouse-records.ts'
+import type { AccessoryPreparation, AccessoryTransfer, AccessoryPickup } from '../data/wls/accessory-warehouse-flow.ts'
 import {
   isKolGotoFactory,
   isKolGotoWholeOrderTask,
@@ -122,6 +124,7 @@ type WorkbenchFilters = Record<WorkbenchFilterKey, string>
 
 interface DispatchDialogState {
   taskId: string
+  confirmedSourceIdentity?: string
   mode: AssignMode
   distributionMode: DistributionMode
   factoryId: string
@@ -1058,7 +1061,7 @@ function renderDispatchDialog(): string {
   return `<div data-skip-page-rerender="true" class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? (canReassignRuntimeCuttingTask(task) ? '裁剪任务改派' : '车缝任务改派') : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
     ${isSecond && dialog.mode === 'BIDDING' ? renderTenderLaunchConfirmation(task, dialog) : ''}
-    ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${effectiveAssignedQty.toLocaleString()}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.involvesSewingOutsourcing ? `<p class="mt-2 text-sm">本次分配操作人：${escapeHtml(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName)}（PPIC）</p><p class="mt-2 text-sm">任务PPIC：${escapeHtml(selectedPpic?.ppicName || '工厂归属无效')}（提交后冻结）</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">确认后，价格和任务 PPIC 不可修改。</p></div>${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}` : `
+    ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${effectiveAssignedQty.toLocaleString()}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.involvesSewingOutsourcing ? `<p class="mt-2 text-sm">本次分配操作人：${escapeHtml(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName)}（PPIC）</p><p class="mt-2 text-sm">任务PPIC：${escapeHtml(selectedPpic?.ppicName || '工厂归属无效')}（提交后冻结）</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}${accessoryCuttingImpact(task)}<p class="mt-2 text-xs text-amber-800">确认后，价格和任务 PPIC 不可修改。</p></div>${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}` : `
       ${policy.startsWithSewing && dialog.mode !== 'BIDDING' ? `<fieldset><legend class="text-sm font-semibold">分配方式</legend><label class="mr-5 text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="BAG_AWARE" ${dialog.distributionMode === 'BAG_AWARE' ? 'checked' : ''}/> 按菲票装袋情况分配（默认）</label><label class="text-sm"><input type="radio" name="distributionMode" data-unified-field="distributionMode" value="FREE" ${dialog.distributionMode === 'FREE' ? 'checked' : ''}/> 自由分配</label><p class="mt-1 text-xs text-muted-foreground">自由分配后，接收裁片时再处理拆袋。</p></fieldset>` : ''}
       ${policy.requiresSewingReadinessContext ? renderSewingPreparationOverview(task, dialog.selectedSkuCodes) : ''}
       ${policy.startsWithSewing ? renderBaggingOverview(bagging) : ''}
@@ -1329,6 +1332,28 @@ function refreshTenderFactoryPool(focusField = ''): void {
   if (next instanceof HTMLInputElement) next.setSelectionRange(next.value.length, next.value.length)
 }
 
+function cuttingDispatchSourceIdentity(task: RuntimeProcessTask): string {
+  return JSON.stringify([task.assignedFactoryId || '', task.assignmentStatus, task.updatedAt || '', task.scopeQty, task.scopeSkuLines])
+}
+function assertCuttingDispatchSourceCurrent(dialog: DispatchDialogState, task: RuntimeProcessTask): void {
+  if (['CUT', 'CUT_PANEL', 'CUTTING'].includes(task.processBusinessCode || task.processCode) && dialog.confirmedSourceIdentity
+    && cuttingDispatchSourceIdentity(task) !== dialog.confirmedSourceIdentity) throw new Error('裁剪任务的分配版本已变化，请关闭后重新读取并确认。本次尚未保存。')
+}
+function accessoryCuttingImpact(task: RuntimeProcessTask): string {
+  if (!['CUT', 'CUT_PANEL', 'CUTTING'].includes(task.processBusinessCode || task.processCode)) return ''
+  const prep = listAccessoryRecords<AccessoryPreparation>('preparation').find(row => row.productionOrderId === task.productionOrderId)
+  if (!prep) return ''
+  const related = listAccessoryRecords<AccessoryTransfer>('transfer').filter(row => row.preparationId === prep.id && row.kind !== 'SITE_TO_POST')
+  const current = related.find(row => !related.some(next => next.sourceTransferId === row.id && next.status !== '已作废'))
+  const released = listAccessoryRecords<AccessoryPickup>('pickup').some(row => row.preparationId === prep.id && row.lines.some(line => line.handedQty > 0))
+    || listAccessoryRecords<AccessoryTransfer>('transfer').some(row => row.preparationId === prep.id && row.kind === 'SITE_TO_POST' && ['已出库待收货', '已收货'].includes(row.status))
+  const text = released ? '已有辅料交给三方或后道，不能按原整包改厂；须先核对实际去向。'
+    : !current ? '辅料尚无调拨，本次同步更新配料单对应的裁剪工厂。'
+      : current.status === '已出库待收货' ? '辅料正在运往原目的仓。原仓必须先确认收货上架，再整单调往新仓；本次保留原待收事项。'
+        : current.status === '已收货' ? '辅料已在原仓上架。本次将建立原仓至新仓的仓间调拨，之后分别确认整单出库和收货上架。'
+          : '辅料尚未实际出GTP。本次更新原调拨的目的仓，使旧待收事项失效，并建立新仓待收事项。'
+  return `<p class="mt-3 rounded border ${released ? 'border-red-300 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-900'} p-3 text-sm">${escapeHtml(text)}</p>`
+}
 function openDispatch(taskId: string, mode: AssignMode): void {
   const task = getRuntimeTaskById(taskId)
   if (!task) return
@@ -1344,6 +1369,7 @@ function openDispatch(taskId: string, mode: AssignMode): void {
   const skuCodes = (task.scopeSkuLines.length ? task.scopeSkuLines : [{ skuCode: task.skuCode || 'SKU-ALL' }]).map((line) => line.skuCode)
   state.dispatch = {
     taskId,
+    confirmedSourceIdentity: cuttingDispatchSourceIdentity(task),
     mode,
     distributionMode: 'BAG_AWARE',
     factoryId: '',
@@ -1368,6 +1394,7 @@ function openDispatch(taskId: string, mode: AssignMode): void {
 function commitReassignment(dialog: DispatchDialogState): void {
   const sourceTask = getRuntimeTaskById(dialog.taskId)
   if (!sourceTask) throw new Error('原任务已变化，请刷新后重试')
+  assertCuttingDispatchSourceCurrent(dialog, sourceTask)
   const factory = listEligibleFactoriesForTask(sourceTask).find((item) => item.id === dialog.factoryId)
   if (!factory) throw new Error('所选工厂不具备该任务的有效承接能力，请重新选择')
   const operatedAt = formatOperationLocalWallClock()
@@ -1473,6 +1500,7 @@ function commitReassignment(dialog: DispatchDialogState): void {
 function commitDirectDispatchAssignment(dialog: DispatchDialogState) {
   const sourceTask = getRuntimeTaskById(dialog.taskId)
   if (!sourceTask) throw new Error('任务已变化，请刷新后重试')
+  assertCuttingDispatchSourceCurrent(dialog, sourceTask)
   const factory = listEligibleFactoriesForTask(sourceTask).find((item) => item.id === dialog.factoryId)
   if (!factory) throw new Error('所选工厂不具备该任务的有效承接能力，请重新选择')
   const sourceLines = sourceTask.scopeSkuLines.length ? sourceTask.scopeSkuLines : [{ skuCode: sourceTask.skuCode || 'SKU-ALL', color: sourceTask.skuColor || '混色', size: sourceTask.skuSize || '混码', qty: sourceTask.scopeQty }]

@@ -80,13 +80,16 @@ import {
   getSewingPickupSlipCurrentLines,
   getSewingPickupSlipVersion,
   listSewingPickupHandoverResults,
-  recordSewingPickupHandover,
+  recordSewingPickupHandoverPersisted,
+  getSewingPickupWarehousePath,
+  isWarehouseManagedSewingAssignment,
 } from '../data/fcs/sewing-pickup-slips.ts'
+import { listAccessoryRecords } from '../data/wls/accessory-warehouse-records.ts'
+import type { AccessoryReceipt } from '../data/wls/accessory-warehouse-commands.ts'
+import { isManagedAccessoryPostTransfer, listAccessoryPostLocations, receiveAccessoryPostTransfer } from '../data/wls/accessory-warehouse-post-finishing.ts'
 import { formatOperationLocalWallClock } from '../data/fcs/sewing-delivery-sla.ts'
 
-function isPostFinishingFactoryId(factoryId: string): boolean {
-  return factoryId === DEDICATED_POST_FACTORY_ID || factoryId === 'ID-F002'
-}
+import { isPostFinishingFactoryId, renderAccessoryPostFactoryAccessBlock } from './pda-accessory-post-access.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'shipped' | 'received'
 
@@ -133,6 +136,10 @@ const state: PdaHandoverState = {
 }
 
 let materialInboundMessage = ''
+let managedPostOrderId = '', managedPostPath = '', managedPostBusy = false, managedPostDirty = false
+let managedPostDrafts = new Map<string,string>()
+let managedPostPending: Parameters<typeof receiveAccessoryPostTransfer>[0] | null = null
+
 let sewingPickupCommandVersionId = ''
 let sewingPickupCommandId = ''
 
@@ -153,11 +160,15 @@ function renderSewingPickupScanPage(versionId: string, runtime: NonNullable<Retu
   const current = getCurrentSewingPickupSlip(slip.assignmentId, slip.objectKind)
   const isCurrent = slip.status === 'CURRENT' && current?.versionId === slip.versionId
   const records = listSewingPickupHandoverResults(slip.versionId)
-  const displayLines = getSewingPickupSlipCurrentLines(slip.versionId)
+  const managed = isWarehouseManagedSewingAssignment(slip.assignmentId)
+  const warehousePath = getSewingPickupWarehousePath(slip.assignmentId, slip.versionId)
+  const allLines = getSewingPickupSlipCurrentLines(slip.versionId)
+  const displayLines = managed ? allLines.filter(line => line.objectType === '面料') : allLines
+  if (managed && !displayLines.length) return renderPdaFrame(`<main class="min-h-[760px] bg-slate-100 p-4"><section class="rounded-xl border bg-white p-4"><h1 class="font-semibold">${escapeHtml(slip.slipNo)} · ${escapeHtml(slip.versionLabel)}</h1><p class="mt-2 text-sm">${escapeHtml(slip.productionOrderNo)} · ${escapeHtml(slip.factoryName)}</p>${isCurrent && warehousePath ? `<a class="mt-4 flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white" href="${escapeHtml(warehousePath)}" data-nav="${escapeHtml(warehousePath)}">到${escapeHtml(slip.warehouseName)}办理车缝领料</a>` : '<p class="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">该凭证已失效或领料清单已变更，请扫描 PPIC 当前版本。</p>'}</section></main>`, 'handover', { disableTodoAutoOpen: true })
   const objectLabel = slip.objectKind === 'ACCESSORY' ? '辅料' : '面辅料'
   const actorCanConfirm = true
   ensureSewingPickupCommandId(slip.versionId)
-  const content = `<div class="flex min-h-[760px] flex-col bg-slate-100" data-sewing-pickup-scan-page><header class="sticky top-0 z-20 border-b bg-white px-4 py-3"><div class="text-[11px] text-slate-500">${escapeHtml(runtime.userName)} · ${escapeHtml(runtime.factoryName)}</div><h1 class="mt-1 font-semibold">${escapeHtml(objectLabel)}领料扫码确认</h1></header><main class="flex-1 space-y-3 p-4">${!isCurrent ? `<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>${escapeHtml(slip.versionLabel)}已失效，禁止登记</b><p class="mt-2 text-sm">请扫描当前${escapeHtml(current?.versionLabel || '有效版本')}，不能继续使用旧二维码。</p></section>` : ''}${!actorCanConfirm ? '<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>当前账号不属于裁床待交出仓</b><p class="mt-2 text-sm">请由 HiGood 裁床厂已登录仓库账号扫描并确认，本账号只能查看。</p></section>' : ''}<section class="rounded-2xl border bg-white p-4"><div class="flex gap-3"><img class="h-20 w-16 rounded-lg border object-cover" src="${escapeHtml(slip.styleImageUrl)}" alt="${escapeHtml(`${slip.styleCode} ${slip.styleName}款式图`)}"><div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(slip.slipNo)} · ${escapeHtml(slip.versionLabel)}</div><div class="mt-1 text-sm">${escapeHtml(slip.styleCode)} · ${escapeHtml(slip.styleName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(slip.productionOrderNo)} · ${escapeHtml(slip.taskNo)}</div></div></div><div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div>交出仓：<b>${escapeHtml(slip.warehouseName)}</b></div><div>领取PPIC：<b>${escapeHtml(slip.ppicName)}</b></div><div>承接工厂：<b>${escapeHtml(slip.factoryName)}</b></div><div>任务类型：<b>${escapeHtml(slip.taskKindLabel)}</b></div></div></section>${records.length ? `<section class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><b>已确认 ${records.length} 个交出批次</b><p class="mt-1">最近记录：${escapeHtml(records.at(-1)!.sourceRecordNo)} · ${escapeHtml(records.at(-1)!.recordedAt)}</p></section>` : ''}<section class="overflow-hidden rounded-2xl border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">逐项填写本次实交</h2><p class="mt-1 text-xs text-slate-500">允许分批和差异；相同扫描提交不会重复累计。</p></header>${displayLines.map((line) => `<article class="border-b p-4 last:border-b-0"><div class="flex items-start gap-3">${line.imageUrl ? `<img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(`${line.objectCode} ${line.objectName}物料图`)}">` : ''}<div class="min-w-0 flex-1"><b>${escapeHtml(line.objectName)}</b><p class="mt-1 font-mono text-[11px] text-slate-500">${escapeHtml(line.objectCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)} · ${escapeHtml(line.part)}</p><p class="mt-2 text-xs">应领 ${line.requiredQty} ${escapeHtml(line.unit)} · 此前已领 ${line.previouslyHandedOverQty} ${escapeHtml(line.unit)} · 本次可领 <b>${line.availableQty} ${escapeHtml(line.unit)}</b></p></div></div><label class="mt-3 block text-xs font-medium">本次实交（${escapeHtml(line.unit)}）<input type="number" min="0" step="${line.unit === '片' ? '1' : '0.001'}" value="0" class="mt-1 h-11 w-full rounded-xl border px-3 text-base" data-sewing-pickup-line-id="${escapeHtml(line.lineId)}" ${isCurrent && actorCanConfirm ? '' : 'disabled'}></label></article>`).join('')}</section>${isCurrent && actorCanConfirm ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-handover-action="confirm-sewing-pickup">确认本次实交并保存</button>` : '<a class="flex h-12 items-center justify-center rounded-2xl border bg-white text-sm font-semibold" data-nav="/fcs/pda/handover?tab=handout">返回交接工作台</a>'}</main></div>`
+  const content = `<div class="flex min-h-[760px] flex-col bg-slate-100" data-sewing-pickup-scan-page ${managed ? 'data-skip-page-rerender="true"' : ''}><header class="sticky top-0 z-20 border-b bg-white px-4 py-3"><div class="text-[11px] text-slate-500">${escapeHtml(runtime.userName)} · ${escapeHtml(runtime.factoryName)}</div><h1 class="mt-1 font-semibold">${escapeHtml(objectLabel)}领料扫码确认</h1></header><main class="flex-1 space-y-3 p-4">${managed && warehousePath ? `<section class="rounded-2xl border bg-blue-50 p-4 text-sm"><p>本页登记面料实交，辅料由对应辅料仓办理。</p>${isCurrent ? `<a class="mt-2 inline-flex min-h-11 items-center rounded border bg-white px-3 font-semibold text-blue-700" href="${escapeHtml(warehousePath)}" data-nav="${escapeHtml(warehousePath)}">进入辅料车缝领料</a>` : ''}</section>` : ''}${!isCurrent ? `<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>${escapeHtml(slip.versionLabel)}已失效，禁止登记</b><p class="mt-2 text-sm">请扫描当前${escapeHtml(current?.versionLabel || '有效版本')}，不能继续使用旧二维码。</p></section>` : ''}${!actorCanConfirm ? '<section class="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-800"><b>当前账号不属于裁床待交出仓</b><p class="mt-2 text-sm">请由 HiGood 裁床厂已登录仓库账号扫描并确认，本账号只能查看。</p></section>' : ''}<section class="rounded-2xl border bg-white p-4"><div class="flex gap-3"><img class="h-20 w-16 rounded-lg border object-cover" src="${escapeHtml(slip.styleImageUrl)}" alt="${escapeHtml(`${slip.styleCode} ${slip.styleName}款式图`)}"><div class="min-w-0"><div class="font-mono text-sm font-semibold">${escapeHtml(slip.slipNo)} · ${escapeHtml(slip.versionLabel)}</div><div class="mt-1 text-sm">${escapeHtml(slip.styleCode)} · ${escapeHtml(slip.styleName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(slip.productionOrderNo)} · ${escapeHtml(slip.taskNo)}</div></div></div><div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div>交出仓：<b>${escapeHtml(slip.warehouseName)}</b></div><div>领取PPIC：<b>${escapeHtml(slip.ppicName)}</b></div><div>承接工厂：<b>${escapeHtml(slip.factoryName)}</b></div><div>任务类型：<b>${escapeHtml(slip.taskKindLabel)}</b></div></div></section>${records.length ? `<section class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><b>已确认 ${records.length} 个交出批次</b><p class="mt-1">最近记录：${escapeHtml(records.at(-1)!.sourceRecordNo)} · ${escapeHtml(records.at(-1)!.recordedAt)}</p></section>` : ''}<section class="overflow-hidden rounded-2xl border bg-white"><header class="border-b px-4 py-3"><h2 class="font-semibold">逐项填写本次实交</h2><p class="mt-1 text-xs text-slate-500">允许分批和差异；相同扫描提交不会重复累计。</p></header>${displayLines.map((line) => `<article class="border-b p-4 last:border-b-0"><div class="flex items-start gap-3">${line.imageUrl ? `<img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(`${line.objectCode} ${line.objectName}物料图`)}">` : ''}<div class="min-w-0 flex-1"><b>${escapeHtml(line.objectName)}</b><p class="mt-1 font-mono text-[11px] text-slate-500">${escapeHtml(line.objectCode)} · ${escapeHtml(line.color)} · ${escapeHtml(line.size)} · ${escapeHtml(line.part)}</p><p class="mt-2 text-xs">应领 ${line.requiredQty} ${escapeHtml(line.unit)} · 此前已领 ${line.previouslyHandedOverQty} ${escapeHtml(line.unit)} · 本次可领 <b>${line.availableQty} ${escapeHtml(line.unit)}</b></p></div></div><label class="mt-3 block text-xs font-medium">本次实交（${escapeHtml(line.unit)}）<input type="number" min="0" step="${line.unit === '片' ? '1' : '0.001'}" value="0" class="mt-1 h-11 w-full rounded-xl border px-3 text-base" data-sewing-pickup-line-id="${escapeHtml(line.lineId)}" ${isCurrent && actorCanConfirm ? '' : 'disabled'}></label></article>`).join('')}</section>${isCurrent && actorCanConfirm ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-handover-action="confirm-sewing-pickup">确认本次实交并保存</button>` : '<a class="flex h-12 items-center justify-center rounded-2xl border bg-white text-sm font-semibold" data-nav="/fcs/pda/handover?tab=handout">返回交接工作台</a>'}</main></div>`
   return renderPdaFrame(content, 'handover', { disableTodoAutoOpen: true })
 }
 
@@ -708,7 +719,7 @@ function renderPostFinishingReturnReceivingPanel(canOpenSelfReturnMode: boolean)
 }
 
 function renderPostFinishingMaterialTransferCard(order: PostFinishingMaterialTransferOrder): string {
-  const total = order.lines.reduce((sum, line) => sum + line.preparedQty, 0)
+  const total = isManagedAccessoryPostTransfer(order.transferOrderId) ? [...new Set(order.lines.map(line=>line.unit))].map(unit=>`${order.lines.filter(line=>line.unit===unit).reduce((sum,line)=>sum+line.preparedQty,0)} ${escapeHtml(unit)}`).join(' / ') : order.lines.reduce((sum, line) => sum + line.preparedQty, 0)
   return `<article class="rounded-xl border bg-card p-3 shadow-sm" data-pda-material-transfer-card="${escapeHtml(order.transferOrderNo)}"><div class="flex items-start justify-between gap-3"><div><div class="font-mono text-sm font-semibold">${escapeHtml(order.transferOrderNo)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.styleNo)}</div></div><span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] text-blue-700">${escapeHtml(order.status)}</span></div><div class="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2 py-2 text-center text-xs"><div><div class="text-[10px] text-muted-foreground">物料</div><div class="mt-1 font-semibold">${order.lines.length} 种</div></div><div><div class="text-[10px] text-muted-foreground">调出方实配</div><div class="mt-1 font-semibold">${total}</div></div><div><div class="text-[10px] text-muted-foreground">目标库位</div><div class="mt-1 truncate font-semibold">${escapeHtml(order.targetLocationCode)}</div></div></div><a data-nav="/fcs/pda/handover?tab=pickup&materialOrderNo=${encodeURIComponent(order.transferOrderNo)}" class="mt-3 flex h-10 w-full items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold text-white">查看并整单入库</a></article>`
 }
 
@@ -717,8 +728,18 @@ function renderPostFinishingMaterialTransfersPanel(): string {
   return `<section class="space-y-2" data-pda-material-transfer-list><div class="flex items-center justify-between"><h2 class="text-sm font-semibold">后道辅料待入库</h2><span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">${pending.length} 张</span></div>${pending.length ? pending.map(renderPostFinishingMaterialTransferCard).join('') : '<div class="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">暂无待入库的后道辅料调拨单</div>'}</section>`
 }
 
+function canConfirmAccessoryPost(roleId: string): boolean { return ['ROLE_ADMIN', 'ROLE_HANDOVER', 'ROLE_DISPATCH'].includes(roleId) }
+function renderManagedAccessoryPostDetail(order: PostFinishingMaterialTransferOrder, runtime: NonNullable<ReturnType<typeof getPdaRuntimeContext>>): string {
+  if (managedPostOrderId !== order.transferOrderId) { managedPostOrderId = order.transferOrderId; managedPostPath = `${location.pathname}${location.search}`; managedPostDrafts.clear(); managedPostPending = null; managedPostDirty = false; managedPostBusy = false }
+  const receiving = order.status === '待入库', allowed = canConfirmAccessoryPost(runtime.roleId), locations = listAccessoryPostLocations()
+  const receipt = listAccessoryRecords<AccessoryReceipt>('receipt').find(row => row.transferId === order.transferOrderId && row.status === '已收货')
+  const receivedFor = (lineId: string) => receipt?.lines.find(line => line.lineId === lineId)
+  return renderPdaFrame(`<div class="flex min-h-[760px] flex-col bg-slate-100" data-managed-accessory-post-root data-skip-page-rerender="true"><header class="sticky top-0 z-20 border-b bg-white p-4"><a href="/fcs/pda/handover?tab=pickup" data-nav="/fcs/pda/handover?tab=pickup" class="text-sm">← 返回待接收</a><h1 class="mt-2 font-semibold">${receiving ? '确认辅料实收并上架' : '辅料已收货上架'}</h1><p class="mt-1 text-xs text-slate-500">${escapeHtml(order.transferOrderNo)}</p></header><main class="flex-1 space-y-3 p-4"><section class="rounded-xl border bg-white p-4 text-sm"><div class="flex items-center gap-3"><button type="button" class="h-14 w-14 shrink-0 overflow-hidden rounded border" data-pda-image-preview-url="${escapeHtml(order.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(order.styleName)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(order.styleName)}款式大图"><img class="h-full w-full object-contain" src="${escapeHtml(order.styleImageUrl)}" alt="${escapeHtml(order.styleName)}款式图" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-xs text-red-600">款式图加载失败</span></button><div class="min-w-0"><b>${escapeHtml(order.productionOrderNo)}</b><p class="mt-1 break-words">${escapeHtml(order.styleName)}</p></div></div><p class="mt-1">${escapeHtml(order.sourceWarehouseName)} → ${escapeHtml(order.targetWarehouseName)}</p><p class="mt-2">${receiving ? '逐行核对整单实收数量并选择上架库位，实收须与应收一致。' : '仓库实收和上架位置已保存。'}</p>${!allowed && receiving ? '<p class="mt-2 text-red-600">当前角色只能查看，须由后道仓管确认。</p>' : ''}</section>${order.lines.map(line => `<article class="rounded-xl border bg-white p-4"><div class="flex items-start gap-3"><button type="button" class="h-14 w-14 shrink-0 overflow-hidden rounded border" data-pda-image-preview-url="${escapeHtml(line.imageUrl)}" data-pda-image-preview-title="${escapeHtml(line.materialName)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(line.materialName)}大图"><img class="h-full w-full object-contain" src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(line.materialName)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-xs text-red-600">图片加载失败</span></button><div class="min-w-0"><b>${escapeHtml(line.materialName)}</b><p class="mt-1 break-words text-xs text-slate-500">${escapeHtml(line.specification)}</p><p class="mt-2 text-sm">应收 ${line.preparedQty} ${escapeHtml(line.unit)}</p></div></div>${receiving ? `<label class="mt-3 grid gap-1 text-sm">实收数量（${escapeHtml(line.unit)}）<input class="h-11 w-full rounded-lg border px-3" aria-label="${escapeHtml(line.materialName)}实收数量" inputmode="decimal" data-pda-post-qty="${escapeHtml(line.transferLineId)}" value="${escapeHtml(managedPostDrafts.get(`qty:${line.transferLineId}`) || '')}" ${allowed ? '' : 'disabled'}></label><label class="mt-3 grid gap-1 text-sm">上架库位<select class="h-11 w-full rounded-lg border px-3" aria-label="${escapeHtml(line.materialName)}上架库位" data-pda-post-location="${escapeHtml(line.transferLineId)}" ${allowed ? '' : 'disabled'}><option value="">选择后道库位</option>${locations.map(location => `<option value="${escapeHtml(location.id)}" ${managedPostDrafts.get(`location:${line.transferLineId}`) === location.id ? 'selected' : ''}>${escapeHtml(location.locationCode)}</option>`).join('')}</select></label>` : `<p class="mt-3 text-sm">实收 ${receivedFor(line.transferLineId)?.qty ?? line.preparedQty} ${escapeHtml(line.unit)} · ${escapeHtml(locations.find(location => location.id === receivedFor(line.transferLineId)?.locationId)?.locationCode || '原上架库位待核对')}</p>`}</article>`).join('')}<p role="alert" class="whitespace-pre-wrap text-sm text-red-600" data-pda-post-error></p>${receiving && allowed ? `<button type="button" class="min-h-12 w-full rounded-xl bg-blue-600 px-3 font-semibold text-white" data-pda-handover-action="confirm-material-inbound" data-material-order-no="${escapeHtml(order.transferOrderNo)}" data-skip-page-rerender="true">确认整单实收并上架</button>` : ''}</main></div>`, 'handover', { disableTodoAutoOpen: true })
+}
+
 function renderPostFinishingMaterialTransferDetail(order: PostFinishingMaterialTransferOrder): string {
   const runtime = getPdaRuntimeContext()!
+  if (isManagedAccessoryPostTransfer(order.transferOrderId)) return renderManagedAccessoryPostDetail(order, runtime)
   const body = `<div class="flex min-h-[760px] flex-col bg-slate-100"><header class="sticky top-0 z-20 border-b bg-white px-4 py-3"><div class="flex items-center gap-3"><a data-nav="/fcs/pda/handover?tab=pickup" class="inline-flex h-9 items-center rounded-xl border px-3 text-sm">← 返回</a><div><div class="text-[11px] text-slate-500">后道辅料整单入库 · ${escapeHtml(runtime.userName)}</div><h1 class="font-semibold">确认辅料入库</h1></div></div></header><main class="flex-1 space-y-3 p-4">${materialInboundMessage ? `<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${escapeHtml(materialInboundMessage)}</div>` : ''}<section class="rounded-2xl border bg-white p-4"><div class="flex items-start justify-between gap-3"><div><div class="font-mono font-semibold">${escapeHtml(order.transferOrderNo)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(order.productionOrderNo)} · ${escapeHtml(order.styleNo)}</div></div><span class="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(order.status)}</span></div><div class="mt-3 text-xs text-slate-600">${escapeHtml(order.sourceWarehouseName)} → ${escapeHtml(order.targetWarehouseName)}</div><div class="mt-1 text-xs text-slate-600">入库位置：${escapeHtml(order.targetAreaName)} / ${escapeHtml(order.targetLocationCode)}</div></section><section class="overflow-hidden rounded-2xl border bg-white"><div class="border-b px-4 py-3"><h2 class="font-semibold">物料明细</h2><p class="mt-1 text-xs text-slate-500">数量以调出方实际配料为准，不分批、不修改。</p></div>${order.lines.map((line) => `<div class="flex gap-3 border-b p-3 last:border-b-0"><button type="button" class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50" data-pda-image-preview-url="${escapeHtml(line.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${line.materialCode} ${line.materialName}`)}" data-skip-page-rerender="true"><img src="${escapeHtml(line.imageUrl)}" alt="${escapeHtml(`${line.materialName} 物料图`)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button><div class="min-w-0 flex-1"><div class="text-sm font-semibold">${escapeHtml(line.materialName)}</div><div class="mt-1 break-all font-mono text-[11px] text-slate-500">${escapeHtml(line.materialCode)}</div><div class="mt-1 font-mono text-[11px] text-slate-500">SPU ${escapeHtml(line.materialSpuCode)}</div><div class="mt-1 text-xs text-slate-600">${escapeHtml(line.specification)}</div></div><div class="shrink-0 text-right"><div class="font-semibold">${line.preparedQty} ${escapeHtml(line.unit)}</div><div class="mt-1 text-[10px] text-slate-500">调出方实配</div></div></div>`).join('')}</section>${order.status === '待入库' ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-handover-action="confirm-material-inbound" data-material-order-no="${escapeHtml(order.transferOrderNo)}">确认全部物料已领回并整单入库</button>` : '<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">该调拨单已整单入库。</div>'}</main></div>`
   return renderPdaFrame(body, 'handover', { disableTodoAutoOpen: true })
 }
@@ -1003,6 +1024,12 @@ export function renderPdaHandoverPage(): string {
   if (sewingPickupVersionId) return renderSewingPickupScanPage(sewingPickupVersionId, runtime)
 
   const selectedFactoryId = getCurrentFactoryId()
+  const managedMaterialOrderNo = getCurrentSearchParams().get('materialOrderNo') || ''
+  if (managedMaterialOrderNo && isManagedAccessoryPostTransfer(managedMaterialOrderNo)) {
+    if (!isPostFinishingFactoryId(selectedFactoryId)) return renderAccessoryPostFactoryAccessBlock()
+    const managedOrder = getPostFinishingMaterialTransferOrder(managedMaterialOrderNo)
+    if (managedOrder) return renderPostFinishingMaterialTransferDetail(managedOrder)
+  }
   const woolFinalCraftOrderId = getCurrentSearchParams().get('woolFinalCraftOrderId')
   if (woolFinalCraftOrderId) {
     const task = getSpecialCraftTaskOrderById(woolFinalCraftOrderId)
@@ -1143,6 +1170,9 @@ export function renderPdaHandoverPage(): string {
 }
 
 export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  const postField = target.closest<HTMLInputElement | HTMLSelectElement>('[data-pda-post-qty],[data-pda-post-location]')
+  if (postField && (event?.type === 'input' || event?.type === 'change')) { if (managedPostBusy) return true; const id = postField.dataset.pdaPostQty || postField.dataset.pdaPostLocation || ''; managedPostDrafts.set(`${postField.hasAttribute('data-pda-post-qty') ? 'qty' : 'location'}:${id}`, postField.value); managedPostDirty = true; managedPostPending = null; return true }
+
   if (await handlePostFinishingStorageEvent(target, event)) return true
   if (!ensurePdaSessionForAction()) return true
   if (handlePdaWoolExecutionEvent(target)) return true
@@ -1162,7 +1192,7 @@ export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event)
       return true
     }
     try {
-      recordSewingPickupHandover({
+      await recordSewingPickupHandoverPersisted({
         commandId: ensureSewingPickupCommandId(versionId),
         versionId,
         recordedAt: formatOperationLocalWallClock(),
@@ -1172,7 +1202,13 @@ export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event)
         quantities,
       })
       sewingPickupCommandId = ''
-      appStore.navigate(`/fcs/pda/handover?tab=handout&sewingPickupVersionId=${encodeURIComponent(versionId)}&refresh=${Date.now()}`)
+      if (isWarehouseManagedSewingAssignment(slip.assignmentId)) {
+        const previous = document.querySelector('[data-sewing-pickup-scan-page]')
+        const template = document.createElement('template')
+        template.innerHTML = renderSewingPickupScanPage(versionId, runtime)
+        const next = template.content.querySelector('[data-sewing-pickup-scan-page]')
+        if (previous && next) previous.replaceWith(next)
+      } else appStore.navigate(`/fcs/pda/handover?tab=handout&sewingPickupVersionId=${encodeURIComponent(versionId)}&refresh=${Date.now()}`)
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '本次实交保存失败，请重新核对。')
     }
@@ -1266,6 +1302,33 @@ export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event)
     const runtime = getPdaRuntimeContext()
     if (!runtime || !isPostFinishingFactoryId(runtime.factoryId)) {
       window.alert('当前账号不属于后道工厂，不能确认辅料入库。')
+      return true
+    }
+    const managedOrder = getPostFinishingMaterialTransferOrder(actionNode.dataset.materialOrderNo || '')
+    if (managedOrder && isManagedAccessoryPostTransfer(managedOrder.transferOrderId)) {
+      if (managedPostBusy) return true
+      if (!canConfirmAccessoryPost(runtime.roleId)) { window.alert('当前角色只能查看，须由后道仓管确认。'); return true }
+      try {
+        if (!managedPostPending) {
+          const lines = managedOrder.lines.map(line => ({ lineId: line.transferLineId, qty: Number(managedPostDrafts.get(`qty:${line.transferLineId}`) || ''), locationId: managedPostDrafts.get(`location:${line.transferLineId}`) || '' }))
+          if (lines.some(line => !Number.isFinite(line.qty) || line.qty <= 0 || !line.locationId)) throw new Error('逐行填写实收数量和后道上架库位，尚未入库。')
+          if (!window.confirm(`确认 ${managedOrder.transferOrderNo} 的 ${lines.length} 项辅料已整单实收并按所选库位上架？`)) return true
+          managedPostPending = { id: managedOrder.transferOrderId, actor: { warehouseCode: 'DLN', role: '仓管', name: runtime.userName }, commandId: crypto.randomUUID(), at: new Date().toISOString(), lines }
+        }
+        managedPostBusy = true
+        const controls = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('[data-managed-accessory-post-root] input,[data-managed-accessory-post-root] select,[data-managed-accessory-post-root] button')].map(node => ({node,disabled:node.disabled})); controls.forEach(({node})=>{node.disabled=true})
+        try {
+          const result = await receiveAccessoryPostTransfer(managedPostPending)
+          managedPostBusy = false; managedPostDirty = false; managedPostPending = null; managedPostDrafts.clear()
+          materialInboundMessage = result.alreadyInbound ? '本单已经收货上架，无需重复确认。' : '整单实收和上架已保存。'
+          // 当前详情局部更新；不同时触发导航订阅和外层点击的两次异步读取。
+          const previous = document.querySelector('[data-managed-accessory-post-root]')
+          const template = document.createElement('template')
+          template.innerHTML = renderManagedAccessoryPostDetail(result.transfer, runtime)
+          const next = template.content.querySelector('[data-managed-accessory-post-root]')
+          if (previous && next) previous.replaceWith(next)
+        } finally { managedPostBusy = false; controls.forEach(({node,disabled})=>{node.disabled=disabled}) }
+      } catch (error) { managedPostBusy = false; const message = document.querySelector('[data-pda-post-error]'); if (message) message.textContent = error instanceof Error ? error.message : String(error) }
       return true
     }
     if (!window.confirm('确认已领回本单全部物料，并按调出方实配数量一次性入库？入库后不支持分批修改。')) return true
@@ -1410,4 +1473,11 @@ export async function handlePdaHandoverEvent(target: HTMLElement, event?: Event)
   }
 
   return false
+}
+
+// 本轮后道收货输入保留在页面内存；离开、刷新和保存失败不假称已经入库。
+if (typeof document !== 'undefined') {
+  window.addEventListener('beforeunload', event=>{if(document.querySelector('[data-managed-accessory-post-root]')&&(managedPostDirty||managedPostBusy)){event.preventDefault();event.returnValue=''}})
+  document.addEventListener('click',event=>{if(!document.querySelector('[data-managed-accessory-post-root]')||(!managedPostDirty&&!managedPostBusy))return;const nav=event.target instanceof Element?event.target.closest('[data-nav],[data-system],[data-system-id],a[href]'):null;if(nav&&(managedPostBusy||!window.confirm('辅料实收输入尚未保存。离开将丢弃这些输入，是否离开？'))){event.preventDefault();event.stopImmediatePropagation()}else if(nav){managedPostDirty=false;managedPostPending=null}},true)
+  window.addEventListener('higood:before-history-navigation',event=>{if(!document.querySelector('[data-managed-accessory-post-root]')||(!managedPostDirty&&!managedPostBusy))return;if(managedPostBusy||!window.confirm('辅料实收输入尚未保存。离开将丢弃这些输入，是否离开？')){event.preventDefault();history.pushState(null,'',managedPostPath)}else {managedPostDirty=false;managedPostPending=null}})
 }

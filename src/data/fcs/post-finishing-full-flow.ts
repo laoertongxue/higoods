@@ -1093,7 +1093,31 @@ function readPersistedState(sourceRaw: string | null): PostFinishingFullFlowStat
 let state = emptyState()
 let buildingDemoData = false
 
+export interface AccessoryPostFinishingReadBridge {
+  ownsProduction: (idOrNo: string) => boolean
+  transfers: () => PostFinishingMaterialTransferOrder[]
+  stocks: () => PostFinishingMaterialStock[]
+  readiness: (productionOrderNo: string) => { applicable: boolean; status: PostFinishingMaterialTransferStatus | '不适用'; label: string; transferOrderNo?: string } | undefined
+}
+let accessoryPostBridge: AccessoryPostFinishingReadBridge | null = null
+let accessoryLegacyBaseline = ''
+function managedLegacyMaterialState(): { materialTransferOrders: PostFinishingMaterialTransferOrder[]; materialStocks: PostFinishingMaterialStock[] } {
+  const materialTransferOrders = state.materialTransferOrders.filter(row => accessoryPostBridge?.ownsProduction(row.productionOrderId) || accessoryPostBridge?.ownsProduction(row.productionOrderNo))
+  const ids = new Set(materialTransferOrders.map(row => row.transferOrderId))
+  return { materialTransferOrders, materialStocks: state.materialStocks.filter(row => ids.has(row.transferOrderId) || accessoryPostBridge?.ownsProduction(row.productionOrderNo)) }
+}
+/** 限定辅料读取桥；不把新辅料事实复制进 PCS 可写 state。 */
+export function installAccessoryPostFinishingReadBridge(bridge: AccessoryPostFinishingReadBridge): void {
+  accessoryPostBridge = bridge
+  accessoryLegacyBaseline = JSON.stringify(managedLegacyMaterialState())
+}
+/** 供显式迁移核对原辅料；其他后道业务对象不在此边界内。 */
+export function readLegacyPostFinishingMaterialState(): { materialTransferOrders: PostFinishingMaterialTransferOrder[]; materialStocks: PostFinishingMaterialStock[] } {
+  return clone({ materialTransferOrders: state.materialTransferOrders, materialStocks: state.materialStocks })
+}
+
 function persist(): void {
+  if (accessoryPostBridge && accessoryLegacyBaseline !== JSON.stringify(managedLegacyMaterialState())) throw new Error('本范围后道辅料已改由辅料调拨办理，原辅料事实只读；本次其他后道操作未保存。请重新读取。')
   if (!buildingDemoData) assertPostFinishingWrite()
 }
 
@@ -1273,7 +1297,7 @@ function buildPostFinishingMaterialTransferDemos(): PostFinishingMaterialTransfe
 
 function ensurePostFinishingMaterialTransferDemo(): void {
   const existingNos = new Set(state.materialTransferOrders.map((item) => item.transferOrderNo))
-  const missingTransfers = buildPostFinishingMaterialTransferDemos().filter((item) => !existingNos.has(item.transferOrderNo))
+  const missingTransfers = buildPostFinishingMaterialTransferDemos().filter((item) => !existingNos.has(item.transferOrderNo) && !accessoryPostBridge?.ownsProduction(item.productionOrderId) && !accessoryPostBridge?.ownsProduction(item.productionOrderNo))
   if (missingTransfers.length === 0) return
   missingTransfers.forEach((transfer) => {
     state.materialTransferOrders.push(transfer)
@@ -1301,13 +1325,14 @@ function ensurePostFinishingMaterialTransferDemo(): void {
 }
 
 export function listPostFinishingMaterialTransferOrders(): PostFinishingMaterialTransferOrder[] {
-  return clone(state.materialTransferOrders).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  const legacy = state.materialTransferOrders.filter(row => !accessoryPostBridge?.ownsProduction(row.productionOrderId) && !accessoryPostBridge?.ownsProduction(row.productionOrderNo))
+  return [...clone(legacy), ...(accessoryPostBridge?.transfers() || [])].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
 export function getPostFinishingMaterialTransferOrder(
   transferOrderIdOrNo: string,
 ): PostFinishingMaterialTransferOrder | undefined {
-  const record = state.materialTransferOrders.find((item) => (
+  const record = listPostFinishingMaterialTransferOrders().find((item) => (
     item.transferOrderId === transferOrderIdOrNo || item.transferOrderNo === transferOrderIdOrNo
   ))
   return record ? clone(record) : undefined
@@ -1319,6 +1344,8 @@ export function getPostFinishingMaterialReadiness(productionOrderNo: string): {
   label: string
   transferOrderNo?: string
 } {
+  const managed = accessoryPostBridge?.readiness(productionOrderNo)
+  if (managed) return managed
   const order = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.find((item) => item.productionOrderNo === productionOrderNo)
   const transfer = listPostFinishingMaterialTransferOrders().find((item) => item.productionOrderNo === productionOrderNo)
   const hasFrozenButtonProject = state.qcTasks.some((task) => (
@@ -1341,7 +1368,9 @@ export function getPostFinishingMaterialReadiness(productionOrderNo: string): {
 }
 
 export function listPostFinishingMaterialStocks(): PostFinishingMaterialStock[] {
-  return clone(state.materialStocks).sort((left, right) => right.inboundAt.localeCompare(left.inboundAt))
+  const managedIds = new Set(managedLegacyMaterialState().materialTransferOrders.map(row => row.transferOrderId))
+  const legacy = state.materialStocks.filter(row => !managedIds.has(row.transferOrderId) && !accessoryPostBridge?.ownsProduction(row.productionOrderNo))
+  return [...clone(legacy), ...(accessoryPostBridge?.stocks() || [])].sort((left, right) => right.inboundAt.localeCompare(left.inboundAt))
 }
 
 export function receivePostFinishingMaterialTransfer(input: {
@@ -1349,8 +1378,11 @@ export function receivePostFinishingMaterialTransfer(input: {
   actor: PostFinishingActor
   nowMs?: number
 }): { transfer: PostFinishingMaterialTransferOrder; alreadyInbound: boolean } {
-  assertPostFinishingWrite()
   const transfer = state.materialTransferOrders.find((item) => item.transferOrderNo === input.transferOrderNo.trim())
+  const managed = accessoryPostBridge?.transfers().some(row => row.transferOrderId === input.transferOrderNo.trim() || row.transferOrderNo === input.transferOrderNo.trim())
+  if (managed || (transfer && (accessoryPostBridge?.ownsProduction(transfer.productionOrderId) || accessoryPostBridge?.ownsProduction(transfer.productionOrderNo)))) throw new Error('本范围后道辅料须在辅料调拨入口逐行确认收货并上架，原整单入库入口不可继续写入。')
+  if (typeof window !== 'undefined' && !accessoryPostBridge) throw new Error('请先重新读取后道辅料资料，再确认入库。')
+  assertPostFinishingWrite()
   if (!transfer) throw new PostFinishingFlowGateError('NOT_FOUND', `未找到完整辅料调拨单号 ${input.transferOrderNo.trim()}。`)
   if (transfer.status === '已入库') return { transfer: clone(transfer), alreadyInbound: true }
   if (transfer.status !== '待入库') {
@@ -4002,6 +4034,11 @@ registerPostFinishingRepository('flow', STORAGE_KEY, () => state, value => { sta
   return parsed
 })
 registerPostFinishingMigrationNormalizer(() => {
+  // The old whole-workspace converter commits directly, without persist().
+  // Retained auxiliary originals must not become a second writable source.
+  if (typeof window !== 'undefined' && !accessoryPostBridge) throw new Error('请先打开后道辅料调拨核对资料，再执行原后道资料转换；原资料已保留。')
+  const retired = managedLegacyMaterialState()
+  if (retired.materialTransferOrders.length || retired.materialStocks.length) throw new Error('本范围后道辅料不能通过原后道整包转换写回。请在后道辅料调拨中归档核验；原资料继续只读保留，其他后道记录未修改。')
   const names = new Map<string, string>()
   state.deliveries.forEach(row => names.set(row.deliveryOrderNo, `${row.productionOrderNo}-${row.returnIndex}`))
   state.qcTasks.forEach(row => names.set(row.qcTaskNo, `${names.get(row.deliveryOrderNo) || row.deliveryOrderNo}-ZJ`))

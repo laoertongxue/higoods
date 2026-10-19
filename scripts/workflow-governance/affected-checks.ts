@@ -1,3 +1,4 @@
+import { ACCESSORY_BROWSER_CONTRACT_PATHS, ACCESSORY_BROWSER_FIXTURE_PATHS } from '../check-accessory-warehouse-browser-contracts.ts'
 import assert from 'node:assert/strict'
 import { normalizeChangedPath } from './changed-paths.ts'
 import { isPrototypePath } from './governance-scope.ts'
@@ -98,6 +99,15 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
   const escalationReasons = new Set<string>()
 
   for (const path of changedPaths) {
+    if ((ACCESSORY_BROWSER_CONTRACT_PATHS as readonly string[]).includes(path)
+      || (ACCESSORY_BROWSER_FIXTURE_PATHS as readonly string[]).includes(path)
+      || path === 'scripts/check-accessory-warehouse-browser-contracts.ts') {
+      // The mixed paper contract consumes fixed production assets. Build once
+      // before this suite so a clean worktree cannot depend on an old dist.
+      add(fullChecks, 'npm run build')
+      add(fullChecks, 'node --import tsx scripts/check-accessory-warehouse-browser-contracts.ts')
+      continue
+    }
     if (path === 'tests/fcs-demand-to-order-current-tech-pack.spec.ts' || path === 'tests/fcs-production-tech-pack-snapshot-freeze.spec.ts') {
       add(fastChecks, `node --import tsx ${shellQuote(path)}`)
       continue

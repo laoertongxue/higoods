@@ -18,14 +18,16 @@ import {
 import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
 import { exportStandardListRows } from '../../../components/ui/list-export.ts'
 import { showListFeedback } from '../../../components/ui/list-feedback.ts'
+import { listAccessoryWarehouses } from '../../../data/wls/accessory-warehouse-master.ts'
 
-type Warehouse = { code: string; name: string; type: '自建' | '合作'; businessType: string; contact: string; country: string; timezone: string; manager: string; enabled: boolean; subjects: string[]; zoneCount: number; locationCount: number }
+type Warehouse = { code: string; name: string; type: '自建' | '合作'; businessType: string; contact: string; country: string; timezone: string; manager: string; enabled: boolean; subjects: string[]; zoneCount: number; locationCount: number; boundFactoryName?: string }
 
 const seedWarehouses: Warehouse[] = [
   { code: 'WH-FINISHED', name: '成衣仓', type: '自建', businessType: '成衣仓', contact: '王仓管', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '王敏', enabled: true, subjects: ['HiGood 中国'], zoneCount: 5, locationCount: 128 },
   { code: 'WH-TRANSIT', name: '中转仓', type: '合作', businessType: '中转仓', contact: '李经理', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '李强', enabled: true, subjects: ['HiGood 中国', '顺达物流'], zoneCount: 3, locationCount: 46 },
   { code: 'WH-RAW', name: '原料仓', type: '自建', businessType: '面料仓', contact: '赵主管', country: '中国', timezone: 'Asia/Shanghai (UTC+8)', manager: '赵刚', enabled: true, subjects: ['HiGood 中国'], zoneCount: 4, locationCount: 72 },
   { code: 'WH-ID', name: '印尼成品仓', type: '合作', businessType: '成衣仓', contact: 'Budi', country: '印度尼西亚', timezone: 'Asia/Jakarta (UTC+7)', manager: 'Budi Santoso', enabled: false, subjects: ['PT HiGood Indonesia'], zoneCount: 2, locationCount: 30 },
+  ...listAccessoryWarehouses(),
 ]
 
 const WAREHOUSE_TYPES = ['全部', '自建', '合作']
@@ -58,8 +60,8 @@ const state: {
 const columns: StandardListColumn<Warehouse>[] = [
   { key: 'code', title: '仓库编码', width: 130, required: true, freezeable: true, sortable: true, sortValue: r => r.code,
     render: r => `<span class="font-medium text-[var(--link)]">${escapeHtml(r.code)}</span>` },
-  { key: 'name', title: '仓库名称', width: 130, sortable: true, sortValue: r => r.name,
-    render: r => `<span class="text-slate-700">${escapeHtml(r.name)}</span>` },
+  { key: 'name', title: '仓库名称', width: 180, sortable: true, sortValue: r => r.name,
+    render: r => `<span class="text-slate-700">${escapeHtml(r.name)}</span>${r.boundFactoryName ? `<span class="mt-1 block text-xs text-muted-foreground">裁床工厂：${escapeHtml(r.boundFactoryName)}</span>` : ''}` },
   { key: 'type', title: '类型', width: 80, sortable: true, sortValue: r => r.type,
     render: r => `<span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">${escapeHtml(r.type)}</span>` },
   { key: 'businessType', title: '属性', width: 100, sortable: true, sortValue: r => r.businessType,
@@ -110,6 +112,7 @@ function filteredRows(): Warehouse[] {
       || w.name.toLowerCase().includes(kw)
       || w.contact.toLowerCase().includes(kw)
       || w.country.toLowerCase().includes(kw)
+      || (w.boundFactoryName || '').toLowerCase().includes(kw)
   })
 }
 
@@ -137,9 +140,9 @@ function renderWorkspace(): string {
     filtersHtml: renderFilters(),
     statsHtml: renderStandardListStats([
       { label: '记录数', value: `${rows.length} 条` },
-      { label: '自建', value: `${seedWarehouses.filter(w => w.type === '自建').length} 条` },
-      { label: '合作', value: `${seedWarehouses.filter(w => w.type === '合作').length} 条` },
-      { label: '启用', value: `${seedWarehouses.filter(w => w.enabled).length} 条` },
+      { label: '自建', value: `${rows.filter(w => w.type === '自建').length} 条` },
+      { label: '合作', value: `${rows.filter(w => w.type === '合作').length} 条` },
+      { label: '启用', value: `${rows.filter(w => w.enabled).length} 条` },
     ]),
     listTitle: `共 ${rows.length} 条`,
     listActionsHtml: `<div class="flex flex-wrap items-center gap-2">${renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2')}</div>`,
