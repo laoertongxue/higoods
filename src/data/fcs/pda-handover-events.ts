@@ -4366,7 +4366,7 @@ export function listReceiverWritebacks(): ReceiverWriteback[] {
   return listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT')
     .flatMap((head) =>
-      getPdaHandoverRecordsByHead(head.handoverId)
+      getPdaHandoverRecordsByHead(head.handoverId, head)
         .filter((record) => typeof record.receiverWrittenQty === 'number' && Boolean(record.receiverWrittenAt))
         .map<ReceiverWriteback>((record) => {
           const writtenQty = record.receiverWrittenQty ?? 0
@@ -4398,7 +4398,7 @@ export function listQuantityObjections(): QuantityObjection[] {
   return listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT')
     .flatMap((head) =>
-      getPdaHandoverRecordsByHead(head.handoverId)
+      getPdaHandoverRecordsByHead(head.handoverId, head)
         .filter(
           (record) =>
             record.handoverRecordStatus === 'OBJECTION_REPORTED'

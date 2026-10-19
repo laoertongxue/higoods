@@ -30,8 +30,7 @@ import {
   renderWorkOrderStatusBadge,
 } from './shared'
 
-function renderNodeOverview(): string {
-  const statistics = getDyeingExecutionStatistics()
+function renderNodeOverview(statistics: ReturnType<typeof getDyeingExecutionStatistics>): string {
   const countByLabel = (label: string) => statistics.statusCounts[label] || 0
 
   return renderSection(
@@ -57,8 +56,7 @@ function renderNodeOverview(): string {
   )
 }
 
-function renderTopMetrics(): string {
-  const statistics = getDyeingExecutionStatistics()
+function renderTopMetrics(statistics: ReturnType<typeof getDyeingExecutionStatistics>): string {
   const quantities=(key:Exclude<keyof (typeof statistics.quantityGroups)[number], 'unit'>)=>statistics.quantityGroups.map(g=>`${g[key].toLocaleString('zh-CN',{maximumFractionDigits:3})} ${g.unit}`).join(' / ')
   return `
     <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
@@ -97,9 +95,16 @@ function renderTopMetrics(): string {
 
 function renderDurationTable(): string {
   const quantities=new Map(getDyeingQuantityFacts().map(f=>[f.order.dyeOrderId,f]))
-  const rows = listDyeReportRows()
+  const reportRows = listDyeReportRows()
+  const ordersById = new Map<string, ReturnType<typeof listDyeWorkOrders>[number]>()
+  if (reportRows.length) {
+    for (const order of listDyeWorkOrders()) {
+      if (!ordersById.has(order.dyeOrderId)) ordersById.set(order.dyeOrderId, order)
+    }
+  }
+  const rows = reportRows
     .map((row) => {
-      const order = listDyeWorkOrders().find((item) => item.dyeOrderId === row.dyeOrderId)
+      const order = ordersById.get(row.dyeOrderId)
       return `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(row.dyeOrderNo)}</td>
@@ -148,10 +153,24 @@ function renderDurationTable(): string {
 }
 
 function renderVatUtilization(): string {
-  const rows = listDyeVatSchedules()
+  const schedules = listDyeVatSchedules()
+  const ordersById = new Map<string, ReturnType<typeof listDyeWorkOrders>[number]>()
+  const formulasById = new Map<
+    ReturnType<typeof listDyeFormulaRecords>[number]['dyeOrderId'],
+    ReturnType<typeof listDyeFormulaRecords>[number]
+  >()
+  if (schedules.length) {
+    for (const order of listDyeWorkOrders()) {
+      if (!ordersById.has(order.dyeOrderId)) ordersById.set(order.dyeOrderId, order)
+    }
+    for (const formula of listDyeFormulaRecords()) {
+      if (!formulasById.has(formula.dyeOrderId)) formulasById.set(formula.dyeOrderId, formula)
+    }
+  }
+  const rows = schedules
     .map((schedule) => {
-      const order = listDyeWorkOrders().find((item) => item.dyeOrderId === schedule.dyeOrderId)
-      const formula = listDyeFormulaRecords().find((item) => item.dyeOrderId === schedule.dyeOrderId)
+      const order = ordersById.get(schedule.dyeOrderId)
+      const formula = formulasById.get(schedule.dyeOrderId)
       return `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(schedule.dyeVatNo)}</td>
@@ -353,12 +372,14 @@ function renderSelectedDetail(selectedId: string): string {
 export function renderCraftDyeingReportsPage(): string {
   const orders = listDyeWorkOrders()
   const selectedId = getSelectedDyeOrderId(orders[0]?.dyeOrderId || '')
+  const header = renderPageHeader('染色统计', '')
+  const statistics = getDyeingExecutionStatistics()
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('染色统计', '')}
-      ${renderTopMetrics()}
-      ${renderNodeOverview()}
+      ${header}
+      ${renderTopMetrics(statistics)}
+      ${renderNodeOverview(statistics)}
       ${renderDurationTable()}
       ${renderVatUtilization()}
       ${renderReviewTable(selectedId)}

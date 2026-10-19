@@ -241,12 +241,22 @@ test('four affected reports preload only their actual page and restoration closu
   }
 })
 
-test('canonical lists prioritize the complete original restoration closure before render-only modules, without delaying or removing links', () => {
+test('canonical lists prioritize their complete first-screen closure while retaining restoration discovery order and all links', () => {
   const path = '/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders'
   const modules = navigationLinks(path).filter(link => link.rel === 'modulepreload')
   const gates = new Set([...initialization.map(source => '/' + fileFor(source)), '/assets/shared.js', '/assets/cycle.js'])
   assert.deepEqual(modules.map(link => link.href).sort(), expectedModules(pages.craftList))
   assert.equal(modules.findIndex(link => !gates.has(link.href!)), gates.size, 'all existing restoration dependencies must be discovered before the render-only page')
-  for (const link of modules) assert.equal(link.fetchPriority, gates.has(link.href!) ? 'high' : undefined, link.href)
+  for (const link of modules) assert.equal(link.fetchPriority, 'high', link.href)
   assert.equal(modules[0].href, '/' + fileFor('/src/data/pms/idb-storage.ts'))
+})
+
+test('dyeing reports discover their original required baseline first at high priority without changing adjacent entrances', () => {
+  const links = navigationLinks('/fcs/craft/dyeing/reports')
+  assert.deepEqual(links[0], { rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', fetchPriority: 'high', href: '/assets/pcs-record-baseline-fixture.json' })
+  assert.equal(links.filter(link => link.as === 'fetch').length, 1)
+  const bundle = fixtureBundle()
+  delete bundle['assets/pcs-record-baseline-fixture.json']
+  assert.equal(navigationLinks('/fcs/craft/dyeing/reports', preloadScript(bundle)).some(link => link.as === 'fetch'), false)
+  for (const path of ['/fcs/craft/dyeing/reports/', '/fcs/craft/dyeing/reports-extra', '/fcs/craft/dyeing/reports/nested']) assert.deepEqual(navigationLinks(path), [], path)
 })
