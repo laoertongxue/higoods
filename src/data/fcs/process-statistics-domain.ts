@@ -1,7 +1,7 @@
 import {getDyeingQuantityFacts,groupDyeQuantities,type DyeQuantityGroup} from './dyeing-quantity-facts.ts'
 import {getDyeingWarehouseView} from './dyeing-warehouse-view.ts'
 import {convertReceiptQuantity} from './factory-receiving.ts'
-import { listPostFinishingFullFlowQcTasks, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders } from './post-finishing-full-flow.ts'
+import { getPostFinishingProcessProgress, isPostFinishingDeliveryComplete, listPostFinishingFactoryReturns, listPostFinishingWaitProcessWarehouseRecords, listPostFinishingWaitHandoverWarehouseRecords, listPostFinishingFullFlowQcTasks, listPostFinishingFullFlowPostTasks, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders } from './post-finishing-full-flow.ts'
 import { listProcessWorkOrders, type ProcessWorkOrder, type ProcessWorkOrderType } from './process-work-order-domain.ts'
 import {
   listProcessHandoverDifferenceRecords,
@@ -534,41 +534,89 @@ function postTaskStatusCount(tasks: PostFinishingTaskView[], status: string): nu
 }
 
 export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFilter = {}): PostFinishingExecutionStatistics {
-  const postTasks = listPostFinishingTasks().filter((task) =>
-    (!filter.factoryId || task.managedPostFactoryId === filter.factoryId)
-    && (!filter.workOrderId || task.postTaskId === filter.workOrderId || task.postTaskNo === filter.workOrderId || task.productionOrderNo === filter.workOrderId),
-  )
+  const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
+  const availableTasks = listPostFinishingTasks().filter(task => !filter.factoryId || task.managedPostFactoryId === filter.factoryId)
+  const allPostTasks = listPostFinishingFullFlowPostTasks()
+  const requestedTasks = availableTasks.filter(task => !filter.workOrderId || task.postTaskId === filter.workOrderId || task.postTaskNo === filter.workOrderId || task.productionOrderNo === filter.workOrderId)
+  // A root task/production number selects every return chain. An actual post
+  // ID/number selects its own chain while retaining the one parent identity.
+  const selectedPost = filter.workOrderId && !requestedTasks.length
+    ? allPostTasks.find(task => task.postTaskId === filter.workOrderId || task.postTaskNo === filter.workOrderId)
+    : undefined
+  const postTasks = selectedPost ? availableTasks.filter(task => task.productionOrderNo === selectedPost.productionOrderNo) : requestedTasks
   const taskOrderNos = new Set(postTasks.map((task) => task.productionOrderNo))
-  const taskIds = new Set(postTasks.map((task) => task.postTaskId))
-  const postOrders = listPostFinishingWorkOrders().filter((order) =>
-    (!filter.factoryId || order.currentFactoryId === filter.factoryId || order.managedPostFactoryId === filter.factoryId)
-    && (!filter.workOrderId || order.postOrderId === filter.workOrderId || order.postTaskId === filter.workOrderId || order.sourceProductionOrderNo === filter.workOrderId)
-    && (taskOrderNos.size === 0 || taskOrderNos.has(order.sourceProductionOrderNo)),
-  )
-  const fullQcTasks = listPostFinishingFullFlowQcTasks().filter(task => taskOrderNos.has(task.productionOrderNo))
-  const fullPostTasks = listPostFinishingFullFlowPostTasks().filter(task => postOrders.some(order => order.postOrderId === task.postTaskId))
-  const fullRechecks = listPostFinishingFullFlowRecheckOrders().filter(task => fullPostTasks.some(post => post.postTaskId === task.postTaskId))
-  const fullOutbounds = listPostFinishingFullFlowOutboundOrders().filter(order => taskOrderNos.has(order.productionOrderNo))
-  const records = filterWarehouseRecords('POST_FINISHING', filter)
-  const base = buildBaseStatistics([], records)
-  const qcRecords = listPostFinishingQcOrders().filter((record) => (
-    record.warehouseAllocations?.some((allocation) => taskIds.has(String(allocation.postTaskId || '')))
-    || postOrders.some((order) => order.postOrderId === record.postOrderId)
-  ))
-  const recheckRecords = listPostFinishingRecheckOrders().filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
-  const postRecords = listPostFinishingActionRecords('后道').filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
-  const lessDifferences = records.differences.filter((record) => record.differenceType === '少收')
-  const moreDifferences = records.differences.filter((record) => record.differenceType === '多收')
+  const deliveries = listPostFinishingFactoryReturns().filter(row => taskOrderNos.has(row.productionOrderNo) && (!selectedPost || row.deliveryId === selectedPost.deliveryId))
+  const deliveryIds = new Set(deliveries.map(row => row.deliveryId))
+  const fullQcTasks = listPostFinishingFullFlowQcTasks().filter(task => deliveryIds.has(task.deliveryId))
+  const fullPostTasks = allPostTasks.filter(task => deliveryIds.has(task.deliveryId) && (!selectedPost || task.postTaskId === selectedPost.postTaskId))
+  const postIds = new Set(fullPostTasks.map(task => task.postTaskId))
+  const qcIds = new Set(fullQcTasks.map(task => task.qcTaskId))
+  const fullRechecks = listPostFinishingFullFlowRecheckOrders().filter(task => deliveryIds.has(task.deliveryId) && (!selectedPost || postIds.has(task.postTaskId || '')))
+  const recheckIds = new Set(fullRechecks.map(task => task.recheckOrderId))
+  const fullOutbounds = listPostFinishingFullFlowOutboundOrders().filter(order => deliveryIds.has(order.deliveryId)
+    && (!selectedPost || postIds.has(order.postTaskId || '') || recheckIds.has(order.recheckOrderId || '')))
+  const progress = fullPostTasks.map(task => ({ task, value: getPostFinishingProcessProgress(task) }))
+  const postDoneQty = sum(progress.map(row => row.value.totalCompletedQty))
+  const unfinishedPostQty = sum(progress.flatMap(row => row.value.lines.map(line => Math.max(line.expectedQty - line.completedQty, 0))))
+  const recheckDoneQty = sum(fullRechecks.filter(task => task.status === '复检完成').flatMap(task => task.lines.map(line => line.handoverQty || 0)))
+  // A retained legacy conflict can have O > proven H. Keep that gate in the
+  // source progress; it must not subtract another SKU's ready quantity here.
+  const waitRecheckQty = sum(progress.flatMap(row => row.value.lines.map(line => Math.max(line.availableForRecheckQty, 0))))
+    + sum(fullRechecks.filter(task => task.status !== '复检完成').flatMap(task => task.lines.map(line => line.expectedQty)))
+  const receiveDoneQty = sum(deliveries.flatMap(row => row.lines.map(line => line.confirmedQty || 0)))
+  const waitQcQty = sum(deliveries.flatMap(delivery => delivery.lines.map(line => Math.max((line.confirmedQty || 0)
+    - (fullQcTasks.find(task => task.deliveryId === delivery.deliveryId)?.results?.find(result => result.sku.skuId === line.sku.skuId)?.expectedQty || 0), 0))))
+  // Post-finishing owns its actual child outbounds and warehouse receipts.
+  // Generic craft warehouse demo records are not facts of this business chain.
+  const outbounds = fullOutbounds.filter(row => matchTimeRange(row.createdAt, filter.timeRange))
+  const receivedOutbounds = outbounds.filter(row => row.status === '已接收入库')
+  const pendingOutbounds = outbounds.filter(row => row.status !== '已接收入库')
+  const warehouseDifferences = receivedOutbounds.flatMap(row => row.lines.map(line => ({
+    outboundId: row.outboundOrderId, productionOrderNo: row.productionOrderNo, quantity: (line.receivedQty || 0) - line.outboundQty,
+  }))).filter(row => row.quantity !== 0)
+  const differenceOutbounds = new Set(warehouseDifferences.map(row => row.outboundId))
+  const returnDifferences = deliveries
+    .flatMap(row => row.lines.filter(line => line.confirmedQty !== undefined).map(line => Math.abs(line.confirmedQty! - line.registeredQty)))
+  const base = buildBaseStatistics([], { waitProcess: [], waitHandover: [], handovers: [], differences: [], reviews: [] })
+  base.waitProcessRecordCount = listPostFinishingWaitProcessWarehouseRecords().filter(row => deliveryIds.has(row.deliveryId) && matchTimeRange(row.createdAt, filter.timeRange)).length
+  const outboundIds = new Set(outbounds.map(row => row.outboundOrderId))
+  base.waitHandoverRecordCount = listPostFinishingWaitHandoverWarehouseRecords().filter(row => outboundIds.has(row.outboundOrderId)).length
+  base.waitWritebackHandoverCount = pendingOutbounds.length
+  base.writtenBackHandoverCount = receivedOutbounds.length
+  base.differenceHandoverCount = differenceOutbounds.size
+  base.differenceRecordCount = differenceOutbounds.size
+  base.pendingDifferenceRecordCount = differenceOutbounds.size
+  // This flow has no separate warehouse review or rework-processing records;
+  // leave those counters at zero rather than creating another workflow.
+  base.handoverAverageWritebackHours = calcAverageDuration(receivedOutbounds.map(row => ({ startedAt: row.createdAt, finishedAt: row.receivedAt })))
+  base.overdueWritebackCount = calcOverdueCount(pendingOutbounds.map(row => ({ createdAt: row.createdAt })))
+  const factoryRows = new Map<string, FactoryMetricRow>()
+  for (const task of postTasks) {
+    const factory = factoryRows.get(task.managedPostFactoryId) || createFactoryMetricRow(task.managedPostFactoryId, task.managedPostFactoryName, '成衣', '件')
+    factory.workOrderCount += 1
+    factory.plannedQty += selectedPost ? sum(fullPostTasks.flatMap(row => row.lines.map(line => line.expectedQty))) : task.plannedGarmentQty
+    factory.doneQty += sum(progress.filter(row => row.task.productionOrderNo === task.productionOrderNo).map(row => row.value.totalCompletedQty))
+    factory.handoverQty += outbounds.filter(row => row.productionOrderNo === task.productionOrderNo).reduce((sum, row) => sum + row.lines.reduce((n, line) => n + line.outboundQty, 0), 0)
+    factory.diffQty += warehouseDifferences.filter(row => row.productionOrderNo === task.productionOrderNo).reduce((sum, row) => sum + Math.abs(row.quantity), 0)
+    factory.completionRate = calcCompletionRate(factory.doneQty, factory.plannedQty)
+    factoryRows.set(task.managedPostFactoryId, factory)
+  }
+  base.factoryRows = [...factoryRows.values()]
+  const qcRecords = listPostFinishingQcOrders().filter(record => qcIds.has(record.actionRecordId))
+  const recheckRecords = listPostFinishingRecheckOrders().filter(record => recheckIds.has(record.actionRecordId))
+  const postRecords = listPostFinishingActionRecords('后道').filter(record => postIds.has(record.actionRecordId))
+  const lessDifferences = warehouseDifferences.filter(row => row.quantity < 0)
+  const moreDifferences = warehouseDifferences.filter(row => row.quantity > 0)
   const taskStatusCounts = countByStatus(postTasks)
   return {
     ...base,
     workOrderCount: postTasks.length,
     statusCounts: taskStatusCounts,
     statusRows: statusRows(taskStatusCounts),
-    postOrderCount: postOrders.length,
-    waitReceiveTaskCount: postTaskStatusCount(postTasks, '待收货') + postTaskStatusCount(postTasks, '待上游交出'),
-    receiveDoneGarmentQty: round(postTasks.reduce((sum, task) => sum + task.receivedQty, 0)),
-    receiveDiffGarmentQty: round(records.differences.reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
+    postOrderCount: fullPostTasks.length,
+    waitReceiveTaskCount: selectedPost ? 0 : postTaskStatusCount(postTasks, '待收货') + postTaskStatusCount(postTasks, '待上游交出'),
+    receiveDoneGarmentQty: round(receiveDoneQty),
+    receiveDiffGarmentQty: round(returnDifferences.reduce((sum, quantity) => sum + quantity, 0)),
     waitPostTaskCount: fullPostTasks.filter(task => task.status === '待后道').length,
     postDoingTaskCount: fullPostTasks.filter(task => task.status === '后道中').length,
     postDoneTaskCount: fullPostTasks.filter(task => task.status === '后道完成').length,
@@ -578,30 +626,35 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     waitRecheckTaskCount: fullRechecks.filter(task => task.status === '待复检').length,
     recheckDoingTaskCount: fullRechecks.filter(task => task.status === '复检中' || task.status === '条码异常待重贴').length,
     recheckDoneTaskCount: fullRechecks.filter(task => task.status === '复检完成').length,
-    waitHandoverTaskCount: postTaskStatusCount(postTasks, '待交出'),
-    handedOverTaskCount: new Set(fullOutbounds.filter(order => order.status === '已接收入库').map(order => order.productionOrderNo)).size,
+    waitHandoverTaskCount: new Set(pendingOutbounds.map(order => order.productionOrderNo)).size,
+    handedOverTaskCount: postTasks.filter(task => {
+      const taskDeliveries = deliveries.filter(row => row.productionOrderNo === task.productionOrderNo && row.status !== '已废弃')
+      return (selectedPost || ['待人工完成', '已完成'].includes(task.currentStatus))
+        && outbounds.some(row => row.productionOrderNo === task.productionOrderNo) && taskDeliveries.length > 0
+        && taskDeliveries.every(row => isPostFinishingDeliveryComplete(row.deliveryId))
+    }).length,
     completedTaskCount: postTaskStatusCount(postTasks, '已完成'),
-    waitPostGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitPostQty, 0)),
-    postDoneGarmentQty: round(postTasks.reduce((sum, task) => sum + task.postDoneQty, 0)),
-    waitQcGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitQcQty, 0)),
+    waitPostGarmentQty: round(unfinishedPostQty),
+    postDoneGarmentQty: round(postDoneQty),
+    waitQcGarmentQty: round(waitQcQty),
     qcPassGarmentQty: round(qcRecords.reduce((sum, record) => sum + record.acceptedGarmentQty, 0)),
     qcRejectedGarmentQty: round(qcRecords.reduce((sum, record) => sum + record.rejectedGarmentQty, 0)),
-    waitRecheckGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitRecheckQty, 0)),
-    recheckConfirmedGarmentQty: round(postTasks.reduce((sum, task) => sum + task.recheckDoneQty, 0)),
-    waitHandoverGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitHandoverQty, 0)),
-    handedOverGarmentQty: sumHandoverQty(records.handovers, '成衣', 'handoverObjectQty'),
-    receivedGarmentQty: sumHandoverQty(records.handovers, '成衣', 'receiveObjectQty'),
-    diffGarmentQty: sumHandoverQty(records.handovers, '成衣', 'diffObjectQty'),
+    waitRecheckGarmentQty: round(waitRecheckQty),
+    recheckConfirmedGarmentQty: round(recheckDoneQty),
+    waitHandoverGarmentQty: round(pendingOutbounds.reduce((sum, row) => sum + row.lines.reduce((n, line) => n + line.outboundQty, 0), 0)),
+    handedOverGarmentQty: round(outbounds.reduce((sum, row) => sum + row.lines.reduce((n, line) => n + line.outboundQty, 0), 0)),
+    receivedGarmentQty: round(receivedOutbounds.reduce((sum, row) => sum + row.lines.reduce((n, line) => n + (line.receivedQty || 0), 0), 0)),
+    diffGarmentQty: round(warehouseDifferences.reduce((sum, row) => sum + Math.abs(row.quantity), 0)),
     dedicatedTaskCount: postTasks.length,
-    postFactoryExecutedTaskCount: postTasks.filter((task) => task.postOrderCount > 0).length,
-    sewingFactoryPostDoneTaskCount: new Set(fullOutbounds.filter(order => order.sourceType === '质检直达').map(order => order.productionOrderNo)).size,
-    dedicatedWaitQcGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitQcQty, 0)),
-    dedicatedWaitRecheckGarmentQty: round(postTasks.reduce((sum, task) => sum + task.waitRecheckQty, 0)),
+    postFactoryExecutedTaskCount: new Set(fullPostTasks.map(task => task.productionOrderNo)).size,
+    sewingFactoryPostDoneTaskCount: new Set(outbounds.filter(order => order.sourceType === '质检直达').map(order => order.productionOrderNo)).size,
+    dedicatedWaitQcGarmentQty: round(waitQcQty),
+    dedicatedWaitRecheckGarmentQty: round(waitRecheckQty),
     transferWaitManagedFactoryTaskCount: 0,
     transferInWaitQcGarmentQty: 0,
     transferInWaitRecheckGarmentQty: 0,
-    lessReceiveGarmentQty: round(lessDifferences.reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
-    moreReceiveGarmentQty: round(moreDifferences.reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
+    lessReceiveGarmentQty: round(lessDifferences.reduce((sum, row) => sum + Math.abs(row.quantity), 0)),
+    moreReceiveGarmentQty: round(moreDifferences.reduce((sum, row) => sum + Math.abs(row.quantity), 0)),
     postAverageHours: actionRecordsHours(postRecords),
     qcAverageHours: actionRecordsHours(qcRecords),
     recheckAverageHours: actionRecordsHours(recheckRecords),

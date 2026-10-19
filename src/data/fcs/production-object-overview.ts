@@ -2932,9 +2932,11 @@ function buildP1DocumentIndexes(): ProductionObjectSearchIndex[] {
   })
 }
 
-function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
-  const qcOrders = listPostFinishingQcOrderEntities()
-  const recheckOrders = listPostFinishingRecheckOrderEntities()
+function buildPostFinishingQcIndexes(processLinksOnly = false): ProductionObjectSearchIndex[] {
+  // PROCESS_DOC links use only the existing source-task rows below. Avoid
+  // projecting all QC/recheck entities merely to discard their other types.
+  const qcOrders = processLinksOnly ? [] : listPostFinishingQcOrderEntities()
+  const recheckOrders = processLinksOnly ? [] : listPostFinishingRecheckOrderEntities()
   const qcOrdersByPostTask = new Map<string, typeof qcOrders>()
   const rows: ProductionObjectSearchIndex[] = []
 
@@ -3008,7 +3010,8 @@ function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
     })
   }
 
-  for (const task of listPostFinishingTasks()) {
+  const processLinkSources = processLinksOnly ? new Set(POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map(source => source.productionOrderId)) : undefined
+  for (const task of listPostFinishingTasks(processLinkSources)) {
     const items = qcOrdersByPostTask.get(task.postTaskId) || qcOrdersByPostTask.get(task.postTaskNo) || []
     const order = findOrderByNo(task.productionOrderNo)
     const updatedAts = items.map((item) => item.updatedAt).sort()
@@ -3094,7 +3097,7 @@ export function getProductionObjectSearchIndex(refresh = false): ProductionObjec
 export function getProductionObjectLinkIndex(objectType: 'PRODUCTION_ORDER' | 'PROCESS_DOC'): ProductionObjectSearchIndex[] {
   const rows = productionOrders.flatMap(order => objectType === 'PRODUCTION_ORDER'
     ? [buildOrderIndex(order)] : buildProcessIndexes(order))
-  rows.push(...buildPostFinishingQcIndexes().filter(row => row.objectType === objectType))
+  if (objectType === 'PROCESS_DOC') rows.push(...buildPostFinishingQcIndexes(true).filter(row => row.objectType === objectType))
   rows.push(...buildP1DocumentIndexes().filter(row => row.objectType === objectType))
   return rows
 }

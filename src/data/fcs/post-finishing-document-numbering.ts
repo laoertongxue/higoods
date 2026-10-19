@@ -9,6 +9,7 @@ export interface PostFinishingDocumentNumberRequest {
   sourceObjectId: string
   idempotencyKey: string
   sequence: number
+  childSequence?: number
   sourceDocumentNo?: string
   triggerSource?: PostFinishingDeliveryTrigger
   existingDocumentNos?: readonly string[]
@@ -47,7 +48,7 @@ export function buildPostFinishingDocumentNo(input: PostFinishingDocumentNumberR
   const source = input.sourceDocumentNo?.trim()
   if (!source) throw new Error('缺少实际来源单号，不能生成下游单据。')
   const suffix = { QC: 'ZJ', POST: 'HD', RECHECK: 'FJ', OUTBOUND: 'CH' }[input.kind]
-  return `${source}-${suffix}`
+  return `${source}-${suffix}${input.kind === 'RECHECK' && input.childSequence ? `-${String(input.childSequence).padStart(3, '0')}` : ''}`
 }
 
 export function issuePostFinishingDocumentNumber(

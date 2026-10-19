@@ -1,3 +1,5 @@
+import { postFinishingPrintProgressFields } from '../../../data/fcs/post-finishing-print-progress.ts'
+import { getPostFinishingFactoryReturn, getPostFinishingProcessProgress, listPostFinishingFullFlowRecheckOrders, listPostFinishingFullFlowOutboundOrders, listPostFinishingWaitHandoverWarehouseRecords } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -46,6 +48,9 @@ function getPostActionFields(order: PostFinishingWorkOrder): PrintField[] {
   return [
     { label: '本批后道项目', value: order.postProcessItems.join('、'), emphasis: true },
     { label: '后道处理状态', value: order.postAction.status },
+    ...postFinishingPrintProgressFields(order.postOrderId),
+    { label: '全部复检单', value: listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === order.postOrderId).map(row => row.recheckOrderNo).join('、') || '尚未交复检' },
+    { label: '全部出货单', value: listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === order.postOrderId).map(row => row.outboundOrderNo).join('、') || '尚未出货' },
     { label: '应处理成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
     { label: '已处理成衣件数', value: actionQty(order.postAction, order.postAction.completedPostGarmentQty), emphasis: true },
     { label: '后道操作人', value: valueOrDash(order.postAction.operatorName) },
@@ -137,6 +142,16 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
   }
 
   const printAt = getPrintGeneratedAt()
+  const progress = getPostFinishingProcessProgress(order.postOrderId)
+  const rechecks = listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === order.postOrderId)
+  const outbounds = listPostFinishingFullFlowOutboundOrders().filter(row => row.postTaskId === order.postOrderId)
+  const waits = listPostFinishingWaitHandoverWarehouseRecords().filter(row => row.postTaskId === order.postOrderId)
+  const factoryName = getPostFinishingFactoryReturn(order.sourceContextId)?.managedPostFactoryName || order.currentFactoryName
+  const waitRecheckQty = progress.availableForRecheckQty + rechecks.filter(row => row.status !== '复检完成').reduce((sum, row) => sum + row.lines.reduce((n, line) => n + line.expectedQty, 0), 0)
+  const waitHandoverQty = waits.reduce((sum, row) => sum + row.lines.reduce((n, line) => n + line.availableQty, 0), 0)
+  const handedOverQty = waits.reduce((sum, row) => sum + row.lines.reduce((n, line) => n + line.handedOverQty, 0), 0)
+  const receivedQty = outbounds.reduce((sum, row) => sum + row.lines.reduce((n, line) => n + (line.receivedQty || 0), 0), 0)
+  const differenceQty = outbounds.filter(row => row.status === '已接收入库').reduce((sum, row) => sum + row.lines.reduce((n, line) => n + (line.receivedQty || 0) - line.outboundQty, 0), 0)
   const image = resolveTaskPrintImage({
     productionOrderId: order.sourceProductionOrderId || order.sourceProductionOrderNo,
     processName: '后道',
@@ -163,8 +178,8 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     { label: '生产单', value: order.sourceProductionOrderNo, emphasis: true },
     { label: '来源任务', value: order.sourceTaskNo },
     { label: '来源车缝任务', value: order.sourceSewingTaskNo },
-    { label: '当前工厂', value: order.currentFactoryName },
-    { label: '后道工厂', value: order.managedPostFactoryName },
+    { label: '当前工厂', value: factoryName },
+    { label: '后道工厂', value: factoryName },
     { label: '后道来源', value: sourceLabel, emphasis: true },
     { label: '当前流程', value: flowText, emphasis: true },
     { label: '当前状态', value: order.currentStatus },
@@ -183,15 +198,15 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     { label: '生产单', value: order.sourceProductionOrderNo },
     { label: '来源任务', value: order.sourceTaskNo },
     { label: '来源车缝任务', value: order.sourceSewingTaskNo },
-    { label: '当前工厂', value: order.currentFactoryName },
+    { label: '当前工厂', value: factoryName },
     { label: '后道来源', value: sourceLabel },
     { label: '是否专门后道工厂', value: order.isDedicatedPostFactory ? '是' : '否' },
     { label: '本批后道项目', value: order.postProcessItems.join('、'), emphasis: true },
     { label: '计划成衣件数', value: formatPrintQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit), emphasis: true },
     { label: '已处理成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
-    { label: '待质检成衣件数', value: formatPrintQty(order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
-    { label: '待处理后交出复核成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
-    { label: '待交出成衣件数', value: formatPrintQty(waitHandoverRecord?.availableObjectQty ?? order.recheckAction.acceptedGarmentQty, '件'), emphasis: true },
+    { label: '待质检成衣件数', value: formatPrintQty(order.qcAction.status === '质检完成' ? 0 : order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
+    { label: '待处理后交出复核成衣件数', value: formatPrintQty(waitRecheckQty, '件'), emphasis: true },
+    { label: '待交出成衣件数', value: formatPrintQty(waitHandoverQty, '件'), emphasis: true },
     { label: '当前状态', value: order.currentStatus },
     { label: '交付仓', value: waitHandoverRecord?.targetWarehouseName || '后道待交出仓' },
   ]
@@ -216,7 +231,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       sectionId: 'qc',
       title: '质检区',
       fields: [
-        { label: '待质检成衣件数', value: formatPrintQty(order.qcAction.submittedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
+        { label: '应质检成衣件数', value: formatPrintQty(order.qcAction.submittedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
         { label: '质检通过成衣件数', value: formatPrintQty(order.qcAction.passedGarmentQty ?? order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
         { label: '质检不合格成衣件数', value: formatPrintQty(order.qcAction.defectiveGarmentQty ?? order.qcAction.rejectedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
         { label: '质检人', value: valueOrDash(order.qcAction.operatorName) },
@@ -229,7 +244,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       sectionId: 'post',
       title: '后道处理区',
       fields: getPostActionFields(order),
-      note: '后道处理只记录已处理和未处理数量；质量与返厂仅由质检确认。',
+      note: '各加工项分别登记完成量与责任；历史合并量不冒充逐项加工记录。',
     },
     {
       sectionId: 'recheck',
@@ -247,12 +262,12 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       sectionId: 'handover',
       title: '交出区',
       fields: [
-        { label: '待交出成衣件数', value: formatPrintQty(waitHandoverRecord?.availableObjectQty ?? order.recheckAction.acceptedGarmentQty, '件'), emphasis: true },
-        { label: '已交出成衣件数', value: formatPrintQty(latestHandover?.handoverObjectQty ?? order.handoverAction?.handoverGarmentQty ?? 0, '件'), emphasis: true },
-        { label: '实收成衣件数', value: formatPrintQty(latestHandover?.receiveObjectQty ?? order.handoverAction?.receivedGarmentQty ?? 0, '件'), emphasis: true },
-        { label: '差异成衣件数', value: formatPrintQty(latestHandover?.diffObjectQty ?? order.handoverAction?.diffGarmentQty ?? 0, '件'), emphasis: true },
-        { label: '交出人', value: latestHandover?.handoverPerson || '—' },
-        { label: '交出时间', value: latestHandover?.handoverAt || '—' },
+        { label: '待交出成衣件数', value: formatPrintQty(waitHandoverQty, '件'), emphasis: true },
+        { label: '已交出成衣件数', value: formatPrintQty(handedOverQty, '件'), emphasis: true },
+        { label: '实收成衣件数', value: formatPrintQty(receivedQty, '件'), emphasis: true },
+        { label: '差异成衣件数', value: formatPrintQty(differenceQty, '件'), emphasis: true },
+        { label: '交出人', value: waits.length > 1 ? '明细见各出货单' : waits[0]?.handedOverBy?.actorName || '—' },
+        { label: '交出时间', value: waits.length > 1 ? '明细见各出货单' : waits[0]?.handedOverAt || '—' },
         { label: '接收人', value: latestHandover?.receivePerson || '—' },
         { label: '回写时间', value: latestHandover?.receiveAt || '—' },
         { label: '签字', value: '' },
@@ -300,7 +315,15 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       },
     ],
     barcodes: [],
-    sections,
+    sections: [...sections.filter(section => section.sectionId !== 'recheck'), ...listPostFinishingFullFlowRecheckOrders().filter(row => row.postTaskId === order.postOrderId).map(row => ({
+      sectionId: `recheck-${row.recheckOrderId}`, title: `处理后交出复核 ${row.recheckOrderNo}`, fields: [
+        { label: '应交数量', value: `${row.lines.reduce((sum, line) => sum + line.expectedQty, 0)} 件` },
+        { label: '实际复核', value: row.status === '复检完成' ? `${row.lines.reduce((sum, line) => sum + (line.handoverQty || 0), 0)} 件` : '未完成' },
+        { label: '复核人', value: row.claimedBy?.actorName || '未领取' },
+        { label: '复核时间', value: row.completedAt || '未完成' },
+        { label: '出货单', value: row.outboundOrderNo || '未生成' },
+      ],
+    }))],
     tables,
     signatureBlocks: [
       { label: '接收人签字', signerRole: '接收人' },
@@ -329,8 +352,8 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     ],
     footerFields: [
       { label: '待加工仓记录', value: waitProcessRecord?.warehouseRecordNo || order.waitProcessWarehouseRecordId },
-      { label: '交出仓记录', value: waitHandoverRecord?.warehouseRecordNo || order.waitHandoverWarehouseRecordId || '暂无交出仓记录' },
-      { label: '交出记录', value: latestHandover?.handoverRecordNo || order.handoverRecordId || '暂无交出记录' },
+      { label: '全部待交出来源', value: waits.map(row => row.outboundOrderNo).join('、') || '暂无交出仓记录' },
+      { label: '全部出货单', value: outbounds.map(row => row.outboundOrderNo).join('、') || '暂无出货记录' },
     ],
     printMeta: {
       generatedAt: printAt,

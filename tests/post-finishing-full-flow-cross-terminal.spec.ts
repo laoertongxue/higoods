@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { mkdirSync, writeFileSync } from 'node:fs'
 
 type QcScenario = 'normal' | 'balanced-defect' | 'balanced-return' | 'difference'
-type PostScenario = 'normal' | 'unprocessed' | 'web-fallback'
+type PostScenario = 'normal' | 'partial-then-continue' | 'web-fallback'
 type RecheckScenario = 'normal' | 'difference'
 type ReturnScenario = 'normal' | 'minus-5-boundary' | 'plus-5-boundary' | 'over-5-authorization'
 
@@ -99,16 +99,16 @@ const scenarios: CrossTerminalScenario[] = PRODUCTION_ORDERS.flatMap((production
     }
     if (key === '1-2') return { ...base, label: '回货 -5%边界且后道全链路', returnScenario: 'minus-5-boundary' }
     if (key === '1-3') return { ...base, label: '回货超过5%复点与动态授权', returnScenario: 'over-5-authorization' }
-    if (key === '1-4') return { ...base, label: '质检瑕疵守恒、后道记录未处理数量', qcScenario: 'balanced-defect', postScenario: 'unprocessed' }
+    if (key === '1-4') return { ...base, label: '质检瑕疵守恒、后道部分完成后继续余量', qcScenario: 'balanced-defect', postScenario: 'partial-then-continue' }
     if (key === '1-5') return { ...base, label: 'SKU错码重贴与复扫恢复', barcodeError: true }
     if (key === '2-1') return { ...base, label: '回货 +5%边界、款式颜色图片及质检直达成衣仓' , returnScenario: 'plus-5-boundary' }
     if (key === '2-2') return { ...base, label: '质检少1件授权后直达成衣仓', qcScenario: 'difference' }
-    if (key === '2-3') return { ...base, label: '漏做烫包，PDA中断后由Web接管并做交出差异授权', needPost: true, postScenario: 'web-fallback', recheckScenario: 'difference' }
+    if (key === '2-3') return { ...base, label: '漏做烫包，PDA登记后由Web继续并做交出差异授权', needPost: true, postScenario: 'web-fallback', recheckScenario: 'difference' }
     if (key === '2-4') return { ...base, label: '空项目不进复检和待交出仓' }
     if (key === '2-5') return { ...base, label: '漏做烫包后的出货单与待交出库存核对', needPost: true }
     if (key === '3-1') return { ...base, label: '质检返工守恒及返工工厂选择', qcScenario: 'balanced-return' }
     if (key === '3-2') return { ...base, label: '漏做项目进入后道后正常完成处理后复核', needPost: true }
-    if (key === '3-3') return { ...base, label: '漏做项目进入后道并记录未处理数量', needPost: true, postScenario: 'unprocessed' }
+    if (key === '3-3') return { ...base, label: '漏做项目进入后道部分完成后继续余量', needPost: true, postScenario: 'partial-then-continue' }
     if (key === '3-4') return { ...base, label: '处理后复核退领重领及第二组SKU错码重贴复扫', needPost: true, barcodeError: true, recheckRelease: true }
     if (key === '3-5') return { ...base, label: '空项目直接生成成衣仓待接收交接单' }
     return base
@@ -508,16 +508,14 @@ async function completeQcThroughWeb(
   }
 
   const processItems = page.locator('[data-qc-process-item]')
-  await expect(processItems).toHaveCount(3)
-  if (scenario.orderIndex === 0) {
-    expect(scenario.needPost).toBe(true)
-    expect(await processItems.evaluateAll((nodes) => nodes.every((node) => (node as HTMLInputElement).checked && (node as HTMLInputElement).disabled))).toBe(true)
-  } else if (scenario.needPost) {
-    await page.locator('[data-qc-process-item][value="烫包"]').check()
-    await expect(page.locator('[data-qc-process-item]:checked')).toHaveCount(1)
-  } else {
-    await expect(page.locator('[data-qc-process-item]:checked')).toHaveCount(0)
-  }
+  await expect(processItems).toHaveCount(4)
+  for (const input of await processItems.all()) { await expect(input).toBeEnabled(); await input.uncheck() }
+  if (scenario.needPost) {
+    const selected = scenario.orderIndex === 0 ? ['开扣眼', '装扣子', '熨烫', '包装'] : ['熨烫', '包装']
+    for (const item of selected) await page.locator(`[data-qc-process-item][value="${item}"]`).check()
+    await expect(page.locator('[data-qc-process-item]:checked')).toHaveCount(selected.length)
+  } else await expect(page.locator('[data-qc-process-item]:checked')).toHaveCount(0)
+  page.once('dialog', dialog => dialog.accept())
 
   await page.getByRole('button', { name: scenario.needPost ? '完成质检并生成后道加工单' : '完成质检并交接成衣仓' }).click()
   await expect(page.getByRole('status')).toContainText('质检完成')
@@ -528,7 +526,7 @@ async function completeQcThroughWeb(
   addStage(chain, page, 'Web质检完成', status, {
     qcScenario: scenario.qcScenario,
     needPost: scenario.needPost,
-    selectedProcessItems: scenario.needPost ? (scenario.orderIndex === 0 ? 3 : 1) : 0,
+    selectedProcessItems: scenario.needPost ? (scenario.orderIndex === 0 ? 4 : 2) : 0,
     downstreamNo: postTaskNo || outboundOrderNo || '',
   })
   if (scenario.qcScenario !== 'normal' || scenario.qcClaimConflictAndRelease) await saveScreenshot(page, chain, 'web-qc-completed')
@@ -553,63 +551,84 @@ async function completePostThroughPda(
 
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/fcs/pda/post-finishing/execute')
+  const selected = scenario.orderIndex === 0 ? ['开扣眼', '装扣子', '熨烫', '包装'] : ['熨烫', '包装']
   await fillScanAndWaitForRefresh(page, page.locator('[data-pda-post-field="postScan"]'), postTaskNo, {
     queryKey: 'id',
     queryValue: postTaskNo,
-    resultSelector: '[data-post-completion-line]',
-    resultCount: 5,
+    resultSelector: '[data-post-process]',
+    resultCount: selected.length,
   })
-  await page.getByRole('button', { name: '核对无误，开始后道' }).click()
-  await expect(page.locator('[data-post-completion-line]')).toHaveCount(5)
-  await expect(page.getByRole('button', { name: '还有 5 个 SKU 未完成数量归类' })).toBeDisabled()
-
-  if (scenario.postScenario === 'web-fallback') {
-    const firstPdaLine = page.locator('[data-post-completion-line]').first()
-    const firstPdaQuantity = firstPdaLine.locator('[data-post-processed-qty]')
-    await firstPdaQuantity.fill(await firstPdaQuantity.getAttribute('max') || '0')
-    await firstPdaLine.getByRole('button', { name: '保存' }).click()
-    await expect(page.getByText('1 / 5 个 SKU', { exact: true })).toBeVisible()
-    await setCurrentWebActor(page, 'PF-USER-POST')
-    await page.setViewportSize({ width: 1366, height: 768 })
-    await page.goto(`/fcs/craft/post-finishing/work-orders/${encodeURIComponent(postTaskNo)}`)
-    await expect(page.getByText('加工单当前由 全能力测试工厂_操作工 处理')).toBeVisible()
-    await page.locator('[data-web-post-takeover-reason]').fill('PDA故障，转Web继续')
-    await page.getByRole('button', { name: '确认接管' }).click()
-    await expect(page.getByRole('status')).toContainText('后道加工单接管成功')
-    for (let completed = 2; completed <= 5; completed += 1) {
-      const pendingLine = page.locator('[data-web-post-completion-line]').nth(completed - 1)
-      const quantity = pendingLine.locator('[data-web-post-processed-qty]')
-      await quantity.fill(await quantity.getAttribute('max') || '0')
-      await pendingLine.getByRole('button', { name: '保存' }).click()
-      await expect(page.getByText(`${completed} / 5 已归类`, { exact: true })).toBeVisible()
-    }
-    await expect(page.getByRole('button', { name: '完成后道并生成处理后交出复核单' })).toBeEnabled()
-  } else {
-    for (let completed = 1; completed <= 5; completed += 1) {
-      const pendingLine = page.locator('[data-post-completion-line]').nth(completed - 1)
-      const quantity = pendingLine.locator('[data-post-processed-qty]')
-      const maximum = Number(await quantity.getAttribute('max') || '0')
-      const completedQuantity = scenario.postScenario === 'unprocessed' && completed === 1
-        ? Math.max(0, maximum - 1)
-        : maximum
-      await quantity.fill(String(completedQuantity))
-      await pendingLine.getByRole('button', { name: '保存' }).click()
-      if (scenario.postScenario === 'unprocessed' && completed === 1) {
-        await pendingLine.getByText('填写未处理').click()
-        await page.locator('[data-post-adjust-field="unprocessedQty"]').fill('1')
-        await page.locator('[data-post-adjust-field="unprocessedReason"]').fill('本批现场未处理，本次不交出')
-        await page.getByRole('button', { name: '保存并返回后道加工单' }).click()
+  await expect(page.locator('[data-post-process]')).toHaveCount(selected.length)
+  expect(await page.locator('[data-post-process]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-post-process')))).toEqual(selected)
+  let webContinuation = false
+  for (const processItem of selected) {
+    if (scenario.postScenario === 'web-fallback' && processItem !== selected[0]) {
+      if (!webContinuation) {
+        await setCurrentWebActor(page, 'PF-USER-POST')
+        await page.setViewportSize({ width: 1366, height: 768 })
+        await page.goto(`/fcs/craft/post-finishing/work-orders/${encodeURIComponent(postTaskNo)}`)
+        await expect(page.locator('[data-web-post-takeover-reason]')).toHaveCount(0)
+        webContinuation = true
       }
-      await expect(page.getByText(`${completed} / 5 个 SKU`, { exact: true })).toBeVisible()
+      await page.locator(`[data-post-finishing-work-order-detail-action="open-register"][data-process-item="${processItem}"]`).click()
+      await expect(page.locator('[data-post-entry-form]')).toBeVisible()
+      await expect(page.locator('[data-post-entry-quantity]')).toHaveCount(5)
+      for (const input of await page.locator('[data-post-entry-quantity]').all()) await input.fill(await input.getAttribute('max') || '0')
+      await page.locator('[data-post-finishing-work-order-detail-action="save-entry"]').click()
+      await expect(page.locator('[data-post-entry-form]')).toHaveCount(0)
+    } else {
+      const card = page.locator(`[data-post-process="${processItem}"]`)
+      if ((await card.getAttribute('open')) === null) await card.locator(':scope > summary').click()
+      const inputs = card.locator('[data-post-process-qty]')
+      for (let index = 0; index < await inputs.count(); index++) {
+        const input = inputs.nth(index)
+        if (await input.isDisabled()) continue
+        const maximum = Number(await input.getAttribute('max') || '0')
+        await input.fill(String(scenario.postScenario === 'partial-then-continue' && processItem === selected[0] && index === 0 ? Math.max(0, maximum - 1) : maximum))
+      }
+      await card.locator('[data-pda-post-action="save-process-completion"]').click()
+      await expect(page.locator('[data-pda-post-task] [role="status"]')).toContainText(`${processItem}本次已保存`)
     }
-    await expect(page.getByRole('button', { name: '完成并生成处理后交出复核单' })).toBeEnabled()
   }
-
-  await page.getByRole('button', { name: scenario.postScenario === 'web-fallback' ? '完成后道并生成处理后交出复核单' : '完成并生成处理后交出复核单' }).click()
-  await expect(page.getByRole('status')).toContainText('后道处理完成，处理后交出复核单')
-  const status = await statusText(page)
-  const recheckOrderNo = extractNumber(status, /后道处理完成，处理后交出复核单 ([A-Z0-9-]+)/, '处理后交出复核单号')
-  addStage(chain, page, scenario.postScenario === 'web-fallback' ? 'Web接管后道完成' : 'PDA后道完成', status, { postScenario: scenario.postScenario, recheckOrderNo })
+  if (scenario.postScenario === 'partial-then-continue') {
+    const partial = await page.evaluate(async no => {
+      const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+      return { task: flow.getPostFinishingFullFlowPostTask(no), progress: flow.getPostFinishingProcessProgress(no) }
+    }, postTaskNo)
+    expect(partial.task?.status).toBe('后道中')
+    expect(partial.progress.totalExpectedQty - partial.progress.totalCompletedQty).toBe(1)
+    for (const processItem of selected) {
+      const card = page.locator(`[data-post-process="${processItem}"]`)
+      if ((await card.getAttribute('open')) === null) await card.locator(':scope > summary').click()
+      await card.locator('[data-post-process-qty]').first().fill('1')
+      await card.locator('[data-pda-post-action="save-process-completion"]').click()
+      await expect(page.locator('[data-pda-post-task] [role="status"]')).toContainText(`${processItem}本次已保存`)
+    }
+  }
+  if (webContinuation) {
+    await page.locator('[data-post-finishing-work-order-detail-action="open-recheck"]').click()
+    await expect(page.locator('[data-post-entry-form]')).toBeVisible()
+    await expect(page.locator('[data-post-entry-quantity]')).toHaveCount(5)
+    for (const input of await page.locator('[data-post-entry-quantity]').all()) await input.fill(await input.getAttribute('max') || '0')
+    page.once('dialog', dialog => dialog.accept())
+    await page.locator('[data-post-finishing-work-order-detail-action="save-entry"]').click()
+    await expect(page.locator('[data-post-entry-form]')).toHaveCount(0)
+  } else {
+    const form = page.locator('[data-post-recheck-form]')
+    if ((await form.getAttribute('open')) === null) await form.locator(':scope > summary').click()
+    for (const input of await form.locator('[data-post-recheck-qty]:not([disabled])').all()) await input.fill(await input.getAttribute('max') || '0')
+    page.once('dialog', dialog => dialog.accept())
+    await page.locator('[data-pda-post-action="submit-for-recheck"]').click()
+    await expect(page.locator('[data-pda-post-task] [role="status"]')).toContainText('已交复检')
+  }
+  const child = await page.evaluate(async no => {
+    const flow = await import('/src/data/fcs/post-finishing-full-flow.ts')
+    const task = flow.getPostFinishingFullFlowPostTask(no)!
+    return flow.listPostFinishingFullFlowRecheckOrders().find(row => row.postTaskId === task.postTaskId)!
+  }, postTaskNo)
+  const recheckOrderNo = child.recheckOrderNo
+  const status = `按已完成可用量交复检 ${recheckOrderNo}`
+  addStage(chain, page, webContinuation ? 'Web接续分项后交复检' : 'PDA分项完成后交复检', status, { postScenario: scenario.postScenario, recheckOrderNo })
   if (scenario.postScenario !== 'normal') await saveScreenshot(page, chain, 'pda-post-completed')
   return recheckOrderNo
 }
@@ -650,7 +669,7 @@ async function completeRecheckThroughWeb(
     await expect(page.getByRole('status')).toContainText('条码错误，已阻断出货')
     await page.locator('[data-recheck-result-line]').first().locator('[data-nav]').filter({ hasText: '打印重贴条码' }).click({ noWaitAfter: true })
     await expect(page.locator('[data-testid="post-finishing-sku-label-print"]')).toBeVisible()
-    await expect(page.locator('[data-sku-label-barcode]')).toHaveAttribute('data-sku-label-barcode', expectedSkuBarcodes(scenario.orderIndex)[0])
+    await expect(page.locator('[data-sku-label-barcode]')).toHaveAttribute('data-sku-label-barcode', await page.evaluate(async no => { const f = await import('/src/data/fcs/post-finishing-full-flow.ts'); return f.getPostFinishingFullFlowRecheckOrder(no)!.lines[0].sku.barcode }, recheckOrderNo))
     await page.goBack()
     await expect(page.locator('[data-recheck-result-line]')).toHaveCount(5)
     await page.locator('[data-recheck-result-line]').first().getByRole('button', { name: '已重新贴码' }).click()

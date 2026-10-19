@@ -1,0 +1,137 @@
+[
+  {
+    "path": "artifacts/main-integration-browser/accessory-first-existing-pcs.json",
+    "bytes": 178214,
+    "sha256": "932853b86e8e516389d8acf184b9fab1ca1767b1d5e06f643e965606445a2e60"
+  },
+  {
+    "path": "artifacts/main-integration-browser/accessory-first-existing-pcs.png",
+    "bytes": 157009,
+    "sha256": "941fdcee970e5662911feeb509c20af767d2718cfee1378a1a79a3a36f1d4302"
+  },
+  {
+    "path": "artifacts/main-integration-browser/managed-pda-receipt-480.json",
+    "bytes": 2397,
+    "sha256": "daefb94d1408ca004b0ba1db3c3ad1c74d17f7eb0f43a01e69f47c8f5b4ae45d"
+  },
+  {
+    "path": "artifacts/main-integration-browser/managed-pda-receipt-480.png",
+    "bytes": 66119,
+    "sha256": "ef1e221fb246ac8e9c131026961c9669c6a0a202630211c6111c26f3ed592281"
+  },
+  {
+    "path": "artifacts/main-integration-browser/managed-pda-receipt.json",
+    "bytes": 21123,
+    "sha256": "782673b42e8e591df204fa5c4e548677496df8c6755ab24ffb80b77437c3cf6b"
+  },
+  {
+    "path": "artifacts/main-integration-browser/managed-pda-receipt.png",
+    "bytes": 64596,
+    "sha256": "95cf2926cf82d97b5fece9b796469f095f9f1775ce63a7dc0236619d6a6cb2c4"
+  },
+  {
+    "path": "artifacts/main-integration-browser/managed-role-results.json",
+    "bytes": 1435,
+    "sha256": "c525757986be8d3a1e5da14f8bde2f8d1b865819d31c42ddbae3f684b5761e6b"
+  },
+  {
+    "path": "artifacts/main-integration-browser/post-first-inline.json",
+    "bytes": 9768606,
+    "sha256": "5b9a04c26e7e65455cdb3bb6f23916cd0a71cd1c56f81e8f4ff5866c0536df00"
+  },
+  {
+    "path": "artifacts/main-integration-browser/post-first-inline.png",
+    "bytes": 157017,
+    "sha256": "55048bfeac2fd3d37e093fa21bb1d3d0e5f6e06b86101fa7261289c1685f8f62"
+  },
+  {
+    "path": "artifacts/main-integration-browser/readonly-backup-restore.json",
+    "bytes": 69593,
+    "sha256": "2c37bf7687709d0990ce94ce678cfb3fad09a7f4d8b00f9075f842eb7f4139de"
+  },
+  {
+    "path": "artifacts/main-integration-browser/readonly-backup-restore.png",
+    "bytes": 136202,
+    "sha256": "162408aad09fd0685c3500f650ba2178cdfce5241d633c2da1cd0d1242bb5947"
+  },
+  {
+    "path": "artifacts/migration/legacy-carryover.png",
+    "bytes": 147915,
+    "sha256": "421c04adc26d17eb3b320867570446e2e65bdebf68fd007366290bfceb66914e"
+  },
+  {
+    "path": "artifacts/partial-flow-e2e/list-zero-versus-not-applicable-1280.png",
+    "bytes": 112943,
+    "sha256": "a48ac2b16f4e682407ebfddb38be36025b147482aaabb64ca5deb9c3d70e314a"
+  },
+  {
+    "path": "artifacts/partial-flow-e2e/qc-four-independent-items-button-pack.png",
+    "bytes": 188202,
+    "sha256": "49f8869ebc2e5f0ba9aafeb70cc4524cb5e3ab2ab32e5950a894ccb6d6ebae5b"
+  },
+  {
+    "path": "artifacts/partial-flow-e2e/web-delegated-registration-and-supervisor-correction.png",
+    "bytes": 110425,
+    "sha256": "99f1decd0c581537abc9fc912fd2342fa6f8eab7b5822f7ac12f5cab2c416add"
+  },
+  {
+    "path": "artifacts/partial-flow-e2e/web-delegation-correction-readback.json",
+    "bytes": 113063,
+    "sha256": "bd49c17c6325382a6f7857bdbc6eddc1e4d2af7cf82b470b114abcf70c50ffef"
+  },
+  {
+    "path": "artifacts/partial-flow-e2e/web-keyboard-tab-keeps-entry-and-focus-1024.png",
+    "bytes": 113847,
+    "sha256": "c93987effdb2b4e0fd936cb59b8c69b9cb34ee2671702e30a72a0baad54095e9"
+  },
+  {
+    "path": "partial-before-helper-fix.spec.ts",
+    "bytes": 34185,
+    "sha256": "0c9f9d6556e6a1907a99256094b6a301b4f8637666c5e75c419620d228acf04e"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/list-zero-versus-not-applicable-1280-f047de588654cbf3c103f3c2677dd6ac09000e50.png",
+    "bytes": 112943,
+    "sha256": "a48ac2b16f4e682407ebfddb38be36025b147482aaabb64ca5deb9c3d70e314a"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/qc-four-independent-items-button-pack-c32bc68b5bf2a373e4e7a0f87d54a088ddca3688.png",
+    "bytes": 188202,
+    "sha256": "49f8869ebc2e5f0ba9aafeb70cc4524cb5e3ab2ab32e5950a894ccb6d6ebae5b"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/web-delegated-registration-and-supervisor-correction-04fb124c164cc06609b748dbad53663ff06a6534.png",
+    "bytes": 110425,
+    "sha256": "99f1decd0c581537abc9fc912fd2342fa6f8eab7b5822f7ac12f5cab2c416add"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/web-keyboard-tab-keeps-entry-and-focus-1024-f563c36e95f63b59de03254a9b1a8e645e7fb802.png",
+    "bytes": 113847,
+    "sha256": "c93987effdb2b4e0fd936cb59b8c69b9cb34ee2671702e30a72a0baad54095e9"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/error-context.md",
+    "bytes": 36765,
+    "sha256": "8119703781470bea5f4b04af66ba7dcecb2c89ef51d2d7a288e70f43d252c8b2"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/test-failed-1.png",
+    "bytes": 110425,
+    "sha256": "99f1decd0c581537abc9fc912fd2342fa6f8eab7b5822f7ac12f5cab2c416add"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/trace.zip",
+    "bytes": 5721919,
+    "sha256": "cff0b16702b269fad2c8be9b7468a4f5bf84739e3988f4d481333525d3842abe"
+  },
+  {
+    "path": "post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/video.webm",
+    "bytes": 466104,
+    "sha256": "319b49fac0813ebbf3b56cbe135ad46b0b4339eb0065db33c412c0bda14c6fb5"
+  },
+  {
+    "path": "raw-five-pass-one-helper-fail.log",
+    "bytes": 15508,
+    "sha256": "1e90ed27dc056ad408903242b02fd7260bdf4e3cf22b8d6ae9a1c2db774f8d7f"
+  }
+]

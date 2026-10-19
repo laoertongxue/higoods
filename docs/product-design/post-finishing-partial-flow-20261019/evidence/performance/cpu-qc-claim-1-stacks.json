@@ -1,0 +1,265 @@
+{
+  "profile": "cpu-qc-claim-1.cpuprofile",
+  "intervalUs": 1000,
+  "aggregatedTop": [
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 308,
+      "callStacks": [
+        [
+          "Ae <- <anonymous> <- pe <- Ne <- <anonymous> <- (root)",
+          104
+        ],
+        [
+          "Ae <- <anonymous> <- pe <- jo <- ae <- Y <- (root)",
+          100
+        ],
+        [
+          "Ae <- ue <- jo <- ae <- Y <- (root)",
+          52
+        ],
+        [
+          "Ae <- ue <- jo <- (root)",
+          50
+        ],
+        [
+          "Ae <- Ne <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 79,
+      "callStacks": [
+        [
+          "(program) <- (root)",
+          79
+        ]
+      ]
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 66,
+      "callStacks": [
+        [
+          "e.onsuccess <- (root)",
+          66
+        ]
+      ]
+    },
+    {
+      "function": "Ne",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 51438,
+      "selfSamples": 63,
+      "callStacks": [
+        [
+          "Ne <- (root)",
+          63
+        ],
+        [
+          "Ne <- <anonymous> <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 55,
+      "callStacks": [
+        [
+          "(garbage collector) <- (root)",
+          55
+        ]
+      ]
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 50061,
+      "selfSamples": 50,
+      "callStacks": [
+        [
+          "tt <- tt <- <anonymous> <- tt <- Ne <- (root)",
+          21
+        ],
+        [
+          "tt <- Ne <- (root)",
+          17
+        ],
+        [
+          "tt <- <anonymous> <- tt <- Ne <- (root)",
+          11
+        ],
+        [
+          "tt <- tt <- tt <- <anonymous> <- tt <- Ne <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 39,
+      "callStacks": [
+        [
+          "(idle) <- (root)",
+          39
+        ]
+      ]
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 27,
+      "callStacks": [
+        [
+          "c <- N <- <anonymous> <- (root)",
+          11
+        ],
+        [
+          "c <- c <- c <- c <- N <- <anonymous> <- (root)",
+          7
+        ],
+        [
+          "c <- c <- c <- N <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "c <- c <- c <- c <- c <- N <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "c <- c <- N <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "function": "jo",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 52597,
+      "selfSamples": 26,
+      "callStacks": [
+        [
+          "jo <- ae <- Y <- (root)",
+          26
+        ],
+        [
+          "jo <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 18,
+      "callStacks": [
+        [
+          "p <- $ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+          15
+        ],
+        [
+          "p <- <anonymous> <- a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+          2
+        ],
+        [
+          "p <- Zo <- O <- Q <- <anonymous> <- jo <- ae <- Y <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "n",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47652,
+      "selfSamples": 9,
+      "callStacks": [
+        [
+          "n <- <anonymous> <- ft <- <anonymous> <- Ke <- jo <- ae <- Y <- (root)",
+          9
+        ]
+      ]
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 111489,
+      "selfSamples": 9,
+      "callStacks": [
+        [
+          "<anonymous> <- <anonymous> <- Ne <- (root)",
+          9
+        ]
+      ]
+    },
+    {
+      "function": "$",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 74169,
+      "selfSamples": 7,
+      "callStacks": [
+        [
+          "$ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+          7
+        ]
+      ]
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 50296,
+      "selfSamples": 6,
+      "callStacks": [
+        [
+          "<anonymous> <- tt <- tt <- <anonymous> <- tt <- Ne <- (root)",
+          4
+        ],
+        [
+          "<anonymous> <- tt <- Ne <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 2945,
+      "selfSamples": 5,
+      "callStacks": [
+        [
+          "<anonymous> <- (root)",
+          5
+        ]
+      ]
+    }
+  ]
+}

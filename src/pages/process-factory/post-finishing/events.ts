@@ -34,20 +34,38 @@ function openPostFinishingQcPrintDialog(type: 'QC_ORDER' | 'QC_DETAIL'): void {
 }
 
 function openImage(url: string, label: string): void {
+  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined
   const overlay = document.createElement('div')
   overlay.className = 'fixed inset-0 z-[200] flex cursor-zoom-out items-center justify-center bg-black/70 p-4'
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
-  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey) }
+  overlay.setAttribute('aria-label', `${label}大图`)
+  overlay.setAttribute('data-post-image-overlay', '')
+  overlay.setAttribute('data-post-finishing-image-preview', 'true')
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); previousFocus?.focus() }
   const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
   document.addEventListener('keydown', onKey)
-  overlay.innerHTML = `<button type="button" aria-label="关闭图片" class="absolute right-4 top-4 rounded-md bg-white px-4 py-2">关闭</button><div class="max-h-[90vh] max-w-[90vw]"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="max-h-[85vh] max-w-[85vw] rounded-lg object-contain shadow-2xl" /><div class="mt-2 text-center text-xs text-white/60">${escapeHtml(label)}</div></div>`
-  overlay.addEventListener('click', close)
+  overlay.innerHTML = `<button type="button" data-post-image-close aria-label="关闭图片" class="absolute right-4 top-4 rounded-md bg-white px-4 py-2">关闭</button><div class="max-h-[90vh] max-w-[90vw]"><img alt="${escapeHtml(label)}" class="max-h-[85vh] max-w-[85vw] rounded-lg object-contain shadow-2xl" /><p role="status" class="mt-2 text-center text-sm text-white" data-post-image-status>图片加载中…</p><button type="button" data-post-image-retry hidden class="mt-2 rounded-md bg-white px-4 py-2">重新加载图片</button><div class="mt-2 text-center text-xs text-white/60">${escapeHtml(label)}</div></div>`
+  const img = overlay.querySelector<HTMLImageElement>('img')!
+  const status = overlay.querySelector<HTMLElement>('[data-post-image-status]')!
+  const retry = overlay.querySelector<HTMLButtonElement>('[data-post-image-retry]')!
+  img.addEventListener('load', () => { status.hidden = true; retry.hidden = true })
+  img.addEventListener('error', () => { status.hidden = false; status.textContent = '图片加载失败，可重新加载。'; retry.hidden = false })
+  retry.addEventListener('click', () => { status.textContent = '图片加载中…'; retry.hidden = true; img.src = url })
+  overlay.addEventListener('click', event => { if (event.target === overlay || (event.target as HTMLElement).closest('[data-post-image-close]')) close() })
   document.body.appendChild(overlay)
+  img.src = url
+  overlay.querySelector<HTMLButtonElement>('[data-post-image-close]')?.focus()
 }
 
 export async function handlePostFinishingEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (await handlePostFinishingStorageEvent(target, event)) return true
+  const imageAction = target.closest<HTMLElement>('[data-post-finishing-action]')
+  if (['zoom-image', 'full-flow-zoom-image'].includes(imageAction?.dataset.postFinishingAction || '')) {
+    const url = imageAction?.dataset.zoomUrl || imageAction?.dataset.imageUrl
+    if (url) openImage(url, imageAction?.dataset.zoomLabel || imageAction?.dataset.imageLabel || '')
+    return true
+  }
   if (await handlePostFinishingMaterialTransfersEvent(target, event)) return true
   if (await handlePostFinishingAuditRecordsEvent(target, event)) return true
   if (await handlePostFinishingTasksEvent(target, event)) return true

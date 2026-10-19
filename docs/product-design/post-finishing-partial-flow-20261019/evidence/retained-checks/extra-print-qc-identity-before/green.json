@@ -1,0 +1,105 @@
+{
+  "boundary": "Pure collector expectation from exact fixed D10 backup, no product/runtime/browser/persistence/performance assertion.",
+  "distinctSourceIdentities": {
+    "qcId": "PF-QC-PF-ACCEPT-PO-1-1",
+    "postId": "PF-POST-PF-ACCEPT-PO-1-1",
+    "qcNo": "PO-QC-202608-001-1-ZJ",
+    "postNo": "PO-QC-202608-001-1-ZJ-HD"
+  },
+  "output": [
+    {
+      "type": "POST_ORDER",
+      "id": "PF-POST-PF-ACCEPT-PO-1-1",
+      "documentNo": "PO-QC-202608-001-1-ZJ-HD",
+      "productionOrderNo": "PO-QC-202608-001",
+      "factory": "PT Prima Printing Center",
+      "skus": [
+        {
+          "skuId": "SPU-QC-001-S",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-M",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-L",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-XL",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-2XL",
+          "quantity": 200
+        }
+      ],
+      "rechecks": 10,
+      "outbounds": 10
+    },
+    {
+      "type": "QC_ORDER",
+      "id": "PF-QC-PF-ACCEPT-PO-1-1",
+      "documentNo": "PO-QC-202608-001-1-ZJ",
+      "productionOrderNo": "PO-QC-202608-001",
+      "factory": "PT Prima Printing Center",
+      "skus": [
+        {
+          "skuId": "SPU-QC-001-S",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-M",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-L",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-XL",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-2XL",
+          "quantity": 200
+        }
+      ],
+      "rechecks": 0,
+      "outbounds": 0
+    },
+    {
+      "type": "QC_DETAIL",
+      "id": "PF-QC-PF-ACCEPT-PO-1-1",
+      "documentNo": "PO-QC-202608-001-1-ZJ",
+      "productionOrderNo": "PO-QC-202608-001",
+      "factory": "PT Prima Printing Center",
+      "skus": [
+        {
+          "skuId": "SPU-QC-001-S",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-M",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-L",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-XL",
+          "quantity": 200
+        },
+        {
+          "skuId": "SPU-QC-001-2XL",
+          "quantity": 200
+        }
+      ],
+      "rechecks": 0,
+      "outbounds": 0
+    }
+  ],
+  "missingRejected": 3
+}

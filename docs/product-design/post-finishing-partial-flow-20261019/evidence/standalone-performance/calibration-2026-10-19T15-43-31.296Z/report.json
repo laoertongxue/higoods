@@ -1,0 +1,5734 @@
+{
+  "format": "post-finishing-standalone-performance-v1",
+  "runId": "calibration-2026-10-19T15-43-31.296Z",
+  "startedAt": "2026-10-19T15:43:31.296Z",
+  "config": {
+    "origin": "http://127.0.0.1:43198",
+    "url": "http://127.0.0.1:43198/newpda/index.html?demo=work&screen=post-batch&size=compact",
+    "trials": 1,
+    "calibration": true,
+    "maxMs": 1000,
+    "viewport": {
+      "width": 1366,
+      "height": 900
+    },
+    "deviceCss": {
+      "width": 320,
+      "height": 640
+    },
+    "timezone": "Asia/Shanghai",
+    "cpuThrottle": "none",
+    "networkThrottle": "none",
+    "fixture": {
+      "publicUrlFixture": "demo=work",
+      "parent": "SH-082",
+      "skuQuantities": {
+        "M": 600,
+        "L": 400
+      },
+      "total": 1000,
+      "items": [
+        "开扣眼",
+        "装扣子",
+        "熨烫",
+        "包装"
+      ],
+      "initialEntries": 0,
+      "initialRechecks": 0,
+      "initialOutbounds": 0,
+      "increments": [
+        [
+          600,
+          400
+        ]
+      ]
+    },
+    "families": [
+      "page:cold-entry",
+      "page:refresh",
+      "page:queue",
+      "page:in-app-entry",
+      "page:view:work",
+      "page:view:submit",
+      "page:view:check",
+      "page:view:out",
+      "page:item:开扣眼",
+      "page:item:装扣子",
+      "page:item:熨烫",
+      "page:item:包装",
+      "action:process:开扣眼:save",
+      "action:process:装扣子:save",
+      "action:process:熨烫:save",
+      "action:process:包装:save",
+      "action:quantity:M:input",
+      "action:quantity:L:input",
+      "action:submit-recheck",
+      "action:claim-recheck",
+      "action:barcode:M",
+      "action:barcode:L",
+      "action:complete-recheck",
+      "action:receipt:open",
+      "action:receipt:save",
+      "failure:quantity-upper-bound",
+      "failure:simulated-save"
+    ],
+    "cache": "Cold means a fresh isolated Chromium context with no browser HTTP cache. Refresh and in-app navigation use their existing context; no warmup is counted as cold.",
+    "clock": "Navigation uses the new document performance time origin (0). Actions start in a capture listener at the real trusted UI event, before application handlers.",
+    "endpoint": "Expected page-memory facts and visible business result, current relevant control enabled, visible device images decoded, fonts loaded, and two stable requestAnimationFrame callbacks. The existing 450ms save cooldown is included.",
+    "boundary": "Pure page-memory interaction sample; refresh resets all demonstrated business facts. No main-app IndexedDB save, persistence, physical factory work, scanner or printer execution is claimed."
+  },
+  "head": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "dirty": "M README.md\n M architecture.md\n M public/newpda/handoff-context.js\n M public/newpda/index.html\n M public/newpda/post-flow.css\n M public/newpda/post-flow.js\n M scripts/check-post-finishing-current-read-model.ts\n M scripts/check-post-finishing-full-flow-surface.ts\n M scripts/check-post-finishing-full-flow.ts\n M scripts/check-post-finishing-outbound-and-online-print.ts\n M scripts/check-post-finishing-qc-colors.ts\n M scripts/check-post-finishing-return-source-generalization.ts\n M scripts/check-post-finishing-web-pda-fallback.ts\n M scripts/verification/post-finishing-qc-browser.js\n M src/data/fcs/platform-process-result-view.ts\n M src/data/fcs/post-finishing-current-read-model.ts\n M src/data/fcs/post-finishing-document-numbering.ts\n M src/data/fcs/post-finishing-full-flow.ts\n M src/data/fcs/post-finishing-records.ts\n M src/data/fcs/process-statistics-domain.ts\n M src/data/fcs/task-print-cards.ts\n M src/main.ts\n M src/pages/pda-post-finishing-exec-detail.ts\n M src/pages/pda-post-finishing-flow.ts\n M src/pages/print/print-preview.ts\n M src/pages/print/templates/post-finishing-outbound-template.ts\n M src/pages/print/templates/post-finishing-route-card-template.ts\n M src/pages/process-factory/post-finishing/audit-records.ts\n M src/pages/process-factory/post-finishing/events.ts\n M src/pages/process-factory/post-finishing/full-flow-print.ts\n M src/pages/process-factory/post-finishing/qc-orders.ts\n M src/pages/process-factory/post-finishing/qc-workbench.ts\n M src/pages/process-factory/post-finishing/statistics.ts\n M src/pages/process-factory/post-finishing/storage-notice.ts\n M src/pages/process-factory/post-finishing/tasks.ts\n M src/pages/process-factory/post-finishing/warehouse.ts\n M src/pages/process-factory/post-finishing/work-order-detail.ts\n M src/pages/process-factory/post-finishing/work-orders.ts\n M tests/post-finishing-full-flow-cross-terminal.spec.ts\n M tests/post-finishing-full-flow.spec.ts\n M tests/post-finishing-pda-role-boundary.spec.ts\n?? docs/implementation-plans/2026-10-19-后道逐项加工与多次复检出货实施及验收计划.md\n?? docs/product-design/2026-10-19-后道逐项加工与多次复检出货调整方案.md\n?? docs/product-design/post-finishing-partial-flow-20261019/\n?? docs/prototype-review-records/2026-10-19-post-finishing-partial-flow.md\n?? docs/requirement-traceability/2026-10-19-后道逐项加工与多次复检出货矩阵.md\n?? scripts/check-post-finishing-statistics-scope.ts\n?? scripts/verification/post-finishing-partial-performance.mjs\n?? scripts/verification/post-finishing-standalone-performance.mjs\n?? src/data/fcs/post-finishing-print-progress.ts\n?? tests/post-finishing-consumers.spec.ts\n?? tests/post-finishing-migration.spec.ts\n?? tests/post-finishing-partial-flow.spec.ts\n?? tests/unit/post-finishing-multiple-recheck.test.ts\n?? tests/unit/post-finishing-process-progress.test.ts",
+  "scriptSha256": "2b0d7141f9ba8656f32d1b198fecfda298fecb580190d1cc7412c6bd60041bc1",
+  "sourceHashes": {
+    "V34连续作业核查.html": "3bf9ff4ed171b20ff937fbfaf1a87952bf89d2fd89f9cdd2d9f4536005501808",
+    "app.js": "2c89d0df94715471b247d690978848403e92a32fca28d4d7f7a0be4bf168c8b4",
+    "aux-special-accessory-flow.css": "286b6cc1edbcfaca4fae0a57a1977a144c3459a9a2ee9096155523df4c79f496",
+    "aux-special-accessory-flow.js": "c816d02bf88832bfde56accbe1e14b4f75eae6e6ae6f4efa4237172056bac01a",
+    "board.html": "a4f6f1d4cbe5408504411c4be179e01b37e1e1e9769434b2f73d7e3898bae650",
+    "continuous-input.js": "1b95d64939df01f9b6587b02d5d044dc9b954264197dbd55e05ca0b30ad383ef",
+    "cutting-flow.css": "91f12699e27c70b3dc2c4f89e772725643c840507a2428948dcc23e34e78a64f",
+    "cutting-flow.js": "d1b55d0074d68666ed3a70862f286b4eabfe37dab9a4bef9b66d3c0642504aa9",
+    "device-session.css": "64e73eda71bfb0359ff70b278fa6db7930427b17654e6a4e55e7242542ad3e23",
+    "device-session.js": "e4404890fcf495bc130fc5cf90520c45b40d0642ca6211f5bd996b37fa421188",
+    "dye-print-wash-flow.css": "69fd51810ef3a5257e289e08b0386c630f6698d1a2b855f7748ee6dc69b90412",
+    "dye-print-wash-flow.js": "4ab43f5a232924046398d3c90c3b7a2362a2f072c125f9d031949b165141a812",
+    "floor-flow.css": "2466a1826199a510b73ac6398c00d86317a42ba7ffd67545593f220f48689e2b",
+    "floor-flow.js": "b38786553a08f5b0f2c27f0907952360862cc9e6e20434bdef5c670c77db81c8",
+    "handoff-context.js": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955",
+    "index.html": "8ac621606dfa0d2bda1273da2565209d544fb6a47819daf910c0321ca4b3245d",
+    "knit-link-flow.css": "49bf18aa66082f33f68c2000d9308257d957610c8128bbc9c2c4829ddf5c9cf2",
+    "knit-link-flow.js": "52ad2a0adaa9997be08fe16f44131f91afe7f39eb82e900e56a1711450fe2d80",
+    "locale-id-terms.js": "f7a1875c3b94c433bbffd002a3c40cc60c4b2f08d36330943041a541903668c7",
+    "locale-preview.js": "a842d21fff4708ed697db54a0e713c3623ed9b497928de41303c80578cdd2fda",
+    "post-flow.css": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe",
+    "post-flow.js": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581",
+    "sewing-return.css": "bf86b4b0a71d8aae5cfe1a8c6306b919da4e2cff13b89bf36c204bd204c01d55",
+    "sewing-return.js": "8ad917100c5e59f76b02736a64b81e72fd46645bfb12f1a29f86d76efbb77de6",
+    "style.css": "fa26a1594319cd5fbccf8e333e8916ca75c2a2e14aed2e59106373c3219e4f64",
+    "v3.js": "3a1e84696a017c044e26f06d10a3f0f9e0706f32bd3c2567941dc7f52e3fed35",
+    "v4-warehouse.css": "5d4aa93aad465fcea046a99fd7be2c7eeaafb71eb3db2013880720fa2cf097da",
+    "v4-warehouse.js": "f442a3e2ae50a2f0e10337afa2ea6da7e201cc216b03a66ee991b533d31363b7",
+    "v4.css": "02f5f6d3547b8e1bbe14a0af2a478a4675915d228b1d266b6014388767335d99",
+    "v4.js": "f8462ed87494331afa519bd584af20d9f9e3e934448ac429a401d1f56f1e8cab",
+    "v5-warehouse.css": "9b050218e3b82770af4cbc79f37a9ac5053297e2b92874a90ba2a2bac7aa923e",
+    "v5-warehouse.js": "73c4ea27aaa14e3c15aedb1c690365b7e1bb9e48a56d78a811088fc3e3c3ca01",
+    "v6-warehouse.css": "cf92c0ca56223368bdb2cc299e39a505b62ca428e8408181fc20826836f47cd3",
+    "v6-warehouse.js": "55ff75bfe3cc6304efe9ba3a538351ec41585b0820b59b9d561ffa5868d2dd02",
+    "v7-warehouse.css": "8606599c364cceb4481690353020a248d43b329b868f3425c578e0e31ba83198",
+    "v7-warehouse.js": "edb752912be30d5ff23df67d8ee8e2f944609223459e6fa366da41b94c2be299",
+    "warehouse-location-catalog.js": "0fa59b917b4f37d268ae38d1a6f1e00bab154ada4aacd4ef0d46770bf05c4cd7",
+    "water-binding-flow.css": "aa02dc8c6ef47a0c1d7a8cff88e31aa228822926f1acff1a795bf16b8d85aef0",
+    "water-binding-flow.js": "043dcd4dbe6665ffeeb6b85940d21fab87e97705cc0df7caebeaf9ab35e6f732"
+  },
+  "priorInputEvidence": [
+    {
+      "path": "/private/tmp/post-flow-v9-boundary-verification.json",
+      "sha256": "4da3245d5b4d7b50c71627986c5a184ad2fe549d7e70875899957cef40d6b2e0"
+    },
+    {
+      "path": "/private/tmp/post-flow-v9-recheck-verification.json",
+      "sha256": "df13fa1c68279018fddc802982e6512c16194814eb51801baeac230fe95299b0"
+    }
+  ],
+  "priorExecutable": "The original /tmp/post-flow-v9* executable is absent; actual post-flow.js URL fixture and data-pf controls were read to prepare this collector.",
+  "host": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M3",
+    "logicalCpus": 8,
+    "ramBytes": 17179869184,
+    "freeRamBytes": 1344880640,
+    "loadAverage": [
+      5.63134765625,
+      3.796875,
+      3.216796875
+    ]
+  },
+  "servedAssets": [
+    {
+      "name": "index.html",
+      "url": "http://127.0.0.1:43198/newpda/index.html",
+      "sha256": "8ac621606dfa0d2bda1273da2565209d544fb6a47819daf910c0321ca4b3245d",
+      "matchesSource": true,
+      "bytes": 4029
+    },
+    {
+      "name": "post-flow.js",
+      "url": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+      "sha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581",
+      "matchesSource": true,
+      "bytes": 41597
+    },
+    {
+      "name": "post-flow.css",
+      "url": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+      "sha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe",
+      "matchesSource": true,
+      "bytes": 4170
+    },
+    {
+      "name": "handoff-context.js",
+      "url": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+      "sha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955",
+      "matchesSource": true,
+      "bytes": 7282
+    }
+  ],
+  "runtimeAssetUrls": [
+    {
+      "responseIndex": 0,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+      "status": 200,
+      "preflightSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe",
+      "sourceSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe"
+    },
+    {
+      "responseIndex": 1,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+      "status": 200,
+      "preflightSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581",
+      "sourceSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581"
+    },
+    {
+      "responseIndex": 2,
+      "url": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+      "status": 200,
+      "preflightSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955",
+      "sourceSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955"
+    },
+    {
+      "responseIndex": 3,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+      "status": 304,
+      "preflightSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe",
+      "sourceSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe"
+    },
+    {
+      "responseIndex": 4,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+      "status": 304,
+      "preflightSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581",
+      "sourceSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581"
+    },
+    {
+      "responseIndex": 5,
+      "url": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+      "status": 304,
+      "preflightSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955",
+      "sourceSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955"
+    },
+    {
+      "responseIndex": 6,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+      "status": 200,
+      "preflightSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe",
+      "sourceSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe"
+    },
+    {
+      "responseIndex": 7,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+      "status": 200,
+      "preflightSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581",
+      "sourceSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581"
+    },
+    {
+      "responseIndex": 8,
+      "url": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+      "status": 200,
+      "preflightSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955",
+      "sourceSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955"
+    },
+    {
+      "responseIndex": 9,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+      "status": 200,
+      "preflightSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe",
+      "sourceSha256": "89abf3965fdbb2dcecf93ba156daca7f59515496f9a5ef1a85dcbb56eaeeb2fe"
+    },
+    {
+      "responseIndex": 10,
+      "url": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+      "status": 304,
+      "preflightSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581",
+      "sourceSha256": "b778cce65b0c89110c1d242274a2f4ae11d431b9bcec4c4f267d0750b806b581"
+    },
+    {
+      "responseIndex": 11,
+      "url": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+      "status": 304,
+      "preflightSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955",
+      "sourceSha256": "8872cecb1bbd4631cad310a7b8e883cca32e81e90e9e4e753d47b0637db26955"
+    }
+  ],
+  "browser": "149.0.7827.55",
+  "samples": [
+    {
+      "token": 1,
+      "family": "page:cold-entry",
+      "start": 0,
+      "end": 213.5,
+      "ms": 213.5,
+      "event": {
+        "type": "navigation",
+        "navigationType": "navigate"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:31"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "error": "",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "加工登记",
+      "visibleImages": [
+        {
+          "src": "http://127.0.0.1:43198/newpda/assets/grey-zip-hoodie.png",
+          "naturalWidth": 1254
+        }
+      ],
+      "resourceTiming": [
+        {
+          "name": "http://127.0.0.1:43198/newpda/style.css?v=fa26a15943",
+          "duration": 3.399999976158142,
+          "transferSize": 4167
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4.css?v=02f5f6d354",
+          "duration": 3.399999976158142,
+          "transferSize": 949
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4-warehouse.css?v=5d4aa93aad",
+          "duration": 4.100000023841858,
+          "transferSize": 779
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v5-warehouse.css?v=9b050218e3",
+          "duration": 4.299999952316284,
+          "transferSize": 1341
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v7-warehouse.css?v=8606599c36",
+          "duration": 4.899999976158142,
+          "transferSize": 904
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v6-warehouse.css?v=cf92c0ca56",
+          "duration": 5.100000023841858,
+          "transferSize": 1306
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+          "duration": 5.199999928474426,
+          "transferSize": 1587
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/sewing-return.css?v=bf86b4b0a7",
+          "duration": 5.899999976158142,
+          "transferSize": 1120
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/knit-link-flow.css?v=49bf18aa66",
+          "duration": 6,
+          "transferSize": 1536
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/cutting-flow.css?v=91f12699e2",
+          "duration": 6.199999928474426,
+          "transferSize": 1443
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/dye-print-wash-flow.css?v=69fd51810e",
+          "duration": 7.599999904632568,
+          "transferSize": 1350
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/water-binding-flow.css?v=aa02dc8c6e",
+          "duration": 7.599999904632568,
+          "transferSize": 850
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/aux-special-accessory-flow.css?v=286b6cc1ed",
+          "duration": 7.699999928474426,
+          "transferSize": 2140
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/device-session.css?v=64e73eda71",
+          "duration": 8.600000023841858,
+          "transferSize": 1229
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/floor-flow.css?v=2466a18261",
+          "duration": 8.700000047683716,
+          "transferSize": 1722
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/continuous-input.js?v=1b95d64939",
+          "duration": 9.200000047683716,
+          "transferSize": 1949
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4.js?v=f8462ed874",
+          "duration": 10.800000071525574,
+          "transferSize": 6404
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/app.js?v=2c89d0df94",
+          "duration": 13,
+          "transferSize": 20773
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4-warehouse.js?v=f442a3e2ae",
+          "duration": 13.200000047683716,
+          "transferSize": 10674
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v3.js?v=3a1e84696a",
+          "duration": 12.700000047683716,
+          "transferSize": 14532
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v5-warehouse.js?v=73c4ea27aa",
+          "duration": 14.399999976158142,
+          "transferSize": 12473
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v6-warehouse.js?v=55ff75bfe3",
+          "duration": 16,
+          "transferSize": 15176
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v7-warehouse.js?v=edb752912b",
+          "duration": 18,
+          "transferSize": 15280
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/sewing-return.js?v=8ad917100c",
+          "duration": 18.799999952316284,
+          "transferSize": 6738
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+          "duration": 18.600000023841858,
+          "transferSize": 14368
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/cutting-flow.js?v=d1b55d0074",
+          "duration": 22,
+          "transferSize": 19588
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/knit-link-flow.js?v=52ad2a0ada",
+          "duration": 22.899999976158142,
+          "transferSize": 17222
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/warehouse-location-catalog.js?v=0fa59b917b",
+          "duration": 23.100000023841858,
+          "transferSize": 957
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/dye-print-wash-flow.js?v=4ab43f5a23",
+          "duration": 23.100000023841858,
+          "transferSize": 20614
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+          "duration": 24,
+          "transferSize": 3313
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/water-binding-flow.js?v=043dcd4dbe",
+          "duration": 24.399999976158142,
+          "transferSize": 10318
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/device-session.js?v=e4404890fc",
+          "duration": 24.899999976158142,
+          "transferSize": 3553
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/aux-special-accessory-flow.js?v=c816d02bf8",
+          "duration": 24.5,
+          "transferSize": 23460
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/floor-flow.js?v=b38786553a",
+          "duration": 25.399999976158142,
+          "transferSize": 8265
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/locale-preview.js?v=a842d21fff",
+          "duration": 25.799999952316284,
+          "transferSize": 5528
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/locale-id-terms.js?v=f7a1875c3b",
+          "duration": 29.799999952316284,
+          "transferSize": 61954
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/assets/cardigan-sample.jpg",
+          "duration": 1.5,
+          "transferSize": 175435
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/assets/grey-zip-hoodie.png",
+          "duration": 3.0999999046325684,
+          "transferSize": 1956788
+        }
+      ],
+      "context": "cold-1",
+      "iteration": 1,
+      "fixture": "D1 1000; no entries",
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 1,
+      "family": "page:refresh",
+      "start": 0,
+      "end": 95.39999997615814,
+      "ms": 95.39999997615814,
+      "event": {
+        "type": "navigation",
+        "navigationType": "reload"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:31"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "error": "",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "加工登记",
+      "visibleImages": [
+        {
+          "src": "http://127.0.0.1:43198/newpda/assets/grey-zip-hoodie.png",
+          "naturalWidth": 1254
+        }
+      ],
+      "resourceTiming": [
+        {
+          "name": "http://127.0.0.1:43198/newpda/style.css?v=fa26a15943",
+          "duration": 1.399999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4.css?v=02f5f6d354",
+          "duration": 1.7999999523162842,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4-warehouse.css?v=5d4aa93aad",
+          "duration": 2.100000023841858,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v5-warehouse.css?v=9b050218e3",
+          "duration": 2.399999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v7-warehouse.css?v=8606599c36",
+          "duration": 2.799999952316284,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/sewing-return.css?v=bf86b4b0a7",
+          "duration": 3.0999999046325684,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v6-warehouse.css?v=cf92c0ca56",
+          "duration": 3.1999999284744263,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/post-flow.css?v=89abf3965f",
+          "duration": 3.5999999046325684,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/dye-print-wash-flow.css?v=69fd51810e",
+          "duration": 3.8000000715255737,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/aux-special-accessory-flow.css?v=286b6cc1ed",
+          "duration": 4,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/water-binding-flow.css?v=aa02dc8c6e",
+          "duration": 4.100000023841858,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/cutting-flow.css?v=91f12699e2",
+          "duration": 4.400000095367432,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/knit-link-flow.css?v=49bf18aa66",
+          "duration": 4.5,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/device-session.css?v=64e73eda71",
+          "duration": 4.700000047683716,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/floor-flow.css?v=2466a18261",
+          "duration": 5.300000071525574,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/app.js?v=2c89d0df94",
+          "duration": 4.600000023841858,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/continuous-input.js?v=1b95d64939",
+          "duration": 4.799999952316284,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v3.js?v=3a1e84696a",
+          "duration": 5,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4-warehouse.js?v=f442a3e2ae",
+          "duration": 5.399999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v4.js?v=f8462ed874",
+          "duration": 6.100000023841858,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v5-warehouse.js?v=73c4ea27aa",
+          "duration": 5.5,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v6-warehouse.js?v=55ff75bfe3",
+          "duration": 5.699999928474426,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/v7-warehouse.js?v=edb752912b",
+          "duration": 5.799999952316284,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/post-flow.js?v=b778cce65b",
+          "duration": 6.199999928474426,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/sewing-return.js?v=8ad917100c",
+          "duration": 7,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/cutting-flow.js?v=d1b55d0074",
+          "duration": 6.399999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/knit-link-flow.js?v=52ad2a0ada",
+          "duration": 6.5,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/dye-print-wash-flow.js?v=4ab43f5a23",
+          "duration": 6.799999952316284,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/aux-special-accessory-flow.js?v=c816d02bf8",
+          "duration": 7.299999952316284,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/warehouse-location-catalog.js?v=0fa59b917b",
+          "duration": 8.399999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/water-binding-flow.js?v=043dcd4dbe",
+          "duration": 7.5,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/handoff-context.js?v=8872cecb1b",
+          "duration": 7.800000071525574,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/floor-flow.js?v=b38786553a",
+          "duration": 7.899999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/locale-id-terms.js?v=f7a1875c3b",
+          "duration": 8.399999976158142,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/device-session.js?v=e4404890fc",
+          "duration": 9,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/locale-preview.js?v=a842d21fff",
+          "duration": 8.5,
+          "transferSize": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/newpda/assets/grey-zip-hoodie.png",
+          "duration": 1,
+          "transferSize": 300
+        }
+      ],
+      "context": "cold-1",
+      "iteration": 1,
+      "fixture": "D1 1000; refresh rebuilds URL example",
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 1,
+      "family": "page:queue",
+      "start": 168.90000009536743,
+      "end": 212.80000007152557,
+      "ms": 43.89999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "#review-nav [data-go=\"process-list\"]",
+        "target": "BUTTON"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "error": "",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "SH-082 · 原回货 1000 件后道加工中 · Adi",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 2,
+      "family": "page:in-app-entry",
+      "start": 247.20000004768372,
+      "end": 295.90000009536743,
+      "ms": 48.700000047683716,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"open:SH-082\"]",
+        "target": "SPAN"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "error": "",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "加工登记",
+      "visibleImages": [
+        {
+          "src": "http://127.0.0.1:43198/newpda/assets/grey-zip-hoodie.png",
+          "naturalWidth": 1254
+        }
+      ],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 3,
+      "family": "page:view:work",
+      "start": 330.8000000715256,
+      "end": 379.3000000715256,
+      "ms": 48.5,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"view:work\"]",
+        "target": "view:work"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "加工登记",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 4,
+      "family": "page:item:开扣眼",
+      "start": 414.5,
+      "end": 462.7000000476837,
+      "ms": 48.200000047683716,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"item:开扣眼\"]",
+        "target": "SMALL"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次开扣眼 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 5,
+      "family": "failure:quantity-upper-bound",
+      "start": 497.7000000476837,
+      "end": 546,
+      "ms": 48.299999952316284,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "601",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "超过该尺码本次可登记量：M 600 · L 400 件。不能跨尺码抵扣或补造前序。",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次开扣眼 601 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 6,
+      "family": "failure:simulated-save",
+      "start": 581,
+      "end": 629.6000000238419,
+      "ms": 48.60000002384186,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "未保存，填写已保留。恢复后重试。",
+        "notice": "",
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              0,
+              0
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次开扣眼 1000 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 7,
+      "family": "action:process:开扣眼:save",
+      "start": 764,
+      "end": 1263.1000000238419,
+      "ms": 499.10000002384186,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "开扣眼",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "本次已保存 1000 件，开扣眼累计 1000 件；可独立交复检。",
+        "readyAt": 1792424613242,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次开扣眼 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "submittedQuantity": [
+        600,
+        400
+      ],
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 8,
+      "family": "page:item:装扣子",
+      "start": 1302.2000000476837,
+      "end": 1346.1000000238419,
+      "ms": 43.89999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"item:装扣子\"]",
+        "target": "SMALL"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "装扣子",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424613242,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              0,
+              0
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次装扣子 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 9,
+      "family": "action:process:装扣子:save",
+      "start": 1381.4000000953674,
+      "end": 1880.9000000953674,
+      "ms": 499.5,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "装扣子",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "本次已保存 1000 件，装扣子累计 1000 件；可独立交复检。",
+        "readyAt": 1792424613860,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次装扣子 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "submittedQuantity": [
+        600,
+        400
+      ],
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 10,
+      "family": "page:item:熨烫",
+      "start": 1917.3000000715256,
+      "end": 1962.7000000476837,
+      "ms": 45.39999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"item:熨烫\"]",
+        "target": "SMALL"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "熨烫",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424613860,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              0,
+              0
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次熨烫 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 11,
+      "family": "action:process:熨烫:save",
+      "start": 1997.8000000715256,
+      "end": 2496.5,
+      "ms": 498.6999999284744,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "熨烫",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "本次已保存 1000 件，熨烫累计 1000 件；可独立交复检。",
+        "readyAt": 1792424614476,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次熨烫 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "submittedQuantity": [
+        600,
+        400
+      ],
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 12,
+      "family": "page:item:包装",
+      "start": 2533.7000000476837,
+      "end": 2579.4000000953674,
+      "ms": 45.700000047683716,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"item:包装\"]",
+        "target": "SMALL"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424614476,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次包装 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 13,
+      "family": "action:quantity:M:input",
+      "start": 2586.2000000476837,
+      "end": 2629.5,
+      "ms": 43.299999952316284,
+      "event": {
+        "type": "input",
+        "isTrusted": true,
+        "selector": "#pf-m",
+        "target": "pf-m"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424614476,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次包装 600 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 14,
+      "family": "action:quantity:L:input",
+      "start": 2640.2000000476837,
+      "end": 2679.3000000715256,
+      "ms": 39.10000002384186,
+      "event": {
+        "type": "input",
+        "isTrusted": true,
+        "selector": "#pf-l",
+        "target": "pf-l"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424614476,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              0,
+              0
+            ]
+          },
+          "finished": [
+            0,
+            0
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "保存本次包装 1000 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 15,
+      "family": "action:process:包装:save",
+      "start": 2718.3000000715256,
+      "end": 3214.7000000476837,
+      "ms": 496.39999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "work",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "本次已保存 1000 件，包装累计 1000 件；可独立交复检。",
+        "readyAt": 1792424615197,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            600,
+            400
+          ]
+        }
+      },
+      "interactable": "保存本次包装 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "submittedQuantity": [
+        600,
+        400
+      ],
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 16,
+      "family": "page:view:submit",
+      "start": 3251.3000000715256,
+      "end": 3297,
+      "ms": 45.699999928474426,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"view:submit\"]",
+        "target": "view:submit"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "submit",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": null,
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424615197,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            0,
+            0
+          ],
+          "available": [
+            600,
+            400
+          ]
+        }
+      },
+      "interactable": "确认本次交复检 0 件",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 17,
+      "family": "action:submit-recheck",
+      "start": 3331.4000000953674,
+      "end": 3828.7000000476837,
+      "ms": 497.2999999523163,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "submit",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": null,
+            "codes": {},
+            "checker": null,
+            "status": "待复检",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": null
+          }
+        ],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "已生成 FH-082-001，立即占用 1000 件；其余数量继续加工。",
+        "readyAt": 1792424615810,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "复检 1",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "submittedQuantity": [
+        600,
+        400
+      ],
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 18,
+      "family": "page:view:check",
+      "start": 3868.3000000715256,
+      "end": 3912.7000000476837,
+      "ms": 44.39999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"view:check\"]",
+        "target": "view:check"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "check",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": null,
+            "codes": {},
+            "checker": null,
+            "status": "待复检",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": null
+          }
+        ],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424615810,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "领取本张复检单",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 19,
+      "family": "action:claim-recheck",
+      "start": 3948.3000000715256,
+      "end": 4446,
+      "ms": 497.6999999284744,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"claim-check\"]",
+        "target": "claim-check"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "check",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": null,
+            "codes": {},
+            "checker": "Rina · 018",
+            "status": "复检中",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": null
+          }
+        ],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "已领取 FH-082-001，逐码核对数量与条码。",
+        "readyAt": 1792424616427,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "确认数量条码，完成本张复检",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 20,
+      "family": "action:barcode:M",
+      "start": 4480.600000023842,
+      "end": 4529.200000047684,
+      "ms": 48.60000002384186,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"scan-m\"]",
+        "target": "svg"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "check",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": null,
+            "codes": {
+              "m": "正确"
+            },
+            "checker": "Rina · 018",
+            "status": "复检中",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": null
+          }
+        ],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · M · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400",
+          "codem": "SKU-082-M"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "已领取 FH-082-001，逐码核对数量与条码。",
+        "readyAt": 1792424616427,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "确认数量条码，完成本张复检",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 21,
+      "family": "action:barcode:L",
+      "start": 4564.100000023842,
+      "end": 4612.600000023842,
+      "ms": 48.5,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"scan-l\"]",
+        "target": "svg"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "check",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": null,
+            "codes": {
+              "m": "正确",
+              "l": "正确"
+            },
+            "checker": "Rina · 018",
+            "status": "复检中",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": null
+          }
+        ],
+        "outbounds": [],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · M · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · L · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400",
+          "codem": "SKU-082-M",
+          "codel": "SKU-082-L"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": null,
+        "receivingOut": null,
+        "error": "",
+        "notice": "已领取 FH-082-001，逐码核对数量与条码。",
+        "readyAt": 1792424616427,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "确认数量条码，完成本张复检",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 22,
+      "family": "action:complete-recheck",
+      "start": 4647.400000095367,
+      "end": 5146.300000071526,
+      "ms": 498.89999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "check",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": [
+              600,
+              400
+            ],
+            "codes": {
+              "m": "正确",
+              "l": "正确"
+            },
+            "checker": "Rina · 018",
+            "status": "已复核",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": "CH-082-001",
+            "completedBy": "Rina · 018",
+            "completedAt": "2026/10/19 23:43:36",
+            "differenceReason": ""
+          }
+        ],
+        "outbounds": [
+          {
+            "no": "CH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "source": "后道复检",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36",
+            "recheckNo": "FH-082-001",
+            "receipt": null
+          }
+        ],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · M · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · L · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "复检完成",
+            "detail": "FH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "生成出货单",
+            "detail": "CH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": "CH-082-001",
+        "receivingOut": null,
+        "error": "",
+        "notice": "本张复检完成，已生成 CH-082-001；其他复检分别处理。",
+        "readyAt": 1792424617126,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "出货 1",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 23,
+      "family": "page:view:out",
+      "start": 5185,
+      "end": 5229.400000095367,
+      "ms": 44.40000009536743,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": "[data-pf=\"view:out\"]",
+        "target": "view:out"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "out",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": [
+              600,
+              400
+            ],
+            "codes": {
+              "m": "正确",
+              "l": "正确"
+            },
+            "checker": "Rina · 018",
+            "status": "已复核",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": "CH-082-001",
+            "completedBy": "Rina · 018",
+            "completedAt": "2026/10/19 23:43:36",
+            "differenceReason": ""
+          }
+        ],
+        "outbounds": [
+          {
+            "no": "CH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "source": "后道复检",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36",
+            "recheckNo": "FH-082-001",
+            "receipt": null
+          }
+        ],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · M · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · L · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "复检完成",
+            "detail": "FH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "生成出货单",
+            "detail": "CH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          }
+        ],
+        "form": {
+          "m": "0",
+          "l": "0"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": "CH-082-001",
+        "receivingOut": null,
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424617126,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "登记本张成衣仓实收",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 24,
+      "family": "action:receipt:open",
+      "start": 5266.5,
+      "end": 5312.600000023842,
+      "ms": 46.10000002384186,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"receive-out\"]",
+        "target": "receive-out"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "out",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": [
+              600,
+              400
+            ],
+            "codes": {
+              "m": "正确",
+              "l": "正确"
+            },
+            "checker": "Rina · 018",
+            "status": "已复核",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": "CH-082-001",
+            "completedBy": "Rina · 018",
+            "completedAt": "2026/10/19 23:43:36",
+            "differenceReason": ""
+          }
+        ],
+        "outbounds": [
+          {
+            "no": "CH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "source": "后道复检",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36",
+            "recheckNo": "FH-082-001",
+            "receipt": null
+          }
+        ],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · M · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · L · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "复检完成",
+            "detail": "FH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "生成出货单",
+            "detail": "CH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          }
+        ],
+        "form": {
+          "m": "600",
+          "l": "400"
+        },
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": "CH-082-001",
+        "receivingOut": "CH-082-001",
+        "error": "",
+        "notice": "",
+        "readyAt": 1792424617126,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "确认本张成衣仓实收",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    },
+    {
+      "token": 25,
+      "family": "action:receipt:save",
+      "start": 5348.900000095367,
+      "end": 5846.300000071526,
+      "ms": 497.39999997615814,
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "selector": ".footer [data-pf=\"save\"]",
+        "target": "save"
+      },
+      "proof": {
+        "current": "SH-082",
+        "view": "out",
+        "process": "包装",
+        "registered": [
+          600,
+          400
+        ],
+        "qc": {
+          "pass": [
+            600,
+            400
+          ],
+          "defect": [
+            0,
+            0
+          ],
+          "returned": [
+            0,
+            0
+          ],
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "taskType": "仅车缝",
+          "responsibility": "后道工厂负责",
+          "source": "任务后道",
+          "actor": "Dewi · 质检员"
+        },
+        "processEntries": [
+          {
+            "item": "开扣眼",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "item": "装扣子",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "item": "熨烫",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "item": "包装",
+            "qty": [
+              600,
+              400
+            ],
+            "responsible": "Rina · 018",
+            "recordedBy": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          }
+        ],
+        "rechecks": [
+          {
+            "no": "FH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "actual": [
+              600,
+              400
+            ],
+            "codes": {
+              "m": "正确",
+              "l": "正确"
+            },
+            "checker": "Rina · 018",
+            "status": "已复核",
+            "createdBy": "Rina · 018",
+            "createdAt": "2026/10/19 23:43:35",
+            "outboundNo": "CH-082-001",
+            "completedBy": "Rina · 018",
+            "completedAt": "2026/10/19 23:43:36",
+            "differenceReason": ""
+          }
+        ],
+        "outbounds": [
+          {
+            "no": "CH-082-001",
+            "qty": [
+              600,
+              400
+            ],
+            "source": "后道复检",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36",
+            "recheckNo": "FH-082-001",
+            "receipt": {
+              "qty": [
+                600,
+                400
+              ],
+              "actor": "Rina · 018",
+              "time": "2026/10/19 23:43:37",
+              "differenceReason": ""
+            }
+          }
+        ],
+        "history": [
+          {
+            "action": "质检结果就绪",
+            "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+            "actor": "Dewi · 质检员",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记开扣眼本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:32"
+          },
+          {
+            "action": "登记装扣子本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:33"
+          },
+          {
+            "action": "登记熨烫本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "登记包装本次完成",
+            "detail": "M 600 · L 400 件；责任人 Rina · 018",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:34"
+          },
+          {
+            "action": "创建复检单",
+            "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "领取复检单",
+            "detail": "FH-082-001",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:35"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · M · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "核对条码",
+            "detail": "FH-082-001 · L · 正确",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "复检完成",
+            "detail": "FH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "生成出货单",
+            "detail": "CH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:36"
+          },
+          {
+            "action": "成衣仓独立实收",
+            "detail": "CH-082-001 · M 600 · L 400 件",
+            "actor": "Rina · 018",
+            "time": "2026/10/19 23:43:37"
+          }
+        ],
+        "form": {},
+        "selectedRecheck": "FH-082-001",
+        "selectedOutbound": "CH-082-001",
+        "receivingOut": null,
+        "error": "",
+        "notice": "本张实收一致；父单按全部加工及后续余量判断。",
+        "readyAt": 1792424617827,
+        "progress": {
+          "items": [
+            "开扣眼",
+            "装扣子",
+            "熨烫",
+            "包装"
+          ],
+          "counts": {
+            "开扣眼": [
+              600,
+              400
+            ],
+            "装扣子": [
+              600,
+              400
+            ],
+            "熨烫": [
+              600,
+              400
+            ],
+            "包装": [
+              600,
+              400
+            ]
+          },
+          "finished": [
+            600,
+            400
+          ],
+          "reserved": [
+            600,
+            400
+          ],
+          "available": [
+            0,
+            0
+          ]
+        }
+      },
+      "interactable": "选择其他出货单",
+      "visibleImages": [],
+      "context": "genuine-ui-D1",
+      "iteration": 1,
+      "totalQuantity": 1000,
+      "valid": true,
+      "pass": true,
+      "maxMs": 1000
+    }
+  ],
+  "errors": [],
+  "completed": true,
+  "passed": false,
+  "familyResults": [
+    {
+      "family": "page:cold-entry",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 213.5,
+      "pass": true
+    },
+    {
+      "family": "page:refresh",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 95.39999997615814,
+      "pass": true
+    },
+    {
+      "family": "page:queue",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 43.89999997615814,
+      "pass": true
+    },
+    {
+      "family": "page:in-app-entry",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.700000047683716,
+      "pass": true
+    },
+    {
+      "family": "page:view:work",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.5,
+      "pass": true
+    },
+    {
+      "family": "page:view:submit",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 45.699999928474426,
+      "pass": true
+    },
+    {
+      "family": "page:view:check",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 44.39999997615814,
+      "pass": true
+    },
+    {
+      "family": "page:view:out",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 44.40000009536743,
+      "pass": true
+    },
+    {
+      "family": "page:item:开扣眼",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.200000047683716,
+      "pass": true
+    },
+    {
+      "family": "page:item:装扣子",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 43.89999997615814,
+      "pass": true
+    },
+    {
+      "family": "page:item:熨烫",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 45.39999997615814,
+      "pass": true
+    },
+    {
+      "family": "page:item:包装",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 45.700000047683716,
+      "pass": true
+    },
+    {
+      "family": "action:process:开扣眼:save",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 499.10000002384186,
+      "pass": true
+    },
+    {
+      "family": "action:process:装扣子:save",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 499.5,
+      "pass": true
+    },
+    {
+      "family": "action:process:熨烫:save",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 498.6999999284744,
+      "pass": true
+    },
+    {
+      "family": "action:process:包装:save",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 496.39999997615814,
+      "pass": true
+    },
+    {
+      "family": "action:quantity:M:input",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 43.299999952316284,
+      "pass": true
+    },
+    {
+      "family": "action:quantity:L:input",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 39.10000002384186,
+      "pass": true
+    },
+    {
+      "family": "action:submit-recheck",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 497.2999999523163,
+      "pass": true
+    },
+    {
+      "family": "action:claim-recheck",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 497.6999999284744,
+      "pass": true
+    },
+    {
+      "family": "action:barcode:M",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.60000002384186,
+      "pass": true
+    },
+    {
+      "family": "action:barcode:L",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.5,
+      "pass": true
+    },
+    {
+      "family": "action:complete-recheck",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 498.89999997615814,
+      "pass": true
+    },
+    {
+      "family": "action:receipt:open",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 46.10000002384186,
+      "pass": true
+    },
+    {
+      "family": "action:receipt:save",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 497.39999997615814,
+      "pass": true
+    },
+    {
+      "family": "failure:quantity-upper-bound",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.299999952316284,
+      "pass": true
+    },
+    {
+      "family": "failure:simulated-save",
+      "required": 1,
+      "total": 1,
+      "valid": 1,
+      "maximumMs": 48.60000002384186,
+      "pass": true
+    }
+  ],
+  "finalInMemoryReadback": {
+    "current": "SH-082",
+    "view": "out",
+    "process": "包装",
+    "registered": [
+      600,
+      400
+    ],
+    "qc": {
+      "pass": [
+        600,
+        400
+      ],
+      "defect": [
+        0,
+        0
+      ],
+      "returned": [
+        0,
+        0
+      ],
+      "items": [
+        "开扣眼",
+        "装扣子",
+        "熨烫",
+        "包装"
+      ],
+      "taskType": "仅车缝",
+      "responsibility": "后道工厂负责",
+      "source": "任务后道",
+      "actor": "Dewi · 质检员"
+    },
+    "processEntries": [
+      {
+        "item": "开扣眼",
+        "qty": [
+          600,
+          400
+        ],
+        "responsible": "Rina · 018",
+        "recordedBy": "Rina · 018",
+        "time": "2026/10/19 23:43:32"
+      },
+      {
+        "item": "装扣子",
+        "qty": [
+          600,
+          400
+        ],
+        "responsible": "Rina · 018",
+        "recordedBy": "Rina · 018",
+        "time": "2026/10/19 23:43:33"
+      },
+      {
+        "item": "熨烫",
+        "qty": [
+          600,
+          400
+        ],
+        "responsible": "Rina · 018",
+        "recordedBy": "Rina · 018",
+        "time": "2026/10/19 23:43:34"
+      },
+      {
+        "item": "包装",
+        "qty": [
+          600,
+          400
+        ],
+        "responsible": "Rina · 018",
+        "recordedBy": "Rina · 018",
+        "time": "2026/10/19 23:43:34"
+      }
+    ],
+    "rechecks": [
+      {
+        "no": "FH-082-001",
+        "qty": [
+          600,
+          400
+        ],
+        "actual": [
+          600,
+          400
+        ],
+        "codes": {
+          "m": "正确",
+          "l": "正确"
+        },
+        "checker": "Rina · 018",
+        "status": "已复核",
+        "createdBy": "Rina · 018",
+        "createdAt": "2026/10/19 23:43:35",
+        "outboundNo": "CH-082-001",
+        "completedBy": "Rina · 018",
+        "completedAt": "2026/10/19 23:43:36",
+        "differenceReason": ""
+      }
+    ],
+    "outbounds": [
+      {
+        "no": "CH-082-001",
+        "qty": [
+          600,
+          400
+        ],
+        "source": "后道复检",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:36",
+        "recheckNo": "FH-082-001",
+        "receipt": {
+          "qty": [
+            600,
+            400
+          ],
+          "actor": "Rina · 018",
+          "time": "2026/10/19 23:43:37",
+          "differenceReason": ""
+        }
+      }
+    ],
+    "history": [
+      {
+        "action": "质检结果就绪",
+        "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+        "actor": "Dewi · 质检员",
+        "time": "2026/10/19 23:43:32"
+      },
+      {
+        "action": "登记开扣眼本次完成",
+        "detail": "M 600 · L 400 件；责任人 Rina · 018",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:32"
+      },
+      {
+        "action": "登记装扣子本次完成",
+        "detail": "M 600 · L 400 件；责任人 Rina · 018",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:33"
+      },
+      {
+        "action": "登记熨烫本次完成",
+        "detail": "M 600 · L 400 件；责任人 Rina · 018",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:34"
+      },
+      {
+        "action": "登记包装本次完成",
+        "detail": "M 600 · L 400 件；责任人 Rina · 018",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:34"
+      },
+      {
+        "action": "创建复检单",
+        "detail": "FH-082-001 · M 600 · L 400 件；创建即占用",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:35"
+      },
+      {
+        "action": "领取复检单",
+        "detail": "FH-082-001",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:35"
+      },
+      {
+        "action": "核对条码",
+        "detail": "FH-082-001 · M · 正确",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:36"
+      },
+      {
+        "action": "核对条码",
+        "detail": "FH-082-001 · L · 正确",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:36"
+      },
+      {
+        "action": "复检完成",
+        "detail": "FH-082-001 · M 600 · L 400 件",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:36"
+      },
+      {
+        "action": "生成出货单",
+        "detail": "CH-082-001 · M 600 · L 400 件",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:36"
+      },
+      {
+        "action": "成衣仓独立实收",
+        "detail": "CH-082-001 · M 600 · L 400 件",
+        "actor": "Rina · 018",
+        "time": "2026/10/19 23:43:37"
+      }
+    ],
+    "form": {},
+    "selectedRecheck": "FH-082-001",
+    "selectedOutbound": "CH-082-001",
+    "receivingOut": null,
+    "error": "",
+    "notice": "本张实收一致；父单按全部加工及后续余量判断。",
+    "readyAt": 1792424617827,
+    "progress": {
+      "items": [
+        "开扣眼",
+        "装扣子",
+        "熨烫",
+        "包装"
+      ],
+      "counts": {
+        "开扣眼": [
+          600,
+          400
+        ],
+        "装扣子": [
+          600,
+          400
+        ],
+        "熨烫": [
+          600,
+          400
+        ],
+        "包装": [
+          600,
+          400
+        ]
+      },
+      "finished": [
+        600,
+        400
+      ],
+      "reserved": [
+        600,
+        400
+      ],
+      "available": [
+        0,
+        0
+      ]
+    }
+  },
+  "afterRefreshReset": {
+    "current": "SH-082",
+    "view": "work",
+    "process": "开扣眼",
+    "registered": [
+      600,
+      400
+    ],
+    "qc": {
+      "pass": [
+        600,
+        400
+      ],
+      "defect": [
+        0,
+        0
+      ],
+      "returned": [
+        0,
+        0
+      ],
+      "items": [
+        "开扣眼",
+        "装扣子",
+        "熨烫",
+        "包装"
+      ],
+      "taskType": "仅车缝",
+      "responsibility": "后道工厂负责",
+      "source": "任务后道",
+      "actor": "Dewi · 质检员"
+    },
+    "processEntries": [],
+    "rechecks": [],
+    "outbounds": [],
+    "history": [
+      {
+        "action": "质检结果就绪",
+        "detail": "合格 M 600 · L 400 件；实际加工链 开扣眼→装扣子→熨烫→包装",
+        "actor": "Dewi · 质检员",
+        "time": "2026/10/19 23:43:38"
+      }
+    ],
+    "form": {
+      "m": "0",
+      "l": "0"
+    },
+    "selectedRecheck": null,
+    "selectedOutbound": null,
+    "error": "",
+    "notice": "",
+    "progress": {
+      "items": [
+        "开扣眼",
+        "装扣子",
+        "熨烫",
+        "包装"
+      ],
+      "counts": {
+        "开扣眼": [
+          0,
+          0
+        ],
+        "装扣子": [
+          0,
+          0
+        ],
+        "熨烫": [
+          0,
+          0
+        ],
+        "包装": [
+          0,
+          0
+        ]
+      },
+      "finished": [
+        0,
+        0
+      ],
+      "reserved": [
+        0,
+        0
+      ],
+      "available": [
+        0,
+        0
+      ]
+    }
+  },
+  "calibrationPassed": true,
+  "finishedAt": "2026-10-19T15:43:38.068Z"
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "actual product failure, before explicit migration operation",
+  "testSha256": "1bdaa70e68628e04281966c6d4ba890cb2a3d46cd265149ae9fcedc2bb3d2946",
+  "artifactsSHA256": {
+    "console-errors.json": "90a6a62ca36dd723022713d30f15812948b2aa8adb89562d03f24ac14d8a2340",
+    "diagnosis.md": "952bf48b02ec376e55dc005bd047b797a615282e0b6dbff07f0964f2fbc2be1f",
+    "error-context.md": "e5246848df11fa0d5cf6c4d0292f4935df1a19d0a1888976d886f626b695634b",
+    "run.log": "c5a026595782b7f3d8c72d1d19a734c6acef72f9ff9c1bd47db7dee4d9819b04",
+    "test-failed-1.png": "8641c7448f527b07eb5880a15b681a4c031b791a3290177850506326af0bb03c",
+    "trace.zip": "4c13781d5bb04498a1dcad1318a84e244653139af35e50ba3ea2a1a5c02751ec",
+    "test-source.spec.ts.txt": "1bdaa70e68628e04281966c6d4ba890cb2a3d46cd265149ae9fcedc2bb3d2946"
+  }
+}

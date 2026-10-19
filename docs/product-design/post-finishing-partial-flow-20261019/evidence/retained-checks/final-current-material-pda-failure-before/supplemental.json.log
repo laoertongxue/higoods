@@ -1,0 +1,861 @@
+
+> higoods-vanilla-clone@1.0.0 test:e2e
+> playwright test tests/post-finishing-consumers.spec.ts tests/post-finishing-migration.spec.ts tests/post-finishing-pda-role-boundary.spec.ts tests/post-finishing-main-integration.spec.ts --workers=1 --max-failures=1 --reporter=json
+
+(node:67743) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/81b7/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-consumers.spec.ts",
+      "tests/post-finishing-migration.spec.ts",
+      "tests/post-finishing-pda-role-boundary.spec.ts",
+      "tests/post-finishing-main-integration.spec.ts",
+      "--workers=1",
+      "--max-failures=1",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/81b7/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 300000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43915 --strictPort",
+      "url": "http://127.0.0.1:43915",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-consumers.spec.ts",
+      "file": "post-finishing-consumers.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "A15/A23: second and third children retain identities through search, details and both print entries",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18412,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:39.999Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "21b81bac91c8abd5cd4a-1e92025d23a6fd485eea",
+          "file": "post-finishing-consumers.spec.ts",
+          "line": 24,
+          "column": 1
+        },
+        {
+          "title": "A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24361,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:58.550Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "21b81bac91c8abd5cd4a-b9832709ddd469907d9f",
+          "file": "post-finishing-consumers.spec.ts",
+          "line": 137,
+          "column": 1
+        },
+        {
+          "title": "A22: restored new facts reject overquantity, duplicate intent and forged recheck reservation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 22628,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:45:22.916Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "21b81bac91c8abd5cd4a-a111a873ad988cefe719",
+          "file": "post-finishing-consumers.spec.ts",
+          "line": 212,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "post-finishing-main-integration.spec.ts",
+      "file": "post-finishing-main-integration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "main integration: mixed legacy post-first-inline, atomic retry, original files and H/N continue",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11182,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:45:45.618Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-8a738c64708a6ce21b42",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 124,
+          "column": 3
+        },
+        {
+          "title": "main integration: mixed legacy accessory-first-existing-pcs, atomic retry, original files and H/N continue",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6590,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:45:56.805Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-0c72ec5d89fb8c03e9a9",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 124,
+          "column": 3
+        },
+        {
+          "title": "main integration: actual restore keeps managed originals readonly, failed input retry and existing auxiliary stock unchanged",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3857,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:03.399Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-f69bffc7118b625628bf",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 211,
+          "column": 1
+        },
+        {
+          "title": "main integration: managed PDA real route respects factory/roles, preserves failed receipt input and commits one auxiliary source",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13349,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:07.261Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-a062a26ff3aa88d6f373",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 278,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "post-finishing-migration.spec.ts",
+      "file": "post-finishing-migration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4682,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:20.625Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-d2413ed8da43ab77d256",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "A20: schema2 IndexedDB marker upgrade writes no static seeds or invented completion records",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1086,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:25.313Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-52422aebef69953276e1",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 135,
+          "column": 1
+        },
+        {
+          "title": "A30: H600 plus the remaining N400 completes only Q1000 and releases exactly 400 new supply",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2434,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:26.403Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-1b16d050a4599e2b02d5",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 161,
+          "column": 1
+        },
+        {
+          "title": "A22: complete restore retains records, while future/duplicate/orphan/overquantity backup leaves database unchanged",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5269,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:28.841Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-ccf81573469a674aafc0",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 182,
+          "column": 1
+        },
+        {
+          "title": "A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1865,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:34.115Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-1edd3cee328aa086c064",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 289,
+          "column": 1
+        },
+        {
+          "title": "A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes (Web)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1290,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:35.983Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-0363f24164187e646256",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 346,
+          "column": 4
+        },
+        {
+          "title": "A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes (PDA)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1713,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:37.277Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-15938fa4a5f0583a5bdc",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 346,
+          "column": 4
+        }
+      ]
+    },
+    {
+      "title": "post-finishing-pda-role-boundary.spec.ts",
+      "file": "post-finishing-pda-role-boundary.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "后道工厂执行页只保留后道加工和后道复检",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4014,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:39.000Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-94e6e1d61b735316d7ff",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 32,
+          "column": 1
+        },
+        {
+          "title": "后道回货入口归入交接待接收，仓管不再承担回货或成衣仓收货",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5791,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:43.018Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-a293f8d701ea8fafe271",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 49,
+          "column": 1
+        },
+        {
+          "title": "后道专用回货确认展示当前与已确认批次 SKU 明细",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2635,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:48.814Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-4822b4773ef0e7c4b7ae",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 88,
+          "column": 1
+        },
+        {
+          "title": "后道辅料在交接待接收中按完整单号整单入库并同步 Web 待加工仓",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 33196,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: '确认辅料入库' })\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: '确认辅料入库' })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: '确认辅料入库' })\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: '确认辅料入库' })\u001b[22m\n\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-pda-role-boundary.spec.ts:132:63",
+                    "location": {
+                      "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-pda-role-boundary.spec.ts",
+                      "column": 63,
+                      "line": 132
+                    },
+                    "snippet": "  130 |   await page.getByRole('button', { name: '查询', exact: true }).click()\n  131 |   await expect(page).toHaveURL(/materialOrderNo=DB-PF-202608-001/)\n> 132 |   await expect(page.getByRole('heading', { name: '确认辅料入库' })).toBeVisible()\n      |                                                               ^\n  133 |   await expect(page.getByRole('heading', { name: '物料明细' }).locator('xpath=../following-sibling::div')).toHaveCount(4)\n  134 |   await expect(page.locator('[data-pda-image-preview-url]')).toHaveCount(4)\n  135 |   await expect(page.locator('input[type=\"number\"]')).toHaveCount(0)"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-pda-role-boundary.spec.ts",
+                        "column": 63,
+                        "line": 132
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: '确认辅料入库' })\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: '确认辅料入库' })\u001b[22m\n\n\n  130 |   await page.getByRole('button', { name: '查询', exact: true }).click()\n  131 |   await expect(page).toHaveURL(/materialOrderNo=DB-PF-202608-001/)\n> 132 |   await expect(page.getByRole('heading', { name: '确认辅料入库' })).toBeVisible()\n      |                                                               ^\n  133 |   await expect(page.getByRole('heading', { name: '物料明细' }).locator('xpath=../following-sibling::div')).toHaveCount(4)\n  134 |   await expect(page.locator('[data-pda-image-preview-url]')).toHaveCount(4)\n  135 |   await expect(page.locator('input[type=\"number\"]')).toHaveCount(0)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-pda-role-boundary.spec.ts:132:63"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:46:51.453Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-pda-role-bo-729a0-交接待接收中按完整单号整单入库并同步-Web-待加工仓/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-pda-role-bo-729a0-交接待接收中按完整单号整单入库并同步-Web-待加工仓/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-pda-role-bo-729a0-交接待接收中按完整单号整单入库并同步-Web-待加工仓/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-pda-role-bo-729a0-交接待接收中按完整单号整单入库并同步-Web-待加工仓/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-pda-role-boundary.spec.ts",
+                    "column": 63,
+                    "line": 132
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-cefb67b9b0555847430b",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 106,
+          "column": 1
+        },
+        {
+          "title": "已有 001 入库历史不被覆盖并自动补齐新增待入库测试单",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-7a20503825e980814a9a",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 159,
+          "column": 1
+        },
+        {
+          "title": "后道交接已交出直接展示 Web 后道出货单及 SKU 明细",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-49959f754cd44b08a86c",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 190,
+          "column": 1
+        },
+        {
+          "title": "后道加工和后道复检操作页均可返回执行工作台",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-ccec80f480500fbcb8e9",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 208,
+          "column": 1
+        },
+        {
+          "title": "车缝自助回货由管理员开启，锁定与退出状态完整闭环",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "588b8578f9cb930e6d8f-6b60d15ad7373329b92b",
+          "file": "post-finishing-pda-role-boundary.spec.ts",
+          "line": 220,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "message": "\u001b[31mTesting stopped early after 1 maximum allowed failures.\u001b[39m"
+    }
+  ],
+  "stats": {
+    "startTime": "2026-10-19T20:44:38.917Z",
+    "duration": 165848.132,
+    "expected": 17,
+    "skipped": 4,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

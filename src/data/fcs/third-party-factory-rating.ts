@@ -1,4 +1,4 @@
-import { listFactoryMasterRecords } from './factory-master-store.ts'
+import { readFactorySewingSeatCount } from './factory-master-store.ts'
 import {
   getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord,
   getLatestThirdPartyFactoryTrialAssessmentRecord,
@@ -510,8 +510,7 @@ export function resolveThirdPartyFactorySewingSeatCount(
   factoryIdOrCode: string,
   fallbackSeatCount?: number,
 ): { seatCount: number; sourceLabel: FactoryRatingSnapshot['sewingSeatSourceLabel'] } {
-  const factory = listFactoryMasterRecords().find((item) => item.id === factoryIdOrCode || item.code === factoryIdOrCode)
-  const masterSeatCount = toPositiveInteger(factory?.sewingSeatCount)
+  const masterSeatCount = toPositiveInteger(readFactorySewingSeatCount(factoryIdOrCode))
   if (masterSeatCount) {
     return { seatCount: masterSeatCount, sourceLabel: '工厂档案 / 产能资料' }
   }

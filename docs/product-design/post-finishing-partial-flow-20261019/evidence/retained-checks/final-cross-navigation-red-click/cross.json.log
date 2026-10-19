@@ -1,0 +1,186 @@
+
+> higoods-vanilla-clone@1.0.0 test:e2e
+> playwright test tests/post-finishing-full-flow-cross-terminal.spec.ts --grep 15条链 --workers=1 --reporter=json --max-failures=1
+
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/81b7/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-full-flow-cross-terminal.spec.ts",
+      "--grep",
+      "15条链",
+      "--workers=1",
+      "--reporter=json",
+      "--max-failures=1"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/81b7/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43912 --strictPort",
+      "url": "http://127.0.0.1:43912",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-full-flow-cross-terminal.spec.ts",
+      "file": "post-finishing-full-flow-cross-terminal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "15条链按责任逐条跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 1800000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 88865,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('tbody tr').filter({ hasText: 'SPU-QC-001-01' }).getByRole('button', { name: '库存明细' })\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" data-sku-id=\"SPU-QC-001-S\" class=\"text-xs text-blue-600 hover:underline\" data-post-finishing-action=\"full-flow-open-stock\">库存明细</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not stable\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m  - element was detached from the DOM, retrying\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('tbody tr').filter({ hasText: 'SPU-QC-001-01' }).getByRole('button', { name: '库存明细' })\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" data-sku-id=\"SPU-QC-001-S\" class=\"text-xs text-blue-600 hover:underline\" data-post-finishing-action=\"full-flow-open-stock\">库存明细</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not stable\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m  - element was detached from the DOM, retrying\u001b[22m\n\n    at verifyOutboundAndFactoryPdaBoundary (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:777:60)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:909:5",
+                    "location": {
+                      "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts",
+                      "column": 60,
+                      "line": 777
+                    },
+                    "snippet": "  775 |     const pendingRow = page.locator('tbody tr').filter({ hasText: skuCode })\n  776 |     await expect(pendingRow).toHaveCount(1)\n> 777 |     await pendingRow.getByRole('button', { name: '库存明细' }).click()\n      |                                                            ^\n  778 |     const pendingDrawer = page.locator('[data-warehouse-inventory-drawer]')\n  779 |     await expect(pendingDrawer).toContainText(chain.deliveryOrderNo!)\n  780 |     await expect(pendingDrawer).toContainText('待交出')"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts",
+                        "column": 60,
+                        "line": 777
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('tbody tr').filter({ hasText: 'SPU-QC-001-01' }).getByRole('button', { name: '库存明细' })\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" data-sku-id=\"SPU-QC-001-S\" class=\"text-xs text-blue-600 hover:underline\" data-post-finishing-action=\"full-flow-open-stock\">库存明细</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not stable\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m  - element was detached from the DOM, retrying\u001b[22m\n\n\n  775 |     const pendingRow = page.locator('tbody tr').filter({ hasText: skuCode })\n  776 |     await expect(pendingRow).toHaveCount(1)\n> 777 |     await pendingRow.getByRole('button', { name: '库存明细' }).click()\n      |                                                            ^\n  778 |     const pendingDrawer = page.locator('[data-warehouse-inventory-drawer]')\n  779 |     await expect(pendingDrawer).toContainText(chain.deliveryOrderNo!)\n  780 |     await expect(pendingDrawer).toContainText('待交出')\n    at verifyOutboundAndFactoryPdaBoundary (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:777:60)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:909:5"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T17:04:16.751Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-1.webm"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-2.webm"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts",
+                    "column": 60,
+                    "line": 777
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "8ddaf60096abf6617b80-569cd3d7ff149301d05e",
+          "file": "post-finishing-full-flow-cross-terminal.spec.ts",
+          "line": 838,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "message": "\u001b[31mTesting stopped early after 1 maximum allowed failures.\u001b[39m"
+    }
+  ],
+  "stats": {
+    "startTime": "2026-10-19T17:04:16.045Z",
+    "duration": 91100.717,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

@@ -70,6 +70,7 @@ import {
   listPostFinishingFullFlowQcTasks,
   listPostFinishingFullFlowRecheckOrders,
   type PostFinishingPostTask,
+  getPostFinishingProcessProgress,
 } from './post-finishing-full-flow.ts'
 
 export type PlatformResultSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'WATER_SOLUBLE' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -728,7 +729,7 @@ function buildSpecialCraftView(workOrder: SpecialCraftTaskOrder): PlatformProces
 function buildPostFinishingView(order: PostFinishingPostTask): PlatformProcessResultView {
   const delivery = listPostFinishingFactoryReturns().find((item) => item.deliveryId === order.deliveryId)
   const qcTask = listPostFinishingFullFlowQcTasks().find((item) => item.qcTaskId === order.qcTaskId)
-  const recheck = listPostFinishingFullFlowRecheckOrders().find((item) => item.postTaskId === order.postTaskId)
+  const rechecks = listPostFinishingFullFlowRecheckOrders().filter(item => item.postTaskId === order.postTaskId)
   const facts = resolveFacts('POST_FINISHING', order.postTaskId, order.postTaskId)
   const mapped = mapCraftStatusToPlatformStatus({
     sourceType: 'POST_FINISHING_WORK_ORDER',
@@ -738,10 +739,10 @@ function buildPostFinishingView(order: PostFinishingPostTask): PlatformProcessRe
     status: order.status,
   })
   const plannedQty = order.lines.reduce((sum, line) => sum + line.expectedQty, 0)
-  const completedQty = (order.results || order.draftLines || []).reduce((sum, line) => sum + ('processedQty' in line ? line.processedQty : 0), 0)
+  const completedQty = getPostFinishingProcessProgress(order).totalCompletedQty
   const receivedQty = delivery?.lines.reduce((sum, line) => sum + (line.confirmedQty || 0), 0) || 0
   const qcPassedQty = qcTask?.results?.reduce((sum, line) => sum + line.passedQty, 0) || 0
-  const recheckQty = recheck?.lines.reduce((sum, line) => sum + (line.handoverQty || 0), 0) || 0
+  const recheckQty = rechecks.filter(row => row.status === '复检完成').reduce((sum, row) => sum + row.lines.reduce((n, line) => n + (line.handoverQty || 0), 0), 0)
   const view = buildCommonResult({
     sourceType: 'POST_FINISHING',
     sourceId: order.postTaskId,

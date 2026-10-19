@@ -1,0 +1,7 @@
+
+> higoods-vanilla-clone@1.0.0 check:post-finishing-outbound-and-online-print
+> node --import tsx scripts/check-post-finishing-outbound-and-online-print.ts
+
+当前后道出货单唯一事实与线上打印版式专项契约通过。
+(node:1675) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

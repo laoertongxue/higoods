@@ -1,0 +1,528 @@
+{
+  "family": "storage:export",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 1877708,
+  "top": [
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 16283,
+      "selfSamples": 208,
+      "inclusiveSamples": 208,
+      "sourceExcerpt": "tboundOrderNo,o.operatorName,o.authorizerName,o.action,o.differenceReason].some(s=>String(s||\"\").toLowerCase().includes(t)):!0).sort((o,s)=>s.operatedAt.localeCompare(o.operatedAt)).map(Tt)}function Mr(){if(v(),X=[],we!==void 0){we=\"remove\";return}v()}Ce(\"logs\",Dr,()=>X,e=>{X=e});const $r=\"higood-fcs-post-finishing-qc-reference-v1\";function jr(){return[]}let B=jr(),Se;function xr(){const e=structuredClone(B);return Se=\"idle\",{commit(){},rollback(){B=e},finish(){Se=void 0}}}function ht(){v()}function Be(e){return{...e}}function gt(e){var o,s;if(v(),!e.title.trim())throw new Error(\"请填写质检参考资料名称。\");if(!e.description.trim()&&!e.imageUrl)throw new Error(\"请填写判断标准或上传参考图片。\");if(e."
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 133,
+      "inclusiveSamples": 133
+    },
+    {
+      "function": "Es",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 15690,
+      "selfSamples": 74,
+      "inclusiveSamples": 309,
+      "sourceExcerpt": "-${String(X.length+1).padStart(6,\"0\")}`};return X.push(t),Lr(),Tt(t)}function Es(e={}){var r;const t=((r=e.keyword)==null?void 0:r.trim().toLowerCase())||\"\";return X.filter(o=>e.stage&&o.stage!==e.stage||e.operatorName&&o.operatorName!==e.operatorName||e.authorizerName&&o.authorizerName!==e.authorizerName||e.result&&o.result!==e.result||e.differenceDirection&&o.differenceDirection!==e.differenceDirection||e.startedAt&&o.operatedAt<e.startedAt||e.endedAt&&o.operatedAt>e.endedAt?!1:t?[o.objectId,o.objectNo,o.productionOrderNo,o.deliveryOrderNo,o.qcTaskNo,o.postTaskNo,o.recheckOrderNo,o.outboundOrderNo,o.operatorName,o.authorizerName,o.action,o.differenceReason].some(s=>Stri"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 65,
+      "inclusiveSamples": 65
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 63,
+      "inclusiveSamples": 63,
+      "sourceExcerpt": "=>{throw se=void 0,e}),se)}function $(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var i;const n=await Wt();He++;try{const r=n.transaction(mt,e);let c;const s=new Promise((a,l)=>{r.oncomplete=()=>a(),r.onabort=()=>l(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(i=r.commit)==null||i.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),we(a)}}finally{He--,He||(n.close(),se=void 0)}}function z(e){return typeof e==\"string\"&&e.trim().length>0}function lt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 41,
+      "inclusiveSamples": 41,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "Blob",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 39,
+      "inclusiveSamples": 39
+    },
+    {
+      "function": "Mo",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 57547,
+      "selfSamples": 33,
+      "inclusiveSamples": 72,
+      "sourceExcerpt": ";for(const d of e.keys())localStorage.removeItem(d);await Ne()}async function Mo(){const e=await D([j]),o=await Promise.all(e.files.map(async t=>({id:t.id,type:t.blob.type,bytes:Array.from(new Uint8Array(await t.blob.arrayBuffer()))})));return new Blob([JSON.stringify({format:j,version:2,records:e.records,files:o})],{type:\"application/json\"})}async function No(e){var g;const o=JSON.parse(await e.text());if(o.format!==j||![1,2].includes(o.version)||!Array.isArray(o.records)||!Array.isArray(o.files))throw new Error(\"后道备份格式或版本无效。\");const t=o.records;if(t.some(p=>{var v;return!((v=p.id)!=null&&v.startsWith(`${j}/`))})||new Set(t.map(p=>p.id)).size!==t.length)throw new Error(\""
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 28,
+      "inclusiveSamples": 28
+    },
+    {
+      "function": "Ne",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 51449,
+      "selfSamples": 27,
+      "inclusiveSamples": 82,
+      "sourceExcerpt": "actorId)||!r.recordedAt)throw new Error(\"加工完成记录格式不完整，原资料保留。\")}}async function Ne(){if(typeof window>\"u\"||_e)return;const e=pe(!1);try{if(!te.size)for(const[n,i]of H)te.set(n,Ae(i.read()));const o=await D([j]);Jt(o.records),ie=new Map(o.records.map(n=>[n.id,n]));for(const n of o.files){if(!ke.has(n.id)){const i=URL.createObjectURL(n.blob);ke.set(n.id,i),Me.set(i,n.id)}We.add(n.id)}for(const[n,i]of H){const r=Ae(te.get(n)),c=new Map(ft(n,r));for(const s of o.records)s.id.startsWith(`${j}/${n}/`)&&(s.deleted?c.delete(s.id):c.set(s.id,{collection:s.collection,value:tt(s.value)}));if(Array.isArray(r))i.replace([...c.values()].map(s=>s.value));else{for(const s of Object.keys(r)"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 15783,
+      "selfSamples": 25,
+      "inclusiveSamples": 233,
+      "sourceExcerpt": "const t=((r=e.keyword)==null?void 0:r.trim().toLowerCase())||\"\";return X.filter(o=>e.stage&&o.stage!==e.stage||e.operatorName&&o.operatorName!==e.operatorName||e.authorizerName&&o.authorizerName!==e.authorizerName||e.result&&o.result!==e.result||e.differenceDirection&&o.differenceDirection!==e.differenceDirection||e.startedAt&&o.operatedAt<e.startedAt||e.endedAt&&o.operatedAt>e.endedAt?!1:t?[o.objectId,o.objectNo,o.productionOrderNo,o.deliveryOrderNo,o.qcTaskNo,o.postTaskNo,o.recheckOrderNo,o.outboundOrderNo,o.operatorName,o.authorizerName,o.action,o.differenceReason].some(s=>String(s||\"\").toLowerCase().includes(t)):!0).sort((o,s)=>s.operatedAt.localeCompare(o.operatedAt)"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 14,
+      "inclusiveSamples": 28,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,l=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!l&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const w of s)(typeof w==\"string"
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 50072,
+      "selfSamples": 13,
+      "inclusiveSamples": 27,
+      "sourceExcerpt": "ect\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,et(t)])):e}function tt(e){if(typeof e==\"string\"&&e.startsWith(\"pcs-file:\")){const o=ke.get(e.slice(9));if(!o)throw new Error(\"后道附件缺失，用户资料尚未读取，请重新读取。\");return o}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const "
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 6,
+      "inclusiveSamples": 14,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,l=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!l&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const w of s)(typeof w==\"string"
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 50072,
+      "selfSamples": 6,
+      "inclusiveSamples": 10,
+      "sourceExcerpt": "ect\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,et(t)])):e}function tt(e){if(typeof e==\"string\"&&e.startsWith(\"pcs-file:\")){const o=ke.get(e.slice(9));if(!o)throw new Error(\"后道附件缺失，用户资料尚未读取，请重新读取。\");return o}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const "
+    },
+    {
+      "function": "ns",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 106659,
+      "selfSamples": 6,
+      "inclusiveSamples": 49,
+      "sourceExcerpt": "a.status===\"已接收入库\"&&a.lines.every(d=>d.receivedQty===d.outboundQty))}function ns(e){const t=e.trim(),r=y.outboundOrders.find(u=>u.outboundOrderNo===t||u.outboundOrderId===t),o=y.recheckOrders.find(u=>u.recheckOrderNo===t||u.recheckOrderId===t||u.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=y.postTasks.find(u=>u.postTaskNo===t||u.postTaskId===t),n=y.qcTasks.find(u=>u.qcTaskNo===t||u.qcTaskId===t),a=y.deliveries.find(u=>u.deliveryOrderNo===t||u.deliveryId===t||u.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(n==null?void 0:n.deliveryId)));if(!a)return{};const d=Lt(a),c=y.recheckOrders.filter(u=>u.delivery"
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 6,
+      "inclusiveSamples": 6,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 4,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,l=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!l&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const w of s)(typeof w==\"string"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 111489,
+      "selfSamples": 4,
+      "inclusiveSamples": 25,
+      "sourceExcerpt": ";Ir(()=>{y.processCompletions||(y.processCompletions=[]),y.schemaVersion=3});fr(()=>{var o,s,n;const e=new Set,t=new Set;for(const a of y.processCompletions||[]){if(e.has(a.recordId)||t.has(a.operationId)||!a.intent||!a.recordedAt||!Number.isFinite(Date.parse(a.recordedAt)))throw new Error(\"加工记录编号、提交标识或时间无效，资料未恢复。\");e.add(a.recordId),t.add(a.operationId);const d=y.postTasks.find(c=>c.postTaskId===a.postTaskId);if(!d)throw new Error(\"加工记录缺少来源加工单，资料未恢复。\");if(!(d.executionModel!==\"ITEMS_V1\"&&a.operationId.startsWith(\"DEMO:\"))){if(!d.processItems.includes(a.processItem)||new Set(a.quantities.map(c=>c.skuId)).size!==a.quantities.length||!a.quantities.length)throw new Error(\"加工"
+    },
+    {
+      "function": "$",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 74169,
+      "selfSamples": 4,
+      "inclusiveSamples": 15,
+      "sourceExcerpt": "status,remark:`${o}退领；已清空质检数量、下游选择与未提交授权数据；${t.releaseReason}`}),p(t)}function $(e){var f;const t=typeof e==\"string\"?he(e):e,r=t.executionModel!==\"ITEMS_V1\",o=(y.processCompletions||[]).filter(u=>u.postTaskId===t.postTaskId&&!(r&&u.operationId.startsWith(\"DEMO:\"))),s=y.recheckOrders.filter(u=>u.postTaskId===t.postTaskId),n=((f=t.legacyCarryover)==null?void 0:f.history)||(r&&t.results?t.results.map(u=>({skuId:u.sku.skuId,completedQty:u.processedQty})):[]),a=u=>t.lines.map(m=>{var w,R,g,S;const k=((w=n.find(U=>U.skuId===m.sku.skuId))==null?void 0:w.completedQty)||0,b=m.expectedQty-k,Q=(((S=(g=(R=t.legacyCarryover)==null?void 0:R.baselines.find(U=>U.processItem===u))==null?v"
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 3,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,l=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!l&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const w of s)(typeof w==\"string"
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+      "line": 1,
+      "column": 50072,
+      "selfSamples": 3,
+      "inclusiveSamples": 13,
+      "sourceExcerpt": "ect\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,et(t)])):e}function tt(e){if(typeof e==\"string\"&&e.startsWith(\"pcs-file:\")){const o=ke.get(e.slice(9));if(!o)throw new Error(\"后道附件缺失，用户资料尚未读取，请重新读取。\");return o}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const "
+    },
+    {
+      "function": "$",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 74169,
+      "selfSamples": 3,
+      "inclusiveSamples": 17,
+      "sourceExcerpt": "status,remark:`${o}退领；已清空质检数量、下游选择与未提交授权数据；${t.releaseReason}`}),p(t)}function $(e){var f;const t=typeof e==\"string\"?he(e):e,r=t.executionModel!==\"ITEMS_V1\",o=(y.processCompletions||[]).filter(u=>u.postTaskId===t.postTaskId&&!(r&&u.operationId.startsWith(\"DEMO:\"))),s=y.recheckOrders.filter(u=>u.postTaskId===t.postTaskId),n=((f=t.legacyCarryover)==null?void 0:f.history)||(r&&t.results?t.results.map(u=>({skuId:u.sku.skuId,completedQty:u.processedQty})):[]),a=u=>t.lines.map(m=>{var w,R,g,S;const k=((w=n.find(U=>U.skuId===m.sku.skuId))==null?void 0:w.completedQty)||0,b=m.expectedQty-k,Q=(((S=(g=(R=t.legacyCarryover)==null?void 0:R.baselines.find(U=>U.processItem===u))==null?v"
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 3,
+      "inclusiveSamples": 3,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    }
+  ],
+  "aggregatedTop": [
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "30",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+        "lineNumber": 0,
+        "columnNumber": 16283
+      },
+      "selfSamples": 208,
+      "stacks": [
+        [
+          "<anonymous> <- <anonymous> <- Es <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          208
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(idle)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 133,
+      "stacks": [
+        [
+          "(idle) <- (root)",
+          133
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Es",
+        "scriptId": "30",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+        "lineNumber": 0,
+        "columnNumber": 15690
+      },
+      "selfSamples": 74,
+      "stacks": [
+        [
+          "Es <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          74
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(program)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 65,
+      "stacks": [
+        [
+          "(program) <- (root)",
+          65
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "e.onsuccess",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+        "lineNumber": 1,
+        "columnNumber": 1210
+      },
+      "selfSamples": 63,
+      "stacks": [
+        [
+          "e.onsuccess <- (root)",
+          63
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "p",
+        "scriptId": "30",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+        "lineNumber": 0,
+        "columnNumber": 36508
+      },
+      "selfSamples": 59,
+      "stacks": [
+        [
+          "p <- ns <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          41
+        ],
+        [
+          "p <- $ <- <anonymous> <- or <- H <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "p <- $ <- H <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "p <- $ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+          3
+        ],
+        [
+          "p <- <anonymous> <- a <- <anonymous> <- $ <- H <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Blob",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 39,
+      "stacks": [
+        [
+          "Blob <- Mo <- (root)",
+          39
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Mo",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+        "lineNumber": 1,
+        "columnNumber": 57547
+      },
+      "selfSamples": 33,
+      "stacks": [
+        [
+          "Mo <- (root)",
+          33
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "c",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+        "lineNumber": 1,
+        "columnNumber": 1895
+      },
+      "selfSamples": 29,
+      "stacks": [
+        [
+          "c <- N <- <anonymous> <- (root)",
+          14
+        ],
+        [
+          "c <- c <- N <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "c <- c <- c <- c <- N <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "c <- c <- c <- N <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "c <- c <- c <- c <- c <- N <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(garbage collector)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 28,
+      "stacks": [
+        [
+          "(garbage collector) <- (root)",
+          28
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Ne",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+        "lineNumber": 1,
+        "columnNumber": 51449
+      },
+      "selfSamples": 27,
+      "stacks": [
+        [
+          "Ne <- (root)",
+          27
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "tt",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-DE6QjxP_.js",
+        "lineNumber": 1,
+        "columnNumber": 50072
+      },
+      "selfSamples": 25,
+      "stacks": [
+        [
+          "tt <- Ne <- (root)",
+          13
+        ],
+        [
+          "tt <- tt <- <anonymous> <- tt <- Ne <- (root)",
+          6
+        ],
+        [
+          "tt <- <anonymous> <- tt <- Ne <- (root)",
+          3
+        ],
+        [
+          "tt <- tt <- tt <- <anonymous> <- tt <- Ne <- (root)",
+          1
+        ],
+        [
+          "tt <- <anonymous> <- tt <- tt <- tt <- <anonymous> <- tt <- Ne <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "30",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+        "lineNumber": 0,
+        "columnNumber": 15783
+      },
+      "selfSamples": 25,
+      "stacks": [
+        [
+          "<anonymous> <- Es <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          25
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "$",
+        "scriptId": "30",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+        "lineNumber": 0,
+        "columnNumber": 74169
+      },
+      "selfSamples": 10,
+      "stacks": [
+        [
+          "$ <- <anonymous> <- or <- H <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "$ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+          3
+        ],
+        [
+          "$ <- H <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          3
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "ns",
+        "scriptId": "30",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-eLhkbXOo.js",
+        "lineNumber": 0,
+        "columnNumber": 106659
+      },
+      "selfSamples": 6,
+      "stacks": [
+        [
+          "ns <- <anonymous> <- E <- ne <- <anonymous> <- (root)",
+          6
+        ]
+      ]
+    }
+  ]
+}

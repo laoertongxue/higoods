@@ -1,0 +1,225 @@
+{
+  "profile": "cpu-process-开扣眼-save-1.cpuprofile",
+  "intervalUs": 1000,
+  "aggregatedTop": [
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 207,
+      "callStacks": [
+        [
+          "Ae <- <anonymous> <- pe <- jo <- De <- Y <- (root)",
+          106
+        ],
+        [
+          "Ae <- ue <- jo <- (root)",
+          51
+        ],
+        [
+          "Ae <- ue <- jo <- De <- Y <- (root)",
+          50
+        ]
+      ]
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 78,
+      "callStacks": [
+        [
+          "(idle) <- (root)",
+          78
+        ]
+      ]
+    },
+    {
+      "function": "jo",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 52597,
+      "selfSamples": 29,
+      "callStacks": [
+        [
+          "jo <- De <- Y <- (root)",
+          29
+        ],
+        [
+          "jo <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 13,
+      "callStacks": [
+        [
+          "(garbage collector) <- (root)",
+          13
+        ]
+      ]
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 10,
+      "callStacks": [
+        [
+          "p <- ie <- qe <- ae <- D <- De <- (root)",
+          6
+        ],
+        [
+          "p <- tr <- qe <- ae <- D <- De <- (root)",
+          3
+        ],
+        [
+          "p <- Zo <- O <- Q <- <anonymous> <- jo <- De <- Y <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "n",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47652,
+      "selfSamples": 6,
+      "callStacks": [
+        [
+          "n <- <anonymous> <- ft <- <anonymous> <- Ke <- jo <- De <- Y <- (root)",
+          6
+        ]
+      ]
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 5,
+      "callStacks": [
+        [
+          "(program) <- (root)",
+          5
+        ]
+      ]
+    },
+    {
+      "function": "request.onsuccess",
+      "url": "",
+      "line": 37,
+      "column": 28,
+      "selfSamples": 5,
+      "callStacks": [
+        [
+          "request.onsuccess <- (root)",
+          5
+        ]
+      ]
+    },
+    {
+      "function": "ft",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47628,
+      "selfSamples": 3,
+      "callStacks": [
+        [
+          "ft <- <anonymous> <- Ke <- jo <- De <- Y <- (root)",
+          3
+        ]
+      ]
+    },
+    {
+      "function": "De",
+      "url": "http://127.0.0.1:43198/assets/work-order-detail-M68zO3yo.js",
+      "line": 0,
+      "column": 21963,
+      "selfSamples": 2,
+      "callStacks": [
+        [
+          "De <- Y <- (root)",
+          2
+        ],
+        [
+          "De <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "function": "markTargetElements",
+      "url": "",
+      "line": 7704,
+      "column": 20,
+      "selfSamples": 1,
+      "callStacks": [
+        [
+          "markTargetElements <- <anonymous> <- evaluate <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 1,
+      "callStacks": [
+        [
+          "<anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "structuredClone",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 1,
+      "callStacks": [
+        [
+          "structuredClone <- Ae <- <anonymous> <- pe <- jo <- De <- Y <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47830,
+      "selfSamples": 1,
+      "callStacks": [
+        [
+          "<anonymous> <- ft <- <anonymous> <- Ke <- jo <- De <- Y <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "function": "wt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47451,
+      "selfSamples": 1,
+      "callStacks": [
+        [
+          "wt <- <anonymous> <- ft <- <anonymous> <- Ke <- jo <- De <- Y <- (root)",
+          1
+        ]
+      ]
+    }
+  ]
+}

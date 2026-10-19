@@ -1,0 +1,66 @@
+
+Running 6 tests using 1 worker
+
+
+(node:14217) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/6] tests/post-finishing-partial-flow.spec.ts:138:1 › PFN-A01/A02/A17/A26：QC四项实际独立勾选，列表分清0与不涉及，查询统计与总数一致
+[2/6] tests/post-finishing-partial-flow.spec.ts:186:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环
+  1) tests/post-finishing-partial-flow.spec.ts:186:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环 
+
+    Error: locator.click: Error: strict mode violation: locator('[data-post-process="包装"] summary') resolved to 2 elements:
+        1) <summary class="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm">…</summary> aka getByText('包装100 / 1000 件部分完成')
+        2) <summary class="min-h-8 cursor-pointer text-xs font-medium">查看 1 次登记</summary> aka getByText('查看 1 次登记').nth(3)
+
+    Call log:
+      - waiting for locator('[data-post-process="包装"] summary')
+
+
+      212 |   await page.goto(`/fcs/pda/post-finishing/execute?id=${encodeURIComponent(seed.taskNo)}`)
+      213 |   await expect(page.locator('[data-pda-post-task]')).toBeVisible()
+    > 214 |   await page.locator('[data-post-process="包装"] summary').click()
+          |                                                          ^
+      215 |   await page.locator(`[data-post-process="包装"] [data-post-process-line="${seed.skuId}"] [data-post-process-qty]`).fill('100')
+      216 |   await page.locator('[data-pda-post-action="save-process-completion"][data-process-item="包装"]').click()
+      217 |   await expect(page.locator('[data-post-process="包装"]')).toContainText('200')
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-partial-flow.spec.ts:214:58
+
+    attachment #1: d1-four-process-500-300-200-100 (image/png) ─────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-four-process-500-300-200-100-d6fe9b6b47f06a429de4bcbca56d805d6dbb82d0.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: d1-parent-list-four-quantities (image/png) ──────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-parent-list-four-quantities-7f50ec2c06336dbe7614a0c884dcb1e97b67594e.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:14552) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/6] tests/post-finishing-partial-flow.spec.ts:260:74 › PFN-A19：QuotaExceededError时本次加工不落半套、输入保留且恢复后同意图只保存一次
+[4/6] tests/post-finishing-partial-flow.spec.ts:260:74 › PFN-A19：AbortError时本次加工不落半套、输入保留且恢复后同意图只保存一次
+[5/6] tests/post-finishing-partial-flow.spec.ts:291:1 › PFN-A19：两个标签同revision竞争时第二次拒绝，保留输入且不超实物量
+[6/6] tests/post-finishing-partial-flow.spec.ts:311:1 › PFN-067样本：五次完整增量保存及五次预热后刷新加载，含持久读回
+  1 failed
+    tests/post-finishing-partial-flow.spec.ts:186:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环 
+  5 passed (24.8s)

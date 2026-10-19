@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict'
+import { writeFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+const root='/Users/laoer/.codex/worktrees/81b7/higoods'
+const load=(p:string)=>import(pathToFileURL(`${root}/${p}`).href)
+const fixed=Date.parse('2026-10-20T00:30:00+08:00'); Date.now=()=>fixed
+const flow=await load('src/data/fcs/post-finishing-full-flow.ts')
+const handover=await load('src/data/fcs/pda-handover-events.ts')
+const dye=await load('src/data/fcs/dyeing-task-domain.ts')
+const view=await load('src/data/fcs/post-finishing-current-read-model.ts')
+const auth=await load('src/data/fcs/post-finishing-authorization.ts')
+const actors=flow.POST_FINISHING_ACCEPTANCE_ACTORS
+const source=flow.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
+const originalPlan=source.skus[0].plannedQty
+const snapshots:any[]=[]
+function snapshot(stage:string){
+ handover.invalidatePdaHandoverHeadCache()
+ const all=handover.listPdaHandoverHeads()
+ const factories=[...new Set([...all.map((h:any)=>h.factoryId),view.FULL_CAPABILITY_FACTORY_ID,'ID-F090','UNKNOWN-FACTORY'])]
+ const orders=[...new Set(all.map((h:any)=>h.productionOrderNo))]
+ const methods:any={
+  all, nonWool:handover.listPdaHandoverHeads({includeWool:false}),
+  taskFilter:handover.listPdaHandoverHeads({taskIds:new Set(all.slice(0,3).map((h:any)=>h.taskId))}),
+  byType:['PICKUP','HANDOUT'].map(type=>({type,rows:handover.listPdaHandoverHeadsByType(type)})),
+  byFactory:factories.map(factoryId=>({factoryId,rows:handover.listPdaHandoverHeadsByFactory(factoryId), pickup:handover.getPdaPickupHeads(factoryId), handout:handover.getPdaHandoutHeads(factoryId),completed:handover.getPdaCompletedHeads(factoryId),pendingPickup:handover.getPdaPendingPickupHeads(factoryId),pendingHandout:handover.getPdaPendingHandoutHeads(factoryId),summary:handover.getPdaHandoverSummaryByFactory(factoryId)})),
+  byOrder:orders.map(order=>({order,rows:handover.listPdaHandoverHeadsByOrder(order)})),
+  byId:all.map((h:any)=>handover.getPdaHandoverHeadById(h.handoverId)),
+  missing:handover.getPdaHandoverHeadById('MISSING-HEAD')??null,
+  postPickup:handover.getPdaPostFinishingPickupHeads(), postHandout:handover.getPdaPostFinishingHandoutHeads(),postCompleted:handover.getPdaPostFinishingCompletedHeads(),
+  summary:handover.getPdaHandoverSummary(),
+ }
+ const outbounds=flow.listPostFinishingFullFlowOutboundOrders()
+ const expected=outbounds.map((o:any)=>({outboundOrderId:o.outboundOrderId,outboundOrderNo:o.outboundOrderNo,status:o.status,receivedAt:o.receivedAt,receivedQty:o.lines.reduce((sum:number,line:any)=>sum+(line.receivedQty||0),0)}))
+ const summaries=flow.listPostFinishingOutboundReceiptSummaries()
+ assert.deepEqual(summaries,expected)
+ for(const row of summaries)for(const value of Object.values(row))assert.ok(value===undefined||value===null||['string','number','boolean'].includes(typeof value),'summary must contain detached primitives only')
+ if(summaries.length){summaries[0].receivedQty=-999; summaries[0].outboundOrderNo='MUTATED-RETURN'; assert.deepEqual(flow.listPostFinishingOutboundReceiptSummaries(),expected,'mutating one returned row must not change source or next read')}
+ for(const o of outbounds){assert.deepEqual(flow.getPostFinishingFullFlowOutboundOrder(o.outboundOrderId),o);assert.deepEqual(flow.getPostFinishingFullFlowOutboundOrder(o.outboundOrderNo),o)}
+ snapshots.push({stage,outbounds:expected,methods})
+}
+function setup(items:string[]){
+ flow.resetPostFinishingFullFlow();source.skus[0].plannedQty=1000
+ const delivery=flow.registerPostFinishingFactoryReturn({productionOrderNo:source.productionOrderNo,executionTaskId:source.executionTaskId,returnIndex:1,triggerSource:'车缝正常交出',idempotencyKey:'HANDOVER-EQUIVALENCE',quantities:source.skus.map((sku:any,i:number)=>({skuId:sku.skuId,registeredQty:i?0:1000})),deliveryPersonName:'交接等价隔离夹具',deliveryPersonPhone:'',evidenceImageUrls:[source.skus[0].imageUrl],actor:actors.factoryCourier,nowMs:fixed})
+ flow.confirmPostFinishingFactoryReturn({deliveryId:delivery.deliveryId,firstCounts:delivery.lines.map((line:any)=>({skuId:line.sku.skuId,actualQty:line.registeredQty})),actor:actors.returnConfirmer,nowMs:fixed+1000})
+ const qc=flow.sendPostFinishingFactoryReturnToQc({deliveryId:delivery.deliveryId,actor:actors.sender,nowMs:fixed+2000})
+ flow.claimPostFinishingQcTask({qcTaskNo:qc.qcTaskNo,actor:actors.qcA,nowMs:fixed+3000})
+ const completed=flow.completePostFinishingQcTask({qcTaskId:qc.qcTaskId,actor:actors.qcA,processItems:items,results:qc.lines.map((line:any)=>({skuId:line.sku.skuId,passedQty:line.expectedQty,defectQty:0,returnQty:0})),nowMs:fixed+4000})
+ return flow.getPostFinishingFullFlowPostTask(completed.postTaskId)
+}
+try{
+ snapshot('static-before-dye')
+ dye.listDyeWorkOrders();snapshot('static-after-dye')
+ const task=setup(['装扣子','包装'])
+ for(const [i,processItem]of ['装扣子','包装'].entries())flow.appendPostFinishingProcessCompletion({postTaskId:task.postTaskId,processItem,quantities:[{skuId:source.skus[0].skuId,quantity:1000}],responsible:actors.postOperator,actor:actors.postSupervisor,operationId:`HANDOVER-PROCESS-${i}`,nowMs:fixed+5000+i*1000})
+ const outs:any[]=[]
+ for(const[i,quantity]of [100,100,800].entries()){
+  const rc=flow.submitPostFinishingForRecheck({postTaskId:task.postTaskId,quantities:[{skuId:source.skus[0].skuId,quantity}],actor:actors.postOperator,operationId:`HANDOVER-RC-${i}`,nowMs:fixed+9000+i*4000})
+  flow.claimPostFinishingRecheckOrder({recheckOrderNo:rc.recheckOrderNo,actor:actors.recheckerA,nowMs:fixed+10000+i*4000})
+  for(const line of rc.lines)flow.scanPostFinishingRecheckSkuBarcode({recheckOrderId:rc.recheckOrderId,skuId:line.sku.skuId,scannedBarcode:line.sku.barcode,actor:actors.recheckerA,nowMs:fixed+11000+i*4000})
+  const complete=flow.completePostFinishingRecheckOrderFullFlow({recheckOrderId:rc.recheckOrderId,actor:actors.recheckerA,results:rc.lines.map((line:any)=>({skuId:line.sku.skuId,handoverQty:line.expectedQty})),nowMs:fixed+12000+i*4000})
+  outs.push(flow.getPostFinishingFullFlowOutboundOrder(complete.outboundOrderId))
+ }
+ snapshot('three-pending-100-100-800')
+ function receive(index:number,actual:number,time:number){const out=outs[index];flow.receivePostFinishingOutboundOrder({outboundOrderNo:out.outboundOrderNo,actor:actors.warehouseReceiver,authorization:actual===out.lines[0].outboundQty?undefined:{scanValue:auth.getPostFinishingAuthorizationDisplay('AUTH-POST-001',fixed+time).scanPayload,differenceReason:'隔离等价核查实物复点差异',nowMs:fixed+time},receivedQuantities:out.lines.map((line:any)=>({skuId:line.sku.skuId,receivedQty:actual})),nowMs:fixed+time})}
+ receive(0,100,30000);snapshot('first-received-second-third-pending')
+ receive(2,799,40000);snapshot('two-received-one-pending-with-warehouse-shortage')
+ receive(1,100,50000);snapshot('all-received-different-times-and-shortage')
+ setup([]);snapshot('qc-direct-no-processes')
+}finally{source.skus[0].plannedQty=originalPlan}
+writeFileSync(process.argv[2],JSON.stringify(snapshots))
+console.log(JSON.stringify({status:'captured',stages:snapshots.map(({stage,outbounds,methods})=>({stage,heads:methods.all.length,postHandout:methods.postHandout.length,postCompleted:methods.postCompleted.length,outboundStatusCounts:outbounds.reduce((r:any,o:any)=>(r[o.status]=(r[o.status]||0)+1,r),{})})),isolation:'public Node memory commands only; input plan restored; no IndexedDB/browser/build'}))

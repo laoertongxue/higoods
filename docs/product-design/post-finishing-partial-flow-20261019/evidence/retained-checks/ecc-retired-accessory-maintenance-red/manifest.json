@@ -1,0 +1,32 @@
+[
+  {
+    "path": "integration-before.spec.ts",
+    "bytes": 31276,
+    "sha256": "1bb2e712dc61099a3d4b51cb55851277c03add5ef34031a115f30d8bf4cac1fc"
+  },
+  {
+    "path": "post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/error-context.md",
+    "bytes": 24703,
+    "sha256": "dbc2a39ab96823ce92f1aa7abf3d6b0d00df5d774cd6178b0a6edee794633724"
+  },
+  {
+    "path": "post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/test-failed-1.png",
+    "bytes": 99095,
+    "sha256": "6c5bf93dbac658f5d371b8ec80e7ca2fcff6c797449af9877e0aad7fc143bc8e"
+  },
+  {
+    "path": "post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/trace.zip",
+    "bytes": 4686407,
+    "sha256": "79984c06e22f10abc610bf325ea80db0c1f7b1cd5399c6fb1fcee27e876cb2ff"
+  },
+  {
+    "path": "post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/video.webm",
+    "bytes": 331011,
+    "sha256": "8985ef1d2df744343de602e4675061e00dc400414f796fcb5c94cb40c9a049be"
+  },
+  {
+    "path": "raw.log",
+    "bytes": 12795,
+    "sha256": "0efdea7b27b14a76fb0d8a4ff627b0d9220aa3a0e159afa6e9fdf7c51eb9aa74"
+  }
+]

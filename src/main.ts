@@ -1010,7 +1010,7 @@ async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string
     || normalizedPathname === '/fcs/pda/warehouse/wait-process'
     || normalizedPathname === '/wls/finished-inbound'
     || (normalizedPathname === '/fcs/print/preview'
-      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
+      && ['POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') || ''))
   const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
     '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
     '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
@@ -1232,7 +1232,7 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       || normalizedPathname === '/fcs/pda/warehouse/wait-process'
       || normalizedPathname === '/wls/finished-inbound'
       || (normalizedPathname === '/fcs/print/preview'
-        && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
+        && ['POST_FINISHING_QC_ORDER', 'POST_FINISHING_OUTBOUND_ORDER', 'POST_FINISHING_OUTBOUND_BARCODE'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || ''))
     // These pages read their preparation and ticket facts from the hydrated FCS
     // sources. PMS keeps its initialization on its original module entries.
     const isolatedPcsList = ['/pcs/products/styles', '/pcs/products/specifications'].includes(normalizedPathname)
@@ -1484,6 +1484,15 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     if (reloadForDynamicModuleLoadError(error, '路由模块')) {
       return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
     }
+    const postFinishingReadEntry = /^\/fcs\/(?:craft\/post-finishing\/|pda\/post-finishing\/|pda\/exec\/PF-POST-)/.test(pathname)
+      || pathname.split('?')[0] === '/wls/finished-inbound'
+    if (postFinishingReadEntry && error instanceof Error) {
+      const records = await import('./data/pcs-record-runtime.ts')
+      if (records.getPcsStorageFailure() === error.message) {
+        const notice = await import('./pages/process-factory/post-finishing/storage-notice.ts')
+        return notice.renderPostFinishingEntryStorageFailure(error)
+      }
+    }
     // A material read may discover an attachment failure after the broad PCS
     // preparation completed. Preserve that owner's reason and actual reread
     // action only when the page consumed this exact failed collection.
@@ -1518,9 +1527,10 @@ async function render(): Promise<void> {
   const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
     || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
   const pageContent = await pageContentPromise
+  const postFinishingEntryFailed = pageContent.includes('data-post-finishing-entry-storage-failure')
   // PDA处理器含读取业务记录的模块，必须等同一页面的记录初始化完成。
   const isPdaLogin = state.pathname.split('?')[0].split('#')[0] === '/fcs/pda/auth/login'
-  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isPdaLogin) await getPdaHandlersModule()
+  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
   if (currentSerial !== renderSerial) {
     return
   }
@@ -1531,7 +1541,7 @@ async function render(): Promise<void> {
     pmsSurface.hydratePmsSurface(root, { icons: false })
   }
   if (isPdaPath(state.pathname)) {
-    if (!isPdaLogin && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+    if (!isPdaLogin && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
     }
     queueMicrotask(() => hydrateIcons(root))
@@ -2158,12 +2168,29 @@ function shouldSkipChangeRerender(target: Element): boolean {
   return resolveSharedFieldRerenderDecision(target, 'change') ?? false
 }
 
+function postFinishingEventNavigated(previousPathname: string): boolean {
+  // These handlers navigate after a completed command or an exact scan. The
+  // store subscription already renders that destination; a second render can
+  // overlap the same protected source read. Failed/non-navigating actions still
+  // use their normal outer render and retain recoverable input.
+  const nextPathname = appStore.getState().pathname
+  const postMaterialHandover = previousPathname.split('?')[0] === '/fcs/pda/handover'
+    && nextPathname.split('?')[0] === '/fcs/pda/handover'
+    && Boolean(new URLSearchParams(previousPathname.split('?')[1] || '').get('materialOrderNo')
+      || new URLSearchParams(nextPathname.split('?')[1] || '').get('materialOrderNo'))
+  return nextPathname !== previousPathname
+    && (postMaterialHandover || [previousPathname, nextPathname].some(pathname =>
+      /^\/fcs\/(?:craft\/post-finishing\/|pda\/post-finishing\/|pda\/exec\/PF-POST-)/.test(pathname)
+      || pathname.split('?')[0] === '/fcs/pda/handover/sewing-self-return'))
+}
+
 async function renderAfterHandledPageEvent(
   target: HTMLElement,
   focusSnapshot: FocusSnapshot | null,
   previousPathname: string,
 ): Promise<void> {
   const nextPathname = appStore.getState().pathname
+  if (postFinishingEventNavigated(previousPathname)) return
   if (target.dataset.pmsEventHandledLocally === 'true' && nextPathname === previousPathname) return
   if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
     await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
@@ -2508,6 +2535,7 @@ root.addEventListener('click', async (event) => {
     const pmsNativeControl = target.dataset.pmsEventHandledLocally === 'true'
       && ((target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) || Boolean(target.closest('summary')))
     if (!preserveNativeClick && !pmsNativeControl) event.preventDefault()
+    if (postFinishingEventNavigated(previousPathname)) return
     if ((skipPageRerender || target.closest('[data-post-finishing-preserve-input="true"]')) && appStore.getState().pathname === previousPathname) {
       return
     }
@@ -2680,7 +2708,9 @@ document.addEventListener('keydown', async (event) => {
     // the lazily loaded page handler is being resolved.
     event.preventDefault()
     const focusSnapshot = captureFocusSnapshot()
+    const previousPathname = appStore.getState().pathname
     if (await dispatchPageEvent(scanEnterTarget, event)) {
+      if (postFinishingEventNavigated(previousPathname)) return
       await renderWithFocusRestore(focusSnapshot)
     }
     return

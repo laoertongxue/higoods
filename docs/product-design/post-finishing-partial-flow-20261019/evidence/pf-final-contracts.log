@@ -1,0 +1,27 @@
+(node:20333) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PFN-005/006：QC无项目保留直达出货，合格0不产生空加工/复检/出货 (1.316917ms)
+✔ PFN-028—035/039—046：D1按100/100/800三次复检出货，各张独立实收且父状态不提前 (4.487ms)
+✔ PFN-030/031/036：待领取、复检中、条码异常及完成全部占用，错码仅阻断本张且重贴后必须复扫 (1.2455ms)
+✔ PFN-037/038/040：复检总量0即使有授权也拒绝；无效授权不改实数；少交不重复释放占用 (1.131083ms)
+✔ PFN-029/038：授权多交只能补占同SKU尚未占用完成量，不能凭授权超实物供给 (0.793666ms)
+✔ PFN-038/040/050：多SKU部分实际为0需授权，出货及待交出库存仅包含正数量行 (0.907625ms)
+(node:20334) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PFN-001/002/003：全部15种非空QC选择按相对顺序执行，来源责任不覆盖实际选择 (4.64775ms)
+✔ PFN-009/015/016/021/022：D1四项形成500/300/200/100进度，最后适用项决定成衣完成量 (0.903459ms)
+✔ PFN-002/013/016：仅装扣子与包装，包装受装扣子上限约束；四种单项均可成为末项 (1.845334ms)
+✔ PFN-011/012/013：首项不超Q，后项逐SKU不超前序，其他SKU余量不能抵扣 (0.736333ms)
+✔ PFN-014：空量、小数、负数、未知及重复SKU、未选项目均拒绝且不追加事实 (0.747917ms)
+✔ PFN-009/010/017/018/019/020：多人分项增量保留责任、录入人与时间，同提交重试不重复累计 (0.673708ms)
+✔ PFN-004/052：已有执行事实后不能通过重复QC或旧整单命令覆盖加工链、数量 (0.575875ms)
+✔ PFN-071：主管订正保留原责任与有符号差量，绝对订正可为0且不破坏后序或复检占用 (2.125875ms)
+✔ PFN-017/020/068/071：回货、QC、复检及仓收角色不能冒充加工登记或后道主管订正 (0.730208ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.623208

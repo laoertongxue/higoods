@@ -1,0 +1,87 @@
+--- /Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/retained-checks/read-projection-before/post-finishing-current-read-model.ts.txt	2026-10-20 01:24:09
++++ /Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/post-finishing-current-read-model.ts	2026-10-20 02:31:26
+@@ -12,6 +12,7 @@
+   listPostFinishingFactoryReturns,
+   listPostFinishingFullFlowOutboundOrders,
+   listPostFinishingFullFlowPostTasks,
++  listPostFinishingTaskQuantitySummaries,
+   listPostFinishingFullFlowQcTasks,
+   listPostFinishingFullFlowRecheckOrders,
+   listPostFinishingWaitHandoverWarehouseRecords,
+@@ -381,7 +382,7 @@
+ interface TaskProjectionSnapshot {
+   deliveries: DeliverySnapshot
+   qcTasks: ReturnType<typeof listPostFinishingFullFlowQcTasks>
+-  postTasks: ReturnType<typeof listPostFinishingFullFlowPostTasks>
++  postTasks: ReturnType<typeof listPostFinishingTaskQuantitySummaries>
+   rechecks: RecheckSnapshot
+   outbounds: ReturnType<typeof listPostFinishingFullFlowOutboundOrders>
+   waitHandovers: ReturnType<typeof listPostFinishingWaitHandoverWarehouseRecords>
+@@ -389,13 +390,14 @@
+ 
+ // Snapshots belong to one synchronous list read only. Every next call reads
+ // the current authoritative facts again; there is no cross-action cache.
+-function workOrderProjectionSnapshot(): WorkOrderProjectionSnapshot {
++function workOrderProjectionSnapshot(task?: PostFinishingPostTask): WorkOrderProjectionSnapshot {
++  const postTaskIds = task ? new Set([task.postTaskId]) : undefined
+   return {
+     deliveries: listPostFinishingFactoryReturns(),
+     factories: listFactoryMasterRecords(),
+     qcTasks: listPostFinishingFullFlowQcTasks(),
+-    rechecks: listPostFinishingFullFlowRecheckOrders(),
+-    waitHandovers: listPostFinishingWaitHandoverWarehouseRecords(),
++    rechecks: listPostFinishingFullFlowRecheckOrders(undefined, postTaskIds),
++    waitHandovers: listPostFinishingWaitHandoverWarehouseRecords(undefined, postTaskIds),
+   }
+ }
+ 
+@@ -432,7 +434,7 @@
+   if (qcTasks.some((item) => item.status === '待质检' || item.status === '待送检')) return '待质检'
+   if (deliveries.some((item) => !item.confirmedAt)) return '待收货'
+   if (deliveries.some((delivery) => delivery.confirmedAt && !qcTasks.some((qc) => qc.deliveryId === delivery.deliveryId))) return '待质检'
+-  if (postTasks.some(task => getPostFinishingProcessProgress(task).availableForRecheckQty > 0)) return '待复检'
++  if (postTasks.some(task => task.availableForRecheckQty > 0)) return '待复检'
+   if (outbounds.some((item) => item.status !== '已接收入库')) return '待交出'
+   const formalOrder = productionOrders.find((item) => item.productionOrderId === orderId)
+   if (formalOrder?.status === 'COMPLETED') return '已完成'
+@@ -458,7 +460,7 @@
+   const snapshot: TaskProjectionSnapshot = {
+     deliveries,
+     qcTasks: listPostFinishingFullFlowQcTasks(productionOrderNos),
+-    postTasks: listPostFinishingFullFlowPostTasks(productionOrderNos),
++    postTasks: listPostFinishingTaskQuantitySummaries(productionOrderNos),
+     rechecks: listPostFinishingFullFlowRecheckOrders(productionOrderNos),
+     outbounds: listPostFinishingFullFlowOutboundOrders(productionOrderNos),
+     waitHandovers: listPostFinishingWaitHandoverWarehouseRecords(productionOrderNos),
+@@ -503,7 +505,7 @@
+     const waitHandover = snapshot.waitHandovers.filter((item) => item.productionOrderNo === order.productionOrderNo)
+     const receivedQty = sum(deliveries.flatMap((delivery) => delivery.lines.map((line) => line.confirmedQty || 0)))
+     const qcDoneQty = sum(qcTasks.flatMap((task) => task.results?.map((line) => line.expectedQty) || []))
+-    const postDoneQty = sum(postTasks.map(task => getPostFinishingProcessProgress(task).totalCompletedQty))
++    const postDoneQty = sum(postTasks.map(task => task.totalCompletedQty))
+     const recheckDoneQty = sum(rechecks.filter((item) => item.status === '复检完成').flatMap((item) => item.lines.map((line) => line.handoverQty || 0)))
+     const currentStatus = taskStatus(order.productionOrderId, order.productionOrderNo, snapshot)
+     const formalOrder = productionOrders.find((item) => item.productionOrderId === order.productionOrderId)
+@@ -546,10 +548,10 @@
+       waitQcQty: Math.max(receivedQty - qcDoneQty, 0),
+       qcInProgressQty: sum(qcTasks.filter((item) => item.status === '质检中').flatMap((item) => item.lines.map((line) => line.expectedQty))),
+       qcDoneQty,
+-      waitPostQty: sum(postTasks.filter((item) => item.status === '待后道').flatMap((item) => item.lines.map((line) => line.expectedQty))),
+-      postDoingQty: sum(postTasks.filter(item => item.status === '后道中').map(task => { const p = getPostFinishingProcessProgress(task); return p.totalExpectedQty - p.totalCompletedQty })),
++      waitPostQty: sum(postTasks.filter((item) => item.status === '待后道').map(item => item.totalExpectedQty)),
++      postDoingQty: sum(postTasks.filter(item => item.status === '后道中').map(task => task.totalExpectedQty - task.totalCompletedQty)),
+       postDoneQty,
+-      waitRecheckQty: sum(postTasks.map(task => getPostFinishingProcessProgress(task).availableForRecheckQty)) + sum(rechecks.filter((item) => item.status !== '复检完成').flatMap((item) => item.lines.map((line) => line.expectedQty))),
++      waitRecheckQty: sum(postTasks.map(task => task.availableForRecheckQty)) + sum(rechecks.filter((item) => item.status !== '复检完成').flatMap((item) => item.lines.map((line) => line.expectedQty))),
+       recheckDoneQty,
+       waitHandoverQty: sum(waitHandover.flatMap((item) => item.lines.map((line) => line.availableQty))),
+       qcOrderCount: qcTasks.length,
+@@ -859,7 +861,7 @@
+ 
+ export function getPostFinishingWorkOrderById(idOrNo: string): PostFinishingWorkOrder | undefined {
+   const task = getPostFinishingFullFlowPostTask(idOrNo)
+-  return task ? toWorkOrder(task, workOrderProjectionSnapshot()) : undefined
++  return task ? toWorkOrder(task, workOrderProjectionSnapshot(task)) : undefined
+ }
+ 
+ export function getPostFinishingWorkOrderBySourceTaskId(taskId: string): PostFinishingWorkOrder | undefined {

@@ -1,0 +1,628 @@
+{
+  "family": "pda-exec-detail:cold",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 994742,
+  "top": [
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 111,
+      "inclusiveSamples": 111
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 68,
+      "inclusiveSamples": 68
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 31,
+      "inclusiveSamples": 31,
+      "sourceExcerpt": "=>{throw ie=void 0,e}),ie)}function j(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+    },
+    {
+      "function": "Me",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 52337,
+      "selfSamples": 25,
+      "inclusiveSamples": 49,
+      "sourceExcerpt": "ncludes(s.roleName)))throw new Error(\"加工责任人或录入人身份不完整，资料未导入。\")}}async function Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeValues)!=null&&o.has(a.value))?a.value:ot(a.value)})"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 14,
+      "inclusiveSamples": 14
+    },
+    {
+      "function": "Bt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 113263,
+      "selfSamples": 8,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Bt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ma(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(O=>O.handoverRecordStatus!==\"VOIDED\"):t,d=F(n,O=>it(O)),c=F(n,O=>ie(O)??0),i=F(n,O=>Ha(O)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Jd(n,u):void 0,l=n.map(O=>O.handoverRecordStatus||Jt(O)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "K",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 147090,
+      "selfSamples": 8,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "(t=>({...t}))}function yi(e){return e==null?void 0:e.map(t=>({...t}))}function K(e){return structuredClone(e)}function ye(e){return structuredClone(e)}function j(e){return structuredClone(e)}const ke=\"higood.formal-merged-handout-actions.v1\",$o=[\"handoverHeadAdditions\",\"pickupRecordAdditions\",\"handoutRecordAdditions\",\"pickupRecordOverrides\",\"handoutRecordOverrides\",\"handoutRecordVersionHistory\",\"headCompletionOverrides\"];function fi(e){var d,c;if(e){const i=V.get(e.handoverId);if(!i||i.taskId!==e.taskId||i.productionOrderNo!==e.productionOrderId||i.sourceDocId!==e.sourceDocId||i.sourceBusinessType!==e.sourceBusinessType||!e.sourceDocId.trim())throw new Error(\"交接头与原加工单来源不一"
+    },
+    {
+      "function": "K",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 147090,
+      "selfSamples": 8,
+      "inclusiveSamples": 9,
+      "sourceExcerpt": "(t=>({...t}))}function yi(e){return e==null?void 0:e.map(t=>({...t}))}function K(e){return structuredClone(e)}function ye(e){return structuredClone(e)}function j(e){return structuredClone(e)}const ke=\"higood.formal-merged-handout-actions.v1\",$o=[\"handoverHeadAdditions\",\"pickupRecordAdditions\",\"handoutRecordAdditions\",\"pickupRecordOverrides\",\"handoutRecordOverrides\",\"handoutRecordVersionHistory\",\"headCompletionOverrides\"];function fi(e){var d,c;if(e){const i=V.get(e.handoverId);if(!i||i.taskId!==e.taskId||i.productionOrderNo!==e.productionOrderId||i.sourceDocId!==e.sourceDocId||i.sourceBusinessType!==e.sourceBusinessType||!e.sourceDocId.trim())throw new Error(\"交接头与原加工单来源不一"
+    },
+    {
+      "function": "K",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 147090,
+      "selfSamples": 7,
+      "inclusiveSamples": 7,
+      "sourceExcerpt": "(t=>({...t}))}function yi(e){return e==null?void 0:e.map(t=>({...t}))}function K(e){return structuredClone(e)}function ye(e){return structuredClone(e)}function j(e){return structuredClone(e)}const ke=\"higood.formal-merged-handout-actions.v1\",$o=[\"handoverHeadAdditions\",\"pickupRecordAdditions\",\"handoutRecordAdditions\",\"pickupRecordOverrides\",\"handoutRecordOverrides\",\"handoutRecordVersionHistory\",\"headCompletionOverrides\"];function fi(e){var d,c;if(e){const i=V.get(e.handoverId);if(!i||i.taskId!==e.taskId||i.productionOrderNo!==e.productionOrderId||i.sourceDocId!==e.sourceDocId||i.sourceBusinessType!==e.sourceBusinessType||!e.sourceDocId.trim())throw new Error(\"交接头与原加工单来源不一"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 7,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "。\")}function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    },
+    {
+      "function": "Bt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 113263,
+      "selfSamples": 6,
+      "inclusiveSamples": 6,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Bt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ma(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(O=>O.handoverRecordStatus!==\"VOIDED\"):t,d=F(n,O=>it(O)),c=F(n,O=>ie(O)??0),i=F(n,O=>Ha(O)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Jd(n,u):void 0,l=n.map(O=>O.handoverRecordStatus||Jt(O)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 5,
+      "inclusiveSamples": 16,
+      "sourceExcerpt": "。\")}function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    },
+    {
+      "function": "request.onsuccess",
+      "url": "",
+      "line": 47,
+      "column": 28,
+      "selfSamples": 5,
+      "inclusiveSamples": 5
+    },
+    {
+      "function": "Y",
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-CnUJyuhm.js",
+      "line": 0,
+      "column": 10781,
+      "selfSamples": 4,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "onth()+1)}-${r(e.getDate())} ${r(e.getHours())}:${r(e.getMinutes())}`}function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i]=o.split(\" \"),[c,m]=i.split(\":\"),f=new Date(`${n}"
+    },
+    {
+      "function": "we",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 177354,
+      "selfSamples": 4,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "f[t.outboundOrderId,t.outboundOrderNo])e.has(r)||e.set(r,t);return e}function we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,s=o.filter(O=>O.handoverRecordStatus===\"OBJECTION_REPORTED\"||O.handoverRecordStatus===\"OBJEC"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-DOXdvBKN.js",
+      "line": 0,
+      "column": 117026,
+      "selfSamples": 4,
+      "inclusiveSamples": 20,
+      "sourceExcerpt": "记录未修改。\");m.processCompletions||(m.processCompletions=[]),m.schemaVersion=3});Qr(()=>{var R,v,D,w,F;const e=new Map(m.deliveries.map(u=>[u.deliveryId,u])),t=new Map(m.qcTasks.map(u=>[u.qcTaskId,u])),r=new Map(m.postTasks.map(u=>[u.postTaskId,u])),o=new Map(m.recheckOrders.map(u=>[u.recheckOrderId,u])),s=new Map(m.outboundOrders.map(u=>[u.outboundOrderId,u])),a=u=>{var A;return!!(u.operationId||u.postTaskId&&((A=r.get(u.postTaskId))==null?void 0:A.executionModel)===\"ITEMS_V1\")},n=u=>!!(u.recheckOrderId&&o.has(u.recheckOrderId)&&!a(o.get(u.recheckOrderId))),c=[\"deliveryId\",\"deliveryOrderNo\",\"productionOrderNo\",\"qcTaskId\",\"qcTaskNo\",\"postTaskId\",\"postTaskNo\",\"returnIndex\",\"so"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-DOXdvBKN.js",
+      "line": 0,
+      "column": 117844,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "];function I(u,A){const Q=new Map(A.map(h=>[h.sku.skuId,h.sku]));return u.every(h=>{const g=Q.get(h.sku.skuId);return g&&l.every(P=>h.sku[P]===g[P])})}function i(u,A,Q){return Array.isArray(u)&&u.length===A.size&&new Set(u.map(h=>{var g;return(g=h.sku)==null?void 0:g.skuId})).size===u.length&&u.every(h=>{var P;const g=Q(h);return Number.isSafeInteger(g)&&g>=0&&A.has((P=h.sku)==null?void 0:P.skuId)&&g===A.get(h.sku.skuId)})}if(e.size!==m.deliveries.length||t.size!==m.qcTasks.length||r.size!==m.postTasks.length||o.size!==m.recheckOrders.length||s.size!==m.outboundOrders.length||new Set(m.recheckOrders.map(u=>u.recheckOrderNo)).size!==o.size||new Set(m.outboundOrders.map(u=>"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 3,
+      "inclusiveSamples": 6,
+      "sourceExcerpt": "var Wt=Object.defineProperty;var Kt=(e,t,a)=>t in e?Wt(e,t,{enumerable:!0,configurable:!0,writable:!0,value:a}):e[t]=a;var Pe=(e,t,a)=>Kt(e,typeof t!=\"symbol\"?t+\"\":t,a);import{T as Ht,a as qt,b as W,A as ht,c as gt,d as xe,S as At,e as St,f as ne}from\"./tmf-domain-shared-DboXqEqI.js\";function y(e){return(e==null?\"\":String(e)).replaceAll(\"&\",\"&amp;\").replaceAll(\"<\",\"&lt;\").replaceAll(\">\",\"&gt;\").replaceAll('\"',\"&quot;\").replaceAll(\"'\",\"&#39;\")}function Vt(...e){return e.filter(Boolean).join(\" \")}function Xt(e){return typeof CSS<\"u\"&&typeof CSS.escape==\"function\"?CSS.escape(e):Array.from(e,t=>{v"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/cut-piece-release-DwEWuMZT.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 3,
+      "inclusiveSamples": 9,
+      "sourceExcerpt": "const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/craft-display-support-CeblUih2.js\",\"assets/app-shared-_ZQpMwKQ.js\",\"assets/tmf-domain-shared-DboXqEqI.js\",\"assets/index-CgEo9obx.js\",\"assets/index-CIDOBjpY.css\",\"assets/cutting-event-repository-_pcFrAFr.js\",\"assets/retired-cut-piece-pickup-history-CvMOPmIT.js\",\"assets/replacement-fabric-repository-T4e1B0Kz.js\",\"assets/production-orders-OOOWXLXw.js\",\"assets/production-order-runtime-store-DMdTsEvd.js\",\"assets/replacement-fabric-fei-tickets-DiTgw3tm.js\",\"assets/runtime-process-tasks-CvM-FaZK.js\",\"assets/factory-receiving-CSiG2Hp3.js"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-Bb2esQO6.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 3,
+      "inclusiveSamples": 9,
+      "sourceExcerpt": "import{Q as be,R as Te,T as Je,U as Vt}from\"./craft-display-support-CeblUih2.js\";import{p as Ht,i as Kt,b as lt,e as Yt}from\"./production-orders-OOOWXLXw.js\";import{o as Pe,a4 as Xt,a5 as Ze,a6 as Jt}from\"./app-shared-_ZQpMwKQ.js\";import{u as W,v as ct}from\"./runtime-process-tasks-CvM-FaZK.js\";import{g as Zt}from\"./production-tech-pack-change-domain-DqduNBBs.js\";const ke=\"FCSQR\",Re=\"2.0.0\";function ea(e){return`${ke}:${encodeURIComponent(JSON.stringify(e))}`}function it(e){return ea(e)}function ta(e){if(!e)return null;const t=e.startsWith(`${ke}:`)?decodeURIComponent(e.slice(ke.length+1)):e;tr"
+    },
+    {
+      "function": "te",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+      "line": 1,
+      "column": 146489,
+      "selfSamples": 3,
+      "inclusiveSamples": 3,
+      "sourceExcerpt": "atus:\"COMPLETED\",completedByWarehouseAt:e.completedByWarehouseAt})});function te(e){return e?new Date(e.replace(\" \",\"T\")).getTime():Number.NaN}function lr(e){const t=/^(\\d{4})-(\\d{2})-(\\d{2}) (\\d{2}):(\\d{2}):(\\d{2})$/.exec(e);if(!t)return null;const[,r,o,a,s,n,d]=t,[c,i,u,m,l,R]=[r,o,a,s,n,d].map(Number),N=new Date(c,i-1,u,m,l,R);return!Number.isFinite(N.getTime())||N.getFullYear()!==c||N.getMonth()!==i-1||N.getDate()!==u||N.getHours()!==m||N.getMinutes()!==l||N.getSeconds()!==R?null:N.getTime()}function qe(e){return Number.isFinite(e)?Math.round(Number(e)*100)/100:0}function ct(e){return e.map(t=>({...t}))}function yi(e){return e==null?void 0:e.map(t=>({...t}))}function "
+    },
+    {
+      "function": "Jn",
+      "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-CvM-FaZK.js",
+      "line": 0,
+      "column": 277063,
+      "selfSamples": 3,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "nst t=gt===0;t&&(Mt=!1),gt++;try{return e()}finally{gt--,t&&(Mt=!1)}}function Jn(e){if(!gt||!Mt||!At){const o=zn(),r=JSON.stringify([o.map(s=>[s.productionOrderId,s.productionOrderNo,s.demandSnapshot,s.techPackSnapshot,s.taskBreakdownSummary]),q.filter(s=>s.processCode===\"PROC_CUT\"||s.processBusinessCode===\"CUT_PANEL\").map(s=>[s.taskId,s.taskNo,s.productionOrderId,s.sourceEntryId,s.sourceEntryIds,s.consumedBomItemIds,s.assignmentStatus,s.assignedFactoryId,s.assignedFactoryName]),Gn().map(s=>[s.taskId,s.rootTaskNo,s.productionOrderId,s.sourceEntryId,s.sourceEntryIds,s.assignmentStatus,s.assignedFactoryId,s.assignedFactoryName])]);if(!At||Ns!==r){const s=o.flatMap(d=>Ru(d))"
+    },
+    {
+      "function": "ot",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-DOXdvBKN.js",
+      "line": 0,
+      "column": 76193,
+      "selfSamples": 3,
+      "inclusiveSamples": 7,
+      "sourceExcerpt": "tatus,remark:`${o}退领；已清空质检数量、下游选择与未提交授权数据；${t.releaseReason}`}),N(t)}function ot(e,t,r=!0){var f;const o=typeof e==\"string\"?Qe(e):e,s=o.executionModel!==\"ITEMS_V1\",a=(m.processCompletions||[]).filter(k=>k.postTaskId===o.postTaskId&&!(s&&k.operationId.startsWith(\"DEMO:\"))),n=m.recheckOrders.filter(k=>k.postTaskId===o.postTaskId),c=((f=o.legacyCarryover)==null?void 0:f.history)||(s&&o.results?o.results.map(k=>({skuId:k.sku.skuId,completedQty:k.processedQty})):[]),d=k=>o.lines.map(E=>{var w,F,u,A;const S=((w=c.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:w.completedQty)||0,R=E.expectedQty-S,D=(((A=(u=(F=o.legacyCarryover)==null?void 0:F.baselines.find(Q=>Q.processItem===k))="
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/index-CgEo9obx.js",
+      "line": 1224,
+      "column": 26506,
+      "selfSamples": 3,
+      "inclusiveSamples": 3,
+      "sourceExcerpt": "bg-red-50 p-4 text-sm text-red-700\">页面内容加载失败，请稍后重试。</section>'}}async function N(){const e=++me,t=f.getState();pl(t);const a=Gt(t.pathname),n=t.pathname.startsWith(\"/fcs/pda/wool/\")||/^\\/fcs\\/pda\\/exec\\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\\?|$)/.test(t.pathname),o=await a,d=o.includes(\"data-post-finishing-entry-storage-failure\"),u=t.pathname.split(\"?\")[0].split(\"#\")[0]===\"/fcs/pda/auth/login\";oe(t.pathname)&&!n&&!u&&!d&&await j(),e===me&&(w.innerHTML=je(t,Kt(o)),t.pathname.startsWith(\"/pms/\")&&(await r(()=>import(\"./shared-tDfFTpkn.js\"),__vite__mapDeps([504,1,2,48,4]))).hydratePmsSurface(w,{icons:!1}),oe(t.pathname)?(!u&&!d&&!w.querySelector(\"[data-pda-wool-root], [d"
+    },
+    {
+      "function": "wt",
+      "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+      "line": 0,
+      "column": 34193,
+      "selfSamples": 2,
+      "inclusiveSamples": 2,
+      "sourceExcerpt": "e.slice().sort((e,t)=>e.sort-t.sort)}function le(e){return ce.get(e)}function wt(){return Be.slice().sort((e,t)=>{var s,o;const a=((s=ce.get(e.stageCode))==null?void 0:s.sort)??999,r=((o=ce.get(t.stageCode))==null?void 0:o.sort)??999;if(a!==r)return a-r;const i=se.compare(e.processName,t.processName);return i!==0?i:e.processCode.localeCompare(t.processCode)})}function G(e){return oe.get(e)}function An(e){var t;return((t=G(e))==null?void 0:t.generatesExternalTask)??!1}function Sn(e){const t=G(e);return(t==null?void 0:t.stageCode)===\"POST\"&&t.capacityEnabled&&t.isActive}function En(e){return wt().filter(t=>t.stageCode===e)}function In(){return Ce.slice()}function Ra(){retur"
+    }
+  ],
+  "aggregatedTop": [
+    {
+      "frame": {
+        "functionName": "(idle)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 111,
+      "stacks": [
+        [
+          "(idle) <- (root)",
+          111
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(program)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 68,
+      "stacks": [
+        [
+          "(program) <- (root)",
+          68
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "K",
+        "scriptId": "53",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+        "lineNumber": 1,
+        "columnNumber": 147090
+      },
+      "selfSamples": 33,
+      "stacks": [
+        [
+          "K <- er <- gu <- _e <- <anonymous> <- be <- fe <- xe <- <anonymous> <- Mt <- m <- E <- pe <- <anonymous> <- (root)",
+          8
+        ],
+        [
+          "K <- er <- gu <- _e <- <anonymous> <- be <- Ke <- ke <- Fe <- We <- K <- fe <- Ae <- H <- q <- Y <- X <- De <- W <- <anonymous> <- Ae <- <anonymous> <- oe <- Jt <- W <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          8
+        ],
+        [
+          "K <- er <- xe <- hc <- Q <- us <- wt <- readAfterExecution <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          7
+        ],
+        [
+          "K <- er <- Du <- be <- fe <- xe <- <anonymous> <- Mt <- m <- E <- pe <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "K <- er <- Du <- be <- Ke <- ke <- Fe <- We <- K <- fe <- Ae <- H <- q <- Y <- X <- De <- W <- <anonymous> <- Ae <- <anonymous> <- oe <- Jt <- W <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "e.onsuccess",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+        "lineNumber": 1,
+        "columnNumber": 1210
+      },
+      "selfSamples": 31,
+      "stacks": [
+        [
+          "e.onsuccess <- (root)",
+          31
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Me",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+        "lineNumber": 1,
+        "columnNumber": 52337
+      },
+      "selfSamples": 25,
+      "stacks": [
+        [
+          "Me <- (root)",
+          25
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Bt",
+        "scriptId": "53",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+        "lineNumber": 1,
+        "columnNumber": 113263
+      },
+      "selfSamples": 22,
+      "stacks": [
+        [
+          "Bt <- we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- we <- hr <- pe <- <anonymous> <- (root)",
+          8
+        ],
+        [
+          "Bt <- we <- <anonymous> <- gi <- Nt <- ji <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "Bt <- we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- je <- Kd <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "Bt <- we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- Kd <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "Bt <- we <- <anonymous> <- gi <- Nt <- ji <- ja <- ye <- Kd <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "c",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-wtBxzMBs.js",
+        "lineNumber": 1,
+        "columnNumber": 1895
+      },
+      "selfSamples": 16,
+      "stacks": [
+        [
+          "c <- c <- c <- c <- M <- <anonymous> <- (root)",
+          7
+        ],
+        [
+          "c <- M <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "c <- c <- c <- M <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "c <- c <- M <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "c <- c <- c <- c <- c <- M <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "structuredClone",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 14,
+      "stacks": [
+        [
+          "structuredClone <- Y <- L <- be <- v <- $ <- Ma <- Le <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "structuredClone <- I <- <anonymous> <- We <- Cr <- c <- <anonymous> <- lr <- Fd <- <anonymous> <- he <- <anonymous> <- io <- js <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "structuredClone <- I <- <anonymous> <- We <- c <- <anonymous> <- lr <- Fd <- <anonymous> <- he <- <anonymous> <- io <- js <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "structuredClone <- <anonymous> <- ce <- ko <- z <- Tn <- <anonymous> <- Pc <- Gn <- Jn <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "structuredClone <- Y <- L <- be <- v <- b <- K <- <anonymous> <- Ma <- Le <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(garbage collector)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 14,
+      "stacks": [
+        [
+          "(garbage collector) <- (root)",
+          14
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "we",
+        "scriptId": "53",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+        "lineNumber": 1,
+        "columnNumber": 177354
+      },
+      "selfSamples": 12,
+      "stacks": [
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- je <- Kd <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- we <- hr <- pe <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- Kd <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- <anonymous> <- Re <- we <- hr <- pe <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "te",
+        "scriptId": "53",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-HmXwn01B.js",
+        "lineNumber": 1,
+        "columnNumber": 146489
+      },
+      "selfSamples": 11,
+      "stacks": [
+        [
+          "te <- <anonymous> <- er <- gu <- _e <- <anonymous> <- be <- Ke <- ke <- Fe <- We <- K <- fe <- Ae <- H <- q <- Y <- X <- De <- W <- <anonymous> <- Ae <- <anonymous> <- oe <- Jt <- W <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "te <- <anonymous> <- er <- gu <- _e <- <anonymous> <- be <- fe <- xe <- <anonymous> <- Mt <- m <- E <- pe <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "te <- <anonymous> <- er <- gu <- be <- fe <- xe <- <anonymous> <- Mt <- m <- E <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "te <- <anonymous> <- er <- Du <- be <- fe <- xe <- <anonymous> <- Mt <- m <- E <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "te <- <anonymous> <- er <- gu <- be <- Ke <- ke <- Fe <- We <- K <- fe <- Ae <- H <- q <- Y <- X <- De <- W <- <anonymous> <- Ae <- <anonymous> <- oe <- Jt <- W <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "N",
+        "scriptId": "41",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-DOXdvBKN.js",
+        "lineNumber": 0,
+        "columnNumber": 37670
+      },
+      "selfSamples": 7,
+      "stacks": [
+        [
+          "N <- zt <- <anonymous> <- As <- <anonymous> <- jo <- Ir <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- ot <- Z <- st <- Xt <- <anonymous> <- As <- <anonymous> <- jo <- Ir <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- ir <- ta <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- cr <- mr <- ta <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- ot <- Z <- w <- E <- pe <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Jn",
+        "scriptId": "36",
+        "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-CvM-FaZK.js",
+        "lineNumber": 0,
+        "columnNumber": 277063
+      },
+      "selfSamples": 7,
+      "stacks": [
+        [
+          "Jn <- wu <- D <- W <- <anonymous> <- Ae <- <anonymous> <- oe <- Jt <- W <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "Jn <- wu <- rt <- <anonymous> <- Ie <- oe <- Jt <- W <- Ht <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "Jn <- ae <- Pn <- bt <- ea <- v <- <anonymous> <- $ <- H <- (root)",
+          1
+        ],
+        [
+          "Jn <- Et <- Qt <- Gr <- Gt <- In <- On <- Ln <- ae <- Pn <- bt <- ea <- v <- <anonymous> <- $ <- H <- (root)",
+          1
+        ],
+        [
+          "Jn <- <anonymous> <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Y",
+        "scriptId": "74",
+        "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-CnUJyuhm.js",
+        "lineNumber": 0,
+        "columnNumber": 10781
+      },
+      "selfSamples": 7,
+      "stacks": [
+        [
+          "Y <- L <- be <- v <- b <- q <- <anonymous> <- Ma <- Le <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "Y <- L <- J <- <anonymous> <- $ <- Le <- h <- He <- ue <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "Y <- L <- be <- v <- b <- K <- <anonymous> <- Ma <- Le <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "Y <- L <- be <- v <- $ <- Ma <- Le <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "t",
+        "scriptId": "19",
+        "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+        "lineNumber": 0,
+        "columnNumber": 2387
+      },
+      "selfSamples": 6,
+      "stacks": [
+        [
+          "t <- It <- <anonymous> <- Gr <- N <- <anonymous> <- Ye <- Mi <- ht <- g <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "t <- <anonymous> <- t <- t <- It <- N <- <anonymous> <- Ye <- mr <- ta <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "t <- <anonymous> <- t <- t <- It <- N <- <anonymous> <- Ye <- Mi <- ht <- Ji <- g <- jt <- Kt <- qt <- E <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "t <- It <- N <- <anonymous> <- Ye <- Mi <- ht <- g <- Wt <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "t <- It <- N <- <anonymous> <- Ye <- Mi <- ht <- Ji <- g <- Wt <- Qt <- qt <- E <- pe <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    }
+  ]
+}

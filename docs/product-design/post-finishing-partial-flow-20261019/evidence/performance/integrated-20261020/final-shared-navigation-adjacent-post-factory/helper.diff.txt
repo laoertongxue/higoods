@@ -1,0 +1,110 @@
+--- canonical-36685
++++ evidence-only-adjacent
+@@ -4,7 +4,7 @@
+  * This only writes isolated Playwright browser contexts and this task's evidence.
+  * Fixture preparation uses public domain commands; it is never an interaction sample.
+  */
+-import { chromium } from '@playwright/test';
++import { chromium } from 'file:///Users/laoer/.codex/worktrees/81b7/higoods/node_modules/%40playwright/test/index.mjs';
+ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+ import { resolve } from 'node:path';
+ import { execFileSync } from 'node:child_process';
+@@ -63,6 +63,7 @@
+ }
+ const sha = value => createHash('sha256').update(value).digest('hex');
+ const fixturePayloadCache=new WeakMap();
++config.acceptancePlan={supplementalOnly:{families:5,samples:25},notPartOfCore100Families520Samples:true};
+ const report = { version: 1, startedAt: new Date().toISOString(), timezone: 'Asia/Shanghai',
+   head: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+   dirty: execFileSync('git', ['status', '--short'], { encoding: 'utf8' }).trim(),
+@@ -254,6 +255,7 @@
+   new MutationObserver(() => { state.mutationAt = performance.now(); }).observe(document, { subtree: true, childList: true, characterData: true, attributes: true });
+   const visible = element => { const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight && getComputedStyle(element).visibility !== 'hidden'; };
+   async function readback(spec) {
++    if(spec?.modeLock){ const raw=localStorage.getItem('higoods-pda-sewing-self-return-mode');const value=raw?JSON.parse(raw):null;return {valid:spec.modeLock.active?Boolean(value?.active&&value.factoryId===spec.modeLock.factoryId&&value.openedBy===spec.modeLock.openedBy):value===null,checked:true,storage:'localStorage',key:'higoods-pda-sewing-self-return-mode',value,expected:spec.modeLock}; }
+     if (!spec) return { valid: true, checked: false };
+     const db = await new Promise((resolve, reject) => { const request = indexedDB.open('higood-pcs-records', 2); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+     try {
+@@ -272,10 +274,14 @@
+       const quantitiesMatch=(row,expected)=>expected.every(line=>row?.value?.quantities?.some(value=>value.skuId===line.skuId&&value.quantity===line.quantity));
+       const extraValid=(!spec.quantities||matching.some(row=>quantitiesMatch(row,spec.quantities)))&&(!spec.requiredRecords||spec.requiredRecords.every(required=>quantitiesMatch(rows.find(row=>row.value.recordId===required.recordId),required.quantities)))&&(!spec.historyTotal||matching.some(row=>row.value.legacyCarryover?.history?.reduce((sum,line)=>sum+line.completedQty,0)===spec.historyTotal))&&(!spec.oldResultTotal||matching.some(row=>row.value.results?.reduce((sum,line)=>sum+line.processedQty,0)===spec.oldResultTotal));
+       const secondary=spec.secondary?await readback(spec.secondary):undefined;
+-      return { valid:valid&&extraValid&&(!secondary||secondary.valid), checked: true, collection: spec.collection, matching: matching.length, expected: spec,secondary };
++      const materialValid=!spec.materialLines||matching.some(row=>row.value.lines.length===spec.materialLines.length&&spec.materialLines.every(line=>row.value.lines.some(value=>value.materialCode===line.materialCode&&value.preparedQty===line.quantity&&value.imageUrl===line.imageUrl))&&row.value.inboundBy?.actorId===spec.actorId&&row.value.inboundBy?.actorName===spec.actorName&&Boolean(row.value.inboundAt));
++      const stocksValid=!spec.stockLines||(matching.length===spec.stockLines.length&&spec.stockLines.every(line=>matching.some(row=>row.value.material?.materialCode===line.materialCode&&row.value.inboundQty===line.quantity&&row.value.currentQty===line.quantity&&row.value.material?.imageUrl===line.imageUrl&&row.value.inboundBy?.actorId===spec.actorId)));
++      return { valid:valid&&extraValid&&materialValid&&stocksValid&&(!secondary||secondary.valid), checked: true, collection: spec.collection, matching: matching.length, expected: spec,secondary,values:spec.materialLines||spec.stockLines?matching.map(row=>row.value):undefined };
+     } finally { db.close(); }
+   }
+   function ready(spec) {
++    if(spec.pathname&&location.pathname!==spec.pathname)return false;
++    if(spec.searchMaterial&&new URLSearchParams(location.search).get('materialOrderNo')!==spec.searchMaterial)return false;
+     if (document.fonts && document.fonts.status !== 'loaded') return false;
+     if (spec.selector && !document.querySelector(spec.selector)) return false;
+     if (spec.gone && document.querySelector(spec.gone)) return false;
+@@ -378,7 +384,7 @@
+   report.fixturePreparationProofs||=[];report.fixturePreparationProofs.push(proof);
+   return proof;
+ }
+-const session = { userId:'F090_operator',loginId:'F090_operator',userName:'全能力测试工厂_操作工',roleId:'ROLE_OPERATOR',factoryId:'F090',factoryName:'全能力测试工厂',loggedAt:'2026-10-19 08:00:00' };
++const session = { userId:'ID-F002_admin',loginId:'ID-F002_admin',userName:'PT_Prima_管理员',roleId:'ROLE_ADMIN',factoryId:'ID-F002',factoryName:'PT Prima Printing Center',loggedAt:'2026-10-19 08:00:00' };
+ async function isolated(backup = fixture.backup, expected, actor = 'PF-USER-POST', viewport = { width: 1366, height: 768 }, legacy = false) {
+   const context = await browser.newContext({ viewport, acceptDownloads: true, timezoneId:'Asia/Shanghai' });
+   await context.addInitScript(installMeasurement);
+@@ -883,6 +889,48 @@
+     }
+   }
+ }
++
++async function adjacentFamilies(){
++  report.supplemental={identityApplicability:'pda-accessory-post-access.ts accepts only PF-DEDICATED-001 or ID-F002. This supplement uses the existing ID-F002_admin allowed role for material receipt and self-return; core F090 measurements remain unchanged. Invalid F090 preparation is retained separately with zero action samples.',scope:'Five adjacent shared-navigation actions, five independent isolated contexts each. Separate from the fixed D10 core 100/520 performance acceptance.',dataset:'Unmodified actual static post-finishing material catalogue. No D10 or material rows are injected in these contexts. Native IndexedDB receives only the actual whole-order confirmation command result.',canonicalSourceSha256:'36685ba3face8530284be6a2411b093f7968b45034186c10ca047d6e33c90d14',thresholdMs:1000,expectedFamilies:5,expectedSamples:25,viewport:{width:390,height:844},coldHot:'Fresh isolated browser for each three-action material sequence and each two-action admin-mode sequence. List cold entry is preparation; query is the first genuine action, confirm and return are subsequent genuine actions. No action is replaced by a warm API call.'};
++  const waitReady=async(page,spec)=>page.waitForFunction(spec=>window.pfReady(spec)&&!window.__pfPerf.pendingHandlers&&!window.__pfPerf.pendingTransactions&&!window.__pfPerf.externalPending&&performance.now()-window.__pfPerf.mutationAt>=25,spec,{timeout:15000});
++  const listSpec={title:'后道辅料待入库',selector:'[data-pda-material-transfer-card]',allImages:true,pathname:'/fcs/pda/handover'};
++  for(let trial=1;trial<=5;trial++){
++    const {context,page}=await isolated(null,undefined,'PF-USER-POST',{width:390,height:844});
++    try{
++      await page.goto(targetOrigin+'/fcs/pda/handover?tab=pickup',{waitUntil:'domcontentloaded'});await waitReady(page,listSpec);
++      const catalogue=await page.locator('[data-pda-material-transfer-card]').evaluateAll(nodes=>nodes.map(node=>({no:node.getAttribute('data-pda-material-transfer-card'),count:Number(node.textContent.match(/物料\s*(\d+)\s*种/)?.[1]),pending:node.textContent.includes('待入库'),text:node.innerText})));
++      const eligible=catalogue.filter(row=>row.pending&&Number.isSafeInteger(row.count)&&row.count>0).sort((left,right)=>right.count-left.count||left.no.localeCompare(right.no));
++      if(!eligible.length)throw new Error('No applicable actual material order with a readable line count. '+JSON.stringify(catalogue));
++      const chosen=eligible[0];if(trial===1)report.representative={selected:chosen,selection:'Maximum line count among the actual visible eligible list; exact business-number tie-break. Chosen before any action timing.',catalogue};
++      else if(chosen.no!==report.representative.selected.no||chosen.count!==report.representative.selected.count)throw new Error('Actual representative catalogue changed between isolated trials.');
++      await page.locator('[data-pda-handover-action="open-material-transfer-scan"]').click();
++      await page.locator('[data-pda-handover-field="materialTransferNo"]').fill(chosen.no);await waitReady(page,listSpec);
++      const detailSpec={title:'确认辅料入库',contains:chosen.no,searchMaterial:chosen.no,pathname:'/fcs/pda/handover',allImages:true,count:{selector:'[data-pda-image-preview-url]',expected:chosen.count},readback:{collection:'materialTransferOrders',min:0}};
++      await recorded(page,'adjacent:material-query',trial,detailSpec,()=>page.locator('[data-pda-handover-action="scan-material-transfer"]').click());
++      const lines=await page.locator('[data-pda-image-preview-url]').evaluateAll(nodes=>nodes.map(button=>{const card=button.parentElement;const info=button.nextElementSibling;return {materialCode:info.querySelector('.font-mono')?.textContent.trim(),materialName:info.firstElementChild?.textContent.trim(),quantity:Number(card.lastElementChild.firstElementChild.textContent.match(/^([0-9.]+)/)?.[1]),imageUrl:button.getAttribute('data-pda-image-preview-url')};}));
++      if(lines.length!==chosen.count||lines.some(line=>!line.materialCode||!line.imageUrl||!Number.isFinite(line.quantity)||line.quantity<=0))throw new Error('Actual material line DOM is incomplete: '+JSON.stringify(lines));
++      if(trial===1){report.representative.lines=lines;await page.screenshot({path:resolve(output,'material-query-detail.png'),fullPage:true});}
++      const proof={collection:'materialTransferOrders',where:{transferOrderNo:chosen.no},field:'status',equals:'已入库',min:1,max:1,materialLines:lines,actorId:session.userId,actorName:session.userName,secondary:{collection:'materialStocks',where:{transferOrderNo:chosen.no},min:lines.length,max:lines.length,stockLines:lines,actorId:session.userId,secondary:{collection:'operationLogs',where:{objectNo:chosen.no,action:'整单确认入库',operatorId:session.userId},min:1,max:1}}};
++      await recorded(page,'adjacent:material-confirm',trial,{...detailSpec,contains:'该调拨单已整单入库',gone:'[data-pda-handover-action="confirm-material-inbound"]',readback:proof},()=>page.locator('[data-pda-handover-action="confirm-material-inbound"]').click());
++      if(trial===1)await page.screenshot({path:resolve(output,'material-confirmed.png'),fullPage:true});
++      await recorded(page,'adjacent:material-back',trial,{...listSpec,count:{selector:'[data-pda-material-transfer-card]',expected:catalogue.length-1},readback:proof},()=>page.locator('a[data-nav="/fcs/pda/handover?tab=pickup"]').first().click());
++      report.materialAfter||=[];report.materialAfter.push({trial,orderNo:chosen.no,remaining:await page.locator('[data-pda-material-transfer-card]').count(),exactWholeOrderQuantities:lines});checkpoint();
++    }finally{await context.close();}
++  }
++  for(let trial=1;trial<=5;trial++){
++    const {context,page}=await isolated(null,undefined,'PF-USER-POST',{width:390,height:844});
++    try{
++      const admin={...session};
++      await page.evaluate(admin=>{localStorage.setItem('fcs_pda_session',JSON.stringify(admin));localStorage.removeItem('higoods-pda-sewing-self-return-mode');},admin);
++      await page.goto(targetOrigin+'/fcs/pda/handover?tab=pickup',{waitUntil:'domcontentloaded'});await waitReady(page,listSpec);
++      await recorded(page,'adjacent:self-return-enable',trial,{title:'成衣回货登记模式',selector:'[data-testid="pda-sewing-self-return-page"]',pathname:'/fcs/pda/handover/sewing-self-return',allImages:true,readback:{modeLock:{active:true,factoryId:admin.factoryId,openedBy:admin.userName}}},()=>page.locator('[data-pda-handover-action="open-sewing-self-return-mode"]').click());
++      if(trial===1)await page.screenshot({path:resolve(output,'self-return-enabled.png'),fullPage:true});
++      await recorded(page,'adjacent:self-return-exit',trial,{...listSpec,readback:{modeLock:{active:false}}},()=>page.locator('[data-pda-sewing-self-return-action="admin-exit"]').click());
++      report.adminSessions||=[];report.adminSessions.push({trial,session:admin,lockCleared:await page.evaluate(()=>localStorage.getItem('higoods-pda-sewing-self-return-mode')===null)});checkpoint();
++    }finally{await context.close();}
++  }
++}
++
+ try {
+   fixture = args.includes('--reuse-fixture') && existsSync(fixtureFile) ? JSON.parse(readFileSync(fixtureFile,'utf8')) : await generateFixture();
+   if (!args.includes('--reuse-fixture') || !existsSync(fixtureFile)) writeFileSync(fixtureFile,JSON.stringify(fixture));
+@@ -907,7 +955,7 @@
+   }
+   else if(preflight){await routePreflight();}
+   else{
+-    for(const [name,runner] of [['pages',pageFamilies],['actions',actionFamilies],['print',printFamilies],['storage',storageFamilies],['delta',deltaFamilies],['startup',startupFamilies]])if(selected.has(name)){
++    for(const [name,runner] of [['adjacent',adjacentFamilies]])if(selected.has(name)){
+       try{await runner();}catch(error){report.errors.push({phase:name,error:error.stack||String(error)});checkpoint();if(stopOnFailure)break;}
+     }
+     report.completed=report.errors.length===0;

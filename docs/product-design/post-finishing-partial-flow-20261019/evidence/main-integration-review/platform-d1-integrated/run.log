@@ -1,0 +1,50 @@
+{
+  "status": "passed",
+  "requirement": "PFN-048",
+  "version": {
+    "head": "eb1b8c92d9a050e8bbbf0d39fdb9e4092fb57103",
+    "sourceSha256": {
+      "src/data/fcs/post-finishing-full-flow.ts": "3b829084eee7f5b47fc513285f41a3c4a70632c3da655379086f0f70be966ded",
+      "src/data/fcs/platform-process-result-view.ts": "ebf922478f8c26188e76ccc7ec40a12e1404c4149780500476ea9e4a1e06c73a"
+    }
+  },
+  "stages": [
+    {
+      "stage": "D1-initial-500-300-200-100",
+      "processSum": 1100,
+      "F": 100,
+      "platformF": 100,
+      "recheck": 0
+    },
+    {
+      "stage": "D1-first-100-rechecked-and-received",
+      "processSum": 1100,
+      "F": 100,
+      "platformF": 100,
+      "recheck": 100
+    },
+    {
+      "stage": "D1-all-processes-1000-first-receipt-100-available-900",
+      "processSum": 4000,
+      "F": 1000,
+      "platformF": 1000,
+      "recheck": 100
+    },
+    {
+      "stage": "D1-two-100-rechecked-and-received",
+      "processSum": 4000,
+      "F": 1000,
+      "platformF": 1000,
+      "recheck": 200
+    },
+    {
+      "stage": "D1-final-100-100-800",
+      "processSum": 4000,
+      "F": 1000,
+      "platformF": 1000,
+      "recheck": 1000
+    }
+  ]
+}
+(node:88977) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

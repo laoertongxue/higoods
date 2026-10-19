@@ -1,0 +1,16 @@
+(node:39433) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PFN-009/022/028/043/048/071：D1分项、主管订正及100/100/800多次复检的摘要逐阶段等于完整进度 (6.192084ms)
+✔ PFN-002/016/048/056：两项及四种单项、多来源子集、空Set与primitive返回隔离保持 (3.546959ms)
+✔ PFN-011/038/040/048：多SKU部分实际0的授权出货不改变加工供给或原占用摘要 (1.2655ms)
+✔ PFN-048/058/059：明确旧表示unknown和H400/N600主管承接，以及公开demo摘要保持完整getter口径 (9.532042ms)
+✔ PFN-033/039/044/046/057：复检/出货/待交出两过滤交集等于完整后过滤，且不暴露可变源引用 (3.401875ms)
+✔ PFN-033/038/039/044/048：子单primitive摘要接口保持完整getter的实际集合与数量 (1.636709ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 192.259333

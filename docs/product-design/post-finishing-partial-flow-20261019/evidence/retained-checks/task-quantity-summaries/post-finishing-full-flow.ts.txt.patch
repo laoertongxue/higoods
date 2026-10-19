@@ -1,0 +1,91 @@
+--- /Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/retained-checks/read-projection-before/post-finishing-full-flow.ts.txt	2026-10-20 02:09:29
++++ /Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/post-finishing-full-flow.ts	2026-10-20 02:31:26
+@@ -2669,7 +2669,7 @@
+   return clone(task)
+ }
+ 
+-export function getPostFinishingProcessProgress(taskOrId: string | PostFinishingPostTask) {
++function calculatePostFinishingProcessProgress(taskOrId: string | PostFinishingPostTask, includeDetails: boolean) {
+   const task = typeof taskOrId === 'string' ? findPostTask(taskOrId) : taskOrId
+   const legacy = task.executionModel !== 'ITEMS_V1'
+   const records = (state.processCompletions || []).filter(row => row.postTaskId === task.postTaskId && !(legacy && row.operationId.startsWith('DEMO:')))
+@@ -2681,30 +2681,45 @@
+     const expectedQty = line.expectedQty - historyCompletedQty
+     const baseline = task.legacyCarryover?.baselines.find(row => row.processItem === processItem)?.quantities.find(row => row.skuId === line.sku.skuId)?.quantity || 0
+     const completedQty = baseline + total(records.filter(row => row.processItem === processItem).flatMap(row => row.quantities.filter(q => q.skuId === line.sku.skuId).map(q => q.quantity)))
+-    return { sku: clone(line.sku), expectedQty, completedQty, availableQty: 0, historyCompletedQty }
++    return { sku: includeDetails ? clone(line.sku) : line.sku, expectedQty, completedQty, availableQty: 0, historyCompletedQty }
+   })
+   const selected = POST_FINISHING_PROCESS_ITEMS.filter(item => task.processItems.includes(item))
+-  const processes = POST_FINISHING_PROCESS_ITEMS.map(processItem => {
++  const processes = includeDetails ? POST_FINISHING_PROCESS_ITEMS.map(processItem => {
+     const applicable = selected.includes(processItem)
+     const lines = itemLines(processItem)
+     const index = selected.indexOf(processItem)
+     const previous = index > 0 ? itemLines(selected[index - 1]) : undefined
+     lines.forEach((line, i) => { line.availableQty = applicable ? (previous?.[i].completedQty ?? line.expectedQty) - line.completedQty : 0 })
+     return { processItem, applicable, completedQty: total(lines.map(row => row.completedQty)), expectedQty: applicable ? total(lines.map(row => row.expectedQty)) : 0, availableQty: total(lines.map(row => row.availableQty)), lines }
+-  })
+-  const last = processes.find(row => row.processItem === selected.at(-1))
++  }) : []
++  const last = includeDetails ? processes.find(row => row.processItem === selected.at(-1))
++    : selected.length ? { lines: itemLines(selected.at(-1)!) } : undefined
+   const lines = task.lines.map((line, i) => {
+     const historyCompletedQty = history.find(row => row.skuId === line.sku.skuId)?.completedQty || 0
+     const completedQty = historyCompletedQty + (last?.lines[i].completedQty || 0)
+     const reservedQty = total(children.flatMap(row => row.lines.filter(q => q.sku.skuId === line.sku.skuId).map(q => Math.max(q.expectedQty, q.handoverQty ?? q.expectedQty))))
+-    return { sku: clone(line.sku), expectedQty: line.expectedQty, completedQty, reservedQty, historyCompletedQty, availableForRecheckQty: completedQty - reservedQty }
++    return { sku: includeDetails ? clone(line.sku) : line.sku, expectedQty: line.expectedQty, completedQty, reservedQty, historyCompletedQty, availableForRecheckQty: completedQty - reservedQty }
+   })
+   const legacyPending = legacy && !task.legacyCarryover && lines.some(row => row.historyCompletedQty !== row.expectedQty || row.availableForRecheckQty < 0)
+-  return { processes, lines, records: clone(records), legacyPending,
++  return { processes, lines, records: includeDetails ? clone(records) : [], legacyPending,
+     totalExpectedQty: total(lines.map(row => row.expectedQty)), totalCompletedQty: total(lines.map(row => row.completedQty)),
+     totalReservedQty: total(lines.map(row => row.reservedQty)), availableForRecheckQty: total(lines.map(row => row.availableForRecheckQty)) }
+ }
+ 
++export function getPostFinishingProcessProgress(taskOrId: string | PostFinishingPostTask) {
++  return calculatePostFinishingProcessProgress(taskOrId, true)
++}
++
++/** Detached task totals for one synchronous directory read; no copied execution history. */
++export function listPostFinishingTaskQuantitySummaries(productionOrderNos?: ReadonlySet<string>) {
++  return state.postTasks.filter(task => !productionOrderNos || productionOrderNos.has(task.productionOrderNo)).map(task => {
++    const progress = calculatePostFinishingProcessProgress(task, false)
++    return { postTaskId: task.postTaskId, productionOrderNo: task.productionOrderNo, qcTaskId: task.qcTaskId,
++      status: task.status, completedAt: task.completedAt, totalExpectedQty: progress.totalExpectedQty,
++      totalCompletedQty: progress.totalCompletedQty, availableForRecheckQty: progress.availableForRecheckQty }
++  })
++}
++
+ function assertPostProcessActor(actor: PostFinishingActor): void {
+   if (!actor?.actorId?.trim() || !actor.actorName?.trim() || !['后道操作员', '后道主管'].includes(actor.roleName)) {
+     throw new PostFinishingFlowGateError('NOT_CLAIM_OWNER', '请使用身份完整的后道人员登记加工。')
+@@ -3775,8 +3790,8 @@
+   return clone(state.waitProcessWarehouseMovements).sort((a, b) => b.operatedAt.localeCompare(a.operatedAt))
+ }
+ 
+-export function listPostFinishingWaitHandoverWarehouseRecords(productionOrderNos?: ReadonlySet<string>): PostFinishingWaitHandoverWarehouseRecord[] {
+-  return clone(productionOrderNos ? state.waitHandoverWarehouseRecords.filter(row => productionOrderNos.has(row.productionOrderNo)) : state.waitHandoverWarehouseRecords)
++export function listPostFinishingWaitHandoverWarehouseRecords(productionOrderNos?: ReadonlySet<string>, postTaskIds?: ReadonlySet<string>): PostFinishingWaitHandoverWarehouseRecord[] {
++  return clone(productionOrderNos || postTaskIds ? state.waitHandoverWarehouseRecords.filter(row => (!productionOrderNos || productionOrderNos.has(row.productionOrderNo)) && (!postTaskIds || Boolean(row.postTaskId && postTaskIds.has(row.postTaskId)))) : state.waitHandoverWarehouseRecords)
+ }
+ 
+ /** The handover directory needs totals and source names, not copied SKU trees. */
+@@ -3819,12 +3834,12 @@
+   return clone(productionOrderNos ? state.postTasks.filter(row => productionOrderNos.has(row.productionOrderNo)) : state.postTasks)
+ }
+ 
+-export function listPostFinishingFullFlowRecheckOrders(productionOrderNos?: ReadonlySet<string>): PostFinishingRecheckOrder[] {
+-  return clone(productionOrderNos ? state.recheckOrders.filter(row => productionOrderNos.has(row.productionOrderNo)) : state.recheckOrders)
++export function listPostFinishingFullFlowRecheckOrders(productionOrderNos?: ReadonlySet<string>, postTaskIds?: ReadonlySet<string>): PostFinishingRecheckOrder[] {
++  return clone(productionOrderNos || postTaskIds ? state.recheckOrders.filter(row => (!productionOrderNos || productionOrderNos.has(row.productionOrderNo)) && (!postTaskIds || Boolean(row.postTaskId && postTaskIds.has(row.postTaskId)))) : state.recheckOrders)
+ }
+ 
+-export function listPostFinishingFullFlowOutboundOrders(productionOrderNos?: ReadonlySet<string>): PostFinishingOutboundOrder[] {
+-  return clone(productionOrderNos ? state.outboundOrders.filter(row => productionOrderNos.has(row.productionOrderNo)) : state.outboundOrders)
++export function listPostFinishingFullFlowOutboundOrders(productionOrderNos?: ReadonlySet<string>, postTaskIds?: ReadonlySet<string>): PostFinishingOutboundOrder[] {
++  return clone(productionOrderNos || postTaskIds ? state.outboundOrders.filter(row => (!productionOrderNos || productionOrderNos.has(row.productionOrderNo)) && (!postTaskIds || Boolean(row.postTaskId && postTaskIds.has(row.postTaskId)))) : state.outboundOrders)
+ }
+ 
+ /** One synchronous handover-directory read; only detached receipt primitives. */

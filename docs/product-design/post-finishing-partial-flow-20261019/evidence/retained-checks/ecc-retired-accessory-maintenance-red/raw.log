@@ -1,0 +1,296 @@
+
+> higoods-vanilla-clone@1.0.0 test:e2e
+> playwright test tests/post-finishing-partial-flow.spec.ts tests/post-finishing-migration.spec.ts tests/post-finishing-main-integration.spec.ts --grep PFN-A01|explicit old-source|main integration: --workers=1 --reporter=json --max-failures=1
+
+(node:26745) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/81b7/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-partial-flow.spec.ts",
+      "tests/post-finishing-migration.spec.ts",
+      "tests/post-finishing-main-integration.spec.ts",
+      "--grep",
+      "PFN-A01|explicit old-source|main integration:",
+      "--workers=1",
+      "--reporter=json",
+      "--max-failures=1"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/81b7/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43912 --strictPort",
+      "url": "http://127.0.0.1:43912",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-main-integration.spec.ts",
+      "file": "post-finishing-main-integration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "main integration: mixed legacy post-first-inline, atomic retry, original files and H/N continue",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 14574,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-post-material-migration]')\nExpected substring: \u001b[32m\"已完成\"\u001b[39m\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-post-material-migration]')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-post-material-migration]')\nExpected substring: \u001b[32m\"已完成\"\u001b[39m\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-post-material-migration]')\u001b[22m\n\n    at archiveAccessory (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts:80:64)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts:149:5",
+                    "location": {
+                      "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts",
+                      "column": 64,
+                      "line": 80
+                    },
+                    "snippet": "  78 |   const button = page.locator('[data-post-finishing-material-transfers-action=\"migrate\"]')\n  79 |   if (await button.count()) await button.click()\n> 80 |   await expect(page.locator('[data-post-material-migration]')).toContainText('已完成')\n     |                                                                ^\n  81 | }\n  82 | async function materialReadback(page: Page) {\n  83 |   return page.evaluate(async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts",
+                        "column": 64,
+                        "line": 80
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-post-material-migration]')\nExpected substring: \u001b[32m\"已完成\"\u001b[39m\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-post-material-migration]')\u001b[22m\n\n\n  78 |   const button = page.locator('[data-post-finishing-material-transfers-action=\"migrate\"]')\n  79 |   if (await button.count()) await button.click()\n> 80 |   await expect(page.locator('[data-post-material-migration]')).toContainText('已完成')\n     |                                                                ^\n  81 | }\n  82 | async function materialReadback(page: Page) {\n  83 |   return page.evaluate(async () => {\n    at archiveAccessory (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts:80:64)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts:149:5"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T17:30:09.675Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts",
+                    "column": 64,
+                    "line": 80
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-8a738c64708a6ce21b42",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 117,
+          "column": 3
+        },
+        {
+          "title": "main integration: mixed legacy accessory-first-existing-pcs, atomic retry, original files and H/N continue",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-0c72ec5d89fb8c03e9a9",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 117,
+          "column": 3
+        },
+        {
+          "title": "main integration: actual restore keeps managed originals readonly, failed input retry and existing auxiliary stock unchanged",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-f69bffc7118b625628bf",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 204,
+          "column": 1
+        },
+        {
+          "title": "main integration: managed PDA real route respects factory/roles, preserves failed receipt input and commits one auxiliary source",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "f77c5ffc0f06464e622d-a062a26ff3aa88d6f373",
+          "file": "post-finishing-main-integration.spec.ts",
+          "line": 271,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "post-finishing-migration.spec.ts",
+      "file": "post-finishing-migration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "54126dce78314e0dafc2-d2413ed8da43ab77d256",
+          "file": "post-finishing-migration.spec.ts",
+          "line": 53,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "post-finishing-partial-flow.spec.ts",
+      "file": "post-finishing-partial-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "PFN-A01/A02/A17/A26/071/072：QC四项独立勾选、四列数量、键盘与代登记订正",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-302e5bc7790c25f81d30",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 153,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "message": "\u001b[31mTesting stopped early after 1 maximum allowed failures.\u001b[39m"
+    }
+  ],
+  "stats": {
+    "startTime": "2026-10-19T17:30:08.554Z",
+    "duration": 16355.02,
+    "expected": 0,
+    "skipped": 5,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

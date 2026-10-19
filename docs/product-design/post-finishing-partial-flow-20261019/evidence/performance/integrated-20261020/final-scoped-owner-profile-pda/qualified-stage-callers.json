@@ -1,0 +1,2111 @@
+{
+  "diagnosticOnly": true,
+  "important": [
+    {
+      "id": 485,
+      "selfMs": 0,
+      "inclusiveMs": 445.245,
+      "stack": [
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 791,
+      "selfMs": 0,
+      "inclusiveMs": 289.271,
+      "stack": [
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 792,
+      "selfMs": 0,
+      "inclusiveMs": 172.69,
+      "stack": [
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 793,
+      "selfMs": 0,
+      "inclusiveMs": 172.69,
+      "stack": [
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 864,
+      "selfMs": 0,
+      "inclusiveMs": 127.669,
+      "stack": [
+        {
+          "fn": "_e",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 59922,
+          "excerpt": "unction _e(e=!1){const o=e?[]:v(),t=e?[]:$e(),a=new Map,s=[];for(const r of o){const d=m(r.productionOrderNo);for(const u of l([r.postTaskId,r.postTaskNo]))a.set(u,[...a.get(u)||[],r]);s.push({id:`QC_ORDER-${r.qcOrderNo}`,objectType:\"QC_ORDER\",primaryNo:r.qcOrderNo,secondaryNo:r.productionOrderNo,displayTitle:\"后道质检单\",keywords:l([r.qcOrderId,r.qcOrderNo,r.productionOrderNo,r.postTaskId,r.postTaskNo,r.sourceTaskId,r.sourceTaskNo,r.spuCode,r.spuName]),related"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 1060,
+      "selfMs": 0,
+      "inclusiveMs": 89.521,
+      "stack": [
+        {
+          "fn": "qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 202,
+          "column": 15,
+          "excerpt": "unction qt(t,e,o={}){const a=I.getState().pathname||\"/fcs/pda/exec\",r=mt(a);return r.allowed?yt(a)?E(gt,\"车缝现场交货登记模式\"):(Kt(!!o.disableTodoAutoOpen),`"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 1099,
+      "selfMs": 0,
+      "inclusiveMs": 77.997,
+      "stack": [
+        {
+          "fn": "Qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 25,
+          "column": 65,
+          "excerpt": "unction Qt(t,e){const o=T();let a=M(0);if(o)try{a=M(Ht(o.factoryId,o.roleId))}catch{a='<span role=\"status\" class=\"max-w-[112px] text-xs text-amber-800\" title=\"待办来源暂不可读，请恢复浏览器存储访问后刷新。\">待办暂不可用</span>'}const r=(o==null?void 0:o.factoryName)||\"工厂端移动应用\",n=o?Gt(o.factoryId):\"\",d=o&&n?`${_(t,e)} · ${n}`:_(t,e);return`"
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 202,
+          "column": 15,
+          "excerpt": "unction qt(t,e,o={}){const a=I.getState().pathname||\"/fcs/pda/exec\",r=mt(a);return r.allowed?yt(a)?E(gt,\"车缝现场交货登记模式\"):(Kt(!!o.disableTodoAutoOpen),`"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 1107,
+      "selfMs": 0,
+      "inclusiveMs": 72.497,
+      "stack": [
+        {
+          "fn": "Ht",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 0,
+          "column": 18514,
+          "excerpt": "unction Ht(t,e){if(g(t)||t===S)return D(t,e).filter(n=>n.status===\"待处理\"||n.status===\"处理中\").length;const{tasks:o,beforeExecution:a,readAfterExecution:r}=W(t);return[...a,...r()].filter(n=>n.status===\"待处理\"||n.status===\"处理中\").length+U(t,o).length}function ye(t){return Array.from(new Set([S,...h().map(o=>o.assignedFactoryId).filter(o=>!!o)])).flatMap(o=>D(o,g(o)?\"ROLE_ADMIN\":void 0)).find(o=>o.todoId===t)??null}function ge(t){return{total:t.filter(e=>e.status="
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 25,
+          "column": 65,
+          "excerpt": "unction Qt(t,e){const o=T();let a=M(0);if(o)try{a=M(Ht(o.factoryId,o.roleId))}catch{a='<span role=\"status\" class=\"max-w-[112px] text-xs text-amber-800\" title=\"待办来源暂不可读，请恢复浏览器存储访问后刷新。\">待办暂不可用</span>'}const r=(o==null?void 0:o.factoryName)||\"工厂端移动应用\",n=o?Gt(o.factoryId):\"\",d=o&&n?`${_(t,e)} · ${n}`:_(t,e);return`"
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 202,
+          "column": 15,
+          "excerpt": "unction qt(t,e,o={}){const a=I.getState().pathname||\"/fcs/pda/exec\",r=mt(a);return r.allowed?yt(a)?E(gt,\"车缝现场交货登记模式\"):(Kt(!!o.disableTodoAutoOpen),`"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 1108,
+      "selfMs": 0,
+      "inclusiveMs": 64.58,
+      "stack": [
+        {
+          "fn": "W",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 0,
+          "column": 18092,
+          "excerpt": "function W(t){const e=K(t);dt();const o=h(void 0,t);return{tasks:o,beforeExecution:[...e,...Rt(t,o),...kt(t)],readAfterExecution:()=>[...Ft(t),...wt(t),...O(t)]}}function D(t,e){if(g(t))return[...Mt(),...e===\"ROLE_ADMIN\"?O(t):[]].sort(v);if(t===S)return[...K(t),...Dt(t),...Ct(t),...Et(t),...Lt(t),..._t(),...O(t)].sort(v);const{tasks:o,beforeExecution:a,readAfterExecution:r}=W(t);return[...a,...Pt(t,o),...r()].sort(v)}function Ht(t,e){if(g(t)||t===S)return "
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 0,
+          "column": 18514,
+          "excerpt": "unction Ht(t,e){if(g(t)||t===S)return D(t,e).filter(n=>n.status===\"待处理\"||n.status===\"处理中\").length;const{tasks:o,beforeExecution:a,readAfterExecution:r}=W(t);return[...a,...r()].filter(n=>n.status===\"待处理\"||n.status===\"处理中\").length+U(t,o).length}function ye(t){return Array.from(new Set([S,...h().map(o=>o.assignedFactoryId).filter(o=>!!o)])).flatMap(o=>D(o,g(o)?\"ROLE_ADMIN\":void 0)).find(o=>o.todoId===t)??null}function ge(t){return{total:t.filter(e=>e.status="
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 25,
+          "column": 65,
+          "excerpt": "unction Qt(t,e){const o=T();let a=M(0);if(o)try{a=M(Ht(o.factoryId,o.roleId))}catch{a='<span role=\"status\" class=\"max-w-[112px] text-xs text-amber-800\" title=\"待办来源暂不可读，请恢复浏览器存储访问后刷新。\">待办暂不可用</span>'}const r=(o==null?void 0:o.factoryName)||\"工厂端移动应用\",n=o?Gt(o.factoryId):\"\",d=o&&n?`${_(t,e)} · ${n}`:_(t,e);return`"
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 202,
+          "column": 15,
+          "excerpt": "unction qt(t,e,o={}){const a=I.getState().pathname||\"/fcs/pda/exec\",r=mt(a);return r.allowed?yt(a)?E(gt,\"车缝现场交货登记模式\"):(Kt(!!o.disableTodoAutoOpen),`"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 794,
+      "selfMs": 1.504,
+      "inclusiveMs": 45.021,
+      "times": {
+        "firstMs": 848.848,
+        "lastMs": 848.848
+      },
+      "stack": [
+        {
+          "fn": "",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63551,
+          "excerpt": "k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,reason:`命中：${j[e.objectTy"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 795,
+      "selfMs": 0,
+      "inclusiveMs": 42.015,
+      "stack": [
+        {
+          "fn": "xe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 53040,
+          "excerpt": "unction xe(e){return fe(e.productionOrderNo).slice(0,12).map(o=>({id:`PROCESS_DOC-${o.runtimeTaskId}`,objectType:\"PROCESS_DOC\",primaryNo:o.taskNo||o.runtimeTaskId,secondaryNo:e.productionOrderNo,displayTitle:o.processNameZh||o.taskTypeLabel||\"工艺任务\",keywords:l([o.runtimeTaskId,o.taskNo,o.processNameZh,o.taskTypeLabel,we(o.taskTypeCode),e.productionOrderNo]),relatedProductionOrderNo:e.productionOrderNo,relatedDemandNo:e.demandId,statusText:o.startReadiness.c"
+        },
+        {
+          "fn": "",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63551,
+          "excerpt": "k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,reason:`命中：${j[e.objectTy"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 796,
+      "selfMs": 0,
+      "inclusiveMs": 42.015,
+      "stack": [
+        {
+          "fn": "fe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 23726,
+          "excerpt": "unction fe(e){if(!x){x=new Map;for(const o of Me()){const t=x.get(o.productionOrderId)??[];t.push(o),x.set(o.productionOrderId,t)}}return x.get(e)??[]}function tt(e,o){return o.length===0?[{nodeId:`${e.productionOrderNo}-material`,nodeName:\"面辅料准备\",status:\"待确认\",ownerRole:\"跟单\",plannedAt:e.updatedAt||\"-\",actualAt:\"-\",relatedDocNo:\"-\",quantityText:`${q(e).toLocaleString(\"zh-CN\")} 件`,description:\"当前生产单暂无工艺任务明细，需跟单确认任务资料。\"}]:o.slice(0,8).map(t=>({nodeId:t.runtim"
+        },
+        {
+          "fn": "xe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 53040,
+          "excerpt": "unction xe(e){return fe(e.productionOrderNo).slice(0,12).map(o=>({id:`PROCESS_DOC-${o.runtimeTaskId}`,objectType:\"PROCESS_DOC\",primaryNo:o.taskNo||o.runtimeTaskId,secondaryNo:e.productionOrderNo,displayTitle:o.processNameZh||o.taskTypeLabel||\"工艺任务\",keywords:l([o.runtimeTaskId,o.taskNo,o.processNameZh,o.taskTypeLabel,we(o.taskTypeCode),e.productionOrderNo]),relatedProductionOrderNo:e.productionOrderNo,relatedDemandNo:e.demandId,statusText:o.startReadiness.c"
+        },
+        {
+          "fn": "",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63551,
+          "excerpt": "k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,reason:`命中：${j[e.objectTy"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 1055,
+      "selfMs": 0,
+      "inclusiveMs": 15.032,
+      "stack": [
+        {
+          "fn": "S",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4654,
+          "excerpt": "function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground\" href=\"/fcs/pda/post-finishing/return-confirm\">扫描送货单确认实收</a>'),(a.qcStatus===\"待质检\"||a.qcStatus===\"质检中\")&&t.push('"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 1050,
+      "selfMs": 0,
+      "inclusiveMs": 12.028,
+      "stack": [
+        {
+          "fn": "w",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 6324,
+          "excerpt": "function w(a){const t=u(a.postOrderId)||u(a.postOrderNo);if(!t)return\"\";const e=g(t),n=t.executionModel!==\"ITEMS_V1\"&&!t.legacyCarryover,r=e.lines.reduce((o,d)=>o+d.historyCompletedQty,0),p=b().filter(o=>o.postTaskId===t.postTaskId),i=y().filter(o=>o.postTaskId===t.postTaskId);return`<article class=\"rounded-lg border bg-card\"><header class=\"border-b px-4 py-3\"><h2 class=\"text-sm font-semibold\">分项加工与多次交出</h2></header><div class=\"space-y-3 p-4\">"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    }
+  ],
+  "handover": [
+    {
+      "id": 1217,
+      "selfMs": 12.017,
+      "inclusiveMs": 12.017,
+      "times": {
+        "firstMs": 1057.155,
+        "lastMs": 1072.176
+      },
+      "stack": [
+        {
+          "fn": "K",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 147089,
+          "excerpt": "function K(e){return structuredClone(e)}function ye(e){return structuredClone(e)}function j(e){return structuredClone(e)}const ke=\"higood.formal-merged-handout-actions.v1\",$o=[\"handoverHeadAdditions\",\"pickupRecordAdditions\",\"handoutRecordAdditions\",\"pickupRecordOverrides\",\"handoutRecordOverrides\",\"handoutRecordVersionHistory\",\"headCompletionOverrides\"];function fi(e){var d,c;if(e){const i=V.get(e.handoverId);if(!i||i.taskId!==e.taskId||i.productionOrderNo!"
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180933,
+          "excerpt": "unction er(e,t=!0,r){return Ne(),[...t?es():Nt(),...Gt().heads].filter(o=>(!e||Di(o,e))&&(!r||r.has(o.taskId))).sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\"),d=Number.isFinite(s)?s:0,c=Number.isFinite(n)?n:0;return d-c}).map(K)}function ts(){return Ne(),wi().slice().sort((e,t)=>{const r=te(t.lastRecordAt||t.completedByWarehouseAt||\"\"),o=te(e.lastRecordAt||e.completedByWarehouseAt||\""
+        },
+        {
+          "fn": "gu",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 186124,
+          "excerpt": "unction gu(e){return er(e).filter(t=>t.headType===\"PICKUP\"&&t.completionStatus===\"OPEN\")}function Du(e){return er(e).filter(t=>t.headType===\"HANDOUT\"&&t.completionStatus===\"OPEN\")}function _u(){return ts().filter(e=>e.headType===\"PICKUP\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function wu(){return ts().filter(e=>e.headType===\"HANDOUT\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function Qu(e){retu"
+        },
+        {
+          "fn": "_e",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 36874,
+          "excerpt": "unction _e(e,r){return e.executorKind===\"WAREHOUSE_WORKSHOP\"?r.internalTransferOrders.filter(c=>c.runtimeTaskId===e.taskId).some(c=>c.status===\"IN_TRANSIT\"||c.status===\"RECEIVED\"||c.status===\"CLOSED\"||c.lines.some(n=>n.transferredQty>0))?{canStart:!0,reasonCode:\"READY\",reasonText:\"仓内流转已到位\"}:{canStart:!1,reasonCode:\"WAIT_INTERNAL_TRANSFER\",reasonText:\"仓内流转尚未到位\"}:e.transitionFromPrev===\"SAME_FACTORY_CONTINUE\"?e.dependsOnTaskIds.every(s=>{const c=g(s);return "
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 38144,
+          "excerpt": "urn t.map(s=>{const c=oe(s.taskId,a),n=fe(s),i=d.get(s.taskId);return{artifactId:s.sourceEntryId?`TASKART-${s.productionOrderId}-${s.sourceEntryId}`:void 0,artifactType:\"TASK\",productionOrderId:s.productionOrderId,runtimeTaskId:s.taskId,taskNo:s.taskNo||s.taskId,rootTaskNo:s.rootTaskNo||s.taskNo||s.taskId,splitGroupId:s.splitGroupId,splitFromTaskNo:s.splitFromTaskNo,splitSeq:s.splitSeq,isSplitResult:s.isSplitResult===!0,baseTaskId:s.baseTaskId,stageCode:s."
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 37974,
+          "excerpt": "unction be(){const e=P(),r=te(),t=v(),a=re(t),o={issueOrders:se(),internalTransferOrders:ae(),returnOrders:a.returnOrders},d=new Map(Ee().map(s=>[s.runtimeTaskId,s]));return t.map(s=>{const c=oe(s.taskId,a),n=fe(s),i=d.get(s.taskId);return{artifactId:s.sourceEntryId?`TASKART-${s.productionOrderId}-${s.sourceEntryId}`:void 0,artifactType:\"TASK\",productionOrderId:s.productionOrderId,runtimeTaskId:s.taskId,taskNo:s.taskNo||s.taskId,rootTaskNo:s.rootTaskNo||s."
+        },
+        {
+          "fn": "Ke",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 41888,
+          "excerpt": "unction Ke(){const e=be(),r=[];return e.forEach(t=>{const a=g(t.runtimeTaskId);if(!a)return;const o=t.executionDocs.filter(p=>p.docType===\"ISSUE\"||p.docType===\"INTERNAL_TRANSFER\"),d=t.executionDocs.filter(p=>p.docType===\"RETURN\"),s=t.transitionFromPrev===\"SAME_FACTORY_CONTINUE\"&&o.length===0&&t.executorKind===\"EXTERNAL_FACTORY\",c=[t.runtimeTaskId],n=[t.productionOrderId],i=t.assignedFactoryName,T=me([a.updatedAt,...t.materialRequests.map(p=>p.updatedAt),.."
+        },
+        {
+          "fn": "ke",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 45500,
+          "excerpt": "unction ke(){const e=Ke(),r=new Set(e.map(t=>t.key));for(const t of e){const a=E.find(d=>d.sourceModule===t.key);if(!a){const d=t.eventAt||C();E.push({caseId:Ce(t.key),caseStatus:\"OPEN\",severity:t.severity,category:t.category,unifiedCategory:t.unifiedCategory,subCategoryKey:t.subCategoryKey,reasonCode:t.reasonCode,sourceType:\"TASK\",sourceId:t.sourceId,sourceSystem:\"RUNTIME_FLOW\",sourceModule:t.key,relatedOrderIds:t.relatedOrderIds,relatedTaskIds:t.relatedT"
+        },
+        {
+          "fn": "Fe",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 47945,
+          "excerpt": "unction Fe(){return Re(),ke().filter(he).slice().sort((e,r)=>y(r.updatedAt)-y(e.updatedAt))}function We(e){return Fe().find(r=>r.caseId===e)}function we(e){const r=E.findIndex(t=>t.caseId===e.caseId);if(r>=0){E[r]=e;return}E.push(e)}export{Fe as a,Xe as b,qe as c,Qe as d,Ue as e,Ge as f,Ye as g,We as h,Ve as i,Be as j,Ee as k,be as l,b as m,we as u};"
+        },
+        {
+          "fn": "We",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 48038,
+          "excerpt": "unction We(e){return Fe().find(r=>r.caseId===e)}function we(e){const r=E.findIndex(t=>t.caseId===e.caseId);if(r>=0){E[r]=e;return}E.push(e)}export{Fe as a,Xe as b,qe as c,Qe as d,Ue as e,Ge as f,Ye as g,We as h,Ve as i,Be as j,Ee as k,be as l,b as m,we as u};"
+        },
+        {
+          "fn": "K",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 0,
+          "column": 3209,
+          "excerpt": "function K(e){const t=e.platformCaseId?$(e.platformCaseId):void 0,r=(t==null?void 0:t.createdAt)||e.submittedAt,l=(t==null?void 0:t.actions)??[V(`ACT-${e.disputeId}-CREATE`,\"SUBMIT_DISPUTE\",\"移动端已提交裁片接收长度异议。\",e.submittedAt,e.submittedBy)],a=(t==null?void 0:t.auditLogs)??[W(`AUD-${e.disputeId}-CREATE`,\"CREATE\",\"移动端提交裁片接收长度异议\",e.submittedAt,e.submittedBy)];return{caseId:e.platformCaseId,caseStatus:Ee(e.status),severity:e.discrepancyQty<0?\"S1\":Math.abs(e.discr"
+        },
+        {
+          "fn": "fe",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 617,
+          "excerpt": "unction fe(e){F(K(e))}function Ae(e){e.forEach(fe)}function H(e){P=e,re(R(),B,Se(e)),Ae(e)}function Te(){return[pe({sourceTaskId:\"TASK-CUT-000095\",sourceTaskNo:\"TASK-CUT-000095\",cutOrderNo:\"CPO-20260319-I\",productionOrderNo:\"PO-20260319-019\",relatedClaimRecordNo:\"PK-CPO-20260319-I-002\",materialSku:\"FAB-SKU-PRINT-021\",materialCategory:\"印花主料\",materialAttr:\"印花 / 红黑拼色\",configuredQty:612,actualClaimQty:589,disputeReason:\"现场实领少 1 卷\",disputeNote:\"少 1 卷面料，已上传现场照片待"
+        },
+        {
+          "fn": "Ae",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 640,
+          "excerpt": "unction Ae(e){e.forEach(fe)}function H(e){P=e,re(R(),B,Se(e)),Ae(e)}function Te(){return[pe({sourceTaskId:\"TASK-CUT-000095\",sourceTaskNo:\"TASK-CUT-000095\",cutOrderNo:\"CPO-20260319-I\",productionOrderNo:\"PO-20260319-019\",relatedClaimRecordNo:\"PK-CPO-20260319-I-002\",materialSku:\"FAB-SKU-PRINT-021\",materialCategory:\"印花主料\",materialAttr:\"印花 / 红黑拼色\",configuredQty:612,actualClaimQty:589,disputeReason:\"现场实领少 1 卷\",disputeNote:\"少 1 卷面料，已上传现场照片待仓库复核。\",submittedBy:\"现场接"
+        },
+        {
+          "fn": "H",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 668,
+          "excerpt": "function H(e){P=e,re(R(),B,Se(e)),Ae(e)}function Te(){return[pe({sourceTaskId:\"TASK-CUT-000095\",sourceTaskNo:\"TASK-CUT-000095\",cutOrderNo:\"CPO-20260319-I\",productionOrderNo:\"PO-20260319-019\",relatedClaimRecordNo:\"PK-CPO-20260319-I-002\",materialSku:\"FAB-SKU-PRINT-021\",materialCategory:\"印花主料\",materialAttr:\"印花 / 红黑拼色\",configuredQty:612,actualClaimQty:589,disputeReason:\"现场实领少 1 卷\",disputeNote:\"少 1 卷面料，已上传现场照片待仓库复核。\",submittedBy:\"现场接收员\",submittedAt:\"2026-03-22 "
+        },
+        {
+          "fn": "q",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 1492,
+          "excerpt": "function q(){if(P)return P;const e=ge(ae(R(),B)),t=e.length?e:Te();return H(t),t}function Y(){return[...q()].sort((e,t)=>t.submittedAt.localeCompare(e.submittedAt,\"zh-CN\"))}function ze(e){return Y().find(t=>t.platformCaseId===e)??null}function X(e){return Y().filter(t=>{var r;return((r=t.cutOrderNos)==null?void 0:r.includes(e))||t.cutOrderNo===e})}function De(e){return X(e)[0]??null}function je(e,t){const r=Ie(t);if(r.length)return{record:null,issues:r};co"
+        },
+        {
+          "fn": "Y",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 1573,
+          "excerpt": "function Y(){return[...q()].sort((e,t)=>t.submittedAt.localeCompare(e.submittedAt,\"zh-CN\"))}function ze(e){return Y().find(t=>t.platformCaseId===e)??null}function X(e){return Y().filter(t=>{var r;return((r=t.cutOrderNos)==null?void 0:r.includes(e))||t.cutOrderNo===e})}function De(e){return X(e)[0]??null}function je(e,t){const r=Ie(t);if(r.length)return{record:null,issues:r};const l=q(),a=l.findIndex(A=>A.disputeId===e);if(a<0)return{record:null,issues:[\"未找"
+        },
+        {
+          "fn": "X",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 1727,
+          "excerpt": "function X(e){return Y().filter(t=>{var r;return((r=t.cutOrderNos)==null?void 0:r.includes(e))||t.cutOrderNo===e})}function De(e){return X(e)[0]??null}function je(e,t){const r=Ie(t);if(r.length)return{record:null,issues:r};const l=q(),a=l.findIndex(A=>A.disputeId===e);if(a<0)return{record:null,issues:[\"未找到对应异议记录\"]};const d=l[a],s=ye(d,t),u=$(s.platformCaseId),c=`${s.platformCaseId}-HANDLE-${Date.now()}`,i=`${s.platformCaseId}-AUDIT-${Date.now()}`,o=K(s);o."
+        },
+        {
+          "fn": "De",
+          "file": "marker-plan-source-model-N_0I-l1Z.js",
+          "line": 1,
+          "column": 1843,
+          "excerpt": "unction De(e){return X(e)[0]??null}function je(e,t){const r=Ie(t);if(r.length)return{record:null,issues:r};const l=q(),a=l.findIndex(A=>A.disputeId===e);if(a<0)return{record:null,issues:[\"未找到对应异议记录\"]};const d=l[a],s=ye(d,t),u=$(s.platformCaseId),c=`${s.platformCaseId}-HANDLE-${Date.now()}`,i=`${s.platformCaseId}-AUDIT-${Date.now()}`,o=K(s);o.actions=[...(u==null?void 0:u.actions)??o.actions,V(c,\"HANDLE_DISPUTE\",`${y(s.status)}：${s.handleConclusion}`,s.hand"
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-CRYlNHE0.js",
+          "line": 0,
+          "column": 25376,
+          "excerpt": "function W(e,t,r){const n=te(e.taskId),o=e.cuttingReportMode||\"INDEPENDENT_CUTTING_EXECUTION\",d=ye(r,e),a=D(e),c=ne(r,e),u=Oe(r,e),i=he(r,e),s=Q(r,e),l=Te(e),m=bt(e),p=m[0]??null,y=e.cutOrderNo?me(e.cutOrderNo):null,f=!!u||!!i,N=X(e.taskId),T=!n&&se({sourceCutOrderIds:[e.cutOrderId]}).claimedQty>0,g=y&&y.status!==\"COMPLETED\"&&y.status!==\"REJECTED\"?\"来料异议处理中\":(c==null?void 0:c.resultLabel)||(T?\"来料已接收\":\"\")||(N?\"待裁床接收\":f?\"来料已入仓\":Qe(d==null?void 0:d.receiveStat"
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-CRYlNHE0.js",
+          "line": 0,
+          "column": 38465,
+          "excerpt": "t o=n.map((p,y)=>W(p,y+1,t)),d=((l=o[0])==null?void 0:l.cuttingReportMode)||\"INDEPENDENT_CUTTING_EXECUTION\",a=o.filter(p=>p.isDone).length,c=o.filter(p=>p.hasException).length,u=o.find(p=>!p.isDone)||o[0];return Object.assign(e,{taskType:\"CUTTING\",taskTypeLabel:\"裁片任务\",factoryType:\"CUTTING_WORKSHOP\",factoryTypeLabel:\"裁片执行\",supportsCuttingSpecialActions:!0,entryMode:\"CUTTING_SPECIAL\",productionOrderNo:((m=n[0])==null?void 0:m.productionOrderNo)||e.production"
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-CRYlNHE0.js",
+          "line": 0,
+          "column": 36859,
+          "excerpt": "unction Ae(e,t,r){var i,s,l,m;const n=E(e.taskId,t,e,r);if(!n.length){const p=ge(e,r);if(p)return Object.assign(e,{taskType:\"CUTTING\",taskTypeLabel:\"裁片任务\",factoryType:\"CUTTING_WORKSHOP\",factoryTypeLabel:\"裁片执行\",supportsCuttingSpecialActions:!0,entryMode:\"CUTTING_SPECIAL\",productionOrderNo:p.productionOrderNo,cutOrderIds:[...p.cutOrderIds],cutOrderNos:[...p.cutOrderNos],markerPlanIds:[],markerPlanNos:[],executionOrderIds:[],executionOrderNos:[],defaultExecut"
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-CRYlNHE0.js",
+          "line": 0,
+          "column": 40001,
+          "excerpt": "===t).map(d=>Ae(d,r,o)).filter(d=>!t||d.assignedFactoryId===t).sort((d,a)=>(d.taskNo||d.taskId).localeCompare(a.taskNo||a.taskId,\"zh-CN\"))}function Jt(e,t){return oe(e,t)}function de(e,t){const r=_(t),n=Ie(),o=n.find(d=>d.taskId===e);return o?Ae(o,r,Se(n)):null}function er(e){return oe(e).filter(t=>!B(t))}function tr(e){return oe(e).filter(t=>B(t))}function Pe(e,t,r){const n=E(e,r);return n.length?!t&&n.length===1?n[0]:t?n.find(o=>Fe(o,t))??null:n[0]??null"
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-CRYlNHE0.js",
+          "line": 0,
+          "column": 39893,
+          "excerpt": "unction oe(e,t){const r=_(e),n=Ie(),o=Se(n);return n.filter(d=>!t||!d.assignedFactoryId||d.assignedFactoryId===t).map(d=>Ae(d,r,o)).filter(d=>!t||d.assignedFactoryId===t).sort((d,a)=>(d.taskNo||d.taskId).localeCompare(a.taskNo||a.taskId,\"zh-CN\"))}function Jt(e,t){return oe(e,t)}function de(e,t){const r=_(t),n=Ie(),o=n.find(d=>d.taskId===e);return o?Ae(o,r,Se(n)):null}function er(e){return oe(e).filter(t=>!B(t))}function tr(e){return oe(e).filter(t=>B(t))}f"
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-CRYlNHE0.js",
+          "line": 0,
+          "column": 40141,
+          "excerpt": "unction Jt(e,t){return oe(e,t)}function de(e,t){const r=_(t),n=Ie(),o=n.find(d=>d.taskId===e);return o?Ae(o,r,Se(n)):null}function er(e){return oe(e).filter(t=>!B(t))}function tr(e){return oe(e).filter(t=>B(t))}function Pe(e,t,r){const n=E(e,r);return n.length?!t&&n.length===1?n[0]:t?n.find(o=>Fe(o,t))??null:n[0]??null:null}function Gt(e,t){const r=_(t);return E(e,r).map((n,o)=>W(n,o+1,r))}function rr(e){const t=_(),r=E(e,t);if(!r.length)return null;const "
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 0,
+          "column": 18092,
+          "excerpt": "function W(t){const e=K(t);dt();const o=h(void 0,t);return{tasks:o,beforeExecution:[...e,...Rt(t,o),...kt(t)],readAfterExecution:()=>[...Ft(t),...wt(t),...O(t)]}}function D(t,e){if(g(t))return[...Mt(),...e===\"ROLE_ADMIN\"?O(t):[]].sort(v);if(t===S)return[...K(t),...Dt(t),...Ct(t),...Et(t),...Lt(t),..._t(),...O(t)].sort(v);const{tasks:o,beforeExecution:a,readAfterExecution:r}=W(t);return[...a,...Pt(t,o),...r()].sort(v)}function Ht(t,e){if(g(t)||t===S)return "
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 0,
+          "column": 18514,
+          "excerpt": "unction Ht(t,e){if(g(t)||t===S)return D(t,e).filter(n=>n.status===\"待处理\"||n.status===\"处理中\").length;const{tasks:o,beforeExecution:a,readAfterExecution:r}=W(t);return[...a,...r()].filter(n=>n.status===\"待处理\"||n.status===\"处理中\").length+U(t,o).length}function ye(t){return Array.from(new Set([S,...h().map(o=>o.assignedFactoryId).filter(o=>!!o)])).flatMap(o=>D(o,g(o)?\"ROLE_ADMIN\":void 0)).find(o=>o.todoId===t)??null}function ge(t){return{total:t.filter(e=>e.status="
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 25,
+          "column": 65,
+          "excerpt": "unction Qt(t,e){const o=T();let a=M(0);if(o)try{a=M(Ht(o.factoryId,o.roleId))}catch{a='<span role=\"status\" class=\"max-w-[112px] text-xs text-amber-800\" title=\"待办来源暂不可读，请恢复浏览器存储访问后刷新。\">待办暂不可用</span>'}const r=(o==null?void 0:o.factoryName)||\"工厂端移动应用\",n=o?Gt(o.factoryId):\"\",d=o&&n?`${_(t,e)} · ${n}`:_(t,e);return`"
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-D0AE60WY.js",
+          "line": 202,
+          "column": 15,
+          "excerpt": "unction qt(t,e,o={}){const a=I.getState().pathname||\"/fcs/pda/exec\",r=mt(a);return r.allowed?yt(a)?E(gt,\"车缝现场交货登记模式\"):(Kt(!!o.disableTodoAutoOpen),`"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 860,
+      "selfMs": 10.514,
+      "inclusiveMs": 12.016,
+      "times": {
+        "firstMs": 832.312,
+        "lastMs": 847.344
+      },
+      "stack": [
+        {
+          "fn": "K",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 147089,
+          "excerpt": "function K(e){return structuredClone(e)}function ye(e){return structuredClone(e)}function j(e){return structuredClone(e)}const ke=\"higood.formal-merged-handout-actions.v1\",$o=[\"handoverHeadAdditions\",\"pickupRecordAdditions\",\"handoutRecordAdditions\",\"pickupRecordOverrides\",\"handoutRecordOverrides\",\"handoutRecordVersionHistory\",\"headCompletionOverrides\"];function fi(e){var d,c;if(e){const i=V.get(e.handoverId);if(!i||i.taskId!==e.taskId||i.productionOrderNo!"
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180933,
+          "excerpt": "unction er(e,t=!0,r){return Ne(),[...t?es():Nt(),...Gt().heads].filter(o=>(!e||Di(o,e))&&(!r||r.has(o.taskId))).sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\"),d=Number.isFinite(s)?s:0,c=Number.isFinite(n)?n:0;return d-c}).map(K)}function ts(){return Ne(),wi().slice().sort((e,t)=>{const r=te(t.lastRecordAt||t.completedByWarehouseAt||\"\"),o=te(e.lastRecordAt||e.completedByWarehouseAt||\""
+        },
+        {
+          "fn": "gu",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 186124,
+          "excerpt": "unction gu(e){return er(e).filter(t=>t.headType===\"PICKUP\"&&t.completionStatus===\"OPEN\")}function Du(e){return er(e).filter(t=>t.headType===\"HANDOUT\"&&t.completionStatus===\"OPEN\")}function _u(){return ts().filter(e=>e.headType===\"PICKUP\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function wu(){return ts().filter(e=>e.headType===\"HANDOUT\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function Qu(e){retu"
+        },
+        {
+          "fn": "_e",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 36874,
+          "excerpt": "unction _e(e,r){return e.executorKind===\"WAREHOUSE_WORKSHOP\"?r.internalTransferOrders.filter(c=>c.runtimeTaskId===e.taskId).some(c=>c.status===\"IN_TRANSIT\"||c.status===\"RECEIVED\"||c.status===\"CLOSED\"||c.lines.some(n=>n.transferredQty>0))?{canStart:!0,reasonCode:\"READY\",reasonText:\"仓内流转已到位\"}:{canStart:!1,reasonCode:\"WAIT_INTERNAL_TRANSFER\",reasonText:\"仓内流转尚未到位\"}:e.transitionFromPrev===\"SAME_FACTORY_CONTINUE\"?e.dependsOnTaskIds.every(s=>{const c=g(s);return "
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 38144,
+          "excerpt": "urn t.map(s=>{const c=oe(s.taskId,a),n=fe(s),i=d.get(s.taskId);return{artifactId:s.sourceEntryId?`TASKART-${s.productionOrderId}-${s.sourceEntryId}`:void 0,artifactType:\"TASK\",productionOrderId:s.productionOrderId,runtimeTaskId:s.taskId,taskNo:s.taskNo||s.taskId,rootTaskNo:s.rootTaskNo||s.taskNo||s.taskId,splitGroupId:s.splitGroupId,splitFromTaskNo:s.splitFromTaskNo,splitSeq:s.splitSeq,isSplitResult:s.isSplitResult===!0,baseTaskId:s.baseTaskId,stageCode:s."
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 37974,
+          "excerpt": "unction be(){const e=P(),r=te(),t=v(),a=re(t),o={issueOrders:se(),internalTransferOrders:ae(),returnOrders:a.returnOrders},d=new Map(Ee().map(s=>[s.runtimeTaskId,s]));return t.map(s=>{const c=oe(s.taskId,a),n=fe(s),i=d.get(s.taskId);return{artifactId:s.sourceEntryId?`TASKART-${s.productionOrderId}-${s.sourceEntryId}`:void 0,artifactType:\"TASK\",productionOrderId:s.productionOrderId,runtimeTaskId:s.taskId,taskNo:s.taskNo||s.taskId,rootTaskNo:s.rootTaskNo||s."
+        },
+        {
+          "fn": "fe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 23726,
+          "excerpt": "unction fe(e){if(!x){x=new Map;for(const o of Me()){const t=x.get(o.productionOrderId)??[];t.push(o),x.set(o.productionOrderId,t)}}return x.get(e)??[]}function tt(e,o){return o.length===0?[{nodeId:`${e.productionOrderNo}-material`,nodeName:\"面辅料准备\",status:\"待确认\",ownerRole:\"跟单\",plannedAt:e.updatedAt||\"-\",actualAt:\"-\",relatedDocNo:\"-\",quantityText:`${q(e).toLocaleString(\"zh-CN\")} 件`,description:\"当前生产单暂无工艺任务明细，需跟单确认任务资料。\"}]:o.slice(0,8).map(t=>({nodeId:t.runtim"
+        },
+        {
+          "fn": "xe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 53040,
+          "excerpt": "unction xe(e){return fe(e.productionOrderNo).slice(0,12).map(o=>({id:`PROCESS_DOC-${o.runtimeTaskId}`,objectType:\"PROCESS_DOC\",primaryNo:o.taskNo||o.runtimeTaskId,secondaryNo:e.productionOrderNo,displayTitle:o.processNameZh||o.taskTypeLabel||\"工艺任务\",keywords:l([o.runtimeTaskId,o.taskNo,o.processNameZh,o.taskTypeLabel,we(o.taskTypeCode),e.productionOrderNo]),relatedProductionOrderNo:e.productionOrderNo,relatedDemandNo:e.demandId,statusText:o.startReadiness.c"
+        },
+        {
+          "fn": "",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63551,
+          "excerpt": "k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,reason:`命中：${j[e.objectTy"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 738,
+      "selfMs": 9.006,
+      "inclusiveMs": 18.021,
+      "times": {
+        "firstMs": 761.756,
+        "lastMs": 782.788
+      },
+      "stack": [
+        {
+          "fn": "we",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 177353,
+          "excerpt": "unction we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O."
+        },
+        {
+          "fn": "",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180081,
+          "excerpt": "OOL\").map(i=>we(i,r)),s=ci.filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),n=[...Pi(),...V.values()].filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),d=[...t,...o,...a,...s,...n],c=new Map;return d.forEach(i=>c.set(i.handoverId,i)),Array.from(c.values())}function Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some"
+        },
+        {
+          "fn": "gi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 179636,
+          "excerpt": "unction gi(){const e=mt();Wa([...e.issueOrders,...e.returnOrders,...e.internalTransferOrders]);const t=e.issueOrders.filter(i=>i.targetType===\"EXTERNAL_FACTORY\").filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>ja(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>at(i)),r=Xa(),o=e.returnOrders.filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>Ri(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we(i,r)),a=$a().filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we"
+        },
+        {
+          "fn": "Nt",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180424,
+          "excerpt": "unction Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some(t=>t.postReturnLink)?we(e):e)}function es(){return[...Nt(),...Zt()]}function Di(e,t){return e.processBusinessCode!==\"WOOL\",e.factoryId===t}function _i(){const e=Xa(),t=$a().map(o=>we(o,e)),r=Array.from(V.values()).filter(o=>o.factoryId===ma&&o.processBusinessCode===\"POST_FINISHING\").map(o=>o.headType===\"PICKUP\"?at(K(o)):we(K(o),e));return[."
+        },
+        {
+          "fn": "ji",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 189291,
+          "excerpt": "unction ji(e,t={}){return Ne(),[...Nt().filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e),...(t.includeWool===!1?[]:Zt()).filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e)].slice().sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\");return(Number.isFinite(s)?s:0)-(Number.isFinite(n)?n:0)}).map(K)}Js(()=>xe(),e=>fe(e),import.meta.url);function jo(e,t={}){Ne();const r=n=>n.headType===\"HANDOUT\"&"
+        },
+        {
+          "fn": "Vi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 192886,
+          "excerpt": "unction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：$"
+        },
+        {
+          "fn": "it",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63124,
+          "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)=="
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 918,
+      "selfMs": 8.905,
+      "inclusiveMs": 11.897,
+      "times": {
+        "firstMs": 865.316,
+        "lastMs": 875.818
+      },
+      "stack": [
+        {
+          "fn": "K",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 147089,
+          "excerpt": "function K(e){return structuredClone(e)}function ye(e){return structuredClone(e)}function j(e){return structuredClone(e)}const ke=\"higood.formal-merged-handout-actions.v1\",$o=[\"handoverHeadAdditions\",\"pickupRecordAdditions\",\"handoutRecordAdditions\",\"pickupRecordOverrides\",\"handoutRecordOverrides\",\"handoutRecordVersionHistory\",\"headCompletionOverrides\"];function fi(e){var d,c;if(e){const i=V.get(e.handoverId);if(!i||i.taskId!==e.taskId||i.productionOrderNo!"
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180933,
+          "excerpt": "unction er(e,t=!0,r){return Ne(),[...t?es():Nt(),...Gt().heads].filter(o=>(!e||Di(o,e))&&(!r||r.has(o.taskId))).sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\"),d=Number.isFinite(s)?s:0,c=Number.isFinite(n)?n:0;return d-c}).map(K)}function ts(){return Ne(),wi().slice().sort((e,t)=>{const r=te(t.lastRecordAt||t.completedByWarehouseAt||\"\"),o=te(e.lastRecordAt||e.completedByWarehouseAt||\""
+        },
+        {
+          "fn": "xe",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 185743,
+          "excerpt": "unction xe(e={}){return er(void 0,e.includeWool!==!1,e.taskIds)}function Pu(e){return xe().filter(t=>t.headType===e)}function bu(e){return er(e)}function ho(e){const t=H(e);if(!(t!=null&&t.sourceDocId))return;const r=io(t.sourceDocId);if(r&&!(r.docType!==\"ISSUE\"&&r.docType!==\"RETURN\"))return r}function rs(e){const t=H(e);return t!=null&&t.runtimeTaskId?me(t.runtimeTaskId):null}function gu(e){return er(e).filter(t=>t.headType===\"PICKUP\"&&t.completionStatus="
+        },
+        {
+          "fn": "hc",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 252364,
+          "excerpt": "unction hc(){const e=Yr(),t=new Map,r=new Map,o=new Map,a=new Map($t.map(I=>[I.id,I]));e.forEach(I=>{t.set(I.warehouseId,I),I.warehouseKind===\"WAIT_PROCESS\"?r.set(I.factoryId,I):o.set(I.factoryId,I)});const s=[];Vt().forEach(I=>{const p=I.targetFactoryId?a.get(I.targetFactoryId):void 0;if(!p||!Wt(p))return;const C=r.get(p.id);C&&I.lines.forEach((g,M)=>{s.push(fc(I,g,p,C,M))})}),xe().filter(I=>I.headType===\"PICKUP\"&&!!I.factoryId).forEach(I=>{const p=a.get("
+        },
+        {
+          "fn": "Q",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 271457,
+          "excerpt": "function Q(e=!0){x||(Ut=-1,x=hc(),bc(x));const t=Ss();if(!e&&Ut===t)return x;const r=ac();if(Ut!==t)for(const o of md().filter(a=>!r.genericPieceInboundIds.has(a.inboundRecordId))){const a=bo(o);let s=x.waitProcessStockItems.find(d=>d.stockItemId===a.stockItemId);s||(x.inboundRecords.push(o),s=a,x.waitProcessStockItems.push(s));const n=o.inboundRecordId.replace(/^FIN-/,\"\").replace(/-\\d+$/,\"\");s.issuedQty=ks(n,o.fabricRollNo),s.availableQty=Math.max(0,o.rec"
+        },
+        {
+          "fn": "Rl",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 274933,
+          "excerpt": "unction Rl(e){const t=Q(He(e.inboundRecordId)),r=t.inboundRecords.findIndex(a=>a.inboundRecordId===e.inboundRecordId||a.sourceRecordId===e.sourceRecordId),o=b(e);return r>=0?t.inboundRecords[r]=o:t.inboundRecords.unshift(o),b(o)}function Ol(e){const t=Q(He(e.stockItemId)),r=t.waitProcessStockItems.findIndex(a=>a.stockItemId===e.stockItemId||a.sourceRecordId===e.sourceRecordId),o=b(e);return r>=0?t.waitProcessStockItems[r]=o:t.waitProcessStockItems.unshift("
+        },
+        {
+          "fn": "We",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 57836,
+          "excerpt": "unction We(e){return X?structuredClone(e):rr(e)}function qe(e){return X?structuredClone(e):ar(e)}function Mt(e){return X?structuredClone(e):or(e)}function Oe(e){return X?structuredClone(e):nr(e)}const He=new Set;let Ce;function eo(e){Ce=e,e(He)}function Ft(e){const t=new Map,r=e.taskOrders.filter(m=>{t.has(m.productionOrderId)||t.set(m.productionOrderId,J(m.productionOrderId));const f=t.get(m.productionOrderId);return f?lr(m,f):!1});if(!r.length)return;con"
+        },
+        {
+          "fn": "fo",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 73879,
+          "excerpt": "unction fo(e,t){if(!Kt(e.status))return{};const r=de(e.factory.id,\"WAIT_PROCESS\"),o=ce(r,se(e.operation.operationName,e.operation.targetObject),t,\"A区\"),i=Q((e.inputReceivedQty??e.receivedQty)-(e.inputPlannedQty??e.planQty)),a=We({inboundRecordId:`SC-INB-${e.taskOrderId}`,inboundRecordNo:`RK-${e.taskOrderNo}`,warehouseId:r.warehouseId,warehouseName:r.warehouseName,factoryId:e.factory.id,factoryName:e.factory.name,factoryKind:e.factory.factoryType,processCod"
+        },
+        {
+          "fn": "",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 85618,
+          "excerpt": "t.forEach((d,c)=>{const n=d.targetObject===\"成衣\"?i:d.targetObject===\"辅料\"?o.filter(({snapshot:p})=>{var N,S;const I=Qe(p,d),y=Pe(p,d,I);return!((N=y==null?void 0:y.unit)!=null&&N.trim())||!Number.isFinite(Number(y.unitConsumption))||Number(y.unitConsumption)<=0?!1:d.operationId===Z?!0:!!(I&&Number.isFinite(Number(I.fixedLengthCm))&&Number(I.fixedLengthCm)>0&&((S=I.outputUnit)!=null&&S.trim())&&Number.isFinite(Number(I.outputQtyPerGarment))&&Number(I.outputQt"
+        },
+        {
+          "fn": "So",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 85351,
+          "excerpt": "unction So(e,t=Ct()){const r=lo();if(r.length===0)return[];const o=r,i=o.filter(({order:d,snapshot:c})=>{const n=new Set(d.demandSnapshot.skuLines.map(u=>u.skuCode));return c.bomItems.some(u=>u.type===\"成衣\"&&(u.applicableSkuCodes??[]).some(s=>n.has(s)))}),a=[];return t.forEach((d,c)=>{const n=d.targetObject===\"成衣\"?i:d.targetObject===\"辅料\"?o.filter(({snapshot:p})=>{var N,S;const I=Qe(p,d),y=Pe(p,d,I);return!((N=y==null?void 0:y.unit)!=null&&N.trim())||!Number"
+        },
+        {
+          "fn": "ue",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 105739,
+          "excerpt": "unction ue(e=!0){if(!q){const t=Or([]),r=t.flatMap(p=>p.taskOrders),o=r.filter(p=>p.targetObject===\"已裁部位\"&&p.feiTicketNos.length===0),i=new Set(o.map(p=>p.taskOrderId)),a=o.map(p=>{var I,y,N,S,R,g,h,C;return{errorId:`SCGE-${p.taskOrderId}-FEI-TICKET-MISSING`,productionOrderId:p.productionOrderId,productionOrderNo:p.productionOrderNo,patternFileId:((I=p.sourcePatternFileIds)==null?void 0:I[0])||((N=(y=p.demandLines)==null?void 0:y[0])==null?void 0:N.pattern"
+        },
+        {
+          "fn": "Ze",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 108668,
+          "excerpt": "unction Ze(){const e=ue();if(fe===tt())return e.taskOrders;const t=_e(),r=[];if(e.taskOrders=e.taskOrders.map(o=>{const i=Qt(o,t,e.taskOrders);return i!==o&&JSON.stringify(i)!==JSON.stringify(o)&&r.push(i),i}),r.length){const o=new Set(r.map(a=>a.taskOrderId)),i=Ot();i.inboundRecords=i.inboundRecords.filter(a=>![...o].some(d=>a.inboundRecordId===`SC-INB-${d}`)),i.outboundRecords=i.outboundRecords.filter(a=>![...o].some(d=>a.outboundRecordId===`SC-OUT-${d}`"
+        },
+        {
+          "fn": "pe",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 118166,
+          "excerpt": "unction pe(){const e=new Set(oe.filter(t=>!t.restoredAt).map(t=>t.taskOrderId));return[...Ze(),...Ve()].filter(t=>!e.has(t.taskOrderId))}function Eo(){const e=X;X=!0;try{const t=new Set(oe.filter(r=>!r.restoredAt).map(r=>r.taskOrderId));return ue(!1).taskOrders.filter(r=>r.targetObject===\"已裁部位\"&&!t.has(r.taskOrderId))}finally{X=e}}function wo(){return structuredClone(ue())}function $o(e){const t=Se===q,r=(q==null?void 0:q.taskOrders)??[],o=new Map(r.map(u="
+        },
+        {
+          "fn": "kt",
+          "file": "post-finishing-full-flow-DCCExdcQ.js",
+          "line": 0,
+          "column": 808,
+          "excerpt": "unction kt(){return pe?[...pe()]:[]}const Ds=15e5,ut=\"WHOLE_ORDER_TASK\",_s=\"KOL整单任务\";function Rr(e){return e===xe||e===Fr?xe:null}function Tt(e){return Rr(e)===xe}function _e(e){return!!(e&&Tt(e.mainFactoryId)&&e.sourceDemandSnapshots.length>0&&e.sourceDemandSnapshots.every(t=>Ar(t.saleType)))}function Pr(e){return e?ee.find(t=>t.productionOrderId===e)??null:null}function qr(e,t=e?Pr(e.productionOrderId):null){return!!(e&&e.taskUnitType===\"WHOLE_ORDER_TASK"
+        },
+        {
+          "fn": "Ir",
+          "file": "post-finishing-full-flow-DCCExdcQ.js",
+          "line": 0,
+          "column": 130603,
+          "excerpt": "unction Ir(e){const t=Et({productionOrders:ee,runtimeTasks:pt(),woolStore:Nt(),specialCraftTaskOrders:kt()}),r=[...Y,...t].filter(d=>!e||e.has(d.productionOrderId)),o=me(e),s=e?new Set([...r.map(d=>d.productionOrderNo),...o.map(d=>d.productionOrderNo)]):void 0,a={deliveries:o,qcTasks:ae(s),postTasks:be(s),rechecks:Se(s),outbounds:nr(s),waitHandovers:st(s)},n=new Map;return r.forEach(d=>{const c=n.get(d.productionOrderId);n.set(d.productionOrderId,{producti"
+        },
+        {
+          "fn": "_e",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 59922,
+          "excerpt": "unction _e(e=!1){const o=e?[]:v(),t=e?[]:$e(),a=new Map,s=[];for(const r of o){const d=m(r.productionOrderNo);for(const u of l([r.postTaskId,r.postTaskNo]))a.set(u,[...a.get(u)||[],r]);s.push({id:`QC_ORDER-${r.qcOrderNo}`,objectType:\"QC_ORDER\",primaryNo:r.qcOrderNo,secondaryNo:r.productionOrderNo,displayTitle:\"后道质检单\",keywords:l([r.qcOrderId,r.qcOrderNo,r.productionOrderNo,r.postTaskId,r.postTaskNo,r.sourceTaskId,r.sourceTaskNo,r.spuCode,r.spuName]),related"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 649,
+      "selfMs": 7.509,
+      "inclusiveMs": 15.009,
+      "times": {
+        "firstMs": 713.697,
+        "lastMs": 725.716
+      },
+      "stack": [
+        {
+          "fn": "we",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 177353,
+          "excerpt": "unction we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O."
+        },
+        {
+          "fn": "",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180081,
+          "excerpt": "OOL\").map(i=>we(i,r)),s=ci.filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),n=[...Pi(),...V.values()].filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),d=[...t,...o,...a,...s,...n],c=new Map;return d.forEach(i=>c.set(i.handoverId,i)),Array.from(c.values())}function Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some"
+        },
+        {
+          "fn": "gi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 179636,
+          "excerpt": "unction gi(){const e=mt();Wa([...e.issueOrders,...e.returnOrders,...e.internalTransferOrders]);const t=e.issueOrders.filter(i=>i.targetType===\"EXTERNAL_FACTORY\").filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>ja(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>at(i)),r=Xa(),o=e.returnOrders.filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>Ri(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we(i,r)),a=$a().filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we"
+        },
+        {
+          "fn": "Nt",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180424,
+          "excerpt": "unction Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some(t=>t.postReturnLink)?we(e):e)}function es(){return[...Nt(),...Zt()]}function Di(e,t){return e.processBusinessCode!==\"WOOL\",e.factoryId===t}function _i(){const e=Xa(),t=$a().map(o=>we(o,e)),r=Array.from(V.values()).filter(o=>o.factoryId===ma&&o.processBusinessCode===\"POST_FINISHING\").map(o=>o.headType===\"PICKUP\"?at(K(o)):we(K(o),e));return[."
+        },
+        {
+          "fn": "ji",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 189291,
+          "excerpt": "unction ji(e,t={}){return Ne(),[...Nt().filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e),...(t.includeWool===!1?[]:Zt()).filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e)].slice().sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\");return(Number.isFinite(s)?s:0)-(Number.isFinite(n)?n:0)}).map(K)}Js(()=>xe(),e=>fe(e),import.meta.url);function jo(e,t={}){Ne();const r=n=>n.headType===\"HANDOUT\"&"
+        },
+        {
+          "fn": "$r",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 58220,
+          "excerpt": "unction $r(e){var o,a,s,n,d,i,c,u;const t=(o=e.sourceSnapshot)!=null&&o.downstreamWorkOrderId?{targetBusinessId:e.sourceSnapshot.downstreamWorkOrderId,targetName:`印花加工单 ${e.sourceSnapshot.downstreamWorkOrderNo||e.sourceSnapshot.downstreamWorkOrderId}`,targetWarehouseId:`${e.sourceSnapshot.downstreamWorkOrderId}-WAIT`,targetWarehouseName:\"印花待加工仓\"}:Tt({sourceType:e.sourceType,productionOrderNo:e.sourceProductionOrderNo||((a=e.productionOrderIds)==null?void 0"
+        },
+        {
+          "fn": "",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 59606,
+          "excerpt": ").forEach((e,t)=>{if(ge.has(e.dyeOrderId)||e.sourceType===\"STOCK\"){$r(e);return}const r=e.plannedQty,o=Fd(e,t);S.set(o.dyeOrderId,o);const a=o.plannedQty/r,s=Z.get(o.dyeOrderId);s&&a!==1&&Z.set(o.dyeOrderId,s.map(d=>({...d,inputQty:typeof d.inputQty==\"number\"?Number((d.inputQty*a).toFixed(2)):void 0,outputQty:typeof d.outputQty==\"number\"?Number((d.outputQty*a).toFixed(2)):void 0,lossQty:typeof d.lossQty==\"number\"?Number((d.lossQty*a).toFixed(2)):void 0})))"
+        },
+        {
+          "fn": "Ld",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 59590,
+          "excerpt": "unction Ld(){ao().forEach((e,t)=>{if(ge.has(e.dyeOrderId)||e.sourceType===\"STOCK\"){$r(e);return}const r=e.plannedQty,o=Fd(e,t);S.set(o.dyeOrderId,o);const a=o.plannedQty/r,s=Z.get(o.dyeOrderId);s&&a!==1&&Z.set(o.dyeOrderId,s.map(d=>({...d,inputQty:typeof d.inputQty==\"number\"?Number((d.inputQty*a).toFixed(2)):void 0,outputQty:typeof d.outputQty==\"number\"?Number((d.outputQty*a).toFixed(2)):void 0,lossQty:typeof d.lossQty==\"number\"?Number((d.lossQty*a).toFixe"
+        },
+        {
+          "fn": "Re",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 112814,
+          "excerpt": "unction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt:e.issuedAt}])}),Gd(),jd(),xd(),Jd();for(const[e,t]of[[\"DWO-008\",2016],[\"DWO-009\",3798],[\"DWO-010\",5600]]){const r=S.get(e),o=Z.get(e);o.some(a=>a.nod"
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 539,
+      "selfMs": 4.505,
+      "inclusiveMs": 10.504,
+      "times": {
+        "firstMs": 680.654,
+        "lastMs": 689.668
+      },
+      "stack": [
+        {
+          "fn": "we",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 177353,
+          "excerpt": "unction we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O."
+        },
+        {
+          "fn": "",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180081,
+          "excerpt": "OOL\").map(i=>we(i,r)),s=ci.filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),n=[...Pi(),...V.values()].filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),d=[...t,...o,...a,...s,...n],c=new Map;return d.forEach(i=>c.set(i.handoverId,i)),Array.from(c.values())}function Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some"
+        },
+        {
+          "fn": "gi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 179636,
+          "excerpt": "unction gi(){const e=mt();Wa([...e.issueOrders,...e.returnOrders,...e.internalTransferOrders]);const t=e.issueOrders.filter(i=>i.targetType===\"EXTERNAL_FACTORY\").filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>ja(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>at(i)),r=Xa(),o=e.returnOrders.filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>Ri(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we(i,r)),a=$a().filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we"
+        },
+        {
+          "fn": "Nt",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180424,
+          "excerpt": "unction Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some(t=>t.postReturnLink)?we(e):e)}function es(){return[...Nt(),...Zt()]}function Di(e,t){return e.processBusinessCode!==\"WOOL\",e.factoryId===t}function _i(){const e=Xa(),t=$a().map(o=>we(o,e)),r=Array.from(V.values()).filter(o=>o.factoryId===ma&&o.processBusinessCode===\"POST_FINISHING\").map(o=>o.headType===\"PICKUP\"?at(K(o)):we(K(o),e));return[."
+        },
+        {
+          "fn": "ji",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 189291,
+          "excerpt": "unction ji(e,t={}){return Ne(),[...Nt().filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e),...(t.includeWool===!1?[]:Zt()).filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e)].slice().sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\");return(Number.isFinite(s)?s:0)-(Number.isFinite(n)?n:0)}).map(K)}Js(()=>xe(),e=>fe(e),import.meta.url);function jo(e,t={}){Ne();const r=n=>n.headType===\"HANDOUT\"&"
+        },
+        {
+          "fn": "Vi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 192886,
+          "excerpt": "unction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：$"
+        },
+        {
+          "fn": "it",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63124,
+          "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)=="
+        },
+        {
+          "fn": "je",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63267,
+          "excerpt": "unction je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)==null?void 0:d.materialItems)==null?void 0:i.find(y=>{var N;return y.materialId===l.rawMaterialSku&&(!((N=l.sourceSnapshot)!=null&&N.bomItemId)|"
+        },
+        {
+          "fn": "Kd",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 77209,
+          "excerpt": "unction Kd(){const e=Ea(te),t=e[0],r=e[1]??e[0],o=pt(7,910,910),a=pt(8,980,980),s=pt(8,980,900),n=pt(9,860,860),d=pt(9,860,842),i=pt(10,1180,1172),c=\"TASK-DYE-000734\";[{taskId:\"TASK-DYE-000727\",productionOrderId:\"PO-20260328-414\",qty:1100,createdAt:\"2026-03-28 10:10:00\"},{taskId:\"TASK-DYE-000728\",productionOrderId:\"PO-20260328-415\",qty:910,createdAt:\"2026-03-28 10:50:00\"},{taskId:c,productionOrderId:\"PO-20260328-416\",qty:980,createdAt:\"2026-06-03 14:50:00\""
+        },
+        {
+          "fn": "Re",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 112814,
+          "excerpt": "unction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt:e.issuedAt}])}),Gd(),jd(),xd(),Jd();for(const[e,t]of[[\"DWO-008\",2016],[\"DWO-009\",3798],[\"DWO-010\",5600]]){const r=S.get(e),o=Z.get(e);o.some(a=>a.nod"
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 538,
+      "selfMs": 3.004,
+      "inclusiveMs": 13.508,
+      "times": {
+        "firstMs": 674.656,
+        "lastMs": 688.165
+      },
+      "stack": [
+        {
+          "fn": "",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180081,
+          "excerpt": "OOL\").map(i=>we(i,r)),s=ci.filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),n=[...Pi(),...V.values()].filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>i.headType===\"PICKUP\"?at(K(i)):we(K(i),r)),d=[...t,...o,...a,...s,...n],c=new Map;return d.forEach(i=>c.set(i.handoverId,i)),Array.from(c.values())}function Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some"
+        },
+        {
+          "fn": "gi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 179636,
+          "excerpt": "unction gi(){const e=mt();Wa([...e.issueOrders,...e.returnOrders,...e.internalTransferOrders]);const t=e.issueOrders.filter(i=>i.targetType===\"EXTERNAL_FACTORY\").filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>ja(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>at(i)),r=Xa(),o=e.returnOrders.filter(i=>Hr(i,me(i.runtimeTaskId))).map(i=>Ri(i)).filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we(i,r)),a=$a().filter(i=>i.processBusinessCode!==\"WOOL\").map(i=>we"
+        },
+        {
+          "fn": "Nt",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180424,
+          "excerpt": "unction Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some(t=>t.postReturnLink)?we(e):e)}function es(){return[...Nt(),...Zt()]}function Di(e,t){return e.processBusinessCode!==\"WOOL\",e.factoryId===t}function _i(){const e=Xa(),t=$a().map(o=>we(o,e)),r=Array.from(V.values()).filter(o=>o.factoryId===ma&&o.processBusinessCode===\"POST_FINISHING\").map(o=>o.headType===\"PICKUP\"?at(K(o)):we(K(o),e));return[."
+        },
+        {
+          "fn": "ji",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 189291,
+          "excerpt": "unction ji(e,t={}){return Ne(),[...Nt().filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e),...(t.includeWool===!1?[]:Zt()).filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e)].slice().sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\");return(Number.isFinite(s)?s:0)-(Number.isFinite(n)?n:0)}).map(K)}Js(()=>xe(),e=>fe(e),import.meta.url);function jo(e,t={}){Ne();const r=n=>n.headType===\"HANDOUT\"&"
+        },
+        {
+          "fn": "Vi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 192886,
+          "excerpt": "unction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：$"
+        },
+        {
+          "fn": "it",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63124,
+          "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)=="
+        },
+        {
+          "fn": "je",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63267,
+          "excerpt": "unction je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)==null?void 0:d.materialItems)==null?void 0:i.find(y=>{var N;return y.materialId===l.rawMaterialSku&&(!((N=l.sourceSnapshot)!=null&&N.bomItemId)|"
+        },
+        {
+          "fn": "Kd",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 77209,
+          "excerpt": "unction Kd(){const e=Ea(te),t=e[0],r=e[1]??e[0],o=pt(7,910,910),a=pt(8,980,980),s=pt(8,980,900),n=pt(9,860,860),d=pt(9,860,842),i=pt(10,1180,1172),c=\"TASK-DYE-000734\";[{taskId:\"TASK-DYE-000727\",productionOrderId:\"PO-20260328-414\",qty:1100,createdAt:\"2026-03-28 10:10:00\"},{taskId:\"TASK-DYE-000728\",productionOrderId:\"PO-20260328-415\",qty:910,createdAt:\"2026-03-28 10:50:00\"},{taskId:c,productionOrderId:\"PO-20260328-416\",qty:980,createdAt:\"2026-06-03 14:50:00\""
+        },
+        {
+          "fn": "Re",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 112814,
+          "excerpt": "unction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt:e.issuedAt}])}),Gd(),jd(),xd(),Jd();for(const[e,t]of[[\"DWO-008\",2016],[\"DWO-009\",3798],[\"DWO-010\",5600]]){const r=S.get(e),o=Z.get(e);o.some(a=>a.nod"
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 735,
+      "selfMs": 1.501,
+      "inclusiveMs": 28.548,
+      "times": {
+        "firstMs": 784.289,
+        "lastMs": 784.289
+      },
+      "stack": [
+        {
+          "fn": "Nt",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180424,
+          "excerpt": "unction Nt(){return ce||(ce=gi()),ce.filter(e=>e.processBusinessCode!==\"WOOL\").map(e=>(Pe.get(e.handoverId)||[]).some(t=>t.postReturnLink)?we(e):e)}function es(){return[...Nt(),...Zt()]}function Di(e,t){return e.processBusinessCode!==\"WOOL\",e.factoryId===t}function _i(){const e=Xa(),t=$a().map(o=>we(o,e)),r=Array.from(V.values()).filter(o=>o.factoryId===ma&&o.processBusinessCode===\"POST_FINISHING\").map(o=>o.headType===\"PICKUP\"?at(K(o)):we(K(o),e));return[."
+        },
+        {
+          "fn": "ji",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 189291,
+          "excerpt": "unction ji(e,t={}){return Ne(),[...Nt().filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e),...(t.includeWool===!1?[]:Zt()).filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e)].slice().sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\");return(Number.isFinite(s)?s:0)-(Number.isFinite(n)?n:0)}).map(K)}Js(()=>xe(),e=>fe(e),import.meta.url);function jo(e,t={}){Ne();const r=n=>n.headType===\"HANDOUT\"&"
+        },
+        {
+          "fn": "Vi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 192886,
+          "excerpt": "unction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：$"
+        },
+        {
+          "fn": "it",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63124,
+          "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)=="
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 859,
+      "selfMs": 0.917,
+      "inclusiveMs": 17.443,
+      "times": {
+        "firstMs": 830.818,
+        "lastMs": 830.818
+      },
+      "stack": [
+        {
+          "fn": "er",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 180933,
+          "excerpt": "unction er(e,t=!0,r){return Ne(),[...t?es():Nt(),...Gt().heads].filter(o=>(!e||Di(o,e))&&(!r||r.has(o.taskId))).sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\"),d=Number.isFinite(s)?s:0,c=Number.isFinite(n)?n:0;return d-c}).map(K)}function ts(){return Ne(),wi().slice().sort((e,t)=>{const r=te(t.lastRecordAt||t.completedByWarehouseAt||\"\"),o=te(e.lastRecordAt||e.completedByWarehouseAt||\""
+        },
+        {
+          "fn": "gu",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 186124,
+          "excerpt": "unction gu(e){return er(e).filter(t=>t.headType===\"PICKUP\"&&t.completionStatus===\"OPEN\")}function Du(e){return er(e).filter(t=>t.headType===\"HANDOUT\"&&t.completionStatus===\"OPEN\")}function _u(){return ts().filter(e=>e.headType===\"PICKUP\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function wu(){return ts().filter(e=>e.headType===\"HANDOUT\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function Qu(e){retu"
+        },
+        {
+          "fn": "_e",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 36874,
+          "excerpt": "unction _e(e,r){return e.executorKind===\"WAREHOUSE_WORKSHOP\"?r.internalTransferOrders.filter(c=>c.runtimeTaskId===e.taskId).some(c=>c.status===\"IN_TRANSIT\"||c.status===\"RECEIVED\"||c.status===\"CLOSED\"||c.lines.some(n=>n.transferredQty>0))?{canStart:!0,reasonCode:\"READY\",reasonText:\"仓内流转已到位\"}:{canStart:!1,reasonCode:\"WAIT_INTERNAL_TRANSFER\",reasonText:\"仓内流转尚未到位\"}:e.transitionFromPrev===\"SAME_FACTORY_CONTINUE\"?e.dependsOnTaskIds.every(s=>{const c=g(s);return "
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 38144,
+          "excerpt": "urn t.map(s=>{const c=oe(s.taskId,a),n=fe(s),i=d.get(s.taskId);return{artifactId:s.sourceEntryId?`TASKART-${s.productionOrderId}-${s.sourceEntryId}`:void 0,artifactType:\"TASK\",productionOrderId:s.productionOrderId,runtimeTaskId:s.taskId,taskNo:s.taskNo||s.taskId,rootTaskNo:s.rootTaskNo||s.taskNo||s.taskId,splitGroupId:s.splitGroupId,splitFromTaskNo:s.splitFromTaskNo,splitSeq:s.splitSeq,isSplitResult:s.isSplitResult===!0,baseTaskId:s.baseTaskId,stageCode:s."
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-YnMv9QKn.js",
+          "line": 0,
+          "column": 37974,
+          "excerpt": "unction be(){const e=P(),r=te(),t=v(),a=re(t),o={issueOrders:se(),internalTransferOrders:ae(),returnOrders:a.returnOrders},d=new Map(Ee().map(s=>[s.runtimeTaskId,s]));return t.map(s=>{const c=oe(s.taskId,a),n=fe(s),i=d.get(s.taskId);return{artifactId:s.sourceEntryId?`TASKART-${s.productionOrderId}-${s.sourceEntryId}`:void 0,artifactType:\"TASK\",productionOrderId:s.productionOrderId,runtimeTaskId:s.taskId,taskNo:s.taskNo||s.taskId,rootTaskNo:s.rootTaskNo||s."
+        },
+        {
+          "fn": "fe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 23726,
+          "excerpt": "unction fe(e){if(!x){x=new Map;for(const o of Me()){const t=x.get(o.productionOrderId)??[];t.push(o),x.set(o.productionOrderId,t)}}return x.get(e)??[]}function tt(e,o){return o.length===0?[{nodeId:`${e.productionOrderNo}-material`,nodeName:\"面辅料准备\",status:\"待确认\",ownerRole:\"跟单\",plannedAt:e.updatedAt||\"-\",actualAt:\"-\",relatedDocNo:\"-\",quantityText:`${q(e).toLocaleString(\"zh-CN\")} 件`,description:\"当前生产单暂无工艺任务明细，需跟单确认任务资料。\"}]:o.slice(0,8).map(t=>({nodeId:t.runtim"
+        },
+        {
+          "fn": "xe",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 53040,
+          "excerpt": "unction xe(e){return fe(e.productionOrderNo).slice(0,12).map(o=>({id:`PROCESS_DOC-${o.runtimeTaskId}`,objectType:\"PROCESS_DOC\",primaryNo:o.taskNo||o.runtimeTaskId,secondaryNo:e.productionOrderNo,displayTitle:o.processNameZh||o.taskTypeLabel||\"工艺任务\",keywords:l([o.runtimeTaskId,o.taskNo,o.processNameZh,o.taskTypeLabel,we(o.taskTypeCode),e.productionOrderNo]),relatedProductionOrderNo:e.productionOrderNo,relatedDemandNo:e.demandId,statusText:o.startReadiness.c"
+        },
+        {
+          "fn": "",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63551,
+          "excerpt": "k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,reason:`命中：${j[e.objectTy"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 903,
+      "selfMs": 0.018,
+      "inclusiveMs": 21.969,
+      "times": {
+        "firstMs": 877.318,
+        "lastMs": 877.318
+      },
+      "stack": [
+        {
+          "fn": "hc",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 252364,
+          "excerpt": "unction hc(){const e=Yr(),t=new Map,r=new Map,o=new Map,a=new Map($t.map(I=>[I.id,I]));e.forEach(I=>{t.set(I.warehouseId,I),I.warehouseKind===\"WAIT_PROCESS\"?r.set(I.factoryId,I):o.set(I.factoryId,I)});const s=[];Vt().forEach(I=>{const p=I.targetFactoryId?a.get(I.targetFactoryId):void 0;if(!p||!Wt(p))return;const C=r.get(p.id);C&&I.lines.forEach((g,M)=>{s.push(fc(I,g,p,C,M))})}),xe().filter(I=>I.headType===\"PICKUP\"&&!!I.factoryId).forEach(I=>{const p=a.get("
+        },
+        {
+          "fn": "Q",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 271457,
+          "excerpt": "function Q(e=!0){x||(Ut=-1,x=hc(),bc(x));const t=Ss();if(!e&&Ut===t)return x;const r=ac();if(Ut!==t)for(const o of md().filter(a=>!r.genericPieceInboundIds.has(a.inboundRecordId))){const a=bo(o);let s=x.waitProcessStockItems.find(d=>d.stockItemId===a.stockItemId);s||(x.inboundRecords.push(o),s=a,x.waitProcessStockItems.push(s));const n=o.inboundRecordId.replace(/^FIN-/,\"\").replace(/-\\d+$/,\"\");s.issuedQty=ks(n,o.fabricRollNo),s.availableQty=Math.max(0,o.rec"
+        },
+        {
+          "fn": "Rl",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 274933,
+          "excerpt": "unction Rl(e){const t=Q(He(e.inboundRecordId)),r=t.inboundRecords.findIndex(a=>a.inboundRecordId===e.inboundRecordId||a.sourceRecordId===e.sourceRecordId),o=b(e);return r>=0?t.inboundRecords[r]=o:t.inboundRecords.unshift(o),b(o)}function Ol(e){const t=Q(He(e.stockItemId)),r=t.waitProcessStockItems.findIndex(a=>a.stockItemId===e.stockItemId||a.sourceRecordId===e.sourceRecordId),o=b(e);return r>=0?t.waitProcessStockItems[r]=o:t.waitProcessStockItems.unshift("
+        },
+        {
+          "fn": "We",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 57836,
+          "excerpt": "unction We(e){return X?structuredClone(e):rr(e)}function qe(e){return X?structuredClone(e):ar(e)}function Mt(e){return X?structuredClone(e):or(e)}function Oe(e){return X?structuredClone(e):nr(e)}const He=new Set;let Ce;function eo(e){Ce=e,e(He)}function Ft(e){const t=new Map,r=e.taskOrders.filter(m=>{t.has(m.productionOrderId)||t.set(m.productionOrderId,J(m.productionOrderId));const f=t.get(m.productionOrderId);return f?lr(m,f):!1});if(!r.length)return;con"
+        },
+        {
+          "fn": "fo",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 73879,
+          "excerpt": "unction fo(e,t){if(!Kt(e.status))return{};const r=de(e.factory.id,\"WAIT_PROCESS\"),o=ce(r,se(e.operation.operationName,e.operation.targetObject),t,\"A区\"),i=Q((e.inputReceivedQty??e.receivedQty)-(e.inputPlannedQty??e.planQty)),a=We({inboundRecordId:`SC-INB-${e.taskOrderId}`,inboundRecordNo:`RK-${e.taskOrderNo}`,warehouseId:r.warehouseId,warehouseName:r.warehouseName,factoryId:e.factory.id,factoryName:e.factory.name,factoryKind:e.factory.factoryType,processCod"
+        },
+        {
+          "fn": "",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 85618,
+          "excerpt": "t.forEach((d,c)=>{const n=d.targetObject===\"成衣\"?i:d.targetObject===\"辅料\"?o.filter(({snapshot:p})=>{var N,S;const I=Qe(p,d),y=Pe(p,d,I);return!((N=y==null?void 0:y.unit)!=null&&N.trim())||!Number.isFinite(Number(y.unitConsumption))||Number(y.unitConsumption)<=0?!1:d.operationId===Z?!0:!!(I&&Number.isFinite(Number(I.fixedLengthCm))&&Number(I.fixedLengthCm)>0&&((S=I.outputUnit)!=null&&S.trim())&&Number.isFinite(Number(I.outputQtyPerGarment))&&Number(I.outputQt"
+        },
+        {
+          "fn": "So",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 85351,
+          "excerpt": "unction So(e,t=Ct()){const r=lo();if(r.length===0)return[];const o=r,i=o.filter(({order:d,snapshot:c})=>{const n=new Set(d.demandSnapshot.skuLines.map(u=>u.skuCode));return c.bomItems.some(u=>u.type===\"成衣\"&&(u.applicableSkuCodes??[]).some(s=>n.has(s)))}),a=[];return t.forEach((d,c)=>{const n=d.targetObject===\"成衣\"?i:d.targetObject===\"辅料\"?o.filter(({snapshot:p})=>{var N,S;const I=Qe(p,d),y=Pe(p,d,I);return!((N=y==null?void 0:y.unit)!=null&&N.trim())||!Number"
+        },
+        {
+          "fn": "ue",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 105739,
+          "excerpt": "unction ue(e=!0){if(!q){const t=Or([]),r=t.flatMap(p=>p.taskOrders),o=r.filter(p=>p.targetObject===\"已裁部位\"&&p.feiTicketNos.length===0),i=new Set(o.map(p=>p.taskOrderId)),a=o.map(p=>{var I,y,N,S,R,g,h,C;return{errorId:`SCGE-${p.taskOrderId}-FEI-TICKET-MISSING`,productionOrderId:p.productionOrderId,productionOrderNo:p.productionOrderNo,patternFileId:((I=p.sourcePatternFileIds)==null?void 0:I[0])||((N=(y=p.demandLines)==null?void 0:y[0])==null?void 0:N.pattern"
+        },
+        {
+          "fn": "Ze",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 108668,
+          "excerpt": "unction Ze(){const e=ue();if(fe===tt())return e.taskOrders;const t=_e(),r=[];if(e.taskOrders=e.taskOrders.map(o=>{const i=Qt(o,t,e.taskOrders);return i!==o&&JSON.stringify(i)!==JSON.stringify(o)&&r.push(i),i}),r.length){const o=new Set(r.map(a=>a.taskOrderId)),i=Ot();i.inboundRecords=i.inboundRecords.filter(a=>![...o].some(d=>a.inboundRecordId===`SC-INB-${d}`)),i.outboundRecords=i.outboundRecords.filter(a=>![...o].some(d=>a.outboundRecordId===`SC-OUT-${d}`"
+        },
+        {
+          "fn": "pe",
+          "file": "special-craft-task-orders-CM-jgcEm.js",
+          "line": 0,
+          "column": 118166,
+          "excerpt": "unction pe(){const e=new Set(oe.filter(t=>!t.restoredAt).map(t=>t.taskOrderId));return[...Ze(),...Ve()].filter(t=>!e.has(t.taskOrderId))}function Eo(){const e=X;X=!0;try{const t=new Set(oe.filter(r=>!r.restoredAt).map(r=>r.taskOrderId));return ue(!1).taskOrders.filter(r=>r.targetObject===\"已裁部位\"&&!t.has(r.taskOrderId))}finally{X=e}}function wo(){return structuredClone(ue())}function $o(e){const t=Se===q,r=(q==null?void 0:q.taskOrders)??[],o=new Map(r.map(u="
+        },
+        {
+          "fn": "kt",
+          "file": "post-finishing-full-flow-DCCExdcQ.js",
+          "line": 0,
+          "column": 808,
+          "excerpt": "unction kt(){return pe?[...pe()]:[]}const Ds=15e5,ut=\"WHOLE_ORDER_TASK\",_s=\"KOL整单任务\";function Rr(e){return e===xe||e===Fr?xe:null}function Tt(e){return Rr(e)===xe}function _e(e){return!!(e&&Tt(e.mainFactoryId)&&e.sourceDemandSnapshots.length>0&&e.sourceDemandSnapshots.every(t=>Ar(t.saleType)))}function Pr(e){return e?ee.find(t=>t.productionOrderId===e)??null:null}function qr(e,t=e?Pr(e.productionOrderId):null){return!!(e&&e.taskUnitType===\"WHOLE_ORDER_TASK"
+        },
+        {
+          "fn": "Ir",
+          "file": "post-finishing-full-flow-DCCExdcQ.js",
+          "line": 0,
+          "column": 130603,
+          "excerpt": "unction Ir(e){const t=Et({productionOrders:ee,runtimeTasks:pt(),woolStore:Nt(),specialCraftTaskOrders:kt()}),r=[...Y,...t].filter(d=>!e||e.has(d.productionOrderId)),o=me(e),s=e?new Set([...r.map(d=>d.productionOrderNo),...o.map(d=>d.productionOrderNo)]):void 0,a={deliveries:o,qcTasks:ae(s),postTasks:be(s),rechecks:Se(s),outbounds:nr(s),waitHandovers:st(s)},n=new Map;return r.forEach(d=>{const c=n.get(d.productionOrderId);n.set(d.productionOrderId,{producti"
+        },
+        {
+          "fn": "_e",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 59922,
+          "excerpt": "unction _e(e=!1){const o=e?[]:v(),t=e?[]:$e(),a=new Map,s=[];for(const r of o){const d=m(r.productionOrderNo);for(const u of l([r.postTaskId,r.postTaskNo]))a.set(u,[...a.get(u)||[],r]);s.push({id:`QC_ORDER-${r.qcOrderNo}`,objectType:\"QC_ORDER\",primaryNo:r.qcOrderNo,secondaryNo:r.productionOrderNo,displayTitle:\"后道质检单\",keywords:l([r.qcOrderId,r.qcOrderNo,r.productionOrderNo,r.postTaskId,r.postTaskNo,r.sourceTaskId,r.sourceTaskNo,r.spuCode,r.spuName]),related"
+        },
+        {
+          "fn": "Mt",
+          "file": "production-object-overview-VcsAM7le.js",
+          "line": 0,
+          "column": 63529,
+          "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}function St(e,o){var r;const t=o.trim().toLowerCase();if(t.length<2)return null;if(e.primaryNo.toLowerCase()===t)return{score:0,rea"
+        },
+        {
+          "fn": "m",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 3841,
+          "excerpt": "function m({objectType:a,objectId:t,label:e,relatedProductionOrderNo:n}){const r=(e||t||\"\").trim(),p=(t||\"\").trim();if(!p||!r)return s(r||\"-\");l.has(a)||l.set(a,C(a));const i=l.get(a),o=f({objectType:a,objectId:p,relatedProductionOrderNo:n},i),d=o.status===\"READY\"||!n?o:f({objectType:a,objectId:p},i);return d.status!==\"READY\"?s(r):A({objectType:d.indexItem.objectType,objectId:d.indexItem.primaryNo,label:r,relatedProductionOrderNo:d.indexItem.relatedProduct"
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(a,t){l=new Map;const e=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(r=>`"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 508,
+      "selfMs": 0,
+      "inclusiveMs": 36.86,
+      "stack": [
+        {
+          "fn": "Vi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 192886,
+          "excerpt": "unction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：$"
+        },
+        {
+          "fn": "it",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63124,
+          "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)=="
+        },
+        {
+          "fn": "je",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63267,
+          "excerpt": "unction je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)==null?void 0:d.materialItems)==null?void 0:i.find(y=>{var N;return y.materialId===l.rawMaterialSku&&(!((N=l.sourceSnapshot)!=null&&N.bomItemId)|"
+        },
+        {
+          "fn": "Kd",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 77209,
+          "excerpt": "unction Kd(){const e=Ea(te),t=e[0],r=e[1]??e[0],o=pt(7,910,910),a=pt(8,980,980),s=pt(8,980,900),n=pt(9,860,860),d=pt(9,860,842),i=pt(10,1180,1172),c=\"TASK-DYE-000734\";[{taskId:\"TASK-DYE-000727\",productionOrderId:\"PO-20260328-414\",qty:1100,createdAt:\"2026-03-28 10:10:00\"},{taskId:\"TASK-DYE-000728\",productionOrderId:\"PO-20260328-415\",qty:910,createdAt:\"2026-03-28 10:50:00\"},{taskId:c,productionOrderId:\"PO-20260328-416\",qty:980,createdAt:\"2026-06-03 14:50:00\""
+        },
+        {
+          "fn": "Re",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 112814,
+          "excerpt": "unction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt:e.issuedAt}])}),Gd(),jd(),xd(),Jd();for(const[e,t]of[[\"DWO-008\",2016],[\"DWO-009\",3798],[\"DWO-010\",5600]]){const r=S.get(e),o=Z.get(e);o.some(a=>a.nod"
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    },
+    {
+      "id": 521,
+      "selfMs": 0,
+      "inclusiveMs": 27.891,
+      "stack": [
+        {
+          "fn": "ji",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 189291,
+          "excerpt": "unction ji(e,t={}){return Ne(),[...Nt().filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e),...(t.includeWool===!1?[]:Zt()).filter(o=>o.headType===\"HANDOUT\"&&o.taskId===e)].slice().sort((o,a)=>{const s=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),n=te(o.lastRecordAt||o.completedByWarehouseAt||\"\");return(Number.isFinite(s)?s:0)-(Number.isFinite(n)?n:0)}).map(K)}Js(()=>xe(),e=>fe(e),import.meta.url);function jo(e,t={}){Ne();const r=n=>n.headType===\"HANDOUT\"&"
+        },
+        {
+          "fn": "Vi",
+          "file": "pda-handover-events-BpmFLT4b.js",
+          "line": 1,
+          "column": 192886,
+          "excerpt": "unction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：$"
+        },
+        {
+          "fn": "it",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63124,
+          "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)=="
+        },
+        {
+          "fn": "je",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 63267,
+          "excerpt": "unction je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)==null?void 0:d.materialItems)==null?void 0:i.find(y=>{var N;return y.materialId===l.rawMaterialSku&&(!((N=l.sourceSnapshot)!=null&&N.bomItemId)|"
+        },
+        {
+          "fn": "Kd",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 77209,
+          "excerpt": "unction Kd(){const e=Ea(te),t=e[0],r=e[1]??e[0],o=pt(7,910,910),a=pt(8,980,980),s=pt(8,980,900),n=pt(9,860,860),d=pt(9,860,842),i=pt(10,1180,1172),c=\"TASK-DYE-000734\";[{taskId:\"TASK-DYE-000727\",productionOrderId:\"PO-20260328-414\",qty:1100,createdAt:\"2026-03-28 10:10:00\"},{taskId:\"TASK-DYE-000728\",productionOrderId:\"PO-20260328-415\",qty:910,createdAt:\"2026-03-28 10:50:00\"},{taskId:c,productionOrderId:\"PO-20260328-416\",qty:980,createdAt:\"2026-06-03 14:50:00\""
+        },
+        {
+          "fn": "Re",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 112814,
+          "excerpt": "unction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt:e.issuedAt}])}),Gd(),jd(),xd(),Jd();for(const[e,t]of[[\"DWO-008\",2016],[\"DWO-009\",3798],[\"DWO-010\",5600]]){const r=S.get(e),o=Z.get(e);o.some(a=>a.nod"
+        },
+        {
+          "fn": "we",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 70332,
+          "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const "
+        },
+        {
+          "fn": "hr",
+          "file": "printing-task-domain-w1KsrpAU.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.s"
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-7dNgnvYu.js",
+          "line": 0,
+          "column": 4451,
+          "excerpt": "unction de(a){var e;P(),O(),((e=v())==null?void 0:e.factoryId)!==F&&$();const t=N(a)||T(a);return t?E(a,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function S(a){const t=[],e=u(a.postOrderId)||u(a.postOrderNo),n=e?g(e):void 0,r=e?b().filter(i=>i.postTaskId===e.postTaskId):[],p=e?y().filter(i=>i.postTaskId===e.postTaskId):[];return a.receiveAction.finishedAt||t.push('<a class=\"inline-flex h-10 items-cen"
+        },
+        {
+          "fn": "",
+          "file": "index-DZaCv3oQ.js",
+          "line": 1175,
+          "column": 1875,
+          "excerpt": "ll;return async(...n)=>{if(t.startsWith(\"renderPcs\")||t.startsWith(\"renderFcsMaterialProcessPlan\")||t===\"renderTechPackPage\"){const{ensurePcsRecordState:c}=await r(async()=>{const{ensurePcsRecordState:p}=await import(\"./pcs-record-core-CHXZt244.js\").then(P=>P.K);return{ensurePcsRecordState:p}},__vite__mapDeps([9,1,2,4])),l=[\"higood-pcs-config-workspace-store-v1\"],_=[\"higood-pcs-material-config-v1\",\"higood-pcs-style-archive-store-v3\",\"higood-pcs-sku-archive"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "excerpt": ""
+        }
+      ]
+    }
+  ]
+}

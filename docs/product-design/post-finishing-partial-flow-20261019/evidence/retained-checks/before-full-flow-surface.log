@@ -1,0 +1,22 @@
+
+> higoods-vanilla-clone@1.0.0 check:post-finishing-full-flow-surface
+> node --import tsx scripts/check-post-finishing-full-flow-surface.ts
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 后道 PDA 必须扫码核对后再开始
+    at <anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/scripts/check-post-finishing-full-flow-surface.ts:141:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

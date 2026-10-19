@@ -1,0 +1,279 @@
+{
+  "outbounds": [
+    {
+      "outboundOrderId": "PF-OUT-PF-ACCEPT-PO-1-1",
+      "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-001-CH",
+      "deliveryId": "PF-DEL-PF-ACCEPT-PO-1-1",
+      "deliveryOrderNo": "PO-QC-202608-001-1",
+      "productionOrderNo": "PO-QC-202608-001",
+      "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+      "qcTaskNo": "PO-QC-202608-001-1-ZJ",
+      "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+      "postTaskNo": "PO-QC-202608-001-1-ZJ-HD",
+      "responsibility": {
+        "sewingTaskType": "INDEPENDENT_SEWING",
+        "taskTypeLabel": "仅车缝",
+        "responsibilityMode": "POST_FACTORY",
+        "responsibilityLabel": "后道工厂负责",
+        "source": "PPIC任务分配",
+        "frozenAt": "2026-10-19T20:57:38.382Z",
+        "defaultProcessItems": [
+          "开扣眼",
+          "装扣子",
+          "熨烫",
+          "包装"
+        ],
+        "processItemsEditable": true
+      },
+      "sourceType": "后道加工后",
+      "recheckOrderId": "PF-RC-PF-ACCEPT-PO-1-1",
+      "recheckOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-001",
+      "returnIndex": 1,
+      "status": "已接收入库",
+      "lines": [
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-S",
+            "skuCode": "SPU-QC-001-01",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "黑色",
+            "sizeName": "S",
+            "imageUrl": "/materials/pcs-reviewed/shirt-black.jpg",
+            "barcode": "SKU-101-202608",
+            "plannedQty": 1000,
+            "qtyUnit": "件"
+          },
+          "outboundQty": 400,
+          "receivedQty": 400
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-M",
+            "skuCode": "SPU-QC-001-02",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "白色",
+            "sizeName": "M",
+            "imageUrl": "/materials/pcs-reviewed/linen-white.jpg",
+            "barcode": "SKU-102-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "outboundQty": 0,
+          "receivedQty": 0
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-L",
+            "skuCode": "SPU-QC-001-03",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "雾蓝",
+            "sizeName": "L",
+            "imageUrl": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "barcode": "SKU-103-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "outboundQty": 0,
+          "receivedQty": 0
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-XL",
+            "skuCode": "SPU-QC-001-04",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "卡其",
+            "sizeName": "XL",
+            "imageUrl": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "barcode": "SKU-104-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "outboundQty": 0,
+          "receivedQty": 0
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-2XL",
+            "skuCode": "SPU-QC-001-05",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "酒红",
+            "sizeName": "2XL",
+            "imageUrl": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "barcode": "SKU-105-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "outboundQty": 0,
+          "receivedQty": 0
+        }
+      ],
+      "createdAt": "2026-10-19T20:57:38.384Z",
+      "receivedAt": "2026-10-19T20:57:38.385Z",
+      "receivedBy": {
+        "actorId": "PF-USER-WH",
+        "actorName": "孙仓库收货员",
+        "roleName": "仓库收货人员"
+      }
+    }
+  ],
+  "rechecks": [
+    {
+      "createdAt": "2026-10-19T20:57:38.384Z",
+      "createdBy": {
+        "actorId": "PF-USER-POST",
+        "actorName": "周后道操作员",
+        "roleName": "后道操作员"
+      },
+      "recheckOrderId": "PF-RC-PF-ACCEPT-PO-1-1",
+      "recheckOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-001",
+      "deliveryId": "PF-DEL-PF-ACCEPT-PO-1-1",
+      "deliveryOrderNo": "PO-QC-202608-001-1",
+      "productionOrderNo": "PO-QC-202608-001",
+      "responsibility": {
+        "sewingTaskType": "INDEPENDENT_SEWING",
+        "taskTypeLabel": "仅车缝",
+        "responsibilityMode": "POST_FACTORY",
+        "responsibilityLabel": "后道工厂负责",
+        "source": "PPIC任务分配",
+        "frozenAt": "2026-10-19T20:57:38.382Z",
+        "defaultProcessItems": [
+          "开扣眼",
+          "装扣子",
+          "熨烫",
+          "包装"
+        ],
+        "processItemsEditable": true
+      },
+      "sourceType": "后道加工后",
+      "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+      "qcTaskNo": "PO-QC-202608-001-1-ZJ",
+      "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+      "postTaskNo": "PO-QC-202608-001-1-ZJ-HD",
+      "returnIndex": 1,
+      "status": "复检完成",
+      "lines": [
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-S",
+            "skuCode": "SPU-QC-001-01",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "黑色",
+            "sizeName": "S",
+            "imageUrl": "/materials/pcs-reviewed/shirt-black.jpg",
+            "barcode": "SKU-101-202608",
+            "plannedQty": 1000,
+            "qtyUnit": "件"
+          },
+          "expectedQty": 400,
+          "barcodeStatus": "正确",
+          "barcodeEvents": [
+            {
+              "eventId": "PF-BAR-PF-RC-PF-ACCEPT-PO-1-1-1",
+              "action": "扫描正确",
+              "scannedBarcode": "SKU-101-202608",
+              "expectedBarcode": "SKU-101-202608",
+              "operator": {
+                "actorId": "PF-USER-RC-A",
+                "actorName": "赵复检员",
+                "roleName": "复检员"
+              },
+              "operatedAt": "2026-10-19T20:57:38.384Z"
+            }
+          ],
+          "lastScannedBarcode": "SKU-101-202608",
+          "handoverQty": 400
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-M",
+            "skuCode": "SPU-QC-001-02",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "白色",
+            "sizeName": "M",
+            "imageUrl": "/materials/pcs-reviewed/linen-white.jpg",
+            "barcode": "SKU-102-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "expectedQty": 0,
+          "barcodeStatus": "未扫描",
+          "barcodeEvents": [],
+          "handoverQty": 0
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-L",
+            "skuCode": "SPU-QC-001-03",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "雾蓝",
+            "sizeName": "L",
+            "imageUrl": "/materials/pcs-reviewed/shirt-blue.jpg",
+            "barcode": "SKU-103-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "expectedQty": 0,
+          "barcodeStatus": "未扫描",
+          "barcodeEvents": [],
+          "handoverQty": 0
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-XL",
+            "skuCode": "SPU-QC-001-04",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "卡其",
+            "sizeName": "XL",
+            "imageUrl": "/materials/pcs-reviewed/shirt-khaki.jpg",
+            "barcode": "SKU-104-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "expectedQty": 0,
+          "barcodeStatus": "未扫描",
+          "barcodeEvents": [],
+          "handoverQty": 0
+        },
+        {
+          "sku": {
+            "skuId": "SPU-QC-001-2XL",
+            "skuCode": "SPU-QC-001-05",
+            "spuCode": "SPU-QC-001",
+            "spuName": "后道验收衬衫",
+            "colorName": "酒红",
+            "sizeName": "2XL",
+            "imageUrl": "/materials/pcs-reviewed/shirt-wine.jpg",
+            "barcode": "SKU-105-202608",
+            "plannedQty": 100,
+            "qtyUnit": "件"
+          },
+          "expectedQty": 0,
+          "barcodeStatus": "未扫描",
+          "barcodeEvents": [],
+          "handoverQty": 0
+        }
+      ],
+      "claimedBy": {
+        "actorId": "PF-USER-RC-A",
+        "actorName": "赵复检员",
+        "roleName": "复检员"
+      },
+      "claimedAt": "2026-10-19T20:57:38.384Z",
+      "completedAt": "2026-10-19T20:57:38.384Z",
+      "outboundOrderId": "PF-OUT-PF-ACCEPT-PO-1-1",
+      "outboundOrderNo": "PO-QC-202608-001-1-ZJ-HD-FJ-001-CH"
+    }
+  ],
+  "waiting": [],
+  "receipts": [],
+  "unchanged": true
+}

@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict'
+import {pathToFileURL}from'node:url'
+import{readFileSync,writeFileSync,mkdirSync}from'node:fs'
+import{createHash}from'node:crypto'
+const repo='/Users/laoer/.codex/worktrees/81b7/higoods'
+const f=await import(pathToFileURL(`${repo}/src/data/fcs/post-finishing-full-flow.ts`).href)
+const pending=f.listPostFinishingMaterialTransferOrders().find((row:any)=>row.status==='待入库')
+assert.ok(pending,'requires an existing receivable legacy source')
+f.receivePostFinishingMaterialTransfer({transferOrderNo:pending.transferOrderNo,actor:{actorId:'BULK-CONTRACT-RECEIVER',actorName:'独立Node旧来源验收',roleName:'仓库收货人员'},nowMs:Date.parse('2026-10-20T08:00:00+08:00')})
+const raw=f.readLegacyPostFinishingMaterialState()
+assert.ok(raw.materialTransferOrders.length>=3&&raw.materialStocks.length>0,'requires nonempty original materials')
+const first=raw.materialTransferOrders.find((row:any)=>row.transferOrderId===raw.materialStocks[0].transferOrderId)!
+const second=raw.materialTransferOrders.find((row:any)=>row.transferOrderId!==first.transferOrderId)!
+const ownedRows=[first,second]
+let selected=new Set(ownedRows.flatMap((row:any)=>[row.productionOrderId,row.productionOrderNo]))
+let oldCalls=0,bulkCalls=0
+const owns=(value:string)=>(oldCalls++,selected.has(value))
+const common={ownsProduction:owns,transfers:()=>[],stocks:()=>[],readiness:()=>undefined}
+function reads(){return{transfers:f.listPostFinishingMaterialTransferOrders(),stocks:f.listPostFinishingMaterialStocks()}}
+f.installAccessoryPostFinishingReadBridge(common)
+const before=reads()
+assert.ok(before.transfers.length<raw.materialTransferOrders.length)
+assert.ok(before.stocks.length<raw.materialStocks.length)
+selected=new Set();const beforeChanged=reads()
+selected=new Set(ownedRows.flatMap((row:any)=>[row.productionOrderId,row.productionOrderNo]))
+f.installAccessoryPostFinishingReadBridge({...common,ownedProductionIdentities:()=>{bulkCalls++;return new Set(selected)}})
+const after=reads(),firstBulkCalls=bulkCalls
+assert.deepEqual(after,before,'bulk ID/No boundary must equal original owns for all public materials')
+assert.ok(firstBulkCalls>0,'new bulk method actually used')
+selected=new Set();const afterChanged=reads()
+assert.deepEqual(afterChanged,beforeChanged,'next read must use changed owner identities, no retained cache')
+assert.ok(bulkCalls>firstBulkCalls,'bulk requested anew after prior synchronous read')
+const out=process.argv[2];mkdirSync(out,{recursive:true})
+const report={status:'passed',kind:'public bridge registration and read-accessor contract, isolated Node memory only',sourceSha256:createHash('sha256').update(readFileSync(`${repo}/src/data/fcs/post-finishing-full-flow.ts`)).digest('hex'),rawCounts:{transfers:raw.materialTransferOrders.length,stocks:raw.materialStocks.length},owned:ownedRows.map((row:any)=>({id:row.productionOrderId,no:row.productionOrderNo})),before,after,beforeChanged,afterChanged,oldCalls,bulkCalls,firstBulkCalls}
+writeFileSync(`${out}/actual.json`,JSON.stringify(report,null,2));writeFileSync(`${out}/script.mts.txt`,readFileSync('/tmp/pf-material-bulk-equivalence.mts'))
+console.log(JSON.stringify({status:report.status,sourceSha256:report.sourceSha256,rawCounts:report.rawCounts,filteredCounts:{transfers:after.transfers.length,stocks:after.stocks.length},changedOwnerCounts:{transfers:afterChanged.transfers.length,stocks:afterChanged.stocks.length},oldCalls,bulkCalls,firstBulkCalls}))

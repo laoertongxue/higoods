@@ -1,0 +1,223 @@
+{
+  "status": "passed",
+  "scope": "Node memory semantic equivalence, no browser/build/persistent user state",
+  "beforeBasis": "HEAD production-object-overview implementation with current shared source dependencies",
+  "sourceSha256": {
+    "beforeOverview": "0de6212c74d70ceba8f3892bb129c99c6f3e97f6bf44bedbaa4351262f599c67",
+    "afterOverview": "4a8999218970b7f415916ac281f699d27680f5c1cacca26041c63902c9adbdef",
+    "afterDetail": "fcba07b1a13249b9c1bdf6c37aad5c39ae2cc7b950b4e2626231beff5db13d0c"
+  },
+  "roles": [
+    {
+      "role": "(undefined)",
+      "count": 12
+    },
+    {
+      "role": "ROLE_ADMIN",
+      "count": 12
+    },
+    {
+      "role": "ROLE_OPERATOR",
+      "count": 12
+    },
+    {
+      "role": "ROLE_DISPATCH",
+      "count": 12
+    },
+    {
+      "role": "ROLE_PRODUCTION",
+      "count": 12
+    },
+    {
+      "role": "ROLE_HANDOVER",
+      "count": 12
+    },
+    {
+      "role": "ROLE_QC",
+      "count": 12
+    },
+    {
+      "role": "ROLE_FINANCE",
+      "count": 12
+    },
+    {
+      "role": "ROLE_VIEWER",
+      "count": 12
+    }
+  ],
+  "todoRowsSha256": "6837754adc7f708b5ef44d303c092f828db757f00a3dc323e3ddb958e36e2226",
+  "dyeRows": 22,
+  "cases": [
+    {
+      "name": "static-seeds",
+      "links": [
+        {
+          "objectType": "PRODUCTION_ORDER",
+          "rows": 30,
+          "requests": 264,
+          "outputSha256": "2a0b88bcfac4ed74a2317ecd418e7fd0c7c192ea7c01d273f049f366fb27732d"
+        },
+        {
+          "objectType": "PROCESS_DOC",
+          "rows": 143,
+          "requests": 923,
+          "outputSha256": "bf1d79adcbca6c68c93149d88851c61a2de58434cec366e4da7fb47623877c38"
+        }
+      ],
+      "globalRows": 666,
+      "globalTypeCounts": {
+        "PRODUCTION_ORDER": 30,
+        "MATERIAL": 136,
+        "WAREHOUSE_DOC": 123,
+        "PROCESS_DOC": 143,
+        "DEMAND": 36,
+        "MATERIAL_PREP_ORDER": 38,
+        "MATERIAL_PREP_RECORD": 21,
+        "MATERIAL_PICKUP_RECORD": 26,
+        "PRINT_WORK_ORDER": 71,
+        "DYE_WORK_ORDER": 24,
+        "QC_ORDER": 12,
+        "RECHECK_ORDER": 2,
+        "CUT_ORDER": 1,
+        "FEI_TICKET": 1,
+        "SPREADING_ORDER": 1,
+        "HANDOVER_ORDER": 1
+      },
+      "globalSha256": "c42c8c036f3ee1d66bb9ad36649b50cfe7c2a0bb22ca0b8fcc2f01e6f9988363"
+    },
+    {
+      "name": "public-two-item-partial",
+      "links": [
+        {
+          "objectType": "PRODUCTION_ORDER",
+          "rows": 30,
+          "requests": 264,
+          "outputSha256": "2a0b88bcfac4ed74a2317ecd418e7fd0c7c192ea7c01d273f049f366fb27732d"
+        },
+        {
+          "objectType": "PROCESS_DOC",
+          "rows": 143,
+          "requests": 923,
+          "outputSha256": "2358980db79164817c3e6172207b89631637d06afc2628b8cba70cd45913547a"
+        }
+      ],
+      "globalRows": 653,
+      "globalTypeCounts": {
+        "PRODUCTION_ORDER": 30,
+        "MATERIAL": 136,
+        "WAREHOUSE_DOC": 123,
+        "PROCESS_DOC": 143,
+        "DEMAND": 36,
+        "MATERIAL_PREP_ORDER": 38,
+        "MATERIAL_PREP_RECORD": 21,
+        "MATERIAL_PICKUP_RECORD": 26,
+        "PRINT_WORK_ORDER": 71,
+        "DYE_WORK_ORDER": 24,
+        "QC_ORDER": 1,
+        "CUT_ORDER": 1,
+        "FEI_TICKET": 1,
+        "SPREADING_ORDER": 1,
+        "HANDOVER_ORDER": 1
+      },
+      "globalSha256": "8a7cbfac6515f0766eecdcc994b2554ed882d1c6c6075409ef071934cad13a6d"
+    },
+    {
+      "name": "public-three-children-one-received",
+      "links": [
+        {
+          "objectType": "PRODUCTION_ORDER",
+          "rows": 30,
+          "requests": 264,
+          "outputSha256": "2a0b88bcfac4ed74a2317ecd418e7fd0c7c192ea7c01d273f049f366fb27732d"
+        },
+        {
+          "objectType": "PROCESS_DOC",
+          "rows": 143,
+          "requests": 923,
+          "outputSha256": "49eb332d3368ffad045b48ca9b6672a02c44d423d0706a1556a151a408f0e6e9"
+        }
+      ],
+      "globalRows": 656,
+      "globalTypeCounts": {
+        "PRODUCTION_ORDER": 30,
+        "MATERIAL": 136,
+        "WAREHOUSE_DOC": 123,
+        "PROCESS_DOC": 143,
+        "DEMAND": 36,
+        "MATERIAL_PREP_ORDER": 38,
+        "MATERIAL_PREP_RECORD": 21,
+        "MATERIAL_PICKUP_RECORD": 26,
+        "PRINT_WORK_ORDER": 71,
+        "DYE_WORK_ORDER": 24,
+        "QC_ORDER": 1,
+        "RECHECK_ORDER": 3,
+        "CUT_ORDER": 1,
+        "FEI_TICKET": 1,
+        "SPREADING_ORDER": 1,
+        "HANDOVER_ORDER": 1
+      },
+      "globalSha256": "ba91d12a6622f9565904d9c176aa6240ce1b706a7d94bd8b7b0836fdf7a466a8"
+    },
+    {
+      "name": "public-qc-direct",
+      "links": [
+        {
+          "objectType": "PRODUCTION_ORDER",
+          "rows": 30,
+          "requests": 264,
+          "outputSha256": "2a0b88bcfac4ed74a2317ecd418e7fd0c7c192ea7c01d273f049f366fb27732d"
+        },
+        {
+          "objectType": "PROCESS_DOC",
+          "rows": 143,
+          "requests": 923,
+          "outputSha256": "96490bbbaa16de4615a1b814a080f3a321f56b72ab176cd292b873c6085755ff"
+        }
+      ],
+      "globalRows": 653,
+      "globalTypeCounts": {
+        "PRODUCTION_ORDER": 30,
+        "MATERIAL": 136,
+        "WAREHOUSE_DOC": 123,
+        "PROCESS_DOC": 143,
+        "DEMAND": 36,
+        "MATERIAL_PREP_ORDER": 38,
+        "MATERIAL_PREP_RECORD": 21,
+        "MATERIAL_PICKUP_RECORD": 26,
+        "PRINT_WORK_ORDER": 71,
+        "DYE_WORK_ORDER": 24,
+        "QC_ORDER": 1,
+        "CUT_ORDER": 1,
+        "FEI_TICKET": 1,
+        "SPREADING_ORDER": 1,
+        "HANDOVER_ORDER": 1
+      },
+      "globalSha256": "f8c96534c9879a934042fff23107aa3e61c16977d251502a9e75a4db1727d413"
+    }
+  ],
+  "comparedRequestCount": 4748,
+  "guardTruthTable": [
+    {
+      "factoryId": "undefined",
+      "initializeDye": true
+    },
+    {
+      "factoryId": "null",
+      "initializeDye": true
+    },
+    {
+      "factoryId": "PF-DEDICATED-001",
+      "initializeDye": false
+    },
+    {
+      "factoryId": "ID-F002",
+      "initializeDye": true
+    },
+    {
+      "factoryId": "UNKNOWN-FACTORY",
+      "initializeDye": true
+    }
+  ]
+}
+(node:86504) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

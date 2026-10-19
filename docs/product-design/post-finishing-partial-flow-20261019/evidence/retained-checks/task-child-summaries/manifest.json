@@ -1,0 +1,40 @@
+{
+  "result": {
+    "minimalRed": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "exitCode": 1,
+      "reason": "new API export undefined"
+    },
+    "green": {
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "originalCasesPreserved": 5,
+    "newCases": 1,
+    "observations": 37,
+    "childStages": 19,
+    "filterComparisons": 93
+  },
+  "sourceSHA256": {
+    "tests/unit/post-finishing-task-quantity-summaries.test.ts": "288478cb1842cb5896f5b07c54e508a1d6908e1f0f1365afa7726bbc5ec22bb7",
+    "src/data/fcs/post-finishing-full-flow.ts": "160f94275664da471e98702954ff17b3755563c459bf3457f4718bee446113d7",
+    "src/data/fcs/post-finishing-current-read-model.ts": "0ef56ca434673f2e38f10721f1e9d4127c88a0aa27e9b60da041ce5c7336426c"
+  },
+  "beforeDirectory": "../grouped-hydration-before",
+  "priorEvidencePreserved": "../task-quantity-summaries",
+  "boundary": "Isolated Node public commands/declared legacy representation; no browser, IDB, performance or real factory operations",
+  "artifactsSHA256": {
+    "actual.json": "af08e54bc44c7773c9aba8a303359ef73af094c550af8ed5f5eb34db8a8493dd",
+    "green.log": "70112be60a68f4724c67e82258af094ef21f3cdf50b0191864bd9778f113054f",
+    "post-finishing-current-read-model.ts.txt": "0ef56ca434673f2e38f10721f1e9d4127c88a0aa27e9b60da041ce5c7336426c",
+    "post-finishing-full-flow.ts.txt": "160f94275664da471e98702954ff17b3755563c459bf3457f4718bee446113d7",
+    "post-finishing-task-quantity-summaries.test.ts.txt": "288478cb1842cb5896f5b07c54e508a1d6908e1f0f1365afa7726bbc5ec22bb7",
+    "red-test.ts.txt": "c83c58bb586ae0d6e0267b32c795a3fa12b68ff1f5563c53a91f830d98f78a8a",
+    "red.log": "3fc81140ea9e156be6a9e79cc93a28ad0699cd077b195848feabfaced8631b04",
+    "review.md": "a6c3ef87e2163deb01702ea57f2abaa44fdba1298dacc123103c46d68c5d2aac"
+  }
+}

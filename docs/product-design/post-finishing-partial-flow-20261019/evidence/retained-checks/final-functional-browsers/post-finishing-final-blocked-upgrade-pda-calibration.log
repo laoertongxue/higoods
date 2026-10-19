@@ -1,0 +1,13 @@
+(node:71273) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+
+(node:71274) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:71274) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[1/1] tests/post-finishing-migration.spec.ts:274:4 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes (PDA)
+  1 passed (2.6s)

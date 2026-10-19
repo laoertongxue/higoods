@@ -1,0 +1,81 @@
+import{y as i}from"./app-shared-_ZQpMwKQ.js";import{r as k}from"./real-barcode-BJdGy9l6.js";import{b as m}from"./production-confirmation-CuAbk8rT.js";import{s as P,v as S,aI as O}from"./post-finishing-full-flow-zmZz6Spx.js";import{bi as h,b7 as f,bv as g,bj as y,bw as c}from"./craft-display-support-BBhuUla2.js";import{p as b}from"./production-orders-D8_YHGJ6.js";import"./tmf-domain-shared-DboXqEqI.js";import"./special-craft-task-orders-BJTcz34J.js";import"./runtime-process-tasks-C7hsSQbR.js";import"./factory-receiving-CSiG2Hp3.js";import"./design-revision-pcs-storage-BjfzS8H8.js";import"./production-order-runtime-store-P1uHKf2q.js";import"./cut-piece-release-Cz1UV__I.js";import"./index-DSnjWhzH.js";import"./effective-task-assignments-BGQULsfp.js";import"./pcs-record-core-Cns-Oc2f.js";import"./pda-handover-events-C2ligMZN.js";import"./pcs-tech-pack-review-CGzks-v2.js";import"./pcs-tech-pack-bootstrap-sHhmJxIJ.js";import"./pcs-config-workspace-repository-BncMPO4w.js";import"./pcs-product-archive-fixtures-ZVAOLlwj.js";import"./pcs-pattern-library-BaWYO9Kr.js";import"./pcs-tech-pack-review-notification-repository-CQ2CEGiH.js";import"./pcs-tech-pack-version-log-repository-BCCJ8rFw.js";import"./los-live-room-master-uYsqfiol.js";import"./pcs-engineering-task-upload-repository-DBehFlxc.js";import"./pcs-engineering-bom-snapshot-source-ByQI2lfp.js";import"./pcs-part-template-library-D36oswoa.js";import"./production-tech-pack-snapshot-types-DCtvPcqH.js";import"./post-finishing-authorization-BpF0CAG_.js";function p(...t){return t.find(e=>e&&!e.includes("/placeholder.svg")&&!e.includes("placehold.co")&&!e.startsWith("data:image/svg+xml"))||""}function d(t){return p(...t.map(e=>e.url))}function I(t){const e=S(t)||O(t);if(!e)throw new Error(`未找到生产单质检总单：${t}`);return e}function q(t){const e=P().find(r=>r.qcOrderId===t||r.qcOrderNo===t);if(!e)throw new Error(`未找到质检单：${t}`);return e}function $(t){return t.plannedUsageQty===null||t.plannedUsageQty===void 0?"-":c(t.plannedUsageQty,t.usageUnit||(t.materialType==="面料"?"Yard":"PCS"))}function C(t){return t.unitConsumption===null||t.unitConsumption===void 0?"-":`${t.unitConsumption} ${t.usageUnit||""}/件`.trim()}function v(t){return t.includes("后中")||t.includes("衣长")?"Panjang punggung tengah(后中长)":t.includes("肩")?"Lingkar Bahu(肩宽)":t.includes("胸")?"Lingkar Dada(胸围)":t.includes("袖长")?"Panjang Lengan(袖长)":t.includes("袖口")?"Cuff Tangan(袖口)":t}const l=["后中长","肩宽","胸围","袖长","袖口"];function x(t,e,r){return t.find(a=>a.sizeCode!==e?!1:r==="后中长"?a.measurementPart.includes("后中")||a.measurementPart.includes("衣长"):a.measurementPart.includes(r))}function w(t){const e=t.patternSnapshot.sizeMeasurements,r=t.sizeQtySnapshot.sizes.length?t.sizeQtySnapshot.sizes:Array.from(new Set(e.map(a=>a.sizeCode)));return{headers:["size(尺码)",...l.map(v)],rows:r.map(a=>[a,...l.map(n=>{const o=x(e,a,n);return o?`${o.measurementValue}${o.measurementUnit||""}`:""})])}}function N(){return`
+    <style>
+      @page { size: A4 portrait; margin: 6mm; }
+      .pf-qc-print-root { min-height: 100vh; background: #777; color: #111; }
+      .pf-qc-toolbar { margin: 0 auto; width: 210mm; padding: 8px 0; text-align: right; }
+      .pf-qc-toolbar button { border: 0; background: #3498db; color: #fff; padding: 8px 14px; font-size: 14px; }
+      .pf-qc-paper { width: 200mm; min-height: 287mm; margin: 0 auto 18px; background: #fff; padding: 6mm 5mm; box-sizing: border-box; font-family: Arial, "Microsoft YaHei", sans-serif; font-size: 12px; line-height: 1.2; }
+      .pf-qc-slip { min-height: 88mm; }
+      .pf-qc-title { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; font-weight: 700; text-align: center; }
+      .pf-qc-title-text { min-width: 92mm; text-align: right; }
+      .pf-qc-barcode { width: 42mm; }
+      .pf-qc-barcode svg { display: block; width: 42mm; height: 12mm; }
+      .pf-qc-section-title { margin: 6mm 0 3mm; text-align: center; font-size: 16px; font-weight: 700; }
+      .pf-qc-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      .pf-qc-table th, .pf-qc-table td { border: 1px solid #777; padding: 4px 5px; text-align: center; vertical-align: middle; font-weight: 400; overflow-wrap: anywhere; word-break: break-word; }
+      .pf-qc-table th { font-weight: 400; }
+      .pf-qc-header td { height: 24mm; font-size: 14px; }
+      .pf-qc-header th { font-size: 13px; }
+      .pf-qc-product-cell img { display: block; max-width: 32mm; max-height: 28mm; margin: 0 auto 2px; object-fit: contain; }
+      .pf-qc-image-wrap { display: flex; min-height: 12mm; align-items: center; justify-content: center; }
+      .pf-qc-image-fallback { color: #b91c1c; font-size: 10px; }
+      .pf-qc-material td { min-height: 12mm; }
+      .pf-qc-material-imgs { display: flex; align-items: center; justify-content: center; gap: 4px; }
+      .pf-qc-material-imgs img { max-width: 20mm; max-height: 16mm; object-fit: contain; }
+      .pf-qc-size td, .pf-qc-size th { padding: 3px 4px; }
+      .pf-qc-sku-table th, .pf-qc-sku-table td { height: 10mm; font-size: 13px; }
+      @media print {
+        .pf-qc-print-root { background: #fff; }
+        .pf-qc-toolbar { display: none; }
+        .pf-qc-paper { width: auto; min-height: 0; margin: 0; padding: 0; }
+      }
+    </style>
+  `}function T(t){return`<div class="pf-qc-barcode" aria-label="barcode">${k(t,`质检单 ${t} 条码`)}</div>`}function u(t,e){return t?`<span class="pf-qc-image-wrap"><img src="${i(t)}" alt="${i(e)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="pf-qc-image-fallback">图片加载失败</span></span>`:'<span class="pf-qc-image-fallback">图片缺失</span>'}function Q(t){const e=`${t.materialName} ${t.materialSku} ${t.materialType}`.toLowerCase();return e.includes("纱")||e.includes("yarn")?"/materials/yarn-stitching.jpg":e.includes("袋")||e.includes("bag")||e.includes("包装")?"/materials/packing-bag.jpg":e.includes("扣")||e.includes("button")?"/materials/accessory-button.jpg":e.includes("拉链")||e.includes("zipper")?"/materials/accessory-zipper.jpg":e.includes("标")||e.includes("label")||e.includes("tag")?"/materials/accessory-label.jpg":t.materialType==="面料"?"/materials/fabric-main.jpg":"/materials/accessory-label.jpg"}function _(t){return`
+    ${N()}
+    <div class="pf-qc-print-root" data-testid="post-finishing-qc-master-print" data-print-document-no="${i(t.documentNo)}">
+      <div class="pf-qc-toolbar"><button onclick="window.print()">打印</button></div>
+      <article class="pf-qc-paper">
+        <div class="pf-qc-title"><div class="pf-qc-title-text">质检单 （Pemeriksaan Kualitas）</div>${T(t.documentNo)}</div>
+        <table class="pf-qc-table pf-qc-header">
+          <colgroup><col style="width:26%"><col style="width:16%"><col style="width:19%"><col style="width:16%"><col style="width:23%"></colgroup>
+          <thead><tr><th>款号SPU(Satuan Pembelian)</th><th>款式评级（Gaya penilaian）</th><th>生产单号（Nomor produksi tunggal）</th><th>工厂名字（Nama pabrik）</th><th>产品图（Gambar Produk）</th></tr></thead>
+          <tbody>
+            <tr><td>${i(t.spuCode)}</td><td>${i(t.styleGrade)}</td><td>${i(t.productionOrderNo)}</td><td>${i(t.factoryName)}</td><td rowspan="3" class="pf-qc-product-cell">${u(t.productImageUrl,`${t.spuCode} 产品图`)}<div>吊牌价：${i(t.tagPrice.toFixed(2))}</div></td></tr>
+            <tr><th>买手（Pembeli）</th><th colspan="2">生产单类型（Jenis pesanan）</th><th>售卖类型（Jenis penjualan）</th></tr>
+            <tr><td>${i(t.buyerName)}</td><td colspan="2">${i(t.productionOrderType)}</td><td>${i(t.saleType)}</td></tr>
+          </tbody>
+        </table>
+        <div class="pf-qc-section-title">面辅料（pakaian &amp; aksesori）</div>
+        <table class="pf-qc-table pf-qc-material">
+          <colgroup><col style="width:22%"><col style="width:19%"><col style="width:13%"><col style="width:20%"><col style="width:21%"><col style="width:5%"></colgroup>
+          <thead><tr><th>辅料名称(Nama aksesori)</th><th>辅料编码(Kode aksesori)</th><th>单耗(Pemakaian per unit)</th><th>用料(Material yang digunakan)</th><th>图片(Gambar)</th><th>已准备(Siap)</th></tr></thead>
+          <tbody>${t.materials.map(e=>`<tr><td>${i(e.materialName)}</td><td>${i(e.materialCode)}</td><td>${i(e.unitConsumption)}</td><td>${i(e.materialUsed)}</td><td><div class="pf-qc-material-imgs">${u(e.imageUrl,`${e.materialName} 图片`)}</div></td><td></td></tr>`).join("")}</tbody>
+        </table>
+        <div class="pf-qc-section-title">尺码表（Graf ukuran）</div>
+        <table class="pf-qc-table pf-qc-size"><thead><tr>${t.sizeHeaders.map(e=>`<th>${i(e)}</th>`).join("")}</tr></thead><tbody>${t.sizeRows.map(e=>`<tr>${e.map(r=>`<td>${i(r)}</td>`).join("")}</tr>`).join("")}</tbody></table>
+      </article>
+    </div>
+  `}function z(t){return`
+    ${N()}
+    <div class="pf-qc-print-root" data-testid="post-finishing-qc-detail-print" data-print-document-no="${i(t.documentNo)}">
+      <div class="pf-qc-toolbar"><button onclick="window.print()">打印</button></div>
+      <article class="pf-qc-paper pf-qc-slip">
+        <div class="pf-qc-title"><div class="pf-qc-title-text">质检详情单 （Pemeriksaan Kualitas）</div>${T(t.documentNo)}</div>
+        <table class="pf-qc-table pf-qc-header">
+          <colgroup><col style="width:26%"><col style="width:20%"><col style="width:32%"><col style="width:22%"></colgroup>
+          <thead><tr><th>款号SPU(Satuan Pembelian)</th><th>打印时间（Print Time）</th><th>生产单号（Nomor produksi tunggal）</th><th>工厂名字（Nama pabrik）</th></tr></thead>
+          <tbody>
+            <tr><td>${i(t.spuCode)}</td><td>${i(t.printedAt)}</td><td>${i(t.productionOrderNo)}</td><td>${i(t.factoryName)}</td></tr>
+            <tr><th>买手（Pembeli）</th><th>生产单类型（Jenis pesanan）</th><th colspan="2">售卖类型（Jenis penjualan）</th></tr>
+            <tr><td>${i(t.buyerName)}</td><td>${i(t.productionOrderType)}</td><td colspan="2">${i(t.saleType)}</td></tr>
+          </tbody>
+        </table>
+        <div class="pf-qc-section-title">SKU列表（Daftar SKU）</div>
+        <table class="pf-qc-table pf-qc-sku-table">
+          <colgroup><col style="width:24%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"></colgroup>
+          <thead><tr><th>SKU</th><th>待加工数量(Tes kualitas diperlukan)</th><th>待质检数量(Tes kualitas diperlukan)</th><th>质检数量(Kualitas sudah diperiksa)</th><th>日期签名(Date &amp; Tandatangan)</th></tr></thead>
+          <tbody>${t.skuLines.map(e=>`<tr><td>${i(e.skuCode)}</td><td>${i(e.waitProcessQty)}</td><td>${i(e.waitQcQty)}</td><td>${i(e.inspectedQty)}</td><td></td></tr>`).join("")}</tbody>
+        </table>
+      </article>
+    </div>
+  `}function R(t,e){const r=m(t.productionOrderId),a=b.find(s=>s.productionOrderId===t.productionOrderId),n=w(r),o=p(d(r.imageSnapshot.productImages),d(r.imageSnapshot.styleImages),d(r.imageSnapshot.sampleImages));return _({documentNo:t.postTaskNo,spuCode:t.spuCode,styleGrade:"C",productionOrderNo:t.productionOrderNo,factoryName:t.managedPostFactoryName,productImageUrl:o,tagPrice:264e3,buyerName:(a==null?void 0:a.demandSnapshot.buyerName)||"—",productionOrderType:r.productionOrderSnapshot.orderType||"—",saleType:(a==null?void 0:a.demandSnapshot.saleType)||"—",materials:r.bomSnapshot.slice(0,6).map(s=>({materialName:s.materialName,materialCode:s.materialSku,unitConsumption:C(s),materialUsed:$(s),imageUrl:p(s.materialImageUrl,s.materialType==="面料"?d(r.imageSnapshot.materialImages):d(r.imageSnapshot.accessoryImages),Q(s))})),sizeHeaders:n.headers,sizeRows:n.rows})}function U(t,e){const r=m(t.productionOrderId),a=b.find(n=>n.productionOrderId===t.productionOrderId);return z({documentNo:t.qcOrderNo,spuCode:t.spuCode,printedAt:e.printMeta.generatedAt,productionOrderNo:t.productionOrderNo,factoryName:t.managedPostFactoryName,buyerName:(a==null?void 0:a.demandSnapshot.buyerName)||"—",productionOrderType:r.productionOrderSnapshot.orderType||"—",saleType:(a==null?void 0:a.demandSnapshot.saleType)||"—",skuLines:t.skuLines.map(n=>{const o=t.qcSkuResults.find(s=>s.skuLineId===n.skuLineId||s.skuCode===n.skuCode);return{skuCode:n.skuCode,waitProcessQty:c(0,n.qtyUnit),waitQcQty:t.qcStatus==="质检完成"?"":c(n.plannedQty,n.qtyUnit),inspectedQty:o!=null&&o.inspectedQty?c(o.inspectedQty,n.qtyUnit):""}})})}function mt(t){const e=I(t.sourceId),r=h(),a="PRODUCTION_QC_MASTER",n=e.postTaskNo,o=`/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(e.postTaskId)}&tab=qc`,s=f({documentType:a,sourceType:"POST_FINISHING_TASK",sourceId:e.postTaskId,businessNo:n,targetRoute:o,extra:{productionOrderNo:e.productionOrderNo}});return{printDocumentId:y({...t,sourceType:"POST_FINISHING_TASK",sourceId:e.postTaskId},"PRODUCTION_QC_MASTER"),documentType:a,documentTitle:"生产单质检总单",sourceType:"POST_FINISHING_TASK",sourceId:e.postTaskId,templateCode:"PRODUCTION_QC_MASTER",paperType:"A4",orientation:"portrait",printTitle:"生产单质检总单",printSubtitle:"生产单维度质检总览",headerFields:[{label:"生产单号",value:e.productionOrderNo,emphasis:!0},{label:"款号SPU",value:e.spuCode},{label:"后道工厂",value:e.managedPostFactoryName}],imageBlocks:[],qrCodes:[{title:"生产单质检总单二维码",value:s,description:"扫码查看生产单质检总单",sizeMm:30}],barcodes:[{title:"生产单质检总单条码",value:g({documentType:a,sourceType:"POST_FINISHING_TASK",sourceId:e.postTaskId,businessNo:n}),description:n}],sections:[],tables:[],signatureBlocks:[],differenceBlocks:[],footerFields:[],printMeta:{generatedAt:r,generatedBy:"系统自动生成",printNotice:"打印前请在浏览器打印设置中关闭页眉和页脚",returnHref:o},qrPayload:s,barcodePayload:n}}function ht(t){const e=q(t.sourceId),r=h(),a="POST_FINISHING_QC_ORDER",n=e.qcOrderNo,o=`/fcs/craft/post-finishing/qc-workbench?taskNo=${encodeURIComponent(e.qcOrderNo)}`,s=f({documentType:a,sourceType:"POST_FINISHING_QC_ORDER",sourceId:e.qcOrderId,businessNo:n,targetRoute:o,extra:{productionOrderNo:e.productionOrderNo}});return{printDocumentId:y({...t,sourceType:"POST_FINISHING_QC_ORDER",sourceId:e.qcOrderId},"POST_FINISHING_QC_ORDER"),documentType:a,documentTitle:"质检单",sourceType:"POST_FINISHING_QC_ORDER",sourceId:e.qcOrderId,templateCode:"POST_FINISHING_QC_ORDER",paperType:"A4",orientation:"portrait",printTitle:"质检单",printSubtitle:"本次现场扫码质检执行单",headerFields:[{label:"质检单号",value:e.qcOrderNo,emphasis:!0},{label:"生产单号",value:e.productionOrderNo},{label:"后道工厂",value:e.managedPostFactoryName}],imageBlocks:[],qrCodes:[{title:"质检单二维码",value:s,description:"扫码进入 Web 质检单执行页",sizeMm:30}],barcodes:[{title:"质检单条码",value:g({documentType:a,sourceType:"POST_FINISHING_QC_ORDER",sourceId:e.qcOrderId,businessNo:n}),description:n}],sections:[],tables:[],signatureBlocks:[],differenceBlocks:[],footerFields:[],printMeta:{generatedAt:r,generatedBy:"系统自动生成",printNotice:"打印前请在浏览器打印设置中关闭页眉和页脚",returnHref:`/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(e.postTaskId||"")}&tab=qc`},qrPayload:s,barcodePayload:n}}function ft(t){return t.templateCode==="PRODUCTION_QC_MASTER"?R(I(t.sourceId)):U(q(t.sourceId),t)}export{ht as buildPostFinishingQcOrderPrintDocument,mt as buildProductionQcMasterPrintDocument,z as renderOnlinePostFinishingQcDetail,_ as renderOnlinePostFinishingQcMaster,ft as renderPostFinishingQcPrintTemplate};

@@ -1,0 +1,629 @@
+{
+  "family": "pda-exec-detail:cold",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 1650627,
+  "top": [
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 134,
+      "inclusiveSamples": 134
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 108,
+      "inclusiveSamples": 108
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-CfHNQte5.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 40,
+      "inclusiveSamples": 40,
+      "sourceExcerpt": "=>{throw ie=void 0,e}),ie)}function $(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await zt();He++;try{const r=i.transaction(mt,e);let c;const s=new Promise((a,p)=>{r.oncomplete=()=>a(),r.onabort=()=>p(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),ye(a)}}finally{He--,He||(i.close(),ie=void 0)}}function z(e){return typeof e==\"string\"&&e.trim().length>0}function lt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+    },
+    {
+      "function": "Me",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-CfHNQte5.js",
+      "line": 1,
+      "column": 51692,
+      "selfSamples": 36,
+      "inclusiveSamples": 75,
+      "sourceExcerpt": "ncludes(s.roleName)))throw new Error(\"加工责任人或录入人身份不完整，资料未导入。\")}}async function Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await J([k]);Lt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${k}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeValues)!=null&&o.has(a.value))?a.value:tt(a.value)})"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 28,
+      "inclusiveSamples": 28
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 22,
+      "inclusiveSamples": 22,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 21,
+      "inclusiveSamples": 21,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 20,
+      "inclusiveSamples": 20,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+      "line": 0,
+      "column": 72951,
+      "selfSamples": 17,
+      "inclusiveSamples": 67,
+      "sourceExcerpt": "&&(u.abilityScope=u.craftCodes.length===1?\"CRAFT\":\"PROCESS\")}return s}function N(e){const t=structuredClone(vr(Lr(e))),a=Fr(t.processAbilities),r=It(t);return{...r,factoryShortName:r.factoryShortName||r.code||r.name,mobilePhone:r.mobilePhone||r.phone,inferredFactoryTypes:r.inferredFactoryTypes?r.inferredFactoryTypes.map(i=>({...i,matchedCapabilities:[...i.matchedCapabilities]})):void 0,identityFile:r.identityFile?{...r.identityFile}:r.identityFile,selectedCapabilities:r.selectedCapabilities?r.selectedCapabilities.map(i=>({...i})):void 0,machines:r.machines?r.machines.map(i=>({...i})):void 0,processAbilities:a,eligibility:{...r.eligibility},taskAcceptanceConfig:_r(r.taskAc"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+      "line": 0,
+      "column": 70556,
+      "selfSamples": 17,
+      "inclusiveSamples": 31,
+      "sourceExcerpt": "一致\")}function Fr(e){var o;const t=Q(A.craftCode),a=G(t.processCode),r=e.flatMap(n=>{const u=new Map(n.craftCodes.map((p,f)=>{var C;return[E(p),((C=n.craftNames)==null?void 0:C[f])||p]})),d=It(structuredClone(n));if(d.craftCodes=[...new Set(n.craftCodes.map(E))],d.craftNames=d.craftCodes.map(p=>{var f;return((f=Q(p))==null?void 0:f.craftName)||u.get(p)||p}),!d.craftCodes.includes(t.craftCode))return[d];const c={...d,processCode:t.processCode,processName:a.processName,parentProcessCode:a.parentProcessCode,...\"systemProcessCode\"in d?{systemProcessCode:a.systemProcessCode}:{}};if(d.processCode===t.processCode)return[c];const l=d.craftCodes.filter(p=>p!==t.craftCode);return[.."
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 17,
+      "inclusiveSamples": 17,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "as",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 105705,
+      "selfSamples": 17,
+      "inclusiveSamples": 41,
+      "sourceExcerpt": "(r=>r.recheckOrderId===e||r.recheckOrderNo===e);return t?k(t):void 0}function as(e){const t=p.outboundOrders.find(r=>r.outboundOrderId===e||r.outboundOrderNo===e);return t?k(t):void 0}function ns(e){const t=p.waitHandoverWarehouseRecords.find(r=>r.warehouseRecordId===e||r.outboundOrderId===e||r.deliveryOrderNo===e||r.recheckOrderNo===e||r.outboundOrderNo===e);return t?k(t):void 0}function ds(e){return Gr({qcTaskId:e})}function sr(e){if(!p.deliveries.find(n=>n.deliveryId===e))return!1;const r=p.qcTasks.find(n=>n.deliveryId===e);if((r==null?void 0:r.status)!==\"质检完成\")return!1;const o=p.postTasks.filter(n=>n.deliveryId===e),s=p.recheckOrders.filter(n=>n.deliveryId===e),a=p.ou"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 16,
+      "inclusiveSamples": 16,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 16,
+      "inclusiveSamples": 16,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 15,
+      "inclusiveSamples": 15,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 15,
+      "inclusiveSamples": 15,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 15,
+      "inclusiveSamples": 15,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 14,
+      "inclusiveSamples": 14,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    },
+    {
+      "function": "as",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 105705,
+      "selfSamples": 11,
+      "inclusiveSamples": 31,
+      "sourceExcerpt": "(r=>r.recheckOrderId===e||r.recheckOrderNo===e);return t?k(t):void 0}function as(e){const t=p.outboundOrders.find(r=>r.outboundOrderId===e||r.outboundOrderNo===e);return t?k(t):void 0}function ns(e){const t=p.waitHandoverWarehouseRecords.find(r=>r.warehouseRecordId===e||r.outboundOrderId===e||r.deliveryOrderNo===e||r.recheckOrderNo===e||r.outboundOrderNo===e);return t?k(t):void 0}function ds(e){return Gr({qcTaskId:e})}function sr(e){if(!p.deliveries.find(n=>n.deliveryId===e))return!1;const r=p.qcTasks.find(n=>n.deliveryId===e);if((r==null?void 0:r.status)!==\"质检完成\")return!1;const o=p.postTasks.filter(n=>n.deliveryId===e),s=p.recheckOrders.filter(n=>n.deliveryId===e),a=p.ou"
+    },
+    {
+      "function": "_e",
+      "url": "http://127.0.0.1:43198/assets/production-object-overview-D7KP5I7J.js",
+      "line": 0,
+      "column": 59921,
+      "selfSamples": 10,
+      "inclusiveSamples": 192,
+      "sourceExcerpt": "t,defaultTab:y(e.objectType),highlightKey:R(e.objectType,e.docNo)}})}function _e(){const e=v(),o=$e(),t=new Map,s=[];for(const a of e){const n=m(a.productionOrderNo);for(const r of p([a.postTaskId,a.postTaskNo]))t.set(r,[...t.get(r)||[],a]);s.push({id:`QC_ORDER-${a.qcOrderNo}`,objectType:\"QC_ORDER\",primaryNo:a.qcOrderNo,secondaryNo:a.productionOrderNo,displayTitle:\"后道质检单\",keywords:p([a.qcOrderId,a.qcOrderNo,a.productionOrderNo,a.postTaskId,a.postTaskNo,a.sourceTaskId,a.sourceTaskNo,a.spuCode,a.spuName]),relatedProductionOrderNo:a.productionOrderNo,relatedDemandNo:n==null?void 0:n.demandId,statusText:a.qcStatus,ownerRole:\"工厂\",sourceDomain:\"PFOS\",docGroup:\"仓库\",routePath:`/f"
+    },
+    {
+      "function": "Bt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-ClWnzCxp.js",
+      "line": 1,
+      "column": 113246,
+      "selfSamples": 9,
+      "inclusiveSamples": 11,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Bt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ka(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(k=>k.handoverRecordStatus!==\"VOIDED\"):t,d=K(n,k=>it(k)),c=K(n,k=>ie(k)??0),i=K(n,k=>$a(k)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Yd(n,u):void 0,l=n.map(k=>k.handoverRecordStatus||Jt(k)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "we",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-ClWnzCxp.js",
+      "line": 1,
+      "column": 177282,
+      "selfSamples": 9,
+      "inclusiveSamples": 61,
+      "sourceExcerpt": "OPEN\",n.completedByWarehouseAt=i?c==null?void 0:c.updatedAt:void 0,n}function we(e){if(e.sourceType===\"DESIGN_REVISION\"){const R=mo().find(f=>f.taskId===e.taskId);R&&(e={...e,taskStatus:R.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const R=me(e.taskId);R&&(e={...e,taskStatus:Co(R)})}const t=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;t&&t.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:t.completedQty,qtyExpectedTotal:t.completedQty});const r=St(e),o=r.filter(R=>R.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,a=r.filter(R=>R.handoverRecordStatus===\"OBJECTION_REPORTED\"||R.handoverRecordStatus===\"OBJECTI"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-D-HURxLE.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 8,
+      "inclusiveSamples": 16,
+      "sourceExcerpt": "import{Q as be,R as Te,T as Je,U as Vt}from\"./craft-display-support-oIETlUcr.js\";import{p as Ht,i as Kt,b as lt,e as Yt}from\"./production-orders-5J7YNQqv.js\";import{m as Pe,a3 as Xt,a4 as Ze,a5 as Jt}from\"./app-shared-Cjn7Rr--.js\";import{u as W,v as ct}from\"./runtime-process-tasks-DH4kEZdW.js\";import{g as Zt}from\"./production-tech-pack-change-domain-CDTpsC5_.js\";const ke=\"FCSQR\",Re=\"2.0.0\";function ea(e){return`${ke}:${encodeURIComponent(JSON.stringify(e))}`}function it(e){return ea(e)}function ta(e){if(!e)return null;const t=e.startsWith(`${ke}:`)?decodeURIComponent(e.slice(ke.length+1)):e;tr"
+    },
+    {
+      "function": "Bt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-ClWnzCxp.js",
+      "line": 1,
+      "column": 113246,
+      "selfSamples": 8,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Bt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ka(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(k=>k.handoverRecordStatus!==\"VOIDED\"):t,d=K(n,k=>it(k)),c=K(n,k=>ie(k)??0),i=K(n,k=>$a(k)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Yd(n,u):void 0,l=n.map(k=>k.handoverRecordStatus||Jt(k)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "k",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+      "line": 0,
+      "column": 36518,
+      "selfSamples": 8,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "ssage:String(t)}`);return Ne()}}let p=Ne(),Se=!1;function M(){Se||E()}function k(e){return JSON.parse(JSON.stringify(e))}function x(e=Date.now()){return new Date(e).toISOString()}function z(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Be(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ho(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Oo(){var a;const e=V.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,d)=>{const c=n.materialC"
+    }
+  ],
+  "aggregatedTop": [
+    {
+      "frame": {
+        "functionName": "k",
+        "scriptId": "40",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+        "lineNumber": 0,
+        "columnNumber": 36518
+      },
+      "selfSamples": 280,
+      "stacks": [
+        [
+          "k <- W <- <anonymous> <- <anonymous> <- cr <- _e <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          32
+        ],
+        [
+          "k <- tt <- qa <- vi <- Nt <- qi <- Gi <- it <- we <- hr <- ie <- <anonymous> <- (root)",
+          22
+        ],
+        [
+          "k <- as <- we <- <anonymous> <- vi <- Nt <- qi <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          21
+        ],
+        [
+          "k <- as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- we <- hr <- ie <- <anonymous> <- (root)",
+          20
+        ],
+        [
+          "k <- tt <- qa <- vi <- Nt <- qi <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          17
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(idle)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 134,
+      "stacks": [
+        [
+          "(idle) <- (root)",
+          134
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(program)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 108,
+      "stacks": [
+        [
+          "(program) <- (root)",
+          108
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "as",
+        "scriptId": "40",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+        "lineNumber": 0,
+        "columnNumber": 105705
+      },
+      "selfSamples": 44,
+      "stacks": [
+        [
+          "as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- we <- hr <- ie <- <anonymous> <- (root)",
+          17
+        ],
+        [
+          "as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- je <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          11
+        ],
+        [
+          "as <- we <- <anonymous> <- vi <- Nt <- qi <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "as <- we <- <anonymous> <- vi <- Nt <- qi <- ja <- ye <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          4
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "e.onsuccess",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-CfHNQte5.js",
+        "lineNumber": 1,
+        "columnNumber": 1210
+      },
+      "selfSamples": 40,
+      "stacks": [
+        [
+          "e.onsuccess <- (root)",
+          40
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Me",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-CfHNQte5.js",
+        "lineNumber": 1,
+        "columnNumber": 51692
+      },
+      "selfSamples": 36,
+      "stacks": [
+        [
+          "Me <- (root)",
+          36
+        ],
+        [
+          "Me <- <anonymous> <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "F",
+        "scriptId": "54",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-ClWnzCxp.js",
+        "lineNumber": 1,
+        "columnNumber": 147150
+      },
+      "selfSamples": 35,
+      "stacks": [
+        [
+          "F <- er <- vu <- _e <- <anonymous> <- be <- Ke <- ke <- Fe <- We <- K <- fe <- Ae <- H <- q <- Y <- X <- De <- W <- <anonymous> <- Ae <- <anonymous> <- oe <- Jt <- W <- Ht <- Qt <- qt <- Q <- ie <- <anonymous> <- (root)",
+          8
+        ],
+        [
+          "F <- er <- vu <- _e <- <anonymous> <- be <- fe <- xe <- <anonymous> <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "F <- er <- xe <- Sc <- Q <- fl <- We <- fo <- <anonymous> <- So <- ue <- Ze <- pe <- yt <- cr <- _e <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "F <- er <- vu <- be <- fe <- xe <- <anonymous> <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "F <- er <- Pu <- be <- fe <- xe <- <anonymous> <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          3
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Bt",
+        "scriptId": "54",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-ClWnzCxp.js",
+        "lineNumber": 1,
+        "columnNumber": 113246
+      },
+      "selfSamples": 31,
+      "stacks": [
+        [
+          "Bt <- we <- <anonymous> <- vi <- Nt <- qi <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          10
+        ],
+        [
+          "Bt <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- we <- hr <- ie <- <anonymous> <- (root)",
+          8
+        ],
+        [
+          "Bt <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- je <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "Bt <- we <- <anonymous> <- vi <- Nt <- qi <- ja <- ye <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "Bt <- we <- <anonymous> <- vi <- Nt <- qi <- <anonymous> <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(garbage collector)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 28,
+      "stacks": [
+        [
+          "(garbage collector) <- (root)",
+          28
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "we",
+        "scriptId": "54",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-ClWnzCxp.js",
+        "lineNumber": 1,
+        "columnNumber": 177282
+      },
+      "selfSamples": 24,
+      "stacks": [
+        [
+          "we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- we <- hr <- ie <- <anonymous> <- (root)",
+          9
+        ],
+        [
+          "we <- <anonymous> <- vi <- Nt <- qi <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- je <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "we <- <anonymous> <- vi <- Nt <- qi <- <anonymous> <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "N",
+        "scriptId": "16",
+        "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+        "lineNumber": 0,
+        "columnNumber": 72951
+      },
+      "selfSamples": 23,
+      "stacks": [
+        [
+          "N <- <anonymous> <- Ye <- ii <- Qo <- ir <- ui <- id <- ne <- ue <- <anonymous> <- (root)",
+          17
+        ],
+        [
+          "N <- <anonymous> <- Gr <- Rt <- <anonymous> <- Ht <- <anonymous> <- Is <- <anonymous> <- Ao <- nr <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "N <- Ee <- lt <- Ht <- ue <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- <anonymous> <- Ye <- dr <- Bs <- ie <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- <anonymous> <- Ye <- Fi <- ht <- In <- kt <- Xn <- qt <- Q <- ie <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "16",
+        "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+        "lineNumber": 0,
+        "columnNumber": 70556
+      },
+      "selfSamples": 18,
+      "stacks": [
+        [
+          "<anonymous> <- Fr <- N <- <anonymous> <- Ye <- ii <- Qo <- ir <- ui <- id <- ne <- ue <- <anonymous> <- (root)",
+          17
+        ],
+        [
+          "<anonymous> <- Fr <- N <- <anonymous> <- xr <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "<anonymous> <- Fr <- N <- <anonymous> <- Ye <- Vs <- _e <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          0
+        ],
+        [
+          "<anonymous> <- Fr <- N <- <anonymous> <- Ye <- Fi <- ht <- g <- Wt <- Qt <- qt <- Q <- ie <- <anonymous> <- (root)",
+          0
+        ],
+        [
+          "<anonymous> <- Fr <- N <- <anonymous> <- Ye <- Fi <- ht <- zi <- g <- Wt <- Qt <- qt <- Q <- ie <- <anonymous> <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "t",
+        "scriptId": "16",
+        "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+        "lineNumber": 0,
+        "columnNumber": 2387
+      },
+      "selfSamples": 18,
+      "stacks": [
+        [
+          "t <- It <- N <- <anonymous> <- Ye <- ii <- Qo <- ir <- ui <- id <- ne <- ue <- <anonymous> <- (root)",
+          6
+        ],
+        [
+          "t <- It <- <anonymous> <- Fr <- N <- <anonymous> <- Ye <- ii <- Qo <- ir <- ui <- id <- ne <- ue <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "t <- <anonymous> <- t <- t <- It <- N <- <anonymous> <- Ye <- ii <- Qo <- ir <- ui <- id <- ne <- ue <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "t <- <anonymous> <- t <- t <- It <- js <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "t <- t <- It <- N <- <anonymous> <- Ye <- Fi <- ht <- g <- Kt <- qt <- Q <- ie <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "W",
+        "scriptId": "40",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+        "lineNumber": 0,
+        "columnNumber": 74179
+      },
+      "selfSamples": 18,
+      "stacks": [
+        [
+          "W <- <anonymous> <- <anonymous> <- cr <- _e <- Mt <- m <- Q <- ie <- <anonymous> <- (root)",
+          12
+        ],
+        [
+          "W <- <anonymous> <- <anonymous> <- Me <- (root)",
+          6
+        ],
+        [
+          "W <- mr <- Bs <- ie <- <anonymous> <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "40",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CdqyhgFQ.js",
+        "lineNumber": 0,
+        "columnNumber": 105739
+      },
+      "selfSamples": 17,
+      "stacks": [
+        [
+          "<anonymous> <- as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- je <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "<anonymous> <- as <- we <- <anonymous> <- vi <- Nt <- qi <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "<anonymous> <- as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- we <- hr <- ie <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "<anonymous> <- as <- we <- <anonymous> <- vi <- Nt <- qi <- Gi <- it <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "<anonymous> <- as <- we <- <anonymous> <- vi <- Nt <- qi <- ja <- ye <- Kd <- Re <- we <- hr <- ie <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    }
+  ]
+}

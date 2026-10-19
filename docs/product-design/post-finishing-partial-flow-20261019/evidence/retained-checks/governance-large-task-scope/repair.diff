@@ -1,0 +1,187 @@
+diff --git a/scripts/workflow-governance/affected-checks.ts b/scripts/workflow-governance/affected-checks.ts
+index bd56356b..41bc1221 100644
+--- a/scripts/workflow-governance/affected-checks.ts
++++ b/scripts/workflow-governance/affected-checks.ts
+@@ -91,9 +91,16 @@ function shellQuote(value: string): string {
+   return `'${value.replace(/'/g, "'\\''")}'`
+ }
+ 
++const MAX_TASK_SCOPE_COMMAND_BYTES = 32 * 1024
++
+ function taskScope(command: string, paths: string[]): string {
+   assert(paths.every((path) => !path.includes(',')), '--paths 使用逗号分隔，当前变更含逗号文件名，无法精确传递任务范围')
+-  return `${command} -- --scope worktree --paths ${shellQuote(paths.join(','))}`
++  const scopedCommand = `${command} -- --scope worktree --paths ${shellQuote(paths.join(','))}`
++  // Large evidence sets can exceed the shell's argument limit. The full worktree
++  // scope reads every changed path against the same GOVERNANCE_BASE_SHA.
++  return Buffer.byteLength(scopedCommand, 'utf8') <= MAX_TASK_SCOPE_COMMAND_BYTES
++    ? scopedCommand
++    : `${command} -- --scope worktree`
+ }
+ 
+ function add(target: Set<string>, command: string): void {
+diff --git a/scripts/workflow-governance/changed-paths.ts b/scripts/workflow-governance/changed-paths.ts
+index 18343ecd..48eaa94f 100644
+--- a/scripts/workflow-governance/changed-paths.ts
++++ b/scripts/workflow-governance/changed-paths.ts
+@@ -1,6 +1,8 @@
+ import assert from 'node:assert/strict'
+ import { execFileSync } from 'node:child_process'
+ 
++const GIT_MAX_BUFFER_BYTES = 16 * 1024 * 1024
++
+ export function normalizeChangedPath(path: string): string {
+   return path.replace(/\\/g, '/').replace(/^\.\//, '').trim()
+ }
+@@ -31,7 +33,7 @@ export function getStagedChangedPaths(
+   const output = execFileSync(
+     'git',
+     ['diff', '--cached', '--name-only', '--no-renames', '-z', '--diff-filter=ACMRDTUXB'],
+-    { cwd: options.cwd ?? process.cwd() },
++    { cwd: options.cwd ?? process.cwd(), maxBuffer: GIT_MAX_BUFFER_BYTES },
+   )
+   return [...new Set(nullRecords(output).map(normalizeChangedPath).filter(Boolean))].sort()
+ }
+@@ -43,16 +45,16 @@ export function getChangedPaths(
+   // Receipt and child gates both inspect the final worktree against one base.
+   // Disable rename collapsing so deleted source paths receive their own coverage.
+   let head: string
+-  try { head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }
++  try { head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GIT_MAX_BUFFER_BYTES }).trim() }
+   catch {
+     assert(!options.base, '尚无 HEAD 的仓库不能使用 --base')
+-    return [...new Set(porcelainPaths(execFileSync('git', ['status', '--porcelain=v1', '--no-renames', '-z', '--untracked-files=all'], { cwd })))].sort()
++    return [...new Set(porcelainPaths(execFileSync('git', ['status', '--porcelain=v1', '--no-renames', '-z', '--untracked-files=all'], { cwd, maxBuffer: GIT_MAX_BUFFER_BYTES })))].sort()
+   }
+   const base = options.base
+-    ? execFileSync('git', ['merge-base', options.base, head], { cwd, encoding: 'utf8' }).trim()
++    ? execFileSync('git', ['merge-base', options.base, head], { cwd, encoding: 'utf8', maxBuffer: GIT_MAX_BUFFER_BYTES }).trim()
+     : head
+-  const paths = nullRecords(execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', base, '--'], { cwd }))
+-  paths.push(...nullRecords(execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd })))
++  const paths = nullRecords(execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', base, '--'], { cwd, maxBuffer: GIT_MAX_BUFFER_BYTES }))
++  paths.push(...nullRecords(execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd, maxBuffer: GIT_MAX_BUFFER_BYTES })))
+   return [...new Set(paths)].sort()
+ }
+ 
+diff --git a/tests/workflow-governance/affected-checks.test.ts b/tests/workflow-governance/affected-checks.test.ts
+index 4df5d018..45f6f538 100644
+--- a/tests/workflow-governance/affected-checks.test.ts
++++ b/tests/workflow-governance/affected-checks.test.ts
+@@ -1,8 +1,13 @@
+ import assert from 'node:assert/strict'
+ import test from 'node:test'
+ import { execFileSync } from 'node:child_process'
++import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
+ import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-checks.ts'
+ import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
++import { getChangedPaths } from '../../scripts/workflow-governance/changed-paths.ts'
++import { resolveGovernanceScope } from '../../scripts/workflow-governance/governance-scope.ts'
+ import { isProductionCreateImportOnly } from '../../scripts/workflow-governance/production-create-test-import.ts'
+ 
+ test('退役维护UI验证删除与存续业务契约，性能脚本语法不冒充正式性能', () => {
+@@ -280,7 +285,7 @@ test('完整运行目录与 HTML 入口不能漏掉产品治理', () => {
+   }
+ })
+ 
+-test('范围必须包含记录且不能回退整工作区', () => {
++test('短范围必须精确包含记录而不回退整工作区', () => {
+   const result = routeAffectedChecks(['src/pages/example.ts', 'docs/prototype-review-records/current.md'])
+   const scope = "-- --scope worktree --paths 'docs/prototype-review-records/current.md,src/pages/example.ts'"
+   assert(result.governanceChecks.includes(`npm run check:prototype-design-governance ${scope}`))
+@@ -288,6 +293,46 @@ test('范围必须包含记录且不能回退整工作区', () => {
+   assert(!result.governanceChecks.some((command) => command.includes('--all')))
+ })
+ 
++test('长范围使用完整worktree与冻结基线而不丢文档或门禁', (t) => {
++  const root = mkdtempSync(join(tmpdir(), 'higoods-long-task-scope-'))
++  t.after(() => rmSync(root, { recursive: true, force: true }))
++  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
++  git('init', '-qb', 'main')
++  git('config', 'user.name', 'Workflow Test')
++  git('config', 'user.email', 'workflow-test@example.invalid')
++  writeFileSync(join(root, 'baseline.md'), '# baseline\n')
++  git('add', 'baseline.md')
++  git('commit', '-qm', 'baseline')
++  const base = git('rev-parse', 'HEAD')
++  mkdirSync(join(root, 'src/pages'), { recursive: true })
++  writeFileSync(join(root, 'src/pages/example.ts'), 'export const value = 1\n')
++  git('add', 'src')
++  git('commit', '-qm', 'product change')
++  mkdirSync(join(root, 'docs/evidence'), { recursive: true })
++  const docs = Array.from({ length: 300 }, (_, index) => `docs/evidence/${String(index).padStart(4, '0')}-${'证'.repeat(50)}.json`)
++  for (const path of docs) writeFileSync(join(root, path), '{}\n')
++  const paths = getChangedPaths({ cwd: root, base })
++  assert.deepEqual(paths, [...docs, 'src/pages/example.ts'].sort())
++  assert(Buffer.byteLength(paths.join(',')) > 32 * 1024)
++  const result = routeAffectedChecks(paths)
++  assert.deepEqual(result.changedPaths, paths)
++  assert.deepEqual(result.unknownPaths, [])
++  assert(result.governanceChecks.includes('npm run check:prototype-design-governance -- --scope worktree'))
++  assert(result.governanceChecks.includes('npm run check:list-page-governance -- --scope worktree'))
++  for (const command of result.governanceChecks) {
++    assert(Buffer.byteLength(command) <= 32 * 1024)
++    const argv = execFileSync('/bin/sh', ['-c', `set -- ${command}; printf '%s\\0' "$@"`], { encoding: 'utf8' }).split('\0').filter(Boolean)
++    const scopeArgs = argv.slice(4)
++    assert.deepEqual(scopeArgs, ['--scope', 'worktree'])
++    const environment = verificationCheckEnvironment(base, {}, command)
++    const scope = resolveGovernanceScope(scopeArgs, root, environment)
++    assert.equal(scope.baseRef, base)
++    assert.deepEqual(scope.paths, paths)
++    assert.deepEqual(scope.excludedPaths, [])
++  }
++  assert.throws(() => routeAffectedChecks([...paths, 'docs/has,comma.md']), /无法精确传递任务范围/)
++})
++
+ test('治理工具名中的 cutting 不触发裁床全量或构建', () => {
+   for (const path of ['scripts/workflow-governance/governance-scope.ts', 'scripts/workflow-governance/list-page-policy.ts', 'scripts/check-list-page-governance-suite.ts', 'scripts/check-cutting-p2-delivery.ts', 'tests/workflow-governance/list-page-policy.test.ts', 'tests/workflow-governance/governance-scope.test.ts', 'scripts/workflow-governance/cutting-rule.ts']) {
+     const result = routeAffectedChecks([path])
+diff --git a/tests/workflow-governance/changed-paths.test.ts b/tests/workflow-governance/changed-paths.test.ts
+index 0e5d0bc1..02153c10 100644
+--- a/tests/workflow-governance/changed-paths.test.ts
++++ b/tests/workflow-governance/changed-paths.test.ts
+@@ -119,3 +119,42 @@ test('收据和子门禁对重命名、字面箭头文件名以及撤销提交
+   assert.deepEqual(paths, resolveGovernanceScope(['--scope', 'worktree', '--base', base], root, {}).paths)
+   assert.deepEqual(getStagedChangedPaths({ cwd: root }), ['literal -> name.ts', 'new.ts', 'old.ts', 'reverted.ts'])
+ })
++
++test('超过1MiB的真实Git路径输出完整保留未跟踪、暂存和基线变更', (t) => {
++  const root = mkdtempSync(join(tmpdir(), 'higoods-large-changed-paths-'))
++  t.after(() => rmSync(root, { recursive: true, force: true }))
++  git(root, 'init', '-qb', 'main')
++  git(root, 'config', 'user.name', 'Workflow Test')
++  git(root, 'config', 'user.email', 'workflow-test@example.invalid')
++  writeFileSync(join(root, 'baseline.md'), '# baseline\n')
++  git(root, 'add', 'baseline.md')
++  git(root, 'commit', '-qm', 'baseline')
++  const base = git(root, 'rev-parse', 'HEAD')
++  const directory = `docs/${'e'.repeat(200)}`
++  mkdirSync(join(root, directory), { recursive: true })
++  const expected = Array.from({ length: 6000 }, (_, index) => `${directory}/proof-${String(index).padStart(6, '0')}.json`)
++  for (const path of expected) writeFileSync(join(root, path), '{}\n')
++  assert(Buffer.byteLength(expected.join('\0')) > 1024 * 1024)
++
++  assert.deepEqual(getChangedPaths({ cwd: root }), expected)
++  git(root, 'add', 'docs')
++  assert.deepEqual(getStagedChangedPaths({ cwd: root }), expected)
++  git(root, 'commit', '-qm', 'evidence')
++  writeFileSync(join(root, 'later.md'), '# later\n')
++  const allExpected = [...expected, 'later.md'].sort()
++  assert.deepEqual(getChangedPaths({ cwd: root, base }), allExpected)
++  assert.deepEqual(resolveVerificationPaths({ cwd: root, base, explicitPaths: allExpected }), allExpected)
++  assert.deepEqual(resolveGovernanceScope(['--scope', 'worktree'], root, { GOVERNANCE_BASE_SHA: base }).paths, allExpected)
++})
++
++test('尚无HEAD时超过1MiB的porcelain输出不遗漏文档', (t) => {
++  const root = mkdtempSync(join(tmpdir(), 'higoods-large-unborn-paths-'))
++  t.after(() => rmSync(root, { recursive: true, force: true }))
++  git(root, 'init', '-qb', 'main')
++  const directory = `docs/${'u'.repeat(200)}`
++  mkdirSync(join(root, directory), { recursive: true })
++  const expected = Array.from({ length: 5000 }, (_, index) => `${directory}/proof-${String(index).padStart(6, '0')}.json`)
++  for (const path of expected) writeFileSync(join(root, path), '{}\n')
++  assert(Buffer.byteLength(expected.join('\0')) > 1024 * 1024)
++  assert.deepEqual(getChangedPaths({ cwd: root }), expected)
++})

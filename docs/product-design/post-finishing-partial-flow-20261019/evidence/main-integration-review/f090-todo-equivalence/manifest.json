@@ -1,0 +1,16 @@
+{
+  "kind": "wrong-identity static probe, withdrawn as actual F090 equivalence evidence",
+  "requestedFactoryId": "F090",
+  "actualProbedFactoryId": "ID-F090",
+  "actualF090EquivalenceProven": false,
+  "productF090InitializationChangedOnThisEvidence": false,
+  "artifactsSHA256": {
+    "actual.json": "0d122f27fed37e0a95bae2cf7d511be5b99e245c068c06ee0874c4ec8b51ec82",
+    "child-script.mts.txt": "708001d98c76a73687a9a029c547bcb4839fef9fc1f6c5a76dc295fceeda055b",
+    "manifest-before-wrong-identity-correction.json": "c20769bb851ff6a8bc7485ba9d5e7f95619b8c3e75d74d95f483b116aa647ccc",
+    "review-before-wrong-identity-correction.md": "b64d5abf46d700a3836d9b419c870f553dbe45fb16ce23f49032065ba2698d47",
+    "review.md": "13461c57358339853c506ebdbc5a6562ededcaf43e823b6f20e8af75fd487046",
+    "run.log": "694560eabc04a563ed05b99d01e0b6e8d418ae3b4d93984884d486301557c310",
+    "runner.mjs.txt": "fba7eb8c4de0e7c942f66350e5201fd710120fb856d46a0666edcb782ccc8994"
+  }
+}

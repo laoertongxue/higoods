@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-20",
+  "kind": "pre-merge static independent review, no browser/build",
+  "mainCommit": "eb1b8c92",
+  "taskHead": "eb1b8c92d9a050e8bbbf0d39fdb9e4092fb57103",
+  "artifactsSHA256": {
+    "main-accessory-warehouse-post-finishing.ts.txt": "c5cb5ea2a3445b5e3628d6aa2da34611a306fe87e0ae7433fb2e3ba8a324bd78",
+    "main-material-transfers.ts.txt": "8f4f6f196b2e4ed4a4e3045a7a132e0e9f625826eff0d571e721f8604c25aaaf",
+    "main-pda-accessory-post-access.ts.txt": "c8bec4399d77bfe250ac3c7f57726323d2a42f39911d123862a47b34795d4571",
+    "main-post-finishing-full-flow.ts.txt": "6bc0b0321e02d7792879c849c72c3e214f8debdc8fb2173a1c804beb15aba8a5",
+    "pre-integration-post-finishing-pda-role-boundary.spec.ts.txt": "1399824f6b07fd53311d038d80da954cc0f53c60f07ca6a4415744ca28c748f5",
+    "pre-integration-post-finishing-records.ts.txt": "75dc8e831e6e68598ca91e8e3039b398ac07da98d32844b68d140a27f6e86380",
+    "pre-integration-storage-notice.ts.txt": "322647f5369f12f2030ec1c87340151cf81bce07ea1dd7c42bffff4e597edefd",
+    "review.md": "4c107137ee6a5b74ee38f923a7f459b69f9f4598a6a624b25b3bae99ea6ce9aa"
+  }
+}

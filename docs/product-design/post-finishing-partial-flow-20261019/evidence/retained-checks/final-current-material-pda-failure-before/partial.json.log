@@ -1,0 +1,386 @@
+
+> higoods-vanilla-clone@1.0.0 test:e2e
+> playwright test tests/post-finishing-partial-flow.spec.ts --workers=1 --max-failures=1 --reporter=json
+
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/81b7/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-partial-flow.spec.ts",
+      "--workers=1",
+      "--max-failures=1",
+      "--reporter=json"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/81b7/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 300000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43915 --strictPort",
+      "url": "http://127.0.0.1:43915",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-partial-flow.spec.ts",
+      "file": "post-finishing-partial-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "PFN-A01/A02/A17/A26/071/072：QC四项独立勾选、四列数量、键盘与代登记订正",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9116,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:43:51.805Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "qc-four-independent-items-button-pack",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/qc-four-independent-items-button-pack-f2716ad4645ae6189d8c6961ebc679d772e67040.png"
+                    },
+                    {
+                      "name": "list-zero-versus-not-applicable-1280",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/list-zero-versus-not-applicable-1280-5b123fc0fbab7a17f10e16bf296461d287b31d6f.png"
+                    },
+                    {
+                      "name": "web-keyboard-tab-keeps-entry-and-focus-1024",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/web-keyboard-tab-keeps-entry-and-focus-1024-8fdf544afa39e5589db3816f99003905a24b8f45.png"
+                    },
+                    {
+                      "name": "web-delegated-registration-and-supervisor-correction",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/web-delegated-registration-and-supervisor-correction-fd90a1bdd726aceb2a71e3c1005fbe07deb559f1.png"
+                    },
+                    {
+                      "name": "web-direct-correction-reservation-protected",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-e45c7--072：QC四项独立勾选、四列数量、键盘与代登记订正/attachments/web-direct-correction-reservation-protected-bfbd6fc3c0fecb108d2be1b0a0e33b872785adb7.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-302e5bc7790c25f81d30",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 153,
+          "column": 1
+        },
+        {
+          "title": "PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19542,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:01.086Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "d1-four-process-500-300-200-100",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-four-process-500-300-200-100-064a5087980a1ec847f0682a174acc5da151c90e.png"
+                    },
+                    {
+                      "name": "d1-parent-list-four-quantities",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-parent-list-four-quantities-761ff36d301ad806d5f7ca9022070c82b0d29c4c.png"
+                    },
+                    {
+                      "name": "d1-post-completed-with-900-unsubmitted-after-first-receipt",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-post-completed-with-900-unsubmitted-after-first-receipt-ee73ed530016cc435608cc53a3f365cb284ff8be.png"
+                    },
+                    {
+                      "name": "d1-parent-return-remains-open-after-100-received",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-parent-return-remains-open-after-100-received-ab3fd679980034cc937502c3d3b11842f568813d.png"
+                    },
+                    {
+                      "name": "d1-pda-second-processing-and-recheck",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-pda-second-processing-and-recheck-7503e18463213be2a99a3a82e1d00257bb8d04cc.png"
+                    },
+                    {
+                      "name": "d1-pda-second-recheck-rescanned-completed",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-pda-second-recheck-rescanned-completed-607970104359cfdef5e4e7c7c357cd24cf619058.png"
+                    },
+                    {
+                      "name": "d1-post-completed-with-800-unsubmitted",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-post-completed-with-800-unsubmitted-81daad8f2070e03d3791d24b4ab9bb9ba3da60d9.png"
+                    },
+                    {
+                      "name": "d1-third-outbound-direct-reload-800",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-third-outbound-direct-reload-800-5d73363fb7aa72499e5ec4ee20aafef6e916eda7.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-8a35034506aab0b32cf8",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 299,
+          "column": 1
+        },
+        {
+          "title": "PFN-A19：QuotaExceededError时本次加工不落半套、输入保留且恢复后同意图只保存一次",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3391,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:20.635Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "save-failure-QuotaExceededError-input-retained",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-06f98-r时本次加工不落半套、输入保留且恢复后同意图只保存一次/attachments/save-failure-QuotaExceededError-input-retained-bb717fe84c12a460d039e449a23685ca2216d4e9.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-cd8375be313c699b2bbe",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 422,
+          "column": 74
+        },
+        {
+          "title": "PFN-A19：AbortError时本次加工不落半套、输入保留且恢复后同意图只保存一次",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3822,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:24.031Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "save-failure-AbortError-input-retained",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-7fc79-r时本次加工不落半套、输入保留且恢复后同意图只保存一次/attachments/save-failure-AbortError-input-retained-dade5e491a61210ca10e64ab276c4a22e59f1117.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-73841033153600b9f49c",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 422,
+          "column": 74
+        },
+        {
+          "title": "PFN-A19：两个标签同revision竞争时第二次拒绝，保留输入且不超实物量",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3534,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:27.859Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "two-tab-revision-conflict-input-retained",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/attachments/two-tab-revision-conflict-input-retained-9a93c9f046a9cc8b27e14a05c1ab853e2b602ce3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-0a1002a6925bc9b95f72",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 454,
+          "column": 1
+        },
+        {
+          "title": "PFN-067样本：五次完整增量保存及五次预热后刷新加载，含持久读回",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7082,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T20:44:31.398Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "performance-samples",
+                      "contentType": "application/json",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-partial-flo-31584-样本：五次完整增量保存及五次预热后刷新加载，含持久读回/attachments/performance-samples-5885a7d3d32e72fa546b0b5b81d4462822fec1cf.json"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b66ea5989ba1b4147a9f-57d8f489903a57778e33",
+          "file": "post-finishing-partial-flow.spec.ts",
+          "line": 474,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-19T20:43:51.115Z",
+    "duration": 47424.68,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

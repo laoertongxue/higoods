@@ -54,6 +54,16 @@ const PMS_ROUTE_RETIREMENT_TESTS = new Set([
 ])
 const PMS_ROUTE_RETIREMENT_CHECK = 'node --experimental-strip-types --test tests/workflow-governance/pms-retired-test-routes.test.ts'
 
+const POST_FINISHING_PARTIAL_BROWSER_TESTS = new Set([
+  'tests/post-finishing-partial-flow.spec.ts', 'tests/post-finishing-consumers.spec.ts',
+  'tests/post-finishing-migration.spec.ts', 'tests/post-finishing-pda-role-boundary.spec.ts',
+  'tests/post-finishing-main-integration.spec.ts',
+])
+// Consumers read the real D1 result produced by the first suite. Receipt runs
+// write their artifacts outside the bound worktree instead of replacing history.
+const POST_FINISHING_PARTIAL_BROWSER_ENV = 'POST_FINISHING_EVIDENCE_ROOT=/tmp/post-finishing-partial-flow-20261019/receipt-browser PLAYWRIGHT_REUSE_EXISTING_SERVER=false'
+const POST_FINISHING_PARTIAL_BROWSER_CHECK = `${POST_FINISHING_PARTIAL_BROWSER_ENV} npm run test:e2e -- tests/post-finishing-partial-flow.spec.ts --workers=1 --reporter=json && ${POST_FINISHING_PARTIAL_BROWSER_ENV} npm run test:e2e -- tests/post-finishing-consumers.spec.ts tests/post-finishing-migration.spec.ts tests/post-finishing-pda-role-boundary.spec.ts tests/post-finishing-main-integration.spec.ts --workers=1 --reporter=json`
+
 // Only canonical identity literals and associated local variable names changed.
 // This conservative AST contract cannot certify or bypass edits to legacy drivers.
 const SEAM_IDENTITY_ONLY_TESTS = new Set([
@@ -81,9 +91,16 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`
 }
 
+const MAX_TASK_SCOPE_COMMAND_BYTES = 32 * 1024
+
 function taskScope(command: string, paths: string[]): string {
   assert(paths.every((path) => !path.includes(',')), '--paths 使用逗号分隔，当前变更含逗号文件名，无法精确传递任务范围')
-  return `${command} -- --scope worktree --paths ${shellQuote(paths.join(','))}`
+  const scopedCommand = `${command} -- --scope worktree --paths ${shellQuote(paths.join(','))}`
+  // Large evidence sets can exceed the shell's argument limit. The full worktree
+  // scope reads every changed path against the same GOVERNANCE_BASE_SHA.
+  return Buffer.byteLength(scopedCommand, 'utf8') <= MAX_TASK_SCOPE_COMMAND_BYTES
+    ? scopedCommand
+    : `${command} -- --scope worktree`
 }
 
 function add(target: Set<string>, command: string): void {
@@ -113,6 +130,10 @@ export function routeAffectedChecks(paths: string[]): AffectedCheckRoute {
     }
     if (path === 'tests/material-decision.spec.ts') {
       add(fullChecks, 'PLAYWRIGHT_REUSE_EXISTING_SERVER=false npx playwright test tests/material-decision.spec.ts --workers=1 --reporter=line')
+      continue
+    }
+    if (POST_FINISHING_PARTIAL_BROWSER_TESTS.has(path)) {
+      add(fullChecks, POST_FINISHING_PARTIAL_BROWSER_CHECK)
       continue
     }
     if ((ACCESSORY_BROWSER_CONTRACT_PATHS as readonly string[]).includes(path)

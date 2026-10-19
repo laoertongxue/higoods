@@ -1,0 +1,823 @@
+{
+  "diagnosticOnly": true,
+  "head": "ecc8af013b5f9d67f5fef14fe5b692483aada61d",
+  "originalValidFailure": {
+    "path": "../final-scoped-owner-calibration-pda/report.json",
+    "ms": 1152.4
+  },
+  "profiledResponseMs": 1164.3000000715256,
+  "sourceManifest": {
+    "copy": "source-manifest-at-profile.json",
+    "sha256": "a35e32c18ccc00ce8c8103957af840e50f731d164ebd877bdec8be3b2b957144"
+  },
+  "harness": {
+    "copy": "harness-at-profile.mjs",
+    "sha256": "6d4b40df3a3f1f63be7bc7aef05ac7815c0f69faafbce8486662a238834f0e4c"
+  },
+  "distIndexSha256": "8cce28bf1e441cca22d80c7bacac545b7e26d830fa1d23079c799919cd99a88c",
+  "fixture": {
+    "backupJsonSha256": "78adb8de3cac155fd32499707c4d7d703f0f7f9e48e8bad72d0642f12bb1d586",
+    "backupJsonBytes": 36178108,
+    "backupRecordRows": 27548,
+    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json",
+    "sha256": "20fb87f28a78a7381603d0dd626850fe12b15f2ed756285e7105fc9fb9d0b84a",
+    "counts": {
+      "postTasks": 100,
+      "processCompletions": 4000,
+      "recheckOrders": 1000,
+      "outboundOrders": 1000,
+      "warehouseReceipts": 900,
+      "qcTasks": 105
+    },
+    "preparationMs": 10632.600000023842,
+    "sourceMethod": "Public source fixture clones -> register return -> confirm -> send QC -> claim/complete QC -> 4000 append commands -> 1000 submit -> barcode -> complete recheck -> 900 receipts. One fixture-preparation transaction; not a UI performance sample."
+  },
+  "assets": [
+    {
+      "urlPath": "assets/index-C9thIjye.css",
+      "archive": "runtime-assets/index-C9thIjye.css",
+      "bytes": 157682,
+      "sha256": "a656f6d85acbd3804367dcbfdf61fdf777d6a3ac288efbb65315e1dfb4038414"
+    },
+    {
+      "urlPath": "assets/tmf-domain-shared-DboXqEqI.js",
+      "archive": "runtime-assets/tmf-domain-shared-DboXqEqI.js",
+      "bytes": 22559,
+      "sha256": "3eb8f55cc9226fe3a8e6e12feadf762d848cfd94f5746ca81b333d57aebba082"
+    },
+    {
+      "urlPath": "assets/app-shared-DDMaqtkq.js",
+      "archive": "runtime-assets/app-shared-DDMaqtkq.js",
+      "bytes": 174471,
+      "sha256": "fc3c053c3f0afee309a44aebe492d9140227ee19ff4aee24459af7b1539ff256"
+    },
+    {
+      "urlPath": "assets/index-DZaCv3oQ.js",
+      "archive": "runtime-assets/index-DZaCv3oQ.js",
+      "bytes": 288278,
+      "sha256": "5758cc01b55bd77d211369156012322a1cd0559939029e4d11484e5d5040734f"
+    },
+    {
+      "urlPath": "assets/craft-image-storage-ik4JlW3h.js",
+      "archive": "runtime-assets/craft-image-storage-ik4JlW3h.js",
+      "bytes": 52182,
+      "sha256": "0df2739730ac3fe90c222101ebe16d620521107cbebf05d27da7744cf96ddde8"
+    },
+    {
+      "urlPath": "assets/pcs-record-core-CHXZt244.js",
+      "archive": "runtime-assets/pcs-record-core-CHXZt244.js",
+      "bytes": 69649,
+      "sha256": "ceeef38468d0214182e489e96e16841d07a44f2d846469c01c6ae7834e3a3ec4"
+    },
+    {
+      "urlPath": "assets/craft-display-support-BGDNu1yO.js",
+      "archive": "runtime-assets/craft-display-support-BGDNu1yO.js",
+      "bytes": 172885,
+      "sha256": "8e93bec2fe570f383f236c09a05844fe9ce76ce90c6816ef35b65892dc86a6b8"
+    },
+    {
+      "urlPath": "assets/pcs-record-bootstrap-Cl0M0GQA.js",
+      "archive": "runtime-assets/pcs-record-bootstrap-Cl0M0GQA.js",
+      "bytes": 606,
+      "sha256": "7e80d7bea6b787c066ac456bd34a7ef840d7d1530cd2aaed4d2ede6bef242fc8"
+    },
+    {
+      "urlPath": "assets/pcs-record-baseline-BdbNpplt.json",
+      "archive": "runtime-assets/pcs-record-baseline-BdbNpplt.json",
+      "bytes": 4589993,
+      "sha256": "66d320307a482c5f6260892aa14022e7677b6b939387e5cf54762dc37c4c4fc2"
+    },
+    {
+      "urlPath": "assets/design-revision-pcs-storage-BjfzS8H8.js",
+      "archive": "runtime-assets/design-revision-pcs-storage-BjfzS8H8.js",
+      "bytes": 15421,
+      "sha256": "36323f0d01b3f8259210f0635f144d986267be2ca78e995a23e629a8c85e2e14"
+    },
+    {
+      "urlPath": "assets/factory-receiving-DVz0KTOW.js",
+      "archive": "runtime-assets/factory-receiving-DVz0KTOW.js",
+      "bytes": 48271,
+      "sha256": "aeb9897b6ff66e35e0894f184bc2e5b0f53d6702b82b20805dc0ddc3a1b004da"
+    },
+    {
+      "urlPath": "assets/production-order-runtime-store-Dk6GZd08.js",
+      "archive": "runtime-assets/production-order-runtime-store-Dk6GZd08.js",
+      "bytes": 55771,
+      "sha256": "e9a35f599f7d99806d9ee2915476c22bdaa89f41421a5bed5dcdfbedb79d44a8"
+    },
+    {
+      "urlPath": "assets/post-finishing-authorization-DtXhmZfa.js",
+      "archive": "runtime-assets/post-finishing-authorization-DtXhmZfa.js",
+      "bytes": 3712,
+      "sha256": "e28ad40076bdfb556b1d9c9692173cc0d79310dac51c50f04e76d4f7fa4558ea"
+    },
+    {
+      "urlPath": "assets/post-finishing-full-flow-DCCExdcQ.js",
+      "archive": "runtime-assets/post-finishing-full-flow-DCCExdcQ.js",
+      "bytes": 164197,
+      "sha256": "753255cce87e9f1fbdec0e55b81a80ecf2378d0fcf2ca30bc72ec5d97e0354b5"
+    },
+    {
+      "urlPath": "assets/effective-task-assignments-D0tfMcki.js",
+      "archive": "runtime-assets/effective-task-assignments-D0tfMcki.js",
+      "bytes": 25900,
+      "sha256": "34c8f1f1511651ff0302d5012dcefee461478efd79e5217674c2d20acc8f5998"
+    },
+    {
+      "urlPath": "assets/runtime-process-tasks-D_fBNMPj.js",
+      "archive": "runtime-assets/runtime-process-tasks-D_fBNMPj.js",
+      "bytes": 302698,
+      "sha256": "cbd9fe1bd336fc5d2d70154dbd13b0db2092f68ab6a17fa8bda95bd23c349cd1"
+    },
+    {
+      "urlPath": "assets/production-orders-CBXwkVGG.js",
+      "archive": "runtime-assets/production-orders-CBXwkVGG.js",
+      "bytes": 464913,
+      "sha256": "8447e534455f85071a1e2b2c7bb1b26eab0227f70040292d17515559b6be1d6a"
+    },
+    {
+      "urlPath": "assets/cut-piece-release-8VEuLxwq.js",
+      "archive": "runtime-assets/cut-piece-release-8VEuLxwq.js",
+      "bytes": 83456,
+      "sha256": "f95f29fb56ef105309733b01ac5d87ec9e5d7f693e1d4806a7dedbd10ac8ff85"
+    },
+    {
+      "urlPath": "assets/cutting-event-repository-BR5V_1oT.js",
+      "archive": "runtime-assets/cutting-event-repository-BR5V_1oT.js",
+      "bytes": 9803,
+      "sha256": "c84280da55ebc81303d79560b028efa30c6e2a88c54caa8a1aa517543087f571"
+    },
+    {
+      "urlPath": "assets/retired-cut-piece-pickup-history-DCucruc0.js",
+      "archive": "runtime-assets/retired-cut-piece-pickup-history-DCucruc0.js",
+      "bytes": 5677,
+      "sha256": "847615b3b6d67c96f52c917f5dc9fd121c49921dc0092847ca5c1072827e2b23"
+    },
+    {
+      "urlPath": "assets/replacement-fabric-fei-tickets-Cn9ggqXW.js",
+      "archive": "runtime-assets/replacement-fabric-fei-tickets-Cn9ggqXW.js",
+      "bytes": 5608,
+      "sha256": "fefe3b7ac761fe49335fddf882e3d78fd48b9bccaed839c604e971df9c788b41"
+    },
+    {
+      "urlPath": "assets/replacement-fabric-repository-1r2ZNp8J.js",
+      "archive": "runtime-assets/replacement-fabric-repository-1r2ZNp8J.js",
+      "bytes": 11428,
+      "sha256": "d9ea66238b40b3a23e1dbb5779130535576e4d89f4a337abdb25d3b270fd32cf"
+    },
+    {
+      "urlPath": "assets/transfer-bag-operations-C5wf_Tiw.js",
+      "archive": "runtime-assets/transfer-bag-operations-C5wf_Tiw.js",
+      "bytes": 171356,
+      "sha256": "c3bbfe315c4a97a2e22001ed39316ed9cb1f562a359ef78ae5cddca128576728"
+    },
+    {
+      "urlPath": "assets/generated-fei-tickets-BJEbAwrN.js",
+      "archive": "runtime-assets/generated-fei-tickets-BJEbAwrN.js",
+      "bytes": 169066,
+      "sha256": "223172a52fc78c126d8786d9b61926174284954b79c67ebf1ceb716e73fadff4"
+    },
+    {
+      "urlPath": "assets/manual-fei-tickets-DzXTY7e_.js",
+      "archive": "runtime-assets/manual-fei-tickets-DzXTY7e_.js",
+      "bytes": 14519,
+      "sha256": "b27ef1c9f877f562010e69eeb1748dde9cc6a3db83c0bce27c849600610868e2"
+    },
+    {
+      "urlPath": "assets/production-tech-pack-change-domain-FsSJcNP3.js",
+      "archive": "runtime-assets/production-tech-pack-change-domain-FsSJcNP3.js",
+      "bytes": 91442,
+      "sha256": "815f5c9e0cf1d1b1c34ec07534c3398f76226f96f6eade7c14236ebd3f43d9a1"
+    },
+    {
+      "urlPath": "assets/warehouse-runtime-4VuKnDmB.js",
+      "archive": "runtime-assets/warehouse-runtime-4VuKnDmB.js",
+      "bytes": 33784,
+      "sha256": "03dd89938cc3a406c00e1d0d1612326005e3f111a3ec9d32b94764110c623f09"
+    },
+    {
+      "urlPath": "assets/special-craft-task-orders-CM-jgcEm.js",
+      "archive": "runtime-assets/special-craft-task-orders-CM-jgcEm.js",
+      "bytes": 128196,
+      "sha256": "718473396e4586414e6f5156027098a32bcefdfd6abd567a6c11d21e2c6f845a"
+    },
+    {
+      "urlPath": "assets/pda-handover-events-BpmFLT4b.js",
+      "archive": "runtime-assets/pda-handover-events-BpmFLT4b.js",
+      "bytes": 311678,
+      "sha256": "540db9e1c13523a4e5c4df1ff9b4419848f80cc5b5dfbd280ba0f10031725d3d"
+    },
+    {
+      "urlPath": "assets/generated-cut-release-Yyx1vD0y.js",
+      "archive": "runtime-assets/generated-cut-release-Yyx1vD0y.js",
+      "bytes": 3993,
+      "sha256": "3ddfa05fa84c449f65725772b14ad31a4b13dcd01b99bfbe7d666c3b38ebd4df"
+    },
+    {
+      "urlPath": "assets/domain-snapshot-_b2NTHXv.js",
+      "archive": "runtime-assets/domain-snapshot-_b2NTHXv.js",
+      "bytes": 354,
+      "sha256": "8b7fea28ec666239266d297df2ef893b5181b229a4c8d6a2c1c9e4cc7074aaa3"
+    },
+    {
+      "urlPath": "assets/pda-shell-D0AE60WY.js",
+      "archive": "runtime-assets/pda-shell-D0AE60WY.js",
+      "bytes": 33797,
+      "sha256": "c47d965af62bb4b9742fb51639b9c855a75646fddec9c937b998603c4774af9d"
+    },
+    {
+      "urlPath": "assets/pda-handlers-CjKesvcV.js",
+      "archive": "runtime-assets/pda-handlers-CjKesvcV.js",
+      "bytes": 25779,
+      "sha256": "c3330c7c4b05697e31c742b440a735e733848f51d814d09a42f2a20c3afc73b2"
+    },
+    {
+      "urlPath": "assets/pda-cutting-execution-source-CRYlNHE0.js",
+      "archive": "runtime-assets/pda-cutting-execution-source-CRYlNHE0.js",
+      "bytes": 50719,
+      "sha256": "90a43c31c77c2f6cddf01eb6d5a766ea652f83355f5beef06645ea6058a9670a"
+    },
+    {
+      "urlPath": "assets/runtime-inputs-C9LZgxRU.js",
+      "archive": "runtime-assets/runtime-inputs-C9LZgxRU.js",
+      "bytes": 57973,
+      "sha256": "b58bde57d401c5ac4822693921e94918fce44c122c8de7c77d9333b3c69095cc"
+    },
+    {
+      "urlPath": "assets/store-domain-progress-YnMv9QKn.js",
+      "archive": "runtime-assets/store-domain-progress-YnMv9QKn.js",
+      "bytes": 53754,
+      "sha256": "44b56d670059973e24dad4455bc8b65b462c13f6cb7022b655966b1adbb2fdd0"
+    },
+    {
+      "urlPath": "assets/sewing-outsourcing-responsibility-CiJCnTJ0.js",
+      "archive": "runtime-assets/sewing-outsourcing-responsibility-CiJCnTJ0.js",
+      "bytes": 4802,
+      "sha256": "8bdd26afba5ad0c57ffd32552e4eca691e24b53d9f088e4ab4e1c3b05885cbd9"
+    },
+    {
+      "urlPath": "assets/water-soluble-relation-sources-preqO71q.js",
+      "archive": "runtime-assets/water-soluble-relation-sources-preqO71q.js",
+      "bytes": 850,
+      "sha256": "1bce7984eb40279143430eae4bd9d1072d460e0d1b52499d73cc890b03196dd3"
+    },
+    {
+      "urlPath": "assets/ppic-return-quantity-basis-CwWj3gA6.js",
+      "archive": "runtime-assets/ppic-return-quantity-basis-CwWj3gA6.js",
+      "bytes": 12565,
+      "sha256": "ceb37c44ba628f3e2976221ab95e3456a958f332488e48e18ff53e7a3c1ba9d5"
+    },
+    {
+      "urlPath": "assets/sewing-cut-piece-responsibility-D8eKXUcq.js",
+      "archive": "runtime-assets/sewing-cut-piece-responsibility-D8eKXUcq.js",
+      "bytes": 17624,
+      "sha256": "5b35ac80e5905f06bfe54c0e006c2f2ab2b20e17783545e18a36b20672442a6c"
+    },
+    {
+      "urlPath": "assets/production-material-prep-C4Y0DpKK.js",
+      "archive": "runtime-assets/production-material-prep-C4Y0DpKK.js",
+      "bytes": 143614,
+      "sha256": "9a6d5c621fc9d499c52ecfb26e8d2edf6e07a68b4fb93f9aec73b80071fda27c"
+    },
+    {
+      "urlPath": "assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "archive": "runtime-assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "bytes": 2638,
+      "sha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+    },
+    {
+      "urlPath": "assets/tmf-reference-images-6geKcU1B.js",
+      "archive": "runtime-assets/tmf-reference-images-6geKcU1B.js",
+      "bytes": 981,
+      "sha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+    },
+    {
+      "urlPath": "assets/tmf-process-continuation-zBbGFh6j.js",
+      "archive": "runtime-assets/tmf-process-continuation-zBbGFh6j.js",
+      "bytes": 5657,
+      "sha256": "54a28f7baa2608b1d1ac4753c9fa15047468975609def1abae9d40eb3fb11f06"
+    },
+    {
+      "urlPath": "assets/pcs-engineering-task-upload-repository-BMbaCado.js",
+      "archive": "runtime-assets/pcs-engineering-task-upload-repository-BMbaCado.js",
+      "bytes": 4828,
+      "sha256": "eabf4f110e2bfc7cc60b6355a6af6999027508cc48f8bd61794acc332e268fe3"
+    },
+    {
+      "urlPath": "assets/pcs-tech-pack-bootstrap-Bm7QTAyL.js",
+      "archive": "runtime-assets/pcs-tech-pack-bootstrap-Bm7QTAyL.js",
+      "bytes": 33306,
+      "sha256": "36940ceb9a43c0a850c4fbd52b725525aaa1cdc55201eabf8ec0625d93af1727"
+    },
+    {
+      "urlPath": "assets/pcs-tech-pack-review-notification-repository-DZ7V3oXO.js",
+      "archive": "runtime-assets/pcs-tech-pack-review-notification-repository-DZ7V3oXO.js",
+      "bytes": 1337,
+      "sha256": "c77c4af49db5d563a02034694f7bd18d23e58a31c85b6bed915d00e77ce1ebd2"
+    },
+    {
+      "urlPath": "assets/pcs-product-archive-fixtures-Bfp2DjNp.js",
+      "archive": "runtime-assets/pcs-product-archive-fixtures-Bfp2DjNp.js",
+      "bytes": 12483,
+      "sha256": "0a386f5f63296b9a726eb37b74664158b24570fcb988f2902056c3e44a4f109c"
+    },
+    {
+      "urlPath": "assets/pcs-config-workspace-repository-DCo0dtgs.js",
+      "archive": "runtime-assets/pcs-config-workspace-repository-DCo0dtgs.js",
+      "bytes": 27985,
+      "sha256": "5bd811844cf69ed983193309274346a60ca0d8ada55c482a26f2747689e06468"
+    },
+    {
+      "urlPath": "assets/pcs-tech-pack-version-log-repository-BkNM-5g1.js",
+      "archive": "runtime-assets/pcs-tech-pack-version-log-repository-BkNM-5g1.js",
+      "bytes": 1732,
+      "sha256": "ac1252e9a3e0f1d9960d355d567b7b9defe9029a70d613a41f6b6213a541171d"
+    },
+    {
+      "urlPath": "assets/printing-task-domain-w1KsrpAU.js",
+      "archive": "runtime-assets/printing-task-domain-w1KsrpAU.js",
+      "bytes": 403391,
+      "sha256": "798a27c2ab3bbf3dbbe69c85ad52b6af4720a4f6aedc4e09819a95e744d2e391"
+    },
+    {
+      "urlPath": "assets/los-live-room-master-DIoQvPRn.js",
+      "archive": "runtime-assets/los-live-room-master-DIoQvPRn.js",
+      "bytes": 6012,
+      "sha256": "d11107ea0c40230228d4acf3633d36dcfd05cd6f55ff2c1a6b36a81329d40b63"
+    },
+    {
+      "urlPath": "assets/pcs-engineering-bom-snapshot-source-CVLToAt6.js",
+      "archive": "runtime-assets/pcs-engineering-bom-snapshot-source-CVLToAt6.js",
+      "bytes": 406,
+      "sha256": "20afe59b88311ffff7cebc71d91fe9c8bd79545ecffe507f3461e4d46f8458b9"
+    },
+    {
+      "urlPath": "assets/marker-plan-projection-NmXnU6uM.js",
+      "archive": "runtime-assets/marker-plan-projection-NmXnU6uM.js",
+      "bytes": 2761,
+      "sha256": "60c0053eaf30a6b684d69408fb8f34e1cf5cb29f446e4dbae308469dd8208ead"
+    },
+    {
+      "urlPath": "assets/marker-plan-source-model-N_0I-l1Z.js",
+      "archive": "runtime-assets/marker-plan-source-model-N_0I-l1Z.js",
+      "bytes": 28919,
+      "sha256": "debebabbac5a27f436e7cb6d5fd7bcda9fcbe508d40cc61afb25b10a87a4b16e"
+    },
+    {
+      "urlPath": "assets/pcs-pattern-library-CwVLVRtt.js",
+      "archive": "runtime-assets/pcs-pattern-library-CwVLVRtt.js",
+      "bytes": 205341,
+      "sha256": "4855d1de986b46d6e3251274356be7e5a3b103af471e2550df6ba1995f66997b"
+    },
+    {
+      "urlPath": "assets/pcs-part-template-library-O6xJDNlv.js",
+      "archive": "runtime-assets/pcs-part-template-library-O6xJDNlv.js",
+      "bytes": 38065,
+      "sha256": "f9601f78cc776c860f8bbb3d62d42df0aa8e9997704984267e9e3259e45042e7"
+    },
+    {
+      "urlPath": "assets/marker-plan-occupancy-Cn66zJXx.js",
+      "archive": "runtime-assets/marker-plan-occupancy-Cn66zJXx.js",
+      "bytes": 57445,
+      "sha256": "a72f0db2639146b09938f52848976fd96d7877ff4e1bd1d9b63438cceeb76c41"
+    },
+    {
+      "urlPath": "assets/supplement-order-registry-CHnc7juB.js",
+      "archive": "runtime-assets/supplement-order-registry-CHnc7juB.js",
+      "bytes": 4490,
+      "sha256": "8b97ac8bd8b783a88b9812a78c9c5e0b8ffa3d53d5addc688494e5ac20910e40"
+    },
+    {
+      "urlPath": "assets/task-chain-pages-adapter-PSMp9crT.js",
+      "archive": "runtime-assets/task-chain-pages-adapter-PSMp9crT.js",
+      "bytes": 1719,
+      "sha256": "9e7d23defc3407c56537ec19b972f912b876fe66ce4ecc8f310462d599f1dc56"
+    },
+    {
+      "urlPath": "assets/task-execution-adapter-DlRuVWfg.js",
+      "archive": "runtime-assets/task-execution-adapter-DlRuVWfg.js",
+      "bytes": 12266,
+      "sha256": "d850931785f296141c55745ced0cc7e968ffb99c50bc1688d74dcf80de1b673a"
+    },
+    {
+      "urlPath": "assets/index-BdN6juy9.js",
+      "archive": "runtime-assets/index-BdN6juy9.js",
+      "bytes": 20163,
+      "sha256": "427f4ef8614f48cc0b4ecb6ea657410496e5668b9c26f7fea14a3fccfe1d8997"
+    },
+    {
+      "urlPath": "assets/store-domain-settlement-seeds-BlIQj11d.js",
+      "archive": "runtime-assets/store-domain-settlement-seeds-BlIQj11d.js",
+      "bytes": 33781,
+      "sha256": "b12d6eadfc16bdc37f0b5bb38b625a836b2cf595521fd49448eb7f7044a09e79"
+    },
+    {
+      "urlPath": "assets/marker-plan-model-MjC-8OJq.js",
+      "archive": "runtime-assets/marker-plan-model-MjC-8OJq.js",
+      "bytes": 51970,
+      "sha256": "977fac5acbb1e57a5c96ba7498c8e8ce0ae7fb67b788152d29b09035ee356681"
+    },
+    {
+      "urlPath": "assets/pcs-tech-pack-review-DTQVmjfy.js",
+      "archive": "runtime-assets/pcs-tech-pack-review-DTQVmjfy.js",
+      "bytes": 676974,
+      "sha256": "73a196f3179855e3dfd2f79148a8edb356666f0cf5475f4e9f93932720741e05"
+    },
+    {
+      "urlPath": "assets/runtime-task-tenders-BREsT8BZ.js",
+      "archive": "runtime-assets/runtime-task-tenders-BREsT8BZ.js",
+      "bytes": 5598,
+      "sha256": "ff30e3bb84bc9bb45f7af93ad5a490b070893b3fa3eb078de44f6fbf7360f717"
+    },
+    {
+      "urlPath": "assets/settlement-linked-mock-factory-BugEUuf6.js",
+      "archive": "runtime-assets/settlement-linked-mock-factory-BugEUuf6.js",
+      "bytes": 47891,
+      "sha256": "34ea8e0db9627e7b82df4912d5aa27db9425bda67ee45a9a967d361ec6d93af8"
+    },
+    {
+      "urlPath": "assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+      "archive": "runtime-assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+      "bytes": 1069,
+      "sha256": "79c7418eb1d2cc2f99022b5130010378765b18a9e84eb85b33db1c74d9c513e8"
+    },
+    {
+      "urlPath": "assets/process-mobile-task-binding-5blW4p2T.js",
+      "archive": "runtime-assets/process-mobile-task-binding-5blW4p2T.js",
+      "bytes": 18435,
+      "sha256": "5593cc254778f19e2c87ee1cd068640c9046c5388bc32992e74c465da3ffebd0"
+    },
+    {
+      "urlPath": "assets/factory-onboarding-flow-8Uqtg8mG.js",
+      "archive": "runtime-assets/factory-onboarding-flow-8Uqtg8mG.js",
+      "bytes": 90614,
+      "sha256": "d74bf0674445c5a1e55ac4113f575374784236c203bed07c060e9a594f7676a9"
+    },
+    {
+      "urlPath": "assets/quality-deduction-repository-CWsS08es.js",
+      "archive": "runtime-assets/quality-deduction-repository-CWsS08es.js",
+      "bytes": 136799,
+      "sha256": "22fb454872a6b0046fcb96d3f1c087e4ba280e4fb6a0178990b31d6cde08afe8"
+    },
+    {
+      "urlPath": "assets/pda-runtime-cERieTAg.js",
+      "archive": "runtime-assets/pda-runtime-cERieTAg.js",
+      "bytes": 1215,
+      "sha256": "404090216014a270fb5800d031380371580d80600111fac6726c5324ffffb2a2"
+    },
+    {
+      "urlPath": "assets/sewing-outsourcing-return-tracking-BG485NCj.js",
+      "archive": "runtime-assets/sewing-outsourcing-return-tracking-BG485NCj.js",
+      "bytes": 8436,
+      "sha256": "e54720dbd9276c40bc59c20b18c6823b13a6fd76f0731f212f8ef0ceccc2cb42"
+    },
+    {
+      "urlPath": "assets/pda-warehouse-shared-DjoitesE.js",
+      "archive": "runtime-assets/pda-warehouse-shared-DjoitesE.js",
+      "bytes": 19282,
+      "sha256": "8fa152f814b51d12297396ee7fe23752ca234e1382f28f293b8c1313b5b56b6f"
+    },
+    {
+      "urlPath": "assets/ppic-daily-return-records-coJbao32.js",
+      "archive": "runtime-assets/ppic-daily-return-records-coJbao32.js",
+      "bytes": 15261,
+      "sha256": "26e0e7b761d40da4fa89447b22ec389fb9d6788fd33b393e7587705a2dde226f"
+    },
+    {
+      "urlPath": "assets/production-return-fulfillment-B0LPMOQB.js",
+      "archive": "runtime-assets/production-return-fulfillment-B0LPMOQB.js",
+      "bytes": 13027,
+      "sha256": "9aeb312ac26e882c3374e1ab524e00b227b26faad80f047839c1bfe6f57ec8a9"
+    },
+    {
+      "urlPath": "assets/sewing-dispatch-BWez_te3.js",
+      "archive": "runtime-assets/sewing-dispatch-BWez_te3.js",
+      "bytes": 75942,
+      "sha256": "41bbd3cb3ac4a7936b169da61c903431206510e395e70aef650b53c31cd05d7a"
+    },
+    {
+      "urlPath": "assets/progress-exception-lifecycle-BJx0gSBY.js",
+      "archive": "runtime-assets/progress-exception-lifecycle-BJx0gSBY.js",
+      "bytes": 8089,
+      "sha256": "9c7e053d57bb011a221be10e8aa2852d35fbea06b4d36e0b5ded3cb3f24deeec"
+    },
+    {
+      "urlPath": "assets/milestone-configs-BaM_BECf.js",
+      "archive": "runtime-assets/milestone-configs-BaM_BECf.js",
+      "bytes": 8415,
+      "sha256": "786e0f70dc2c6f81b0fd8b4f42f9e72653c3e115294fd79af679237afb228383"
+    },
+    {
+      "urlPath": "assets/pda-exec-link-uwAqE9sb.js",
+      "archive": "runtime-assets/pda-exec-link-uwAqE9sb.js",
+      "bytes": 11313,
+      "sha256": "f1a9856df3278cd9e4fbb4a1fd94a39dac39f68bd765a3a4b94095066b308922"
+    },
+    {
+      "urlPath": "assets/pda-post-finishing-exec-detail-7dNgnvYu.js",
+      "archive": "runtime-assets/pda-post-finishing-exec-detail-7dNgnvYu.js",
+      "bytes": 16393,
+      "sha256": "903ef0fae89d915dbbe574a64703b39b5ea7e83ad28f42c3b85689afc72adc13"
+    },
+    {
+      "urlPath": "assets/pda-start-link-BU8DiLy7.js",
+      "archive": "runtime-assets/pda-start-link-BU8DiLy7.js",
+      "bytes": 13672,
+      "sha256": "3aa30dd1639bfe4b83838ca73c1248273734b3d467254867380251bf5a799eb4"
+    },
+    {
+      "urlPath": "assets/process-action-writeback-service-ImE0wU8u.js",
+      "archive": "runtime-assets/process-action-writeback-service-ImE0wU8u.js",
+      "bytes": 78263,
+      "sha256": "335affae5115fd35c99b70cef266b12053ffc22d0113c459038ca1942c793071"
+    },
+    {
+      "urlPath": "assets/process-order-task-links-BwYuWHvW.js",
+      "archive": "runtime-assets/process-order-task-links-BwYuWHvW.js",
+      "bytes": 167,
+      "sha256": "7d55d78ee0ac4f022aa8297bda5489aba7deac30d916d495c451b34be07a4a05"
+    },
+    {
+      "urlPath": "assets/dyeing-material-receipts-BfRGejBy.js",
+      "archive": "runtime-assets/dyeing-material-receipts-BfRGejBy.js",
+      "bytes": 1148,
+      "sha256": "adc700de3fb23389f553fa74e0c040df054eaf7f45d2f862a2f74a7e21f5c6eb"
+    },
+    {
+      "urlPath": "assets/preparation-material-receipt-sources-v6YaE7sd.js",
+      "archive": "runtime-assets/preparation-material-receipt-sources-v6YaE7sd.js",
+      "bytes": 4719,
+      "sha256": "fa32e428d2b33210d1bc37167faf3ca782e36422245f71edc6a5912647e96793"
+    },
+    {
+      "urlPath": "assets/process-warehouse-domain-DaCSirvY.js",
+      "archive": "runtime-assets/process-warehouse-domain-DaCSirvY.js",
+      "bytes": 33230,
+      "sha256": "c8e4b3d922ee035bd0b9f2595a82d38912e298b699b19bef6325bf027cfa500a"
+    },
+    {
+      "urlPath": "assets/dye-work-order-online-domain-CmPW4V-U.js",
+      "archive": "runtime-assets/dye-work-order-online-domain-CmPW4V-U.js",
+      "bytes": 9831,
+      "sha256": "e966524b484b06a2ba34ea61647513768d0263b8f1aaa377cf27fe1c33af79ff"
+    },
+    {
+      "urlPath": "assets/process-order-task-link-core-BtweQSke.js",
+      "archive": "runtime-assets/process-order-task-link-core-BtweQSke.js",
+      "bytes": 24676,
+      "sha256": "1930c76d01081370526e68da9abf729e6ca7422f0e6161667386e6620e4bcb28"
+    },
+    {
+      "urlPath": "assets/dye-work-order-times-w7U4XCtx.js",
+      "archive": "runtime-assets/dye-work-order-times-w7U4XCtx.js",
+      "bytes": 7220,
+      "sha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e"
+    },
+    {
+      "urlPath": "assets/production-order-identity-COJf7kLI.js",
+      "archive": "runtime-assets/production-order-identity-COJf7kLI.js",
+      "bytes": 3044,
+      "sha256": "4ac9ac589384001f981da8628edd2671482cd092e980312517c2457eadb77c2c"
+    },
+    {
+      "urlPath": "assets/lace-factory-domain-3hpLRn04.js",
+      "archive": "runtime-assets/lace-factory-domain-3hpLRn04.js",
+      "bytes": 44403,
+      "sha256": "723643fd69e1cb47dd1deac6f41d2114dfe37a632781305075c2307f4f53925b"
+    },
+    {
+      "urlPath": "assets/production-object-overview-VcsAM7le.js",
+      "archive": "runtime-assets/production-object-overview-VcsAM7le.js",
+      "bytes": 72231,
+      "sha256": "4bd5d4db015f1009c8b0bc1034b4fb27b1693370f0d078090ac0c1ff40b00bc2"
+    },
+    {
+      "urlPath": "assets/accessory-warehouse-records-BojbXOj1.js",
+      "archive": "runtime-assets/accessory-warehouse-records-BojbXOj1.js",
+      "bytes": 3959,
+      "sha256": "4e73fabb9a042a13746dab4d1a17a3d04d4cc264a8addd003ba23624b6f4ac08"
+    },
+    {
+      "urlPath": "assets/accessory-warehouse-commands-D6CztyEX.js",
+      "archive": "runtime-assets/accessory-warehouse-commands-D6CztyEX.js",
+      "bytes": 2956,
+      "sha256": "8b5a3d6be94aa7c32f8e84d484033f28307069e3e71648e76daa1de614b9e12e"
+    },
+    {
+      "urlPath": "assets/accessory-warehouse-sources-BMsfWpj_.js",
+      "archive": "runtime-assets/accessory-warehouse-sources-BMsfWpj_.js",
+      "bytes": 10752,
+      "sha256": "e4b235c71611a61473b48d4bc25022b3e6f2357b7e8d02ff2a42ed4a2d85f91d"
+    },
+    {
+      "urlPath": "assets/accessory-warehouse-stock-sources-BFAjIrUO.js",
+      "archive": "runtime-assets/accessory-warehouse-stock-sources-BFAjIrUO.js",
+      "bytes": 7889,
+      "sha256": "e8f853598c0770f86afcacbfe0f5d64d9529e663d35f06c65b249053270dca7e"
+    },
+    {
+      "urlPath": "assets/accessory-warehouse-stock-shlNw7Ne.js",
+      "archive": "runtime-assets/accessory-warehouse-stock-shlNw7Ne.js",
+      "bytes": 22720,
+      "sha256": "ae9eccbaa48ae5d3831a9727e18d5ab36501060335e9eb755c555a4f601a82c5"
+    },
+    {
+      "urlPath": "assets/accessory-warehouse-post-finishing-CqD6psVK.js",
+      "archive": "runtime-assets/accessory-warehouse-post-finishing-CqD6psVK.js",
+      "bytes": 21474,
+      "sha256": "fa9a2cc4efe3c4dabe2880f66efc0f9fabbdd6c1634b943846b9400f282b3dcd"
+    },
+    {
+      "urlPath": "assets/storage-notice-C_i7Yx0D.js",
+      "archive": "runtime-assets/storage-notice-C_i7Yx0D.js",
+      "bytes": 4135,
+      "sha256": "f033f7f028e9946b278f0105b134e61f819e1e2ec2dafb5ab603ba459cdc9665"
+    },
+    {
+      "urlPath": "assets/design-revision-pcs-command-DpfcG_77.js",
+      "archive": "runtime-assets/design-revision-pcs-command-DpfcG_77.js",
+      "bytes": 2839,
+      "sha256": "7d0844528f04e353cb0136d49b0afb07a2a080e062c2cf73a709e14d2047c1a0"
+    },
+    {
+      "urlPath": "assets/pda-cutting-nav-context-BrY_5njd.js",
+      "archive": "runtime-assets/pda-cutting-nav-context-BrY_5njd.js",
+      "bytes": 5952,
+      "sha256": "96cbaab87b96e1a4661b2ccf0f23fb03a4b8a7bf12b591f1b0c381563362742d"
+    },
+    {
+      "urlPath": "assets/production-contracts-1nCqoEpo.js",
+      "archive": "runtime-assets/production-contracts-1nCqoEpo.js",
+      "bytes": 9344,
+      "sha256": "e54267ad0d3f720724f669f656e794e7e911942e11c6d7d6047e32de28b52868"
+    },
+    {
+      "urlPath": "assets/special-craft-pda-scope-ERJh1ZoE.js",
+      "archive": "runtime-assets/special-craft-pda-scope-ERJh1ZoE.js",
+      "bytes": 2209,
+      "sha256": "0d73aca44c2bf9925ee2dfc38c3ea795a0c459ff2ea55b77cd2d259568c598da"
+    },
+    {
+      "urlPath": "assets/production-context-actions-RkeKlclp.js",
+      "archive": "runtime-assets/production-context-actions-RkeKlclp.js",
+      "bytes": 13721,
+      "sha256": "3ae9976d83ec71219440f85abb49b6812a268080b77152f770cf7729aa0d980a"
+    },
+    {
+      "urlPath": "assets/pda-task-receive-DXoKGoJw.js",
+      "archive": "runtime-assets/pda-task-receive-DXoKGoJw.js",
+      "bytes": 51177,
+      "sha256": "a39650f3b61e1a1ae279efc17f88c552cbf851bbe68810b5ef6368d2e54ef1cc"
+    },
+    {
+      "urlPath": "assets/kol-goto-fixed-total-ledger-BEUb_hc0.js",
+      "archive": "runtime-assets/kol-goto-fixed-total-ledger-BEUb_hc0.js",
+      "bytes": 1934,
+      "sha256": "f4b18dee08ae008852fa364d6dcae4233a5b58df87abeaf0056091f1153f991c"
+    },
+    {
+      "urlPath": "assets/mobile-execution-task-index-DmeT_ddc.js",
+      "archive": "runtime-assets/mobile-execution-task-index-DmeT_ddc.js",
+      "bytes": 14470,
+      "sha256": "b8be51618a448ba4da023fcd5dee9f3b57595bb5bd7397b9f6131cbff357ba00"
+    },
+    {
+      "urlPath": "assets/kol-goto-pda-domain-D9hMubEH.js",
+      "archive": "runtime-assets/kol-goto-pda-domain-D9hMubEH.js",
+      "bytes": 19339,
+      "sha256": "0450eed299bbff21e0af81493d5e9dcc424a95abdeb034987c047c63d21b577a"
+    },
+    {
+      "urlPath": "assets/binding-process-pda-scan-BAnH1ohX.js",
+      "archive": "runtime-assets/binding-process-pda-scan-BAnH1ohX.js",
+      "bytes": 2178,
+      "sha256": "4b3186c3a48a477effd220a39e75671a910ea3cf8488c538396cacc30cad3ad2"
+    },
+    {
+      "urlPath": "assets/wool-pda-scan-CJlZxVuj.js",
+      "archive": "runtime-assets/wool-pda-scan-CJlZxVuj.js",
+      "bytes": 1886,
+      "sha256": "dd243427430b126bed119b1698c9d3d5e57dc6006f6596390391794a587b50a8"
+    },
+    {
+      "urlPath": "assets/real-barcode-DA6a-Lm6.js",
+      "archive": "runtime-assets/real-barcode-DA6a-Lm6.js",
+      "bytes": 1806,
+      "sha256": "84e8e9a73d889129f00fb84096af7d30cfe94a445828949edad073591c5f38a1"
+    },
+    {
+      "urlPath": "assets/fabric-washing-XDNVfjzO.js",
+      "archive": "runtime-assets/fabric-washing-XDNVfjzO.js",
+      "bytes": 14884,
+      "sha256": "e347df08d29318cd128bf3cb6ac4cd442e9a039f06c5d674eb31730e18dd829d"
+    },
+    {
+      "urlPath": "assets/fabric-washing-repository-BAFWTZBB.js",
+      "archive": "runtime-assets/fabric-washing-repository-BAFWTZBB.js",
+      "bytes": 23216,
+      "sha256": "654a0c2e4365a32496ef2a731480e5b01910e2aa46251443835f3ba82211875e"
+    },
+    {
+      "urlPath": "assets/pda-exec-5BMToy-B.js",
+      "archive": "runtime-assets/pda-exec-5BMToy-B.js",
+      "bytes": 69926,
+      "sha256": "616346168986e4e5fa6812643aa0549b53d402a6f306c68e0a16be8228adaff3"
+    },
+    {
+      "urlPath": "assets/work-orders-CkbovXTQ.js",
+      "archive": "runtime-assets/work-orders-CkbovXTQ.js",
+      "bytes": 73640,
+      "sha256": "b6c72e185a32de35cc98eacecaa8487bc7eefafa6dc529ad8da94e3e5b571537"
+    },
+    {
+      "urlPath": "assets/fabric-washing-views-D67bKosN.js",
+      "archive": "runtime-assets/fabric-washing-views-D67bKosN.js",
+      "bytes": 2198,
+      "sha256": "21cd36d3e3f58fb7d30561787b8b1f26a9483e226dc89b984193bdc66c53aab9"
+    },
+    {
+      "urlPath": "assets/pda-wool-fact-execution-CzItLENh.js",
+      "archive": "runtime-assets/pda-wool-fact-execution-CzItLENh.js",
+      "bytes": 27953,
+      "sha256": "651ceb36ad2f0fdb4699a610110fc4317c2331ffa0d2c4f80e0b8dcb3dcf42c6"
+    },
+    {
+      "urlPath": "assets/wool-craft-shared-B8-Ga6Kn.js",
+      "archive": "runtime-assets/wool-craft-shared-B8-Ga6Kn.js",
+      "bytes": 26432,
+      "sha256": "ff02d1ed52ff8dab6fc638e12fc325e6bd1d3cc76032227e02136de3b77c2a53"
+    },
+    {
+      "urlPath": "assets/pda-handover-lcgb9ooI.js",
+      "archive": "runtime-assets/pda-handover-lcgb9ooI.js",
+      "bytes": 63026,
+      "sha256": "7c9ddb1fceaabfcb7b3d3e7a88dd9c61f9579b28c2a39958da2ecc02c6261320"
+    },
+    {
+      "urlPath": "assets/index--GzcKvNw.js",
+      "archive": "runtime-assets/index--GzcKvNw.js",
+      "bytes": 210124,
+      "sha256": "2cfba651db8627b7b6c7111fca72ab634ba4a72abcb23a885c2d19e10e9a8e22"
+    },
+    {
+      "urlPath": "assets/pda-accessory-post-access-D7kpCBQC.js",
+      "archive": "runtime-assets/pda-accessory-post-access-D7kpCBQC.js",
+      "bytes": 695,
+      "sha256": "34f39d30230a1377d3db3de7622cba891cb33e96df7c88b4f60fb7710736ed58"
+    },
+    {
+      "urlPath": "assets/sewing-pickup-slips-C2VKMW6R.js",
+      "archive": "runtime-assets/sewing-pickup-slips-C2VKMW6R.js",
+      "bytes": 13454,
+      "sha256": "96e02339fe8b94af5a8cf909ec07afc8b4caa4854e320d238776dfa0ac8f11e4"
+    },
+    {
+      "urlPath": "assets/store-domain-quality-bootstrap-mFzuXAqv.js",
+      "archive": "runtime-assets/store-domain-quality-bootstrap-mFzuXAqv.js",
+      "bytes": 38242,
+      "sha256": "86376f8495e3a4bc46e7fda196e239fec0b0030f9aa219871d0469df5d024891"
+    },
+    {
+      "urlPath": "assets/pda-warehouse-CtmQuVZK.js",
+      "archive": "runtime-assets/pda-warehouse-CtmQuVZK.js",
+      "bytes": 9094,
+      "sha256": "01989e197f9e2fd1c37d9afbbc079cf8e0da4c430816cf026b488e775c3ee113"
+    },
+    {
+      "urlPath": "assets/pda-cutting-wait-handover-actions-B_heCBUt.js",
+      "archive": "runtime-assets/pda-cutting-wait-handover-actions-B_heCBUt.js",
+      "bytes": 1577,
+      "sha256": "efb86e8fa61b210df6207fc0fb359784a3c749382b087e7d94fff08db445fcfe"
+    },
+    {
+      "urlPath": "assets/process-work-order-quality-settlement-DfWZQktW.js",
+      "archive": "runtime-assets/process-work-order-quality-settlement-DfWZQktW.js",
+      "bytes": 5326,
+      "sha256": "99d225bb73599837436f323ff6dfb48d6a4fb27012515869127de12093d0fa35"
+    },
+    {
+      "urlPath": "assets/pre-settlement-ledger-repository-Cxpj60g2.js",
+      "archive": "runtime-assets/pre-settlement-ledger-repository-Cxpj60g2.js",
+      "bytes": 8785,
+      "sha256": "0c64113977c84ffb64ed91924bc64c6f8b7c5bc4dd454b0d6c6059a8ff3cf23c"
+    },
+    {
+      "urlPath": "assets/pda-settlement-_0cXNRL5.js",
+      "archive": "runtime-assets/pda-settlement-_0cXNRL5.js",
+      "bytes": 61859,
+      "sha256": "ab031715fe697d3a0db9d4ec3d83566505d9cec935ac2a5d6e64efd1ad5620be"
+    },
+    {
+      "urlPath": "assets/fact-view-DALmJVFw.js",
+      "archive": "runtime-assets/fact-view-DALmJVFw.js",
+      "bytes": 6339,
+      "sha256": "7e318ab9fe097098de2b5d7378ffb90930b2e97859a665080c0f91b0ed19cadd"
+    },
+    {
+      "urlPath": "assets/quality-deduction-selectors-DXsSuFMF.js",
+      "archive": "runtime-assets/quality-deduction-selectors-DXsSuFMF.js",
+      "bytes": 24256,
+      "sha256": "8f599caaf22df1bdb6c47070634414eab1174d1475116442e8080e13808d9438"
+    }
+  ]
+}

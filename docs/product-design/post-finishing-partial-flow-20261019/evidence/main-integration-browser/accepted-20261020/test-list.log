@@ -1,0 +1,8 @@
+(node:95741) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Listing tests:
+  post-finishing-main-integration.spec.ts:116:3 › main integration: mixed legacy post-first-inline, atomic retry, original files and H/N continue
+  post-finishing-main-integration.spec.ts:116:3 › main integration: mixed legacy accessory-first-existing-pcs, atomic retry, original files and H/N continue
+  post-finishing-main-integration.spec.ts:200:1 › main integration: actual restore keeps managed originals readonly, failed input retry and existing auxiliary stock unchanged
+  post-finishing-main-integration.spec.ts:256:1 › main integration: managed PDA real route respects factory/roles, preserves failed receipt input and commits one auxiliary source
+Total: 4 tests in 1 file

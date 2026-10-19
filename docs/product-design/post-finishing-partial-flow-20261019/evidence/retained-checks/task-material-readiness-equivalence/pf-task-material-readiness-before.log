@@ -1,0 +1,12 @@
+(node:54238) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+/Users/laoer/.codex/worktrees/81b7/higoods/src/data/pcs-record-db.ts:41
+      const operations = request.transaction!.objectStore('operations')
+                                              ^
+
+TypeError: Cannot read properties of undefined (reading 'objectStore')
+    at Object.request.onupgradeneeded (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/pcs-record-db.ts:41:47)
+    at Immediate.<anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/tests/helpers/pms-memory-idb.ts:89:45)
+    at process.processImmediate (node:internal/timers:574:21)
+
+Node.js v26.8.2

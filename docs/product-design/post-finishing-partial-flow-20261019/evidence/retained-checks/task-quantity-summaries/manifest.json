@@ -1,0 +1,28 @@
+{
+  "head": "ecc8af013b5f9d67f5fef14fe5b692483aada61d",
+  "result": "Node 5/5 pass, static review no identified field omission; browser/performance separate",
+  "observations": 18,
+  "sourceSHA256": {
+    "tests/unit/post-finishing-task-quantity-summaries.test.ts": "225f0725ef186192d795392365c5954feaaeede2c422b95f4519bba74f7c57f7",
+    "src/data/fcs/post-finishing-full-flow.ts": "442e2d387d899c3491da5c02c493aac5286cd1b85df56505ac4851dcdb43a435",
+    "src/data/fcs/post-finishing-current-read-model.ts": "25765da69f4cd1f34318a206e5d26278be2fe6350a28dbea252871d1ec97e974",
+    "src/pages/pda-post-finishing-exec-detail.ts": "ad3c5c5815199c3441771c0854b84d0f7dcfde1b5784d0b379513c52bc15633a"
+  },
+  "beforeSHA256": {
+    "docs/product-design/post-finishing-partial-flow-20261019/evidence/retained-checks/read-projection-before/post-finishing-full-flow.ts.txt": "180a1cd908a897faaac3b653c39e78ab49b09f5c99b38aaf970d2c9de669e276",
+    "docs/product-design/post-finishing-partial-flow-20261019/evidence/retained-checks/read-projection-before/post-finishing-current-read-model.ts.txt": "194ef84356b1a2d8a6ace260e22001cf9d041c8df03c3155c689772cca5fbaea",
+    "docs/product-design/post-finishing-partial-flow-20261019/evidence/retained-checks/read-projection-before/pda-post-finishing-exec-detail.ts.txt": "fcba07b1a13249b9c1bdf6c37aad5c39ae2cc7b950b4e2626231beff5db13d0c"
+  },
+  "artifactsSHA256": {
+    "actual.json": "faeeec494a3b8c24dd82d7c42d3feb06fe15cd6b4f8f1f0f185790e6d4f51133",
+    "pda-post-finishing-exec-detail.ts.txt": "ad3c5c5815199c3441771c0854b84d0f7dcfde1b5784d0b379513c52bc15633a",
+    "pda-post-finishing-exec-detail.ts.txt.patch": "813f0044bafd7b8207ebb916e711fc79fff05aa7f0140f25c1ad5d2dbe1e0062",
+    "post-finishing-current-read-model.ts.txt": "25765da69f4cd1f34318a206e5d26278be2fe6350a28dbea252871d1ec97e974",
+    "post-finishing-current-read-model.ts.txt.patch": "1eafba0b95df20a500f6afae4f62a9223ef258960d7884c3e66dac58cadbc2c0",
+    "post-finishing-full-flow.ts.txt": "442e2d387d899c3491da5c02c493aac5286cd1b85df56505ac4851dcdb43a435",
+    "post-finishing-full-flow.ts.txt.patch": "ddd0d401ee1cd37e96820c45554dcf10a529012b444494bc20562903e77aa7a0",
+    "review.md": "cc07649ed95b8fd06439d6e98f3b03d0123960552cd8ebf91e7f664c1d241950",
+    "run.log": "8c3c37a568eeda6b5297374a4b0ebd341f04796356fd354304227ae40260c870",
+    "test.ts.txt": "225f0725ef186192d795392365c5954feaaeede2c422b95f4519bba74f7c57f7"
+  }
+}

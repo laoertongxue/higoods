@@ -1,0 +1,1 @@
+主代理核对仅将纯headType/completionStatus/processBusinessCode筛选从clone后移到私有读取的clone前；全量来源构造、readFormal、工厂可访问判断、taskIds、原时间比较与structuredClone保持。两种排序的相对次序保留。全部结果仅在最终返回时clone，原内部heads未修改。公开命令11状态187组工厂核对（含未传、F090、ID-F090、F010、未知）及1914条全量head，pickup/handout/byType均与原全量getter筛选oracle一致，完整对象+各阶段F090完整待办/计数原新逐字节一致，返回对象变更不污染源。具体SHA及字节见result.json。既有DYE初始化继续保留；Node不能替代实际D10或直接邻接浏览器。

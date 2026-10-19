@@ -119,3 +119,42 @@ test('收据和子门禁对重命名、字面箭头文件名以及撤销提交�
   assert.deepEqual(paths, resolveGovernanceScope(['--scope', 'worktree', '--base', base], root, {}).paths)
   assert.deepEqual(getStagedChangedPaths({ cwd: root }), ['literal -> name.ts', 'new.ts', 'old.ts', 'reverted.ts'])
 })
+
+test('超过1MiB的真实Git路径输出完整保留未跟踪、暂存和基线变更', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'higoods-large-changed-paths-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  git(root, 'init', '-qb', 'main')
+  git(root, 'config', 'user.name', 'Workflow Test')
+  git(root, 'config', 'user.email', 'workflow-test@example.invalid')
+  writeFileSync(join(root, 'baseline.md'), '# baseline\n')
+  git(root, 'add', 'baseline.md')
+  git(root, 'commit', '-qm', 'baseline')
+  const base = git(root, 'rev-parse', 'HEAD')
+  const directory = `docs/${'e'.repeat(200)}`
+  mkdirSync(join(root, directory), { recursive: true })
+  const expected = Array.from({ length: 6000 }, (_, index) => `${directory}/proof-${String(index).padStart(6, '0')}.json`)
+  for (const path of expected) writeFileSync(join(root, path), '{}\n')
+  assert(Buffer.byteLength(expected.join('\0')) > 1024 * 1024)
+
+  assert.deepEqual(getChangedPaths({ cwd: root }), expected)
+  git(root, 'add', 'docs')
+  assert.deepEqual(getStagedChangedPaths({ cwd: root }), expected)
+  git(root, 'commit', '-qm', 'evidence')
+  writeFileSync(join(root, 'later.md'), '# later\n')
+  const allExpected = [...expected, 'later.md'].sort()
+  assert.deepEqual(getChangedPaths({ cwd: root, base }), allExpected)
+  assert.deepEqual(resolveVerificationPaths({ cwd: root, base, explicitPaths: allExpected }), allExpected)
+  assert.deepEqual(resolveGovernanceScope(['--scope', 'worktree'], root, { GOVERNANCE_BASE_SHA: base }).paths, allExpected)
+})
+
+test('尚无HEAD时超过1MiB的porcelain输出不遗漏文档', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'higoods-large-unborn-paths-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  git(root, 'init', '-qb', 'main')
+  const directory = `docs/${'u'.repeat(200)}`
+  mkdirSync(join(root, directory), { recursive: true })
+  const expected = Array.from({ length: 5000 }, (_, index) => `${directory}/proof-${String(index).padStart(6, '0')}.json`)
+  for (const path of expected) writeFileSync(join(root, path), '{}\n')
+  assert(Buffer.byteLength(expected.join('\0')) > 1024 * 1024)
+  assert.deepEqual(getChangedPaths({ cwd: root }), expected)
+})

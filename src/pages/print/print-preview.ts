@@ -17,6 +17,20 @@ import {
 type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
 /** 任务单、领料单、部位票和中转袋标签只加载对应模板。 */
 async function loadPrintAdapter(documentType: PrintDocumentType, sourceId?: string): Promise<PrintAdapter> {
+  if (documentType === 'POST_FINISHING_OUTBOUND_ORDER' || documentType === 'POST_FINISHING_OUTBOUND_BARCODE') {
+    const outbound = await import('./templates/post-finishing-outbound-template.ts')
+    return {
+      buildPrintDocument(input) {
+        if (input.sourceType !== 'POST_FINISHING_OUTBOUND_ORDER') throw new Error(`未找到打印模板：${input.documentType} / ${input.sourceType}`)
+        return documentType === 'POST_FINISHING_OUTBOUND_ORDER'
+          ? outbound.buildPostFinishingOutboundOrderPrintDocument(input)
+          : outbound.buildPostFinishingOutboundBarcodePrintDocument(input)
+      },
+      renderPrintDocument: documentType === 'POST_FINISHING_OUTBOUND_ORDER'
+        ? outbound.renderPostFinishingOutboundOrderTemplate
+        : outbound.renderPostFinishingOutboundBarcodeTemplate,
+    }
+  }
   if (documentType === 'POST_FINISHING_QC_ORDER') {
     const qc = await import('./templates/post-finishing-qc-print-template.ts')
     return {
@@ -403,6 +417,14 @@ export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumen
 
   try {
     const {buildPrintDocument, renderPrintDocument} = await loadPrintAdapter(resolved.documentType, resolved.sourceId)
+    if (resolved.sourceType.startsWith('POST_FINISHING_')) {
+      // Print routes are also direct entry points. Read their own persisted
+      // source instead of depending on a prior visit to a factory page.
+      const records = await import('../../data/fcs/post-finishing-records.ts')
+      await records.ensurePostFinishingRecordState()
+      const failure = records.getPostFinishingStorageFailure()
+      if (failure) throw new Error(failure)
+    }
     const document = buildPrintDocument({
       documentType: resolved.documentType,
       sourceType: decodeParam(resolved.sourceType),

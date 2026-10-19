@@ -87,9 +87,9 @@ const columns: StandardListColumn<QcOrderRow>[] = [
           ? `生成加工单 ${row.task.postTaskNo}`
           : row.task.outboundOrderNo
             ? `成衣仓待接收 ${row.task.outboundOrderNo}`
-            : '本批无合格数量，不生成交接单')
-      : (row.task.responsibility.processItemsEditable ? '未勾选则直达成衣仓待接收' : '固定生成后道加工单')
-    return `<div class="text-xs font-medium ${row.task.responsibility.responsibilityMode === 'POST_FACTORY' ? 'text-blue-700' : 'text-slate-700'}">${escapeHtml(`${row.task.responsibility.taskTypeLabel} · ${row.task.responsibility.responsibilityLabel}`)}</div><div class="mt-1 text-[11px] text-muted-foreground">${row.task.responsibility.processItemsEditable ? '按质检漏做情况勾选' : '加工项目固定不可修改'}</div><div class="mt-1 text-[11px] text-blue-700">${escapeHtml(destination)}</div>`
+            : '本次无合格数量，不生成交接单')
+      : '按实际项目加工；无项目则交成衣仓'
+    return `<div class="text-xs font-medium ${row.task.responsibility.responsibilityMode === 'POST_FACTORY' ? 'text-blue-700' : 'text-slate-700'}">${escapeHtml(`${row.task.responsibility.taskTypeLabel} · ${row.task.responsibility.responsibilityLabel}`)}</div><div class="mt-1 text-[11px] text-muted-foreground">${row.task.status === '质检完成' ? row.task.frozenProcessItems?.length ? escapeHtml(row.task.frozenProcessItems.join(' → ')) : '不涉及后道加工' : '由质检员按实物确认加工项目'}</div><div class="mt-1 text-[11px] text-blue-700">${escapeHtml(destination)}</div>`
   } },
   { key: 'station', title: '质检员', width: 100, required: true, render: (row) => escapeHtml(row.task.claimedBy?.actorName || '待领取') },
   { key: 'sku', title: 'SKU 明细', width: 220, required: true, render: renderSkuLines },
@@ -140,7 +140,7 @@ export function renderPostFinishingQcOrdersPage(): string {
       && (!factory || row.delivery?.sewingFactoryName === factory)
       && (!owner || row.task.claimedBy?.actorName.toLowerCase().includes(owner))
   })
-  const counts = countSource.reduce<Record<string, number>>((result, task) => {
+  const counts = records.reduce<Record<string, number>>((result, { task }) => {
     result[task.status] = (result[task.status] || 0) + 1
     return result
   }, {})

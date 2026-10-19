@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { routeAffectedChecks } from '../../scripts/workflow-governance/affected-checks.ts'
 import { verificationCheckEnvironment } from '../../scripts/workflow-governance/check-execution.ts'
+import { getChangedPaths } from '../../scripts/workflow-governance/changed-paths.ts'
+import { resolveGovernanceScope } from '../../scripts/workflow-governance/governance-scope.ts'
 import { isProductionCreateImportOnly } from '../../scripts/workflow-governance/production-create-test-import.ts'
 
 test('退役维护UI验证删除与存续业务契约，性能脚本语法不冒充正式性能', () => {
@@ -16,6 +21,23 @@ test('退役维护UI验证删除与存续业务契约，性能脚本语法不冒
   assert.deepEqual(performance.fullChecks, [])
   assert.ok(routeAffectedChecks(['tests/material-decision.spec.ts']).fullChecks[0]?.includes('playwright test tests/material-decision.spec.ts'))
   assert.deepEqual(routeAffectedChecks(['scripts/unknown-performance.mjs']).unknownPaths, ['scripts/unknown-performance.mjs'])
+})
+
+test('后道逐项补充浏览器契约按D1依赖顺序真实执行，输出不改收据绑定文件', () => {
+  const paths = ['tests/post-finishing-partial-flow.spec.ts', 'tests/post-finishing-consumers.spec.ts', 'tests/post-finishing-migration.spec.ts', 'tests/post-finishing-pda-role-boundary.spec.ts', 'tests/post-finishing-main-integration.spec.ts']
+  for (const path of paths) {
+    const route = routeAffectedChecks([path])
+    assert.deepEqual(route.unknownPaths, [])
+    const command = route.fullChecks.find(command => command.includes('post-finishing-partial-flow.spec.ts'))!
+    assert.ok(command)
+    assert.ok(command.includes('POST_FINISHING_EVIDENCE_ROOT=/tmp/post-finishing-partial-flow-20261019/receipt-browser'))
+    assert.ok(command.includes('PLAYWRIGHT_REUSE_EXISTING_SERVER=false'))
+    assert.ok(command.indexOf('tests/post-finishing-partial-flow.spec.ts') < command.indexOf(' && '))
+    for (const testPath of paths.slice(1)) assert.ok(command.indexOf(testPath) > command.indexOf(' && '))
+    assert.ok(command.includes('--workers=1'))
+  }
+  assert.equal(routeAffectedChecks(paths).fullChecks.filter(command => command.includes('post-finishing-partial-flow.spec.ts')).length, 1)
+  assert.deepEqual(routeAffectedChecks(['tests/post-finishing-unknown.spec.ts']).unknownPaths, ['tests/post-finishing-unknown.spec.ts'])
 })
 
 test('生产建单与冻结独立Node专项精确路由，未知脚本不获得豁免', () => {
@@ -263,12 +285,52 @@ test('完整运行目录与 HTML 入口不能漏掉产品治理', () => {
   }
 })
 
-test('范围必须包含记录且不能回退整工作区', () => {
+test('短范围必须精确包含记录而不回退整工作区', () => {
   const result = routeAffectedChecks(['src/pages/example.ts', 'docs/prototype-review-records/current.md'])
   const scope = "-- --scope worktree --paths 'docs/prototype-review-records/current.md,src/pages/example.ts'"
   assert(result.governanceChecks.includes(`npm run check:prototype-design-governance ${scope}`))
   assert(result.governanceChecks.includes(`npm run check:list-page-governance ${scope}`))
   assert(!result.governanceChecks.some((command) => command.includes('--all')))
+})
+
+test('长范围使用完整worktree与冻结基线而不丢文档或门禁', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'higoods-long-task-scope-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
+  git('init', '-qb', 'main')
+  git('config', 'user.name', 'Workflow Test')
+  git('config', 'user.email', 'workflow-test@example.invalid')
+  writeFileSync(join(root, 'baseline.md'), '# baseline\n')
+  git('add', 'baseline.md')
+  git('commit', '-qm', 'baseline')
+  const base = git('rev-parse', 'HEAD')
+  mkdirSync(join(root, 'src/pages'), { recursive: true })
+  writeFileSync(join(root, 'src/pages/example.ts'), 'export const value = 1\n')
+  git('add', 'src')
+  git('commit', '-qm', 'product change')
+  mkdirSync(join(root, 'docs/evidence'), { recursive: true })
+  const docs = Array.from({ length: 300 }, (_, index) => `docs/evidence/${String(index).padStart(4, '0')}-${'证'.repeat(50)}.json`)
+  for (const path of docs) writeFileSync(join(root, path), '{}\n')
+  const paths = getChangedPaths({ cwd: root, base })
+  assert.deepEqual(paths, [...docs, 'src/pages/example.ts'].sort())
+  assert(Buffer.byteLength(paths.join(',')) > 32 * 1024)
+  const result = routeAffectedChecks(paths)
+  assert.deepEqual(result.changedPaths, paths)
+  assert.deepEqual(result.unknownPaths, [])
+  assert(result.governanceChecks.includes('npm run check:prototype-design-governance -- --scope worktree'))
+  assert(result.governanceChecks.includes('npm run check:list-page-governance -- --scope worktree'))
+  for (const command of result.governanceChecks) {
+    assert(Buffer.byteLength(command) <= 32 * 1024)
+    const argv = execFileSync('/bin/sh', ['-c', `set -- ${command}; printf '%s\\0' "$@"`], { encoding: 'utf8' }).split('\0').filter(Boolean)
+    const scopeArgs = argv.slice(4)
+    assert.deepEqual(scopeArgs, ['--scope', 'worktree'])
+    const environment = verificationCheckEnvironment(base, {}, command)
+    const scope = resolveGovernanceScope(scopeArgs, root, environment)
+    assert.equal(scope.baseRef, base)
+    assert.deepEqual(scope.paths, paths)
+    assert.deepEqual(scope.excludedPaths, [])
+  }
+  assert.throws(() => routeAffectedChecks([...paths, 'docs/has,comma.md']), /无法精确传递任务范围/)
 })
 
 test('治理工具名中的 cutting 不触发裁床全量或构建', () => {

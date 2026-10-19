@@ -1,0 +1,38 @@
+{
+  "quantity": 100,
+  "id": "PF-OUT-PF-ACCEPT-PO-1-1",
+  "urlSourceId": "PF-OUT-PF-ACCEPT-PO-1-1",
+  "outboundQty": 100,
+  "perSku": [
+    {
+      "skuId": "SPU-QC-001-2XL",
+      "barcode": "SKU-105-202608",
+      "quantity": 20
+    },
+    {
+      "skuId": "SPU-QC-001-L",
+      "barcode": "SKU-103-202608",
+      "quantity": 20
+    },
+    {
+      "skuId": "SPU-QC-001-M",
+      "barcode": "SKU-102-202608",
+      "quantity": 20
+    },
+    {
+      "skuId": "SPU-QC-001-S",
+      "barcode": "SKU-101-202608",
+      "quantity": 20
+    },
+    {
+      "skuId": "SPU-QC-001-XL",
+      "barcode": "SKU-104-202608",
+      "quantity": 20
+    }
+  ],
+  "backupRecordRows": 27548,
+  "backupJsonBytes": 36178108,
+  "backupJsonSha256": "78adb8de3cac155fd32499707c4d7d703f0f7f9e48e8bad72d0642f12bb1d586",
+  "processCompletions": 4000,
+  "usesPrintBackup": false
+}

@@ -9,7 +9,7 @@ import {
   type PrintLabelItem,
 } from '../../../data/fcs/print-service.ts'
 import { DEDICATED_POST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
-import { getPostFinishingFullFlowOutboundOrder } from '../../../data/fcs/post-finishing-full-flow.ts'
+import { getPostFinishingFactoryReturn, getPostFinishingFullFlowOutboundOrder } from '../../../data/fcs/post-finishing-full-flow.ts'
 import { renderGarmentSkuLabelTemplate } from './garment-sku-label-template.ts'
 
 function requireOrder(sourceId: string) {
@@ -35,7 +35,7 @@ export function buildPostFinishingOutboundOrderPrintDocument(input: PrintDocumen
     headerFields: [
       { label: '出货单号', value: order.outboundOrderNo, emphasis: true },
       { label: '状态', value: order.status },
-      { label: '工厂', value: DEDICATED_POST_FACTORY_NAME },
+      { label: '工厂', value: getPostFinishingFactoryReturn(order.deliveryId)?.managedPostFactoryName || DEDICATED_POST_FACTORY_NAME },
       { label: '来源动作', value: order.sourceType },
       { label: '出库仓', value: order.sourceType === '后道加工后' ? '处理后待交出区' : 'QC 合格交接区' },
       { label: '接收仓', value: '成衣仓' },
@@ -87,9 +87,9 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
   const order = requireOrder(input.sourceId)
   const generatedAt = getPrintGeneratedAt()
   const date = generatedAt.slice(0, 10)
-  const labelItems: PrintLabelItem[] = order.lines.map((line) => {
+  const labelItems: PrintLabelItem[] = order.lines.flatMap(line => Array.from({ length: line.outboundQty }, () => {
     const sku = findSkuArchiveByCode(line.sku.skuCode)
-    const barcode = sku?.barcode || line.sku.barcode || fallbackBarcode(line.sku.skuCode)
+    const barcode = line.sku.barcode || sku?.barcode || fallbackBarcode(line.sku.skuCode)
     return {
       labelTitle: line.sku.skuCode,
       labelFields: [
@@ -99,7 +99,7 @@ export function buildPostFinishingOutboundBarcodePrintDocument(input: PrintDocum
       barcode: { title: barcode, value: barcode, description: barcode },
       labelWarnings: [],
     }
-  })
+  }))
   return {
     printDocumentId: createPrintDocumentId(input, 'POST_FINISHING_OUTBOUND_BARCODE_V1'),
     documentType: input.documentType,

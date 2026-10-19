@@ -1,0 +1,556 @@
+{
+  "family": "print:GENERIC_BARCODE:1000:cold",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 1047190,
+  "top": [
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 166,
+      "inclusiveSamples": 166
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 89,
+      "inclusiveSamples": 89
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 33,
+      "inclusiveSamples": 33,
+      "sourceExcerpt": "=>{throw ie=void 0,e}),ie)}function j(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/index-DzdCIoHq.js",
+      "line": 1224,
+      "column": 26293,
+      "selfSamples": 30,
+      "inclusiveSamples": 30,
+      "sourceExcerpt": "bg-red-50 p-4 text-sm text-red-700\">页面内容加载失败，请稍后重试。</section>'}}async function N(){const e=++me,t=f.getState();pl(t);const a=Gt(t.pathname),n=t.pathname.startsWith(\"/fcs/pda/wool/\")||/^\\/fcs\\/pda\\/exec\\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\\?|$)/.test(t.pathname),o=await a,d=o.includes(\"data-post-finishing-entry-storage-failure\"),u=t.pathname.split(\"?\")[0].split(\"#\")[0]===\"/fcs/pda/auth/login\";oe(t.pathname)&&!n&&!u&&!d&&await j(),e===me&&(w.innerHTML=je(t,Kt(o)),t.pathname.startsWith(\"/pms/\")&&(await r(()=>import(\"./shared-DCgBRv2O.js\"),__vite__mapDeps([505,1,2,48,4]))).hydratePmsSurface(w,{icons:!1}),oe(t.pathname)?(!u&&!d&&!w.querySelector(\"[data-pda-wool-root], [d"
+    },
+    {
+      "function": "Y",
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-C2b23W0w.js",
+      "line": 0,
+      "column": 10781,
+      "selfSamples": 15,
+      "inclusiveSamples": 22,
+      "sourceExcerpt": "onth()+1)}-${r(e.getDate())} ${r(e.getHours())}:${r(e.getMinutes())}`}function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i]=o.split(\" \"),[c,m]=i.split(\":\"),f=new Date(`${n}"
+    },
+    {
+      "function": "Y",
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-C2b23W0w.js",
+      "line": 0,
+      "column": 10781,
+      "selfSamples": 14,
+      "inclusiveSamples": 22,
+      "sourceExcerpt": "onth()+1)}-${r(e.getDate())} ${r(e.getHours())}:${r(e.getMinutes())}`}function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i]=o.split(\" \"),[c,m]=i.split(\":\"),f=new Date(`${n}"
+    },
+    {
+      "function": "Y",
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-C2b23W0w.js",
+      "line": 0,
+      "column": 10781,
+      "selfSamples": 13,
+      "inclusiveSamples": 20,
+      "sourceExcerpt": "onth()+1)}-${r(e.getDate())} ${r(e.getHours())}:${r(e.getMinutes())}`}function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i]=o.split(\" \"),[c,m]=i.split(\":\"),f=new Date(`${n}"
+    },
+    {
+      "function": "structuredClone",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 13,
+      "inclusiveSamples": 13
+    },
+    {
+      "function": "Me",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 52337,
+      "selfSamples": 12,
+      "inclusiveSamples": 35,
+      "sourceExcerpt": "ncludes(s.roleName)))throw new Error(\"加工责任人或录入人身份不完整，资料未导入。\")}}async function Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeValues)!=null&&o.has(a.value))?a.value:ot(a.value)})"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 11,
+      "inclusiveSamples": 11
+    },
+    {
+      "function": "Y",
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-C2b23W0w.js",
+      "line": 0,
+      "column": 10781,
+      "selfSamples": 11,
+      "inclusiveSamples": 24,
+      "sourceExcerpt": "onth()+1)}-${r(e.getDate())} ${r(e.getHours())}:${r(e.getMinutes())}`}function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i]=o.split(\" \"),[c,m]=i.split(\":\"),f=new Date(`${n}"
+    },
+    {
+      "function": "structuredClone",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 8,
+      "inclusiveSamples": 8
+    },
+    {
+      "function": "structuredClone",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 7,
+      "inclusiveSamples": 7
+    },
+    {
+      "function": "Ye",
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-zWkNl40_.js",
+      "line": 1,
+      "column": 85430,
+      "selfSamples": 7,
+      "inclusiveSamples": 7,
+      "sourceExcerpt": "tion\"&&typeof E.setItem==\"function\"&&typeof E.removeItem==\"function\"}function Ye(e){var t,r,a;return{...e,legacyValues:e.legacyValues?structuredClone(e.legacyValues):void 0,packageSpecs:(t=e.packageSpecs)==null?void 0:t.map(s=>({...s})),packageSpecHistory:(r=e.packageSpecHistory)==null?void 0:r.map(s=>({...s})),extraIdentityValues:e.extraIdentityValues?{...e.extraIdentityValues}:void 0,skuNameTranslations:e.skuNameTranslations?{...e.skuNameTranslations}:void 0,barcodeAliases:e.barcodeAliases?[...e.barcodeAliases]:void 0,bundleComponents:(a=e.bundleComponents)==null?void 0:a.map(s=>({...s})),archiveLogs:e.archiveLogs?structuredClone(e.archiveLogs):void 0}}function Zm(e){re"
+    },
+    {
+      "function": "Ye",
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-zWkNl40_.js",
+      "line": 1,
+      "column": 85430,
+      "selfSamples": 7,
+      "inclusiveSamples": 7,
+      "sourceExcerpt": "tion\"&&typeof E.setItem==\"function\"&&typeof E.removeItem==\"function\"}function Ye(e){var t,r,a;return{...e,legacyValues:e.legacyValues?structuredClone(e.legacyValues):void 0,packageSpecs:(t=e.packageSpecs)==null?void 0:t.map(s=>({...s})),packageSpecHistory:(r=e.packageSpecHistory)==null?void 0:r.map(s=>({...s})),extraIdentityValues:e.extraIdentityValues?{...e.extraIdentityValues}:void 0,skuNameTranslations:e.skuNameTranslations?{...e.skuNameTranslations}:void 0,barcodeAliases:e.barcodeAliases?[...e.barcodeAliases]:void 0,bundleComponents:(a=e.bundleComponents)==null?void 0:a.map(s=>({...s})),archiveLogs:e.archiveLogs?structuredClone(e.archiveLogs):void 0}}function Zm(e){re"
+    },
+    {
+      "function": "structuredClone",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 7,
+      "inclusiveSamples": 7
+    },
+    {
+      "function": "Ye",
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-zWkNl40_.js",
+      "line": 1,
+      "column": 85430,
+      "selfSamples": 7,
+      "inclusiveSamples": 7,
+      "sourceExcerpt": "tion\"&&typeof E.setItem==\"function\"&&typeof E.removeItem==\"function\"}function Ye(e){var t,r,a;return{...e,legacyValues:e.legacyValues?structuredClone(e.legacyValues):void 0,packageSpecs:(t=e.packageSpecs)==null?void 0:t.map(s=>({...s})),packageSpecHistory:(r=e.packageSpecHistory)==null?void 0:r.map(s=>({...s})),extraIdentityValues:e.extraIdentityValues?{...e.extraIdentityValues}:void 0,skuNameTranslations:e.skuNameTranslations?{...e.skuNameTranslations}:void 0,barcodeAliases:e.barcodeAliases?[...e.barcodeAliases]:void 0,bundleComponents:(a=e.bundleComponents)==null?void 0:a.map(s=>({...s})),archiveLogs:e.archiveLogs?structuredClone(e.archiveLogs):void 0}}function Zm(e){re"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-D4GT2Gll.js",
+      "line": 0,
+      "column": 117026,
+      "selfSamples": 7,
+      "inclusiveSamples": 22,
+      "sourceExcerpt": "记录未修改。\");m.processCompletions||(m.processCompletions=[]),m.schemaVersion=3});Qr(()=>{var R,v,D,w,F;const e=new Map(m.deliveries.map(u=>[u.deliveryId,u])),t=new Map(m.qcTasks.map(u=>[u.qcTaskId,u])),r=new Map(m.postTasks.map(u=>[u.postTaskId,u])),o=new Map(m.recheckOrders.map(u=>[u.recheckOrderId,u])),s=new Map(m.outboundOrders.map(u=>[u.outboundOrderId,u])),a=u=>{var A;return!!(u.operationId||u.postTaskId&&((A=r.get(u.postTaskId))==null?void 0:A.executionModel)===\"ITEMS_V1\")},n=u=>!!(u.recheckOrderId&&o.has(u.recheckOrderId)&&!a(o.get(u.recheckOrderId))),c=[\"deliveryId\",\"deliveryOrderNo\",\"productionOrderNo\",\"qcTaskId\",\"qcTaskNo\",\"postTaskId\",\"postTaskNo\",\"returnIndex\",\"so"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 2945,
+      "selfSamples": 6,
+      "inclusiveSamples": 18,
+      "sourceExcerpt": "or(\"PCS 附件格式或文件编号无效、重复。\");o.add(t.id)}}async function D(e){return ae(\"readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all([...a].map(w=>j(i.get(w))))).filter(w=>w!==void 0)"
+    },
+    {
+      "function": "Y",
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-C2b23W0w.js",
+      "line": 0,
+      "column": 10781,
+      "selfSamples": 5,
+      "inclusiveSamples": 7,
+      "sourceExcerpt": "onth()+1)}-${r(e.getDate())} ${r(e.getHours())}:${r(e.getMinutes())}`}function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i]=o.split(\" \"),[c,m]=i.split(\":\"),f=new Date(`${n}"
+    },
+    {
+      "function": "Ye",
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-zWkNl40_.js",
+      "line": 1,
+      "column": 85430,
+      "selfSamples": 5,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "tion\"&&typeof E.setItem==\"function\"&&typeof E.removeItem==\"function\"}function Ye(e){var t,r,a;return{...e,legacyValues:e.legacyValues?structuredClone(e.legacyValues):void 0,packageSpecs:(t=e.packageSpecs)==null?void 0:t.map(s=>({...s})),packageSpecHistory:(r=e.packageSpecHistory)==null?void 0:r.map(s=>({...s})),extraIdentityValues:e.extraIdentityValues?{...e.extraIdentityValues}:void 0,skuNameTranslations:e.skuNameTranslations?{...e.skuNameTranslations}:void 0,barcodeAliases:e.barcodeAliases?[...e.barcodeAliases]:void 0,bundleComponents:(a=e.bundleComponents)==null?void 0:a.map(s=>({...s})),archiveLogs:e.archiveLogs?structuredClone(e.archiveLogs):void 0}}function Zm(e){re"
+    },
+    {
+      "function": "request.onsuccess",
+      "url": "",
+      "line": 47,
+      "column": 28,
+      "selfSamples": 5,
+      "inclusiveSamples": 5
+    },
+    {
+      "function": "b",
+      "url": "http://127.0.0.1:43198/assets/real-barcode-BJdGy9l6.js",
+      "line": 0,
+      "column": 1235,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "r}),o=(104+c.reduce((e,r,s)=>e+r*(s+1),0))%103;return[104,...c,o,106]}function b(n,c=\"库位条码\"){const o=n.trim();if(!o)return\"\";const e=h(o).map(t=>f[t]),r=10,s=e.reduce((t,d)=>t+Array.from(d).reduce((u,a)=>u+Number(a),0),r*2);let i=r;const l=[];return e.forEach(t=>{Array.from(t).forEach((d,u)=>{const a=Number(d);u%2===0&&l.push(`<rect x=\"${i}\" y=\"0\" width=\"${a}\" height=\"56\" fill=\"currentColor\" />`),i+=a})}),`<svg viewBox=\"0 0 ${s} 56\" role=\"img\" aria-label=\"${m(c)}\" preserveAspectRatio=\"none\" class=\"h-14 w-full text-black\" data-real-barcode data-barcode-value=\"${m(o)}\">${l.join(\"\")}</svg>`}export{b as r};"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 4,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "。\")}function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 3,
+      "inclusiveSamples": 6,
+      "sourceExcerpt": "var Wt=Object.defineProperty;var Kt=(e,t,a)=>t in e?Wt(e,t,{enumerable:!0,configurable:!0,writable:!0,value:a}):e[t]=a;var Pe=(e,t,a)=>Kt(e,typeof t!=\"symbol\"?t+\"\":t,a);import{T as Ht,a as qt,b as W,A as ht,c as gt,d as xe,S as At,e as St,f as ne}from\"./tmf-domain-shared-DboXqEqI.js\";function y(e){return(e==null?\"\":String(e)).replaceAll(\"&\",\"&amp;\").replaceAll(\"<\",\"&lt;\").replaceAll(\">\",\"&gt;\").replaceAll('\"',\"&quot;\").replaceAll(\"'\",\"&#39;\")}function Vt(...e){return e.filter(Boolean).join(\" \")}function Xt(e){return typeof CSS<\"u\"&&typeof CSS.escape==\"function\"?CSS.escape(e):Array.from(e,t=>{v"
+    }
+  ],
+  "aggregatedTop": [
+    {
+      "frame": {
+        "functionName": "(program)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 166,
+      "stacks": [
+        [
+          "(program) <- (root)",
+          166
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(idle)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 89,
+      "stacks": [
+        [
+          "(idle) <- (root)",
+          89
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Y",
+        "scriptId": "29",
+        "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-C2b23W0w.js",
+        "lineNumber": 0,
+        "columnNumber": 10781
+      },
+      "selfSamples": 72,
+      "stacks": [
+        [
+          "Y <- L <- be <- <anonymous> <- Xa <- Wr <- O <- Ch <- W <- <anonymous> <- pt <- N <- <anonymous> <- (root)",
+          29
+        ],
+        [
+          "Y <- L <- be <- <anonymous> <- Xa <- Wr <- O <- Ch <- W <- <anonymous> <- pt <- dr <- mr <- Je <- _e <- (root)",
+          24
+        ],
+        [
+          "Y <- L <- be <- <anonymous> <- Xa <- Wr <- O <- Kg <- te <- Qg <- Zg <- gl <- G <- W0 <- U <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "Y <- L <- be <- v <- b <- K <- <anonymous> <- Ma <- Le <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "Y <- L <- be <- <anonymous> <- Xa <- Ie <- te <- Qg <- Zg <- gl <- G <- W0 <- U <- <anonymous> <- (root)",
+          3
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "structuredClone",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 51,
+      "stacks": [
+        [
+          "structuredClone <- Y <- L <- be <- <anonymous> <- Xa <- Wr <- O <- Ch <- W <- <anonymous> <- pt <- dr <- mr <- Je <- _e <- (root)",
+          20
+        ],
+        [
+          "structuredClone <- Y <- L <- be <- <anonymous> <- Xa <- Wr <- O <- Ch <- W <- <anonymous> <- pt <- N <- <anonymous> <- (root)",
+          15
+        ],
+        [
+          "structuredClone <- Y <- L <- be <- <anonymous> <- Xa <- Ie <- te <- Qg <- Zg <- gl <- G <- W0 <- U <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "structuredClone <- Y <- L <- be <- v <- b <- K <- <anonymous> <- Ma <- Le <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "structuredClone <- Y <- L <- be <- <anonymous> <- Xa <- Wr <- O <- Kg <- te <- Qg <- Zg <- gl <- G <- W0 <- U <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "e.onsuccess",
+        "scriptId": "25",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+        "lineNumber": 1,
+        "columnNumber": 1210
+      },
+      "selfSamples": 33,
+      "stacks": [
+        [
+          "e.onsuccess <- (root)",
+          33
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "N",
+        "scriptId": "18",
+        "url": "http://127.0.0.1:43198/assets/index-DzdCIoHq.js",
+        "lineNumber": 1224,
+        "columnNumber": 26293
+      },
+      "selfSamples": 31,
+      "stacks": [
+        [
+          "N <- (root)",
+          30
+        ],
+        [
+          "N <- <anonymous> <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Ye",
+        "scriptId": "23",
+        "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-zWkNl40_.js",
+        "lineNumber": 1,
+        "columnNumber": 85430
+      },
+      "selfSamples": 31,
+      "stacks": [
+        [
+          "Ye <- et <- W <- <anonymous> <- pt <- dr <- mr <- Je <- _e <- (root)",
+          14
+        ],
+        [
+          "Ye <- et <- W <- <anonymous> <- pt <- N <- <anonymous> <- (root)",
+          12
+        ],
+        [
+          "Ye <- et <- b <- W <- <anonymous> <- pt <- dr <- mr <- Je <- _e <- (root)",
+          2
+        ],
+        [
+          "Ye <- et <- Ye <- pt <- dr <- mr <- Je <- _e <- (root)",
+          1
+        ],
+        [
+          "Ye <- et <- Ye <- pt <- N <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Me",
+        "scriptId": "25",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+        "lineNumber": 1,
+        "columnNumber": 52337
+      },
+      "selfSamples": 12,
+      "stacks": [
+        [
+          "Me <- (root)",
+          12
+        ],
+        [
+          "Me <- x <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(garbage collector)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 11,
+      "stacks": [
+        [
+          "(garbage collector) <- (root)",
+          11
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "c",
+        "scriptId": "25",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+        "lineNumber": 1,
+        "columnNumber": 1895
+      },
+      "selfSamples": 11,
+      "stacks": [
+        [
+          "c <- c <- M <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "c <- M <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "c <- c <- c <- M <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "c <- c <- c <- c <- M <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "68",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-D4GT2Gll.js",
+        "lineNumber": 0,
+        "columnNumber": 117026
+      },
+      "selfSamples": 7,
+      "stacks": [
+        [
+          "<anonymous> <- <anonymous> <- Me <- (root)",
+          7
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "at",
+        "scriptId": "23",
+        "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-zWkNl40_.js",
+        "lineNumber": 3,
+        "columnNumber": 73292
+      },
+      "selfSamples": 6,
+      "stacks": [
+        [
+          "at <- W <- m <- <anonymous> <- W <- <anonymous> <- pt <- N <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "at <- W <- m <- <anonymous> <- W <- <anonymous> <- pt <- dr <- mr <- Je <- _e <- (root)",
+          2
+        ],
+        [
+          "at <- W <- <anonymous> <- U <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "25",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-cpCRWSNv.js",
+        "lineNumber": 1,
+        "columnNumber": 2945
+      },
+      "selfSamples": 6,
+      "stacks": [
+        [
+          "<anonymous> <- (root)",
+          6
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "request.onsuccess",
+        "scriptId": "3",
+        "url": "",
+        "lineNumber": 47,
+        "columnNumber": 28
+      },
+      "selfSamples": 5,
+      "stacks": [
+        [
+          "request.onsuccess <- (root)",
+          5
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Jn",
+        "scriptId": "64",
+        "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-lLxUBxZN.js",
+        "lineNumber": 0,
+        "columnNumber": 277063
+      },
+      "selfSamples": 4,
+      "stacks": [
+        [
+          "Jn <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "Jn <- K <- at <- nt <- W <- At <- Tt <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "Jn <- K <- at <- nt <- W <- Tt <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "Jn <- Mt <- _ <- bt <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    }
+  ]
+}

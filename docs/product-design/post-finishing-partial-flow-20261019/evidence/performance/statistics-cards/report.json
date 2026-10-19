@@ -1,0 +1,588 @@
+{
+  "version": 1,
+  "startedAt": "2026-10-19T15:10:42.240Z",
+  "timezone": "Asia/Shanghai",
+  "head": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "dirty": "M README.md\n M architecture.md\n M public/newpda/handoff-context.js\n M public/newpda/post-flow.css\n M public/newpda/post-flow.js\n M scripts/check-post-finishing-current-read-model.ts\n M scripts/check-post-finishing-full-flow-surface.ts\n M scripts/check-post-finishing-full-flow.ts\n M scripts/check-post-finishing-outbound-and-online-print.ts\n M scripts/check-post-finishing-qc-colors.ts\n M scripts/check-post-finishing-return-source-generalization.ts\n M scripts/check-post-finishing-web-pda-fallback.ts\n M scripts/verification/post-finishing-qc-browser.js\n M src/data/fcs/platform-process-result-view.ts\n M src/data/fcs/post-finishing-current-read-model.ts\n M src/data/fcs/post-finishing-document-numbering.ts\n M src/data/fcs/post-finishing-full-flow.ts\n M src/data/fcs/post-finishing-records.ts\n M src/data/fcs/task-print-cards.ts\n M src/pages/pda-post-finishing-exec-detail.ts\n M src/pages/pda-post-finishing-flow.ts\n M src/pages/print/print-preview.ts\n M src/pages/print/templates/post-finishing-outbound-template.ts\n M src/pages/print/templates/post-finishing-route-card-template.ts\n M src/pages/process-factory/post-finishing/audit-records.ts\n M src/pages/process-factory/post-finishing/events.ts\n M src/pages/process-factory/post-finishing/full-flow-print.ts\n M src/pages/process-factory/post-finishing/qc-orders.ts\n M src/pages/process-factory/post-finishing/qc-workbench.ts\n M src/pages/process-factory/post-finishing/statistics.ts\n M src/pages/process-factory/post-finishing/storage-notice.ts\n M src/pages/process-factory/post-finishing/tasks.ts\n M src/pages/process-factory/post-finishing/warehouse.ts\n M src/pages/process-factory/post-finishing/work-order-detail.ts\n M src/pages/process-factory/post-finishing/work-orders.ts\n M tests/post-finishing-full-flow-cross-terminal.spec.ts\n M tests/post-finishing-full-flow.spec.ts\n M tests/post-finishing-pda-role-boundary.spec.ts\n?? docs/implementation-plans/2026-10-19-后道逐项加工与多次复检出货实施及验收计划.md\n?? docs/product-design/2026-10-19-后道逐项加工与多次复检出货调整方案.md\n?? docs/product-design/post-finishing-partial-flow-20261019/\n?? docs/prototype-review-records/2026-10-19-post-finishing-partial-flow.md\n?? docs/requirement-traceability/2026-10-19-后道逐项加工与多次复检出货矩阵.md\n?? scripts/verification/post-finishing-partial-performance.mjs\n?? scripts/verification/post-finishing-standalone-performance.mjs\n?? src/data/fcs/post-finishing-print-progress.ts\n?? tests/post-finishing-consumers.spec.ts\n?? tests/post-finishing-migration.spec.ts\n?? tests/post-finishing-partial-flow.spec.ts\n?? tests/unit/post-finishing-multiple-recheck.test.ts\n?? tests/unit/post-finishing-process-progress.test.ts",
+  "scriptSha256": "0a77690a37df9750fc4a75f9fb2ad5511cd28bc70a693410513e0ee2a495ac9f",
+  "config": {
+    "arguments": [
+      "--run",
+      "--reuse-fixture",
+      "--calibration",
+      "--snapshot-statistics",
+      "--output=docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/statistics-cards",
+      "--fixture=docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json"
+    ],
+    "sourceOrigin": "http://127.0.0.1:43197",
+    "targetOrigin": "http://127.0.0.1:43198",
+    "calibration": true,
+    "preflight": false,
+    "profileRequested": false,
+    "routeFilter": [
+      "work-list"
+    ],
+    "printTypes": [
+      "OUTBOUND_BARCODE"
+    ],
+    "trials": 1,
+    "maxMs": 1000,
+    "selected": [
+      "pages",
+      "actions",
+      "print"
+    ],
+    "coldDefinition": "Fresh isolated browser context with empty application HTTP cache; a static CSS document establishes the origin for IndexedDB fixture preparation before app navigation. No main app assets or images are loaded during origin preparation.",
+    "D10": {
+      "parentOrders": 100,
+      "skusPerOrder": 5,
+      "quantityPerSku": 200,
+      "items": 4,
+      "entriesPerItem": 10,
+      "incrementPerSku": 20,
+      "processRecords": 4000,
+      "rechecks": 1000,
+      "outbounds": 1000
+    },
+    "additionalActions": {
+      "parents": 5,
+      "purpose": "Independent pending-QC parents, then genuine UI process/recheck/outbound actions; do not reduce the D10 backbone."
+    },
+    "fixturePreparationTransport": "The unchanged public-command backup JSON is gzip-encoded only across the test-controller/browser boundary, then decoded before native IndexedDB preparation. No app routing/cache policy changes; outside all response timing.",
+    "boundary": "Mock browser only. No test/production database access, no factory/scanner/printer execution."
+  },
+  "fixture": {
+    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json",
+    "sha256": "20fb87f28a78a7381603d0dd626850fe12b15f2ed756285e7105fc9fb9d0b84a",
+    "counts": {
+      "postTasks": 100,
+      "processCompletions": 4000,
+      "recheckOrders": 1000,
+      "outboundOrders": 1000,
+      "warehouseReceipts": 900,
+      "qcTasks": 105
+    },
+    "preparationMs": 10632.600000023842,
+    "sourceMethod": "Public source fixture clones -> register return -> confirm -> send QC -> claim/complete QC -> 4000 append commands -> 1000 submit -> barcode -> complete recheck -> 900 receipts. One fixture-preparation transaction; not a UI performance sample."
+  },
+  "host": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M3",
+    "logicalCpus": 8,
+    "ramBytes": 17179869184
+  },
+  "browser": "149.0.7827.55",
+  "samples": [],
+  "coverage": [],
+  "assets": [
+    {
+      "url": "http://127.0.0.1:43198/assets/index-lj0Y4NPX.css",
+      "status": 200,
+      "localSha256": "813c4ec0c25ba7584b5e57a6e4ccabcda0611e2bca7a468c69c5f3e80bfc8134"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-domain-shared-CfUVW7tX.js",
+      "status": 200,
+      "localSha256": "479e05509cf66dfd6bade4b100dfe4bf9f8fb6ae6a3df826d11d507db1273ed1"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+      "status": 200,
+      "localSha256": "9d7fd48f45755d37a206f69fc946ce65c370fe0f823bd6b824b12149c4de25ec"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/index-BRQAPhkO.js",
+      "status": 200,
+      "localSha256": "fca418c1e15238a5112c6643319b03efe6e63be7b18d3e39e78fbee387a61e63"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/craft-image-storage-BOXCycwI.js",
+      "status": 200,
+      "localSha256": "46910cdf9c8323b0697062f3251486a9acb34938d7f789443b10b9e386af7675"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/craft-display-support-DEGooIQD.js",
+      "status": 200,
+      "localSha256": "8f94d5fc9117c54c7cb225d24712aa4e41879ea75cd9f4d9e9ad575189682526"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+      "status": 200,
+      "localSha256": "a3ecb7ccb67353da0b61579c6f3800165bc60688a0cd967704f0e20a2e650b68"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-bootstrap-RjDtDYcC.js",
+      "status": 200,
+      "localSha256": "e5b0969eb51aab748632f736d314c451b8aa924be14dda00283386c31346ec2f"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-baseline-BdbNpplt.json",
+      "status": 200,
+      "localSha256": "66d320307a482c5f6260892aa14022e7677b6b939387e5cf54762dc37c4c4fc2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/design-revision-pcs-storage-BjfzS8H8.js",
+      "status": 200,
+      "localSha256": "36323f0d01b3f8259210f0635f144d986267be2ca78e995a23e629a8c85e2e14"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/post-finishing-authorization-CAJfsvUw.js",
+      "status": 200,
+      "localSha256": "c2d31fe95d67e8bbbb3fc575e85c1ce22c6febd36e4fa79f70aff59f1a0a281e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-receiving-BSuh4IJl.js",
+      "status": 200,
+      "localSha256": "04c35d27c3af9bc821dc342e35194d3d331c8a483ec77661dbfa249540a46b7e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-order-runtime-store-Cl3bE9HQ.js",
+      "status": 200,
+      "localSha256": "331a85df828a913bddd7f3fe11828cc8fc46b4c348e7082959c7bcb2b8284de5"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+      "status": 200,
+      "localSha256": "2efd74ada1f9025a0e33857310d7f428880dbe1c08661b41421b77ec50234ff9"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-orders-DxAO3v7V.js",
+      "status": 200,
+      "localSha256": "e95e70c8338c987f66420d505273859656bab513d7877215a39e0eabd8d9a7ef"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-E1H4SjBg.js",
+      "status": 200,
+      "localSha256": "dc225554932e69abea85a7aa80cb14a46fe18e0e3f568bfabbaae0815a0aeccc"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/effective-task-assignments-VW__ExH5.js",
+      "status": 200,
+      "localSha256": "793ca2d44ada96f735c490992bae523abf249f0a36c7920824777196b859140a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/cut-piece-release--ubX5a3f.js",
+      "status": 200,
+      "localSha256": "65e88a9d8f4c5d519c853e480889547df6060022b6dfb5d1a595c6fad6da5013"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/route-renderers-fcs-61IwBa7m.js",
+      "status": 200,
+      "localSha256": "76854563a1cfa5689838b917c491e15dc1ab77fda6641e29ab4acdec759178d0"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-responsibility-CLuZ_MMT.js",
+      "status": 200,
+      "localSha256": "f13875caa82c3edc10f3bb446ae15df5fc7f87fcb6b98e74296abaa03477b4bc"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-return-tracking-DD_MPZ3T.js",
+      "status": 200,
+      "localSha256": "c235b210c3699ebb0591329823c7c143d33766d5a5680bb9a3bdba742b9df973"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-cut-piece-responsibility-BUnFv0Np.js",
+      "status": 200,
+      "localSha256": "3620239b5692e18f307e66305788acd56295d3686ad934013ef3da21ce8632e3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/ppic-daily-return-records-fkADTkTj.js",
+      "status": 200,
+      "localSha256": "44f1ef6d0780715668174735093dfc502cd358ef224549f2a1e3f905aceb40bb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/ppic-return-quantity-basis-e2u74GBJ.js",
+      "status": 200,
+      "localSha256": "94eb5c3ae6eb865258079ad05408cabc5c0890dbe44277b13c3f6961515c5cb6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-return-fulfillment-DTKQwHGB.js",
+      "status": 200,
+      "localSha256": "b03624a8d5cae5d52819c6202bc8934e383c2a197b0cb5f97b95167a15ccd81b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/water-soluble-relation-sources-B0A5wzAv.js",
+      "status": 200,
+      "localSha256": "8255047c10e82c66c2b2cd122e2b3800cd3433148d48e75d8fd53a608e3da167"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/statistics-BOCLJlSj.js",
+      "status": 200,
+      "localSha256": "1ee3059c73a235b1c17db88ac8d28c78393992707ae93c72f42d10b465785ea2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/dyeing-warehouse-view-ByW8ZR2R.js",
+      "status": 200,
+      "localSha256": "997944469e5be8be403e1f92ece06582786cc7fc87169dc5e1ff0f3d2a159ae2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-statistics-domain-zXJ6xDOw.js",
+      "status": 200,
+      "localSha256": "03ed1fadfd9964d9078ca6ff7f440a08bdf6c624f109a55e8603824686f67069"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CVziZALl.js",
+      "status": 200,
+      "localSha256": "ab8bd444d8321dcb1cca83db4abb360d045746b0de088f74accadba3748c6ea3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-process-continuation-CH4qT0ec.js",
+      "status": 200,
+      "localSha256": "f5cdecbd07f82044e2499d7186b7c192939f6c1df8db28a702ed9ed1fe4e0736"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "status": 200,
+      "localSha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-reference-images-6geKcU1B.js",
+      "status": 200,
+      "localSha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-engineering-task-upload-repository-W38nh_Sq.js",
+      "status": 200,
+      "localSha256": "8e7d34323a3cf87ad68217a1c28c82ff7fb2de1669cdba710d9fa3cd57ad2743"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-tech-pack-change-domain-INDXGLk8.js",
+      "status": 200,
+      "localSha256": "8ed386dba9661f2bd8abc8206e1ef179c18282dc0089bbf7436cd107d5c2e565"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/printing-task-domain-DPgbbIla.js",
+      "status": 200,
+      "localSha256": "6d8f270b4eafb8e5d4b64d37f4e8cf7a255ef5613be73d0b376f8e4ef5a758de"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/shared-Cx8H_Bk_.js",
+      "status": 200,
+      "localSha256": "7ba4b1d518390ab5ebd7d7a69b35f6ed6ae774cdb1682fe1f00c2ffd9f878dab"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-warehouse-domain-l49mD6XF.js",
+      "status": 200,
+      "localSha256": "00af924f7d4426c3554298258cb1411f1d3c825c5508f5b429385e74839e32d6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/warehouse-runtime-D-Ws6VFl.js",
+      "status": 200,
+      "localSha256": "40be18cabad4b85a16218770808179704a5b6b7699d24facfafa39db7c72edb7"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-C11eaAmv.js",
+      "status": 200,
+      "localSha256": "5e94e8f1d6e8e4435f576f36efa7f9954a24b064759e94ca037c84793561de1c"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/special-craft-task-orders-Dt-KE9cl.js",
+      "status": 200,
+      "localSha256": "0f87495ef4cf22921483e83949ab916cf082ddca7bc7660b22fd23b5fd91ab95"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/storage-notice-CdIBtTfh.js",
+      "status": 200,
+      "localSha256": "b16f3115ac9e2c5ac55f3eb80a830235caca8c385dbab0c8b4d3012017b926c2"
+    }
+  ],
+  "errors": [],
+  "completed": false,
+  "passed": false,
+  "families": [],
+  "fixturePreparationProofs": [
+    {
+      "sha256": "78adb8de3cac155fd32499707c4d7d703f0f7f9e48e8bad72d0642f12bb1d586",
+      "counts": {
+        "records": 27548,
+        "files": 0,
+        "processCompletions": 4000,
+        "recheckOrders": 1000,
+        "outboundOrders": 1000,
+        "qcTasks": 105
+      },
+      "transactionComplete": true,
+      "legacyVersionMarker": false,
+      "method": "put",
+      "transactionMs": 4695.399999976158,
+      "decodeAndVerifyMs": 167.29999995231628,
+      "totalPreparationMs": 4864.199999928474
+    }
+  ],
+  "statisticCards": [
+    {
+      "label": "仅车缝生产任务",
+      "value": "114",
+      "description": "后道工厂负责烫包"
+    },
+    {
+      "label": "车缝＋烫包生产任务",
+      "value": "1",
+      "description": "三方工厂负责烫包"
+    },
+    {
+      "label": "裁剪＋车缝＋烫包任务",
+      "value": "1",
+      "description": "与车缝＋烫包同规则"
+    },
+    {
+      "label": "质检直达成衣仓",
+      "value": "0",
+      "description": "无需我方后道处理"
+    },
+    {
+      "label": "质检补加工",
+      "value": "0",
+      "description": "按质检勾选项目"
+    },
+    {
+      "label": "待入库辅料调拨单",
+      "value": "5",
+      "description": "不计入成衣库存"
+    },
+    {
+      "label": "后道生产任务总数",
+      "value": "11",
+      "description": "生产单级流程记录"
+    },
+    {
+      "label": "后道加工单总数",
+      "value": "100",
+      "description": "质检勾选实际工序后生成"
+    },
+    {
+      "label": "待接收入仓任务数",
+      "value": "10",
+      "description": "接收入仓"
+    },
+    {
+      "label": "已接收成衣件数",
+      "value": "105,000 件",
+      "description": "接收入仓"
+    },
+    {
+      "label": "接收差异成衣件数",
+      "value": "0 件",
+      "description": "接收入仓"
+    },
+    {
+      "label": "待加工单数",
+      "value": "0",
+      "description": "状态分布"
+    },
+    {
+      "label": "加工中单数",
+      "value": "0",
+      "description": "状态分布"
+    },
+    {
+      "label": "加工完成单数",
+      "value": "100",
+      "description": "状态分布"
+    },
+    {
+      "label": "待质检单数",
+      "value": "5",
+      "description": "状态分布"
+    },
+    {
+      "label": "质检中任务数",
+      "value": "0",
+      "description": "状态分布"
+    },
+    {
+      "label": "质检完成任务数",
+      "value": "100",
+      "description": "状态分布"
+    },
+    {
+      "label": "待处理后复核任务数",
+      "value": "0",
+      "description": "状态分布"
+    },
+    {
+      "label": "处理后复核中任务数",
+      "value": "0",
+      "description": "状态分布"
+    },
+    {
+      "label": "处理后复核完成任务数",
+      "value": "1000",
+      "description": "状态分布"
+    },
+    {
+      "label": "待交出任务数",
+      "value": "0",
+      "description": "处理后复核完成后"
+    },
+    {
+      "label": "已交出任务数",
+      "value": "1",
+      "description": "统一交出记录"
+    },
+    {
+      "label": "已完成任务数",
+      "value": "0",
+      "description": "生产单已人工完成"
+    },
+    {
+      "label": "待执行实际工序成衣件数",
+      "value": "0 件",
+      "description": "统一待加工仓"
+    },
+    {
+      "label": "后道完成成衣件数",
+      "value": "100,000 件",
+      "description": "后道记录"
+    },
+    {
+      "label": "待质检成衣件数",
+      "value": "5,000 件",
+      "description": "统一待加工仓"
+    },
+    {
+      "label": "质检通过成衣件数",
+      "value": "100,000 件",
+      "description": "质检记录"
+    },
+    {
+      "label": "质检不合格成衣件数",
+      "value": "0 件",
+      "description": "质检记录"
+    },
+    {
+      "label": "待处理后复核成衣件数",
+      "value": "0 件",
+      "description": "后道加工完成"
+    },
+    {
+      "label": "处理后复核确认成衣件数",
+      "value": "100,000 件",
+      "description": "数量与条码记录"
+    },
+    {
+      "label": "待交出成衣件数",
+      "value": "10,000 件",
+      "description": "处理后复核完成待交出"
+    },
+    {
+      "label": "已交出成衣件数",
+      "value": "0 件",
+      "description": "统一交出记录"
+    },
+    {
+      "label": "实收成衣件数",
+      "value": "0 件",
+      "description": "接收方回写"
+    },
+    {
+      "label": "差异成衣件数",
+      "value": "0 件",
+      "description": "统一差异记录"
+    },
+    {
+      "label": "后道交出差异记录数",
+      "value": "0",
+      "description": "统一差异记录"
+    },
+    {
+      "label": "后道少收成衣件数",
+      "value": "0 件",
+      "description": "统一差异记录"
+    },
+    {
+      "label": "后道多收成衣件数",
+      "value": "0 件",
+      "description": "统一差异记录"
+    },
+    {
+      "label": "后道需重新交出记录数",
+      "value": "0",
+      "description": "统一差异记录"
+    },
+    {
+      "label": "后道平台处理中记录数",
+      "value": "0",
+      "description": "统一差异记录"
+    },
+    {
+      "label": "待回写交出记录数",
+      "value": "0",
+      "description": "统一交出记录"
+    },
+    {
+      "label": "已回写交出记录数",
+      "value": "0",
+      "description": "统一交出记录"
+    },
+    {
+      "label": "专门后道工厂任务数",
+      "value": "11",
+      "description": "后道工厂直管"
+    },
+    {
+      "label": "后道工厂加工任务数",
+      "value": "1",
+      "description": "流程来源"
+    },
+    {
+      "label": "QC 直达生产任务数",
+      "value": "0",
+      "description": "流程来源"
+    },
+    {
+      "label": "专门后道工厂待质检成衣件数",
+      "value": "5,000 件",
+      "description": "后道工厂直管"
+    },
+    {
+      "label": "专门后道工厂待处理后复核成衣件数",
+      "value": "0 件",
+      "description": "后道工厂直管"
+    },
+    {
+      "label": "非专门工厂已完成实际工序待交接数",
+      "value": "0",
+      "description": "车缝等工厂转入"
+    },
+    {
+      "label": "非专门工厂转入后道工厂待质检成衣件数",
+      "value": "0 件",
+      "description": "转入待处理"
+    },
+    {
+      "label": "非专门工厂转入后道工厂待处理后复核成衣件数",
+      "value": "0 件",
+      "description": "转入待处理"
+    },
+    {
+      "label": "后道平均耗时",
+      "value": "0.01 小时",
+      "description": "按后道记录计算"
+    },
+    {
+      "label": "质检平均耗时",
+      "value": "0 小时",
+      "description": "按后道工厂质检记录计算"
+    },
+    {
+      "label": "处理后复核平均耗时",
+      "value": "0 小时",
+      "description": "按数量与条码复核记录计算"
+    },
+    {
+      "label": "交出平均回写耗时",
+      "value": "0 小时",
+      "description": "统一交出记录"
+    },
+    {
+      "label": "待回写超时记录数",
+      "value": "0",
+      "description": "超过 48 小时"
+    }
+  ],
+  "snapshotBoundary": "Read-only actual DOM card snapshot on D10; no user business action or formal timing sample.",
+  "finishedAt": "2026-10-19T15:10:54.232Z"
+}

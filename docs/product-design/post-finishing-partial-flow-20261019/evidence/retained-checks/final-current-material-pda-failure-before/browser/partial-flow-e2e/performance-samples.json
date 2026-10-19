@@ -1,0 +1,86 @@
+{
+  "capturedAt": "2026-10-19T20:44:38.409Z",
+  "baseURL": "http://127.0.0.1:43915",
+  "environment": "this worktree Vite dev server; warmed D1 1-SKU source; not D10 or production/physical-device acceptance",
+  "completion": "Navigation performance clock zero through actual visible same-identity connected detail (including ancestors and final recheck), images/fonts, original complete domain/native persistent readback and two browser frames; controller settlement separately observed",
+  "samples": {
+    "processCompletionSaveMs": [
+      74.29999995231628,
+      86.80000007152557,
+      87,
+      89.20000004768372,
+      72.10000002384186
+    ],
+    "warmedDetailReloadMs": [
+      614.1000000238419,
+      623.7000000476837,
+      593.7000000476837,
+      631.3000000715256,
+      631.2999999523163
+    ]
+  },
+  "observed": [
+    {
+      "uiAt": 583.3999999761581,
+      "mediaAt": 591.5,
+      "readbackAt": 595.3999999761581,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "detailVisible": true,
+      "endAt": 614.1000000238419
+    },
+    {
+      "uiAt": 586.7000000476837,
+      "mediaAt": 595,
+      "readbackAt": 599.1000000238419,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "detailVisible": true,
+      "endAt": 623.7000000476837
+    },
+    {
+      "uiAt": 568.6000000238419,
+      "mediaAt": 570.6000000238419,
+      "readbackAt": 574.5,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "detailVisible": true,
+      "endAt": 593.7000000476837
+    },
+    {
+      "uiAt": 589.3999999761581,
+      "mediaAt": 598.5,
+      "readbackAt": 602.3999999761581,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "detailVisible": true,
+      "endAt": 631.3000000715256
+    },
+    {
+      "uiAt": 587.1000000238419,
+      "mediaAt": 595.2999999523163,
+      "readbackAt": 599.8999999761581,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "detailVisible": true,
+      "endAt": 631.2999999523163
+    }
+  ],
+  "controllerReloads": [
+    641.6000000238419,
+    651.7000000476837,
+    621.3999999761581,
+    657,
+    657.2999999523163
+  ]
+}

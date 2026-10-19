@@ -356,6 +356,11 @@ export function listFactoryMasterRecords(): Factory[] {
   return factoryMasterRecords.map((factory) => cloneFactory(factory))
 }
 
+/** 评级只需当前席位值；沿用完整列表查询的精确编号／代码顺序，不复制其他档案。 */
+export function readFactorySewingSeatCount(factoryIdOrCode: string): number | undefined {
+  return factoryMasterRecords.find((factory) => factory.id === factoryIdOrCode || factory.code === factoryIdOrCode)?.sewingSeatCount
+}
+
 export function listBusinessFactoryMasterRecords(input: { includeTestFactories?: boolean } = {}): Factory[] {
   const includeTestFactories = input.includeTestFactories === true
   return listFactoryMasterRecords().filter((factory) =>

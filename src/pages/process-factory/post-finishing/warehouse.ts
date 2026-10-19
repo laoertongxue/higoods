@@ -246,13 +246,25 @@ function renderMovementContent(mode: WarehouseMode, movements: WarehouseMovement
 }
 
 function renderLocationContent(mode: WarehouseMode, rows: WarehouseInventoryRow[], renderPage: WarehouseListRenderer): string {
-  const locations = [...new Map(rows.flatMap((row) => row.batches.map((batch) => [batch.locationCode, batch] as const))).values()]
+  const grouped = new Map<string, WarehouseBatch & { sourceNos: string[] }>()
+  for (const batch of rows.flatMap(row => row.batches)) {
+    const current = grouped.get(batch.locationCode)
+    const source = batch.outboundOrderNo || batch.deliveryOrderNo
+    if (!current) grouped.set(batch.locationCode, { ...batch, sourceNos: [source] })
+    else {
+      current.inboundQty += batch.inboundQty; current.availableQty += batch.availableQty; current.outboundQty += batch.outboundQty
+      if (!current.sourceNos.includes(source)) current.sourceNos.push(source)
+      if (batch.availableQty > 0) current.status = batch.status
+    }
+  }
+  const locations = [...grouped.values()]
   const slice = paginateStandardListRows(locations, warehouseUi.page, warehouseUi.pageSize)
   warehouseUi.page = slice.currentPage
-  const columns: StandardListColumn<WarehouseBatch>[] = [
+  const columns: StandardListColumn<WarehouseBatch & { sourceNos: string[] }>[] = [
     { key: 'area', title: '库区', width: 250, required: true, render: () => mode === 'wait-process' ? '车缝回货待加工区' : '处理后待交出区' },
     { key: 'location', title: '库位码', width: 240, required: true, freezeable: true, render: (row) => `<span class="font-mono font-semibold">${escapeHtml(row.locationCode)}</span>` },
-    { key: 'number', title: '关联批次', width: 330, required: true, render: (row) => `<div class="font-mono text-xs">${escapeHtml(row.deliveryOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.productionOrderNo)} · 第 ${row.returnIndex} 次回货</div>` },
+    { key: 'number', title: '全部来源单据', width: 330, required: true, render: row => row.sourceNos.map(no => `<div class="font-mono text-xs">${escapeHtml(no)}</div>`).join('') },
+    { key: 'quantity', title: '入仓 / 当前 / 出仓（件）', width: 210, required: true, render: row => `${row.inboundQty} / ${row.availableQty} / ${row.outboundQty}` },
     { key: 'status', title: '当前状态', width: 180, required: true, render: (row) => renderPostStatusBadge(row.status) },
   ]
   return renderPage(renderStandardListTable({ columns, rows: slice.rows, preferences: fixedPreferences(columns), sort: null, eventPrefix: 'post-finishing', emptyText: '暂无库区库位记录。' }), renderTablePagination({ total: slice.total, from: slice.from, to: slice.to, currentPage: slice.currentPage, totalPages: slice.totalPages, pageSize: slice.pageSize, actionPrefix: 'post-finishing', fieldPrefix: 'post-finishing' }), '库区库位')

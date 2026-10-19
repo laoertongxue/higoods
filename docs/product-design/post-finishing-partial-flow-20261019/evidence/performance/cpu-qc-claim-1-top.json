@@ -1,0 +1,231 @@
+{
+  "family": "qc:claim",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 1683342,
+  "top": [
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 104,
+      "inclusiveSamples": 106,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 100,
+      "inclusiveSamples": 101,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 79,
+      "inclusiveSamples": 79
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 66,
+      "inclusiveSamples": 66,
+      "sourceExcerpt": "=>{throw se=void 0,e}),se)}function $(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var i;const n=await Wt();He++;try{const r=n.transaction(mt,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(i=r.commit)==null||i.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),we(a)}}finally{He--,He||(n.close(),se=void 0)}}function z(e){return typeof e==\"string\"&&e.trim().length>0}function lt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+    },
+    {
+      "function": "Ne",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 51438,
+      "selfSamples": 63,
+      "inclusiveSamples": 168,
+      "sourceExcerpt": "actorId)||!r.recordedAt)throw new Error(\"加工完成记录格式不完整，原资料保留。\")}}async function Ne(){if(typeof window>\"u\"||_e)return;const e=pe();try{if(!te.size)for(const[n,i]of H)te.set(n,Ae(i.read()));const o=await D([j]);Jt(o.records),ie=new Map(o.records.map(n=>[n.id,n]));for(const n of o.files){if(!ke.has(n.id)){const i=URL.createObjectURL(n.blob);ke.set(n.id,i),Me.set(i,n.id)}We.add(n.id)}for(const[n,i]of H){const r=Ae(te.get(n)),c=new Map(ft(n,r));for(const s of o.records)s.id.startsWith(`${j}/${n}/`)&&(s.deleted?c.delete(s.id):c.set(s.id,{collection:s.collection,value:tt(s.value)}));if(Array.isArray(r))i.replace([...c.values()].map(s=>s.value));else{for(const s of Object.keys(r)){"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 55,
+      "inclusiveSamples": 55
+    },
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 52,
+      "inclusiveSamples": 52,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 50,
+      "inclusiveSamples": 50,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 39,
+      "inclusiveSamples": 39
+    },
+    {
+      "function": "jo",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 52597,
+      "selfSamples": 26,
+      "inclusiveSamples": 193,
+      "sourceExcerpt": " new Error(o.replaceAll(\"PCS\",\"后道\").replace(\"关联房间或地点\",\"后道资料\"))}async function jo(e){var i,r,c,s,a;if(typeof window>\"u\")return e();if($e||await Ne(),!$e||je)throw new Error(je||\"请重新读取后道资料后重试。\");if(Ve)throw new Error(\"发现旧后道资料，请先完成页面提示的资料转换，再继续保存。\");if(_e)throw new Error(\"上一笔操作尚未保存，请等待完成。\");const o=pe();_e=!0;let t,n=!1;try{let f;try{f=e()}catch(d){if(!(d instanceof Error)||!(\"code\"in d))throw d;t=d}if(f&&typeof f.then==\"function\")throw new Error(\"请先读取文件，再执行后道保存。\");xt.forEach(d=>d());const g=pe();ue(o);const h=Ke(o),u=Ke(g),v=[],m=[];for(const[d,S]of u)JSON.stringify(S.value)!==JSON.stringify((i=h.get(d))==null?void 0:i.value)&&v.push({id:d,collection:S.collection,value:et(S"
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 50061,
+      "selfSamples": 21,
+      "inclusiveSamples": 26,
+      "sourceExcerpt": "ect\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,et(t)])):e}function tt(e){if(typeof e==\"string\"&&e.startsWith(\"pcs-file:\")){const o=ke.get(e.slice(9));if(!o)throw new Error(\"后道附件缺失，用户资料尚未读取，请重新读取。\");return o}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const "
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 50061,
+      "selfSamples": 17,
+      "inclusiveSamples": 56,
+      "sourceExcerpt": "ect\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,et(t)])):e}function tt(e){if(typeof e==\"string\"&&e.startsWith(\"pcs-file:\")){const o=ke.get(e.slice(9));if(!o)throw new Error(\"后道附件缺失，用户资料尚未读取，请重新读取。\");return o}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const "
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 15,
+      "inclusiveSamples": 15,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 11,
+      "inclusiveSamples": 27,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    },
+    {
+      "function": "tt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 50061,
+      "selfSamples": 11,
+      "inclusiveSamples": 37,
+      "sourceExcerpt": "ect\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,et(t)])):e}function tt(e){if(typeof e==\"string\"&&e.startsWith(\"pcs-file:\")){const o=ke.get(e.slice(9));if(!o)throw new Error(\"后道附件缺失，用户资料尚未读取，请重新读取。\");return o}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const "
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 111489,
+      "selfSamples": 9,
+      "inclusiveSamples": 45,
+      "sourceExcerpt": ";Ir(()=>{y.processCompletions||(y.processCompletions=[]),y.schemaVersion=3});fr(()=>{var o,s,n;const e=new Set,t=new Set;for(const a of y.processCompletions||[]){if(e.has(a.recordId)||t.has(a.operationId)||!a.intent||!a.recordedAt||!Number.isFinite(Date.parse(a.recordedAt)))throw new Error(\"加工记录编号、提交标识或时间无效，资料未恢复。\");e.add(a.recordId),t.add(a.operationId);const d=y.postTasks.find(c=>c.postTaskId===a.postTaskId);if(!d)throw new Error(\"加工记录缺少来源加工单，资料未恢复。\");if(!(d.executionModel!==\"ITEMS_V1\"&&a.operationId.startsWith(\"DEMO:\"))){if(!d.processItems.includes(a.processItem)||new Set(a.quantities.map(c=>c.skuId)).size!==a.quantities.length||!a.quantities.length)throw new Error(\"加工"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 7,
+      "inclusiveSamples": 10,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    },
+    {
+      "function": "$",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 74169,
+      "selfSamples": 7,
+      "inclusiveSamples": 29,
+      "sourceExcerpt": "status,remark:`${o}退领；已清空质检数量、下游选择与未提交授权数据；${t.releaseReason}`}),p(t)}function $(e){var f;const t=typeof e==\"string\"?he(e):e,r=t.executionModel!==\"ITEMS_V1\",o=(y.processCompletions||[]).filter(u=>u.postTaskId===t.postTaskId&&!(r&&u.operationId.startsWith(\"DEMO:\"))),s=y.recheckOrders.filter(u=>u.postTaskId===t.postTaskId),n=((f=t.legacyCarryover)==null?void 0:f.history)||(r&&t.results?t.results.map(u=>({skuId:u.sku.skuId,completedQty:u.processedQty})):[]),a=u=>t.lines.map(m=>{var w,R,g,S;const k=((w=n.find(U=>U.skuId===m.sku.skuId))==null?void 0:w.completedQty)||0,b=m.expectedQty-k,Q=(((S=(g=(R=t.legacyCarryover)==null?void 0:R.baselines.find(U=>U.processItem===u))==null?v"
+    },
+    {
+      "function": "n",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47652,
+      "selfSamples": 5,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "rror(\"后道记录缺少稳定编号，未保存。\");return String(t[n])};function ft(e,o){const t=new Map,n=(i,r,c)=>{const s=`${j}/${e}/${i}/${encodeURIComponent(c)}`;if(t.has(s))throw new Error(\"后道记录编号重复，未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft(o,t)]))}function pe(){return new Map([...H].map(([e,o])=>[e,Ae(o.read())]))}function ue(e){var o;for(const[t,n]of e)(o=H.get(t))==null||o.replace(Ae(n))}function mo(e,o,t,n,i=JSON.parse){H.set(e,{lega"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 2945,
+      "selfSamples": 5,
+      "inclusiveSamples": 35,
+      "sourceExcerpt": "or(\"PCS 附件格式或文件编号无效、重复。\");o.add(t.id)}}async function D(e){return ae(\"readonly\",async o=>{const t=o.objectStore(\"records\"),n=o.objectStore(\"files\"),i=e!=null&&e.length?[...new Set(e)]:void 0,r=i?Promise.all(i.map(h=>$(t.getAll(IDBKeyRange.bound(`${h}/`,`${h}0`,!1,!0))))).then(h=>h.flat()):$(t.getAll()),[c,s]=await Promise.all([r,$(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(i){for(const h of c)if(!h.deleted)try{const u=N(h.value);for(const v of u)a.add(v);if(!u.size&&h.value&&typeof h.value==\"object\"){f.add(h.value);const v=h.value.data;v&&typeof v==\"object\"&&f.add(v)}}catch{}}const g=i?(await Promise.all([...a].map(h=>$(n.get(h))))).filter(h=>h!==void 0)"
+    },
+    {
+      "function": "n",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47652,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "rror(\"后道记录缺少稳定编号，未保存。\");return String(t[n])};function ft(e,o){const t=new Map,n=(i,r,c)=>{const s=`${j}/${e}/${i}/${encodeURIComponent(c)}`;if(t.has(s))throw new Error(\"后道记录编号重复，未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft(o,t)]))}function pe(){return new Map([...H].map(([e,o])=>[e,Ae(o.read())]))}function ue(e){var o;for(const[t,n]of e)(o=H.get(t))==null||o.replace(Ae(n))}function mo(e,o,t,n,i=JSON.parse){H.set(e,{lega"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 4,
+      "inclusiveSamples": 14,
+      "sourceExcerpt": "。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 50296,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "ray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function Dt(){var o,t;const e=new Map;for(const n of H.values()){const i=(o=globalThis.localStorage)==null?void 0:o.getItem(n.legacyKey);i&&e.set(n.legacyKey,i)}for(const n of[\"higood-fcs-post-finishing-spu-technical-parameters-v1\",\"higood-fcs-post-finishing-outbound-orders-v1\",\"higood-fcs-post-finishing-outbound-orders-v1:archive\"]){const i=(t=globalThis.localStorage)==null?void 0:t.getItem(n);i&&e.set(n,i)}return e}function Co(){return je}function _o(){return Ve}function Jt(e){var t,n;const o=e.find(i=>i.id===`${j}/flow/schemaVersion/value`&&!i.deleted);if(o&&![2,3].in"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 114902,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "复。\")}for(const a of y.outboundOrders)if(a.recheckOrderId&&!y.recheckOrders.some(d=>d.recheckOrderId===a.recheckOrderId))throw new Error(\"出货单缺少来源复检，资料未恢复。\")});const qs=Object.freeze(Object.defineProperty({__proto__:null,POST_FINISHING_ACCEPTANCE_ACTORS:D,POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS:G,POST_FINISHING_CURRENT_ACTOR_STORAGE_KEY:ze,POST_FINISHING_DEFECT_REASON_OPTIONS:Pt,POST_FINISHING_DEMO_MODE_STORAGE_KEY:uo,POST_FINISHING_PROCESS_ITEMS:z,POST_FINISHING_QC_DEFECT_REASON_OPTIONS:Ct,POST_FINISHING_RETURN_DIFFERENCE_POLICY:lo,POST_FINISHING_SEWING_TASK_TYPE_LABEL:vt,PostFinishingFlowGateError:N,appendPostFinishingProcessCompletion:Kt,canDiscardPostFinishingFactor"
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 1829,
+      "selfSamples": 3,
+      "inclusiveSamples": 30,
+      "sourceExcerpt": "lt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记录版本无效。\")}function N(e,o=new Set,t=!0){const n=new Set,i=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?n.add(s.slice(9)):r&&o.has(s)&&n.add(s)}else if(s&&typeof s==\"object\"&&!i.has(s)){if(i.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&n.a"
+    }
+  ]
+}

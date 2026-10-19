@@ -1,0 +1,40 @@
+{
+  "sourceFiles": [
+    {
+      "path": "src/data/fcs/cutting/production-material-prep.ts",
+      "sha256": "56bdcce2ba17e924ff3bd86f817f9fd4c8633d308750b401a4b150e4bf083528"
+    },
+    {
+      "path": "src/data/fcs/post-finishing-full-flow.ts",
+      "sha256": "180a1cd908a897faaac3b653c39e78ab49b09f5c99b38aaf970d2c9de669e276"
+    },
+    {
+      "path": "src/data/wls/accessory-warehouse-post-finishing.ts",
+      "sha256": "03b1577c11a7f0d8ff6a01347a7c4934012c8c2dd93c0ed5d26dcfb389d2ee4d"
+    },
+    {
+      "path": "src/data/wls/accessory-warehouse-sources.ts",
+      "sha256": "8c45aa57b6ff14b414d72605981ad4d6416d879633330b02a41cd191daac4976"
+    },
+    {
+      "path": "tests/unit/post-finishing-accessory-identity.test.ts",
+      "sha256": "7b5e823c98f32e7a1f00153261ce2a7669ba08c4cdcc6939e6dfafa4b0301fb3"
+    }
+  ],
+  "integration": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0
+  },
+  "nativeGuard": {
+    "passed": 2,
+    "failed": 0
+  },
+  "identityUnit": {
+    "passed": 6,
+    "failed": 0,
+    "actualPreparations": 21,
+    "actualIdentities": 42
+  },
+  "performanceAccepted": false
+}

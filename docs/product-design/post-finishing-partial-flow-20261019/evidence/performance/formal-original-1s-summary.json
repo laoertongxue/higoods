@@ -1,0 +1,64 @@
+{
+  "totalSamples": 465,
+  "validSamples": 465,
+  "passedSamples": 409,
+  "failedSamples": 56,
+  "families": 89,
+  "passedFamilies": 77,
+  "failedFamilies": [
+    {
+      "family": "statistics:cold",
+      "maxMs": 6635.899999976158
+    },
+    {
+      "family": "statistics:refresh",
+      "maxMs": 6596.700000047684
+    },
+    {
+      "family": "statistics:navigation",
+      "maxMs": 6465.600000023842
+    },
+    {
+      "family": "pda-exec-detail:cold",
+      "maxMs": 3249.5
+    },
+    {
+      "family": "pda-exec-detail:refresh",
+      "maxMs": 3096.2999999523163
+    },
+    {
+      "family": "pda-exec-detail:navigation",
+      "maxMs": 2471.5
+    },
+    {
+      "family": "print:GENERIC_OUTBOUND:100:cold",
+      "maxMs": 1557.3999999761581
+    },
+    {
+      "family": "print:GENERIC_BARCODE:100:cold",
+      "maxMs": 1699.6000000238419
+    },
+    {
+      "family": "print:GENERIC_OUTBOUND:1000:cold",
+      "maxMs": 1542.6000000238419
+    },
+    {
+      "family": "print:GENERIC_BARCODE:1000:cold",
+      "maxMs": 1712
+    },
+    {
+      "family": "storage:restore",
+      "maxMs": 6196.600000023842
+    },
+    {
+      "family": "storage:explicit-migration",
+      "maxMs": 1115.5
+    }
+  ],
+  "errors": [],
+  "completed": true,
+  "passed": false,
+  "fixtureProofs": 151,
+  "scriptSha256": "c53e51a0c47efd0207098d99a8710b5b7e2c8dac8253982842cc974343debf39",
+  "finishedAt": "2026-10-19T15:22:19.560Z"
+}

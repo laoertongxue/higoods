@@ -57,7 +57,14 @@
    if(screen==='post-batch'&&x){
     if(!x.counts)return info('来自',x.row.returnRecord?.factory||'Bintang 车缝厂',x.id,join(x.row.returnRecord?.deliveryNo,'PO-082'),'后道点数接收');
     if(!x.sent)return info('交给','质检工作区','QC-'+x.id.slice(3),x.id,'PO-082');
-    if(x.qc)return info('交给','成衣中央仓',x.out?.no||'本次出货',x.id,'PO-082');
+    if(x.qc){
+     const recheck=x.rechecks?.find(r=>r.no===x.selectedRecheck);
+     const outbound=x.outbounds?.find(o=>o.no===x.selectedOutbound);
+     if(x.view==='out')return outbound?info('交给','成衣中央仓',outbound.no,join(outbound.recheckNo||'质检直达',x.id),'PO-082'):null;
+     if(x.view==='check')return info('来自','后道作业区',recheck?.no||'',join('JG-'+x.id.slice(3),x.id),'PO-082');
+     if(x.view==='submit')return info('交给','复检工作区','JG-'+x.id.slice(3),x.id,'已完成适用加工项的合格品');
+     return info('来自','质检工作区','QC-'+x.id.slice(3),x.id,'按质检选定加工项继续');
+    }
    }
   }
   if(['水溶','捆条'].includes(selectedOp)&&screen==='wb-task'){

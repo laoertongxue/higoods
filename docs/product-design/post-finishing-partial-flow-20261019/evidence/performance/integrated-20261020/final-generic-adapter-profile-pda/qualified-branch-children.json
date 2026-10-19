@@ -1,0 +1,1831 @@
+[
+  {
+    "head": {
+      "id": 418,
+      "fn": "pe",
+      "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+      "line": 0,
+      "column": 4456,
+      "inclusiveMs": 343.676,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 435,
+        "fn": "hr",
+        "file": "printing-task-domain-CEjBgsAL.js",
+        "line": 0,
+        "column": 124109,
+        "inclusiveMs": 133.538,
+        "selfMs": 0
+      },
+      {
+        "id": 707,
+        "fn": "ta",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 147727,
+        "inclusiveMs": 4.925,
+        "selfMs": 0
+      },
+      {
+        "id": 419,
+        "fn": "g",
+        "file": "pda-runtime-DQ6pzI6b.js",
+        "line": 0,
+        "column": 322,
+        "inclusiveMs": 2.989,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 727,
+      "fn": "E",
+      "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+      "line": 35,
+      "column": 14,
+      "inclusiveMs": 202.224,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 911,
+        "fn": "qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 202,
+        "column": 15,
+        "inclusiveMs": 120.17,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 728,
+        "fn": "w",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4659,
+        "inclusiveMs": 1.071,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 911,
+      "fn": "qt",
+      "file": "pda-shell-BMYpWE5i.js",
+      "line": 202,
+      "column": 15,
+      "inclusiveMs": 120.17,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 950,
+        "fn": "Qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 25,
+        "column": 65,
+        "inclusiveMs": 106.45,
+        "selfMs": 0
+      },
+      {
+        "id": 920,
+        "fn": "Kt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 19980,
+        "inclusiveMs": 4.484,
+        "selfMs": 0
+      },
+      {
+        "id": 1178,
+        "fn": "Q",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 188,
+        "column": 14,
+        "inclusiveMs": 3.227,
+        "selfMs": 0
+      },
+      {
+        "id": 1196,
+        "fn": "zt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 36,
+        "column": 15,
+        "inclusiveMs": 2.999,
+        "selfMs": 0
+      },
+      {
+        "id": 912,
+        "fn": "Xn",
+        "file": "factory-onboarding-flow-BFrJar1c.js",
+        "line": 0,
+        "column": 67341,
+        "inclusiveMs": 1.505,
+        "selfMs": 0
+      },
+      {
+        "id": 1217,
+        "fn": "Vt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 111,
+        "column": 15,
+        "inclusiveMs": 1.505,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 950,
+      "fn": "Qt",
+      "file": "pda-shell-BMYpWE5i.js",
+      "line": 25,
+      "column": 65,
+      "inclusiveMs": 106.45,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 911,
+        "fn": "qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 202,
+        "column": 15,
+        "inclusiveMs": 120.17,
+        "selfMs": 0
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 960,
+        "fn": "Ht",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18514,
+        "inclusiveMs": 96.852,
+        "selfMs": 0
+      },
+      {
+        "id": 1146,
+        "fn": "_",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 20100,
+        "inclusiveMs": 5.021,
+        "selfMs": 0
+      },
+      {
+        "id": 1161,
+        "fn": "Wt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 13,
+        "column": 88,
+        "inclusiveMs": 3.072,
+        "selfMs": 0
+      },
+      {
+        "id": 951,
+        "fn": "g",
+        "file": "pda-runtime-DQ6pzI6b.js",
+        "line": 0,
+        "column": 322,
+        "inclusiveMs": 1.505,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 960,
+      "fn": "Ht",
+      "file": "pda-shell-BMYpWE5i.js",
+      "line": 0,
+      "column": 18514,
+      "inclusiveMs": 96.852,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 950,
+        "fn": "Qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 25,
+        "column": 65,
+        "inclusiveMs": 106.45,
+        "selfMs": 0
+      },
+      {
+        "id": 911,
+        "fn": "qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 202,
+        "column": 15,
+        "inclusiveMs": 120.17,
+        "selfMs": 0
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 961,
+        "fn": "W",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18092,
+        "inclusiveMs": 63.904,
+        "selfMs": 0
+      },
+      {
+        "id": 1081,
+        "fn": "readAfterExecution",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18211,
+        "inclusiveMs": 32.948,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 961,
+      "fn": "W",
+      "file": "pda-shell-BMYpWE5i.js",
+      "line": 0,
+      "column": 18092,
+      "inclusiveMs": 63.904,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 960,
+        "fn": "Ht",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18514,
+        "inclusiveMs": 96.852,
+        "selfMs": 0
+      },
+      {
+        "id": 950,
+        "fn": "Qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 25,
+        "column": 65,
+        "inclusiveMs": 106.45,
+        "selfMs": 0
+      },
+      {
+        "id": 911,
+        "fn": "qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 202,
+        "column": 15,
+        "inclusiveMs": 120.17,
+        "selfMs": 0
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 970,
+        "fn": "Jt",
+        "file": "pda-cutting-execution-source-Ck_EP3xe.js",
+        "line": 0,
+        "column": 40141,
+        "inclusiveMs": 60.01,
+        "selfMs": 0
+      },
+      {
+        "id": 962,
+        "fn": "Ki",
+        "file": "runtime-process-tasks-CvM-FaZK.js",
+        "line": 0,
+        "column": 207999,
+        "inclusiveMs": 2.997,
+        "selfMs": 0
+      },
+      {
+        "id": 1077,
+        "fn": "kt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 12247,
+        "inclusiveMs": 0.897,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 1081,
+      "fn": "readAfterExecution",
+      "file": "pda-shell-BMYpWE5i.js",
+      "line": 0,
+      "column": 18211,
+      "inclusiveMs": 32.948,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 960,
+        "fn": "Ht",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18514,
+        "inclusiveMs": 96.852,
+        "selfMs": 0
+      },
+      {
+        "id": 950,
+        "fn": "Qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 25,
+        "column": 65,
+        "inclusiveMs": 106.45,
+        "selfMs": 0
+      },
+      {
+        "id": 911,
+        "fn": "qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 202,
+        "column": 15,
+        "inclusiveMs": 120.17,
+        "selfMs": 0
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 1088,
+        "fn": "wt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 14612,
+        "inclusiveMs": 32.61,
+        "selfMs": 0
+      },
+      {
+        "id": 1082,
+        "fn": "Ft",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 13458,
+        "inclusiveMs": 0.338,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 1088,
+      "fn": "wt",
+      "file": "pda-shell-BMYpWE5i.js",
+      "line": 0,
+      "column": 14612,
+      "inclusiveMs": 32.61,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 1081,
+        "fn": "readAfterExecution",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18211,
+        "inclusiveMs": 32.948,
+        "selfMs": 0
+      },
+      {
+        "id": 960,
+        "fn": "Ht",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 0,
+        "column": 18514,
+        "inclusiveMs": 96.852,
+        "selfMs": 0
+      },
+      {
+        "id": 950,
+        "fn": "Qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 25,
+        "column": 65,
+        "inclusiveMs": 106.45,
+        "selfMs": 0
+      },
+      {
+        "id": 911,
+        "fn": "qt",
+        "file": "pda-shell-BMYpWE5i.js",
+        "line": 202,
+        "column": 15,
+        "inclusiveMs": 120.17,
+        "selfMs": 0
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 1089,
+        "fn": "us",
+        "file": "pda-handover-events-HmXwn01B.js",
+        "line": 1,
+        "column": 272709,
+        "inclusiveMs": 25.506,
+        "selfMs": 0
+      },
+      {
+        "id": 1138,
+        "fn": "Yi",
+        "file": "pda-handover-events-HmXwn01B.js",
+        "line": 1,
+        "column": 190782,
+        "inclusiveMs": 7.104,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 732,
+      "fn": "m",
+      "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+      "line": 0,
+      "column": 3846,
+      "inclusiveMs": 80.983,
+      "selfMs": 1.495
+    },
+    "ancestors": [
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 733,
+      "fn": "Mt",
+      "file": "production-object-overview-De_mWAqW.js",
+      "line": 0,
+      "column": 63529,
+      "inclusiveMs": 79.488,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 734,
+        "fn": "",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63551,
+        "inclusiveMs": 43.509,
+        "selfMs": 0
+      },
+      {
+        "id": 820,
+        "fn": "_e",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 59922,
+        "inclusiveMs": 35.979,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 734,
+      "fn": "",
+      "file": "production-object-overview-De_mWAqW.js",
+      "line": 0,
+      "column": 63551,
+      "inclusiveMs": 43.509,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 735,
+        "fn": "xe",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 53040,
+        "inclusiveMs": 43.509,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 735,
+      "fn": "xe",
+      "file": "production-object-overview-De_mWAqW.js",
+      "line": 0,
+      "column": 53040,
+      "inclusiveMs": 43.509,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 734,
+        "fn": "",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63551,
+        "inclusiveMs": 43.509,
+        "selfMs": 0
+      },
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 736,
+        "fn": "fe",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 23726,
+        "inclusiveMs": 42.006,
+        "selfMs": 0
+      },
+      {
+        "id": 817,
+        "fn": "",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 53091,
+        "inclusiveMs": 1.503,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 736,
+      "fn": "fe",
+      "file": "production-object-overview-De_mWAqW.js",
+      "line": 0,
+      "column": 23726,
+      "inclusiveMs": 42.006,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 735,
+        "fn": "xe",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 53040,
+        "inclusiveMs": 43.509,
+        "selfMs": 0
+      },
+      {
+        "id": 734,
+        "fn": "",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63551,
+        "inclusiveMs": 43.509,
+        "selfMs": 0
+      },
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 737,
+        "fn": "be",
+        "file": "store-domain-progress-BCg3foHy.js",
+        "line": 0,
+        "column": 37974,
+        "inclusiveMs": 42.006,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 820,
+      "fn": "_e",
+      "file": "production-object-overview-De_mWAqW.js",
+      "line": 0,
+      "column": 59922,
+      "inclusiveMs": 35.979,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 821,
+        "fn": "fr",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 132155,
+        "inclusiveMs": 35.979,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 821,
+      "fn": "fr",
+      "file": "post-finishing-full-flow-DOXdvBKN.js",
+      "line": 0,
+      "column": 132155,
+      "inclusiveMs": 35.979,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 820,
+        "fn": "_e",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 59922,
+        "inclusiveMs": 35.979,
+        "selfMs": 0
+      },
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 822,
+        "fn": "kt",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 808,
+        "inclusiveMs": 25.478,
+        "selfMs": 0
+      },
+      {
+        "id": 898,
+        "fn": "Yt",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 78393,
+        "inclusiveMs": 5.994,
+        "selfMs": 0
+      },
+      {
+        "id": 909,
+        "fn": "",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 133354,
+        "inclusiveMs": 1.51,
+        "selfMs": 0
+      },
+      {
+        "id": 896,
+        "fn": "Zt",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 78750,
+        "inclusiveMs": 1.505,
+        "selfMs": 0
+      },
+      {
+        "id": 892,
+        "fn": "Et",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 24656,
+        "inclusiveMs": 1.492,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 822,
+      "fn": "kt",
+      "file": "post-finishing-full-flow-DOXdvBKN.js",
+      "line": 0,
+      "column": 808,
+      "inclusiveMs": 25.478,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 821,
+        "fn": "fr",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 132155,
+        "inclusiveMs": 35.979,
+        "selfMs": 0
+      },
+      {
+        "id": 820,
+        "fn": "_e",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 59922,
+        "inclusiveMs": 35.979,
+        "selfMs": 0
+      },
+      {
+        "id": 733,
+        "fn": "Mt",
+        "file": "production-object-overview-De_mWAqW.js",
+        "line": 0,
+        "column": 63529,
+        "inclusiveMs": 79.488,
+        "selfMs": 0
+      },
+      {
+        "id": 732,
+        "fn": "m",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 3846,
+        "inclusiveMs": 80.983,
+        "selfMs": 1.495
+      },
+      {
+        "id": 727,
+        "fn": "E",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 35,
+        "column": 14,
+        "inclusiveMs": 202.224,
+        "selfMs": 0
+      },
+      {
+        "id": 418,
+        "fn": "pe",
+        "file": "pda-post-finishing-exec-detail-D-4wmZOy.js",
+        "line": 0,
+        "column": 4456,
+        "inclusiveMs": 343.676,
+        "selfMs": 0
+      },
+      {
+        "id": 360,
+        "fn": "",
+        "file": "index-CgEo9obx.js",
+        "line": 1175,
+        "column": 1875,
+        "inclusiveMs": 345.181,
+        "selfMs": 1.505
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 823,
+        "fn": "Zt",
+        "file": "special-craft-task-orders-UtCqPbTw.js",
+        "line": 0,
+        "column": 119030,
+        "inclusiveMs": 25.478,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 362,
+      "fn": "e.onsuccess",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1210,
+      "inclusiveMs": 46.602,
+      "selfMs": 46.602
+    },
+    "ancestors": [
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": []
+  },
+  {
+    "head": {
+      "id": 363,
+      "fn": "",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 2945,
+      "inclusiveMs": 24.731,
+      "selfMs": 1.097
+    },
+    "ancestors": [
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 364,
+        "fn": "M",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1829,
+        "inclusiveMs": 23.634,
+        "selfMs": 0
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 364,
+      "fn": "M",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1829,
+      "inclusiveMs": 23.634,
+      "selfMs": 0
+    },
+    "ancestors": [
+      {
+        "id": 363,
+        "fn": "",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 2945,
+        "inclusiveMs": 24.731,
+        "selfMs": 1.097
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 365,
+        "fn": "c",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1895,
+        "inclusiveMs": 23.634,
+        "selfMs": 7.524
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 365,
+      "fn": "c",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1895,
+      "inclusiveMs": 23.634,
+      "selfMs": 7.524
+    },
+    "ancestors": [
+      {
+        "id": 364,
+        "fn": "M",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1829,
+        "inclusiveMs": 23.634,
+        "selfMs": 0
+      },
+      {
+        "id": 363,
+        "fn": "",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 2945,
+        "inclusiveMs": 24.731,
+        "selfMs": 1.097
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 366,
+        "fn": "c",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1895,
+        "inclusiveMs": 16.11,
+        "selfMs": 1.506
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 366,
+      "fn": "c",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 1895,
+      "inclusiveMs": 16.11,
+      "selfMs": 1.506
+    },
+    "ancestors": [
+      {
+        "id": 365,
+        "fn": "c",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1895,
+        "inclusiveMs": 23.634,
+        "selfMs": 7.524
+      },
+      {
+        "id": 364,
+        "fn": "M",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1829,
+        "inclusiveMs": 23.634,
+        "selfMs": 0
+      },
+      {
+        "id": 363,
+        "fn": "",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 2945,
+        "inclusiveMs": 24.731,
+        "selfMs": 1.097
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 367,
+        "fn": "c",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 1895,
+        "inclusiveMs": 14.604,
+        "selfMs": 2.994
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 370,
+      "fn": "Me",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 52337,
+      "inclusiveMs": 74.117,
+      "selfMs": 41.744
+    },
+    "ancestors": [
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 374,
+        "fn": "",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 53245,
+        "inclusiveMs": 29.956,
+        "selfMs": 1.504
+      },
+      {
+        "id": 372,
+        "fn": "",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 52511,
+        "inclusiveMs": 1.508,
+        "selfMs": 1.508
+      },
+      {
+        "id": 371,
+        "fn": "Kt",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 51455,
+        "inclusiveMs": 0.818,
+        "selfMs": 0.818
+      },
+      {
+        "id": 373,
+        "fn": "ft",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 47634,
+        "inclusiveMs": 0.091,
+        "selfMs": 0.091
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 374,
+      "fn": "",
+      "file": "pcs-record-core-wtBxzMBs.js",
+      "line": 1,
+      "column": 53245,
+      "inclusiveMs": 29.956,
+      "selfMs": 1.504
+    },
+    "ancestors": [
+      {
+        "id": 370,
+        "fn": "Me",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 52337,
+        "inclusiveMs": 74.117,
+        "selfMs": 41.744
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 375,
+        "fn": "",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 117026,
+        "inclusiveMs": 28.452,
+        "selfMs": 3.833
+      }
+    ]
+  },
+  {
+    "head": {
+      "id": 375,
+      "fn": "",
+      "file": "post-finishing-full-flow-DOXdvBKN.js",
+      "line": 0,
+      "column": 117026,
+      "inclusiveMs": 28.452,
+      "selfMs": 3.833
+    },
+    "ancestors": [
+      {
+        "id": 374,
+        "fn": "",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 53245,
+        "inclusiveMs": 29.956,
+        "selfMs": 1.504
+      },
+      {
+        "id": 370,
+        "fn": "Me",
+        "file": "pcs-record-core-wtBxzMBs.js",
+        "line": 1,
+        "column": 52337,
+        "inclusiveMs": 74.117,
+        "selfMs": 41.744
+      },
+      {
+        "id": 1,
+        "fn": "(root)",
+        "line": -1,
+        "column": -1,
+        "inclusiveMs": 993.316,
+        "selfMs": 0
+      }
+    ],
+    "children": [
+      {
+        "id": 382,
+        "fn": "ot",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 76193,
+        "inclusiveMs": 10.113,
+        "selfMs": 4.106
+      },
+      {
+        "id": 378,
+        "fn": "I",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 117776,
+        "inclusiveMs": 8.546,
+        "selfMs": 1.5
+      },
+      {
+        "id": 390,
+        "fn": "i",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 117925,
+        "inclusiveMs": 2.413,
+        "selfMs": 0.146
+      },
+      {
+        "id": 394,
+        "fn": "",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 124672,
+        "inclusiveMs": 1.499,
+        "selfMs": 1.499
+      },
+      {
+        "id": 376,
+        "fn": "",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 118810,
+        "inclusiveMs": 1.496,
+        "selfMs": 1.496
+      },
+      {
+        "id": 395,
+        "fn": "n",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 117429,
+        "inclusiveMs": 0.429,
+        "selfMs": 0
+      },
+      {
+        "id": 393,
+        "fn": "",
+        "file": "post-finishing-full-flow-DOXdvBKN.js",
+        "line": 0,
+        "column": 125039,
+        "inclusiveMs": 0.123,
+        "selfMs": 0.123
+      }
+    ]
+  }
+]

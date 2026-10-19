@@ -1,0 +1,530 @@
+{
+  "diagnosticOnly": true,
+  "entry": {
+    "id": 460,
+    "inclusiveMs": 356.629,
+    "selfMs": 0,
+    "frame": {
+      "function": "pe",
+      "file": "pda-post-finishing-exec-detail-CDrSCXL1.js",
+      "line": 0,
+      "column": 4456,
+      "excerpt": "unction pe(i){var o;y(),v(),((o=g())==null?void 0:o.factoryId)!==I&&b();const t=N(i)||R(i);return t?E(i,t):h('<div class=\"p-4 text-sm text-muted-foreground\">任务不存在</div>',\"exec\",{disableTodoAutoOpen:!0})}function w(i){const t=x(i.postOrderId)||x(i.postOrderNo),o=t?O(t):void 0,a=t?new Set([t.postTaskId]):void 0"
+    },
+    "children": [
+      {
+        "id": 748,
+        "inclusiveMs": 218.555,
+        "selfMs": 0,
+        "frame": {
+          "function": "E",
+          "file": "pda-post-finishing-exec-detail-CDrSCXL1.js",
+          "line": 35,
+          "column": 14,
+          "excerpt": "function E(i,t){l=new Map;const o=w(t),a=[t.receiveAction,t.qcAction,t.postAction].filter(Boolean).map(n=>`"
+        },
+        "children": [
+          {
+            "id": 924,
+            "inclusiveMs": 116.521,
+            "selfMs": 0,
+            "frame": {
+              "function": "qt",
+              "file": "pda-shell-BkC1XeMk.js",
+              "line": 202,
+              "column": 15,
+              "excerpt": "unction qt(t,e,o={}){const a=I.getState().pathname||\"/fcs/pda/exec\",r=mt(a);return r.allowed?yt(a)?E(gt,\"车缝现场交货登记模式\"):(Kt(!!o.disableTodoAutoOpen),`"
+            },
+            "children": [
+              {
+                "id": 965,
+                "inclusiveMs": 104.523,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Qt",
+                  "file": "pda-shell-BkC1XeMk.js",
+                  "line": 25,
+                  "column": 65,
+                  "excerpt": "unction Qt(t,e){const o=T();let a=M(0);if(o)try{a=M(Ht(o.factoryId,o.roleId))}catch{a='<span role=\"status\" class=\"max-w-[112px] text-xs text-amber-800\" title=\"待办来源暂不可读，请恢复浏览器存储访问后刷新。\">待办暂不可用</span>'}const r=(o==null?void 0:o.factoryName)||\"工厂端移动应用\",n=o?Gt(o.factoryId):\"\",d=o&&n?`${_(t,e)} · ${n}`:_(t,e);retur"
+                }
+              },
+              {
+                "id": 935,
+                "inclusiveMs": 4.483,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Kt",
+                  "file": "pda-shell-BkC1XeMk.js",
+                  "line": 0,
+                  "column": 19980,
+                  "excerpt": "unction Kt(t=!1){const e=T(),o=jt(),a=I.getState().pathname||\"\";o!==L&&(L=o,f=!1,m=!1,p=!1),a!==w&&(w=a,f=!1,m=!1,p=!1)}function _(t,e){var o;return e||(t?((o=G().find(a=>a.key===t))==null?void 0:o.label)??\"工厂端移动应用\":\"工厂端移动应用\")}function M(t){return`"
+                }
+              },
+              {
+                "id": 1192,
+                "inclusiveMs": 2.997,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Q",
+                  "file": "pda-shell-BkC1XeMk.js",
+                  "line": 188,
+                  "column": 14,
+                  "excerpt": "function Q(t){return`"
+                }
+              },
+              {
+                "id": 925,
+                "inclusiveMs": 1.511,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Xn",
+                  "file": "factory-onboarding-flow-DPXXqO4N.js",
+                  "line": 0,
+                  "column": 67341,
+                  "excerpt": "unction Xn(e){var n;if(!e.startsWith(\"/fcs/pda\"))return{allowed:!0};if(e.startsWith(\"/fcs/pda/auth/login\")||e.startsWith(\"/fcs/pda/auth/onboarding\"))return{allowed:!0};const t=kt();if(t.canAccessBusiness)return{allowed:!0};const o=e||\"/fcs/pda/exec\";return t.isLoggedIn?t.reasonCode===\"LOCKED\"?(gt(),{allowed:!"
+                }
+              },
+              {
+                "id": 1224,
+                "inclusiveMs": 1.505,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Vt",
+                  "file": "pda-shell-BkC1XeMk.js",
+                  "line": 111,
+                  "column": 15,
+                  "excerpt": "unction Vt(){const t=T();if(!t||!m)return\"\";const e=Ut(t.roleId,t.factoryId),o=B(t.factoryName,t.factoryId);return`"
+                }
+              },
+              {
+                "id": 1212,
+                "inclusiveMs": 1.502,
+                "selfMs": 0,
+                "frame": {
+                  "function": "zt",
+                  "file": "pda-shell-BkC1XeMk.js",
+                  "line": 36,
+                  "column": 15,
+                  "excerpt": "unction zt(){const t=T();if(!t||!f)return\"\";const e=D(t.factoryId,t.roleId).slice(0,5),o=g(t.factoryId)?\"优先处理加工领料、交出和可完成任务。\":\"优先处理待接单、待接收、待交出和差异项。\";return`"
+                }
+              }
+            ]
+          },
+          {
+            "id": 749,
+            "inclusiveMs": 102.034,
+            "selfMs": 0,
+            "frame": {
+              "function": "m",
+              "file": "pda-post-finishing-exec-detail-CDrSCXL1.js",
+              "line": 0,
+              "column": 3846,
+              "excerpt": "function m({objectType:i,objectId:t,label:o,relatedProductionOrderNo:a}){const r=(o||t||\"\").trim(),n=(t||\"\").trim();if(!n||!r)return s(r||\"-\");l.has(i)||l.set(i,T(i));const p=l.get(i),e=f({objectType:i,objectId:n,relatedProductionOrderNo:a},p),d=e.status===\"READY\"||!a?e:f({objectType:i,objectId:n},p);return d"
+            },
+            "children": [
+              {
+                "id": 750,
+                "inclusiveMs": 102.034,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Mt",
+                  "file": "production-object-overview-BfKtAE_t.js",
+                  "line": 0,
+                  "column": 63529,
+                  "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityTe"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 484,
+        "inclusiveMs": 130.578,
+        "selfMs": 0,
+        "frame": {
+          "function": "hr",
+          "file": "printing-task-domain-TS1czlPT.js",
+          "line": 0,
+          "column": 124109,
+          "excerpt": "unction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return"
+        },
+        "children": [
+          {
+            "id": 485,
+            "inclusiveMs": 130.578,
+            "selfMs": 0,
+            "frame": {
+              "function": "we",
+              "file": "printing-task-domain-TS1czlPT.js",
+              "line": 0,
+              "column": 70332,
+              "excerpt": "unction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialRec"
+            },
+            "children": [
+              {
+                "id": 486,
+                "inclusiveMs": 90.02,
+                "selfMs": 1.486,
+                "frame": {
+                  "function": "Re",
+                  "file": "printing-task-domain-TS1czlPT.js",
+                  "line": 0,
+                  "column": 112814,
+                  "excerpt": "unction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt"
+                }
+              },
+              {
+                "id": 687,
+                "inclusiveMs": 39.057,
+                "selfMs": 0,
+                "frame": {
+                  "function": "it",
+                  "file": "printing-task-domain-TS1czlPT.js",
+                  "line": 0,
+                  "column": 63124,
+                  "excerpt": "unction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 735,
+        "inclusiveMs": 4.504,
+        "selfMs": 0,
+        "frame": {
+          "function": "ea",
+          "file": "post-finishing-full-flow-Dh24S5yB.js",
+          "line": 0,
+          "column": 146983,
+          "excerpt": "unction ea(e){const t=ir(e);return t?Tr(t,mr(t)):void 0}function ta(e){return ws().find(t=>t.sourceTaskId===e||t.postTaskId===e)}function ra(e){return`${e.sourceFactoryType}回货 · ${e.requiresPostFinishing?\"QC 已确认后道项目\":\"QC 直达成衣仓\"}`}function oa(e){return e.requiresPostFinishing?\"QC → 后道加工 → 处理后交出复核 → 成衣仓交接\":\"QC "
+        },
+        "children": [
+          {
+            "id": 736,
+            "inclusiveMs": 3.001,
+            "selfMs": 0,
+            "frame": {
+              "function": "mr",
+              "file": "post-finishing-full-flow-Dh24S5yB.js",
+              "line": 0,
+              "column": 129621,
+              "excerpt": "unction mr(e){const t=e?new Set([e.postTaskId]):void 0;return{deliveries:me(),factories:qe(),qcTasks:ae(),rechecks:be(void 0,t),waitHandovers:st(void 0,t)}}function Me(e,t={}){return{skuLineId:`${e.skuId}-LINE`,spuId:e.spuCode,spuCode:e.spuCode,spuName:e.spuName,skuId:e.skuId,skuCode:e.skuCode,colorName:e.col"
+            },
+            "children": [
+              {
+                "id": 737,
+                "inclusiveMs": 1.503,
+                "selfMs": 0,
+                "frame": {
+                  "function": "me",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 106668,
+                  "excerpt": "unction me(e){return N(e?f.deliveries.filter(t=>e.has(t.productionOrderId)):f.deliveries)}function as(){return N(f.waitProcessWarehouseRecords)}function ns(){return N(f.waitProcessWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}function st(e,t){return N(e||t?f.waitHandoverWarehouseRe"
+                }
+              },
+              {
+                "id": 739,
+                "inclusiveMs": 1.498,
+                "selfMs": 0,
+                "frame": {
+                  "function": "ae",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 108126,
+                  "excerpt": "unction ae(e){return N(e?f.qcTasks.filter(t=>e.has(t.productionOrderNo)):f.qcTasks)}function Le(e){return N(e?f.postTasks.filter(t=>e.has(t.productionOrderNo)):f.postTasks)}function be(e,t){return N(e||t?f.recheckOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):f"
+                }
+              }
+            ]
+          },
+          {
+            "id": 741,
+            "inclusiveMs": 1.503,
+            "selfMs": 0,
+            "frame": {
+              "function": "Tr",
+              "file": "post-finishing-full-flow-Dh24S5yB.js",
+              "line": 0,
+              "column": 141900,
+              "excerpt": "unction Tr(e,t){var F,v,U,Q,R,u,A,w;const r=t.deliveries.find(h=>h.deliveryId===e.deliveryId),o=t.qcTasks.find(h=>h.qcTaskId===e.qcTaskId),s=z(e),a=t.rechecks.filter(h=>h.postTaskId===e.postTaskId),n=a.find(h=>h.status!==\"复检完成\")||a[0],d=t.waitHandovers.filter(h=>h.postTaskId===e.postTaskId),c=d.find(h=>h.stat"
+            },
+            "children": [
+              {
+                "id": 742,
+                "inclusiveMs": 1.503,
+                "selfMs": 0,
+                "frame": {
+                  "function": "z",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 78337,
+                  "excerpt": "function z(e){return Yt(e,!0)}function Zt(e){return f.postTasks.filter(t=>!e||e.has(t.productionOrderNo)).map(t=>{const r=Yt(t,!1);return{postTaskId:t.postTaskId,productionOrderNo:t.productionOrderNo,qcTaskId:t.qcTaskId,status:t.status,completedAt:t.completedAt,totalExpectedQty:r.totalExpectedQty,totalComplet"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 461,
+        "inclusiveMs": 2.992,
+        "selfMs": 0,
+        "frame": {
+          "function": "g",
+          "file": "pda-runtime-i-BdJ_u-.js",
+          "line": 0,
+          "column": 322,
+          "excerpt": "function g(){const t=n(),r=s();if(t&&r)return{factoryId:t.factoryId,factoryName:t.factoryName,loginId:t.loginId,roleId:t.roleId,userId:t.userId,userName:t.userName};const e=c();return!e||!d(e.status)?null:{factoryId:e.createdFactoryId||e.factoryTempId,factoryName:e.factoryCompanyName,loginId:e.adminAccount.lo"
+        },
+        "children": [
+          {
+            "id": 471,
+            "inclusiveMs": 1.501,
+            "selfMs": 0,
+            "frame": {
+              "function": "zi",
+              "file": "craft-display-support-CvsYnyTE.js",
+              "line": 1,
+              "column": 127457,
+              "excerpt": "unction zi(){const e=ht();return e?tt(e.userId):null}function Xo(e){const t=Jo(e);return t?t.status===\"LOCKED\"?{user:t,error:\"LOCKED\"}:{user:t,error:\"\"}:{user:null,error:\"NOT_FOUND\"}}function Ji(e,t){const r=Xo(e);return!r.user||r.error?{user:r.user,error:r.error||\"NOT_FOUND\"}:Ho(t,r.user.passwordHash)?{user:"
+            },
+            "children": [
+              {
+                "id": 472,
+                "inclusiveMs": 1.501,
+                "selfMs": 0,
+                "frame": {
+                  "function": "ht",
+                  "file": "craft-display-support-CvsYnyTE.js",
+                  "line": 1,
+                  "column": 127137,
+                  "excerpt": "unction ht(){const e=Hi();if(!e)return null;const t=tt(e.userId);return!t||t.status===\"LOCKED\"||!Fi(t.factoryId)?(je(),null):{...e,loginId:t.loginId,userName:t.name,roleId:t.roleId,factoryId:t.factoryId,factoryName:zo(t.factoryId)}}function wn(e){if(!e){je();return}yt=Kr(e),Ue(Rn,yt)}function je(){yt=null,la("
+                }
+              }
+            ]
+          },
+          {
+            "id": 462,
+            "inclusiveMs": 1.491,
+            "selfMs": 0,
+            "frame": {
+              "function": "ht",
+              "file": "craft-display-support-CvsYnyTE.js",
+              "line": 1,
+              "column": 127137,
+              "excerpt": "unction ht(){const e=Hi();if(!e)return null;const t=tt(e.userId);return!t||t.status===\"LOCKED\"||!Fi(t.factoryId)?(je(),null):{...e,loginId:t.loginId,userName:t.name,roleId:t.roleId,factoryId:t.factoryId,factoryName:zo(t.factoryId)}}function wn(e){if(!e){je();return}yt=Kr(e),Ue(Rn,yt)}function je(){yt=null,la("
+            },
+            "children": [
+              {
+                "id": 463,
+                "inclusiveMs": 1.491,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Fi",
+                  "file": "craft-display-support-CvsYnyTE.js",
+                  "line": 1,
+                  "column": 122953,
+                  "excerpt": "unction Fi(e){return Wn().some(t=>t.id===e)}function Mi(e){if(!e)return null;const t=String(e.userId||\"\").trim(),r=String(e.loginId||\"\").trim(),n=String(e.userName||\"\").trim(),o=String(e.roleId||\"\").trim(),a=String(e.factoryId||\"\").trim(),i=String(e.factoryName||\"\").trim(),s=String(e.loggedAt||\"\").trim();retu"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "link": {
+    "id": 750,
+    "inclusiveMs": 102.034,
+    "selfMs": 0,
+    "frame": {
+      "function": "Mt",
+      "file": "production-object-overview-BfKtAE_t.js",
+      "line": 0,
+      "column": 63529,
+      "excerpt": "unction Mt(e){const o=k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityTe"
+    },
+    "children": [
+      {
+        "id": 829,
+        "inclusiveMs": 58.52,
+        "selfMs": 0,
+        "frame": {
+          "function": "_e",
+          "file": "production-object-overview-BfKtAE_t.js",
+          "line": 0,
+          "column": 59922,
+          "excerpt": "unction _e(e=!1){const o=e?[]:v(),t=e?[]:$e(),a=new Map,s=[];for(const r of o){const d=m(r.productionOrderNo);for(const u of l([r.postTaskId,r.postTaskNo]))a.set(u,[...a.get(u)||[],r]);s.push({id:`QC_ORDER-${r.qcOrderNo}`,objectType:\"QC_ORDER\",primaryNo:r.qcOrderNo,secondaryNo:r.productionOrderNo,displayTitle"
+        },
+        "children": [
+          {
+            "id": 830,
+            "inclusiveMs": 57.029,
+            "selfMs": 0,
+            "frame": {
+              "function": "fr",
+              "file": "post-finishing-full-flow-Dh24S5yB.js",
+              "line": 0,
+              "column": 131322,
+              "excerpt": "unction fr(e){const t=Et({productionOrders:ee,runtimeTasks:pt(),woolStore:Nt(),specialCraftTaskOrders:kt()}),r=[...Y,...t].filter(d=>!e||e.has(d.productionOrderId)),o=me(e),s=e?new Set([...r.map(d=>d.productionOrderNo),...o.map(d=>d.productionOrderNo)]):void 0,a={deliveries:o,qcTasks:ae(s),postTasks:Zt(s),rec"
+            },
+            "children": [
+              {
+                "id": 831,
+                "inclusiveMs": 22.484,
+                "selfMs": 0,
+                "frame": {
+                  "function": "kt",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 808,
+                  "excerpt": "unction kt(){return pe?[...pe()]:[]}const Us=15e5,ut=\"WHOLE_ORDER_TASK\",Ls=\"KOL整单任务\";function qr(e){return e===xe||e===Rr?xe:null}function Tt(e){return qr(e)===xe}function De(e){return!!(e&&Tt(e.mainFactoryId)&&e.sourceDemandSnapshots.length>0&&e.sourceDemandSnapshots.every(t=>Qr(t.saleType)))}function Dr(e){"
+                }
+              },
+              {
+                "id": 912,
+                "inclusiveMs": 12.017,
+                "selfMs": 0,
+                "frame": {
+                  "function": "be",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 108300,
+                  "excerpt": "unction be(e,t){return N(e||t?f.recheckOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):f.recheckOrders)}function cr(e,t){return N(e||t?f.outboundOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):f.outboundOrders)}fun"
+                }
+              },
+              {
+                "id": 907,
+                "inclusiveMs": 7.507,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Zt",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 78368,
+                  "excerpt": "unction Zt(e){return f.postTasks.filter(t=>!e||e.has(t.productionOrderNo)).map(t=>{const r=Yt(t,!1);return{postTaskId:t.postTaskId,productionOrderNo:t.productionOrderNo,qcTaskId:t.qcTaskId,status:t.status,completedAt:t.completedAt,totalExpectedQty:r.totalExpectedQty,totalCompletedQty:r.totalCompletedQty,avail"
+                }
+              },
+              {
+                "id": 917,
+                "inclusiveMs": 6.01,
+                "selfMs": 0,
+                "frame": {
+                  "function": "st",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 106923,
+                  "excerpt": "unction st(e,t){return N(e||t?f.waitHandoverWarehouseRecords.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):f.waitHandoverWarehouseRecords)}function ds(){return f.waitHandoverWarehouseRecords.map(e=>{var t;return{outboundOrderId:e.outboundOrderId,outboundOrderNo:e.out"
+                }
+              },
+              {
+                "id": 915,
+                "inclusiveMs": 4.507,
+                "selfMs": 0,
+                "frame": {
+                  "function": "cr",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 108453,
+                  "excerpt": "unction cr(e,t){return N(e||t?f.outboundOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):f.outboundOrders)}function us(){return f.outboundOrders.map(e=>({outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,status:e.status,receivedAt:e.receivedAt,r"
+                }
+              },
+              {
+                "id": 919,
+                "inclusiveMs": 1.507,
+                "selfMs": 0,
+                "frame": {
+                  "function": "",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 132559,
+                  "excerpt": "(c)}).map(d=>{var R,u,A,w,h,O,P,$;const c=a.deliveries.filter(k=>k.productionOrderId===d.productionOrderId),I=a.qcTasks.filter(k=>k.productionOrderId===d.productionOrderId),m=a.postTasks.filter(k=>k.productionOrderNo===d.productionOrderNo),i=a.rechecks.filter(k=>k.productionOrderNo===d.productionOrderNo),p=a."
+                }
+              },
+              {
+                "id": 903,
+                "inclusiveMs": 1.505,
+                "selfMs": 0,
+                "frame": {
+                  "function": "Et",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 24646,
+                  "excerpt": "unction Et(e){const t=[...lo(e),...Io(e),...mo(e)],r=new Map;return t.forEach(o=>r.set(o.executionTaskId,o)),[...r.values()].sort((o,s)=>o.productionOrderNo.localeCompare(s.productionOrderNo)||o.sourceTaskNo.localeCompare(s.sourceTaskNo))}const j={factoryCourier:{actorId:\"PF-USER-COURIER\",actorName:\"苏车缝送货员\",r"
+                }
+              },
+              {
+                "id": 905,
+                "inclusiveMs": 1.492,
+                "selfMs": 0,
+                "frame": {
+                  "function": "ae",
+                  "file": "post-finishing-full-flow-Dh24S5yB.js",
+                  "line": 0,
+                  "column": 108126,
+                  "excerpt": "unction ae(e){return N(e?f.qcTasks.filter(t=>e.has(t.productionOrderNo)):f.qcTasks)}function Le(e){return N(e?f.postTasks.filter(t=>e.has(t.productionOrderNo)):f.postTasks)}function be(e,t){return N(e||t?f.recheckOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):f"
+                }
+              }
+            ]
+          },
+          {
+            "id": 923,
+            "inclusiveMs": 1.491,
+            "selfMs": 1.491,
+            "frame": {
+              "function": "l",
+              "file": "production-object-overview-BfKtAE_t.js",
+              "line": 0,
+              "column": 10382,
+              "excerpt": "function l(e){return Array.from(new Set(e.map(o=>(o??\"\").trim()).filter(Boolean)))}function T(e,o){return`${Number(e||0).toLocaleString(\"zh-CN\")}${o}`}function Oe(e){return qe(e).map(o=>T(o.preparedQty,o.unit)).join(\"；\")||\"0\"}function Ae(e){return(e||\"\").trim().toUpperCase()}function W(e){return Math.max(Numb"
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": 751,
+        "inclusiveMs": 43.514,
+        "selfMs": 0,
+        "frame": {
+          "function": "",
+          "file": "production-object-overview-BfKtAE_t.js",
+          "line": 0,
+          "column": 63551,
+          "excerpt": "k.flatMap(t=>e===\"PRODUCTION_ORDER\"?[Ie(t)]:xe(t));return e===\"PROCESS_DOC\"&&o.push(..._e(!0).filter(t=>t.objectType===e)),o.push(...Ce().filter(t=>t.objectType===e)),o}function ge(e){return l([j[e.objectType],e.displayTitle,e.statusText,e.ownerRole,e.sourceDomain,e.docGroup,e.quantityText,...e.keywords])}fun"
+        },
+        "children": [
+          {
+            "id": 752,
+            "inclusiveMs": 43.514,
+            "selfMs": 0,
+            "frame": {
+              "function": "xe",
+              "file": "production-object-overview-BfKtAE_t.js",
+              "line": 0,
+              "column": 53040,
+              "excerpt": "unction xe(e){return fe(e.productionOrderNo).slice(0,12).map(o=>({id:`PROCESS_DOC-${o.runtimeTaskId}`,objectType:\"PROCESS_DOC\",primaryNo:o.taskNo||o.runtimeTaskId,secondaryNo:e.productionOrderNo,displayTitle:o.processNameZh||o.taskTypeLabel||\"工艺任务\",keywords:l([o.runtimeTaskId,o.taskNo,o.processNameZh,o.taskTy"
+            },
+            "children": [
+              {
+                "id": 753,
+                "inclusiveMs": 43.514,
+                "selfMs": 0,
+                "frame": {
+                  "function": "fe",
+                  "file": "production-object-overview-BfKtAE_t.js",
+                  "line": 0,
+                  "column": 23726,
+                  "excerpt": "unction fe(e){if(!x){x=new Map;for(const o of Me()){const t=x.get(o.productionOrderId)??[];t.push(o),x.set(o.productionOrderId,t)}}return x.get(e)??[]}function tt(e,o){return o.length===0?[{nodeId:`${e.productionOrderNo}-material`,nodeName:\"面辅料准备\",status:\"待确认\",ownerRole:\"跟单\",plannedAt:e.updatedAt||\"-\",actualA"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

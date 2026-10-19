@@ -1,0 +1,122 @@
+[
+  {
+    "file": "parent-generic.pdf",
+    "pages": 3,
+    "sizes": [
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ]
+    ],
+    "images": 1,
+    "textLength": 2494
+  },
+  {
+    "file": "parent-specialized.pdf",
+    "pages": 1,
+    "sizes": [
+      [
+        595.92,
+        842.88
+      ]
+    ],
+    "images": 5,
+    "textLength": 1030
+  },
+  {
+    "file": "second-outbound_barcode.pdf",
+    "pages": 3,
+    "sizes": [
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ]
+    ],
+    "images": 0,
+    "textLength": 5289
+  },
+  {
+    "file": "second-outbound_hangtag.pdf",
+    "pages": 9,
+    "sizes": [
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ],
+      [
+        595.92,
+        842.88
+      ]
+    ],
+    "images": 9,
+    "textLength": 6492
+  },
+  {
+    "file": "third-outbound-generic.pdf",
+    "pages": 1,
+    "sizes": [
+      [
+        595.92,
+        842.88
+      ]
+    ],
+    "images": 1,
+    "textLength": 373
+  },
+  {
+    "file": "third-outbound-specialized.pdf",
+    "pages": 1,
+    "sizes": [
+      [
+        595.92,
+        842.88
+      ]
+    ],
+    "images": 1,
+    "textLength": 559
+  }
+]

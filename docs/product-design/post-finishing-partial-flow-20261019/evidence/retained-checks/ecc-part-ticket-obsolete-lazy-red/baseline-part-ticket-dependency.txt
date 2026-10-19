@@ -1,0 +1,16 @@
+Initial baseline 4a0ce9ef5a30e8dec4537de1ff59159543902a25; main.ts:961–975
+let productionEntryHydration: Promise<void> | undefined
+let productionSourceEffectsHydration: Promise<void> | undefined
+let partTicketEntryHydration: Promise<void> | undefined
+let cuttingEntryHydration: Promise<void> | undefined
+async function hydratePartTicketsForEntry(normalizedPathname: string, snapshot?: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot, force = false): Promise<void> {
+  // 后道确认同步更新PPIC承诺分摊；独立直达也先恢复其任务来源依赖。
+  // 仅只读恢复，不把部位票或演示种子写入数据库。
+  partTicketEntryHydration ??= import('./data/fcs/cutting/part-ticket-records.ts')
+    .then(partTickets => partTickets.hydratePartTicketRecords(snapshot))
+    .catch(error => { partTicketEntryHydration = undefined; throw error })
+  await partTicketEntryHydration
+}
+async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string): Promise<void> {
+  // 后道及限定工艺页仍读取生产单与裁片来源。没有保存过分配产物时，静态默认值已由
+  // 各自来源提供，无需首次进入就加载整套车缝、结算及分配保存模块。

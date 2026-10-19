@@ -1,0 +1,7 @@
+{
+  "canonicalSha256": "36685ba3face8530284be6a2411b093f7968b45034186c10ca047d6e33c90d14",
+  "helperSha256": "af2f28ea53bae636411a2176a97d7b8cd7b1c93ded9b377ced0d7de65afc7229",
+  "runtimePath": "/tmp/pf-shared-navigation-adjacent.mjs",
+  "helperCopy": "helper.mjs.txt",
+  "boundary": "Evidence-only adjacent 5x5 collector. Product and canonical unchanged. Full diff preserved. No browser executed during preparation."
+}

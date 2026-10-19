@@ -1,0 +1,934 @@
+{
+  "branches": [
+    {
+      "node": {
+        "id": 293,
+        "fn": "Ce",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 13530,
+        "ms": 470.776,
+        "selfMs": 0,
+        "excerpt": "nction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直"
+      },
+      "children": [
+        {
+          "id": 349,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "ms": 410.707,
+          "selfMs": 0,
+          "excerpt": ",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n"
+        },
+        {
+          "id": 947,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 16198,
+          "ms": 36.07,
+          "selfMs": 0,
+          "excerpt": ",X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-7\">${a?`<input type=\"hidden\" name=\"taskId\" value=\"${r(a)}\"/>`:\"\"}<label class=\"text-xs text-muted-foreground md:col-span-2\">关键词<input name=\"keyword\" value=\"${r(e.get(\"keyword\")||\"\")}\" class=\"mt-1 h-9 w-full rounded-md border px-3 text-sm\" plac"
+        },
+        {
+          "id": 294,
+          "fn": "k",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 633,
+          "ms": 16.487,
+          "selfMs": 1.494,
+          "excerpt": "unction k(){return me().map(e=>({productionOrderId:e.productionOrderId,productionOrderNo:e.productionOrderNo,styleNo:e.styleNo,styleName:e.styleName,managedPostFactoryName:e.managedPostFactoryName,skus:e.skus,sourceTypes:[...new Set(e.sourceTasks.map(t=>t.taskType))],sourceTaskNos:e.sourceTaskNos,sewingTaskNo:e.sourceTaskNos.join(\"、\"),plannedGarmentQty:e.plannedGarmentQty,techPackVersionLabel:e.techPackVersionLabel,saleType:e.saleType,sourceKinds:[...new Set(e.sourceTasks.map(t=>t.sourceKind||\"UNKNOWN\"))]}))}function S(e){return{INDEPENDENT_SEWING:\"仅车缝\",SEWING_IRON_PACK:\"车缝＋烫包\",CUTTING_SEWING_IRON_PACK:\"裁剪＋车缝＋烫包\",WHOLE_GARMENT_WOOL:\"整件毛织\",GARMENT_HEAT_TRANSFER:\"成衣烫画\",GARMENT_DIRECT_PRINT:\"成衣直喷\"}[e]||\"来源责任未记录\"}function L(e){return e.sourceKinds.map(t=>t===\"INDEPENDENT_SEWING\"?\"仅车缝 · 后道项目由QC确认\":t===\""
+        },
+        {
+          "id": 347,
+          "fn": "cr",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 107705,
+          "ms": 6.005,
+          "selfMs": 0,
+          "excerpt": "nction cr(e,t){return N(e||t?m.waitHandoverWarehouseRecords.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.waitHandoverWarehouseRecords)}function ds(){return m.waitHandoverWarehouseRecords.map(e=>{var t;return{outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,postTaskId:e.postTaskId,postTaskNo:e.postTaskNo,qcTaskId:e.qcTaskId,qcTaskNo:e.qcTaskNo,deliveryOrderNo:e.deliveryOrderNo,productionOrderNo:e.productionOrderNo,status:e.status,qtyUnit:((t=e.lines[0])==null?void 0:t.sku.qtyUnit)||\"件\",skuCount:e.lines.length,inboundQty:b(e.lines.map(r=>r.inboundQty)),handedOverQty:b(e.lines.map(r=>r.handedOverQty))}})}function cs(){return N(m.waitHandoverWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}function is(e={}){return"
+        },
+        {
+          "id": 345,
+          "fn": "ne",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 108908,
+          "ms": 1.507,
+          "selfMs": 0,
+          "excerpt": "nction ne(e){return N(e?m.qcTasks.filter(t=>e.has(t.productionOrderNo)):m.qcTasks)}function Ue(e){return N(e?m.postTasks.filter(t=>e.has(t.productionOrderNo)):m.postTasks)}function Le(e,t){return N(e||t?m.recheckOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.recheckOrders)}function us(e,t){return N(e||t?m.outboundOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.outboundOrders)}function ls(){return m.outboundOrders.map(e=>({outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,status:e.status,receivedAt:e.receivedAt,receivedQty:b(e.lines.map(t=>t.receivedQty||0))}))}function Is(){return N(m.warehouseReceipts)}function ms(e={}){return N(m.defects.filter(t=>!e.discoveryStage||t.discoverySt"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 349,
+        "fn": "",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 13912,
+        "ms": 410.707,
+        "selfMs": 0,
+        "excerpt": ",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n"
+      },
+      "children": [
+        {
+          "id": 358,
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "ms": 373.047,
+          "selfMs": 0,
+          "excerpt": "nction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道辅料已入后道待加工仓\"};return{applicable:!0,status:o.status,label:a[o.status],transferOrderNo:o.transferOrderNo}}function qo(){const e=new Set(De().materialTransferOrders.map(r=>r.transferOrderId)),t=m.materialStocks.filter(r=>!e.has(r.transferOrderId)&&!(C!=n"
+        },
+        {
+          "id": 350,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 14044,
+          "ms": 37.66,
+          "selfMs": 0,
+          "excerpt": ",g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.expectedQty,0),0),inspectedQty:m.filter(n=>n.status===\"质检完成\").reduce((n,p)=>n+(p.results||[]).reduce((N,$"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 358,
+        "fn": "Po",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 45224,
+        "ms": 373.047,
+        "selfMs": 0,
+        "excerpt": "nction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道辅料已入后道待加工仓\"};return{applicable:!0,status:o.status,label:a[o.status],transferOrderNo:o.transferOrderNo}}function qo(){const e=new Set(De().materialTransferOrders.map(r=>r.transferOrderId)),t=m.materialStocks.filter(r=>!e.has(r.transferOrderId)&&!(C!=n"
+      },
+      "children": [
+        {
+          "id": 359,
+          "fn": "readiness",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 9087,
+          "ms": 332.992,
+          "selfMs": 0,
+          "excerpt": "eadiness:e=>{const o=W(e);if(!o)return;const c=E().filter(n=>n.productionOrderId===o.productionOrderId),s=c.filter(n=>!n.legacyPostBatchId);if(g.filter(n=>n.value.productionOrderNo===o.productionOrderNo||\"productionOrderId\"in n.value&&n.value.productionOrderId===o.productionOrderId).some(n=>!P().some(r=>r.sourceKey===n.key&&r.sourceFingerprint===n.fingerprint&&Q().some(a=>a.id===r.batchId&&a.phase===\"COMPLETE\"))))return{applicable:!0,status:\"申请调拨\",label:\"本单原后道辅料资料尚未归档核验，请先核对原资料\"};if(!s.length)return c.length?{applicable:!0,status:\"申请调拨\",label:\"原后道库存已承接，本次任务尚未建立后道调拨，不能把历史入库视为本次齐套\"}:{applicable:!1,status:\"不适用\",label:\"当前有效任务尚无后道辅料调拨；以本次辅料清单和任务分配为准\"};const i=s.find(n=>n.status!==\"已收货\")||s[0],p=$(i);return{applicable:!0,status:p.status,label:s.every(n=>n.status===\"已收货\")?\"本次后道辅料已收货上架\":p.status===\"待入库\"?\"本"
+        },
+        {
+          "id": 801,
+          "fn": "tt",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 44856,
+          "ms": 40.055,
+          "selfMs": 0,
+          "excerpt": "nction tt(){const e=m.materialTransferOrders.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 801,
+        "fn": "tt",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 44856,
+        "ms": 40.055,
+        "selfMs": 0,
+        "excerpt": "nction tt(){const e=m.materialTransferOrders.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:"
+      },
+      "children": [
+        {
+          "id": 802,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 44899,
+          "ms": 40.055,
+          "selfMs": 0,
+          "excerpt": "s.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\""
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 359,
+        "fn": "readiness",
+        "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+        "line": 0,
+        "column": 9087,
+        "ms": 332.992,
+        "selfMs": 0,
+        "excerpt": "eadiness:e=>{const o=W(e);if(!o)return;const c=E().filter(n=>n.productionOrderId===o.productionOrderId),s=c.filter(n=>!n.legacyPostBatchId);if(g.filter(n=>n.value.productionOrderNo===o.productionOrderNo||\"productionOrderId\"in n.value&&n.value.productionOrderId===o.productionOrderId).some(n=>!P().some(r=>r.sourceKey===n.key&&r.sourceFingerprint===n.fingerprint&&Q().some(a=>a.id===r.batchId&&a.phase===\"COMPLETE\"))))return{applicable:!0,status:\"申请调拨\",label:\"本单原后道辅料资料尚未归档核验，请先核对原资料\"};if(!s.length)return c.length?{applicable:!0,status:\"申请调拨\",label:\"原后道库存已承接，本次任务尚未建立后道调拨，不能把历史入库视为本次齐套\"}:{applicable:!1,status:\"不适用\",label:\"当前有效任务尚无后道辅料调拨；以本次辅料清单和任务分配为准\"};const i=s.find(n=>n.status!==\"已收货\")||s[0],p=$(i);return{applicable:!0,status:p.status,label:s.every(n=>n.status===\"已收货\")?\"本次后道辅料已收货上架\":p.status===\"待入库\"?\"本"
+      },
+      "children": [
+        {
+          "id": 360,
+          "fn": "W",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 2094,
+          "ms": 332.992,
+          "selfMs": 0,
+          "excerpt": "hive\"),W=e=>b().find(o=>o.productionOrderId===e||o.productionOrderNo===e),Ne=e=>V(new Set([e])).has(e);function Se(e){return e.kind===\"SITE_TO_POST\"&&e.toWarehouse===ge&&e.status!==\"已作废\"&&(!e.legacyPostBatchId||Q().some(o=>o.id===e.legacyPostBatchId&&o.phase===\"COMPLETE\"))}function E(){return j().filter(Se).map(e=>(I(Z(e.lines,\"SEWING\").postLines.length===e.lines.length,\"后道调拨明细包含不属于本次后道范围的物料，需核对原单。\"),e))}function I(e,o){if(!e)throw new Error(o)}function _(e,o=b().find(c=>c.id===e.preparationId)){const c=j().filter(s=>s.kind===\"SITE_TO_POST\"&&s.preparationId===e.preparationId).sort((s,d)=>s.createdAt.localeCompare(d.createdAt)||s.id.localeCompare(d.id));return`HD-${(o==null?void 0:o.productionOrderNo)||\"历史辅料\"}-${String(c.findIndex(s=>s.id===e.id)+1).padStart(2,\"0\")}`}const oe=e=>{var o;return((o=U.f"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 801,
+        "fn": "tt",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 44856,
+        "ms": 40.055,
+        "selfMs": 0,
+        "excerpt": "nction tt(){const e=m.materialTransferOrders.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:"
+      },
+      "children": [
+        {
+          "id": 802,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 44899,
+          "ms": 40.055,
+          "selfMs": 0,
+          "excerpt": "s.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\""
+        }
+      ]
+    }
+  ],
+  "taskNodes": [
+    {
+      "node": {
+        "id": 293,
+        "fn": "Ce",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 13530,
+        "ms": 470.776,
+        "selfMs": 0,
+        "excerpt": "nction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直"
+      },
+      "children": [
+        {
+          "id": 349,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "ms": 410.707,
+          "selfMs": 0,
+          "excerpt": ",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n"
+        },
+        {
+          "id": 947,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 16198,
+          "ms": 36.07,
+          "selfMs": 0,
+          "excerpt": ",X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-7\">${a?`<input type=\"hidden\" name=\"taskId\" value=\"${r(a)}\"/>`:\"\"}<label class=\"text-xs text-muted-foreground md:col-span-2\">关键词<input name=\"keyword\" value=\"${r(e.get(\"keyword\")||\"\")}\" class=\"mt-1 h-9 w-full rounded-md border px-3 text-sm\" plac"
+        },
+        {
+          "id": 294,
+          "fn": "k",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 633,
+          "ms": 16.487,
+          "selfMs": 1.494,
+          "excerpt": "unction k(){return me().map(e=>({productionOrderId:e.productionOrderId,productionOrderNo:e.productionOrderNo,styleNo:e.styleNo,styleName:e.styleName,managedPostFactoryName:e.managedPostFactoryName,skus:e.skus,sourceTypes:[...new Set(e.sourceTasks.map(t=>t.taskType))],sourceTaskNos:e.sourceTaskNos,sewingTaskNo:e.sourceTaskNos.join(\"、\"),plannedGarmentQty:e.plannedGarmentQty,techPackVersionLabel:e.techPackVersionLabel,saleType:e.saleType,sourceKinds:[...new Set(e.sourceTasks.map(t=>t.sourceKind||\"UNKNOWN\"))]}))}function S(e){return{INDEPENDENT_SEWING:\"仅车缝\",SEWING_IRON_PACK:\"车缝＋烫包\",CUTTING_SEWING_IRON_PACK:\"裁剪＋车缝＋烫包\",WHOLE_GARMENT_WOOL:\"整件毛织\",GARMENT_HEAT_TRANSFER:\"成衣烫画\",GARMENT_DIRECT_PRINT:\"成衣直喷\"}[e]||\"来源责任未记录\"}function L(e){return e.sourceKinds.map(t=>t===\"INDEPENDENT_SEWING\"?\"仅车缝 · 后道项目由QC确认\":t===\""
+        },
+        {
+          "id": 347,
+          "fn": "cr",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 107705,
+          "ms": 6.005,
+          "selfMs": 0,
+          "excerpt": "nction cr(e,t){return N(e||t?m.waitHandoverWarehouseRecords.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.waitHandoverWarehouseRecords)}function ds(){return m.waitHandoverWarehouseRecords.map(e=>{var t;return{outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,postTaskId:e.postTaskId,postTaskNo:e.postTaskNo,qcTaskId:e.qcTaskId,qcTaskNo:e.qcTaskNo,deliveryOrderNo:e.deliveryOrderNo,productionOrderNo:e.productionOrderNo,status:e.status,qtyUnit:((t=e.lines[0])==null?void 0:t.sku.qtyUnit)||\"件\",skuCount:e.lines.length,inboundQty:b(e.lines.map(r=>r.inboundQty)),handedOverQty:b(e.lines.map(r=>r.handedOverQty))}})}function cs(){return N(m.waitHandoverWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}function is(e={}){return"
+        },
+        {
+          "id": 345,
+          "fn": "ne",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 108908,
+          "ms": 1.507,
+          "selfMs": 0,
+          "excerpt": "nction ne(e){return N(e?m.qcTasks.filter(t=>e.has(t.productionOrderNo)):m.qcTasks)}function Ue(e){return N(e?m.postTasks.filter(t=>e.has(t.productionOrderNo)):m.postTasks)}function Le(e,t){return N(e||t?m.recheckOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.recheckOrders)}function us(e,t){return N(e||t?m.outboundOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.outboundOrders)}function ls(){return m.outboundOrders.map(e=>({outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,status:e.status,receivedAt:e.receivedAt,receivedQty:b(e.lines.map(t=>t.receivedQty||0))}))}function Is(){return N(m.warehouseReceipts)}function ms(e={}){return N(m.defects.filter(t=>!e.discoveryStage||t.discoverySt"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 349,
+        "fn": "",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 13912,
+        "ms": 410.707,
+        "selfMs": 0,
+        "excerpt": ",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n"
+      },
+      "children": [
+        {
+          "id": 358,
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "ms": 373.047,
+          "selfMs": 0,
+          "excerpt": "nction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道辅料已入后道待加工仓\"};return{applicable:!0,status:o.status,label:a[o.status],transferOrderNo:o.transferOrderNo}}function qo(){const e=new Set(De().materialTransferOrders.map(r=>r.transferOrderId)),t=m.materialStocks.filter(r=>!e.has(r.transferOrderId)&&!(C!=n"
+        },
+        {
+          "id": 350,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 14044,
+          "ms": 37.66,
+          "selfMs": 0,
+          "excerpt": ",g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.expectedQty,0),0),inspectedQty:m.filter(n=>n.status===\"质检完成\").reduce((n,p)=>n+(p.results||[]).reduce((N,$"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 350,
+        "fn": "",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 14044,
+        "ms": 37.66,
+        "selfMs": 0,
+        "excerpt": ",g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.expectedQty,0),0),inspectedQty:m.filter(n=>n.status===\"质检完成\").reduce((n,p)=>n+(p.results||[]).reduce((N,$"
+      },
+      "children": [
+        {
+          "id": 351,
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "ms": 37.66,
+          "selfMs": 1.504,
+          "excerpt": "nction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};const c=Wt(n),d=m.recheckOrders.filter(p=>p.deliveryId===n.deliveryId),l=m.outboundOrders.filter(p=>p.deliveryId===n.deliveryId),I=o||d[0],i=r||l.find(p=>p.recheckOrderId===(I==null?void 0:I.recheckOrderId))||l[0],y=m.warehouseReceipts.filter(p=>l.some"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 947,
+        "fn": "",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 16198,
+        "ms": 36.07,
+        "selfMs": 0,
+        "excerpt": ",X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-7\">${a?`<input type=\"hidden\" name=\"taskId\" value=\"${r(a)}\"/>`:\"\"}<label class=\"text-xs text-muted-foreground md:col-span-2\">关键词<input name=\"keyword\" value=\"${r(e.get(\"keyword\")||\"\")}\" class=\"mt-1 h-9 w-full rounded-md border px-3 text-sm\" plac"
+      },
+      "children": [
+        {
+          "id": 948,
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "ms": 36.07,
+          "selfMs": 6.012,
+          "excerpt": "nction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};const c=Wt(n),d=m.recheckOrders.filter(p=>p.deliveryId===n.deliveryId),l=m.outboundOrders.filter(p=>p.deliveryId===n.deliveryId),I=o||d[0],i=r||l.find(p=>p.recheckOrderId===(I==null?void 0:I.recheckOrderId))||l[0],y=m.warehouseReceipts.filter(p=>l.some"
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 294,
+        "fn": "k",
+        "file": "tasks-BBNdcd9D.js",
+        "line": 1,
+        "column": 633,
+        "ms": 16.487,
+        "selfMs": 1.494,
+        "excerpt": "unction k(){return me().map(e=>({productionOrderId:e.productionOrderId,productionOrderNo:e.productionOrderNo,styleNo:e.styleNo,styleName:e.styleName,managedPostFactoryName:e.managedPostFactoryName,skus:e.skus,sourceTypes:[...new Set(e.sourceTasks.map(t=>t.taskType))],sourceTaskNos:e.sourceTaskNos,sewingTaskNo:e.sourceTaskNos.join(\"、\"),plannedGarmentQty:e.plannedGarmentQty,techPackVersionLabel:e.techPackVersionLabel,saleType:e.saleType,sourceKinds:[...new Set(e.sourceTasks.map(t=>t.sourceKind||\"UNKNOWN\"))]}))}function S(e){return{INDEPENDENT_SEWING:\"仅车缝\",SEWING_IRON_PACK:\"车缝＋烫包\",CUTTING_SEWING_IRON_PACK:\"裁剪＋车缝＋烫包\",WHOLE_GARMENT_WOOL:\"整件毛织\",GARMENT_HEAT_TRANSFER:\"成衣烫画\",GARMENT_DIRECT_PRINT:\"成衣直喷\"}[e]||\"来源责任未记录\"}function L(e){return e.sourceKinds.map(t=>t===\"INDEPENDENT_SEWING\"?\"仅车缝 · 后道项目由QC确认\":t===\""
+      },
+      "children": [
+        {
+          "id": 295,
+          "fn": "fr",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 132155,
+          "ms": 14.993,
+          "selfMs": 0,
+          "excerpt": "nction fr(e){const t=Et({productionOrders:te,runtimeTasks:pt(),woolStore:Nt(),specialCraftTaskOrders:kt()}),r=[...Y,...t].filter(d=>!e||e.has(d.productionOrderId)),o=fe(e),s=e?new Set([...r.map(d=>d.productionOrderNo),...o.map(d=>d.productionOrderNo)]):void 0,a=Zt(s),n={deliveries:o,qcTasks:ne(s),postTasks:Yt(s),...a},c=new Map;return r.forEach(d=>{const l=c.get(d.productionOrderId);c.set(d.productionOrderId,{productionOrderId:d.productionOrderId,productionOrderNo:d.productionOrderNo,styleNo:d.styleNo,styleName:d.styleName,skus:[...new Map([...(l==null?void 0:l.skus)||[],...d.skus].map(I=>[I.skuId,I])).values()]})}),n.deliveries.forEach(d=>{var i;const l=c.get(d.productionOrderId),I=(i=d.lines[0])==null?void 0:i.sku;c.set(d.productionOrderId,{productionOrderId:d.productionOrderId,productionOrderNo:"
+        }
+      ]
+    }
+  ],
+  "clones": [
+    {
+      "node": {
+        "id": 353,
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "ms": 25.559,
+        "selfMs": 25.559,
+        "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+      },
+      "path": [
+        {
+          "id": 353,
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "ms": 25.559,
+          "selfMs": 25.559,
+          "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+        },
+        {
+          "id": 351,
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "ms": 37.66,
+          "selfMs": 1.504,
+          "excerpt": "nction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};const c=Wt(n),d=m.recheckOrders.filter(p=>p.deliveryId===n.deliveryId),l=m.outboundOrders.filter(p=>p.deliveryId===n.deliveryId),I=o||d[0],i=r||l.find(p=>p.recheckOrderId===(I==null?void 0:I.recheckOrderId))||l[0],y=m.warehouseReceipts.filter(p=>l.some"
+        },
+        {
+          "id": 350,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 14044,
+          "ms": 37.66,
+          "selfMs": 0,
+          "excerpt": ",g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.expectedQty,0),0),inspectedQty:m.filter(n=>n.status===\"质检完成\").reduce((n,p)=>n+(p.results||[]).reduce((N,$"
+        },
+        {
+          "id": 349,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "ms": 410.707,
+          "selfMs": 0,
+          "excerpt": ",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).reduce((n,p)=>n+p.lines.reduce((N,$)=>N+$.confirmedQty,0),0),uninspectedQty:m.filter(n=>n.status!==\"质检完成\").reduce((n,p)=>n"
+        },
+        {
+          "id": 293,
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "ms": 470.776,
+          "selfMs": 0,
+          "excerpt": "nction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直"
+        },
+        {
+          "id": 200,
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "ms": 472.278,
+          "selfMs": 0,
+          "excerpt": "l;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}=await import(\"./app-shared-_ZQpMwKQ.js\").then(P=>P.bv);return{escapeHtml:o}},__vite__mapDeps([2,3]))).escapeHtml(t instanceof Error?t.message:String(t))+\" 刷新后重试。</p>\"}}if(i===\"renderProductionOrderDetailPage\"){const{ensurePcsRecordState:t}=await e(a"
+        },
+        {
+          "id": 1,
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "ms": 1056.258,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 950,
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "ms": 24.038,
+        "selfMs": 24.038,
+        "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+      },
+      "path": [
+        {
+          "id": 950,
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "ms": 24.038,
+          "selfMs": 24.038,
+          "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+        },
+        {
+          "id": 948,
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "ms": 36.07,
+          "selfMs": 6.012,
+          "excerpt": "nction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};const c=Wt(n),d=m.recheckOrders.filter(p=>p.deliveryId===n.deliveryId),l=m.outboundOrders.filter(p=>p.deliveryId===n.deliveryId),I=o||d[0],i=r||l.find(p=>p.recheckOrderId===(I==null?void 0:I.recheckOrderId))||l[0],y=m.warehouseReceipts.filter(p=>l.some"
+        },
+        {
+          "id": 947,
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 16198,
+          "ms": 36.07,
+          "selfMs": 0,
+          "excerpt": ",X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-7\">${a?`<input type=\"hidden\" name=\"taskId\" value=\"${r(a)}\"/>`:\"\"}<label class=\"text-xs text-muted-foreground md:col-span-2\">关键词<input name=\"keyword\" value=\"${r(e.get(\"keyword\")||\"\")}\" class=\"mt-1 h-9 w-full rounded-md border px-3 text-sm\" plac"
+        },
+        {
+          "id": 293,
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "ms": 470.776,
+          "selfMs": 0,
+          "excerpt": "nction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直"
+        },
+        {
+          "id": 200,
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "ms": 472.278,
+          "selfMs": 0,
+          "excerpt": "l;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}=await import(\"./app-shared-_ZQpMwKQ.js\").then(P=>P.bv);return{escapeHtml:o}},__vite__mapDeps([2,3]))).escapeHtml(t instanceof Error?t.message:String(t))+\" 刷新后重试。</p>\"}}if(i===\"renderProductionOrderDetailPage\"){const{ensurePcsRecordState:t}=await e(a"
+        },
+        {
+          "id": 1,
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "ms": 1056.258,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 348,
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "ms": 6.005,
+        "selfMs": 6.005,
+        "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+      },
+      "path": [
+        {
+          "id": 348,
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "ms": 6.005,
+          "selfMs": 6.005,
+          "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+        },
+        {
+          "id": 347,
+          "fn": "cr",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 107705,
+          "ms": 6.005,
+          "selfMs": 0,
+          "excerpt": "nction cr(e,t){return N(e||t?m.waitHandoverWarehouseRecords.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.waitHandoverWarehouseRecords)}function ds(){return m.waitHandoverWarehouseRecords.map(e=>{var t;return{outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,postTaskId:e.postTaskId,postTaskNo:e.postTaskNo,qcTaskId:e.qcTaskId,qcTaskNo:e.qcTaskNo,deliveryOrderNo:e.deliveryOrderNo,productionOrderNo:e.productionOrderNo,status:e.status,qtyUnit:((t=e.lines[0])==null?void 0:t.sku.qtyUnit)||\"件\",skuCount:e.lines.length,inboundQty:b(e.lines.map(r=>r.inboundQty)),handedOverQty:b(e.lines.map(r=>r.handedOverQty))}})}function cs(){return N(m.waitHandoverWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}function is(e={}){return"
+        },
+        {
+          "id": 293,
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "ms": 470.776,
+          "selfMs": 0,
+          "excerpt": "nction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直"
+        },
+        {
+          "id": 200,
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "ms": 472.278,
+          "selfMs": 0,
+          "excerpt": "l;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}=await import(\"./app-shared-_ZQpMwKQ.js\").then(P=>P.bv);return{escapeHtml:o}},__vite__mapDeps([2,3]))).escapeHtml(t instanceof Error?t.message:String(t))+\" 刷新后重试。</p>\"}}if(i===\"renderProductionOrderDetailPage\"){const{ensurePcsRecordState:t}=await e(a"
+        },
+        {
+          "id": 1,
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "ms": 1056.258,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 60,
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "ms": 1.51,
+        "selfMs": 1.51,
+        "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+      },
+      "path": [
+        {
+          "id": 60,
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "ms": 1.51,
+          "selfMs": 1.51,
+          "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+        },
+        {
+          "id": 59,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 73031,
+          "ms": 1.51,
+          "selfMs": 0,
+          "excerpt": "ines.map(d=>({sku:N(d.sku),expectedQty:d.confirmedQty||0}));const c=bt({deliveryId:t.deliveryId,qcTaskId:n.qcTaskId,qcTaskNo:n.qcTaskNo});return n.referenceIds=c.map(d=>d.referenceId),t.qcTaskId=n.qcTaskId,t.qcTaskNo=n.qcTaskNo,t.status=\"已送检\",o.status=\"已送检\",o.sentAt=s,o.sentBy=N(e.actor),o.lines.forEach(d=>{d.availableQty=0}),Mt({record:o,movementType:\"送检出库\",operator:e.actor,operatedAt:s}),x(),U({stage:\"送检\",delivery:t,objectType:\"质检任务\",objectId:n.qcTaskId,objectNo:n.qcTaskNo,action:\"从后道待加工仓送检出库\",actor:e.actor,operatedAt:s,beforeStatus:\"已确认待送检\",afterStatus:n.status,afterQuantity:b(n.lines.map(d=>d.expectedQty)),remark:`确认入库数；绑定质检参考资料 ${n.referenceIds.length} 份`}),N(n)}function Vt(e){const t=m.qcTasks.filter(r=>{var o;return((o=r.claimedBy)==null?void 0:o.actorId)===e&&r.status!==\"质检完成\"});if(t.length"
+        },
+        {
+          "id": 58,
+          "fn": "zt",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 72363,
+          "ms": 1.51,
+          "selfMs": 0,
+          "excerpt": "nction zt(e){q();const t=K(e.deliveryId),r=(t.qcTaskId?m.qcTasks.find(d=>d.qcTaskId===t.qcTaskId):void 0)||m.qcTasks.find(d=>d.deliveryId===t.deliveryId);if((t.status===\"已送检\"||t.status===\"已完成\")&&r)return N(r);if(t.status!==\"已确认待送检\")throw new T(\"INVALID_STATUS\",\"只有已确认回货可以送检。\");const o=Ae(t);if(o.status!==\"待送检\")throw new T(\"INVALID_STATUS\",\"只有后道待加工仓中的待送检库存可以发起送检。\");const s=G(e.nowMs),n=rt({delivery:t,actor:t.confirmedBy||e.actor,createdAt:t.confirmedAt||s,nowMs:t.confirmedAt?new Date(t.confirmedAt).getTime():e.nowMs}).task;if(n.status!==\"待送检\")throw new T(\"INVALID_STATUS\",`质检单当前为${n.status}，不能重复执行待加工仓送检。`);n.status=\"待质检\",n.sentBy=N(e.actor),n.sentAt=s,n.lines=t.lines.map(d=>({sku:N(d.sku),expectedQty:d.confirmedQty||0}));const c=bt({deliveryId:t.deliveryId,qcTaskId:n.qcTaskId,qcTaskNo:n.qcTaskNo});ret"
+        },
+        {
+          "id": 56,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112771,
+          "ms": 7.486,
+          "selfMs": 1.503,
+          "excerpt": ".forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lines.map((S,R)=>({skuId:S.sku.skuId,actualQty:s===2&&R===0?19:20})),actor:W.returnConfirmer,nowMs:a+600*1e3});if(s===2)continue;const d=zt({deliveryId:c.deliveryId,actor:W.sender,nowMs:a+1200*1e3});if(s===3)continue;const l=Ht({qcTaskNo:d.qcTaskNo,actor:r===0&&s<="
+        },
+        {
+          "id": 55,
+          "fn": "As",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112724,
+          "ms": 7.486,
+          "selfMs": 0,
+          "excerpt": "nction As(){const e=Date.UTC(2026,7,25,1,0,0);Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lines.map((S,R)=>({skuId:S.sku.skuId,actualQty:s===2&&R===0?19:20})),actor:W.returnConfirmer,nowMs:a+600*1e3});if(s===2)continue;const d=zt({deliveryId:c.deliveryId,actor:W.sender,nowMs:a+1200*1e3});if(s===3)continue;c"
+        },
+        {
+          "id": 49,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112509,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "e={}){ft(()=>{if(be)throw new Error(\"后道演示数据正在初始化。\");const t=structuredClone(m),r=[Br(),$r(),Fr(),Zr()];be=!0;try{lr(),As()}catch(o){throw m=t,r.forEach(s=>s.rollback()),o}finally{be=!1,r.forEach(o=>o.finish())}})}function As(){const e=Date.UTC(2026,7,25,1,0,0);Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lin"
+        },
+        {
+          "id": 48,
+          "fn": "jo",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 49924,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "nction jo(e){Ze++;try{return e()}finally{Ze--}}function ko(){if(typeof window<\"u\"&&!Ze&&!$e)throw new Error(\"本次修改尚未保存，请通过页面业务动作重试。\")}function No(e){if(!(e instanceof Blob)||!e.size||e.size>20*1024*1024||!e.type.startsWith(\"image/\"))throw new Error(\"请选择不超过 20 MB 的图片。\");const o=`pf-${crypto.randomUUID()}`;Te.set(o,e);const t=URL.createObjectURL(e);return ke.set(o,t),Ne.set(t,o),t}function Mo(e){const o=Ne.get(e);!o||We.has(o)||(URL.revokeObjectURL(e),Te.delete(o),ke.delete(o),Ne.delete(e))}function tt(e){if(typeof e==\"string\"){const o=Ne.get(e);if(o)return`pcs-file:${o}`;if(e.startsWith(\"blob:\")||e.startsWith(\"data:\"))throw new Error(\"图片尚未保存，请重新选择图片后重试。\");return e}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function ot(e){if("
+        },
+        {
+          "id": 47,
+          "fn": "Ir",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112499,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "nction Ir(e={}){ft(()=>{if(be)throw new Error(\"后道演示数据正在初始化。\");const t=structuredClone(m),r=[Br(),$r(),Fr(),Zr()];be=!0;try{lr(),As()}catch(o){throw m=t,r.forEach(s=>s.rollback()),o}finally{be=!1,r.forEach(o=>o.finish())}})}function As(){const e=Date.UTC(2026,7,25,1,0,0);Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCo"
+        },
+        {
+          "id": 46,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 0,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "var hr=Object.defineProperty;var Or=(e,t,r)=>t in e?hr(e,t,{enumerable:!0,configurable:!0,writable:!0,value:r}):e[t]=r;var it=(e,t,r)=>Or(e,typeof t!=\"symbol\"?t+\"\":t,r);import{b as q,c as Re,d as ft,e as gr,f as Ar,g as Qr}from\"./pcs-record-core-CUHoxsZG.js\";import{i as wr,P as yt,m as br}from\"./production-order-runtime-store-ArirDCec.js\";import{b as Sr,c as vr,P as Cr,a as Fr,r as Er}from\"./post-finishing-authorization-DVHYWpdg.js\";import{K as xe,R as Rr,$ as Pr,D as oe,q as Te,f as Pe}from\"./app-shared-_ZQpMwKQ.js\";import{p as te}from\"./production-orders-CZH0DeUS.js\";import{G as pt}from\"./craft-display-support-DsFy7BKv.js\";let ce=null,pe=null;function _s(e){return ce=e,()=>{ce===e&&(ce=null)}}function Us(e){return pe=e,()=>{pe===e&&(pe=null)}}function Nt(){return ce==null?void 0:ce()}fun"
+        },
+        {
+          "id": 1,
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "ms": 1056.258,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 346,
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "ms": 1.507,
+        "selfMs": 1.507,
+        "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+      },
+      "path": [
+        {
+          "id": 346,
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "ms": 1.507,
+          "selfMs": 1.507,
+          "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+        },
+        {
+          "id": 345,
+          "fn": "ne",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 108908,
+          "ms": 1.507,
+          "selfMs": 0,
+          "excerpt": "nction ne(e){return N(e?m.qcTasks.filter(t=>e.has(t.productionOrderNo)):m.qcTasks)}function Ue(e){return N(e?m.postTasks.filter(t=>e.has(t.productionOrderNo)):m.postTasks)}function Le(e,t){return N(e||t?m.recheckOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.recheckOrders)}function us(e,t){return N(e||t?m.outboundOrders.filter(r=>(!e||e.has(r.productionOrderNo))&&(!t||!!(r.postTaskId&&t.has(r.postTaskId)))):m.outboundOrders)}function ls(){return m.outboundOrders.map(e=>({outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,status:e.status,receivedAt:e.receivedAt,receivedQty:b(e.lines.map(t=>t.receivedQty||0))}))}function Is(){return N(m.warehouseReceipts)}function ms(e={}){return N(m.defects.filter(t=>!e.discoveryStage||t.discoverySt"
+        },
+        {
+          "id": 293,
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "ms": 470.776,
+          "selfMs": 0,
+          "excerpt": "nction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直"
+        },
+        {
+          "id": 200,
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "ms": 472.278,
+          "selfMs": 0,
+          "excerpt": "l;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}=await import(\"./app-shared-_ZQpMwKQ.js\").then(P=>P.bv);return{escapeHtml:o}},__vite__mapDeps([2,3]))).escapeHtml(t instanceof Error?t.message:String(t))+\" 刷新后重试。</p>\"}}if(i===\"renderProductionOrderDetailPage\"){const{ensurePcsRecordState:t}=await e(a"
+        },
+        {
+          "id": 1,
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "ms": 1056.258,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "node": {
+        "id": 77,
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "ms": 1.492,
+        "selfMs": 1.492,
+        "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+      },
+      "path": [
+        {
+          "id": 77,
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "ms": 1.492,
+          "selfMs": 1.492,
+          "excerpt": "unction N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?v"
+        },
+        {
+          "id": 76,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 76596,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": "ines.map(E=>{var w,F,u,A;const S=((w=c.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:w.completedQty)||0,R=E.expectedQty-S,D=(((A=(u=(F=o.legacyCarryover)==null?void 0:F.baselines.find(Q=>Q.processItem===k))==null?void 0:u.quantities.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:A.quantity)||0)+b(a.filter(Q=>Q.processItem===k).flatMap(Q=>Q.quantities.filter(h=>h.skuId===E.sku.skuId).map(h=>h.quantity)));return{sku:t&&r?N(E.sku):E.sku,expectedQty:R,completedQty:D,availableQty:0,historyCompletedQty:S}}),l=X.filter(k=>o.processItems.includes(k)),I=t?X.map(k=>{const E=l.includes(k),S=d(k),R=l.indexOf(k),v=R>0?d(l[R-1]):void 0;return S.forEach((D,w)=>{D.availableQty=E?((v==null?void 0:v[w].completedQty)??D.expectedQty)-D.completedQty:0}),{processItem:k,applicable:E,completedQty:b(S.map(D=>D.completedQty)),"
+        },
+        {
+          "id": 75,
+          "fn": "d",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 76581,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": ")):[]),d=k=>o.lines.map(E=>{var w,F,u,A;const S=((w=c.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:w.completedQty)||0,R=E.expectedQty-S,D=(((A=(u=(F=o.legacyCarryover)==null?void 0:F.baselines.find(Q=>Q.processItem===k))==null?void 0:u.quantities.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:A.quantity)||0)+b(a.filter(Q=>Q.processItem===k).flatMap(Q=>Q.quantities.filter(h=>h.skuId===E.sku.skuId).map(h=>h.quantity)));return{sku:t&&r?N(E.sku):E.sku,expectedQty:R,completedQty:D,availableQty:0,historyCompletedQty:S}}),l=X.filter(k=>o.processItems.includes(k)),I=t?X.map(k=>{const E=l.includes(k),S=d(k),R=l.indexOf(k),v=R>0?d(l[R-1]):void 0;return S.forEach((D,w)=>{D.availableQty=E?((v==null?void 0:v[w].completedQty)??D.expectedQty)-D.completedQty:0}),{processItem:k,applicable:E,completedQty:b(S.map(D=>D."
+        },
+        {
+          "id": 74,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 77143,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": "=t?X.map(k=>{const E=l.includes(k),S=d(k),R=l.indexOf(k),v=R>0?d(l[R-1]):void 0;return S.forEach((D,w)=>{D.availableQty=E?((v==null?void 0:v[w].completedQty)??D.expectedQty)-D.completedQty:0}),{processItem:k,applicable:E,completedQty:b(S.map(D=>D.completedQty)),expectedQty:E?b(S.map(D=>D.expectedQty)):0,availableQty:b(S.map(D=>D.availableQty)),lines:S}}):[],i=t?I.find(k=>k.processItem===l.at(-1)):l.length?{lines:d(l.at(-1))}:void 0,y=o.lines.map((k,E)=>{var D;const S=((D=c.find(w=>w.skuId===k.sku.skuId))==null?void 0:D.completedQty)||0,R=S+((i==null?void 0:i.lines[E].completedQty)||0),v=b(n.flatMap(w=>w.lines.filter(F=>F.sku.skuId===k.sku.skuId).map(F=>Math.max(F.expectedQty,F.handoverQty??F.expectedQty))));return{sku:t&&r?N(k.sku):k.sku,expectedQty:k.expectedQty,completedQty:R,reservedQty:v,histor"
+        },
+        {
+          "id": 73,
+          "fn": "ot",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 76193,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": "nction ot(e,t,r=!0){var f;const o=typeof e==\"string\"?Qe(e):e,s=o.executionModel!==\"ITEMS_V1\",a=(m.processCompletions||[]).filter(k=>k.postTaskId===o.postTaskId&&!(s&&k.operationId.startsWith(\"DEMO:\"))),n=m.recheckOrders.filter(k=>k.postTaskId===o.postTaskId),c=((f=o.legacyCarryover)==null?void 0:f.history)||(s&&o.results?o.results.map(k=>({skuId:k.sku.skuId,completedQty:k.processedQty})):[]),d=k=>o.lines.map(E=>{var w,F,u,A;const S=((w=c.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:w.completedQty)||0,R=E.expectedQty-S,D=(((A=(u=(F=o.legacyCarryover)==null?void 0:F.baselines.find(Q=>Q.processItem===k))==null?void 0:u.quantities.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:A.quantity)||0)+b(a.filter(Q=>Q.processItem===k).flatMap(Q=>Q.quantities.filter(h=>h.skuId===E.sku.skuId).map(h=>h.quantity)));re"
+        },
+        {
+          "id": 72,
+          "fn": "Z",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 78362,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": "unction Z(e){return ot(e,!0)}function Yt(e){return m.postTasks.filter(t=>!e||e.has(t.productionOrderNo)).map(t=>{const r=ot(t,!1);return{postTaskId:t.postTaskId,productionOrderNo:t.productionOrderNo,qcTaskId:t.qcTaskId,status:t.status,completedAt:t.completedAt,totalExpectedQty:r.totalExpectedQty,totalCompletedQty:r.totalCompletedQty,availableForRecheckQty:r.availableForRecheckQty}})}function Zt(e){return{rechecks:m.recheckOrders.filter(t=>!e||e.has(t.productionOrderNo)).map(t=>({recheckOrderId:t.recheckOrderId,productionOrderNo:t.productionOrderNo,qcTaskId:t.qcTaskId,status:t.status,completedAt:t.completedAt,totalExpectedQty:b(t.lines.map(r=>r.expectedQty)),totalHandoverQty:b(t.lines.map(r=>r.handoverQty||0))})),outbounds:m.outboundOrders.filter(t=>!e||e.has(t.productionOrderNo)).map(t=>({outboundO"
+        },
+        {
+          "id": 71,
+          "fn": "st",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 80248,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": "nction st(e,t){const r=Z(e);e.status=r.lines.every(o=>o.completedQty===o.expectedQty)?\"后道完成\":r.totalCompletedQty>0||r.records.length?\"后道中\":\"待后道\",e.completedAt=e.status===\"后道完成\"?t:void 0}function Xt(e){var d;q(),ie(e.actor),ie(e.responsible);const t=Qe(e.postTaskId),r=Jt(t,e.quantities);if(!((d=e.operationId)!=null&&d.trim()))throw new T(\"INVALID_STATUS\",\"缺少本次提交标识，请重新打开登记。\");const o=JSON.stringify({postTaskId:t.postTaskId,processItem:e.processItem,quantities:r,responsible:e.responsible,actor:e.actor}),s=(m.processCompletions||[]).find(l=>l.operationId===e.operationId);if(s){if(s.intent!==o)throw new T(\"INVALID_STATUS\",\"同次提交内容已变化，请重新打开登记。\");return N(t)}const a=Z(t);if(a.legacyPending)throw new T(\"INVALID_STATUS\",\"历史在制数量尚未核对，不能直接登记新加工。\");const n=a.processes.find(l=>l.processItem===e.processItem&&l.app"
+        },
+        {
+          "id": 70,
+          "fn": "Xt",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 80436,
+          "ms": 1.492,
+          "selfMs": 0,
+          "excerpt": "nction Xt(e){var d;q(),ie(e.actor),ie(e.responsible);const t=Qe(e.postTaskId),r=Jt(t,e.quantities);if(!((d=e.operationId)!=null&&d.trim()))throw new T(\"INVALID_STATUS\",\"缺少本次提交标识，请重新打开登记。\");const o=JSON.stringify({postTaskId:t.postTaskId,processItem:e.processItem,quantities:r,responsible:e.responsible,actor:e.actor}),s=(m.processCompletions||[]).find(l=>l.operationId===e.operationId);if(s){if(s.intent!==o)throw new T(\"INVALID_STATUS\",\"同次提交内容已变化，请重新打开登记。\");return N(t)}const a=Z(t);if(a.legacyPending)throw new T(\"INVALID_STATUS\",\"历史在制数量尚未核对，不能直接登记新加工。\");const n=a.processes.find(l=>l.processItem===e.processItem&&l.applicable);if(!n)throw new T(\"INVALID_STATUS\",\"当前加工项不在质检确认范围内。\");for(const l of r){const I=n.lines.find(i=>i.sku.skuId===l.skuId).availableQty;if(l.quantity>I)throw new T(\"INVALID_QUANTITY\","
+        },
+        {
+          "id": 56,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112771,
+          "ms": 7.486,
+          "selfMs": 1.503,
+          "excerpt": ".forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lines.map((S,R)=>({skuId:S.sku.skuId,actualQty:s===2&&R===0?19:20})),actor:W.returnConfirmer,nowMs:a+600*1e3});if(s===2)continue;const d=zt({deliveryId:c.deliveryId,actor:W.sender,nowMs:a+1200*1e3});if(s===3)continue;const l=Ht({qcTaskNo:d.qcTaskNo,actor:r===0&&s<="
+        },
+        {
+          "id": 55,
+          "fn": "As",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112724,
+          "ms": 7.486,
+          "selfMs": 0,
+          "excerpt": "nction As(){const e=Date.UTC(2026,7,25,1,0,0);Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lines.map((S,R)=>({skuId:S.sku.skuId,actualQty:s===2&&R===0?19:20})),actor:W.returnConfirmer,nowMs:a+600*1e3});if(s===2)continue;const d=zt({deliveryId:c.deliveryId,actor:W.sender,nowMs:a+1200*1e3});if(s===3)continue;c"
+        },
+        {
+          "id": 49,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112509,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "e={}){ft(()=>{if(be)throw new Error(\"后道演示数据正在初始化。\");const t=structuredClone(m),r=[Br(),$r(),Fr(),Zr()];be=!0;try{lr(),As()}catch(o){throw m=t,r.forEach(s=>s.rollback()),o}finally{be=!1,r.forEach(o=>o.finish())}})}function As(){const e=Date.UTC(2026,7,25,1,0,0);Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lin"
+        },
+        {
+          "id": 48,
+          "fn": "jo",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 49924,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "nction jo(e){Ze++;try{return e()}finally{Ze--}}function ko(){if(typeof window<\"u\"&&!Ze&&!$e)throw new Error(\"本次修改尚未保存，请通过页面业务动作重试。\")}function No(e){if(!(e instanceof Blob)||!e.size||e.size>20*1024*1024||!e.type.startsWith(\"image/\"))throw new Error(\"请选择不超过 20 MB 的图片。\");const o=`pf-${crypto.randomUUID()}`;Te.set(o,e);const t=URL.createObjectURL(e);return ke.set(o,t),Ne.set(t,o),t}function Mo(e){const o=Ne.get(e);!o||We.has(o)||(URL.revokeObjectURL(e),Te.delete(o),ke.delete(o),Ne.delete(e))}function tt(e){if(typeof e==\"string\"){const o=Ne.get(e);if(o)return`pcs-file:${o}`;if(e.startsWith(\"blob:\")||e.startsWith(\"data:\"))throw new Error(\"图片尚未保存，请重新选择图片后重试。\");return e}return Array.isArray(e)?e.map(tt):e&&typeof e==\"object\"?Object.fromEntries(Object.entries(e).map(([o,t])=>[o,tt(t)])):e}function ot(e){if("
+        },
+        {
+          "id": 47,
+          "fn": "Ir",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 112499,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "nction Ir(e={}){ft(()=>{if(be)throw new Error(\"后道演示数据正在初始化。\");const t=structuredClone(m),r=[Br(),$r(),Fr(),Zr()];be=!0;try{lr(),As()}catch(o){throw m=t,r.forEach(s=>s.rollback()),o}finally{be=!1,r.forEach(o=>o.finish())}})}function As(){const e=Date.UTC(2026,7,25,1,0,0);Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCo"
+        },
+        {
+          "id": 46,
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 0,
+          "ms": 8.989,
+          "selfMs": 0,
+          "excerpt": "var hr=Object.defineProperty;var Or=(e,t,r)=>t in e?hr(e,t,{enumerable:!0,configurable:!0,writable:!0,value:r}):e[t]=r;var it=(e,t,r)=>Or(e,typeof t!=\"symbol\"?t+\"\":t,r);import{b as q,c as Re,d as ft,e as gr,f as Ar,g as Qr}from\"./pcs-record-core-CUHoxsZG.js\";import{i as wr,P as yt,m as br}from\"./production-order-runtime-store-ArirDCec.js\";import{b as Sr,c as vr,P as Cr,a as Fr,r as Er}from\"./post-finishing-authorization-DVHYWpdg.js\";import{K as xe,R as Rr,$ as Pr,D as oe,q as Te,f as Pe}from\"./app-shared-_ZQpMwKQ.js\";import{p as te}from\"./production-orders-CZH0DeUS.js\";import{G as pt}from\"./craft-display-support-DsFy7BKv.js\";let ce=null,pe=null;function _s(e){return ce=e,()=>{ce===e&&(ce=null)}}function Us(e){return pe=e,()=>{pe===e&&(pe=null)}}function Nt(){return ce==null?void 0:ce()}fun"
+        },
+        {
+          "id": 1,
+          "fn": "(root)",
+          "line": -1,
+          "column": -1,
+          "ms": 1056.258,
+          "selfMs": 0
+        }
+      ]
+    }
+  ]
+}

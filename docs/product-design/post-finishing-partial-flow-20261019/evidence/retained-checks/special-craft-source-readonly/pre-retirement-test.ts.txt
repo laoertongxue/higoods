@@ -1,0 +1,227 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
+
+const childFlag = process.argv.indexOf('--post-special-source-child')
+const originalPath = 'docs/product-design/post-finishing-partial-flow-20261019/evidence/retained-checks/read-projection-before/special-craft-task-orders.ts.txt'
+const sourcePath = 'src/data/fcs/special-craft-task-orders.ts'
+const sha = (value: string) => createHash('sha256').update(value).digest('hex')
+const scenarios = ['cold-static-source', 'returned-garments-and-wool', 'cold-read-then-mutation', 'cold-read-then-restore', 'cold-read-then-reset']
+
+if (childFlag >= 0) {
+  const [mode, scenario, output] = process.argv.slice(childFlag + 1)
+  const storage = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, String(value)),
+    removeItem: (key: string) => storage.delete(key),
+  } })
+  // Same clock and isolated Node memory in each fresh process. No DOM or IDB
+  // is imitated; this is not browser persistence or performance evidence.
+  const NativeDate = Date, fixedNow = NativeDate.parse('2026-10-20T02:00:00Z')
+  class FixedDate extends NativeDate {
+    constructor(value?: string | number | Date) { super(value === undefined ? fixedNow : value instanceof NativeDate ? value.getTime() : value) }
+    static now() { return fixedNow }
+  }
+  globalThis.Date = FixedDate as DateConstructor
+
+  const special = await import('../../src/data/fcs/special-craft-task-orders.ts')
+  const bridge = await import('../../src/data/fcs/post-finishing-return-source-fact-bridge.ts')
+  const { productionOrders } = await import('../../src/data/fcs/production-orders.ts')
+  const { buildFormalPostFinishingReturnSources } = await import('../../src/data/fcs/post-finishing-return-source-adapter.ts')
+  const warehouse = await import('../../src/data/fcs/factory-internal-warehouse.ts')
+  const wool = await import('../../src/data/fcs/wool-domain/store.ts')
+  const positiveIds: string[] = []
+  let woolFinalId = ''
+  if (scenario === 'returned-garments-and-wool') {
+    const { prepareWoolFinalDownstreamReviewScenario } = await import('../../scripts/fixtures/wool-final-downstream-review.ts')
+    const scene = await prepareWoolFinalDownstreamReviewScenario()
+    woolFinalId = scene.taskId
+    const { confirmWoolDownstreamReceipt } = await import('../../src/data/fcs/wool-domain/commands.ts')
+    await wool.runWoolRecordCommand(() => confirmWoolDownstreamReceipt(scene.handovers[0].handoverId, {
+      commandId: 'POST-READ-WOOL-RECEIPT-1', actualReceivedQty: 12, receivedAt: '2026-10-20 09:00:00', receivedBy: '隔离来源验收接收人',
+    }))
+    const { executeProcessWebAction } = await import('../../src/data/fcs/process-web-status-actions.ts')
+    for (const [actionCode, quantity] of [['SPECIAL_CRAFT_PROCESS_REPORT', 12], ['SPECIAL_CRAFT_SUBMIT_HANDOVER', 7]] as const) {
+      executeProcessWebAction({ sourceType: 'SPECIAL_CRAFT', sourceId: scene.taskId, actionCode,
+        operatorName: '隔离来源验收主管', operatedAt: '2026-10-20 09:10:00', objectType: '成衣', objectQty: quantity, qtyUnit: '件',
+        skuQtyBySkuCode: { [scene.skuCode]: quantity }, confirmationKey: `POST-READ-WOOL-${actionCode}` })
+    }
+    const direct = special.listSpecialCraftTaskOrders().find(row => row.operationId === 'AUX-OP-DIRECT-PRINT'
+      && row.targetObject === '成衣' && row.status === '加工中' && row.lineProgress?.some(line => line.completedQty - line.returnedQty >= 8))!
+    assert.ok(direct, '必须使用实际已完工、可交出的成衣直喷任务')
+    const line = direct.lineProgress!.find(row => row.completedQty - row.returnedQty >= 8)!
+    executeProcessWebAction({ sourceType: 'SPECIAL_CRAFT', sourceId: direct.taskOrderId, actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+      operatorName: '隔离来源验收主管', operatedAt: '2026-10-20 09:20:00', objectType: '成衣', objectQty: 8, qtyUnit: '件',
+      skuQtyBySkuCode: { [line.skuCode!]: 8 }, confirmationKey: 'POST-READ-DIRECT-HANDOVER' })
+    positiveIds.push(scene.taskId, direct.taskOrderId)
+    const invalidated = special.invalidateUnstartedSpecialCraftTaskOrdersForMergedTask({ productionOrderId: direct.productionOrderId,
+      mergedTaskId: 'POST-READ-MERGED-CONTROL', invalidatedAt: '2026-10-20 09:40:00', invalidatedBy: '隔离来源验收主管', reason: '仅使尚未接收的原工艺任务失效' })
+    assert.ok(invalidated.length, '必须包含真实未开工任务失效对照')
+    // A later actual receiving revision must appear in the returned projection
+    // without advancing the ordinary special-craft/warehouse projection here.
+    await wool.runWoolRecordCommand(() => confirmWoolDownstreamReceipt(scene.handovers[1].handoverId, {
+      commandId: 'POST-READ-WOOL-RECEIPT-2', actualReceivedQty: 8, receivedAt: '2026-10-20 09:30:00', receivedBy: '隔离来源验收接收人',
+    }))
+
+  }
+  if (mode === 'original-full-reader') bridge.installPostFinishingSpecialCraftSourceResolver(special.listSpecialCraftTaskOrders)
+  const beforeWarehouse = warehouse.createFactoryInternalWarehouseMutationSnapshot()
+  const beforeRevision = wool.getWoolStoreRevision()
+  const tasks = bridge.readPostFinishingSpecialCraftSourceTaskOrders()
+  // Warehouse links intentionally await the ordinary warehouse projection.
+  // Freeze every other field now so later ordinary reads cannot make this
+  // source comparison pass by mutating the returned task objects in place.
+  const sourceTaskFacts = structuredClone(tasks.map(({ warehouseLinks: _deferredLinks, ...facts }) => facts))
+  const afterWarehouse = warehouse.createFactoryInternalWarehouseMutationSnapshot()
+  if (mode === 'readonly-reader') {
+    assert.deepEqual(afterWarehouse, beforeWarehouse, '后道来源读取不得新增、删除或重建工艺仓事实')
+    assert.equal(wool.getWoolStoreRevision(), beforeRevision, '纯投影不得推进毛织事实revision')
+  }
+  const formal = buildFormalPostFinishingReturnSources({ productionOrders, runtimeTasks: [], specialCraftTaskOrders: tasks })
+  const invalidIds = special.listMergedTaskSpecialCraftInvalidationLogs().filter(row => !row.restoredAt).map(row => row.taskOrderId)
+  assert.ok(invalidIds.every(id => !tasks.some(row => row.taskOrderId === id)), '后道专用读取仍排除有效失效记录')
+  if (scenario === 'returned-garments-and-wool') {
+    assert.equal(formal.find(row => row.executionTaskId === positiveIds[0])?.skus.reduce((n, row) => n + row.plannedQty, 0), 7)
+    assert.equal(formal.find(row => row.executionTaskId === positiveIds[1])?.skus.reduce((n, row) => n + row.plannedQty, 0), 8)
+    assert.deepEqual(new Set(formal.map(row => row.sourceKind)), new Set(['GARMENT_HEAT_TRANSFER', 'GARMENT_DIRECT_PRINT']))
+    const projected = tasks.find(row => row.taskOrderId === woolFinalId)!
+    assert.equal(projected.receivedQty, 20)
+    assert.equal(projected.completedQty, 12)
+    assert.equal(projected.returnedQty, 7)
+    assert.equal(projected.woolFinalReceipts?.length, 2)
+    assert.ok(tasks.some(row => row.woolPieceKey), '保留原列表中的毛织外发片返回集合，正式适配仍自行排除非成衣')
+    assert.ok(!formal.some(row => tasks.find(task => task.taskOrderId === row.executionTaskId)?.woolPieceKey))
+    const valid = tasks.find(row => row.taskOrderId === positiveIds[1])!
+    const negatives = [
+      { ...valid, taskOrderId: 'EXCLUDED-UNASSIGNED', assignmentStatus: 'WAIT_ASSIGN' as const },
+      { ...valid, taskOrderId: 'EXCLUDED-PIECE', targetObject: '已裁部位' as const },
+      { ...valid, taskOrderId: 'EXCLUDED-OPERATION', operationId: 'OTHER-OPERATION' },
+      { ...valid, taskOrderId: 'EXCLUDED-NO-RETURN', lineProgress: valid.lineProgress!.map(line => ({ ...line, returnedQty: 0 })) },
+      { ...valid, taskOrderId: 'EXCLUDED-FACTORY', assignedFactoryId: '', assignedFactoryName: '', factoryId: '', factoryName: '' },
+    ]
+    assert.deepEqual(buildFormalPostFinishingReturnSources({ productionOrders, runtimeTasks: [], specialCraftTaskOrders: [...tasks, ...negatives] }), formal,
+      '隔离的非法来源元数据对照不得混入实际已回量来源')
+  }
+  let projectionRetry = false
+  if (scenario === 'cold-static-source' && mode === 'readonly-reader') {
+    const stringify = JSON.stringify
+    let inboundClones = 0, injected = false
+    JSON.stringify = ((value: any, ...args: any[]) => {
+      // Warehouse save clones each record before/after its upsert. Abort after
+      // at least one real record was inserted, rather than before replay starts.
+      if (!injected && value?.inboundRecordId?.startsWith('SC-INB-') && ++inboundClones === 3) {
+        injected = true
+        throw new Error('isolated deferred warehouse replay failure')
+      }
+      return (stringify as (...args: any[]) => string)(value, ...args)
+    }) as typeof JSON.stringify
+    try { assert.throws(() => special.listSpecialCraftTaskOrders(), /isolated deferred warehouse replay failure/) }
+    finally { JSON.stringify = stringify }
+    assert.ok(injected)
+    assert.deepEqual(warehouse.createFactoryInternalWarehouseMutationSnapshot(), beforeWarehouse, '回放中途失败必须恢复旧仓事实')
+    assert.deepEqual(bridge.readPostFinishingSpecialCraftSourceTaskOrders(), tasks, '失败后来源数量和任务对象仍保留')
+    projectionRetry = true
+  }
+  if (scenario === 'cold-read-then-mutation') {
+    const direct = tasks.find(row => row.operationId === 'AUX-OP-DIRECT-PRINT' && row.targetObject === '成衣'
+      && row.status === '加工中' && row.lineProgress?.some(line => line.completedQty - line.returnedQty >= 8))!
+    const line = direct.lineProgress!.find(row => row.completedQty - row.returnedQty >= 8)!
+    const { executeProcessWebAction } = await import('../../src/data/fcs/process-web-status-actions.ts')
+    executeProcessWebAction({ sourceType: 'SPECIAL_CRAFT', sourceId: direct.taskOrderId, actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+      operatorName: '来源读取后实际交出人', operatedAt: '2026-10-20 10:00:00', objectType: '成衣', objectQty: 8, qtyUnit: '件',
+      skuQtyBySkuCode: { [line.skuCode!]: 8 }, confirmationKey: 'POST-READ-THEN-ACTUAL-HANDOVER' })
+    positiveIds.push(direct.taskOrderId)
+  }
+  let afterDirectRestore: ReturnType<typeof warehouse.createFactoryInternalWarehouseMutationSnapshot> | undefined
+  if (scenario === 'cold-read-then-restore') {
+    // Explicit isolated snapshot input. This changes only an existing task's
+    // remark, and deliberately does not call capture (which would flush first).
+    special.restoreSpecialCraftTaskStore({ taskOrders: tasks.filter(row => !row.woolPieceKey).map(row => ({ ...structuredClone(row), remark: `${row.remark} · direct restore control` })), generationBatches: [], generationErrors: [] })
+    afterDirectRestore = warehouse.createFactoryInternalWarehouseMutationSnapshot()
+  }
+  if (scenario === 'cold-read-then-reset') special.resetSpecialCraftTaskStore()
+  // Preserve the original complete page path. On a fresh readonly-first
+  // process it must still build all artifacts and project the latest wool.
+  const stringify = JSON.stringify
+  let normalRecordCloneCalls = 0
+  JSON.stringify = ((value: any, ...args: any[]) => {
+    if (value?.inboundRecordId?.startsWith('SC-INB-') || value?.outboundRecordId?.startsWith('SC-OUT-') || value?.stockItemId?.startsWith('SC-')) normalRecordCloneCalls++
+    return (stringify as (...args: any[]) => string)(value, ...args)
+  }) as typeof JSON.stringify
+  let normalTasks: ReturnType<typeof special.listSpecialCraftTaskOrders>
+  try { normalTasks = special.listSpecialCraftTaskOrders() } finally { JSON.stringify = stringify }
+  const normalWarehouse = warehouse.createFactoryInternalWarehouseMutationSnapshot()
+  const normalFormal = buildFormalPostFinishingReturnSources({ productionOrders, runtimeTasks: [], specialCraftTaskOrders: normalTasks })
+  if (scenario === 'cold-read-then-mutation') assert.equal(normalFormal.find(row => row.executionTaskId === positiveIds[0])?.skus.reduce((n, row) => n + row.plannedQty, 0), 8)
+  else assert.deepEqual(normalFormal, formal, '普通完整读取不得改变正式后道来源')
+  assert.deepEqual(special.listSpecialCraftTaskOrders(), normalTasks, '普通完整投影成功后不重复改变任务')
+  assert.deepEqual(warehouse.createFactoryInternalWarehouseMutationSnapshot(), normalWarehouse, '普通完整投影成功后待补批次已清空')
+  writeFileSync(output, JSON.stringify({ mode, scenario, positiveIds, invalidIds, formal, tasks, sourceTaskFacts, normalTasks,
+    beforeWarehouse, afterWarehouse, normalWarehouse, normalFormal, afterDirectRestore, projectionRetry, normalRecordCloneCalls, woolRevision: beforeRevision,
+    boundary: 'Isolated Node/public-command contract, no browser IDB transaction or physical work/performance evidence.' }, null, 2))
+} else {
+  test('后道特殊工艺只读来源保留非空正式交出、毛织投影及普通页面仓事实', () => {
+    const before = readFileSync(originalPath, 'utf8'), current = readFileSync(sourcePath, 'utf8')
+    const declarations = (source: string) => {
+      const ast = ts.createSourceFile('special.ts', source, ts.ScriptTarget.Latest, true)
+      return new Map(ast.statements.filter(ts.isFunctionDeclaration).filter(node => node.name).map(node => [node.name!.text, node.getText(ast)]))
+    }
+    const oldFunctions = declarations(before), currentFunctions = declarations(current)
+    for (const name of ['projectFinalWoolReceipts', 'listSpecialCraftTaskOrders', 'listCutPieceSpecialCraftTaskOrderSources']) {
+      assert.equal(currentFunctions.get(name), oldFunctions.get(name), `${name}普通完整入口必须保持原实现`)
+    }
+    const projectionCondition = '  if (includeWarehouseArtifacts && !readingCuttingTaskSources && warehouseArtifactsStore !== specialCraftTaskStore) {'
+    const initialBuild = (body: string) => body.slice(0, body.indexOf(projectionCondition))
+    assert.equal(initialBuild(currentFunctions.get('ensureStore')!), initialBuild(oldFunctions.get('ensureStore')!), '普通任务首次构造保持原实现，仅延迟仓投影补齐分支改变')
+    const directory = mkdtempSync(join(tmpdir(), 'post-special-source-read-'))
+    try {
+      const results = []
+      for (const scenario of scenarios) {
+        const outputs = []
+        for (const mode of ['original-full-reader', 'readonly-reader']) {
+          const output = join(directory, `${scenario}-${mode}.json`)
+          execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(import.meta.url), '--post-special-source-child', mode, scenario, output], { stdio: 'pipe' })
+          outputs.push(JSON.parse(readFileSync(output, 'utf8')))
+          if (process.env.POST_FINISHING_SOURCE_READ_EVIDENCE) {
+            mkdirSync(process.env.POST_FINISHING_SOURCE_READ_EVIDENCE, { recursive: true })
+            writeFileSync(join(process.env.POST_FINISHING_SOURCE_READ_EVIDENCE, `${scenario}-${mode}.json`), readFileSync(output))
+          }
+        }
+        const [original, readonly] = outputs
+        assert.deepEqual(readonly.formal, original.formal, `${scenario}正式来源新旧精确相同`)
+        assert.deepEqual(readonly.sourceTaskFacts, original.sourceTaskFacts, `${scenario}除延迟仓链接外全部来源事实与毛织片返回相同`)
+        assert.deepEqual(readonly.normalTasks, original.normalTasks, `${scenario}随后普通页面任务展示相同`)
+        assert.deepEqual(readonly.normalWarehouse, original.normalWarehouse, `${scenario}随后普通页面完整仓事实相同`)
+        assert.deepEqual(readonly.normalFormal, original.normalFormal, `${scenario}公开操作后的正式来源相同`)
+        if (scenario === 'cold-read-then-restore') assert.deepEqual(readonly.afterDirectRestore, original.afterDirectRestore, '直接restore返回时旧生成批次已在旧store完成')
+        if (scenario === 'cold-read-then-reset') assert.equal(readonly.normalRecordCloneCalls, original.normalRecordCloneCalls, 'reset后不额外回放已废弃的旧批次')
+        if (scenario === 'cold-static-source') assert.equal(readonly.projectionRetry, true)
+        results.push({ scenario, status: 'passed', taskCount: readonly.tasks.length,
+          woolPieceCount: readonly.tasks.filter((row: { woolPieceKey?: string }) => row.woolPieceKey).length,
+          formalSources: readonly.formal, invalidIds: readonly.invalidIds,
+          readonlyWarehouseUnchanged: true, sourceFactsEqualExcludingDeferredWarehouseLinks: true, subsequentNormalWarehouseEqual: true, projectionRetry: readonly.projectionRetry,
+          before: sha(JSON.stringify(readonly.beforeWarehouse)), afterReadonly: sha(JSON.stringify(readonly.afterWarehouse)),
+          normalWarehouse: sha(JSON.stringify(readonly.normalWarehouse)) })
+      }
+      const evidence = process.env.POST_FINISHING_SOURCE_READ_EVIDENCE
+      if (evidence) {
+        mkdirSync(evidence, { recursive: true })
+        for (const scenario of scenarios) for (const mode of ['original-full-reader', 'readonly-reader']) {
+          const filename = `${scenario}-${mode}.json`
+          writeFileSync(join(evidence, filename), readFileSync(join(directory, filename)))
+        }
+        writeFileSync(join(evidence, 'report.json'), JSON.stringify({ status: 'passed', sourcePath,
+          baselinePath: originalPath, baselineSha256: sha(before), sourceSha256: sha(current),
+          testSha256: sha(readFileSync(fileURLToPath(import.meta.url), 'utf8')), results,
+          boundary: 'Ten fresh isolated Node processes, public command quantity facts and explicit negative/restore metadata; no browser/build/performance.' }, null, 2))
+      }
+    } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
+}

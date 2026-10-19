@@ -1,0 +1,20 @@
+[
+  {
+    "text": "路由模块加载失败，进入降级页 Error: PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:106:105)\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:128:106)\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:119:104)\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:129:56)\n    at pcsFileReferences (http://127.0.0.1:43197/src/data/pcs-record-db.ts:133:3)\n    at http://127.0.0.1:43197/src/data/wls/accessory-warehouse-post-finishing.ts:149:59\n    at Array.flatMap (<anonymous>)\n    at readSources (http://127.0.0.1:43197/src/data/wls/accessory-warehouse-post-finishing.ts:149:38)\n    at async Module.prepareAccessoryPostFinishing (http://127.0.0.1:43197/src/data/wls/accessory-warehouse-post-finishing.ts:157:3)\n    at async Object.work-orders (http://127.0.0.1:43197/src/router/route-renderers-fcs.ts:68:29)",
+    "location": {
+      "url": "http://127.0.0.1:43197/src/main.ts",
+      "lineNumber": 1291,
+      "columnNumber": 12
+    },
+    "time": 3240.102
+  },
+  {
+    "text": "路由模块加载失败，进入降级页 Error: PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:106:105)\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:128:106)\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:119:104)\n    at walk (http://127.0.0.1:43197/src/data/pcs-record-db.ts:129:56)\n    at pcsFileReferences (http://127.0.0.1:43197/src/data/pcs-record-db.ts:133:3)\n    at http://127.0.0.1:43197/src/data/wls/accessory-warehouse-post-finishing.ts:149:59\n    at Array.flatMap (<anonymous>)\n    at readSources (http://127.0.0.1:43197/src/data/wls/accessory-warehouse-post-finishing.ts:149:38)\n    at async Module.prepareAccessoryPostFinishing (http://127.0.0.1:43197/src/data/wls/accessory-warehouse-post-finishing.ts:157:3)\n    at async Object.work-orders (http://127.0.0.1:43197/src/router/route-renderers-fcs.ts:68:29)",
+    "location": {
+      "url": "http://127.0.0.1:43197/src/main.ts?t=1792428258921",
+      "lineNumber": 1291,
+      "columnNumber": 12
+    },
+    "time": 5419.895
+  }
+]

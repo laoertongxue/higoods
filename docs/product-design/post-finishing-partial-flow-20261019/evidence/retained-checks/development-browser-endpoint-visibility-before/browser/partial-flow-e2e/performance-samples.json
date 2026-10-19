@@ -1,0 +1,81 @@
+{
+  "capturedAt": "2026-10-19T20:39:36.067Z",
+  "baseURL": "http://127.0.0.1:43915",
+  "environment": "this worktree Vite dev server; warmed D1 1-SKU source; not D10 or production/physical-device acceptance",
+  "completion": "Navigation performance clock zero through actual detail, images/fonts, original complete domain/native persistent readback and two browser frames; controller settlement separately observed",
+  "samples": {
+    "processCompletionSaveMs": [
+      82.69999992847443,
+      72.20000004768372,
+      88.89999997615814,
+      74.5,
+      89.10000002384186
+    ],
+    "warmedDetailReloadMs": [
+      606.5,
+      604.5,
+      604.5,
+      604.2999999523163,
+      604.2999999523163
+    ]
+  },
+  "observed": [
+    {
+      "uiAt": 568.2999999523163,
+      "mediaAt": 580.7999999523163,
+      "readbackAt": 584.2999999523163,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "endAt": 606.5
+    },
+    {
+      "uiAt": 570.1000000238419,
+      "mediaAt": 582.8000000715256,
+      "readbackAt": 586.3999999761581,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "endAt": 604.5
+    },
+    {
+      "uiAt": 560.7999999523163,
+      "mediaAt": 573.8999999761581,
+      "readbackAt": 577.5,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "endAt": 604.5
+    },
+    {
+      "uiAt": 564.6999999284744,
+      "mediaAt": 577.3999999761581,
+      "readbackAt": 581,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "endAt": 604.2999999523163
+    },
+    {
+      "uiAt": 575.1000000238419,
+      "mediaAt": 581.8999999761581,
+      "readbackAt": 585.6999999284744,
+      "quantity": 5,
+      "recordCount": 5,
+      "persistentRows": 231,
+      "persistentReadbackVerified": true,
+      "endAt": 604.2999999523163
+    }
+  ],
+  "controllerReloads": [
+    632.1000000238419,
+    630.3999999761581,
+    630.2999999523163,
+    630.2999999523163,
+    630.1999999284744
+  ]
+}

@@ -1762,6 +1762,13 @@ const materialPrepSeedOrders = [
   ...categoryDemoSeedOrders,
 ].map(expandSeedOrderMaterials)
 
+/** Scope the existing projection by every possible matching source, including duplicate numbers. */
+export function listMaterialPrepProductionIdsForIdentities(identities: ReadonlySet<string>): Set<string> {
+  return new Set([...materialPrepSeedOrders, ...productionOrders.filter(order => order.techPackSnapshot)]
+    .filter(order => identities.has(order.productionOrderId) || identities.has(order.productionOrderNo))
+    .map(order => order.productionOrderId))
+}
+
 /** Explicit prototype opening stock input, not a purchase receipt or a generated completion fact. */
 export interface MaterialPrepInitialStockInput {
   sourceId: string

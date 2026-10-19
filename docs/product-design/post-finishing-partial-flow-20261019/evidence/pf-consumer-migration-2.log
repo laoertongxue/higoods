@@ -1,0 +1,196 @@
+(node:22141) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 7 tests using 1 worker
+
+
+(node:22142) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/7] tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries
+  1) tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries 
+
+    Error: expect(locator).not.toContainText(expected) failed
+
+    Locator: locator('main')
+    Expected substring: not "未找到后道出货单"
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "not toContainText" with timeout 10000ms
+      - waiting for locator('main')
+
+
+      46 |     await page.goto(`/fcs/print/preview?documentType=${documentType}&sourceType=POST_FINISHING_OUTBOUND_ORDER&sourceId=${encodeURIComponent(third.outboundOrderId)}`)
+      47 |     await expect(page.locator('.print-preview-root')).toBeVisible()
+    > 48 |     await expect(page.locator('main')).not.toContainText('未找到后道出货单')
+         |                                            ^
+      49 |     if (documentType.endsWith('BARCODE')) {
+      50 |       const count = await page.locator('.garment-label').count()
+      51 |       const content = await page.locator('main').innerText()
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:48:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:22206) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[2/7] tests/post-finishing-consumers.spec.ts:83:1 › A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results
+  2) tests/post-finishing-consumers.spec.ts:83:1 › A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-post-image-overlay]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-post-image-overlay]')
+
+
+      100 |   expect(actual.task.lines.some((line: any) => line.sku.imageUrl === url)).toBe(true)
+      101 |   await image.click()
+    > 102 |   await expect(page.locator('[data-post-image-overlay]')).toBeVisible()
+          |                                                           ^
+      103 |   await expect(page.locator('[data-post-image-overlay] img')).toHaveJSProperty('naturalWidth', await image.locator('img').evaluate(img => (img as HTMLImageElement).naturalWidth))
+      104 |   await page.keyboard.press('Escape')
+      105 |   await expect(page.locator('[data-post-image-overlay]')).toHaveCount(0)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:102:59
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:22249) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/7] tests/post-finishing-consumers.spec.ts:123:1 › A22: restored new facts reject overquantity, duplicate intent and forged recheck reservation
+
+(node:22249) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[4/7] tests/post-finishing-migration.spec.ts:53:1 › A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history
+  3) tests/post-finishing-migration.spec.ts:53:1 › A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      114 |     try { await r.importPostFinishingBackup(new File([JSON.stringify(backup)], 'forged-history.json')); return false } catch(e) { return String(e).includes('历史承接') && !(await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records.length }
+      115 |   }, forgedBackup)
+    > 116 |   expect(rejected).toBe(true)
+          |                    ^
+      117 |   await isolated.close()
+      118 | })
+      119 |
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-migration.spec.ts:116:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:22287) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:22287) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[5/7] tests/post-finishing-migration.spec.ts:120:1 › A20: schema2 IndexedDB marker upgrade writes no static seeds or invented completion records
+[6/7] tests/post-finishing-migration.spec.ts:139:1 › A22: complete restore retains records, while future/duplicate/orphan/overquantity backup leaves database unchanged
+[7/7] tests/post-finishing-migration.spec.ts:164:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved
+  4) tests/post-finishing-migration.spec.ts:164:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved 
+
+    Error: expect(received).toContain(expected) // indexOf
+
+    Expected substring: "中断"
+    Received string:    ""
+
+      197 |       noInline: !JSON.stringify(final.records).includes('data:image'), sourcesRemoved: !localStorage.getItem(oldKey) && !localStorage.getItem(archiveKey) }
+      198 |   }, { ns: namespace, archiveKey, inline, oldKey })
+    > 199 |   expect(result.error).toContain('中断')
+          |                        ^
+      200 |   expect(result.partialCount).toBeGreaterThan(0)
+      201 |   expect(result.oldPreserved).toBe(true)
+      202 |   expect(result.oldWriteRejected).toBe(true)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-migration.spec.ts:199:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  4 failed
+    tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries 
+    tests/post-finishing-consumers.spec.ts:83:1 › A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results 
+    tests/post-finishing-migration.spec.ts:53:1 › A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history 
+    tests/post-finishing-migration.spec.ts:164:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved 
+  3 passed (48.9s)

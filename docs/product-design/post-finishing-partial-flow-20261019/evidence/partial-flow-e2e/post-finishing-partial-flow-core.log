@@ -1,0 +1,55 @@
+
+Running 2 tests using 1 worker
+
+
+(node:14825) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/2] tests/post-finishing-partial-flow.spec.ts:138:1 › PFN-A01/A02/A17/A26：QC四项实际独立勾选，列表分清0与不涉及，查询统计与总数一致
+[2/2] tests/post-finishing-partial-flow.spec.ts:187:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环
+  1) tests/post-finishing-partial-flow.spec.ts:187:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "分项PDA实际录入人"
+    Received: "全能力测试工厂_操作工"
+
+      224 |   state = await snapshot(page, seed)
+      225 |   const second = state.rechecks[1]
+    > 226 |   expect(state.progress.records.at(-1)?.recordedBy.actorName).toBe('分项PDA实际录入人')
+          |                                                               ^
+      227 |   await evidence(page, info, 'd1-pda-second-processing-and-recheck')
+      228 |   await page.setViewportSize({ width: 1280, height: 720 })
+      229 |   const secondOutbound = await recheckUi(page, seed, second)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-partial-flow.spec.ts:226:63
+
+    attachment #1: d1-four-process-500-300-200-100 (image/png) ─────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-four-process-500-300-200-100-d6fe9b6b47f06a429de4bcbca56d805d6dbb82d0.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: d1-parent-list-four-quantities (image/png) ──────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-parent-list-four-quantities-7f50ec2c06336dbe7614a0c884dcb1e97b67594e.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/post-finishing-partial-flow.spec.ts:187:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环 
+  1 passed (9.1s)

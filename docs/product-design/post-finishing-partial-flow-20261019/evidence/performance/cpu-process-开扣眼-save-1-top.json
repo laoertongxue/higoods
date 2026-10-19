@@ -1,0 +1,224 @@
+{
+  "family": "process:开扣眼:save",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 661431,
+  "top": [
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 106,
+      "inclusiveSamples": 107,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 78,
+      "inclusiveSamples": 78
+    },
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 51,
+      "inclusiveSamples": 51,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "Ae",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 46629,
+      "selfSamples": 50,
+      "inclusiveSamples": 50,
+      "sourceExcerpt": "=!1,Ze=0;const Ut=[],qe=[],xt=[],Te=new Map,ke=new Map,Me=new Map,We=new Set,Ae=e=>structuredClone(e),gt={logs:\"logId\",references:\"referenceId\",authorizations:\"authorizationId\",deliveries:\"deliveryId\",waitProcessWarehouseRecords:\"warehouseRecordId\",waitProcessWarehouseMovements:\"movementId\",waitHandoverWarehouseRecords:\"warehouseRecordId\",waitHandoverWarehouseMovements:\"movementId\",processCompletions:\"recordId\",returnConfirmationVersions:\"confirmationVersionId\",qcTasks:\"qcTaskId\",postTasks:\"postTaskId\",recheckOrders:\"recheckOrderId\",outboundOrders:\"outboundOrderId\",warehouseReceipts:\"receiptId\",defects:\"defectId\",materialTransferOrders:\"transferOrderId\",materialStocks:\"st"
+    },
+    {
+      "function": "jo",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 52597,
+      "selfSamples": 29,
+      "inclusiveSamples": 198,
+      "sourceExcerpt": " new Error(o.replaceAll(\"PCS\",\"后道\").replace(\"关联房间或地点\",\"后道资料\"))}async function jo(e){var i,r,c,s,a;if(typeof window>\"u\")return e();if($e||await Ne(),!$e||je)throw new Error(je||\"请重新读取后道资料后重试。\");if(Ve)throw new Error(\"发现旧后道资料，请先完成页面提示的资料转换，再继续保存。\");if(_e)throw new Error(\"上一笔操作尚未保存，请等待完成。\");const o=pe();_e=!0;let t,n=!1;try{let f;try{f=e()}catch(d){if(!(d instanceof Error)||!(\"code\"in d))throw d;t=d}if(f&&typeof f.then==\"function\")throw new Error(\"请先读取文件，再执行后道保存。\");xt.forEach(d=>d());const g=pe();ue(o);const h=Ke(o),u=Ke(g),v=[],m=[];for(const[d,S]of u)JSON.stringify(S.value)!==JSON.stringify((i=h.get(d))==null?void 0:i.value)&&v.push({id:d,collection:S.collection,value:et(S"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 13,
+      "inclusiveSamples": 13
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 6,
+      "inclusiveSamples": 6,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 5,
+      "inclusiveSamples": 5
+    },
+    {
+      "function": "request.onsuccess",
+      "url": "",
+      "line": 37,
+      "column": 28,
+      "selfSamples": 5,
+      "inclusiveSamples": 5
+    },
+    {
+      "function": "n",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47652,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "rror(\"后道记录缺少稳定编号，未保存。\");return String(t[n])};function ft(e,o){const t=new Map,n=(i,r,c)=>{const s=`${j}/${e}/${i}/${encodeURIComponent(c)}`;if(t.has(s))throw new Error(\"后道记录编号重复，未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft(o,t)]))}function pe(){return new Map([...H].map(([e,o])=>[e,Ae(o.read())]))}function ue(e){var o;for(const[t,n]of e)(o=H.get(t))==null||o.replace(Ae(n))}function mo(e,o,t,n,i=JSON.parse){H.set(e,{lega"
+    },
+    {
+      "function": "ft",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47628,
+      "selfSamples": 3,
+      "inclusiveSamples": 11,
+      "sourceExcerpt": "if(!n||!t[n])throw new Error(\"后道记录缺少稳定编号，未保存。\");return String(t[n])};function ft(e,o){const t=new Map,n=(i,r,c)=>{const s=`${j}/${e}/${i}/${encodeURIComponent(c)}`;if(t.has(s))throw new Error(\"后道记录编号重复，未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft(o,t)]))}function pe(){return new Map([...H].map(([e,o])=>[e,Ae(o.read())]))}function ue(e){var o;for(const[t,n]of e)(o=H.get(t))==null||o.replace(Ae(n))}function mo(e,o,t,n,i=J"
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 3,
+      "inclusiveSamples": 3,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "De",
+      "url": "http://127.0.0.1:43198/assets/work-order-detail-M68zO3yo.js",
+      "line": 0,
+      "column": 21963,
+      "selfSamples": 2,
+      "inclusiveSamples": 200,
+      "sourceExcerpt": "return{skuId:t.dataset.postEntryLine||\"\",quantity:Number(s)}})}async function De(e){var n,a,d,b,x,c,u,h,F,l,E;if(typeof window>\"u\"||!window.location.pathname.startsWith(\"/fcs/craft/post-finishing/work-orders/\"))return!1;const t=e.closest(\"[data-post-finishing-work-order-detail-action]\"),s=t==null?void 0:t.dataset.postFinishingWorkOrderDetailAction;if(!t||!s)return!1;const o=t.dataset.taskId||((n=e.closest(\"[data-post-entry-form]\"))==null?void 0:n.dataset.taskId)||decodeURIComponent(window.location.pathname.split(\"/\").pop()||\"\");try{if(s===\"close-entry\"){const i=document.querySelector(\"[data-post-entry-form]\");return i&&I.has(i.dataset.intentKey||\"\")||K()&&!window.confirm("
+    },
+    {
+      "function": "n",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47652,
+      "selfSamples": 2,
+      "inclusiveSamples": 2,
+      "sourceExcerpt": "rror(\"后道记录缺少稳定编号，未保存。\");return String(t[n])};function ft(e,o){const t=new Map,n=(i,r,c)=>{const s=`${j}/${e}/${i}/${encodeURIComponent(c)}`;if(t.has(s))throw new Error(\"后道记录编号重复，未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft(o,t)]))}function pe(){return new Map([...H].map(([e,o])=>[e,Ae(o.read())]))}function ue(e){var o;for(const[t,n]of e)(o=H.get(t))==null||o.replace(Ae(n))}function mo(e,o,t,n,i=JSON.parse){H.set(e,{lega"
+    },
+    {
+      "function": "markTargetElements",
+      "url": "",
+      "line": 7704,
+      "column": 20,
+      "selfSamples": 1,
+      "inclusiveSamples": 1
+    },
+    {
+      "function": "",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 1,
+      "inclusiveSamples": 1
+    },
+    {
+      "function": "structuredClone",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 1,
+      "inclusiveSamples": 1
+    },
+    {
+      "function": "p",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-cFho6-x1.js",
+      "line": 0,
+      "column": 36508,
+      "selfSamples": 1,
+      "inclusiveSamples": 1,
+      "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47830,
+      "selfSamples": 1,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft(o,t)]))}function pe(){return new Map([...H].map(([e,o])=>[e,Ae(o.read())]))}function ue(e){var o;for(const[t,n]of e)(o=H.get(t))==null||o.replace(Ae(n))}function mo(e,o,t,n,i=JSON.parse){H.set(e,{legacyKey:o,read:t,replace:n,legacy:i}),te.size&&!te.has(e)&&(te.set(e,Ae(t())),$e=!1)}function So(e){xt.push(e)}function vo(e){Ut.push(e)}function bo(e){qe.push(e)}function Io(e){fo"
+    },
+    {
+      "function": "wt",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-M2rZ0ADx.js",
+      "line": 1,
+      "column": 47451,
+      "selfSamples": 1,
+      "inclusiveSamples": 1,
+      "sourceExcerpt": "\",ppicBases:\"basisId\",ppicActions:\"actionId\",ppicEvaluations:\"evaluationId\"},wt=(e,o,t)=>{if(t.kind&&t.idempotencyKey)return`${t.kind}:${t.idempotencyKey}`;const n=gt[e]||gt[o];if(!n||!t[n])throw new Error(\"后道记录缺少稳定编号，未保存。\");return String(t[n])};function ft(e,o){const t=new Map,n=(i,r,c)=>{const s=`${j}/${e}/${i}/${encodeURIComponent(c)}`;if(t.has(s))throw new Error(\"后道记录编号重复，未保存。\");t.set(s,{collection:`${e}/${i}`,value:r})};if(Array.isArray(o))o.forEach(i=>n(\"records\",i,wt(e,\"records\",i)));else for(const[i,r]of Object.entries(o))Array.isArray(r)?r.forEach(c=>n(i,c,wt(e,i,c))):r!==void 0&&n(i,r,\"value\");return t}function Ke(e){return new Map([...e].flatMap(([o,t])=>[...ft"
+    },
+    {
+      "function": "querySelector",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 1,
+      "inclusiveSamples": 1
+    },
+    {
+      "function": "re",
+      "url": "http://127.0.0.1:43198/assets/work-order-detail-M68zO3yo.js",
+      "line": 0,
+      "column": 6481,
+      "selfSamples": 1,
+      "inclusiveSamples": 1,
+      "sourceExcerpt": "ties.find(d=>d.skuId===s.skuId))==null?void 0:a.quantity)||0)},0)}))}function re(e,t){const s=H.get(e.postTaskId)||20,o=[...t.records].sort((a,d)=>d.recordedAt.localeCompare(a.recordedAt)).slice(0,s),n=S().roleName.includes(\"主管\")&&w();return`<section id=\"records\" class=\"rounded-xl border bg-card p-4\"><h3 class=\"font-semibold\">加工登记记录 <span class=\"text-xs font-normal text-muted-foreground\">${t.records.length} 次</span></h3><div class=\"mt-3 space-y-3\">${o.map(a=>{const d=a.quantities,b=!a.correctionOf&&t.records.some(c=>c.correctionOf===a.recordId)?oe(a,t.records).map(c=>{var u;return`${((u=e.lines.find(h=>h.sku.skuId===c.skuId))==null?void 0:u.sku.skuCode)||\"未知SKU\"}：${c.quan"
+    },
+    {
+      "function": "focus",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 1,
+      "inclusiveSamples": 1
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/index-BqeWx9lm.js",
+      "line": 1224,
+      "column": 36356,
+      "selfSamples": 1,
+      "inclusiveSamples": 1,
+      "sourceExcerpt": "Listener(\"drop\",ye);w.addEventListener(\"dragend\",ye);w.addEventListener(\"click\",async e=>{const t=x(e.target);if(t!=null&&t.closest(\"[data-pms-record-retry]\")){e.preventDefault(),await $();return}const a=x(e.target);if(!a)return;const n=a.closest(\"summary\");if(f.getState().pathname.startsWith(\"/pms/\")&&!f.getState().pathname.startsWith(\"/pms/tmf-\")&&n&&![...n.attributes].some(b=>b.name.startsWith(\"data-\")&&b.name.endsWith(\"action\")))return;if(a.closest(\"[data-timing-source-detail]\")){if(a.closest(\"[data-timing-source-action]\")&&Xe(a,e)){e.preventDefault();return}const b=a.closest(\"a[href]\");if(b){if(b.target===\"_blank\"||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e."
+    },
+    {
+      "function": "",
+      "url": "",
+      "line": 40,
+      "column": 35,
+      "selfSamples": 1,
+      "inclusiveSamples": 1
+    }
+  ]
+}

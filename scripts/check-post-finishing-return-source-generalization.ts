@@ -106,9 +106,9 @@ const woolStore = {
     'WOOL-WHOLE': {
       woolOrderId: 'WOOL-WHOLE', woolOrderNo: 'WMO-WHOLE', taskId: 'TASK-WOOL-WHOLE', taskNo: 'WO-WHOLE',
       productionOrderId: 'PO-ID-WOOL', productionOrderNo: 'PO-WOOL', styleNo: 'STYLE-WOOL', styleName: '整件毛织衫', styleImageUrl: '/cardigan-sample.jpg',
-      factoryId: 'WOOL-FACTORY', factoryName: '毛织工厂', plannedCompletionAt: '2026-09-01', kind: 'WHOLE_GARMENT',
+      factoryId: 'WOOL-FACTORY', factoryName: '毛织工厂', plannedCompletionAt: '2026-09-01', kind: 'WHOLE_GARMENT', stage: 'LINKING',
       outputPlanLines: [{ outputSkuCode: 'WOOL-SKU-M', outputObjectType: 'GARMENT', garmentSkuCode: 'WOOL-SKU-M', colorCode: 'BLACK', colorName: '黑色', sizeCode: 'M', plannedQty: 10, qtyUnit: '件', requiredYarnSkus: [], sourceTechPackVersionId: 'TP', sourceTechPackVersionCode: 'V1', sourceColorMappingIds: [], sourceBomItemIds: [] }],
-      downstreamTarget: { receiverType: 'DOWNSTREAM_FACTORY', receiverId: 'POST', receiverName: '后道工厂' }, sourceTechPackVersionId: 'TP', sourceTechPackVersionCode: 'V1', createdAt: '2026-09-01', createdBy: '测试', updatedAt: '2026-09-01', updatedBy: '测试',
+      downstreamTarget: { receiverType: 'DOWNSTREAM_FACTORY', receiverId: 'PF-DEDICATED-001', receiverName: '后道工厂' }, sourceTechPackVersionId: 'TP', sourceTechPackVersionCode: 'V1', createdAt: '2026-09-01', createdBy: '测试', updatedAt: '2026-09-01', updatedBy: '测试',
     },
     'WOOL-PANEL': {
       woolOrderId: 'WOOL-PANEL', woolOrderNo: 'WMO-PANEL', taskId: 'TASK-WOOL-PANEL', taskNo: 'WO-PANEL',
@@ -118,7 +118,7 @@ const woolStore = {
     },
   },
   handovers: [
-    { handoverId: 'HANDOVER-WHOLE', woolOrderId: 'WOOL-WHOLE', outputSkuCode: 'WOOL-SKU-M', handoverQty: 6, qtyUnit: '件', receiverType: 'DOWNSTREAM_FACTORY', receiverId: 'POST', receiverName: '后道工厂', handedOverAt: '2026-09-01', handedOverBy: '毛织主管', warehouseOutboundFlowId: 'FLOW-WHOLE', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+    { handoverId: 'HANDOVER-WHOLE', woolOrderId: 'WOOL-WHOLE', outputSkuCode: 'WOOL-SKU-M', handoverQty: 6, qtyUnit: '件', receiverType: 'DOWNSTREAM_FACTORY', receiverId: 'PF-DEDICATED-001', receiverName: '后道工厂', handedOverAt: '2026-09-01', handedOverBy: '毛织主管', warehouseOutboundFlowId: 'FLOW-WHOLE', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
     { handoverId: 'HANDOVER-PANEL', woolOrderId: 'WOOL-PANEL', outputSkuCode: 'PANEL-SKU', handoverQty: 6, qtyUnit: '件', receiverType: 'CUTTING_WAIT_HANDOVER_WAREHOUSE', receiverId: 'CUT', receiverName: '裁床待交出仓', handedOverAt: '2026-09-01', handedOverBy: '毛织主管', warehouseOutboundFlowId: 'FLOW-PANEL', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
   ],
   qtyChangeLogs: [], yarnReceipts: [], yarnIssues: [], yarnReturns: [], processReports: [], warehouseFlows: [], completions: [], machines: [], machineAssociations: [], machineAssociationLogs: [], operationLogs: [],
@@ -156,6 +156,16 @@ assert(!adapted.some((source) => source.productionOrderNo === 'PO-KOL'), 'KOL �
 assert(!adapted.some((source) => source.executionTaskId === 'TASK-UNASSIGNED'), '未形成有效分配的生产任务不得成为回货来源')
 assert(!adapted.some((source) => source.executionTaskId === 'TASK-ZERO' || source.executionTaskId === 'TASK-PIECE'), '没有成衣交出数量或对象不是成衣的图案任务不得成为回货来源')
 assert.equal(adapted.find((source) => source.sourceKind === 'WHOLE_GARMENT_WOOL')?.skus[0]?.plannedQty, 6, '整件毛织来源数量必须取实际交出，不得取生产计划')
+for (const mutation of [
+  (copy: any) => { copy.woolStore.workOrders['WOOL-WHOLE'].stage = 'FLAT_KNITTING' },
+  (copy: any) => { copy.woolStore.handovers[0].receiverId = 'OTHER-POST-FACTORY' },
+  (copy: any) => { copy.woolStore.handovers[0].automatic = true },
+  (copy: any) => { copy.woolStore.handovers[0].downstreamReceipt = { status: 'CONFIRMED' } },
+]) {
+  const copy = structuredClone(facts)
+  mutation(copy)
+  assert(!buildFormalPostFinishingReturnSources(copy).some(source => source.sourceKind === 'WHOLE_GARMENT_WOOL'), '横机、其他去向、自动交接或已由下游接收的毛织事实不能重复作为待回货来源')
+}
 
 resetPostFinishingFullFlow()
 const liveSources = listPostFinishingReturnRegistrationSources()

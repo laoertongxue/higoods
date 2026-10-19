@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "boundary": "11 public-command states, complete task/work-order/point-lookup/full progress equality. Fixed isolated Node clock, no browser persistence/performance claim. Same current SC provider on both sides; hook replaces only before F/V source.",
+  "files": [
+    {
+      "path": "after.json",
+      "bytes": 1929647,
+      "sha256": "f8a4ae47f5db4b04b6867a79b5cac16f11db9dd96850acf1b051f6bd95787898"
+    },
+    {
+      "path": "after.log",
+      "bytes": 224,
+      "sha256": "bcc47044f35ec6c79194e5f7f0d75dc7507721c4facfd5a309a2f15c6f59ce70"
+    },
+    {
+      "path": "before-hook.mjs.txt",
+      "bytes": 638,
+      "sha256": "08ece2dac669b4ef42c6745897a1cd74277f56e8b1156b3805b1d2dc513cfecd"
+    },
+    {
+      "path": "before.json",
+      "bytes": 1929647,
+      "sha256": "f8a4ae47f5db4b04b6867a79b5cac16f11db9dd96850acf1b051f6bd95787898"
+    },
+    {
+      "path": "before.log",
+      "bytes": 224,
+      "sha256": "3904ad3c99cb470d01dfb9f96db15d4ea2ad49b0e0cde208dd30028577021e94"
+    },
+    {
+      "path": "helper-receive-error.log",
+      "bytes": 845,
+      "sha256": "f598ad9e6a3c7bcc08b4af6a12f03d07a83e58e892b589a842d4fb27db8a2eac"
+    },
+    {
+      "path": "pda-post-finishing-exec-detail.ts.txt",
+      "bytes": 18328,
+      "sha256": "ad3c5c5815199c3441771c0854b84d0f7dcfde1b5784d0b379513c52bc15633a"
+    },
+    {
+      "path": "post-finishing-current-read-model.ts.txt",
+      "bytes": 48962,
+      "sha256": "25765da69f4cd1f34318a206e5d26278be2fe6350a28dbea252871d1ec97e974"
+    },
+    {
+      "path": "post-finishing-full-flow.ts.txt",
+      "bytes": 220437,
+      "sha256": "442e2d387d899c3491da5c02c493aac5286cd1b85df56505ac4851dcdb43a435"
+    },
+    {
+      "path": "result.json",
+      "bytes": 388,
+      "sha256": "f223c6fb556a454d8ae0e45046765c6ab509e6ca59c56b77f0fda678f6e66843"
+    },
+    {
+      "path": "run.mjs.txt",
+      "bytes": 5220,
+      "sha256": "4a07aad2dba9b340dc7df0aa1e9b9a195963aa99eccc6313818ff26250eb2607"
+    },
+    {
+      "path": "special-craft-task-orders.ts.txt",
+      "bytes": 145275,
+      "sha256": "eea93893a9731ab466c0692fa63715e87af1386b6aa0774f87cf7adee31a2a2e"
+    },
+    {
+      "path": "types.log",
+      "bytes": 337,
+      "sha256": "03298e58e79ed9643165f985146696ccf6290704dfaf83a5dfff47e5c9795744"
+    }
+  ]
+}

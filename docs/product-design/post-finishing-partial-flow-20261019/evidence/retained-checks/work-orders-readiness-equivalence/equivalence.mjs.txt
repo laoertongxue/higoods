@@ -1,0 +1,37 @@
+import {writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {pathToFileURL} from 'node:url';
+import assert from 'node:assert/strict';
+const root='/Users/laoer/.codex/worktrees/81b7/higoods';
+const fixed=Date.parse('2026-10-20T03:00:00+08:00'),RealDate=Date;
+globalThis.Date=class extends RealDate{constructor(...args){if(args.length)super(...args);else super(fixed)}static now(){return fixed}};
+const load=p=>import(pathToFileURL(root+'/'+p).href);
+const f=await load('src/data/fcs/post-finishing-full-flow.ts');
+const p=await load('src/pages/process-factory/post-finishing/work-orders.ts');
+const a=f.POST_FINISHING_ACCEPTANCE_ACTORS,sources=f.POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS.slice(0,2),olds=sources.map(s=>s.skus[0].plannedQty);
+let clock=fixed;const at=()=>++clock;
+try{
+ f.resetPostFinishingFullFlow();
+ for(const [j,s] of sources.entries()){
+  s.skus[0].plannedQty=101000;
+  for(let i=1;i<=(j===0?100:2);i++){
+   const d=f.registerPostFinishingFactoryReturn({productionOrderNo:s.productionOrderNo,executionTaskId:s.executionTaskId,returnIndex:i,triggerSource:'车缝正常交出',idempotencyKey:`LIST-EQ-${j}-${i}`,quantities:s.skus.map((q,n)=>({skuId:q.skuId,registeredQty:n?0:1000})),deliveryPersonName:'列表等价验收送货人',deliveryPersonPhone:'',evidenceImageUrls:[s.skus[0].imageUrl],actor:a.factoryCourier,nowMs:at()});
+   f.confirmPostFinishingFactoryReturn({deliveryId:d.deliveryId,firstCounts:d.lines.map(q=>({skuId:q.sku.skuId,actualQty:q.registeredQty})),actor:a.returnConfirmer,nowMs:at()});
+   const q=f.sendPostFinishingFactoryReturnToQc({deliveryId:d.deliveryId,actor:a.sender,nowMs:at()});
+   f.claimPostFinishingQcTask({qcTaskNo:q.qcTaskNo,actor:a.qcA,nowMs:at()});
+   f.completePostFinishingQcTask({qcTaskId:q.qcTaskId,processItems:[...f.POST_FINISHING_PROCESS_ITEMS],results:q.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0})),actor:a.qcA,nowMs:at()});
+  }
+ }
+ const tasks=f.listPostFinishingFullFlowPostTasks();assert.equal(tasks.length,102);
+ let epoch=0,fail=false,calls=[];
+ f.installAccessoryPostFinishingReadBridge({ownsProduction:()=>false,ownedProductionIdentities:()=>new Set(),transfers:()=>[],stocks:()=>[],readiness:no=>{calls.push(no);if(fail)throw new Error('受控来源失读');return {applicable:no===sources[0].productionOrderNo,status:no===sources[0].productionOrderNo?(epoch?'已入库':'待入库'):'不适用',label:`当前状态${epoch}`,transferOrderNo:`当前调拨${epoch}`}}});
+ const searches=['','?page=2','?keyword='+encodeURIComponent(tasks[0].postTaskNo),'?keyword=不存在的单号','?status=后道中','?processItem='+encodeURIComponent('装扣子'),'?factory='+encodeURIComponent(f.getPostFinishingFactoryReturn(tasks[0].deliveryId).managedPostFactoryName)];
+ const output=[];
+ for(const search of searches){calls=[];globalThis.window={location:{pathname:'/fcs/craft/post-finishing/work-orders',search}};const html=p.renderPostFinishingWorkOrdersPage();delete globalThis.window;output.push({search,html,calls:[...calls]});}
+ epoch=1;calls=[];globalThis.window={location:{pathname:'/fcs/craft/post-finishing/work-orders',search:''}};const changed=p.renderPostFinishingWorkOrdersPage();delete globalThis.window;assert.notEqual(changed,output[0].html);output.push({search:'after-current-source-change',html:changed,calls:[...calls]});
+ fail=true;globalThis.window={location:{pathname:'/fcs/craft/post-finishing/work-orders',search:''}};assert.throws(()=>p.renderPostFinishingWorkOrdersPage(),/受控来源失读/);delete globalThis.window;
+ const pages=output.map(({calls,...r})=>r),bytes=JSON.stringify(pages);
+ writeFileSync(process.argv[2],bytes);writeFileSync(process.argv[2]+'.checks.json',JSON.stringify({boundary:'Isolated public-domain commands, controlled read-only bridge; complete HTML equivalence only, no actual WLS/browser/persistence claim.',parents:tasks.length,productions:sources.map(s=>s.productionOrderNo),pages:output.map(({html,...r})=>({...r,bytes:Buffer.byteLength(html)})),sourceChangeVisible:true,sourceFailurePropagates:true,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
+ if(process.argv.includes('--require-once'))for(const r of output){assert.equal(r.calls.length,2);assert.deepEqual([...new Set(r.calls)],sources.map(s=>s.productionOrderNo));}
+ console.log(JSON.stringify({pages:output.length,parents:tasks.length,calls:output.map(r=>r.calls.length),bytes:Buffer.byteLength(bytes),sha256:createHash('sha256').update(bytes).digest('hex')}));
+}finally{delete globalThis.window;sources.forEach((s,i)=>s.skus[0].plannedQty=olds[i]);}

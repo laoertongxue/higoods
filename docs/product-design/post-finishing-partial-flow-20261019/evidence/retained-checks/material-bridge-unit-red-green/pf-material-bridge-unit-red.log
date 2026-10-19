@@ -1,0 +1,41 @@
+(node:28241) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ PFN-053/054/068：辅料未变时，归属读取故障不阻断普通QC、加工登记和交复检 (2.2145ms)
+✔ PFN-052/054/068：受管辅料原整单入口仍拒绝修改，归属未知也不能入库 (1.00925ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 230.584583
+
+✖ failing tests:
+
+test at tests/unit/post-finishing-process-progress.test.ts:1:15043
+✖ PFN-053/054/068：辅料未变时，归属读取故障不阻断普通QC、加工登记和交复检 (2.2145ms)
+  AssertionError [ERR_ASSERTION]: Got unwanted exception: 质检未修改辅料时，不应为保护未变辅料再次读取旧归属来源
+  Actual message: "隔离契约：旧辅料准备资料不可读取"
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-process-progress.test.ts:253:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Error: 隔离契约：旧辅料准备资料不可读取
+        at Object.readOwners (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-process-progress.test.ts:241:37)
+        at managedLegacyMaterialState (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/post-finishing-full-flow.ts:1139:43)
+        at persist (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/post-finishing-full-flow.ts:1156:73)
+        at Module.completePostFinishingQcTask (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/post-finishing-full-flow.ts:3108:3)
+        at createTask (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-process-progress.test.ts:44:26)
+        at <anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-process-progress.test.ts:254:17)
+        at getActual (node:assert:580:5)
+        at strict.doesNotThrow (node:assert:748:32)
+        at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-process-progress.test.ts:253:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14),
+    expected: undefined,
+    operator: 'doesNotThrow',
+    diff: 'simple'
+  }

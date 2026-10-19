@@ -13,6 +13,7 @@ import {
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWaitProcessWarehouseRecords,
   tracePostFinishingFullFlow,
+  isPostFinishingDeliveryComplete,
   type PostFinishingAcceptanceProductionOrder,
   type PostFinishingFactoryReturnDelivery,
   type PostFinishingQcTask,
@@ -56,9 +57,9 @@ function taskSourceLabel(kind: string): string {
 
 function taskResponsibilityText(order: TaskOrder): string {
   return order.sourceKinds.map((kind) => kind === 'INDEPENDENT_SEWING'
-    ? '仅车缝 · 后道工厂负责开扣眼、装扣子、烫包'
+    ? '仅车缝 · 后道项目由QC确认'
     : kind === 'SEWING_IRON_PACK' || kind === 'CUTTING_SEWING_IRON_PACK'
-      ? `${taskSourceLabel(kind)} · 三方工厂负责烫包，质检按漏做情况分流`
+      ? `${taskSourceLabel(kind)} · 三方工厂负责烫包，后道项目由QC确认`
       : `${taskSourceLabel(kind)} · 按本批质检确认项目处理`).join('；') || '来源责任未记录'
 }
 
@@ -72,7 +73,7 @@ interface PostFinishingRootTaskRow {
   inspectedQty: number
   waitHandoverQty: number
   returnCount: number
-  outboundStatus: '未出库' | '待出库' | '已出库'
+  outboundStatus: '未出库' | '待出库' | '部分已出库' | '已出库'
   weightedSkuCount: number
   materialReadiness: ReturnType<typeof getPostFinishingMaterialReadiness>
 }
@@ -209,13 +210,14 @@ export function renderPostFinishingTasksPage(): string {
     const orderQcTasks = qcTasks.filter((task) => task.productionOrderNo === order.productionOrderNo)
     const traces = orderDeliveries.map((delivery) => tracePostFinishingFullFlow(delivery.deliveryOrderNo))
     const orderWaitHandover = waitHandoverRecords.filter((record) => record.productionOrderNo === order.productionOrderNo)
-    const hasCompletedOutbound = traces.some((trace) => trace.receipt || trace.waitHandoverRecord?.status === '已交出')
+    const hasCompletedOutbound = traces.some(trace => trace.receipts?.length)
+    const allCompleted = traces.length > 0 && traces.every(trace => trace.delivery && isPostFinishingDeliveryComplete(trace.delivery.deliveryId))
     const directQcOutbounds = traces
       .map((trace) => trace.outboundOrder)
       .filter((outbound) => outbound?.sourceType === '质检直达')
     const hasWaitingOutbound = orderWaitHandover.some((record) => record.status === '待交出')
       || directQcOutbounds.some((outbound) => outbound?.status === '待仓库接收')
-    const rowOutboundStatus: PostFinishingRootTaskRow['outboundStatus'] = hasCompletedOutbound ? '已出库' : hasWaitingOutbound ? '待出库' : '未出库'
+    const rowOutboundStatus: PostFinishingRootTaskRow['outboundStatus'] = allCompleted ? '已出库' : hasCompletedOutbound ? '部分已出库' : hasWaitingOutbound ? '待出库' : '未出库'
     return {
       order,
       deliveries: orderDeliveries,
@@ -257,7 +259,7 @@ export function renderPostFinishingTasksPage(): string {
   return `${renderStandardListPage({
     title: '后道生产任务',
     primaryActionsHtml: '<span class="text-xs text-muted-foreground">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',
-    filtersHtml: `<form data-post-finishing-task-filters action="/fcs/craft/post-finishing/tasks" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-7">${taskId ? `<input type="hidden" name="taskId" value="${escapeHtml(taskId)}"/>` : ''}<label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="后道生产任务/生产单号/款式/技术包版本"/></label><label class="text-xs text-muted-foreground">出库状态<select name="outboundStatus" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['未出库','待出库','已出库'], outboundStatus)}</select></label><label class="text-xs text-muted-foreground">后道来源<select name="source" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${sourceOptions(source)}</select></label><label class="text-xs text-muted-foreground">分配状态<select name="assignment" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['已派单'], assignment)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label><label class="text-xs text-muted-foreground">售卖类型<select name="saleType" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(saleTypes, saleType)}</select></label><div class="flex items-end justify-end gap-2 md:col-span-4 xl:col-span-7"><a data-nav="/fcs/craft/post-finishing/tasks" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
+    filtersHtml: `<form data-post-finishing-task-filters action="/fcs/craft/post-finishing/tasks" class="grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:grid-cols-7">${taskId ? `<input type="hidden" name="taskId" value="${escapeHtml(taskId)}"/>` : ''}<label class="text-xs text-muted-foreground md:col-span-2">关键词<input name="keyword" value="${escapeHtml(current.get('keyword') || '')}" class="mt-1 h-9 w-full rounded-md border px-3 text-sm" placeholder="后道生产任务/生产单号/款式/技术包版本"/></label><label class="text-xs text-muted-foreground">出库状态<select name="outboundStatus" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['未出库','待出库','部分已出库','已出库'], outboundStatus)}</select></label><label class="text-xs text-muted-foreground">后道来源<select name="source" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${sourceOptions(source)}</select></label><label class="text-xs text-muted-foreground">分配状态<select name="assignment" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(['已派单'], assignment)}</select></label><label class="text-xs text-muted-foreground">工厂<select name="factory" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(factories, factory)}</select></label><label class="text-xs text-muted-foreground">售卖类型<select name="saleType" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">${selectOptions(saleTypes, saleType)}</select></label><div class="flex items-end justify-end gap-2 md:col-span-4 xl:col-span-7"><a data-nav="/fcs/craft/post-finishing/tasks" class="inline-flex h-9 items-center rounded-md border px-4 text-sm">重置</a><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white">查询</button></div></form>`,
     statsHtml: renderStandardListStats([
       { label: '后道生产任务', value: `${orders.length} 个` },
       { label: '计划数量', value: `${totalPlanned} 件` },

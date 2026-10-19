@@ -1,0 +1,15 @@
+✔ PFN-067/068：席位primitive读取与完整工厂目录的实际ID和编号精确匹配相同 (98.994667ms)
+ℹ {"factories":41,"identityChecks":82,"boundary":"Node public read contract; no browser/IDB or physical factory operation"}
+✔ PFN-067/068：primitive返回不复制全目录，修改返回值或完整目录副本不改变原席位 (3.751667ms)
+✔ PFN-068：零、负数、小数与有效席位遵循原取整/兜底/来源文案，公开upsert下一读即生效 (181.894542ms)
+ℹ {"rawValues":["undefined","0","-3","0.25","0.99","1","1.99","29.99","30.25","127","NaN","Infinity"],"fallbackValues":["undefined","0","-9","2.75","97"],"resolverComparisons":120}
+✔ PFN-068：ID-F090精确编号不走getById别名，合法自定义编号碰撞仍遵循原目录find顺序 (5.710458ms)
+✔ PFN-068：同一文本同时匹配另一个ID与自定义code时保持原数组首个匹配 (7.561333ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 446.863416

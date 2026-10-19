@@ -1,0 +1,14 @@
+import {writeFileSync} from 'node:fs';
+import {pathToFileURL} from 'node:url';
+const root='/Users/laoer/.codex/worktrees/81b7/higoods';
+const NativeDate=Date,clock=NativeDate.parse('2026-10-20T08:00:00+08:00');
+globalThis.Date=class extends NativeDate {constructor(...args){if(args.length)super(...args);else super(clock)}static now(){return clock}};
+const storage=new Map();Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value)),removeItem:key=>storage.delete(key)}});
+const load=p=>import(pathToFileURL(root+'/'+p).href);
+const f=await load('src/data/fcs/factory-master-store.ts'),r=await load('src/data/fcs/third-party-factory-rating.ts');
+const factories=f.listFactoryMasterRecords(),ratings=r.listThirdPartyFactoryRatingSnapshots();
+const keys=[...new Set([...factories.flatMap(v=>[v.id,v.code]),...ratings.flatMap(v=>[v.factoryId,v.factoryCode]),'', 'UNKNOWN-PF-SEAT', 'ID-F090'])];
+const lookups=keys.map(key=>({key,seats:[undefined,0,29,30,100].map(fallback=>({fallback: fallback??null,value:r.resolveThirdPartyFactorySewingSeatCount(key,fallback)})),rating:r.getThirdPartyFactoryRatingSnapshot(key),performance:r.listThirdPartyFactoryPerformanceRecords(key),timing:r.getThirdPartyFactoryTimingSummary(key),settlement:r.evaluateThirdPartyFactorySettlementPolicy(key),dispatch:['直接派单','发起竞价'].flatMap(actionType=>['试产单','常规单'].flatMap(documentTypeLabel=>[0,1,300,1001].flatMap(dispatchQty=>[false,true].map(riskConfirmed=>({actionType,documentTypeLabel,dispatchQty,riskConfirmed,result:r.evaluateThirdPartyFactoryDispatchPolicy({factoryId:key,actionType,documentTypeLabel,dispatchQty,isUrgentOrder:false,riskConfirmed,isSupervisorAssigned:false})})))))}));
+const s=await load('src/data/fcs/settlement-linked-mock-factory.ts');
+writeFileSync(process.argv[2],JSON.stringify({boundary:'Fresh isolated Node, public readonly snapshots/policies and same fixed clock/source inputs. No browser persistence or performance claim.',factories,ratings,lookups,settlementLinked:s.settlementLinkedMockFactoryOutput}));
+console.log(JSON.stringify({factoryCount:factories.length,ratingCount:ratings.length,lookupCount:lookups.length,dispatchDecisions:lookups.length*32,settlementSources:s.settlementLinkedMockFactoryOutput.statementSourceRows.length}));

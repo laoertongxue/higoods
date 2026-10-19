@@ -1,0 +1,47 @@
+
+> higoods-vanilla-clone@1.0.0 check:post-finishing-return-source-generalization
+> node --import tsx scripts/check-post-finishing-return-source-generalization.ts
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 正式来源适配必须覆盖三种任务分配范围、普通整件毛织、成衣烫画和成衣直喷
++ actual - expected
+
++ Set(5) {
+- Set(6) {
+    'CUTTING_SEWING_IRON_PACK',
+    'GARMENT_DIRECT_PRINT',
+    'GARMENT_HEAT_TRANSFER',
+    'INDEPENDENT_SEWING',
+    'SEWING_IRON_PACK',
+-   'WHOLE_GARMENT_WOOL'
+  }
+
+    at <anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/scripts/check-post-finishing-return-source-generalization.ts:147:8)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: Set(5) {
+    'CUTTING_SEWING_IRON_PACK',
+    'GARMENT_DIRECT_PRINT',
+    'GARMENT_HEAT_TRANSFER',
+    'INDEPENDENT_SEWING',
+    'SEWING_IRON_PACK'
+  },
+  expected: Set(6) {
+    'INDEPENDENT_SEWING',
+    'SEWING_IRON_PACK',
+    'CUTTING_SEWING_IRON_PACK',
+    'WHOLE_GARMENT_WOOL',
+    'GARMENT_HEAT_TRANSFER',
+    'GARMENT_DIRECT_PRINT'
+  },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

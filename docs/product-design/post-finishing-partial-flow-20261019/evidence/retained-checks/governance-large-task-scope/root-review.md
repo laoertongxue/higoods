@@ -1,0 +1,5 @@
+# 完整任务路径的工具修复整合
+
+主代理核对4文件实际diff：changed-paths所有原Git读取只增16MiB有界缓冲，未改解析、排序、基线或完整显式路径断言；taskScope保留短路径和逗号拒绝，仅UTF-8命令超过32KiB时调用已有完整worktree语义，GOVERNANCE_BASE_SHA仍由原环境传递。真实临时Git仓覆盖>1MiB未跟踪/暂存/跨提交基线/无HEAD及Unicode长路径，3red全失败、两文件63green全过。真实当前6916路径/6847文档与原始Git输出相同，旧6906路径全部仍在；两个门禁完整base/worktree同范围、0排除、最长命令61字节。source副本按.txt保存，原文件名到原哈希仍见原manifest；不删历史证据、不改收据通过标准。
+
+主代理同版全workflow governance输出另存all-workflow-governance.log。源码仅工具及直接测试，不进入产品bundle；产品性能仍独立实测。

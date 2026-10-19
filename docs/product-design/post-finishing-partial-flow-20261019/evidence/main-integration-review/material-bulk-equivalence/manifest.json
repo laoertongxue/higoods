@@ -1,0 +1,10 @@
+{
+  "kind": "nonempty public bridge isolated Node equivalence, no browser/performance claim",
+  "artifactsSHA256": {
+    "actual.json": "434ce625cbf2a2e2f0467ac9eea58856212656d0d1c53061f1c44bca65721111",
+    "empty-input-fixture-calibration.log": "6654660c12e7abbf8d25cd84e9ab48010617ba1c4a57e416dde488828c07277d",
+    "review.md": "f2b519a53b0f9b91db17b3b5bfca96b195ddf43144834c6d427c3c307c4ee5a2",
+    "run.log": "c49c7b1c0e97a8c1abfae95d7080d2769555383ba881d9f9ea6e839ff4b5c990",
+    "script.mts.txt": "a71462cd75e244709d2e15572573526fda257ef46177fa9b9a15684cd602b5fc"
+  }
+}

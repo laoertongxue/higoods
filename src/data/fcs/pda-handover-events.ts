@@ -75,6 +75,8 @@ import {
 } from './wool-task-domain.ts'
 import {
   getPostFinishingFullFlowOutboundOrder,
+  listPostFinishingOutboundReceiptSummaries,
+  listPostFinishingHandoutWarehouseSummaries,
   listPostFinishingFactoryReturns,
   type PostFinishingFactoryReturnDelivery,
   listPostFinishingWaitHandoverWarehouseRecords,
@@ -1057,10 +1059,10 @@ function buildPostFinishingHandoutHeadId(recheckOrderNo: string): string {
 }
 
 function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
-  return listPostFinishingWaitHandoverWarehouseRecords().map((record) => {
+  return listPostFinishingHandoutWarehouseSummaries().map((record) => {
     const handoverId = buildPostFinishingHandoutHeadId(record.outboundOrderNo)
-    const qtyExpectedTotal = sumBy(record.lines, (line) => line.inboundQty)
-    const handedOverQty = sumBy(record.lines, (line) => line.handedOverQty)
+    const qtyExpectedTotal = record.inboundQty
+    const handedOverQty = record.handedOverQty
     return {
       handoverId,
       handoverOrderId: handoverId,
@@ -1081,7 +1083,7 @@ function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
       receiverKind: 'WAREHOUSE',
       receiverId: 'WH-GARMENT-HANDOFF',
       receiverName: '成衣仓交接点',
-      qtyUnit: record.lines[0]?.sku.qtyUnit || '件',
+      qtyUnit: record.qtyUnit,
       factoryId: FULL_CAPABILITY_FACTORY_ID,
       taskStatus: 'DONE',
       summaryStatus: 'NONE',
@@ -1099,7 +1101,7 @@ function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
       qtyDiffTotal: qtyExpectedTotal - handedOverQty,
       sourceDocId: record.outboundOrderId,
       sourceDocNo: record.outboundOrderNo,
-      scopeLabel: `处理后复核合格成衣 ${record.lines.length} 个 SKU`,
+      scopeLabel: `处理后复核合格成衣 ${record.skuCount} 个 SKU`,
       executorKind: 'EXTERNAL_FACTORY',
       transitionFromPrev: 'SAME_FACTORY_CONTINUE',
       transitionToNext: 'RETURN_TO_WAREHOUSE',
@@ -3593,7 +3595,16 @@ function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
   return updated
 }
 
-function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
+type PostOutboundReceiptSummary = ReturnType<typeof listPostFinishingOutboundReceiptSummaries>[number]
+function postOutboundReceiptSnapshot(): ReadonlyMap<string, PostOutboundReceiptSummary> {
+  const rows = new Map<string, PostOutboundReceiptSummary>()
+  for (const row of listPostFinishingOutboundReceiptSummaries()) {
+    for (const key of [row.outboundOrderId, row.outboundOrderNo]) if (!rows.has(key)) rows.set(key, row)
+  }
+  return rows
+}
+
+function refreshHandoutHeadSummary(head: PdaHandoverHead, postReceipts?: ReadonlyMap<string, PostOutboundReceiptSummary>): PdaHandoverHead {
   if (head.sourceType === 'DESIGN_REVISION') {
     const task = listPdaGenericProcessTasks().find(item => item.taskId === head.taskId)
     if (task) head = { ...head, taskStatus: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS' }
@@ -3657,15 +3668,20 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
     if (!head.factoryCompletionRequired) return updated
   }
 
-  const currentPostOutbound = head.processBusinessCode === 'POST_FINISHING'
+  const postSource = head.sourceDocNo || head.sourceDocId || ''
+  const currentPostOutbound = head.processBusinessCode === 'POST_FINISHING' && !postReceipts
     ? getPostFinishingFullFlowOutboundOrder(head.sourceDocNo || head.sourceDocId || '')
     : undefined
-  if (currentPostOutbound?.status === '已接收入库') {
-    const receivedQty = sumBy(currentPostOutbound.lines, (line) => line.receivedQty || 0)
+  const receipt = head.processBusinessCode === 'POST_FINISHING' ? postReceipts?.get(postSource) || (currentPostOutbound && {
+    status: currentPostOutbound.status, receivedAt: currentPostOutbound.receivedAt,
+    receivedQty: sumBy(currentPostOutbound.lines, line => line.receivedQty || 0),
+  }) : undefined
+  if (receipt?.status === '已接收入库') {
+    const receivedQty = receipt.receivedQty
     return hydrateHandoverHeadDomain({
       ...updated,
       completionStatus: 'COMPLETED',
-      completedByWarehouseAt: currentPostOutbound.receivedAt,
+      completedByWarehouseAt: receipt.receivedAt,
       writtenBackQtyTotal: receivedQty,
       qtyActualTotal: receivedQty,
       qtyDiffTotal: head.qtyExpectedTotal - receivedQty,
@@ -3693,6 +3709,9 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
 }
 
 function recomputeHeadsInternal(): PdaHandoverHead[] {
+  // The full directory may contain many independently received post outbounds.
+  // Reuse one current receipt projection, without cloning/finding each full
+  // outbound once per head. This snapshot never survives this synchronous read.
   const warehouseSnapshot = buildWarehouseExecutionDocumentSnapshot()
   cacheWarehouseExecutionDocuments([
     ...warehouseSnapshot.issueOrders,
@@ -3707,24 +3726,25 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
     .filter((head) => head.processBusinessCode !== 'WOOL')
     .map((head) => refreshPickupHeadSummary(head))
 
+  const postReceipts = postOutboundReceiptSnapshot()
   const handoutHeads = warehouseSnapshot.returnOrders
     .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
     .map((doc) => buildHandoutHeadFromReturn(doc))
     .filter((head) => head.processBusinessCode !== 'WOOL')
-    .map((head) => refreshHandoutHeadSummary(head))
+    .map((head) => refreshHandoutHeadSummary(head, postReceipts))
 
-  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().filter((head) => head.processBusinessCode !== 'WOOL').map((head) => refreshHandoutHeadSummary(head))
+  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().filter((head) => head.processBusinessCode !== 'WOOL').map((head) => refreshHandoutHeadSummary(head, postReceipts))
 
   const mockHeads = PDA_MOCK_HANDOVER_HEADS.filter((head) => head.processBusinessCode !== 'WOOL').map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
-      : refreshHandoutHeadSummary(cloneHead(head)),
+      : refreshHandoutHeadSummary(cloneHead(head), postReceipts),
   )
 
   const addedHeads = [...persistedStartedHandoverHeads(), ...handoverHeadAdditions.values()].filter((head) => head.processBusinessCode !== 'WOOL').map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
-      : refreshHandoutHeadSummary(cloneHead(head)),
+      : refreshHandoutHeadSummary(cloneHead(head), postReceipts),
   )
 
   const heads = [
@@ -3757,13 +3777,14 @@ export function canPdaFactoryAccessHandoverHead(head: PdaHandoverHead, factoryId
 }
 
 function recomputePostFinishingHeadsInternal(): PdaHandoverHead[] {
-  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
+  const postReceipts = postOutboundReceiptSnapshot()
+  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head, postReceipts))
   const addedHeads = Array.from(handoverHeadAdditions.values())
     .filter((head) => head.factoryId === FULL_CAPABILITY_FACTORY_ID && head.processBusinessCode === 'POST_FINISHING')
     .map((head) => (
       head.headType === 'PICKUP'
         ? refreshPickupHeadSummary(cloneHead(head))
-        : refreshHandoutHeadSummary(cloneHead(head))
+        : refreshHandoutHeadSummary(cloneHead(head), postReceipts)
     ))
 
   return [
@@ -3779,10 +3800,10 @@ function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
   return cachedPostFinishingBuiltHeads
 }
 
-function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: ReadonlySet<string>): PdaHandoverHead[] {
+function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: ReadonlySet<string>, matchesHead?: (head: Readonly<PdaHandoverHead>) => boolean): PdaHandoverHead[] {
   readFormalHandoutActions()
   return [...(includeWool ? buildHeadsInternal() : buildNonWoolHeadsInternal()), ...buildSimpleCutPieceFactoryReceipts().heads]
-    .filter((head) => (!factoryId || canPdaFactoryAccessHandoverHead(head, factoryId)) && (!taskIds || taskIds.has(head.taskId)))
+    .filter((head) => (!factoryId || canPdaFactoryAccessHandoverHead(head, factoryId)) && (!taskIds || taskIds.has(head.taskId)) && (!matchesHead || matchesHead(head)))
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
       const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
@@ -3793,10 +3814,10 @@ function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: Reado
     .map(cloneHead)
 }
 
-function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
+function listPostFinishingHeadsSorted(matchesHead?: (head: Readonly<PdaHandoverHead>) => boolean): PdaHandoverHead[] {
   readFormalHandoutActions()
-  return buildPostFinishingHeadsInternal()
-    .slice()
+  const heads = buildPostFinishingHeadsInternal()
+  return (matchesHead ? heads.filter(matchesHead) : heads.slice())
     .sort((a, b) => {
       const bTime = parseDateMs(b.lastRecordAt || b.completedByWarehouseAt || '')
       const aTime = parseDateMs(a.lastRecordAt || a.completedByWarehouseAt || '')
@@ -4078,7 +4099,7 @@ export function listPdaHandoverHeads(options: { includeWool?: boolean; taskIds?:
 }
 
 export function listPdaHandoverHeadsByType(type: PdaHandoverHeadType): PdaHandoverHead[] {
-  return listPdaHandoverHeads().filter((head) => head.headType === type)
+  return listHeadsSorted(undefined, true, undefined, (head) => head.headType === type)
 }
 
 export function listPdaHandoverHeadsByFactory(factoryId: string): PdaHandoverHead[] {
@@ -4110,38 +4131,36 @@ export function getPdaHeadRuntimeTask(headId: string): RuntimeProcessTask | null
 }
 
 export function getPdaPickupHeads(factoryId?: string): PdaHandoverHead[] {
-  return listHeadsSorted(factoryId).filter(
+  return listHeadsSorted(factoryId, true, undefined,
     (head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN',
   )
 }
 
 export function getPdaHandoutHeads(factoryId?: string): PdaHandoverHead[] {
-  return listHeadsSorted(factoryId).filter(
+  return listHeadsSorted(factoryId, true, undefined,
     (head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN',
   )
 }
 
 export function getPdaPostFinishingPickupHeads(): PdaHandoverHead[] {
-  return listPostFinishingHeadsSorted().filter(
+  return listPostFinishingHeadsSorted(
     (head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING',
   )
 }
 
 export function getPdaPostFinishingHandoutHeads(): PdaHandoverHead[] {
-  return listPostFinishingHeadsSorted().filter(
+  return listPostFinishingHeadsSorted(
     (head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING',
   )
 }
 
 export function getPdaPostFinishingCompletedHeads(): PdaHandoverHead[] {
-  return listPostFinishingHeadsSorted()
-    .filter((head) => head.completionStatus === 'COMPLETED' && head.processBusinessCode === 'POST_FINISHING')
+  return listPostFinishingHeadsSorted((head) => head.completionStatus === 'COMPLETED' && head.processBusinessCode === 'POST_FINISHING')
     .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''))
 }
 
 export function getPdaCompletedHeads(factoryId?: string): PdaHandoverHead[] {
-  return listHeadsSorted(factoryId)
-    .filter((head) => head.completionStatus === 'COMPLETED')
+  return listHeadsSorted(factoryId, true, undefined, (head) => head.completionStatus === 'COMPLETED')
     .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''))
 }
 

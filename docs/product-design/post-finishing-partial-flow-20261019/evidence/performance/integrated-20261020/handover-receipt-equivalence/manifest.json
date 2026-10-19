@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-20",
+  "head": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "sourceSha256": {
+    "src/data/fcs/pda-handover-events.ts": "77338cc24bc242421c66758fb99c3c58f6b4b7e7ccb0e70501510ab35ef2dd6f",
+    "src/data/fcs/post-finishing-full-flow.ts": "09e7f0998a71d03c5ee4adcab17bc9967157ce642159919b57f567747586f319",
+    "scripts/check-fcs-handover-domain.ts": "e8dd99c89aa66e6cf2c2fb4240046b876057a26cff9ec7abd8e458329442c3a9"
+  },
+  "artifactsSha256": {
+    "after-full-flow.ts.txt": "09e7f0998a71d03c5ee4adcab17bc9967157ce642159919b57f567747586f319",
+    "after-handover.ts.txt": "77338cc24bc242421c66758fb99c3c58f6b4b7e7ccb0e70501510ab35ef2dd6f",
+    "after-snapshot.json": "a89324a9f43d1c75e03c7e3c81c3f88a88060a0c6a4ed5d2cc298453eb3d59f0",
+    "after.log": "bf40c41ea3d7b3625c3e90c7f0897574196d7effa45369408a800fb381b3b389",
+    "baseline-source-hook.mjs": "4cfac496f2eca7021c7897bd5d3f5ef26577d2ca48c66f647cf591705e3ca142",
+    "before-handover-head.ts.txt": "9cdea8a40129630ac7e6e825f0e166b3f7c0e7174627301971280d18f16d50f7",
+    "before-snapshot.json": "a89324a9f43d1c75e03c7e3c81c3f88a88060a0c6a4ed5d2cc298453eb3d59f0",
+    "before.log": "593b78b1d10530e832b16a065a1ae6bc876e9ec639ba05adfbf38e71a9e6c467",
+    "compare.log": "dd5a2fed764838af956a367d5a69c597dd1c740041caaefe3c2d5af9ce19bde8",
+    "intermediate-first-patch-capture.ts.txt": "7c99bf965d89b326cdbeadc3d98fa5cc8b37041fe5b2b565def22873f05b1cc4",
+    "report.json": "b5b0b1cc016a35874d3533f585d8732a435aaf0fe520b6397dfe623313affb84",
+    "review.md": "d7f663ab7d7b30e79eb44d037be77647c07660c1e02f62053924d89ef3d89592",
+    "script.mts.txt": "e0098e2780daaa3eb56ab03fba10bb8caca1d643e1726588eda2b43e7593f778",
+    "shared-check-baseline.log": "7f636a968b9d0cd5419904f76e3a5f8e4603be683489162faf155626c812f615",
+    "shared-check-current.log": "a2f9c9283e559b99fc0bd9e3cc1b0d464b9a83a2c7836181da915e25bfcfcaee",
+    "shared-check-original.ts.txt": "e8dd99c89aa66e6cf2c2fb4240046b876057a26cff9ec7abd8e458329442c3a9"
+  },
+  "evidenceKind": "independent static review and isolated public Node semantic contract; no browser/build"
+}

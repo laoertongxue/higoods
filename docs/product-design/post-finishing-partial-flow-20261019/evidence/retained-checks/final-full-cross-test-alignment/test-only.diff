@@ -1,0 +1,31 @@
+diff --git a/tests/post-finishing-full-flow.spec.ts b/tests/post-finishing-full-flow.spec.ts
+index d47e2dd8..15a9076f 100644
+--- a/tests/post-finishing-full-flow.spec.ts
++++ b/tests/post-finishing-full-flow.spec.ts
+@@ -318,17 +318,22 @@ test('三类任务责任、质检分流和后道辅料调拨均在现有页面
+   await expect(page.getByRole('heading', { name: '调拨单列表', exact: true })).toBeVisible()
+   const acceptanceTransfer = page.locator('tbody tr').filter({ hasText: 'DB-PF-202608-001' })
+   await expect(acceptanceTransfer).toHaveCount(1)
+-  await expect(page.locator('[data-material-transfer-detail]')).toHaveCount(0)
+-  await acceptanceTransfer.locator('[data-nav*="material-transfers?transferId="]').click()
++  await expect(page.getByRole('dialog', { name: '后道辅料调拨单详情' })).toHaveCount(0)
++  await acceptanceTransfer.locator('[data-post-finishing-material-transfers-action="detail"]').click()
+   const drawer = page.getByRole('dialog', { name: '后道辅料调拨单详情' })
+   await expect(drawer).toBeVisible()
+   await expect(page.locator('[data-standard-list-table-section]')).toHaveCount(1)
+   await expect(drawer.locator('tbody tr')).toHaveCount(4)
+-  await expect(drawer).toContainText('不允许分批入库')
++  // This DB-PF row is a retained, non-managed legacy demonstration. Its new
++  // detail remains read-only; current managed receipts use the AW entry tested
++  // by post-finishing-main-integration.spec.ts.
++  await expect(drawer).toContainText('尚未入库')
++  await expect(drawer.locator('[data-post-material-qty], [data-post-material-location]')).toHaveCount(0)
++  await expect(drawer.locator('[data-post-finishing-material-transfers-action="receive"]')).toHaveCount(0)
+   await expect(drawer.locator('input[type="number"]')).toHaveCount(0)
+   await expectImagesLoaded(page)
+   await attachPageEvidence(page, testInfo, 'web-material-transfer-list-and-detail-drawer')
+-  await drawer.locator('[data-nav="/fcs/craft/post-finishing/material-transfers"]').click()
++  await drawer.getByRole('button', { name: '关闭', exact: true }).click()
+   await expect(drawer).toHaveCount(0)
+ 
+   await setCurrentWebActor(page, 'PF-USER-QC-B')

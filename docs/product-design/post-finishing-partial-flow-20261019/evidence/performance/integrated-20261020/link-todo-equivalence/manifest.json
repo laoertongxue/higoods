@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-20",
+  "head": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "sourceSha256": {
+    "src/pages/pda-post-finishing-exec-detail.ts": "fcba07b1a13249b9c1bdf6c37aad5c39ae2cc7b950b4e2626231beff5db13d0c",
+    "src/data/fcs/production-object-overview.ts": "f215f73d7c25fdbac86d848a14c4d5ff8deccdc06d3d2351051bd81a2b0c9572",
+    "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+    "src/data/fcs/post-finishing-current-read-model.ts": "d2ae37d1cb689c3772429c9c5064f6e464c5d1779a5583e7d0f1980196594023"
+  },
+  "artifactsSha256": {
+    "after-overview.ts.txt": "f215f73d7c25fdbac86d848a14c4d5ff8deccdc06d3d2351051bd81a2b0c9572",
+    "after-pda-detail.ts.txt": "fcba07b1a13249b9c1bdf6c37aad5c39ae2cc7b950b4e2626231beff5db13d0c",
+    "before-overview-head.ts.txt": "0de6212c74d70ceba8f3892bb129c99c6f3e97f6bf44bedbaa4351262f599c67",
+    "before-pda-detail-reconstructed.ts.txt": "ffc65143fcc6793e081e524e59c615facb35256b87802d0cd3686ec87daea52d",
+    "report.json": "1940de3a9daa6ff2c711b7f9d55648b47a97eb9617d9d158d14ce40476da0785",
+    "review.md": "81ab0b7100c939df09e899c81daf26bddb1ec37fc5960061a2dfe4fe8696e1e6",
+    "run.log": "619b943b7c8755f49e09902d7e1b58169d432df16356e94783c0a6893c59d423",
+    "script.mts.txt": "ddf4992285946be6448717dfaa3d4bb179c6b838a6b470dad3c1cd838f976c8b",
+    "todo-role-snapshot.json": "17b076e91ce0fd6616aea446272a4788eb96fc98b456a626978701a2a8ab31a3"
+  },
+  "evidenceKind": "independent static review and isolated public Node semantic contract; no browser/build"
+}

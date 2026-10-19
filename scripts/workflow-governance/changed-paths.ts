@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 
+const GIT_MAX_BUFFER_BYTES = 16 * 1024 * 1024
+
 export function normalizeChangedPath(path: string): string {
   return path.replace(/\\/g, '/').replace(/^\.\//, '').trim()
 }
@@ -31,7 +33,7 @@ export function getStagedChangedPaths(
   const output = execFileSync(
     'git',
     ['diff', '--cached', '--name-only', '--no-renames', '-z', '--diff-filter=ACMRDTUXB'],
-    { cwd: options.cwd ?? process.cwd() },
+    { cwd: options.cwd ?? process.cwd(), maxBuffer: GIT_MAX_BUFFER_BYTES },
   )
   return [...new Set(nullRecords(output).map(normalizeChangedPath).filter(Boolean))].sort()
 }
@@ -43,16 +45,16 @@ export function getChangedPaths(
   // Receipt and child gates both inspect the final worktree against one base.
   // Disable rename collapsing so deleted source paths receive their own coverage.
   let head: string
-  try { head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }
+  try { head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: GIT_MAX_BUFFER_BYTES }).trim() }
   catch {
     assert(!options.base, '尚无 HEAD 的仓库不能使用 --base')
-    return [...new Set(porcelainPaths(execFileSync('git', ['status', '--porcelain=v1', '--no-renames', '-z', '--untracked-files=all'], { cwd })))].sort()
+    return [...new Set(porcelainPaths(execFileSync('git', ['status', '--porcelain=v1', '--no-renames', '-z', '--untracked-files=all'], { cwd, maxBuffer: GIT_MAX_BUFFER_BYTES })))].sort()
   }
   const base = options.base
-    ? execFileSync('git', ['merge-base', options.base, head], { cwd, encoding: 'utf8' }).trim()
+    ? execFileSync('git', ['merge-base', options.base, head], { cwd, encoding: 'utf8', maxBuffer: GIT_MAX_BUFFER_BYTES }).trim()
     : head
-  const paths = nullRecords(execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', base, '--'], { cwd }))
-  paths.push(...nullRecords(execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd })))
+  const paths = nullRecords(execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', base, '--'], { cwd, maxBuffer: GIT_MAX_BUFFER_BYTES }))
+  paths.push(...nullRecords(execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd, maxBuffer: GIT_MAX_BUFFER_BYTES })))
   return [...new Set(paths)].sort()
 }
 

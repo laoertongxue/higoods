@@ -1,0 +1,23 @@
+(node:77255) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+SyntaxError: /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts: Missing semicolon. (331:64)
+
+  329 |       return { persisted: (await db.readPcsRecords([ns])).records.some(row => row.collection === 'flow/postTasks' && !row.deleted && (row.value as any).postTaskId === id),
+  330 |         published: f.listPostFinishingFullFlowPostTasks().some(row => row.postTaskId === id) }
+> 331 |     }, { ns: namespace, id: actualCorrection.task.postTaskId }))).toEqual({ persisted: true, published: true })
+      |                                                                 ^
+  332 |     await expect(valid.locator('[data-post-finishing-action-error]')).toHaveCount(0)
+  333 |     const restored = await valid.evaluate(async id => (await import('/src/data/fcs/post-finishing-full-flow.ts')).getPostFinishingProcessProgress(id), actualCorrection.task.postTaskId)
+  334 |     expect(restored.records).toEqual(actualCorrection.progress.records)
+
+   at post-finishing-consumers.spec.ts:331
+
+  329 |       return { persisted: (await db.readPcsRecords([ns])).records.some(row => row.collection === 'flow/postTasks' && !row.deleted && (row.value as any).postTaskId === id),
+  330 |         published: f.listPostFinishingFullFlowPostTasks().some(row => row.postTaskId === id) }
+> 331 |     }, { ns: namespace, id: actualCorrection.task.postTaskId }))).toEqual({ persisted: true, published: true })
+      |                                                                ^
+  332 |     await expect(valid.locator('[data-post-finishing-action-error]')).toHaveCount(0)
+  333 |     const restored = await valid.evaluate(async id => (await import('/src/data/fcs/post-finishing-full-flow.ts')).getPostFinishingProcessProgress(id), actualCorrection.task.postTaskId)
+  334 |     expect(restored.records).toEqual(actualCorrection.progress.records)
+    at eval (<anonymous>:1:1)
+

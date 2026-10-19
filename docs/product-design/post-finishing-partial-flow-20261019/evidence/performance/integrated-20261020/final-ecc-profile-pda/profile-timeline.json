@@ -1,0 +1,1715 @@
+{
+  "diagnosticOnly": true,
+  "alignment": "Relative to Profiler.start; not identical to navigation performance.now. Do not attribute work to preload from file name alone.",
+  "bucketSummary": [
+    {
+      "profileElapsedMs": [
+        0,
+        100
+      ],
+      "top": [
+        {
+          "file": "(program)",
+          "selfMs": 61.266
+        },
+        {
+          "file": "(idle)",
+          "selfMs": 10.501
+        },
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 10.092
+        },
+        {
+          "file": "production-orders-CPoChzPl.js",
+          "selfMs": 5.998
+        },
+        {
+          "file": "index-BYi5bqw5.js",
+          "selfMs": 2.902
+        },
+        {
+          "file": "",
+          "selfMs": 1.924
+        },
+        {
+          "file": "appendChild",
+          "selfMs": 1.557
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        100,
+        200
+      ],
+      "top": [
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 25.588
+        },
+        {
+          "file": "(idle)",
+          "selfMs": 16.342
+        },
+        {
+          "file": "cut-piece-release-C5UVvcMQ.js",
+          "selfMs": 15.069
+        },
+        {
+          "file": "generated-fei-tickets-BQXeL7Bq.js",
+          "selfMs": 7.477
+        },
+        {
+          "file": "factory-receiving-DVz0KTOW.js",
+          "selfMs": 5.7
+        },
+        {
+          "file": "(program)",
+          "selfMs": 4.551
+        },
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 4.191
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        200,
+        300
+      ],
+      "top": [
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 29.076
+        },
+        {
+          "file": "(idle)",
+          "selfMs": 20.277
+        },
+        {
+          "file": "pcs-config-workspace-repository-BbLBcUw4.js",
+          "selfMs": 17.65
+        },
+        {
+          "file": "settlement-linked-mock-factory-3FuWfkM2.js",
+          "selfMs": 11.354
+        },
+        {
+          "file": "structuredClone",
+          "selfMs": 9.022
+        },
+        {
+          "file": "(program)",
+          "selfMs": 3.572
+        },
+        {
+          "file": "quality-deduction-repository-DOrjfVgv.js",
+          "selfMs": 3.001
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        300,
+        400
+      ],
+      "top": [
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 44.554
+        },
+        {
+          "file": "(idle)",
+          "selfMs": 31.603
+        },
+        {
+          "file": "(program)",
+          "selfMs": 7.274
+        },
+        {
+          "file": "structuredClone",
+          "selfMs": 5.773
+        },
+        {
+          "file": "RegExp: (?:Id|Ids|Key|Code|Url|Path|No)$",
+          "selfMs": 3.001
+        },
+        {
+          "file": "settlement-linked-mock-factory-3FuWfkM2.js",
+          "selfMs": 2.041
+        },
+        {
+          "file": "RegExp: ^CRAFT_(\\d+)$",
+          "selfMs": 1.505
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        400,
+        500
+      ],
+      "top": [
+        {
+          "file": "pcs-record-core-C6UWWOoO.js",
+          "selfMs": 47.192
+        },
+        {
+          "file": "(idle)",
+          "selfMs": 37.614
+        },
+        {
+          "file": "(program)",
+          "selfMs": 9.027
+        },
+        {
+          "file": "(garbage collector)",
+          "selfMs": 5.242
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        500,
+        600
+      ],
+      "top": [
+        {
+          "file": "pcs-record-core-C6UWWOoO.js",
+          "selfMs": 79.342
+        },
+        {
+          "file": "(garbage collector)",
+          "selfMs": 16.548
+        },
+        {
+          "file": "(program)",
+          "selfMs": 3.005
+        },
+        {
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "selfMs": 1.042
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        600,
+        700
+      ],
+      "top": [
+        {
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "selfMs": 46.061
+        },
+        {
+          "file": "pda-handover-events-B831zbrP.js",
+          "selfMs": 35.979
+        },
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 3.839
+        },
+        {
+          "file": "production-orders-CPoChzPl.js",
+          "selfMs": 3.63
+        },
+        {
+          "file": "production-material-prep-SNOTB78R.js",
+          "selfMs": 1.64
+        },
+        {
+          "file": "pcs-record-core-C6UWWOoO.js",
+          "selfMs": 1.506
+        },
+        {
+          "file": "structuredClone",
+          "selfMs": 1.505
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        700,
+        800
+      ],
+      "top": [
+        {
+          "file": "pda-handover-events-B831zbrP.js",
+          "selfMs": 74.246
+        },
+        {
+          "file": "printing-task-domain-B6eUICoq.js",
+          "selfMs": 6.805
+        },
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 4.506
+        },
+        {
+          "file": "(garbage collector)",
+          "selfMs": 3.046
+        },
+        {
+          "file": "(program)",
+          "selfMs": 2.999
+        },
+        {
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "selfMs": 2.989
+        },
+        {
+          "file": "craft-display-support-CQLa2Q19.js",
+          "selfMs": 1.508
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        800,
+        900
+      ],
+      "top": [
+        {
+          "file": "pda-handover-events-B831zbrP.js",
+          "selfMs": 41.603
+        },
+        {
+          "file": "(program)",
+          "selfMs": 10.512
+        },
+        {
+          "file": "tmf-domain-shared-DboXqEqI.js",
+          "selfMs": 7.322
+        },
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 6.015
+        },
+        {
+          "file": "printing-task-domain-B6eUICoq.js",
+          "selfMs": 5.989
+        },
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 4.504
+        },
+        {
+          "file": "(garbage collector)",
+          "selfMs": 3.588
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        900,
+        1000
+      ],
+      "top": [
+        {
+          "file": "pda-handover-events-B831zbrP.js",
+          "selfMs": 54.317
+        },
+        {
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "selfMs": 16.533
+        },
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 8.211
+        },
+        {
+          "file": "special-craft-task-orders-2PruoLXM.js",
+          "selfMs": 6.844
+        },
+        {
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "selfMs": 3.453
+        },
+        {
+          "file": "structuredClone",
+          "selfMs": 2.989
+        },
+        {
+          "file": "factory-receiving-DVz0KTOW.js",
+          "selfMs": 2.879
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        1000,
+        1100
+      ],
+      "top": [
+        {
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "selfMs": 81.125
+        },
+        {
+          "file": "pda-handover-events-B831zbrP.js",
+          "selfMs": 6.989
+        },
+        {
+          "file": "(garbage collector)",
+          "selfMs": 4.281
+        },
+        {
+          "file": "special-craft-task-orders-2PruoLXM.js",
+          "selfMs": 3.692
+        },
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 2.824
+        },
+        {
+          "file": "production-object-overview-hgJg59up.js",
+          "selfMs": 1.506
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        1100,
+        1200
+      ],
+      "top": [
+        {
+          "file": "pda-handover-events-B831zbrP.js",
+          "selfMs": 38.552
+        },
+        {
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "selfMs": 17.569
+        },
+        {
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "selfMs": 16.482
+        },
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 8.393
+        },
+        {
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "selfMs": 4.507
+        },
+        {
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "selfMs": 4.504
+        },
+        {
+          "file": "task-execution-adapter-DFmkxyv8.js",
+          "selfMs": 4.492
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        1200,
+        1300
+      ],
+      "top": [
+        {
+          "file": "(idle)",
+          "selfMs": 54.865
+        },
+        {
+          "file": "(program)",
+          "selfMs": 22.567
+        },
+        {
+          "file": "request.onsuccess",
+          "selfMs": 6.024
+        },
+        {
+          "file": "app-shared-DDMaqtkq.js",
+          "selfMs": 4.498
+        },
+        {
+          "file": "(garbage collector)",
+          "selfMs": 1.578
+        },
+        {
+          "file": "appendChild",
+          "selfMs": 1.541
+        },
+        {
+          "file": "createElementNS",
+          "selfMs": 1.518
+        }
+      ]
+    },
+    {
+      "profileElapsedMs": [
+        1300,
+        1400
+      ],
+      "top": [
+        {
+          "file": "(idle)",
+          "selfMs": 17.798
+        }
+      ]
+    }
+  ],
+  "tailNodes": [
+    {
+      "firstMs": 31.71,
+      "lastMs": 1317.333,
+      "selfUs": 189000,
+      "selfMs": 189,
+      "stack": [
+        {
+          "fn": "(idle)",
+          "line": -1,
+          "column": -1
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 30.316,
+      "lastMs": 1285.885,
+      "selfUs": 124773,
+      "selfMs": 124.773,
+      "stack": [
+        {
+          "fn": "(program)",
+          "line": -1,
+          "column": -1
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 140.651,
+      "lastMs": 1282.871,
+      "selfUs": 37464,
+      "selfMs": 37.464,
+      "stack": [
+        {
+          "fn": "(garbage collector)",
+          "line": -1,
+          "column": -1
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1157.865,
+      "lastMs": 1174.383,
+      "selfUs": 13300,
+      "selfMs": 13.3,
+      "stack": [
+        {
+          "fn": "K",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 147089
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 180933
+        },
+        {
+          "fn": "gu",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 186124
+        },
+        {
+          "fn": "_e",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 36874
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 38144
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 37974
+        },
+        {
+          "fn": "Ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 41888
+        },
+        {
+          "fn": "ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 45500
+        },
+        {
+          "fn": "Fe",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 47945
+        },
+        {
+          "fn": "We",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 48038
+        },
+        {
+          "fn": "K",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 0,
+          "column": 3209
+        },
+        {
+          "fn": "fe",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 617
+        },
+        {
+          "fn": "Ae",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 640
+        },
+        {
+          "fn": "H",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 668
+        },
+        {
+          "fn": "q",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1492
+        },
+        {
+          "fn": "Y",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1573
+        },
+        {
+          "fn": "X",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1727
+        },
+        {
+          "fn": "De",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1843
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 25376
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 38465
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 36859
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40001
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 39893
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40141
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18092
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1278.285,
+      "lastMs": 1284.382,
+      "selfUs": 6024,
+      "selfMs": 6.024,
+      "stack": [
+        {
+          "fn": "request.onsuccess",
+          "line": 47,
+          "column": 28
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1162.377,
+      "lastMs": 1171.382,
+      "selfUs": 3011,
+      "selfMs": 3.011,
+      "stack": [
+        {
+          "fn": "te",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 146488
+        },
+        {
+          "fn": "",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 181040
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 180933
+        },
+        {
+          "fn": "gu",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 186124
+        },
+        {
+          "fn": "_e",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 36874
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 38144
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 37974
+        },
+        {
+          "fn": "Ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 41888
+        },
+        {
+          "fn": "ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 45500
+        },
+        {
+          "fn": "Fe",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 47945
+        },
+        {
+          "fn": "We",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 48038
+        },
+        {
+          "fn": "K",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 0,
+          "column": 3209
+        },
+        {
+          "fn": "fe",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 617
+        },
+        {
+          "fn": "Ae",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 640
+        },
+        {
+          "fn": "H",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 668
+        },
+        {
+          "fn": "q",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1492
+        },
+        {
+          "fn": "Y",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1573
+        },
+        {
+          "fn": "X",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1727
+        },
+        {
+          "fn": "De",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1843
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 25376
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 38465
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 36859
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40001
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 39893
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40141
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18092
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1148.894,
+      "lastMs": 1150.39,
+      "selfUs": 3009,
+      "selfMs": 3.009,
+      "stack": [
+        {
+          "fn": "K",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 147089
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 180933
+        },
+        {
+          "fn": "Du",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 186214
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 37974
+        },
+        {
+          "fn": "Ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 41888
+        },
+        {
+          "fn": "ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 45500
+        },
+        {
+          "fn": "Fe",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 47945
+        },
+        {
+          "fn": "We",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 48038
+        },
+        {
+          "fn": "K",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 0,
+          "column": 3209
+        },
+        {
+          "fn": "fe",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 617
+        },
+        {
+          "fn": "Ae",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 640
+        },
+        {
+          "fn": "H",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 668
+        },
+        {
+          "fn": "q",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1492
+        },
+        {
+          "fn": "Y",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1573
+        },
+        {
+          "fn": "X",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1727
+        },
+        {
+          "fn": "De",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1843
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 25376
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 38465
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 36859
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40001
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 39893
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40141
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18092
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1192.383,
+      "lastMs": 1193.88,
+      "selfUs": 3001,
+      "selfMs": 3.001,
+      "stack": [
+        {
+          "fn": "K",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 147089
+        },
+        {
+          "fn": "er",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 180933
+        },
+        {
+          "fn": "xe",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 185743
+        },
+        {
+          "fn": "Yi",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 190781
+        },
+        {
+          "fn": "wt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 14612
+        },
+        {
+          "fn": "readAfterExecution",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18211
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1183.386,
+      "lastMs": 1184.89,
+      "selfUs": 2992,
+      "selfMs": 2.992,
+      "stack": [
+        {
+          "fn": "Jn",
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "line": 0,
+          "column": 277063
+        },
+        {
+          "fn": "wu",
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "line": 0,
+          "column": 278253
+        },
+        {
+          "fn": "D",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 15228
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 25376
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 38465
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 36859
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40001
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 39893
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40141
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18092
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1156.564,
+      "lastMs": 1166.88,
+      "selfUs": 2626,
+      "selfMs": 2.626,
+      "stack": [
+        {
+          "fn": "er",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 180933
+        },
+        {
+          "fn": "gu",
+          "file": "pda-handover-events-B831zbrP.js",
+          "line": 1,
+          "column": 186124
+        },
+        {
+          "fn": "_e",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 36874
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 38144
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 37974
+        },
+        {
+          "fn": "Ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 41888
+        },
+        {
+          "fn": "ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 45500
+        },
+        {
+          "fn": "Fe",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 47945
+        },
+        {
+          "fn": "We",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 48038
+        },
+        {
+          "fn": "K",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 0,
+          "column": 3209
+        },
+        {
+          "fn": "fe",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 617
+        },
+        {
+          "fn": "Ae",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 640
+        },
+        {
+          "fn": "H",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 668
+        },
+        {
+          "fn": "q",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1492
+        },
+        {
+          "fn": "Y",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1573
+        },
+        {
+          "fn": "X",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1727
+        },
+        {
+          "fn": "De",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1843
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 25376
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 38465
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 36859
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40001
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 39893
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40141
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18092
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "firstMs": 1154.412,
+      "lastMs": 1155.446,
+      "selfUs": 2541,
+      "selfMs": 2.541,
+      "stack": [
+        {
+          "fn": "N",
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "line": 0,
+          "column": 37515
+        },
+        {
+          "fn": "me",
+          "file": "post-finishing-full-flow-B0RbQ2h7.js",
+          "line": 0,
+          "column": 106069
+        },
+        {
+          "fn": "jc",
+          "file": "runtime-process-tasks-CbZsymnr.js",
+          "line": 0,
+          "column": 148728
+        },
+        {
+          "fn": "B",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 475
+        },
+        {
+          "fn": "",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 1570
+        },
+        {
+          "fn": "Ee",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 1264
+        },
+        {
+          "fn": "be",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 37974
+        },
+        {
+          "fn": "Ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 41888
+        },
+        {
+          "fn": "ke",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 45500
+        },
+        {
+          "fn": "Fe",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 47945
+        },
+        {
+          "fn": "We",
+          "file": "store-domain-progress-pMgkLqhY.js",
+          "line": 0,
+          "column": 48038
+        },
+        {
+          "fn": "K",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 0,
+          "column": 3209
+        },
+        {
+          "fn": "fe",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 617
+        },
+        {
+          "fn": "Ae",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 640
+        },
+        {
+          "fn": "H",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 668
+        },
+        {
+          "fn": "q",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1492
+        },
+        {
+          "fn": "Y",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1573
+        },
+        {
+          "fn": "X",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1727
+        },
+        {
+          "fn": "De",
+          "file": "marker-plan-source-model-Pq2Ao27E.js",
+          "line": 1,
+          "column": 1843
+        },
+        {
+          "fn": "W",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 25376
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 38465
+        },
+        {
+          "fn": "Ae",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 36859
+        },
+        {
+          "fn": "",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40001
+        },
+        {
+          "fn": "oe",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 39893
+        },
+        {
+          "fn": "Jt",
+          "file": "pda-cutting-execution-source-uIq8FEqe.js",
+          "line": 0,
+          "column": 40141
+        },
+        {
+          "fn": "W",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18092
+        },
+        {
+          "fn": "Ht",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 0,
+          "column": 18514
+        },
+        {
+          "fn": "Qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 25,
+          "column": 65
+        },
+        {
+          "fn": "qt",
+          "file": "pda-shell-DugUWaI0.js",
+          "line": 202,
+          "column": 15
+        },
+        {
+          "fn": "E",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 35,
+          "column": 14
+        },
+        {
+          "fn": "de",
+          "file": "pda-post-finishing-exec-detail-BoJ9Qieo.js",
+          "line": 0,
+          "column": 4451
+        },
+        {
+          "fn": "",
+          "file": "index-BYi5bqw5.js",
+          "line": 1175,
+          "column": 1875
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    }
+  ]
+}

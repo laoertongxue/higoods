@@ -1,0 +1,64 @@
+(node:97459) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+
+(node:97460) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:97460) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[1/1] tests/post-finishing-main-integration.spec.ts:116:3 › main integration: mixed legacy post-first-inline, atomic retry, original files and H/N continue
+  1) tests/post-finishing-main-integration.spec.ts:116:3 › main integration: mixed legacy post-first-inline, atomic retry, original files and H/N continue 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('[data-post-finishing-storage-notice]')
+    Expected substring: "mixed migration abort"
+    Received string:    "发现本浏览器保存的旧后道资料。请先关闭其他旧版页面，再转换资料后继续操作；转换失败会保留旧资料。转换旧后道资料"
+    Timeout: 10000ms
+
+    Call log:
+      - Expect "toContainText" with timeout 10000ms
+      - waiting for locator('[data-post-finishing-storage-notice]')
+        - locator resolved to <section role="status" data-post-finishing-storage-notice="" class="m-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">…</section>
+        - unexpected value "发现本浏览器保存的旧后道资料。请先关闭其他旧版页面，再转换资料后继续操作；转换失败会保留旧资料。转换旧后道资料"
+        2 × locator resolved to <section role="status" data-post-finishing-storage-notice="" class="m-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">…</section>
+          - unexpected value "正在转换并核对旧资料，请等待完成。"
+        9 × locator resolved to <section role="status" data-post-finishing-storage-notice="" class="m-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">…</section>
+          - unexpected value "浏览器空间不足，本次未保存。请保留当前输入，空间恢复后重试。重新转换"
+        8 × locator resolved to <section role="status" data-post-finishing-storage-notice="" class="m-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">…</section>
+          - unexpected value "发现本浏览器保存的旧后道资料。请先关闭其他旧版页面，再转换资料后继续操作；转换失败会保留旧资料。转换旧后道资料"
+
+
+      134 |     await page.evaluate(() => { (window as any).__mixedOriginalPut = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (value: any, ...args: any[]) { if (this.name === 'records' && String(value?.id).startsWith('higood-fcs-post-finishing-records/')) throw new DOMException('mixed migration abort', 'QuotaExceededError'); return (window as any).__mixedOriginalPut.call(this, value, ...args) } })
+      135 |     await migrateGarment(page)
+    > 136 |     await expect(page.locator('[data-post-finishing-storage-notice]')).toContainText('mixed migration abort')
+          |                                                                        ^
+      137 |     expect(await durable(page)).toEqual(before)
+      138 |     expect(await page.evaluate(key => localStorage.getItem(key), oldKey)).toBe(raw)
+      139 |     await page.evaluate(() => { IDBObjectStore.prototype.put = (window as any).__mixedOriginalPut })
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-main-integration.spec.ts:136:72
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-main-integr-bdde8-inal-files-and-H-N-continue/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/post-finishing-main-integration.spec.ts:116:3 › main integration: mixed legacy post-first-inline, atomic retry, original files and H/N continue 

@@ -1,0 +1,191 @@
+
+> higoods-vanilla-clone@1.0.0 test:e2e
+> playwright test tests/post-finishing-full-flow-cross-terminal.spec.ts --grep 15条链 --workers=1 --reporter=json --max-failures=1
+
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.8.2/bin/node",
+      "/Users/laoer/.codex/worktrees/81b7/higoods/node_modules/.bin/playwright",
+      "test",
+      "tests/post-finishing-full-flow-cross-terminal.spec.ts",
+      "--grep",
+      "15条链",
+      "--workers=1",
+      "--reporter=json",
+      "--max-failures=1"
+    ],
+    "configFile": "/Users/laoer/.codex/worktrees/81b7/higoods/playwright.config.ts",
+    "rootDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/bootstrap/cutting-bootstrap.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/laoer/.codex/worktrees/81b7/higoods/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 43912 --strictPort",
+      "url": "http://127.0.0.1:43912",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "post-finishing-full-flow-cross-terminal.spec.ts",
+      "file": "post-finishing-full-flow-cross-terminal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "15条链按责任逐条跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 1800000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 132098,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-post-process]')\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  10000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-post-process]')\u001b[22m\n\u001b[2m    2 × locator resolved to 0 elements\u001b[22m\n\u001b[2m      - unexpected value \"0\"\u001b[22m\n\u001b[2m    22 × locator resolved to 2 elements\u001b[22m\n\u001b[2m       - unexpected value \"2\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-post-process]')\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  10000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-post-process]')\u001b[22m\n\u001b[2m    2 × locator resolved to 0 elements\u001b[22m\n\u001b[2m      - unexpected value \"0\"\u001b[22m\n\u001b[2m    22 × locator resolved to 2 elements\u001b[22m\n\u001b[2m       - unexpected value \"2\"\u001b[22m\n\n    at fillScanAndWaitForRefresh (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:216:31)\n    at completePostThroughPda (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:554:3)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:905:30",
+                    "location": {
+                      "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts",
+                      "column": 31,
+                      "line": 216
+                    },
+                    "snippet": "  214 |     const result = page.locator(expected.resultSelector)\n  215 |     if (expected.resultCount === undefined) await expect(result).toBeVisible()\n> 216 |     else await expect(result).toHaveCount(expected.resultCount)\n      |                               ^\n  217 |   }\n  218 | }\n  219 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts",
+                        "column": 31,
+                        "line": 216
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-post-process]')\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m2\u001b[39m\nTimeout:  10000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-post-process]')\u001b[22m\n\u001b[2m    2 × locator resolved to 0 elements\u001b[22m\n\u001b[2m      - unexpected value \"0\"\u001b[22m\n\u001b[2m    22 × locator resolved to 2 elements\u001b[22m\n\u001b[2m       - unexpected value \"2\"\u001b[22m\n\n\n  214 |     const result = page.locator(expected.resultSelector)\n  215 |     if (expected.resultCount === undefined) await expect(result).toBeVisible()\n> 216 |     else await expect(result).toHaveCount(expected.resultCount)\n      |                               ^\n  217 |   }\n  218 | }\n  219 |\n    at fillScanAndWaitForRefresh (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:216:31)\n    at completePostThroughPda (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:554:3)\n    at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts:905:30"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-19T17:07:16.896Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-1.webm"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-3.webm"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-2.webm"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow-cross-terminal.spec.ts",
+                    "column": 31,
+                    "line": 216
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "8ddaf60096abf6617b80-569cd3d7ff149301d05e",
+          "file": "post-finishing-full-flow-cross-terminal.spec.ts",
+          "line": 838,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "message": "\u001b[31mTesting stopped early after 1 maximum allowed failures.\u001b[39m"
+    }
+  ],
+  "stats": {
+    "startTime": "2026-10-19T17:07:16.216Z",
+    "duration": 134977.323,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

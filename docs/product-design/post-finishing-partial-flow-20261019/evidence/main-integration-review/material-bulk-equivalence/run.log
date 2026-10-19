@@ -1,0 +1,3 @@
+{"status":"passed","sourceSha256":"f437639336e8711b0a4c7de629dfdcaf21ed55f1215f1755c61387be70d885d7","rawCounts":{"transfers":5,"stocks":4},"filteredCounts":{"transfers":3,"stocks":0},"changedOwnerCounts":{"transfers":5,"stocks":4},"oldCalls":74,"bulkCalls":3,"firstBulkCalls":2}
+(node:97316) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

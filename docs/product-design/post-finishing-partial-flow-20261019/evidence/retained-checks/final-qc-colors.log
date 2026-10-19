@@ -1,0 +1,7 @@
+
+> higoods-vanilla-clone@1.0.0 check:post-finishing-qc-colors
+> node --import tsx scripts/check-post-finishing-qc-colors.ts
+
+通过：唯一质检、五级编号、颜色图片及零合格不建空下游。
+(node:68100) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

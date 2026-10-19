@@ -1,0 +1,14 @@
+(node:22975) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+
+(node:23007) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/2] tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries
+
+(node:23007) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[2/2] tests/post-finishing-migration.spec.ts:165:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved
+  2 passed (16.6s)

@@ -1,0 +1,1 @@
+import{r}from"./runtime-inputs-tnyUE6ht.js";import"./production-orders-D8_YHGJ6.js";import"./runtime-process-tasks-C7hsSQbR.js";import"./app-shared-_ZQpMwKQ.js";import"./craft-display-support-BBhuUla2.js";import{d as i}from"./warehouse-runtime-B3N8cSdS.js";function a(t=r()){return{generatedAt:new Date().toISOString(),registry:i(),...t}}export{a as b};

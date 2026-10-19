@@ -1,0 +1,1376 @@
+{
+  "version": 1,
+  "startedAt": "2026-10-19T15:08:41.204Z",
+  "timezone": "Asia/Shanghai",
+  "head": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "dirty": "M README.md\n M architecture.md\n M public/newpda/handoff-context.js\n M public/newpda/post-flow.css\n M public/newpda/post-flow.js\n M scripts/check-post-finishing-current-read-model.ts\n M scripts/check-post-finishing-full-flow-surface.ts\n M scripts/check-post-finishing-full-flow.ts\n M scripts/check-post-finishing-outbound-and-online-print.ts\n M scripts/check-post-finishing-qc-colors.ts\n M scripts/check-post-finishing-return-source-generalization.ts\n M scripts/check-post-finishing-web-pda-fallback.ts\n M scripts/verification/post-finishing-qc-browser.js\n M src/data/fcs/platform-process-result-view.ts\n M src/data/fcs/post-finishing-current-read-model.ts\n M src/data/fcs/post-finishing-document-numbering.ts\n M src/data/fcs/post-finishing-full-flow.ts\n M src/data/fcs/post-finishing-records.ts\n M src/data/fcs/task-print-cards.ts\n M src/pages/pda-post-finishing-exec-detail.ts\n M src/pages/pda-post-finishing-flow.ts\n M src/pages/print/print-preview.ts\n M src/pages/print/templates/post-finishing-outbound-template.ts\n M src/pages/print/templates/post-finishing-route-card-template.ts\n M src/pages/process-factory/post-finishing/audit-records.ts\n M src/pages/process-factory/post-finishing/events.ts\n M src/pages/process-factory/post-finishing/full-flow-print.ts\n M src/pages/process-factory/post-finishing/qc-orders.ts\n M src/pages/process-factory/post-finishing/qc-workbench.ts\n M src/pages/process-factory/post-finishing/storage-notice.ts\n M src/pages/process-factory/post-finishing/tasks.ts\n M src/pages/process-factory/post-finishing/warehouse.ts\n M src/pages/process-factory/post-finishing/work-order-detail.ts\n M src/pages/process-factory/post-finishing/work-orders.ts\n M tests/post-finishing-full-flow-cross-terminal.spec.ts\n M tests/post-finishing-full-flow.spec.ts\n M tests/post-finishing-pda-role-boundary.spec.ts\n?? docs/implementation-plans/2026-10-19-后道逐项加工与多次复检出货实施及验收计划.md\n?? docs/product-design/2026-10-19-后道逐项加工与多次复检出货调整方案.md\n?? docs/product-design/post-finishing-partial-flow-20261019/\n?? docs/prototype-review-records/2026-10-19-post-finishing-partial-flow.md\n?? docs/requirement-traceability/2026-10-19-后道逐项加工与多次复检出货矩阵.md\n?? scripts/verification/post-finishing-partial-performance.mjs\n?? scripts/verification/post-finishing-standalone-performance.mjs\n?? src/data/fcs/post-finishing-print-progress.ts\n?? tests/post-finishing-consumers.spec.ts\n?? tests/post-finishing-migration.spec.ts\n?? tests/post-finishing-partial-flow.spec.ts\n?? tests/unit/post-finishing-multiple-recheck.test.ts\n?? tests/unit/post-finishing-process-progress.test.ts",
+  "scriptSha256": "c53e51a0c47efd0207098d99a8710b5b7e2c8dac8253982842cc974343debf39",
+  "config": {
+    "arguments": [
+      "--run",
+      "--reuse-fixture",
+      "--calibration",
+      "--families=pages",
+      "--route=statistics",
+      "--profile",
+      "--profile-family=statistics:navigation",
+      "--output=docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/statistics-profile",
+      "--fixture=docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json"
+    ],
+    "sourceOrigin": "http://127.0.0.1:43197",
+    "targetOrigin": "http://127.0.0.1:43198",
+    "calibration": true,
+    "preflight": false,
+    "profileRequested": true,
+    "routeFilter": [
+      "statistics"
+    ],
+    "printTypes": [
+      "OUTBOUND_BARCODE"
+    ],
+    "trials": 1,
+    "maxMs": 1000,
+    "selected": [
+      "pages"
+    ],
+    "coldDefinition": "Fresh isolated browser context with empty application HTTP cache; a static CSS document establishes the origin for IndexedDB fixture preparation before app navigation. No main app assets or images are loaded during origin preparation.",
+    "D10": {
+      "parentOrders": 100,
+      "skusPerOrder": 5,
+      "quantityPerSku": 200,
+      "items": 4,
+      "entriesPerItem": 10,
+      "incrementPerSku": 20,
+      "processRecords": 4000,
+      "rechecks": 1000,
+      "outbounds": 1000
+    },
+    "additionalActions": {
+      "parents": 5,
+      "purpose": "Independent pending-QC parents, then genuine UI process/recheck/outbound actions; do not reduce the D10 backbone."
+    },
+    "fixturePreparationTransport": "The unchanged public-command backup JSON is gzip-encoded only across the test-controller/browser boundary, then decoded before native IndexedDB preparation. No app routing/cache policy changes; outside all response timing.",
+    "boundary": "Mock browser only. No test/production database access, no factory/scanner/printer execution."
+  },
+  "fixture": {
+    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json",
+    "sha256": "20fb87f28a78a7381603d0dd626850fe12b15f2ed756285e7105fc9fb9d0b84a",
+    "counts": {
+      "postTasks": 100,
+      "processCompletions": 4000,
+      "recheckOrders": 1000,
+      "outboundOrders": 1000,
+      "warehouseReceipts": 900,
+      "qcTasks": 105
+    },
+    "preparationMs": 10632.600000023842,
+    "sourceMethod": "Public source fixture clones -> register return -> confirm -> send QC -> claim/complete QC -> 4000 append commands -> 1000 submit -> barcode -> complete recheck -> 900 receipts. One fixture-preparation transaction; not a UI performance sample."
+  },
+  "host": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M3",
+    "logicalCpus": 8,
+    "ramBytes": 17179869184
+  },
+  "browser": "149.0.7827.55",
+  "samples": [
+    {
+      "family": "statistics:cold",
+      "generation": 1,
+      "completionPhases": {
+        "readyAt": 6561,
+        "readbackMs": 21.899999976158142,
+        "paintMs": 11.600000023841858
+      },
+      "transactions": [
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 110.89999997615814,
+          "end": 111.59999990463257,
+          "ms": 0.6999999284744263
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 113,
+          "end": 113.19999992847443,
+          "ms": 0.19999992847442627
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 151.39999997615814,
+          "end": 317.7999999523163,
+          "ms": 166.39999997615814
+        }
+      ],
+      "handlers": [],
+      "ms": 6594.5,
+      "start": 0,
+      "end": 6594.5,
+      "proof": {
+        "valid": true,
+        "checked": true,
+        "collection": "processCompletions",
+        "matching": 4000,
+        "expected": {
+          "collection": "processCompletions",
+          "min": 4000
+        }
+      },
+      "images": [],
+      "trial": 1,
+      "kind": "cold",
+      "url": "http://127.0.0.1:43198/fcs/craft/post-finishing/statistics",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "pass": false
+    },
+    {
+      "family": "statistics:refresh",
+      "generation": 1,
+      "completionPhases": {
+        "readyAt": 6663.199999928474,
+        "readbackMs": 20.100000023841858,
+        "paintMs": 13.299999952316284
+      },
+      "transactions": [
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 85.09999990463257,
+          "end": 85.59999990463257,
+          "ms": 0.5
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 86.5,
+          "end": 86.59999990463257,
+          "ms": 0.09999990463256836
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 123.59999990463257,
+          "end": 423,
+          "ms": 299.40000009536743
+        }
+      ],
+      "handlers": [],
+      "ms": 6696.599999904633,
+      "start": 0,
+      "end": 6696.599999904633,
+      "proof": {
+        "valid": true,
+        "checked": true,
+        "collection": "processCompletions",
+        "matching": 4000,
+        "expected": {
+          "collection": "processCompletions",
+          "min": 4000
+        }
+      },
+      "images": [],
+      "trial": 1,
+      "kind": "refresh",
+      "url": "http://127.0.0.1:43198/fcs/craft/post-finishing/statistics",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "pass": false
+    },
+    {
+      "family": "statistics:navigation",
+      "generation": 2,
+      "completionPhases": {
+        "readyAt": 6330.599999904633,
+        "readbackMs": 21.40000009536743,
+        "paintMs": 12.5
+      },
+      "transactions": [
+        {
+          "generation": 2,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 7197.599999904633,
+          "end": 7362,
+          "ms": 164.40000009536743
+        }
+      ],
+      "handlers": [
+        {
+          "type": "click",
+          "generation": 2,
+          "start": 7182.199999928474,
+          "end": 7183.5,
+          "ms": 1.3000000715255737
+        }
+      ],
+      "ms": 6364.5,
+      "start": 7182,
+      "end": 13546.5,
+      "proof": {
+        "valid": true,
+        "checked": true,
+        "collection": "processCompletions",
+        "matching": 4000,
+        "expected": {
+          "collection": "processCompletions",
+          "min": 4000
+        }
+      },
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "target": "A"
+      },
+      "images": [],
+      "profiled": true,
+      "trial": 1,
+      "kind": "navigation",
+      "url": "http://127.0.0.1:43198/fcs/craft/post-finishing/statistics",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "pass": false
+    }
+  ],
+  "coverage": [
+    {
+      "family": "statistics",
+      "path": "/fcs/craft/post-finishing/statistics",
+      "dataset": "D10 + five pending-QC action fixtures",
+      "spec": {
+        "title": "后道统计",
+        "readback": {
+          "collection": "processCompletions",
+          "min": 4000
+        }
+      },
+      "assets": [
+        {
+          "name": "http://127.0.0.1:43198/assets/tmf-domain-shared-CfUVW7tX.js",
+          "duration": 3.1999999284744263,
+          "bytes": 7605
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/index-BRQAPhkO.js",
+          "duration": 3.6999999284744263,
+          "bytes": 46472
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/index-lj0Y4NPX.css",
+          "duration": 2.399999976158142,
+          "bytes": 19655
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+          "duration": 3.299999952316284,
+          "bytes": 36053
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/craft-image-storage-BOXCycwI.js",
+          "duration": 2.100000023841858,
+          "bytes": 14925
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/craft-display-support-DEGooIQD.js",
+          "duration": 2.399999976158142,
+          "bytes": 43034
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+          "duration": 2,
+          "bytes": 19347
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/pcs-record-bootstrap-RjDtDYcC.js",
+          "duration": 0.8999999761581421,
+          "bytes": 680
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/pcs-record-baseline-BdbNpplt.json",
+          "duration": 6.099999904632568,
+          "bytes": 91914
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/design-revision-pcs-storage-BjfzS8H8.js",
+          "duration": 0.8999999761581421,
+          "bytes": 5110
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/runtime-process-tasks-E1H4SjBg.js",
+          "duration": 3.600000023841858,
+          "bytes": 68339
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/production-order-runtime-store-Cl3bE9HQ.js",
+          "duration": 2.799999952316284,
+          "bytes": 8225
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/factory-receiving-BSuh4IJl.js",
+          "duration": 2.600000023841858,
+          "bytes": 14578
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/production-orders-DxAO3v7V.js",
+          "duration": 3.600000023841858,
+          "bytes": 27420
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/post-finishing-authorization-CAJfsvUw.js",
+          "duration": 2.5,
+          "bytes": 1894
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "duration": 3.1999999284744263,
+          "bytes": 33409
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/effective-task-assignments-VW__ExH5.js",
+          "duration": 5.299999952316284,
+          "bytes": 7497
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/cut-piece-release--ubX5a3f.js",
+          "duration": 5.399999976158142,
+          "bytes": 21030
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/route-renderers-fcs-61IwBa7m.js",
+          "duration": 1.2999999523162842,
+          "bytes": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/ppic-daily-return-records-fkADTkTj.js",
+          "duration": 2.100000023841858,
+          "bytes": 4776
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/sewing-outsourcing-responsibility-CLuZ_MMT.js",
+          "duration": 1.6999999284744263,
+          "bytes": 2047
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/sewing-outsourcing-return-tracking-DD_MPZ3T.js",
+          "duration": 1.899999976158142,
+          "bytes": 3110
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/sewing-cut-piece-responsibility-BUnFv0Np.js",
+          "duration": 2.1999999284744263,
+          "bytes": 4852
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/production-return-fulfillment-DTKQwHGB.js",
+          "duration": 2.0999999046325684,
+          "bytes": 4426
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/ppic-return-quantity-basis-e2u74GBJ.js",
+          "duration": 2.0999999046325684,
+          "bytes": 4302
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/statistics-BOCLJlSj.js",
+          "duration": 1.8000000715255737,
+          "bytes": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/process-statistics-domain-zXJ6xDOw.js",
+          "duration": 4,
+          "bytes": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/dyeing-warehouse-view-ByW8ZR2R.js",
+          "duration": 5.399999976158142,
+          "bytes": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/pda-handover-events-CVziZALl.js",
+          "duration": 9.100000023841858,
+          "bytes": 63336
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/water-soluble-relation-sources-B0A5wzAv.js",
+          "duration": 7.600000023841858,
+          "bytes": 687
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/tmf-process-continuation-CH4qT0ec.js",
+          "duration": 7.600000023841858,
+          "bytes": 1631
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+          "duration": 7.799999952316284,
+          "bytes": 1234
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/printing-task-domain-DPgbbIla.js",
+          "duration": 10.600000023841858,
+          "bytes": 76540
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/tmf-reference-images-6geKcU1B.js",
+          "duration": 7.600000023841858,
+          "bytes": 730
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/production-tech-pack-change-domain-INDXGLk8.js",
+          "duration": 11.299999952316284,
+          "bytes": 19973
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/pcs-engineering-task-upload-repository-W38nh_Sq.js",
+          "duration": 12.199999928474426,
+          "bytes": 2163
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/process-warehouse-domain-l49mD6XF.js",
+          "duration": 11,
+          "bytes": 6698
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/special-craft-task-orders-Dt-KE9cl.js",
+          "duration": 11.199999928474426,
+          "bytes": 28433
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/shared-Cx8H_Bk_.js",
+          "duration": 13.099999904632568,
+          "bytes": 300
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/warehouse-runtime-D-Ws6VFl.js",
+          "duration": 14,
+          "bytes": 7660
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/generated-fei-tickets-C11eaAmv.js",
+          "duration": 14.099999904632568,
+          "bytes": 35585
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/storage-notice-CdIBtTfh.js",
+          "duration": 1,
+          "bytes": 1541
+        },
+        {
+          "name": "http://127.0.0.1:43198/assets/authorization-code-B2WE5g8D.js",
+          "duration": 2.200000047683716,
+          "bytes": 1749
+        }
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "url": "http://127.0.0.1:43198/assets/index-lj0Y4NPX.css",
+      "status": 200,
+      "localSha256": "813c4ec0c25ba7584b5e57a6e4ccabcda0611e2bca7a468c69c5f3e80bfc8134"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-domain-shared-CfUVW7tX.js",
+      "status": 200,
+      "localSha256": "479e05509cf66dfd6bade4b100dfe4bf9f8fb6ae6a3df826d11d507db1273ed1"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+      "status": 200,
+      "localSha256": "9d7fd48f45755d37a206f69fc946ce65c370fe0f823bd6b824b12149c4de25ec"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/index-BRQAPhkO.js",
+      "status": 200,
+      "localSha256": "fca418c1e15238a5112c6643319b03efe6e63be7b18d3e39e78fbee387a61e63"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/craft-image-storage-BOXCycwI.js",
+      "status": 200,
+      "localSha256": "46910cdf9c8323b0697062f3251486a9acb34938d7f789443b10b9e386af7675"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+      "status": 200,
+      "localSha256": "a3ecb7ccb67353da0b61579c6f3800165bc60688a0cd967704f0e20a2e650b68"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/craft-display-support-DEGooIQD.js",
+      "status": 200,
+      "localSha256": "8f94d5fc9117c54c7cb225d24712aa4e41879ea75cd9f4d9e9ad575189682526"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-bootstrap-RjDtDYcC.js",
+      "status": 200,
+      "localSha256": "e5b0969eb51aab748632f736d314c451b8aa924be14dda00283386c31346ec2f"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-baseline-BdbNpplt.json",
+      "status": 200,
+      "localSha256": "66d320307a482c5f6260892aa14022e7677b6b939387e5cf54762dc37c4c4fc2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/design-revision-pcs-storage-BjfzS8H8.js",
+      "status": 200,
+      "localSha256": "36323f0d01b3f8259210f0635f144d986267be2ca78e995a23e629a8c85e2e14"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/post-finishing-authorization-CAJfsvUw.js",
+      "status": 200,
+      "localSha256": "c2d31fe95d67e8bbbb3fc575e85c1ce22c6febd36e4fa79f70aff59f1a0a281e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-order-runtime-store-Cl3bE9HQ.js",
+      "status": 200,
+      "localSha256": "331a85df828a913bddd7f3fe11828cc8fc46b4c348e7082959c7bcb2b8284de5"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-receiving-BSuh4IJl.js",
+      "status": 200,
+      "localSha256": "04c35d27c3af9bc821dc342e35194d3d331c8a483ec77661dbfa249540a46b7e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+      "status": 200,
+      "localSha256": "2efd74ada1f9025a0e33857310d7f428880dbe1c08661b41421b77ec50234ff9"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-E1H4SjBg.js",
+      "status": 200,
+      "localSha256": "dc225554932e69abea85a7aa80cb14a46fe18e0e3f568bfabbaae0815a0aeccc"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-orders-DxAO3v7V.js",
+      "status": 200,
+      "localSha256": "e95e70c8338c987f66420d505273859656bab513d7877215a39e0eabd8d9a7ef"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/effective-task-assignments-VW__ExH5.js",
+      "status": 200,
+      "localSha256": "793ca2d44ada96f735c490992bae523abf249f0a36c7920824777196b859140a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/cut-piece-release--ubX5a3f.js",
+      "status": 200,
+      "localSha256": "65e88a9d8f4c5d519c853e480889547df6060022b6dfb5d1a595c6fad6da5013"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/route-renderers-fcs-61IwBa7m.js",
+      "status": 200,
+      "localSha256": "76854563a1cfa5689838b917c491e15dc1ab77fda6641e29ab4acdec759178d0"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-responsibility-CLuZ_MMT.js",
+      "status": 200,
+      "localSha256": "f13875caa82c3edc10f3bb446ae15df5fc7f87fcb6b98e74296abaa03477b4bc"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-return-tracking-DD_MPZ3T.js",
+      "status": 200,
+      "localSha256": "c235b210c3699ebb0591329823c7c143d33766d5a5680bb9a3bdba742b9df973"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/ppic-daily-return-records-fkADTkTj.js",
+      "status": 200,
+      "localSha256": "44f1ef6d0780715668174735093dfc502cd358ef224549f2a1e3f905aceb40bb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-cut-piece-responsibility-BUnFv0Np.js",
+      "status": 200,
+      "localSha256": "3620239b5692e18f307e66305788acd56295d3686ad934013ef3da21ce8632e3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-return-fulfillment-DTKQwHGB.js",
+      "status": 200,
+      "localSha256": "b03624a8d5cae5d52819c6202bc8934e383c2a197b0cb5f97b95167a15ccd81b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/ppic-return-quantity-basis-e2u74GBJ.js",
+      "status": 200,
+      "localSha256": "94eb5c3ae6eb865258079ad05408cabc5c0890dbe44277b13c3f6961515c5cb6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/water-soluble-relation-sources-B0A5wzAv.js",
+      "status": 200,
+      "localSha256": "8255047c10e82c66c2b2cd122e2b3800cd3433148d48e75d8fd53a608e3da167"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/dyeing-warehouse-view-ByW8ZR2R.js",
+      "status": 200,
+      "localSha256": "997944469e5be8be403e1f92ece06582786cc7fc87169dc5e1ff0f3d2a159ae2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/statistics-BOCLJlSj.js",
+      "status": 200,
+      "localSha256": "1ee3059c73a235b1c17db88ac8d28c78393992707ae93c72f42d10b465785ea2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-statistics-domain-zXJ6xDOw.js",
+      "status": 200,
+      "localSha256": "03ed1fadfd9964d9078ca6ff7f440a08bdf6c624f109a55e8603824686f67069"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-process-continuation-CH4qT0ec.js",
+      "status": 200,
+      "localSha256": "f5cdecbd07f82044e2499d7186b7c192939f6c1df8db28a702ed9ed1fe4e0736"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "status": 200,
+      "localSha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-engineering-task-upload-repository-W38nh_Sq.js",
+      "status": 200,
+      "localSha256": "8e7d34323a3cf87ad68217a1c28c82ff7fb2de1669cdba710d9fa3cd57ad2743"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CVziZALl.js",
+      "status": 200,
+      "localSha256": "ab8bd444d8321dcb1cca83db4abb360d045746b0de088f74accadba3748c6ea3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-reference-images-6geKcU1B.js",
+      "status": 200,
+      "localSha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-warehouse-domain-l49mD6XF.js",
+      "status": 200,
+      "localSha256": "00af924f7d4426c3554298258cb1411f1d3c825c5508f5b429385e74839e32d6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/printing-task-domain-DPgbbIla.js",
+      "status": 200,
+      "localSha256": "6d8f270b4eafb8e5d4b64d37f4e8cf7a255ef5613be73d0b376f8e4ef5a758de"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-tech-pack-change-domain-INDXGLk8.js",
+      "status": 200,
+      "localSha256": "8ed386dba9661f2bd8abc8206e1ef179c18282dc0089bbf7436cd107d5c2e565"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/warehouse-runtime-D-Ws6VFl.js",
+      "status": 200,
+      "localSha256": "40be18cabad4b85a16218770808179704a5b6b7699d24facfafa39db7c72edb7"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-C11eaAmv.js",
+      "status": 200,
+      "localSha256": "5e94e8f1d6e8e4435f576f36efa7f9954a24b064759e94ca037c84793561de1c"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/special-craft-task-orders-Dt-KE9cl.js",
+      "status": 200,
+      "localSha256": "0f87495ef4cf22921483e83949ab916cf082ddca7bc7660b22fd23b5fd91ab95"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/shared-Cx8H_Bk_.js",
+      "status": 200,
+      "localSha256": "7ba4b1d518390ab5ebd7d7a69b35f6ed6ae774cdb1682fe1f00c2ffd9f878dab"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/storage-notice-CdIBtTfh.js",
+      "status": 200,
+      "localSha256": "b16f3115ac9e2c5ac55f3eb80a830235caca8c385dbab0c8b4d3012017b926c2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/authorization-code-B2WE5g8D.js",
+      "status": 200,
+      "localSha256": "650974808371e92c3e840eabb98871cce2ccbb56e622c01e513c502978f466dd"
+    }
+  ],
+  "errors": [],
+  "completed": true,
+  "passed": false,
+  "families": [
+    {
+      "family": "statistics:cold",
+      "total": 1,
+      "valid": 1,
+      "maxMs": 6594.5,
+      "passed": false
+    },
+    {
+      "family": "statistics:refresh",
+      "total": 1,
+      "valid": 1,
+      "maxMs": 6696.599999904633,
+      "passed": false
+    },
+    {
+      "family": "statistics:navigation",
+      "total": 1,
+      "valid": 1,
+      "maxMs": 6364.5,
+      "passed": false
+    }
+  ],
+  "fixturePreparationProofs": [
+    {
+      "sha256": "78adb8de3cac155fd32499707c4d7d703f0f7f9e48e8bad72d0642f12bb1d586",
+      "counts": {
+        "records": 27548,
+        "files": 0,
+        "processCompletions": 4000,
+        "recheckOrders": 1000,
+        "outboundOrders": 1000,
+        "qcTasks": 105
+      },
+      "transactionComplete": true,
+      "legacyVersionMarker": false,
+      "method": "put",
+      "transactionMs": 4694.899999976158,
+      "decodeAndVerifyMs": 177.10000002384186,
+      "totalPreparationMs": 4874.399999976158
+    }
+  ],
+  "profiles": [
+    {
+      "family": "statistics:navigation",
+      "trial": 1,
+      "samplingIntervalUs": 1000,
+      "profiledTiming": true,
+      "durationUs": 6746419,
+      "top": [
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 588,
+          "inclusiveSamples": 588,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 585,
+          "inclusiveSamples": 585,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 579,
+          "inclusiveSamples": 579,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 312,
+          "inclusiveSamples": 312,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 308,
+          "inclusiveSamples": 308,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 305,
+          "inclusiveSamples": 305,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "(idle)",
+          "url": "",
+          "line": -1,
+          "column": -1,
+          "selfSamples": 109,
+          "inclusiveSamples": 109
+        },
+        {
+          "function": "e.onsuccess",
+          "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+          "line": 1,
+          "column": 1210,
+          "selfSamples": 66,
+          "inclusiveSamples": 66,
+          "sourceExcerpt": "=>{throw ie=void 0,e}),ie)}function $(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await zt();He++;try{const r=i.transaction(mt,e);let c;const s=new Promise((a,p)=>{r.oncomplete=()=>a(),r.onabort=()=>p(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),ye(a)}}finally{He--,He||(i.close(),ie=void 0)}}function z(e){return typeof e==\"string\"&&e.trim().length>0}function lt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 64,
+          "inclusiveSamples": 64,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 64,
+          "inclusiveSamples": 64,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 62,
+          "inclusiveSamples": 62,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 62,
+          "inclusiveSamples": 62,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "Ne",
+          "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+          "line": 1,
+          "column": 51449,
+          "selfSamples": 58,
+          "inclusiveSamples": 100,
+          "sourceExcerpt": "actorId)||!r.recordedAt)throw new Error(\"加工完成记录格式不完整，原资料保留。\")}}async function Ne(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await J([k]);Lt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Me.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${k}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeValues)!=null&&o.has(a.value))?a.value:tt(a.value)})"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 56,
+          "inclusiveSamples": 56,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 54,
+          "inclusiveSamples": 54,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 52,
+          "inclusiveSamples": 52,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "(garbage collector)",
+          "url": "",
+          "line": -1,
+          "column": -1,
+          "selfSamples": 51,
+          "inclusiveSamples": 51
+        },
+        {
+          "function": "ee",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 104204,
+          "selfSamples": 41,
+          "inclusiveSamples": 41,
+          "sourceExcerpt": "on,authorization:c}),{outbound:p(t),receipt:p(i),alreadyReceived:!1}}function ee(){return p(y.deliveries)}function Vo(){return p(y.waitProcessWarehouseRecords)}function Ho(){return p(y.waitProcessWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}function Ye(){return p(y.waitHandoverWarehouseRecords)}function Yo(){return p(y.waitHandoverWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}function Zo(e={}){return p(y.returnConfirmationVersions.filter(t=>!e.deliveryId||t.deliveryId===e.deliveryId).filter(t=>!e.executionTaskId||t.executionTaskId===e.executionTaskId).filter(t=>!e.assignmentId||t.assignmentId===e.assignmentId).filte"
+        },
+        {
+          "function": "(program)",
+          "url": "",
+          "line": -1,
+          "column": -1,
+          "selfSamples": 39,
+          "inclusiveSamples": 39
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 38,
+          "inclusiveSamples": 38,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "cr",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 127122,
+          "selfSamples": 36,
+          "inclusiveSamples": 71,
+          "sourceExcerpt": ".rejected||0),qtyUnit:\"件\",skuLines:e.lines,qcSkuResults:e.qcResults}}function cr(e){var d;const t=ee().find(c=>c.deliveryId===e.deliveryId),r=dr(e),o=C(r.map(c=>c.inspectedQty)),s=C(r.map(c=>c.qualifiedQty)),n=C(r.map(c=>c.unqualifiedQty)),a=te({id:e.qcTaskId,no:e.qcTaskNo,type:\"质检\",status:e.status,lines:e.lines.map(c=>Re(c.sku,{plannedQty:c.expectedQty,receivedQty:c.expectedQty})),submitted:o,accepted:s,rejected:n,operator:(d=e.claimedBy)==null?void 0:d.actorName,startedAt:e.claimedAt,finishedAt:e.completedAt,qcResults:r});return a.postOrderId=e.postTaskId||\"\",a.postOrderNo=e.postTaskNo||\"\",a.linkedQcOrderId=e.qcTaskId,a.sourceFactoryName=(t==null?void 0:t.sewingFactoryN"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 36,
+          "inclusiveSamples": 36,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "cr",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 127122,
+          "selfSamples": 36,
+          "inclusiveSamples": 69,
+          "sourceExcerpt": ".rejected||0),qtyUnit:\"件\",skuLines:e.lines,qcSkuResults:e.qcResults}}function cr(e){var d;const t=ee().find(c=>c.deliveryId===e.deliveryId),r=dr(e),o=C(r.map(c=>c.inspectedQty)),s=C(r.map(c=>c.qualifiedQty)),n=C(r.map(c=>c.unqualifiedQty)),a=te({id:e.qcTaskId,no:e.qcTaskNo,type:\"质检\",status:e.status,lines:e.lines.map(c=>Re(c.sku,{plannedQty:c.expectedQty,receivedQty:c.expectedQty})),submitted:o,accepted:s,rejected:n,operator:(d=e.claimedBy)==null?void 0:d.actorName,startedAt:e.claimedAt,finishedAt:e.completedAt,qcResults:r});return a.postOrderId=e.postTaskId||\"\",a.postOrderNo=e.postTaskNo||\"\",a.linkedQcOrderId=e.qcTaskId,a.sourceFactoryName=(t==null?void 0:t.sewingFactoryN"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 36,
+          "inclusiveSamples": 36,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        },
+        {
+          "function": "p",
+          "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+          "line": 0,
+          "column": 36508,
+          "selfSamples": 35,
+          "inclusiveSamples": 35,
+          "sourceExcerpt": "ssage:String(t)}`);return fe()}}let y=fe(),Ae=!1;function q(){Ae||v()}function p(e){return JSON.parse(JSON.stringify(e))}function _(e=Date.now()){return new Date(e).toISOString()}function W(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new N(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function O(e){return e.reduce((t,r)=>t+r,0)}function Le(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function ko(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function To(){var n;const e=G.find(a=>a.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=O(e.skus.map(a=>a.plannedQty)),r=e.qcPrintMaterials.flatMap((a,d)=>{const c=a.materialC"
+        }
+      ],
+      "aggregatedTop": [
+        {
+          "frame": {
+            "functionName": "p",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 36508
+          },
+          "selfSamples": 3547,
+          "stacks": [
+            [
+              "p <- ie <- ir <- ur <- ls <- yt <- j <- <anonymous> <- (root)",
+              588
+            ],
+            [
+              "p <- ie <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              585
+            ],
+            [
+              "p <- ie <- ir <- ur <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              579
+            ],
+            [
+              "p <- Ye <- ir <- ur <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              312
+            ],
+            [
+              "p <- Ye <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              308
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "cr",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 127122
+          },
+          "selfSamples": 196,
+          "stacks": [
+            [
+              "cr <- it <- yt <- j <- <anonymous> <- (root)",
+              36
+            ],
+            [
+              "cr <- it <- ls <- yt <- j <- <anonymous> <- (root)",
+              36
+            ],
+            [
+              "cr <- it <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              35
+            ],
+            [
+              "cr <- ir <- ur <- ls <- yt <- j <- <anonymous> <- (root)",
+              34
+            ],
+            [
+              "cr <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              31
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "ee",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 104204
+          },
+          "selfSamples": 128,
+          "stacks": [
+            [
+              "ee <- ir <- ur <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              41
+            ],
+            [
+              "ee <- ir <- ur <- ls <- yt <- j <- <anonymous> <- (root)",
+              35
+            ],
+            [
+              "ee <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              33
+            ],
+            [
+              "ee <- <anonymous> <- nr <- yt <- j <- <anonymous> <- (root)",
+              7
+            ],
+            [
+              "ee <- us <- <anonymous> <- nr <- j <- <anonymous> <- (root)",
+              5
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "(idle)",
+            "scriptId": "0",
+            "url": "",
+            "lineNumber": -1,
+            "columnNumber": -1
+          },
+          "selfSamples": 109,
+          "stacks": [
+            [
+              "(idle) <- (root)",
+              109
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "$",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 74169
+          },
+          "selfSamples": 88,
+          "stacks": [
+            [
+              "$ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+              22
+            ],
+            [
+              "$ <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              21
+            ],
+            [
+              "$ <- ir <- ur <- ls <- yt <- j <- <anonymous> <- (root)",
+              16
+            ],
+            [
+              "$ <- <anonymous> <- <anonymous> <- nr <- yt <- j <- <anonymous> <- (root)",
+              13
+            ],
+            [
+              "$ <- ir <- ur <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              11
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "e.onsuccess",
+            "scriptId": "22",
+            "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+            "lineNumber": 1,
+            "columnNumber": 1210
+          },
+          "selfSamples": 66,
+          "stacks": [
+            [
+              "e.onsuccess <- (root)",
+              66
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "Ne",
+            "scriptId": "22",
+            "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+            "lineNumber": 1,
+            "columnNumber": 51449
+          },
+          "selfSamples": 59,
+          "stacks": [
+            [
+              "Ne <- (root)",
+              58
+            ],
+            [
+              "Ne <- <anonymous> <- (root)",
+              1
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "(garbage collector)",
+            "scriptId": "0",
+            "url": "",
+            "lineNumber": -1,
+            "columnNumber": -1
+          },
+          "selfSamples": 51,
+          "stacks": [
+            [
+              "(garbage collector) <- (root)",
+              51
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "(program)",
+            "scriptId": "0",
+            "url": "",
+            "lineNumber": -1,
+            "columnNumber": -1
+          },
+          "selfSamples": 39,
+          "stacks": [
+            [
+              "(program) <- (root)",
+              39
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "c",
+            "scriptId": "22",
+            "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+            "lineNumber": 1,
+            "columnNumber": 1895
+          },
+          "selfSamples": 34,
+          "stacks": [
+            [
+              "c <- N <- <anonymous> <- (root)",
+              11
+            ],
+            [
+              "c <- c <- N <- <anonymous> <- (root)",
+              7
+            ],
+            [
+              "c <- c <- c <- N <- <anonymous> <- (root)",
+              7
+            ],
+            [
+              "c <- c <- c <- c <- N <- <anonymous> <- (root)",
+              7
+            ],
+            [
+              "c <- c <- c <- c <- c <- N <- <anonymous> <- (root)",
+              2
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "ir",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 128406
+          },
+          "selfSamples": 19,
+          "stacks": [
+            [
+              "ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              7
+            ],
+            [
+              "ir <- ur <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              6
+            ],
+            [
+              "ir <- ur <- ls <- yt <- j <- <anonymous> <- (root)",
+              6
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 74565
+          },
+          "selfSamples": 9,
+          "stacks": [
+            [
+              "<anonymous> <- a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- nr <- yt <- j <- <anonymous> <- (root)",
+              3
+            ],
+            [
+              "<anonymous> <- a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+              2
+            ],
+            [
+              "<anonymous> <- a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- nr <- j <- <anonymous> <- (root)",
+              2
+            ],
+            [
+              "<anonymous> <- a <- <anonymous> <- $ <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              1
+            ],
+            [
+              "<anonymous> <- a <- <anonymous> <- $ <- ir <- ur <- ls <- yt <- j <- <anonymous> <- (root)",
+              1
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 111489
+          },
+          "selfSamples": 6,
+          "stacks": [
+            [
+              "<anonymous> <- <anonymous> <- Ne <- (root)",
+              6
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "a",
+            "scriptId": "40",
+            "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+            "lineNumber": 0,
+            "columnNumber": 74550
+          },
+          "selfSamples": 6,
+          "stacks": [
+            [
+              "a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- Ne <- (root)",
+              4
+            ],
+            [
+              "a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- nr <- yt <- j <- <anonymous> <- (root)",
+              1
+            ],
+            [
+              "a <- <anonymous> <- $ <- <anonymous> <- <anonymous> <- nr <- j <- <anonymous> <- (root)",
+              1
+            ],
+            [
+              "a <- <anonymous> <- $ <- ir <- ur <- yt <- j <- <anonymous> <- (root)",
+              0
+            ],
+            [
+              "a <- <anonymous> <- $ <- ir <- ur <- ls <- Bs <- yt <- j <- <anonymous> <- (root)",
+              0
+            ]
+          ]
+        },
+        {
+          "frame": {
+            "functionName": "request.onsuccess",
+            "scriptId": "3",
+            "url": "",
+            "lineNumber": 47,
+            "columnNumber": 28
+          },
+          "selfSamples": 5,
+          "stacks": [
+            [
+              "request.onsuccess <- (root)",
+              5
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-10-19T15:09:06.852Z"
+}

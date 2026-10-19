@@ -1,0 +1,462 @@
+{
+  "rootBranches": [
+    {
+      "id": 2,
+      "fn": "(program)",
+      "line": -1,
+      "column": -1,
+      "inclusiveMs": 281.885,
+      "selfMs": 281.885
+    },
+    {
+      "id": 3,
+      "fn": "(idle)",
+      "line": -1,
+      "column": -1,
+      "inclusiveMs": 136.471,
+      "selfMs": 136.471
+    },
+    {
+      "id": 183,
+      "fn": "_e",
+      "file": "material-requirements-CcI358I7.js",
+      "line": 1,
+      "column": 12693,
+      "inclusiveMs": 111.679,
+      "selfMs": 0
+    },
+    {
+      "id": 272,
+      "fn": "",
+      "file": "purchase-suggestions-CbCSqLlp.js",
+      "line": 0,
+      "column": 1371,
+      "inclusiveMs": 100.409,
+      "selfMs": 0
+    },
+    {
+      "id": 87,
+      "fn": "",
+      "file": "supplier-supply-archives-CYL-T0jF.js",
+      "line": 0,
+      "column": 0,
+      "inclusiveMs": 52.565,
+      "selfMs": 0
+    },
+    {
+      "id": 596,
+      "fn": "Me",
+      "file": "pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 52337,
+      "inclusiveMs": 52.417,
+      "selfMs": 18.673
+    },
+    {
+      "id": 636,
+      "fn": "N",
+      "file": "index-DzdCIoHq.js",
+      "line": 1224,
+      "column": 26293,
+      "inclusiveMs": 51.499,
+      "selfMs": 51.499
+    },
+    {
+      "id": 589,
+      "fn": "e.onsuccess",
+      "file": "pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 1210,
+      "inclusiveMs": 49.176,
+      "selfMs": 49.176
+    },
+    {
+      "id": 590,
+      "fn": "",
+      "file": "pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 2945,
+      "inclusiveMs": 27.216,
+      "selfMs": 9.672
+    },
+    {
+      "id": 56,
+      "fn": "",
+      "file": "pcs-tech-pack-review-zWkNl40_.js",
+      "line": 0,
+      "column": 0,
+      "inclusiveMs": 18.016,
+      "selfMs": 0
+    },
+    {
+      "id": 166,
+      "fn": "(garbage collector)",
+      "line": -1,
+      "column": -1,
+      "inclusiveMs": 17.254,
+      "selfMs": 17.254
+    },
+    {
+      "id": 586,
+      "fn": "x",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 16,
+      "column": 20,
+      "inclusiveMs": 13.504,
+      "selfMs": 0
+    },
+    {
+      "id": 443,
+      "fn": "",
+      "file": "pcs-record-core-cpCRWSNv.js",
+      "line": 1,
+      "column": 34883,
+      "inclusiveMs": 13.486,
+      "selfMs": 1.491
+    },
+    {
+      "id": 502,
+      "fn": "",
+      "file": "generated-fei-tickets-DLbNME30.js",
+      "line": 0,
+      "column": 0,
+      "inclusiveMs": 11.981,
+      "selfMs": 1.49
+    },
+    {
+      "id": 365,
+      "fn": "",
+      "file": "cut-piece-release-CB1gOTvJ.js",
+      "line": 0,
+      "column": 0,
+      "inclusiveMs": 11.954,
+      "selfMs": 2.959
+    },
+    {
+      "id": 543,
+      "fn": "H",
+      "file": "cut-piece-release-CB1gOTvJ.js",
+      "line": 1,
+      "column": 64262,
+      "inclusiveMs": 11.66,
+      "selfMs": 0
+    },
+    {
+      "id": 415,
+      "fn": "",
+      "file": "runtime-process-tasks-lLxUBxZN.js",
+      "line": 0,
+      "column": 0,
+      "inclusiveMs": 10.48,
+      "selfMs": 0
+    }
+  ],
+  "print": [
+    {
+      "id": 581,
+      "fn": "K",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 50,
+      "column": 75,
+      "inclusiveMs": 1.503,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 582,
+          "fn": "x",
+          "file": "print-preview-DkmAlr59.js",
+          "line": 16,
+          "column": 20,
+          "inclusiveMs": 1.503,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 582,
+      "fn": "x",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 16,
+      "column": 20,
+      "inclusiveMs": 1.503,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 583,
+          "fn": "w",
+          "file": "print-preview-DkmAlr59.js",
+          "line": 1,
+          "column": 252,
+          "inclusiveMs": 1.503,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 583,
+      "fn": "w",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 1,
+      "column": 252,
+      "inclusiveMs": 1.503,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 584,
+          "fn": "r",
+          "file": "index-DzdCIoHq.js",
+          "line": 1,
+          "column": 1011,
+          "inclusiveMs": 1.503,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 586,
+      "fn": "x",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 16,
+      "column": 20,
+      "inclusiveMs": 13.504,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 587,
+          "fn": "Me",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 52337,
+          "inclusiveMs": 1.506,
+          "selfMs": 0
+        },
+        {
+          "id": 620,
+          "fn": "buildPrintDocument",
+          "file": "print-preview-DkmAlr59.js",
+          "line": 1,
+          "column": 537,
+          "inclusiveMs": 4.498,
+          "selfMs": 0
+        },
+        {
+          "id": 630,
+          "fn": "H",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 83,
+          "column": 24,
+          "inclusiveMs": 7.5,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 620,
+      "fn": "buildPrintDocument",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 1,
+      "column": 537,
+      "inclusiveMs": 4.498,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 621,
+          "fn": "F",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 54,
+          "column": 592,
+          "inclusiveMs": 4.498,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 621,
+      "fn": "F",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 54,
+      "column": 592,
+      "inclusiveMs": 4.498,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 622,
+          "fn": "Cd",
+          "file": "craft-display-support-C4HLoQM1.js",
+          "line": 1,
+          "column": 132893,
+          "inclusiveMs": 1.504,
+          "selfMs": 1.504
+        },
+        {
+          "id": 623,
+          "fn": "",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 54,
+          "column": 664,
+          "inclusiveMs": 2.994,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 623,
+      "fn": "",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 54,
+      "column": 664,
+      "inclusiveMs": 2.994,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 624,
+          "fn": "",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 54,
+          "column": 701,
+          "inclusiveMs": 2.994,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 624,
+      "fn": "",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 54,
+      "column": 701,
+      "inclusiveMs": 2.994,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 625,
+          "fn": "op",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 1,
+          "column": 95808,
+          "inclusiveMs": 2.994,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 630,
+      "fn": "H",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 83,
+      "column": 24,
+      "inclusiveMs": 7.5,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 631,
+          "fn": "w",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 23,
+          "column": 24,
+          "inclusiveMs": 7.5,
+          "selfMs": 1.504
+        }
+      ]
+    },
+    {
+      "id": 631,
+      "fn": "w",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 23,
+      "column": 24,
+      "inclusiveMs": 7.5,
+      "selfMs": 1.504,
+      "children": [
+        {
+          "id": 632,
+          "fn": "",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 53,
+          "column": 35,
+          "inclusiveMs": 5.996,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 632,
+      "fn": "",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 53,
+      "column": 35,
+      "inclusiveMs": 5.996,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 633,
+          "fn": "C",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 5,
+          "column": 20,
+          "inclusiveMs": 5.996,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 633,
+      "fn": "C",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 5,
+      "column": 20,
+      "inclusiveMs": 5.996,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 634,
+          "fn": "m",
+          "file": "post-finishing-outbound-template-BGeoXGFF.js",
+          "line": 0,
+          "column": 3021,
+          "inclusiveMs": 5.996,
+          "selfMs": 0
+        }
+      ]
+    },
+    {
+      "id": 634,
+      "fn": "m",
+      "file": "post-finishing-outbound-template-BGeoXGFF.js",
+      "line": 0,
+      "column": 3021,
+      "inclusiveMs": 5.996,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 635,
+          "fn": "b",
+          "file": "real-barcode-BJdGy9l6.js",
+          "line": 0,
+          "column": 1235,
+          "inclusiveMs": 5.996,
+          "selfMs": 5.996
+        }
+      ]
+    },
+    {
+      "id": 640,
+      "fn": "y",
+      "file": "print-preview-DkmAlr59.js",
+      "line": 1,
+      "column": 7823,
+      "inclusiveMs": 1.599,
+      "selfMs": 0,
+      "children": [
+        {
+          "id": 641,
+          "fn": "querySelectorAll",
+          "line": -1,
+          "column": -1,
+          "inclusiveMs": 1.599,
+          "selfMs": 1.599
+        }
+      ]
+    }
+  ]
+}

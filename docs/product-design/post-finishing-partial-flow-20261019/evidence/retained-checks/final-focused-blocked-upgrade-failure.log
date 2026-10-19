@@ -1,0 +1,70 @@
+(node:69024) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 10 tests using 1 worker
+
+
+(node:69029) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:69029) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[1/10] tests/post-finishing-migration.spec.ts:217:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved
+[2/10] tests/post-finishing-migration.spec.ts:271:1 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes
+  1) tests/post-finishing-migration.spec.ts:271:1 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('[data-post-finishing-storage-notice]')
+    Expected substring: "数据库升级被其他标签页阻止"
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" with timeout 10000ms
+      - waiting for locator('[data-post-finishing-storage-notice]')
+
+
+      301 |   await newTab.goto('/fcs/craft/post-finishing/work-orders')
+      302 |   const notice = newTab.locator('[data-post-finishing-storage-notice]')
+    > 303 |   await expect(notice).toContainText('数据库升级被其他标签页阻止')
+          |                        ^
+      304 |   await expect(notice).toContainText('关闭旧页面后重试')
+      305 |   const blocked = await notice.innerText()
+      306 |   const versionChanges = await page.evaluate(() => (window as any).__pfVersionChangeEvents)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-migration.spec.ts:303:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/video-1.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-migration-A-ace5c-r-the-old-connection-closes/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+Testing stopped early after 1 maximum allowed failures.
+
+  1 failed
+    tests/post-finishing-migration.spec.ts:271:1 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes 
+  8 did not run
+  1 passed (12.2s)
+  1 error was not a part of any test, see above for details

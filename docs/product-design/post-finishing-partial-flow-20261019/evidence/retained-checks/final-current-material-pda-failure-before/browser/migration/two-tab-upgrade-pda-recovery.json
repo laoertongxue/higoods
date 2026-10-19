@@ -1,0 +1,25 @@
+{
+  "entry": "PDA",
+  "route": "/fcs/pda/post-finishing/execute",
+  "blocked": "后道资料暂时无法读取\n\n后道 数据库升级被其他标签页阻止，请关闭旧页面后重试。\n\n原资料已保留。关闭占用资料的旧页面后，重新读取。\n\n重新读取",
+  "versionChanges": [
+    {
+      "oldVersion": 1,
+      "newVersion": 2
+    }
+  ],
+  "recovered": {
+    "version": 2,
+    "stores": [
+      "files",
+      "meta",
+      "operations",
+      "records"
+    ],
+    "common": {
+      "quantity": 7
+    },
+    "postRows": 0
+  },
+  "pageErrors": []
+}

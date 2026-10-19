@@ -1,0 +1,29 @@
+{
+  "environment": "local dev http://127.0.0.1:43197, same task worktree, isolated browser contexts",
+  "head": "4a0ce9ef5a30e8dec4537de1ff59159543902a25",
+  "versionScope": "Uncommitted task worktree. Happy-path partial/consumer/M1-M5 reused from frozen integrated build; entry-failure fix verified separately by both M6 Web/PDA; role8 run after fix. No duplicate calibration counted as a unique case.",
+  "uniquePassingCases": {
+    "partial": 6,
+    "consumers": 3,
+    "migration": 7,
+    "pdaRole": 8,
+    "total": 24
+  },
+  "filesSha256": {
+    "src/main.ts": "cb2e2d3c4e67554cc1313e51757641d5f84b7c52161b9788fee67ed7bfee0c23",
+    "src/pages/process-factory/post-finishing/storage-notice.ts": "322647f5369f12f2030ec1c87340151cf81bce07ea1dd7c42bffff4e597edefd",
+    "tests/post-finishing-partial-flow.spec.ts": "bec718243fef8584ae25e60d34999cd3f9c0e0b7fb21f2c55cea7780f70768c7",
+    "tests/post-finishing-consumers.spec.ts": "fe37b695378d4d53a09add4b6fbb0636c4b783ad6913f7fd9d2e67949ac683cd",
+    "tests/post-finishing-migration.spec.ts": "60ffadcfe8cd70a3e0ed37a00a54aeb3f745436f0d88f1253aeb95938edcb4b8",
+    "tests/post-finishing-pda-role-boundary.spec.ts": "1399824f6b07fd53311d038d80da954cc0f53c60f07ca6a4415744ca28c748f5"
+  },
+  "logs": {
+    "post-finishing-final-partial.log": "d514ed8c66095c75c5d56451b63ddae1d704a9abec7b9a32033e76b9ec0ec8d5",
+    "post-finishing-final-consumer-migration-role.log": "0c9f3727c67453a5ea9d042c9c76ae32a59619921754c7e8e90c60560e6da073",
+    "post-finishing-final-migration-backup-ui-calibration.log": "68a679fbe34f72e703066f94f61cefd3508d47b94ac9b822eb81b746c66db083",
+    "post-finishing-final-migration-role-remaining.log": "c60f91567c252c4b61e1a128647bd57ade34fab70d053c90b625127a3f71aa6e",
+    "post-finishing-final-blocked-upgrade-web-calibration.log": "03c9d4b49bdca09293492b4bbdefb7454ad9f825872ca02cea8639538a7b46f5",
+    "post-finishing-final-blocked-upgrade-pda-calibration.log": "64c56278f2b6387c4f664a83b40fbc3907a577cdeb5496ea02bac304a74335b5",
+    "post-finishing-final-pda-role-boundary.log": "d1c5b71d2129e58fd94936f15ff5e1e3ec7e36ff081b269bb992fa97064f873c"
+  }
+}

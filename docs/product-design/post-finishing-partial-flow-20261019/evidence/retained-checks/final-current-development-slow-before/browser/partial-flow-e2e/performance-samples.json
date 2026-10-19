@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-10-19T20:33:07.698Z",
+  "baseURL": "http://127.0.0.1:43915",
+  "environment": "this worktree Vite dev server; warmed D1 1-SKU source; not D10 or production/physical-device acceptance",
+  "completion": "UI success and persisted record readback",
+  "samples": {
+    "processCompletionSaveMs": [
+      77.10000002384186,
+      89,
+      87.10000002384186,
+      73.80000007152557,
+      90.5
+    ],
+    "warmedDetailReloadMs": [
+      1138.5,
+      1152.6000000238419,
+      1133.5,
+      698.5,
+      1122.8999999761581
+    ]
+  }
+}

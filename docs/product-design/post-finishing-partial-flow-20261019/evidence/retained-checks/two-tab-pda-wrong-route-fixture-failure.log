@@ -1,0 +1,64 @@
+(node:71072) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+
+(node:71073) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:71073) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[1/1] tests/post-finishing-migration.spec.ts:274:4 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes (PDA)
+  1) tests/post-finishing-migration.spec.ts:274:4 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes (PDA) 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '后道加工', exact: true })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByRole('heading', { name: '后道加工', exact: true })
+
+
+      328 |   await newTab.locator('[data-pcs-storage-retry]').click()
+      329 |   await expect(notice).toHaveCount(0)
+    > 330 |   await expect(newTab.getByRole('heading', { name: entry.heading, exact: true })).toBeVisible()
+          |                                                                                   ^
+      331 |   const recovered = await newTab.evaluate(async ns => {
+      332 |     const records = await import('/src/data/pcs-record-db.ts')
+      333 |     const data = await records.readPcsRecords(['pcs-common'])
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-migration.spec.ts:330:83
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/video-1.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-migration-A-d8ebd--old-connection-closes-PDA-/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/post-finishing-migration.spec.ts:274:4 › A20: two isolated tabs report a blocked database upgrade and preserve old records after the old connection closes (PDA) 

@@ -1,0 +1,618 @@
+{
+  "boundary": "Isolated Node public-command contracts, not browser persistence, UI or performance acceptance.",
+  "observations": [
+    {
+      "stage": "D1-before-processing",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "待后道",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 0,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 0
+        }
+      ]
+    },
+    {
+      "stage": "D1-500-300-200-100",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 100,
+          "availableForRecheckQty": 100
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 4
+        }
+      ]
+    },
+    {
+      "stage": "D1-after-signed-correction",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 100,
+          "availableForRecheckQty": 100
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 5
+        }
+      ]
+    },
+    {
+      "stage": "D1-first-100-received",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 100,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 100,
+          "recordCount": 5
+        }
+      ]
+    },
+    {
+      "stage": "D1-all-1000-before-third",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 1000,
+          "availableForRecheckQty": 800
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 200,
+          "recordCount": 10
+        }
+      ]
+    },
+    {
+      "stage": "D1-all-three-received",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 1000,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 1000,
+          "recordCount": 10
+        }
+      ]
+    },
+    {
+      "stage": "two-items-and-four-single-items",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 100,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-1",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-2",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-2",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-3",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-3",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-4",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-4",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 2
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-2",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-3",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-4",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        }
+      ]
+    },
+    {
+      "stage": "summary-return-mutation-does-not-change-authority",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 100,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-1",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-2",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-2",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-3",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-3",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-4",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-4",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 10
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 2
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-2",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-3",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-4",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        }
+      ]
+    },
+    {
+      "stage": "multi-sku-before-reservation",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 20,
+          "totalCompletedQty": 20,
+          "availableForRecheckQty": 20
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 1
+        }
+      ]
+    },
+    {
+      "stage": "multi-sku-after-authorized-partial-zero",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 20,
+          "totalCompletedQty": 20,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 20,
+          "recordCount": 1
+        }
+      ]
+    },
+    {
+      "stage": "declared-legacy-unknown",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "待后道",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 0,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": true,
+          "totalReservedQty": 0,
+          "recordCount": 0
+        }
+      ]
+    },
+    {
+      "stage": "legacy-H400-N600-C200-100",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 500,
+          "availableForRecheckQty": 500
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 0
+        }
+      ]
+    },
+    {
+      "stage": "legacy-carryover-after-explicit-new-400-reservation",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 500,
+          "availableForRecheckQty": 100
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 400,
+          "recordCount": 0
+        }
+      ]
+    },
+    {
+      "stage": "legacy-carryover-new-increment",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道中",
+          "totalExpectedQty": 1000,
+          "totalCompletedQty": 600,
+          "availableForRecheckQty": 200
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 400,
+          "recordCount": 1
+        }
+      ]
+    },
+    {
+      "stage": "original-public-demo",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-5",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-5",
+          "status": "待后道",
+          "totalExpectedQty": 84,
+          "totalCompletedQty": 0,
+          "availableForRecheckQty": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-4",
+          "productionOrderNo": "PO-QC-202608-003",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-3-4",
+          "status": "后道完成",
+          "completedAt": "2026-08-25T16:00:00.000Z",
+          "totalExpectedQty": 100,
+          "totalCompletedQty": 100,
+          "availableForRecheckQty": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-5",
+          "productionOrderNo": "PO-QC-202608-003",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-3-5",
+          "status": "后道完成",
+          "completedAt": "2026-08-25T17:00:00.000Z",
+          "totalExpectedQty": 100,
+          "totalCompletedQty": 100,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-5",
+          "legacyPending": false,
+          "totalReservedQty": 0,
+          "recordCount": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-4",
+          "legacyPending": false,
+          "totalReservedQty": 100,
+          "recordCount": 2
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-5",
+          "legacyPending": false,
+          "totalReservedQty": 100,
+          "recordCount": 2
+        }
+      ]
+    },
+    {
+      "stage": "declared-old-marker-demo-unknown",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-5",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-5",
+          "status": "待后道",
+          "totalExpectedQty": 84,
+          "totalCompletedQty": 0,
+          "availableForRecheckQty": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-4",
+          "productionOrderNo": "PO-QC-202608-003",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-3-4",
+          "status": "后道完成",
+          "completedAt": "2026-08-25T16:00:00.000Z",
+          "totalExpectedQty": 100,
+          "totalCompletedQty": 0,
+          "availableForRecheckQty": -100
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-5",
+          "productionOrderNo": "PO-QC-202608-003",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-3-5",
+          "status": "后道完成",
+          "completedAt": "2026-08-25T17:00:00.000Z",
+          "totalExpectedQty": 100,
+          "totalCompletedQty": 0,
+          "availableForRecheckQty": -100
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-5",
+          "legacyPending": true,
+          "totalReservedQty": 0,
+          "recordCount": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-4",
+          "legacyPending": true,
+          "totalReservedQty": 100,
+          "recordCount": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-3-5",
+          "legacyPending": true,
+          "totalReservedQty": 100,
+          "recordCount": 0
+        }
+      ]
+    },
+    {
+      "stage": "filtered-child-collections",
+      "summaries": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 10,
+          "totalCompletedQty": 10,
+          "availableForRecheckQty": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-2",
+          "productionOrderNo": "PO-QC-202608-001",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-1-2",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 20,
+          "totalCompletedQty": 20,
+          "availableForRecheckQty": 0
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-1",
+          "productionOrderNo": "PO-QC-202608-002",
+          "qcTaskId": "PF-QC-PF-ACCEPT-PO-2-1",
+          "status": "后道完成",
+          "completedAt": "2026-10-20T00:00:10.000Z",
+          "totalExpectedQty": 30,
+          "totalCompletedQty": 30,
+          "availableForRecheckQty": 0
+        }
+      ],
+      "fullProgress": [
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-1",
+          "legacyPending": false,
+          "totalReservedQty": 10,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-1-2",
+          "legacyPending": false,
+          "totalReservedQty": 20,
+          "recordCount": 1
+        },
+        {
+          "postTaskId": "PF-POST-PF-ACCEPT-PO-2-1",
+          "legacyPending": false,
+          "totalReservedQty": 30,
+          "recordCount": 1
+        }
+      ]
+    },
+    {
+      "stage": "child-filter-cross-product",
+      "counts": [
+        3,
+        4,
+        3
+      ],
+      "combinationsPerReader": 36,
+      "deepReturnIsolation": true
+    }
+  ]
+}

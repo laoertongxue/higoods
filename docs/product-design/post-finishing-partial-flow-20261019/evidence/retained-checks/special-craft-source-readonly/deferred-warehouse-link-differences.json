@@ -1,0 +1,662 @@
+{
+  "scope": "Actual cold-read then reset captured raw task objects; these fields are not consumed by formal source adapter. Final normalTasks and all warehouse collections remain exact.",
+  "taskCount": 41,
+  "tasks": [
+    {
+      "taskOrderId": "AUX-TASK-PO202603082-ALAN-06-0d725ba6",
+      "taskOrderNo": "AUX-202603-082-8-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603082-ALAN-06-0d725ba6",
+          "readonlyBeforeFullProjection": "SC-HR-0d725ba6"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-082-8-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-082-8-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO202603083-ALAN-07-0d725f68",
+      "taskOrderNo": "AUX-PO14672-8-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603083-ALAN-07-0d725f68",
+          "readonlyBeforeFullProjection": "SC-HR-0d725f68"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-PO14672-8-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-PO14672-8-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-po14671-TRIP-04-094ae3fd",
+      "taskOrderNo": "AUX-PO14671-32-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-po14671-TRIP-04-094ae3fd",
+          "readonlyBeforeFullProjection": "SC-HR-094ae3fd"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-PO14671-32-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-PO14671-32-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030003-TRIP-06-d5d86b7d",
+      "taskOrderNo": "AUX-202603-0003-32-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030003-TRIP-06-d5d86b7d",
+          "readonlyBeforeFullProjection": "SC-HR-d5d86b7d"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0003-32-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0003-32-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030004-TRIP-07-d5d86f3f",
+      "taskOrderNo": "AUX-202603-0004-32-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030004-TRIP-07-d5d86f3f",
+          "readonlyBeforeFullProjection": "SC-HR-d5d86f3f"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0004-32-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0004-32-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030002-SFER-04-d9d6928a",
+      "taskOrderNo": "AUX-202603-0002-8192-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030002-SFER-04-d9d6928a",
+          "readonlyBeforeFullProjection": "SC-HR-d9d6928a"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0002-8192-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0002-8192-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030002-SFER-06-d9d6928c",
+      "taskOrderNo": "AUX-202603-0002-8192-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030002-SFER-06-d9d6928c",
+          "readonlyBeforeFullProjection": "SC-HR-d9d6928c"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0002-8192-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0002-8192-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030002-SFER-07-d9d6928d",
+      "taskOrderNo": "AUX-202603-0002-8192-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030002-SFER-07-d9d6928d",
+          "readonlyBeforeFullProjection": "SC-HR-d9d6928d"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0002-8192-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0002-8192-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030002-RINT-06-593876c5",
+      "taskOrderNo": "AUX-202603-0002-6384-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030002-RINT-06-593876c5",
+          "readonlyBeforeFullProjection": "SC-HR-593876c5"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0002-6384-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0002-6384-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030002-RINT-07-593876c6",
+      "taskOrderNo": "AUX-202603-0002-6384-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030002-RINT-07-593876c6",
+          "readonlyBeforeFullProjection": "SC-HR-593876c6"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0002-6384-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0002-6384-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO202603082-KING-04-2f2996d7",
+      "taskOrderNo": "AUX-202603-082-2768-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603082-KING-04-2f2996d7",
+          "readonlyBeforeFullProjection": "SC-HR-2f2996d7"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-082-2768-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-082-2768-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109002-KING-06-21931880",
+      "taskOrderNo": "AUX-202610-9002-2768-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109002-KING-06-21931880",
+          "readonlyBeforeFullProjection": "SC-HR-21931880"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9002-2768-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9002-2768-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109003-KING-07-21931c42",
+      "taskOrderNo": "AUX-202610-9003-2768-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109003-KING-07-21931c42",
+          "readonlyBeforeFullProjection": "SC-HR-21931c42"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9003-2768-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9003-2768-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109002-DERY-04-79c0136d",
+      "taskOrderNo": "AUX-202610-9002-0001-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109002-DERY-04-79c0136d",
+          "readonlyBeforeFullProjection": "SC-HR-79c0136d"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9002-0001-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9002-0001-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109004-DERY-06-79c01af1",
+      "taskOrderNo": "AUX-202610-9004-0001-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109004-DERY-06-79c01af1",
+          "readonlyBeforeFullProjection": "SC-HR-79c01af1"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9004-0001-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9004-0001-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-po14671-DERY-07-c312b3b8",
+      "taskOrderNo": "AUX-PO14671-0001-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-po14671-DERY-07-c312b3b8",
+          "readonlyBeforeFullProjection": "SC-HR-c312b3b8"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-PO14671-0001-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-PO14671-0001-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO202603082-TING-04-6b1420f4",
+      "taskOrderNo": "AUX-202603-082-0002-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603082-TING-04-6b1420f4",
+          "readonlyBeforeFullProjection": "SC-HR-6b1420f4"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-082-0002-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-082-0002-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO202603086-TING-06-6b142ffa",
+      "taskOrderNo": "AUX-202603-086-0002-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603086-TING-06-6b142ffa",
+          "readonlyBeforeFullProjection": "SC-HR-6b142ffa"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-086-0002-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-086-0002-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109001-TING-07-62f9ce43",
+      "taskOrderNo": "AUX-202610-9001-0002-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109001-TING-07-62f9ce43",
+          "readonlyBeforeFullProjection": "SC-HR-62f9ce43"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9001-0002-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9001-0002-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030003-DERY-04-07c8b74a",
+      "taskOrderNo": "AUX-202603-0003-0010-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030003-DERY-04-07c8b74a",
+          "readonlyBeforeFullProjection": "SC-HR-07c8b74a"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0003-0010-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0003-0010-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030014-DERY-07-07c92f6d",
+      "taskOrderNo": "AUX-PO14677-0010-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030014-DERY-07-07c92f6d",
+          "readonlyBeforeFullProjection": "SC-HR-07c92f6d"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-PO14677-0010-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-PO14677-0010-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO202603083-KING-04-1b266366",
+      "taskOrderNo": "AUX-PO14672-0002-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603083-KING-04-1b266366",
+          "readonlyBeforeFullProjection": "SC-HR-1b266366"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-PO14672-0002-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-PO14672-0002-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109001-KING-06-b52f65b1",
+      "taskOrderNo": "AUX-202610-9001-0002-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109001-KING-06-b52f65b1",
+          "readonlyBeforeFullProjection": "SC-HR-b52f65b1"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9001-0002-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9001-0002-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109002-KING-07-b52f6973",
+      "taskOrderNo": "AUX-202610-9002-0002-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109002-KING-07-b52f6973",
+          "readonlyBeforeFullProjection": "SC-HR-b52f6973"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9002-0002-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9002-0002-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030004-RING-04-785ed8ad",
+      "taskOrderNo": "AUX-202603-0004-0003-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030004-RING-04-785ed8ad",
+          "readonlyBeforeFullProjection": "SC-HR-785ed8ad"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0004-0003-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0004-0003-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030014-RING-06-785f4d0e",
+      "taskOrderNo": "AUX-PO14677-0003-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030014-RING-06-785f4d0e",
+          "readonlyBeforeFullProjection": "SC-HR-785f4d0e"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-PO14677-0003-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-PO14677-0003-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO202603082-RING-07-988ae332",
+      "taskOrderNo": "AUX-202603-082-0003-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO202603082-RING-07-988ae332",
+          "readonlyBeforeFullProjection": "SC-HR-988ae332"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-082-0003-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-082-0003-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026109004-TONE-04-dd60adaf",
+      "taskOrderNo": "AUX-202610-9004-0004-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026109004-TONE-04-dd60adaf",
+          "readonlyBeforeFullProjection": "SC-HR-dd60adaf"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202610-9004-0004-04",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202610-9004-0004-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030002-TONE-06-71642034",
+      "taskOrderNo": "AUX-202603-0002-0004-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030002-TONE-06-71642034",
+          "readonlyBeforeFullProjection": "SC-HR-71642034"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0002-0004-06",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0002-0004-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "AUX-TASK-PO2026030003-TONE-07-716423f6",
+      "taskOrderNo": "AUX-202603-0003-0004-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-AUX-TASK-PO2026030003-TONE-07-716423f6",
+          "readonlyBeforeFullProjection": "SC-HR-716423f6"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-AUX-202603-0003-0004-07",
+          "readonlyBeforeFullProjection": "SC-HDR-AUX-202603-0003-0004-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO202603086-CESS-04-f07af850",
+      "taskOrderNo": "SPC-202603-086-0006-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO202603086-CESS-04-f07af850",
+          "readonlyBeforeFullProjection": "SC-HR-f07af850"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-086-0006-04",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-086-0006-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026109002-CESS-06-8a6c14ab",
+      "taskOrderNo": "SPC-202610-9002-0006-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026109002-CESS-06-8a6c14ab",
+          "readonlyBeforeFullProjection": "SC-HR-8a6c14ab"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202610-9002-0006-06",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202610-9002-0006-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026109003-CESS-07-8a6c186d",
+      "taskOrderNo": "SPC-202610-9003-0006-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026109003-CESS-07-8a6c186d",
+          "readonlyBeforeFullProjection": "SC-HR-8a6c186d"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202610-9003-0006-07",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202610-9003-0006-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO202603082-CKET-06-3c5042ca",
+      "taskOrderNo": "SPC-202603-082-0007-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO202603082-CKET-06-3c5042ca",
+          "readonlyBeforeFullProjection": "SC-HR-3c5042ca"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-082-0007-06",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-082-0007-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO202603083-CKET-07-3c50468c",
+      "taskOrderNo": "SPC-PO14672-0007-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO202603083-CKET-07-3c50468c",
+          "readonlyBeforeFullProjection": "SC-HR-3c50468c"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-PO14672-0007-07",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-PO14672-0007-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-po14671-WING-04-ab7dd56d",
+      "taskOrderNo": "SPC-PO14671-0008-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-po14671-WING-04-ab7dd56d",
+          "readonlyBeforeFullProjection": "SC-HR-ab7dd56d"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-PO14671-0008-04",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-PO14671-0008-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026030003-WING-06-6d0c88ed",
+      "taskOrderNo": "SPC-202603-0003-0008-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026030003-WING-06-6d0c88ed",
+          "readonlyBeforeFullProjection": "SC-HR-6d0c88ed"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-0003-0008-06",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-0003-0008-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026030004-WING-07-6d0c8caf",
+      "taskOrderNo": "SPC-202603-0004-0008-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026030004-WING-07-6d0c8caf",
+          "readonlyBeforeFullProjection": "SC-HR-6d0c8caf"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-0004-0008-07",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-0004-0008-07"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026030002-TING-04-08a61210",
+      "taskOrderNo": "SPC-202603-0002-0009-04",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026030002-TING-04-08a61210",
+          "readonlyBeforeFullProjection": "SC-HR-08a61210"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-0002-0009-04",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-0002-0009-04"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026030002-TING-06-08a61212",
+      "taskOrderNo": "SPC-202603-0002-0009-06",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026030002-TING-06-08a61212",
+          "readonlyBeforeFullProjection": "SC-HR-08a61212"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-0002-0009-06",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-0002-0009-06"
+        }
+      ]
+    },
+    {
+      "taskOrderId": "SPC-TASK-PO2026030002-TING-07-08a61213",
+      "taskOrderNo": "SPC-202603-0002-0009-07",
+      "differences": [
+        {
+          "field": "warehouseLinks[1].handoverRecordId",
+          "original": "JH-SPC-TASK-PO2026030002-TING-07-08a61213",
+          "readonlyBeforeFullProjection": "SC-HR-08a61213"
+        },
+        {
+          "field": "warehouseLinks[1].handoverRecordNo",
+          "original": "JH-SPC-202603-0002-0009-07",
+          "readonlyBeforeFullProjection": "SC-HDR-SPC-202603-0002-0009-07"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1052 @@
+[
+  {
+    "name": "hook",
+    "title": "Before Hooks",
+    "ms": 52.1,
+    "start": 41835.913
+  },
+  {
+    "name": "hook",
+    "title": "beforeEach hook",
+    "ms": 52.0,
+    "start": 41835.983
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"context\"",
+    "ms": 4.2,
+    "start": 41837.722
+  },
+  {
+    "name": "pw:api",
+    "title": "Create context",
+    "ms": 3.3,
+    "start": 41837.971
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"page\"",
+    "ms": 45.7,
+    "start": 41842.096
+  },
+  {
+    "name": "pw:api",
+    "title": "Create page",
+    "ms": 45.2,
+    "start": 41842.524
+  },
+  {
+    "name": "pw:api",
+    "title": "Navigate to \"/fcs/craft/post-finishing/work-orders\"",
+    "ms": 64.7,
+    "start": 41888.509
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveText\"",
+    "ms": 993.3,
+    "start": 41953.912
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 56.0,
+    "start": 42948.165
+  },
+  {
+    "name": "pw:api",
+    "title": "Navigate to \"/fcs/craft/post-finishing/work-orders/PF-POST-PF-ACCEPT-PO-1-1\"",
+    "ms": 61.5,
+    "start": 43004.562
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 636.7,
+    "start": 43066.397
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"open-register\"][data-process-item=\"开扣眼\"]')",
+    "ms": 13.9,
+    "start": 43703.541
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 57.7,
+    "start": 43717.764
+  },
+  {
+    "name": "pw:api",
+    "title": "Fill \"1\" locator('[data-post-entry-line=\"SPU-QC-001-S\"] [data-post-entry-quantity]')",
+    "ms": 10.6,
+    "start": 43776.302
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.8,
+    "start": 43787.306
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"save-entry\"]')",
+    "ms": 26.1,
+    "start": 43790.489
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 28.7,
+    "start": 43816.825
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 17.2,
+    "start": 43845.85
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 43863.736
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveLength\"",
+    "ms": 0.2,
+    "start": 43863.916
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.7,
+    "start": 43864.346
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"open-register\"][data-process-item=\"开扣眼\"]')",
+    "ms": 14.7,
+    "start": 43867.368
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 37.1,
+    "start": 43882.317
+  },
+  {
+    "name": "pw:api",
+    "title": "Fill \"1\" locator('[data-post-entry-line=\"SPU-QC-001-S\"] [data-post-entry-quantity]')",
+    "ms": 4.5,
+    "start": 43919.731
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.0,
+    "start": 43924.561
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"save-entry\"]')",
+    "ms": 39.1,
+    "start": 43926.872
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 27.9,
+    "start": 43966.197
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 17.9,
+    "start": 43994.42
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 44013.116
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveLength\"",
+    "ms": 0.0,
+    "start": 44013.271
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.1,
+    "start": 44013.502
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"open-register\"][data-process-item=\"开扣眼\"]')",
+    "ms": 16.3,
+    "start": 44015.913
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 36.9,
+    "start": 44032.45
+  },
+  {
+    "name": "pw:api",
+    "title": "Fill \"1\" locator('[data-post-entry-line=\"SPU-QC-001-S\"] [data-post-entry-quantity]')",
+    "ms": 4.7,
+    "start": 44069.762
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.8,
+    "start": 44074.705
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"save-entry\"]')",
+    "ms": 38.1,
+    "start": 44077.75
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 27.5,
+    "start": 44116.115
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 17.4,
+    "start": 44143.971
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 44162.048
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveLength\"",
+    "ms": 0.0,
+    "start": 44162.205
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.0,
+    "start": 44162.449
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"open-register\"][data-process-item=\"开扣眼\"]')",
+    "ms": 18.0,
+    "start": 44164.722
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 35.1,
+    "start": 44182.916
+  },
+  {
+    "name": "pw:api",
+    "title": "Fill \"1\" locator('[data-post-entry-line=\"SPU-QC-001-S\"] [data-post-entry-quantity]')",
+    "ms": 4.7,
+    "start": 44218.353
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.1,
+    "start": 44223.285
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"save-entry\"]')",
+    "ms": 22.8,
+    "start": 44225.672
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 27.8,
+    "start": 44248.698
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 19.6,
+    "start": 44276.817
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 44296.817
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveLength\"",
+    "ms": 0.0,
+    "start": 44296.968
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.0,
+    "start": 44297.194
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"open-register\"][data-process-item=\"开扣眼\"]')",
+    "ms": 15.9,
+    "start": 44299.525
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 36.9,
+    "start": 44315.645
+  },
+  {
+    "name": "pw:api",
+    "title": "Fill \"1\" locator('[data-post-entry-line=\"SPU-QC-001-S\"] [data-post-entry-quantity]')",
+    "ms": 4.5,
+    "start": 44352.901
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.0,
+    "start": 44357.671
+  },
+  {
+    "name": "pw:api",
+    "title": "Click locator('[data-post-finishing-work-order-detail-action=\"save-entry\"]')",
+    "ms": 39.3,
+    "start": 44359.955
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 28.4,
+    "start": 44399.582
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 18.6,
+    "start": 44428.347
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 44447.748
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveLength\"",
+    "ms": 0.0,
+    "start": 44447.904
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 2.1,
+    "start": 44448.154
+  },
+  {
+    "name": "pw:api",
+    "title": "Reload",
+    "ms": 55.5,
+    "start": 44450.446
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 619.7,
+    "start": 44506.266
+  },
+  {
+    "name": "pw:api",
+    "title": "Reload",
+    "ms": 56.9,
+    "start": 45126.261
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1044.9,
+    "start": 45183.513
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 33.7,
+    "start": 46229.458
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 46264.161
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 3.3,
+    "start": 46264.475
+  },
+  {
+    "name": "pw:api",
+    "title": "Reload",
+    "ms": 58.7,
+    "start": 46268.096
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1046.0,
+    "start": 46327.072
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 40.0,
+    "start": 47374.233
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 47416.102
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 6.6,
+    "start": 47416.563
+  },
+  {
+    "name": "pw:api",
+    "title": "Reload",
+    "ms": 54.6,
+    "start": 47423.456
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1039.5,
+    "start": 47478.625
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 35.1,
+    "start": 48519.297
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 48556.181
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 3.1,
+    "start": 48556.505
+  },
+  {
+    "name": "pw:api",
+    "title": "Reload",
+    "ms": 59.9,
+    "start": 48559.954
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 618.1,
+    "start": 48620.2
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 18.5,
+    "start": 49238.636
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 49257.918
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 3.0,
+    "start": 49258.148
+  },
+  {
+    "name": "pw:api",
+    "title": "Reload",
+    "ms": 52.0,
+    "start": 49261.376
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1033.0,
+    "start": 49313.844
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 34.1,
+    "start": 50347.928
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBe\"",
+    "ms": 0.0,
+    "start": 50382.971
+  },
+  {
+    "name": "pw:api",
+    "title": "Evaluate",
+    "ms": 3.7,
+    "start": 50383.294
+  },
+  {
+    "name": "test.attach",
+    "title": "Attach \"performance-samples\"",
+    "ms": 1.0,
+    "start": 50387.903
+  },
+  {
+    "name": "expect",
+    "title": "完整加工保存样本 77.10000002384186, 89, 87.10000002384186, 73.80000007152557, 90.5",
+    "ms": 0.0,
+    "start": 50389.534
+  },
+  {
+    "name": "expect",
+    "title": "预热后详情刷新样本 1138.5, 1152.6000000238419, 1133.5, 698.5, 1122.8999999761581",
+    "ms": 1.8,
+    "start": 50390.036
+  },
+  {
+    "name": "hook",
+    "title": "After Hooks",
+    "ms": 196.7,
+    "start": 50392.107
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"page\"",
+    "ms": 0.0,
+    "start": 50414.04
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"context\"",
+    "ms": 172.4,
+    "start": 50414.125
+  },
+  {
+    "name": "pw:api",
+    "title": "Close context",
+    "ms": 20.4,
+    "start": 50565.147
+  },
+  {
+    "name": "test.attach",
+    "title": "Attach \"error-context\"",
+    "ms": 0.0,
+    "start": 50587.576
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"baseURL\"",
+    "ms": 0.0,
+    "start": 50587.785
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"userAgent\"",
+    "ms": 0.0,
+    "start": 50587.836
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"viewport\"",
+    "ms": 0.0,
+    "start": 50587.933
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"isMobile\"",
+    "ms": 0.0,
+    "start": 50588.263
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"hasTouch\"",
+    "ms": 0.0,
+    "start": 50588.447
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"deviceScaleFactor\"",
+    "ms": 0.0,
+    "start": 50588.539
+  },
+  {
+    "name": "hook",
+    "title": "Worker Cleanup",
+    "ms": 16.6,
+    "start": 50588.855
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"video\"",
+    "ms": 0.0,
+    "start": 50589.036
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"browser\"",
+    "ms": 15.8,
+    "start": 50589.088
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"defaultBrowserType\"",
+    "ms": 0.0,
+    "start": 50605.119
+  },
+  {
+    "name": "fixture",
+    "title": "Fixture \"screenshot\"",
+    "ms": 0.0,
+    "start": 50605.167
+  },
+  {
+    "name": "newPage",
+    "title": "",
+    "ms": 44.8,
+    "start": 41842.618
+  },
+  {
+    "name": "goto",
+    "title": "",
+    "ms": 60.0,
+    "start": 41888.598
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveText\"",
+    "ms": 974.3,
+    "start": 41954.757
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 54.4,
+    "start": 42948.346
+  },
+  {
+    "name": "goto",
+    "title": "",
+    "ms": 51.8,
+    "start": 43004.623
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 631.0,
+    "start": 43067.034
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 12.7,
+    "start": 43703.611
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 55.6,
+    "start": 43717.963
+  },
+  {
+    "name": "fill",
+    "title": "",
+    "ms": 9.0,
+    "start": 43776.472
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.7,
+    "start": 43787.368
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 24.8,
+    "start": 43790.532
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 26.5,
+    "start": 43817.069
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 12.7,
+    "start": 43845.915
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.2,
+    "start": 43864.941
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 13.8,
+    "start": 43867.409
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 35.3,
+    "start": 43882.494
+  },
+  {
+    "name": "fill",
+    "title": "",
+    "ms": 3.4,
+    "start": 43919.78
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.1,
+    "start": 43924.606
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 38.1,
+    "start": 43926.91
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 25.8,
+    "start": 43966.386
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 12.9,
+    "start": 43994.481
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.2,
+    "start": 44013.551
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 15.4,
+    "start": 44015.947
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 35.2,
+    "start": 44032.625
+  },
+  {
+    "name": "fill",
+    "title": "",
+    "ms": 3.6,
+    "start": 44069.818
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.7,
+    "start": 44074.742
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 37.1,
+    "start": 44077.788
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 24.1,
+    "start": 44117.598
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 12.6,
+    "start": 44144.042
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.1,
+    "start": 44162.499
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 17.0,
+    "start": 44164.756
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 33.2,
+    "start": 44183.103
+  },
+  {
+    "name": "fill",
+    "title": "",
+    "ms": 3.5,
+    "start": 44218.406
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.2,
+    "start": 44223.324
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 21.8,
+    "start": 44225.699
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 25.7,
+    "start": 44248.876
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 13.4,
+    "start": 44276.871
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.1,
+    "start": 44297.252
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 15.0,
+    "start": 44299.564
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 35.1,
+    "start": 44315.814
+  },
+  {
+    "name": "fill",
+    "title": "",
+    "ms": 3.4,
+    "start": 44352.948
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.1,
+    "start": 44357.706
+  },
+  {
+    "name": "click",
+    "title": "",
+    "ms": 38.3,
+    "start": 44359.987
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toHaveCount\"",
+    "ms": 25.7,
+    "start": 44399.773
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 13.2,
+    "start": 44428.407
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.1,
+    "start": 44448.208
+  },
+  {
+    "name": "reload",
+    "title": "",
+    "ms": 52.5,
+    "start": 44450.49
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 614.1,
+    "start": 44506.561
+  },
+  {
+    "name": "reload",
+    "title": "",
+    "ms": 53.7,
+    "start": 45126.388
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1023.1,
+    "start": 45184.04
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 26.4,
+    "start": 46229.7
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.6,
+    "start": 46265.045
+  },
+  {
+    "name": "reload",
+    "title": "",
+    "ms": 55.7,
+    "start": 46268.132
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1023.3,
+    "start": 46327.451
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 27.9,
+    "start": 47374.527
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.6,
+    "start": 47420.523
+  },
+  {
+    "name": "reload",
+    "title": "",
+    "ms": 50.0,
+    "start": 47423.495
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1015.7,
+    "start": 47479.679
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 27.7,
+    "start": 48519.685
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.7,
+    "start": 48556.707
+  },
+  {
+    "name": "reload",
+    "title": "",
+    "ms": 56.8,
+    "start": 48560.021
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 612.5,
+    "start": 48620.549
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 13.5,
+    "start": 49238.699
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.1,
+    "start": 49259.1
+  },
+  {
+    "name": "reload",
+    "title": "",
+    "ms": 47.1,
+    "start": 49261.421
+  },
+  {
+    "name": "expect",
+    "title": "Expect \"toBeVisible\"",
+    "ms": 1011.6,
+    "start": 49314.652
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 26.8,
+    "start": 50348.208
+  },
+  {
+    "name": "evaluateExpression",
+    "title": "",
+    "ms": 1.8,
+    "start": 50383.821
+  }
+]

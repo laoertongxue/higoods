@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-10-19T16:45:44.333Z",
+  "script": "scripts/verification/post-finishing-partial-performance.mjs",
+  "sha256": "62663b3893ae5a06e665fcb97246a14dd4a144580733e95218edf56590da3508",
+  "boundary": "Actual extracted harness functions exercised with controlled page samples; no browser, application business state or timing sample. This checks failure propagation and narrow threshold behavior only.",
+  "checks": [
+    {
+      "check": "loaded stops after first valid failed sample without a duplicate null sample",
+      "passed": true
+    },
+    {
+      "check": "recorded stops after first valid failed sample without a duplicate null sample",
+      "passed": true
+    },
+    {
+      "check": "10s restore threshold requires exact family and all fixed scope fields; migration or changed byte length remain 1s",
+      "passed": true
+    }
+  ]
+}

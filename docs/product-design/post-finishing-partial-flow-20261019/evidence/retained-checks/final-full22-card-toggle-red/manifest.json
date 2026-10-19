@@ -1,0 +1,35 @@
+{
+  "reason": "9通过，第10例盲点summary把原已展开首项关闭，input不可见；仅条件展开修正，12后例未运行。",
+  "files": [
+    {
+      "path": "full-before.spec.ts",
+      "bytes": 68399,
+      "sha256": "eaac773c211eeb8c997f2190b054f9f41222b64f4c74ffe5485dca9c17414a05"
+    },
+    {
+      "path": "post-finishing-full-flow-Web可接续PDA分项记录，保留原责任且无需整单接管/error-context.md",
+      "bytes": 18792,
+      "sha256": "081e4c15ad13d62698ba3cffd320529661d3946351f911a5119b6195bae86c8c"
+    },
+    {
+      "path": "post-finishing-full-flow-Web可接续PDA分项记录，保留原责任且无需整单接管/test-failed-1.png",
+      "bytes": 59949,
+      "sha256": "665e3840029acdf78651eae51c3b9c0f012123efb6931f53be91cd563decb481"
+    },
+    {
+      "path": "post-finishing-full-flow-Web可接续PDA分项记录，保留原责任且无需整单接管/trace.zip",
+      "bytes": 1311995,
+      "sha256": "5d17ad728b9142683f79224c618cace0251d3d1782c2f70fd990d4fe5e4903c8"
+    },
+    {
+      "path": "post-finishing-full-flow-Web可接续PDA分项记录，保留原责任且无需整单接管/video.webm",
+      "bytes": 652266,
+      "sha256": "b8eaf67e7447b5af7dfb05c63ce692cef4d3d368173d34327ed3e432777b7302"
+    },
+    {
+      "path": "raw.log",
+      "bytes": 4140048,
+      "sha256": "024d6d1ed303911d5721d5b6e03ec8a1f547fea5fa2e495656994d66144113b6"
+    }
+  ]
+}

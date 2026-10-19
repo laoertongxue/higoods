@@ -1,0 +1,3 @@
+任务 SC-RELEASE-DEMO-0002-1 二维码值错误：期望 FCS:TASK:v1:SC-RELEASE-DEMO-0002-1，实际 空
+(node:87181) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

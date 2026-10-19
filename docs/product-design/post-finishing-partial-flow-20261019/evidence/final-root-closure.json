@@ -1,0 +1,22 @@
+{
+  "sourceManifestSha256": "42371a41432433e33860a71a8401b5c3bcf7ec0782aa1337d7ccd041e9dd80ac",
+  "runtimeFilesChecked": 1222,
+  "sourceFilesChecked": 71,
+  "mismatches": [],
+  "coreFamilies": 100,
+  "coreSamples": 520,
+  "coreRawRowsVerifiedExactly": true,
+  "supplementalFamilies": 5,
+  "supplementalSamples": 25,
+  "supplementalNativeProofsValid": true,
+  "actualPdfQuality": "20 representative documents1249pages and all50 actual PDF text/paper checks; no oldvisual inheritance",
+  "reviewer": "Codex root technical review",
+  "governance": {
+    "prototype": "passed exit0",
+    "list": "passed exit0",
+    "scope": "full worktree",
+    "evidence": "retained-checks/final-governance"
+  },
+  "receipt": "not yet run; freeze task files and record actual result outside bound worktree",
+  "release": "not pushed; user authorized main merge/push after final receipt"
+}

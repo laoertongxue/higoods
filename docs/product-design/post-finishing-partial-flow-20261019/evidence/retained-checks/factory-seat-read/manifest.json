@@ -1,0 +1,35 @@
+{
+  "result": {
+    "minimalRed": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "exitCode": 1,
+      "failure": "readFactorySewingSeatCount export undefined"
+    },
+    "green": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "actualFactories": 41,
+    "actualIdCodeChecks": 82,
+    "resolverCombinations": 120
+  },
+  "sourceSHA256": {
+    "tests/unit/post-finishing-factory-seat-read.test.ts": "8f2b95a106e9f17cd32e2615ba8baa3b51fe210917ff132a40b3abca508a0f7d",
+    "src/data/fcs/factory-master-store.ts": "4281795e16eef9e92015d3d1861b3fa7e03bedb895a413121dd52ab274bc3c60",
+    "src/data/fcs/third-party-factory-rating.ts": "bfe4f9cb24230ae013867104863cf13ef6b1c97d8da9f982d37f1093ec8e60ef"
+  },
+  "beforeSourceDirectory": "../seat-source-before",
+  "boundary": "isolated Node public read/upsert contracts only; no browser/IDB/performance/production database",
+  "artifactsSHA256": {
+    "factory-master-store.ts.txt": "4281795e16eef9e92015d3d1861b3fa7e03bedb895a413121dd52ab274bc3c60",
+    "green.log": "4ac7134ff5532c0306d5bcc49d27fee02883e0e9d829f6a0e4f08cae786e2882",
+    "post-finishing-factory-seat-read.test.ts.txt": "8f2b95a106e9f17cd32e2615ba8baa3b51fe210917ff132a40b3abca508a0f7d",
+    "red.log": "e6d9ef4b5560d43865aaba24520021de4f7e50ef00cec6c27fe2bbcaa678d1f3",
+    "review.md": "b64d120337a7a9942914a9e2c15a38ac0abe2345d6f09fb802b198fb8abf67ef",
+    "third-party-factory-rating.ts.txt": "bfe4f9cb24230ae013867104863cf13ef6b1c97d8da9f982d37f1093ec8e60ef"
+  }
+}

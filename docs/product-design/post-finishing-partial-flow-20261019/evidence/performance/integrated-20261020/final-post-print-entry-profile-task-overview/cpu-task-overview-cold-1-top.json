@@ -1,0 +1,603 @@
+{
+  "family": "task-overview:cold",
+  "trial": 1,
+  "samplingIntervalUs": 1000,
+  "profiledTiming": true,
+  "durationUs": 1057024,
+  "top": [
+    {
+      "function": "(program)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 73,
+      "inclusiveSamples": 73
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 70,
+      "inclusiveSamples": 70
+    },
+    {
+      "function": "e.onsuccess",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-CUHoxsZG.js",
+      "line": 1,
+      "column": 1210,
+      "selfSamples": 35,
+      "inclusiveSamples": 35,
+      "sourceExcerpt": "=>{throw ie=void 0,e}),ie)}function j(e){return new Promise((o,t)=>{e.onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!Number.isSafeInteger(e)||e<0)throw new Error(\"PCS 记"
+    },
+    {
+      "function": "Me",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-CUHoxsZG.js",
+      "line": 1,
+      "column": 52337,
+      "selfSamples": 26,
+      "inclusiveSamples": 46,
+      "sourceExcerpt": "ncludes(s.roleName)))throw new Error(\"加工责任人或录入人身份不完整，资料未导入。\")}}async function Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeValues)!=null&&o.has(a.value))?a.value:ot(a.value)})"
+    },
+    {
+      "function": "getBoundingClientRect",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 21,
+      "inclusiveSamples": 21
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "selfSamples": 18,
+      "inclusiveSamples": 18
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CMr6I3rx.js",
+      "line": 0,
+      "column": 37670,
+      "selfSamples": 17,
+      "inclusiveSamples": 17,
+      "sourceExcerpt": "hrow new Error(\"本范围后道辅料已改由辅料调拨办理，原辅料事实只读；本次其他后道操作未保存。请重新读取。\");be||q()}function N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialC"
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CMr6I3rx.js",
+      "line": 0,
+      "column": 37670,
+      "selfSamples": 16,
+      "inclusiveSamples": 16,
+      "sourceExcerpt": "hrow new Error(\"本范围后道辅料已改由辅料调拨办理，原辅料事实只读；本次其他后道操作未保存。请重新读取。\");be||q()}function N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialC"
+    },
+    {
+      "function": "z",
+      "url": "http://127.0.0.1:43198/assets/printing-task-domain-CSdjlFuY.js",
+      "line": 0,
+      "column": 230416,
+      "selfSamples": 12,
+      "inclusiveSamples": 12,
+      "sourceExcerpt": "v.values()).sort((e,t)=>e.printOrderNo.localeCompare(t.printOrderNo))}function z(e){return{...e,sourceSnapshot:e.sourceSnapshot?structuredClone(e.sourceSnapshot):void 0,sourceArtifactIds:e.sourceArtifactIds?[...e.sourceArtifactIds]:void 0,productionOrderIds:[...e.productionOrderIds],formalProductionOrderSnapshot:e.formalProductionOrderSnapshot?structuredClone(e.formalProductionOrderSnapshot):void 0,changeImpact:e.changeImpact?structuredClone(e.changeImpact):void 0,autoSyncHistory:e.autoSyncHistory?structuredClone(e.autoSyncHistory):void 0,businessView:e.businessView?structuredClone(e.businessView):void 0}}function Hr(e){return{...e,proofImageIds:e.proofImageIds?[...e.proo"
+    },
+    {
+      "function": "z",
+      "url": "http://127.0.0.1:43198/assets/printing-task-domain-CSdjlFuY.js",
+      "line": 0,
+      "column": 230416,
+      "selfSamples": 8,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "v.values()).sort((e,t)=>e.printOrderNo.localeCompare(t.printOrderNo))}function z(e){return{...e,sourceSnapshot:e.sourceSnapshot?structuredClone(e.sourceSnapshot):void 0,sourceArtifactIds:e.sourceArtifactIds?[...e.sourceArtifactIds]:void 0,productionOrderIds:[...e.productionOrderIds],formalProductionOrderSnapshot:e.formalProductionOrderSnapshot?structuredClone(e.formalProductionOrderSnapshot):void 0,changeImpact:e.changeImpact?structuredClone(e.changeImpact):void 0,autoSyncHistory:e.autoSyncHistory?structuredClone(e.autoSyncHistory):void 0,businessView:e.businessView?structuredClone(e.businessView):void 0}}function Hr(e){return{...e,proofImageIds:e.proofImageIds?[...e.proo"
+    },
+    {
+      "function": "we",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 177354,
+      "selfSamples": 7,
+      "inclusiveSamples": 12,
+      "sourceExcerpt": "f[t.outboundOrderId,t.outboundOrderNo])e.has(r)||e.set(r,t);return e}function we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,s=o.filter(O=>O.handoverRecordStatus===\"OBJECTION_REPORTED\"||O.handoverRecordStatus===\"OBJEC"
+    },
+    {
+      "function": "we",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 177354,
+      "selfSamples": 6,
+      "inclusiveSamples": 10,
+      "sourceExcerpt": "f[t.outboundOrderId,t.outboundOrderNo])e.has(r)||e.set(r,t);return e}function we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,s=o.filter(O=>O.handoverRecordStatus===\"OBJECTION_REPORTED\"||O.handoverRecordStatus===\"OBJEC"
+    },
+    {
+      "function": "Xs",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 1511,
+      "selfSamples": 6,
+      "inclusiveSamples": 6,
+      "sourceExcerpt": ">{hr===a&&(ar=\"\",hr=null)}}const Zs=\"productionMaterialPrepWorkflow\";function Xs(e){return Number(Number(e||0).toFixed(2))}function en(e,t=Qs()){try{const r=t==null?void 0:t.getItem(Zs);if(!r)return[];const o=JSON.parse(r);return Array.isArray(o.prepRecords)?o.prepRecords.filter(a=>(a==null?void 0:a.prepOrderId)===e&&a.recordStatus===\"CONFIRMED\"&&Array.isArray(a.items)&&a.items.every(s=>s&&Number.isFinite(s.preparedQty)&&s.preparedQty>=0)):[]}catch{return[]}}function tn(e){return(Array.isArray(e.items)&&e.items.length>0?e.items:[{prepRecordItemId:`${e.prepRecordId}:item:${e.prepLineId}`,prepLineId:e.prepLineId,preparedQty:e.preparedQty,rollCount:e.rollCount,stockWarehouse"
+    },
+    {
+      "function": "request.onsuccess",
+      "url": "",
+      "line": 47,
+      "column": 28,
+      "selfSamples": 6,
+      "inclusiveSamples": 6
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 5,
+      "inclusiveSamples": 8,
+      "sourceExcerpt": "var Wt=Object.defineProperty;var Kt=(e,t,a)=>t in e?Wt(e,t,{enumerable:!0,configurable:!0,writable:!0,value:a}):e[t]=a;var Pe=(e,t,a)=>Kt(e,typeof t!=\"symbol\"?t+\"\":t,a);import{T as Ht,a as qt,b as W,A as ht,c as gt,d as xe,S as At,e as St,f as ne}from\"./tmf-domain-shared-DboXqEqI.js\";function y(e){return(e==null?\"\":String(e)).replaceAll(\"&\",\"&amp;\").replaceAll(\"<\",\"&lt;\").replaceAll(\">\",\"&gt;\").replaceAll('\"',\"&quot;\").replaceAll(\"'\",\"&#39;\")}function Vt(...e){return e.filter(Boolean).join(\" \")}function Xt(e){return typeof CSS<\"u\"&&typeof CSS.escape==\"function\"?CSS.escape(e):Array.from(e,t=>{v"
+    },
+    {
+      "function": "Wt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 113263,
+      "selfSamples": 5,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Wt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ma(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(O=>O.handoverRecordStatus!==\"VOIDED\"):t,d=F(n,O=>it(O)),c=F(n,O=>ie(O)??0),i=F(n,O=>Ha(O)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Jd(n,u):void 0,l=n.map(O=>O.handoverRecordStatus||Zt(O)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/tmf-domain-shared-DboXqEqI.js",
+      "line": 0,
+      "column": 14816,
+      "selfSamples": 5,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "s),(E.predecessorEntryIds??[]).flatMap(c=>u(c,p))}return e.filter(s=>!o(s)).map(s=>({...structuredClone(s),predecessorEntryIds:[...new Set((s.predecessorEntryIds??[]).flatMap(a=>u(a)))]}))}let Y=()=>{},v=()=>{};function Ee(e){Y=e}function fe(e){v=e}function le(e){return Y(e)}function Se(e){return v(e)}const B=[{id:\"tmf-webbing-reference\",code:\"TMF-WB-REF\",name:\"白色织带半成品（幅宽待确认）\",english:\"White webbing reference\",category:\"织带\",dimension:\"幅宽待确认\",image:\"/materials/tmf/webbing-real-roll.jpg\"},{id:\"tmf-rope-reference\",code:\"TMF-RP-REF\",name:\"白色绳子半成品（绳径待确认）\",english:\"White cord reference\",category:\"绳子\",dimension:\"绳径待确认\",image:\"/materials/tmf/rope-real-bundle.jpg\"}],A={createdAt:\""
+    },
+    {
+      "function": "Wt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 113263,
+      "selfSamples": 5,
+      "inclusiveSamples": 5,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Wt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ma(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(O=>O.handoverRecordStatus!==\"VOIDED\"):t,d=F(n,O=>it(O)),c=F(n,O=>ie(O)??0),i=F(n,O=>Ha(O)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Jd(n,u):void 0,l=n.map(O=>O.handoverRecordStatus||Zt(O)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "",
+      "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-CaqTb-3q.js",
+      "line": 0,
+      "column": 0,
+      "selfSamples": 5,
+      "inclusiveSamples": 12,
+      "sourceExcerpt": "import{Q as be,R as Te,T as Je,U as Vt}from\"./craft-display-support-DsFy7BKv.js\";import{p as Ht,i as Kt,b as lt,e as Yt}from\"./production-orders-CZH0DeUS.js\";import{o as Pe,a4 as Xt,a5 as Ze,a6 as Jt}from\"./app-shared-_ZQpMwKQ.js\";import{u as W,v as ct}from\"./runtime-process-tasks-BkBTALaZ.js\";import{g as Zt}from\"./production-tech-pack-change-domain-B9FWo-iF.js\";const ke=\"FCSQR\",Re=\"2.0.0\";function ea(e){return`${ke}:${encodeURIComponent(JSON.stringify(e))}`}function it(e){return ea(e)}function ta(e){if(!e)return null;const t=e.startsWith(`${ke}:`)?decodeURIComponent(e.slice(ke.length+1)):e;tr"
+    },
+    {
+      "function": "N",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CMr6I3rx.js",
+      "line": 0,
+      "column": 37670,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "hrow new Error(\"本范围后道辅料已改由辅料调拨办理，原辅料事实只读；本次其他后道操作未保存。请重新读取。\");be||q()}function N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialC"
+    },
+    {
+      "function": "we",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 177354,
+      "selfSamples": 4,
+      "inclusiveSamples": 9,
+      "sourceExcerpt": "f[t.outboundOrderId,t.outboundOrderNo])e.has(r)||e.set(r,t);return e}function we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,s=o.filter(O=>O.handoverRecordStatus===\"OBJECTION_REPORTED\"||O.handoverRecordStatus===\"OBJEC"
+    },
+    {
+      "function": "we",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 177354,
+      "selfSamples": 4,
+      "inclusiveSamples": 9,
+      "sourceExcerpt": "f[t.outboundOrderId,t.outboundOrderNo])e.has(r)||e.set(r,t);return e}function we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,s=o.filter(O=>O.handoverRecordStatus===\"OBJECTION_REPORTED\"||O.handoverRecordStatus===\"OBJEC"
+    },
+    {
+      "function": "Wt",
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+      "line": 1,
+      "column": 113263,
+      "selfSamples": 4,
+      "inclusiveSamples": 4,
+      "sourceExcerpt": "ACK\":a>0?\"PARTIAL_WRITTEN_BACK\":t?\"WRITTEN_BACK\":\"PARTIAL_SUBMITTED\"}function Wt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ma(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(O=>O.handoverRecordStatus!==\"VOIDED\"):t,d=F(n,O=>it(O)),c=F(n,O=>ie(O)??0),i=F(n,O=>Ha(O)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Jd(n,u):void 0,l=n.map(O=>O.handoverRecordStatus||Zt(O)),R=e.sourceBusinessType===\"WATER_"
+    },
+    {
+      "function": "hs",
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CMr6I3rx.js",
+      "line": 0,
+      "column": 111117,
+      "selfSamples": 4,
+      "inclusiveSamples": 24,
+      "sourceExcerpt": "n.status===\"已接收入库\"&&n.lines.every(c=>c.receivedQty===c.outboundQty))}function hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};const c=Wt(n),d=m.recheckOrders.filter(p=>p.delivery"
+    },
+    {
+      "function": "c",
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-CUHoxsZG.js",
+      "line": 1,
+      "column": 1895,
+      "selfSamples": 4,
+      "inclusiveSamples": 10,
+      "sourceExcerpt": "。\")}function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Array.isArray(s)){for(const g of s)(typeof g==\"string"
+    }
+  ],
+  "aggregatedTop": [
+    {
+      "frame": {
+        "functionName": "(program)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 73,
+      "stacks": [
+        [
+          "(program) <- (root)",
+          73
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(idle)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 70,
+      "stacks": [
+        [
+          "(idle) <- (root)",
+          70
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "N",
+        "scriptId": "40",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CMr6I3rx.js",
+        "lineNumber": 0,
+        "columnNumber": 37670
+      },
+      "selfSamples": 40,
+      "stacks": [
+        [
+          "N <- hs <- <anonymous> <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          17
+        ],
+        [
+          "N <- hs <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          16
+        ],
+        [
+          "N <- cr <- Ce <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "N <- <anonymous> <- zt <- <anonymous> <- As <- <anonymous> <- jo <- Ir <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "N <- <anonymous> <- d <- <anonymous> <- ot <- Z <- st <- Xt <- <anonymous> <- As <- <anonymous> <- jo <- Ir <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "e.onsuccess",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-CUHoxsZG.js",
+        "lineNumber": 1,
+        "columnNumber": 1210
+      },
+      "selfSamples": 35,
+      "stacks": [
+        [
+          "e.onsuccess <- (root)",
+          35
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "we",
+        "scriptId": "62",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+        "lineNumber": 1,
+        "columnNumber": 177354
+      },
+      "selfSamples": 31,
+      "stacks": [
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          8
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          7
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- Vi <- ht <- Mt <- Hc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- Qc <- <anonymous> <- Wc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "we <- <anonymous> <- gi <- Nt <- ji <- To <- ve <- Hc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Wt",
+        "scriptId": "62",
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-CZFTG6W8.js",
+        "lineNumber": 1,
+        "columnNumber": 113263
+      },
+      "selfSamples": 28,
+      "stacks": [
+        [
+          "Wt <- we <- <anonymous> <- gi <- Nt <- ji <- Qc <- <anonymous> <- Wc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "Wt <- we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "Wt <- we <- <anonymous> <- gi <- Nt <- ji <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "Wt <- we <- <anonymous> <- gi <- Nt <- ji <- Vi <- ht <- Mt <- Hc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "Wt <- we <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- je <- Kd <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          3
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "Me",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-CUHoxsZG.js",
+        "lineNumber": 1,
+        "columnNumber": 52337
+      },
+      "selfSamples": 26,
+      "stacks": [
+        [
+          "Me <- (root)",
+          26
+        ],
+        [
+          "Me <- J <- (root)",
+          0
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "getBoundingClientRect",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 21,
+      "stacks": [
+        [
+          "getBoundingClientRect <- visible <- ready <- check <- (root)",
+          21
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "z",
+        "scriptId": "55",
+        "url": "http://127.0.0.1:43198/assets/printing-task-domain-CSdjlFuY.js",
+        "lineNumber": 0,
+        "columnNumber": 230416
+      },
+      "selfSamples": 20,
+      "stacks": [
+        [
+          "z <- xs <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          12
+        ],
+        [
+          "z <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          8
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "(garbage collector)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 18,
+      "stacks": [
+        [
+          "(garbage collector) <- (root)",
+          18
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "c",
+        "scriptId": "22",
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-CUHoxsZG.js",
+        "lineNumber": 1,
+        "columnNumber": 1895
+      },
+      "selfSamples": 14,
+      "stacks": [
+        [
+          "c <- c <- c <- M <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "c <- c <- c <- c <- M <- <anonymous> <- (root)",
+          4
+        ],
+        [
+          "c <- M <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "c <- c <- M <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "c <- c <- c <- c <- c <- M <- <anonymous> <- (root)",
+          2
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "structuredClone",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "selfSamples": 11,
+      "stacks": [
+        [
+          "structuredClone <- A <- R <- oe <- Ne <- <anonymous> <- tt <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "structuredClone <- I <- dr <- lr <- Fd <- <anonymous> <- he <- <anonymous> <- io <- js <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "structuredClone <- ye <- Ht <- ot <- <anonymous> <- gi <- Nt <- ji <- Vi <- ht <- Mt <- Hc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "structuredClone <- I <- pr <- ga <- It <- Qd <- c <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "structuredClone <- ye <- Ht <- ot <- <anonymous> <- gi <- Nt <- ji <- Vi <- it <- je <- Kd <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "",
+        "scriptId": "15",
+        "url": "http://127.0.0.1:43198/assets/tmf-domain-shared-DboXqEqI.js",
+        "lineNumber": 0,
+        "columnNumber": 14816
+      },
+      "selfSamples": 10,
+      "stacks": [
+        [
+          "<anonymous> <- me <- fd <- Nr <- <anonymous> <- Us <- Ju <- wa <- gd <- It <- Qd <- c <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          5
+        ],
+        [
+          "<anonymous> <- me <- fd <- Nr <- <anonymous> <- Us <- Ju <- wa <- gd <- It <- Le <- Vi <- it <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "<anonymous> <- me <- fd <- Nr <- xu <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          2
+        ],
+        [
+          "<anonymous> <- me <- fd <- Nr <- <anonymous> <- Us <- Ju <- wa <- gd <- It <- Le <- Vi <- it <- je <- Kd <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "b",
+        "scriptId": "40",
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CMr6I3rx.js",
+        "lineNumber": 0,
+        "columnNumber": 37948
+      },
+      "selfSamples": 7,
+      "stacks": [
+        [
+          "b <- <anonymous> <- ds <- $a <- gi <- Nt <- ji <- Qc <- <anonymous> <- Wc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "b <- <anonymous> <- ds <- $a <- gi <- Nt <- ji <- Vi <- ht <- Mt <- Hc <- Jc <- <anonymous> <- ne <- Ee <- js <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "b <- <anonymous> <- ls <- Xa <- gi <- Nt <- ji <- ja <- ye <- Kd <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "b <- <anonymous> <- ls <- Xa <- gi <- Nt <- ji <- $r <- <anonymous> <- Ld <- Re <- we <- hr <- cc <- u <- <anonymous> <- <anonymous> <- <anonymous> <- de <- H <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          1
+        ],
+        [
+          "b <- <anonymous> <- ot <- <anonymous> <- <anonymous> <- Me <- (root)",
+          1
+        ]
+      ]
+    },
+    {
+      "frame": {
+        "functionName": "N",
+        "scriptId": "16",
+        "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+        "lineNumber": 0,
+        "columnNumber": 73718
+      },
+      "selfSamples": 6,
+      "stacks": [
+        [
+          "N <- <anonymous> <- Ye <- V <- W <- readiness <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "N <- <anonymous> <- Ye <- oe <- Ne <- <anonymous> <- tt <- Po <- <anonymous> <- Ce <- <anonymous> <- (root)",
+          3
+        ],
+        [
+          "N <- <anonymous> <- $r <- <anonymous> <- (root)",
+          0
+        ],
+        [
+          "N <- <anonymous> <- Hr <- _t <- <anonymous> <- tr <- <anonymous> <- As <- <anonymous> <- jo <- Ir <- <anonymous> <- (root)",
+          0
+        ],
+        [
+          "N <- <anonymous> <- Ye <- oe <- ownedProductionIdentities <- De <- So <- J <- (root)",
+          0
+        ]
+      ]
+    }
+  ]
+}

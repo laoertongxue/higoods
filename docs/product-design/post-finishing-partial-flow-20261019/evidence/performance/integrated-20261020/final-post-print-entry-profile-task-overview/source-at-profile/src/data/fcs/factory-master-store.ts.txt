@@ -1,0 +1,421 @@
+import { canonicalSeamCraftCode, normalizeSeamEmbroideryReferences, SEAM_EMBROIDERY } from './seam-embroidery-identity.ts'
+import { getProcessCraftByCode, getProcessDefinitionByCode } from './process-craft-dict.ts'
+import { KOL_GOTO_FACTORY_ID, TEST_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
+import {
+  getBrowserLocalStorage,
+  readBrowserStorageItem,
+  writeBrowserStorageItem,
+} from '../browser-storage.ts'
+import {
+  DEFAULT_FACTORY_ONBOARDING_PPIC,
+  getAvailableOnboardingPpicOptions,
+  getOnboardingPpicOptionById,
+} from './factory-onboarding-ppic.ts'
+import type { Factory } from './factory-types.ts'
+import { isLegacySpecialCraftFactoryId } from './special-craft-dedicated-factories.ts'
+import { APF_FACTORY_ID, SPF_FACTORY_ID, TMF_FACTORY_ID } from './central-craft-factories.ts'
+
+const FACTORY_MASTER_STORE_KEY = 'fcs_factory_master_store_v1'
+
+function cloneTaskAcceptanceConfig(config: Factory['taskAcceptanceConfig']): Factory['taskAcceptanceConfig'] {
+  if (!config) return undefined
+  return {
+    singleProcessEnabled: config.singleProcessEnabled,
+    canAcceptSewingIronPack: config.canAcceptSewingIronPack,
+    canAcceptCuttingSewingIronPack: config.canAcceptCuttingSewingIronPack,
+  }
+}
+
+function normalizeKolGotoFactoryProfile(factory: Factory): Factory {
+  if (factory.id !== KOL_GOTO_FACTORY_ID) return factory
+  return {
+    ...factory,
+    cooperationMode: 'general',
+    factoryTier: 'THIRD_PARTY',
+    factoryType: 'THIRD_SEWING',
+    eligibility: {
+      allowDispatch: false,
+      allowBid: false,
+      allowExecute: true,
+      allowSettle: true,
+    },
+  }
+}
+
+function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
+  factory = normalizeKolGotoFactoryProfile(factory)
+  if (factory.id === KOL_GOTO_FACTORY_ID) {
+    return {
+      ...factory,
+      processAbilities: factory.processAbilities.map((ability) => ({
+        ...ability,
+        canReceiveTask: false,
+      })),
+      taskAcceptanceConfig: {
+        singleProcessEnabled: false,
+        canAcceptSewingIronPack: false,
+        canAcceptCuttingSewingIronPack: false,
+      },
+    }
+  }
+  if (factory.taskAcceptanceConfig) return factory
+  if (factory.id === 'ID-F014') {
+    return {
+      ...factory,
+      taskAcceptanceConfig: {
+        singleProcessEnabled: true,
+        canAcceptSewingIronPack: true,
+        canAcceptCuttingSewingIronPack: true,
+      },
+    }
+  }
+  return {
+    ...factory,
+    taskAcceptanceConfig: {
+      singleProcessEnabled: true,
+      canAcceptSewingIronPack: false,
+      canAcceptCuttingSewingIronPack: false,
+    },
+  }
+}
+
+function isSewingFactoryProfile(factory: Factory): boolean {
+  if (factory.processAbilities.some((item) => item.processCode === 'SEW')) return true
+  return ['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'].includes(factory.factoryType)
+}
+
+function withLegacySewingFactoryPpicBackfill(factory: Factory): Factory {
+  if (!isSewingFactoryProfile(factory)) return factory
+  if (factory.assignedPpicId?.trim() && factory.assignedPpicName?.trim()) return factory
+  const teamMembers = getAvailableOnboardingPpicOptions().filter((item) => item.role === 'MEMBER')
+  const stableIndex = [...factory.id].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const assignedPpic = teamMembers[stableIndex % teamMembers.length] ?? DEFAULT_FACTORY_ONBOARDING_PPIC
+  return {
+    ...factory,
+    assignedPpicId: assignedPpic.ppicId,
+    assignedPpicName: assignedPpic.ppicName,
+    assignedPpicPhone: assignedPpic.mobilePhone,
+  }
+}
+
+export interface FactoryActivePpicSnapshot {
+  ppicId: string
+  ppicName: string
+  mobilePhone: string
+}
+
+function resolveActivePpicSnapshot(factory: Factory): FactoryActivePpicSnapshot | null {
+  if (!isSewingFactoryProfile(factory)) return null
+  const ppicId = factory.assignedPpicId?.trim() || ''
+  const ppicName = factory.assignedPpicName?.trim() || ''
+  if (!ppicId || !ppicName) return null
+  const ppic = getOnboardingPpicOptionById(ppicId)
+  if (!ppic || ppic.status !== '启用' || ppic.ppicName !== ppicName) return null
+  return {
+    ppicId: ppic.ppicId,
+    ppicName: ppic.ppicName,
+    mobilePhone: ppic.mobilePhone,
+  }
+}
+
+function assertSewingFactoryHasPpic(factory: Factory): void {
+  if (!isSewingFactoryProfile(factory)) return
+  if (resolveActivePpicSnapshot(factory)) return
+  throw new Error('正式车缝工厂必须分配有效PPIC，且只能分配一名启用中的人员，人员ID与姓名必须一致')
+}
+
+/** Re-parent only the migrated craft, without broadening another capability's permissions. */
+function normalizeFactoryProcessAbilities(abilities: Factory['processAbilities']): Factory['processAbilities'] {
+  const seam = getProcessCraftByCode(SEAM_EMBROIDERY.craftCode)!
+  const process = getProcessDefinitionByCode(seam.processCode)!
+  const prepared = abilities.flatMap((ability) => {
+    const names = new Map(ability.craftCodes.map((code, index) => [canonicalSeamCraftCode(code), ability.craftNames?.[index] || code]))
+    const item = normalizeSeamEmbroideryReferences(structuredClone(ability))
+    item.craftCodes = [...new Set(ability.craftCodes.map(canonicalSeamCraftCode))]
+    item.craftNames = item.craftCodes.map(code => getProcessCraftByCode(code)?.craftName || names.get(code) || code)
+    if (!item.craftCodes.includes(seam.craftCode)) return [item]
+    const moved = { ...item, processCode: seam.processCode, processName: process.processName, parentProcessCode: process.parentProcessCode,
+      ...('systemProcessCode' in item ? {systemProcessCode:process.systemProcessCode} : {}),
+    }
+    if (item.processCode === seam.processCode) return [moved]
+    const otherCodes = item.craftCodes.filter(code => code !== seam.craftCode)
+    return [
+      ...(otherCodes.length ? [{...item,craftCodes:otherCodes,craftNames:otherCodes.map(code => getProcessCraftByCode(code)?.craftName || names.get(code) || code)}] : []),
+      {...moved,craftCodes:[seam.craftCode],craftNames:[seam.craftName]},
+    ]
+  })
+  if (!prepared.some(item => item.processCode === seam.processCode && item.craftCodes.includes(seam.craftCode))) return prepared
+  // Abilities are grouped by parent process. Re-parenting can legitimately
+  // combine different generated IDs/names/scopes; keep the existing target
+  // identity and validate the actual business settings separately.
+  const targetAbility = abilities.find(item => item.processCode === seam.processCode)
+  const result: Factory['processAbilities'] = []
+  for (const item of prepared) {
+    if (item.processCode !== seam.processCode) { result.push(item); continue }
+    const current = result.find(row => row.processCode === seam.processCode)
+    if (!current) { result.push({...item,processName:process.processName,parentProcessCode:process.parentProcessCode}); continue }
+    for (const [key, value] of Object.entries(item)) {
+      if (['craftCodes','craftNames','capacityNodeCodes','processName','parentProcessCode','abilityId','abilityName','abilityScope'].includes(key) || value === undefined) continue
+      const previous = (current as unknown as Record<string,unknown>)[key]
+      if (previous !== undefined && JSON.stringify(previous) !== JSON.stringify(value)) {
+        const label = ({canReceiveTask:'接单权限',capacityManaged:'产能管理',status:'能力状态',systemProcessCode:'系统父工序'} as Record<string,string>)[key] || '能力属性'
+        throw new Error(`缝边绣工厂能力配置存在冲突（${label}），原资料已保留，请核对后保存。`)
+      }
+      ;(current as unknown as Record<string,unknown>)[key] = value
+    }
+    current.craftCodes = [...new Set([...current.craftCodes,...item.craftCodes])]
+    current.craftNames = current.craftCodes.map(code => getProcessCraftByCode(code)?.craftName || item.craftNames?.[item.craftCodes.indexOf(code)] || current.craftNames?.[current.craftCodes.indexOf(code)] || code)
+    if (current.capacityNodeCodes || item.capacityNodeCodes) current.capacityNodeCodes = [...new Set([...(current.capacityNodeCodes || []),...(item.capacityNodeCodes || [])])]
+    if (current.abilityId !== undefined || item.abilityId !== undefined) {
+      current.abilityId = targetAbility?.abilityId?.trim() ? targetAbility.abilityId : `ABILITY_${seam.processCode}`
+    }
+    if (current.abilityName !== undefined || item.abilityName !== undefined) {
+      current.abilityName = current.craftCodes.length === 1 ? `${process.processName} - ${current.craftNames[0]}` : process.processName
+    }
+    if (current.abilityScope !== undefined || item.abilityScope !== undefined) {
+      current.abilityScope = current.craftCodes.length === 1 ? 'CRAFT' : 'PROCESS'
+    }
+  }
+  return result
+}
+
+function cloneFactory(factory: Factory): Factory {
+  const privateFactory = structuredClone(withLegacySewingFactoryPpicBackfill(withDefaultTaskAcceptanceConfig(factory)))
+  const processAbilities = normalizeFactoryProcessAbilities(privateFactory.processAbilities)
+  const normalizedFactory = normalizeSeamEmbroideryReferences(privateFactory)
+  return {
+    ...normalizedFactory,
+    factoryShortName: normalizedFactory.factoryShortName || normalizedFactory.code || normalizedFactory.name,
+    mobilePhone: normalizedFactory.mobilePhone || normalizedFactory.phone,
+    inferredFactoryTypes: normalizedFactory.inferredFactoryTypes
+      ? normalizedFactory.inferredFactoryTypes.map((item) => ({
+          ...item,
+          matchedCapabilities: [...item.matchedCapabilities],
+        }))
+      : undefined,
+    identityFile: normalizedFactory.identityFile ? { ...normalizedFactory.identityFile } : normalizedFactory.identityFile,
+    selectedCapabilities: normalizedFactory.selectedCapabilities ? normalizedFactory.selectedCapabilities.map((item) => ({ ...item })) : undefined,
+    machines: normalizedFactory.machines ? normalizedFactory.machines.map((item) => ({ ...item })) : undefined,
+    processAbilities,
+    eligibility: { ...normalizedFactory.eligibility },
+    taskAcceptanceConfig: cloneTaskAcceptanceConfig(normalizedFactory.taskAcceptanceConfig),
+  }
+}
+
+function createOnboardingOfficialSeedFactories(): Factory[] {
+  return [34, 35, 36].map((seed, index) => {
+    const craftName = index === 0 ? '定向裁' : index === 1 ? '定位裁（激光切）' : '数码印'
+    const processName = index === 2 ? '印花' : '裁片'
+    const processCode = index === 2 ? 'PRINT' : 'CUT_PANEL'
+    const craftCode = index === 2 ? 'CRAFT_2000002' : index === 0 ? 'CRAFT_000016' : 'CRAFT_000001'
+    const factoryId = `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`
+    const applicationNo = `FON-${String(20260500 + seed).padStart(8, '0')}`
+    const capability = {
+      processCode,
+      processName,
+      craftCode,
+      craftName,
+      abilityScope: 'CRAFT' as const,
+      canReceiveTask: true,
+      capacityManaged: true,
+      remark: '入驻转正式带入接单能力',
+    }
+    const machine = {
+      machineId: `MCH-${seed}`,
+      machineName: `${craftName}设备`,
+      machineNo: `EQ-${seed}`,
+      machineCount: index + 2,
+      linkedProcessCode: processCode,
+      linkedProcessName: processName,
+      linkedCraftCode: craftCode,
+      linkedCraftName: craftName,
+      condition: '可用' as const,
+      remark: '入驻转正式带入机器能力',
+      validationStatus: '通过' as const,
+      validationMessage: '校验通过',
+    }
+    return {
+      id: factoryId,
+      code: `FOF-${String(seed).padStart(4, '0')}`,
+      name: `${craftName}演示工厂${seed}`,
+      factoryShortName: `onboarding_${seed}`,
+      address: `雅加达示范工业园 ${seed} 号楼 ${seed % 6 + 1} 层`,
+      contact: `申请人${seed}`,
+      mobilePhone: `+62-812-90${String(100000 + seed).slice(-6)}`,
+      phone: `+62-812-90${String(100000 + seed).slice(-6)}`,
+      status: 'active',
+      cooperationMode: 'general',
+      processAbilities: [{
+        processCode,
+        craftCodes: [craftCode],
+        abilityId: `ONBOARDING-${seed}-${processCode}`,
+        processName,
+        craftNames: [craftName],
+        abilityName: `${processName}/${craftName}`,
+        abilityScope: 'CRAFT',
+        canReceiveTask: true,
+        capacityManaged: true,
+        status: 'ACTIVE',
+      }],
+      qualityScore: 0,
+      deliveryScore: 0,
+      createdAt: '2026-05-09 16:00:00',
+      updatedAt: '2026-05-09 16:00:00',
+      factoryTier: 'CENTRAL',
+      factoryType: index === 2 ? 'CENTRAL_PRINT' : 'CENTRAL_CUTTING',
+      pdaEnabled: true,
+      pdaTenantId: factoryId,
+      onboardingApplicationId: `FOA-${String(seed).padStart(4, '0')}`,
+      onboardingApplicationNo: applicationNo,
+      sourceChannel: seed % 3 === 0 ? 'PPIC 转介绍' : seed % 3 === 1 ? '平台招商消息' : '合作工厂推荐',
+      ppicName: `PPIC-${seed}`,
+      assignedPpicId: DEFAULT_FACTORY_ONBOARDING_PPIC.ppicId,
+      assignedPpicName: DEFAULT_FACTORY_ONBOARDING_PPIC.ppicName,
+      assignedPpicPhone: DEFAULT_FACTORY_ONBOARDING_PPIC.mobilePhone,
+      identityNo: seed % 2 === 0 ? `ID-${String(3200000000000000 + seed)}` : `P-${String(88000000 + seed)}`,
+      identityFile: {
+        fileId: `IDF-${String(seed).padStart(4, '0')}`,
+        fileName: `身份文件-${String(seed).padStart(4, '0')}.jpg`,
+        fileType: 'jpg',
+        fileSizeMb: 3,
+        uploadedAt: '2026-05-06 08:30:00',
+      },
+      machineTotalCount: machine.machineCount,
+      effectiveWorkerCount: 18 + seed,
+      availableStartDate: `2026-05-${String((seed % 9) + 10).padStart(2, '0')}`,
+      selectedCapabilities: [capability],
+      machines: [machine],
+      sampleVerificationId: `SV-${String(seed).padStart(4, '0')}`,
+      sampleStatus: '已转正式合作',
+      eligibility: {
+        allowDispatch: true,
+        allowBid: true,
+        allowExecute: true,
+        allowSettle: true,
+      },
+    }
+  })
+}
+
+function mergeSeedFactories(factories: Factory[]): Factory[] {
+  // One-time normalization of saved prototype records; no legacy lookup aliases remain.
+  const retiredIds: Record<string, string> = {
+    'ID-F010': TMF_FACTORY_ID,
+    'FAC-RJ-LACE': TMF_FACTORY_ID,
+    'ID-FAC-001197': TMF_FACTORY_ID,
+    'ID-FAC-001203': SPF_FACTORY_ID,
+  }
+  const centralIds = new Set<string>([APF_FACTORY_ID, SPF_FACTORY_ID, TMF_FACTORY_ID])
+  const currentById = new Map<string, Factory>()
+  const ordered = [...factories].sort((a, b) => Number(!retiredIds[a.id]) - Number(!retiredIds[b.id]))
+  for (const factory of ordered) {
+    if (isLegacySpecialCraftFactoryId(factory.id)) continue
+    const id = retiredIds[factory.id] ?? factory.id
+    const seed = centralIds.has(id) ? mockFactories.find((item) => item.id === id) : undefined
+    currentById.set(id, seed ? {
+      ...factory, id, code: seed.code, name: seed.name, factoryShortName: seed.code,
+      factoryTier: seed.factoryTier, factoryType: seed.factoryType, pdaTenantId: id,
+    } : factory)
+  }
+  const currentFactories = [...currentById.values()]
+  const existingIds = new Set(currentFactories.map((factory) => factory.id))
+  const missingMockSeeds = mockFactories.filter((factory) => !existingIds.has(factory.id))
+  missingMockSeeds.forEach((factory) => existingIds.add(factory.id))
+  const missingOfficialSeeds = createOnboardingOfficialSeedFactories().filter((factory) => !existingIds.has(factory.id))
+  return [...currentFactories, ...missingMockSeeds, ...missingOfficialSeeds]
+}
+
+function loadFactoryMasterRecords(): Factory[] {
+  const storage = getBrowserLocalStorage()
+  const stored = readBrowserStorageItem(storage, FACTORY_MASTER_STORE_KEY)
+  if (!stored) {
+    return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
+  }
+
+  let parsed: unknown
+  try { parsed = JSON.parse(stored) } catch {
+    return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
+  }
+  if (!Array.isArray(parsed)) return mergeSeedFactories(mockFactories).map((factory) => cloneFactory(factory))
+  // A real capability conflict is not a JSON parse failure. Never replace the
+  // user's saved factory profiles with demonstration records after that error.
+  return mergeSeedFactories(parsed as Factory[]).map((factory) => cloneFactory(factory))
+}
+
+function persistFactoryMasterRecords(): void {
+  writeBrowserStorageItem(
+    getBrowserLocalStorage(),
+    FACTORY_MASTER_STORE_KEY,
+    JSON.stringify(factoryMasterRecords.map((factory) => cloneFactory(factory))),
+  )
+}
+
+let factoryMasterRecords: Factory[] = loadFactoryMasterRecords()
+
+export function listFactoryMasterRecords(): Factory[] {
+  return factoryMasterRecords.map((factory) => cloneFactory(factory))
+}
+
+/** 评级只需当前席位值；沿用完整列表查询的精确编号／代码顺序，不复制其他档案。 */
+export function readFactorySewingSeatCount(factoryIdOrCode: string): number | undefined {
+  return factoryMasterRecords.find((factory) => factory.id === factoryIdOrCode || factory.code === factoryIdOrCode)?.sewingSeatCount
+}
+
+export function listBusinessFactoryMasterRecords(input: { includeTestFactories?: boolean } = {}): Factory[] {
+  const includeTestFactories = input.includeTestFactories === true
+  return listFactoryMasterRecords().filter((factory) =>
+    (includeTestFactories || !factory.isTestFactory)
+    && factory.status === 'active'
+    && factory.eligibility.allowDispatch,
+  )
+}
+
+function isSewingFactory(factory: Factory): boolean {
+  if (factory.status !== 'active') return false
+  return isSewingFactoryProfile(factory)
+}
+
+export function listSewingFactoryMasterRecords(): Factory[] {
+  const sewingFactories = factoryMasterRecords.filter((factory) => isSewingFactory(factory))
+  if (sewingFactories.length) {
+    return sewingFactories.map((factory) => cloneFactory(factory))
+  }
+  return listFactoryMasterRecords()
+}
+
+export function getFactoryMasterRecordById(factoryId: string): Factory | undefined {
+  const normalizedFactoryId = factoryId === 'ID-F090' ? TEST_FACTORY_ID : factoryId
+  const factory = factoryMasterRecords.find((item) => item.id === normalizedFactoryId || item.code === normalizedFactoryId)
+  return factory ? cloneFactory(factory) : undefined
+}
+
+export function getFactoryActivePpicSnapshot(factoryId: string): FactoryActivePpicSnapshot | null {
+  const factory = getFactoryMasterRecordById(factoryId)
+  return factory ? resolveActivePpicSnapshot(factory) : null
+}
+
+export function listSewingFactoriesWithoutActivePpic(): Factory[] {
+  return listSewingFactoryMasterRecords().filter((factory) => !resolveActivePpicSnapshot(factory))
+}
+
+export function upsertFactoryMasterRecord(factory: Factory): void {
+  assertSewingFactoryHasPpic(factory)
+  const nextFactory = cloneFactory(factory)
+  const currentIndex = factoryMasterRecords.findIndex((item) => item.id === nextFactory.id)
+
+  if (currentIndex >= 0) {
+    factoryMasterRecords = factoryMasterRecords.map((item, index) =>
+      index === currentIndex ? nextFactory : item,
+    )
+    persistFactoryMasterRecords()
+    return
+  }
+
+  factoryMasterRecords = [nextFactory, ...factoryMasterRecords]
+  persistFactoryMasterRecords()
+}
+
+export function removeFactoryMasterRecord(factoryId: string): void {
+  factoryMasterRecords = factoryMasterRecords.filter((item) => item.id !== factoryId)
+  persistFactoryMasterRecords()
+}

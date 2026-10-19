@@ -1,0 +1,252 @@
+[
+  {
+    "path": "cross-fifteen-complete/progress.json",
+    "bytes": 87517,
+    "sha256": "b707f949f31e8680158bbf5f13c723216ac9750e2af4a6e6c5b8b5a947591a59"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/01-PO-QC-202608-001-R1-wait-handover-pending.png",
+    "bytes": 117475,
+    "sha256": "180f6580490cfed9898484ce929363139e59bc0c7e4f0d3b5cf543c879350804"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/01-PO-QC-202608-001-R1-wait-handover-ready.png",
+    "bytes": 117475,
+    "sha256": "180f6580490cfed9898484ce929363139e59bc0c7e4f0d3b5cf543c879350804"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/01-PO-QC-202608-001-R1-web-qc-completed.png",
+    "bytes": 114136,
+    "sha256": "3e6529bff09f2269a7ce04299440d1f1849b388ac0eb116416aae43e735d88c9"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/02-PO-QC-202608-001-R2-wait-handover-pending.png",
+    "bytes": 136957,
+    "sha256": "2ddb2598109306fb73ea8eb9d6adeb22581d968c4ca37e42e5e22ceccd08994d"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/02-PO-QC-202608-001-R2-wait-handover-ready.png",
+    "bytes": 136957,
+    "sha256": "2ddb2598109306fb73ea8eb9d6adeb22581d968c4ca37e42e5e22ceccd08994d"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/03-PO-QC-202608-001-R3-wait-handover-pending.png",
+    "bytes": 157217,
+    "sha256": "edb777265a16b9fb898d05e803320d45fecb42b27616ae658a7cf4f996e89bc1"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/03-PO-QC-202608-001-R3-wait-handover-ready.png",
+    "bytes": 157217,
+    "sha256": "edb777265a16b9fb898d05e803320d45fecb42b27616ae658a7cf4f996e89bc1"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/03-PO-QC-202608-001-R3-web-return-authorization.png",
+    "bytes": 147495,
+    "sha256": "f1462c8a1d35cd2e72a9d30b2cbc17652f31f43561cbb6e1051a1b3a990b5095"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/04-PO-QC-202608-001-R4-pda-post-completed.png",
+    "bytes": 521187,
+    "sha256": "d584b9c34083ee3e02899ca3feb8d9ca77950fe309bb3c86b6291778667693c9"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/04-PO-QC-202608-001-R4-wait-handover-pending.png",
+    "bytes": 177727,
+    "sha256": "654cb8e4e294cfd9bc83b1619c1f1a783e76bda934e298a6a863a8ed18e54097"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/04-PO-QC-202608-001-R4-wait-handover-ready.png",
+    "bytes": 177727,
+    "sha256": "654cb8e4e294cfd9bc83b1619c1f1a783e76bda934e298a6a863a8ed18e54097"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/04-PO-QC-202608-001-R4-web-qc-completed.png",
+    "bytes": 116882,
+    "sha256": "a1519e2ad42d91c17b9ebdb1ffbf0824bb84f08b63f20aedd1c8bcab8b1400ef"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/05-PO-QC-202608-001-R5-barcode-relabel-block.png",
+    "bytes": 182222,
+    "sha256": "b222a7cb0be116fe386159f714b237454d6b60db5650e025913f1bd5dc15700e"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/05-PO-QC-202608-001-R5-wait-handover-pending.png",
+    "bytes": 178967,
+    "sha256": "5a0b075b4ea44ae25c69d97d5062a131209a775fbfb407bc478d031cc351ceb3"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/05-PO-QC-202608-001-R5-wait-handover-ready.png",
+    "bytes": 178967,
+    "sha256": "5a0b075b4ea44ae25c69d97d5062a131209a775fbfb407bc478d031cc351ceb3"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/06-PO-QC-202608-002-R1-qc-direct-warehouse-pending.png",
+    "bytes": 111319,
+    "sha256": "e9021b7e4678dedeb92bb19d104ce2a30ccb1b8a75429b4b261fcbe25019482b"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/07-PO-QC-202608-002-R2-qc-authorization.png",
+    "bytes": 223309,
+    "sha256": "c9aff6cafb7b9ea98026064140af629a65fca7caa49184d06e0cb1e91cf5f653"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/07-PO-QC-202608-002-R2-qc-direct-warehouse-pending.png",
+    "bytes": 111355,
+    "sha256": "0594e9288f5b7817bcfefab1ce90982a6cf9a847c7f06b2a8497836e47b62938"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/07-PO-QC-202608-002-R2-web-qc-completed.png",
+    "bytes": 118962,
+    "sha256": "e014831f78f243ea125125d0043e68cbff7176b5fc4b603e9a4f130a547b5989"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/08-PO-QC-202608-002-R3-pda-post-completed.png",
+    "bytes": 151005,
+    "sha256": "904d31e51eecc7d34a6948cb5ac26c1c361a1800b61dddb6c988e7ff9fe4716e"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/08-PO-QC-202608-002-R3-recheck-authorization.png",
+    "bytes": 185539,
+    "sha256": "e2690ab6450d283b62edf97232534da5f883ebc7d4e5df124c074ce518048e5e"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/08-PO-QC-202608-002-R3-wait-handover-pending.png",
+    "bytes": 119092,
+    "sha256": "b531f3be1024888e01a4a7d0457afc87434d702e157dcf9e9fb1004a34e7ffc8"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/08-PO-QC-202608-002-R3-wait-handover-ready.png",
+    "bytes": 119092,
+    "sha256": "b531f3be1024888e01a4a7d0457afc87434d702e157dcf9e9fb1004a34e7ffc8"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/09-PO-QC-202608-002-R4-qc-direct-warehouse-pending.png",
+    "bytes": 111355,
+    "sha256": "7db9d4873193521ec02e661536309c43a4000cc7b5ed08370f139289c3ca2d05"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/10-PO-QC-202608-002-R5-wait-handover-pending.png",
+    "bytes": 139374,
+    "sha256": "7fd5cad69c7faf95a7999583cc3620dc5a5776f141f97f6fb5f1f8177e709754"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/10-PO-QC-202608-002-R5-wait-handover-ready.png",
+    "bytes": 139374,
+    "sha256": "7fd5cad69c7faf95a7999583cc3620dc5a5776f141f97f6fb5f1f8177e709754"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/11-PO-QC-202608-003-R1-qc-direct-warehouse-pending.png",
+    "bytes": 111471,
+    "sha256": "d2411b63d53d892828263cd2806c044054314d9538b18bc242ab3340fdab0c2a"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/11-PO-QC-202608-003-R1-web-qc-completed.png",
+    "bytes": 118699,
+    "sha256": "00ef8f56a5fb0477cface2687c284159adfef6f9925368b4f6203fa2676b7526"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/12-PO-QC-202608-003-R2-wait-handover-pending.png",
+    "bytes": 118916,
+    "sha256": "7b51fc7686d0e41302824763712d627a3f182f9edb22cd646a95d1e8e530d005"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/12-PO-QC-202608-003-R2-wait-handover-ready.png",
+    "bytes": 118916,
+    "sha256": "7b51fc7686d0e41302824763712d627a3f182f9edb22cd646a95d1e8e530d005"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/13-PO-QC-202608-003-R3-pda-post-completed.png",
+    "bytes": 337620,
+    "sha256": "b5d1d47d485e9e74d94b0f6e3f08a7117543da69de5bc31b1e5774fdd06ed402"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/13-PO-QC-202608-003-R3-wait-handover-pending.png",
+    "bytes": 139669,
+    "sha256": "e6044b9209c70fce2f7a9683b43dc06b1dafa9b798619207606b66ba89e643f2"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/13-PO-QC-202608-003-R3-wait-handover-ready.png",
+    "bytes": 139669,
+    "sha256": "e6044b9209c70fce2f7a9683b43dc06b1dafa9b798619207606b66ba89e643f2"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/14-PO-QC-202608-003-R4-barcode-relabel-block.png",
+    "bytes": 182914,
+    "sha256": "3f5f8b5f88d4f6f3f4355f8ba31f1220c5921264a691c18be139598872c6ea96"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/14-PO-QC-202608-003-R4-wait-handover-pending.png",
+    "bytes": 160663,
+    "sha256": "d5b6f0a05aee2ea96aa825706789f3d319b4f8f396516fe255cef71eff1e3083"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/14-PO-QC-202608-003-R4-wait-handover-ready.png",
+    "bytes": 160663,
+    "sha256": "d5b6f0a05aee2ea96aa825706789f3d319b4f8f396516fe255cef71eff1e3083"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/15-PO-QC-202608-003-R5-qc-direct-warehouse-pending.png",
+    "bytes": 111804,
+    "sha256": "8054e1b0c8560ad8a21ac882a41d1a6d85d9e9d7f38fea23b26b67e9ab626fac"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/surface-audit-chain-detail.png",
+    "bytes": 131469,
+    "sha256": "284c606a1c70de59ddf08ce294cd6062994ff1502aeb030ecf491cf7fd09fb3d"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/surface-authorization-code.png",
+    "bytes": 171460,
+    "sha256": "b04624e837594f13f13ce09985c2d44290d5668f3a553e1316a1d8833b2bf15d"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/surface-qc-task.png",
+    "bytes": 171836,
+    "sha256": "b60af7ceae19b715f78a08f1a3941448fbca73a66f8a1546faccd6a828b84c8d"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/surface-wait-handover-warehouse.png",
+    "bytes": 168000,
+    "sha256": "87601691c45366ba2eaa37671ce9caaafbca3b8994e3581fda0f2fe080a05194"
+  },
+  {
+    "path": "cross-fifteen-complete/screenshots/surface-wait-process-warehouse.png",
+    "bytes": 172980,
+    "sha256": "b853db8299986c5499df3a2dfad7b28829f6ab6e414b6b381e905e69d4e2dbc4"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/error-context.md",
+    "bytes": 49334,
+    "sha256": "4a2ca0d3d388cf63adad7d148dcec9b0e3856c5f83ac8b314bf917e171de5dbe"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-1.png",
+    "bytes": 172324,
+    "sha256": "4ef806f21418d34e21e093df3c22f98e4a2ab7610440fc20114bae91336463aa"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-2.png",
+    "bytes": 248538,
+    "sha256": "0ca61e16e1271b4b2b739506844b8150cc954aae6b61cea00a3d22855d32593d"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/trace.zip",
+    "bytes": 1345986,
+    "sha256": "49fc1e69478f9e4ddd78c34147b38f6cf8da57fbeee42dace3492872bcb48ddb"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/video.webm",
+    "bytes": 65952,
+    "sha256": "2843291306a43ace1c491cdcc3676c9919f8f1ea87418fa8a329d75b3ba194e2"
+  },
+  {
+    "path": "qc-browser-before.js",
+    "bytes": 27022,
+    "sha256": "f57e9671be7d8ccf2f10d3cc56d8c0c9243da39b14cae9fcfb70c8a7e8e6b831"
+  },
+  {
+    "path": "raw-fourteen-pass-eight-not-run-one-qc-selector-fail.log",
+    "bytes": 4678812,
+    "sha256": "ee94ea17668cd258215753ea8e891da8fb63e575b6b956da88c3db9d591b3cd7"
+  }
+]

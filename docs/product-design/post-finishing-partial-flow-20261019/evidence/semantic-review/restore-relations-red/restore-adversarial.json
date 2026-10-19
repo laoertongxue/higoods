@@ -1,0 +1,74 @@
+{
+  "errors": [
+    "Error: 加工记录编号、提交标识或时间无效，资料未恢复。",
+    "Error: 恢复后的加工链或复检占用不守恒，资料未恢复。",
+    "Error: 复检来源、SKU或数量无效，资料未恢复。",
+    "Error: 复检来源、SKU或数量无效，资料未恢复。"
+  ],
+  "actorErrors": [
+    "responsible:empty-name:Error: 加工责任人或录入人身份不完整，资料未导入。",
+    "responsible:whitespace-name:Error: 加工责任人或录入人身份不完整，资料未导入。",
+    "responsible:qc-role:Error: 加工责任人或录入人身份不完整，资料未导入。",
+    "recordedBy:empty-name:Error: 加工责任人或录入人身份不完整，资料未导入。",
+    "recordedBy:whitespace-name:Error: 加工责任人或录入人身份不完整，资料未导入。",
+    "recordedBy:qc-role:Error: 加工责任人或录入人身份不完整，资料未导入。"
+  ],
+  "unchanged": true,
+  "relationResults": [
+    {
+      "kind": "outbound-overquantity",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "duplicate-outbound-recheck",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "outbound-foreign-parent",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "outbound-foreign-sku",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "outbound-foreign-delivery",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "outbound-foreign-qc",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "handover-overquantity",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "receipt-overquantity",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "duplicate-receipt-outbound",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "correction-foreign-responsible",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    },
+    {
+      "kind": "correction-foreign-original-sku",
+      "error": "UNEXPECTED_SUCCESS",
+      "unchanged": false
+    }
+  ]
+}

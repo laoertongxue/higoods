@@ -1,0 +1,2795 @@
+import { escapeHtml } from './utils.ts'
+import { dispatchMaterialDecisionClick, dispatchMaterialDecisionInput, dispatchMaterialDecisionChange, dispatchMaterialDecisionKey } from './pages/material-decision/events-bridge'
+import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey, handleTimingSourceClick, handleTimingSourceKey, handleProductionFulfillmentDrag } from './pages/production-fulfillment/events'
+import './styles.css'
+import { WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE } from './data/fcs/wool-domain/demo-assets.ts'
+import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
+import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
+import {
+  getBrowserSessionStorage,
+  getBrowserLocalStorage,
+  readBrowserStorageItem,
+  removeBrowserStorageItem,
+  writeBrowserStorageItem,
+} from './data/browser-storage'
+import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
+import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
+import { createRetryableModuleLoader } from './main-infrastructure/retryable-module-loader'
+import { isIsolatedCraftReadEntry } from './main-infrastructure/craft-read-entry'
+import { resolvePage } from './router/routes'
+import { appStore } from './state/store'
+
+type StoreRenderMode = 'full' | 'sidebar'
+
+let nextStoreRenderMode: StoreRenderMode = 'full'
+let pdaMainTabPreloadStarted = false
+let productionListPreloadStarted = false
+let authorizedCostCleanupError: unknown
+
+const getProductionObjectFloatingEntryModule = createRetryableModuleLoader(() => import('./components/production-object-floating-entry'))
+const getProductionObjectOverviewModule = createRetryableModuleLoader(() => import('./components/production-object-overview'))
+const getPdaCuttingInboundModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-inbound'))
+const getPdaCuttingHandoverModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-handover'))
+const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/fcs-handlers'))
+const getPcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pcs-handlers'))
+const getPmsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pms-handlers'))
+const getPdaHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/pda-handlers'))
+const getRealQrModule = createRetryableModuleLoader(() => import('./components/real-qr'))
+
+function hydrateRealQRCodes(host: ParentNode): void {
+  if (!host.querySelector('[data-real-qr]')) return
+  void getRealQrModule().then(module => module.hydrateRealQRCodes(host)).catch(error => {
+    console.error('二维码模块加载失败', error)
+  })
+}
+const getProcessWaterSolubleOrdersPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-water-soluble-orders'),
+)
+const getCraftDyeingWaterSolubleOrdersPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/dyeing/water-soluble-orders'),
+)
+const getDispatchAcceptanceSlaPageModule = createRetryableModuleLoader(() => import('./pages/dispatch-acceptance-sla'))
+const getTaskBreakdownPageModule = createRetryableModuleLoader(() => import('./pages/task-breakdown'))
+const getWlsFabricDemandBoardPageModule = createRetryableModuleLoader(() => import('./pages/wls-fabric-demand-board'))
+const getWlsPageHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/wls-page-handlers'))
+const getFactoryProfilePageModule = createRetryableModuleLoader(() => import('./pages/factory-profile'))
+const getCraftCuttingMarkerPlanPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/cutting/marker-plan'),
+)
+const getCraftCuttingMarkerSpreadingPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/cutting/marker-spreading'),
+)
+const getCraftCuttingTransferBagsPageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/cutting/transfer-bags'),
+)
+const getCraftPrintingWarehousePageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/printing/warehouse'),
+)
+const getCraftDyeingWarehousePageModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/dyeing/warehouse'),
+)
+const getFactoryWarehouseSharedModule = createRetryableModuleLoader(
+  () => import('./pages/process-factory/shared/warehouse-standard'),
+)
+const getPrintPreviewPageModule = createRetryableModuleLoader(() => import('./pages/print/print-preview'))
+const getPrintingSheetPreviewModule = createRetryableModuleLoader(() => import('./pages/print/printing-sheet-preview'))
+const getPdaTaskReceivePageModule = createRetryableModuleLoader(() => import('./pages/pda-task-receive'))
+const getPdaExecPageModule = createRetryableModuleLoader(() => import('./pages/pda-exec'))
+const getPdaHandoverPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover'))
+const getPdaHandoverDetailPageModule = createRetryableModuleLoader(() => import('./pages/pda-handover-detail'))
+const getPdaWarehousePageModule = createRetryableModuleLoader(() => import('./pages/pda-warehouse'))
+const getPdaSettlementPageModule = createRetryableModuleLoader(() => import('./pages/pda-settlement'))
+const getProductionOrderProgressTrackingPageModule = createRetryableModuleLoader(
+  () => import('./pages/production-order-progress-tracking'),
+)
+const getProgressBoardPageModule = createRetryableModuleLoader(() => import('./pages/progress-board'))
+const getProductionDemandPageModule = createRetryableModuleLoader(() => import('./pages/production/demand-domain'))
+const getProductionOrdersPageModule = createRetryableModuleLoader(() => import('./pages/production/orders-domain'))
+const getProductionEventsModule = createRetryableModuleLoader(() => import('./pages/production/events'))
+const getProductionDialogsModule = createRetryableModuleLoader(() => import('./pages/production/dialogs'))
+
+async function handleActivePdaCuttingEvent(target: HTMLElement, event?: Event): Promise<unknown> {
+  const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/pda/cutting/transfer-bag/')) {
+    const pdaHandlers = await getPdaHandlersModule()
+    return pdaHandlers.dispatchPdaPageEvent(target, event)
+  }
+  if (pathname.startsWith('/fcs/pda/cutting/inbound/')) {
+    const module = await getPdaCuttingInboundModule()
+    return module.handlePdaCuttingInboundEvent(target, event)
+  }
+  if (pathname.startsWith('/fcs/pda/cutting/handover/')) {
+    const module = await getPdaCuttingHandoverModule()
+    return module.handlePdaCuttingHandoverEvent(target, event)
+  }
+  return false
+}
+
+function scheduleProductionListPreload(): void {
+  if (productionListPreloadStarted) return
+  productionListPreloadStarted = true
+
+  const preload = (): void => {
+    void Promise.allSettled([
+      getProductionDemandPageModule(),
+      getProductionOrdersPageModule(),
+      getProductionEventsModule(),
+    ])
+  }
+
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(preload, { timeout: 5_000 })
+    return
+  }
+
+  globalThis.setTimeout(preload, 2_000)
+}
+
+function getPdaMainTabModule(pathname: string): Promise<unknown> | null {
+  const normalizedPathname = pathname.split('?')[0].split('#')[0]
+  if (normalizedPathname === '/fcs/pda/task-receive') return getPdaTaskReceivePageModule()
+  if (normalizedPathname === '/fcs/pda/exec') return getPdaExecPageModule()
+  if (normalizedPathname === '/fcs/pda/handover') return getPdaHandoverPageModule()
+  if (normalizedPathname === '/fcs/pda/warehouse') return getPdaWarehousePageModule()
+  if (normalizedPathname === '/fcs/pda/settlement') return getPdaSettlementPageModule()
+  return null
+}
+
+function preloadPdaMainTabModule(pathname: string): void {
+  getPdaMainTabModule(pathname)?.catch((error) => {
+    console.warn('PDA 主 Tab 预加载失败', error)
+  })
+}
+
+function schedulePdaMainTabPreload(): void {
+  if (pdaMainTabPreloadStarted) return
+  pdaMainTabPreloadStarted = true
+
+  window.setTimeout(() => {
+    void Promise.allSettled([
+      getPdaTaskReceivePageModule(),
+      getPdaExecPageModule(),
+      getPdaHandoverPageModule(),
+      getPdaWarehousePageModule(),
+      getPdaSettlementPageModule(),
+    ])
+  }, 0)
+}
+
+function getCurrentHandlerSystem(pathname: string): 'pcs' | 'fcs' | 'pda' | 'pms' | 'all' {
+  if (pathname.startsWith('/pcs')) return 'pcs'
+  if (pathname.startsWith('/fcs/pda')) return 'pda'
+  if (pathname.startsWith('/fcs')) return 'fcs'
+  if (pathname.startsWith('/pms/')) return 'pms'
+  return 'all'
+}
+
+
+const rootNode = document.querySelector('#app')
+
+if (!(rootNode instanceof HTMLDivElement)) {
+  throw new Error('Missing #app root node')
+}
+
+const root = rootNode
+
+appStore.init()
+
+/**
+ * PMS IDB hydrate/migrate 失败统一处理器(§ 2.4.3.7 "IndexedDB 不可用时…不能伪装正常空列表")。
+ * 失败时 console.error + 在页面顶部显示 banner,告知用户数据可能不可读或保存失败。
+ */
+function handlePmsIdbHydrateError(label: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[PMS_IDB_HYDRATE_FAILED] ${label}`, { message })
+  if (typeof document === 'undefined') return
+  const banner = document.createElement('div')
+  banner.setAttribute('role', 'alert')
+  banner.className = 'fixed top-4 left-1/2 z-50 max-w-2xl -translate-x-1/2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg'
+  banner.textContent = `${label}未能读取：${message}。已保存的记录没有被覆盖。请恢复浏览器存储权限后重新读取。`
+  document.body.appendChild(banner)
+  setTimeout(() => banner.remove(), 12000)
+}
+
+// Common logs are read once; each procurement page awaits its own direct records.
+let pmsInitializationStarted = false
+let pmsRelatedInitializationStarted = false
+function startPmsInitialization(): void {
+  if (!pmsInitializationStarted) {
+  pmsInitializationStarted = true
+import('./data/pms/idb-storage.ts').then((mod) => {
+  mod.getPmsDb().catch((error: unknown) => handlePmsIdbHydrateError('数据库连接', error))
+})
+void import('./data/pms/runtime.ts').then((mod) => {
+  mod.hydratePmsLogsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('操作日志', error))
+})
+  }
+  // Procurement pages await their own direct records. Avoid initializing unrelated domains on entry.
+  const path = appStore.getState().pathname
+  if (path.startsWith('/pms/') && !path.startsWith('/pms/tmf-')) return
+  if (pmsRelatedInitializationStarted) return
+  pmsRelatedInitializationStarted = true
+void import('./data/pms/first-leg-logistics.ts').then((mod) => {
+  mod.hydratePmsFirstLegFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('头程物流', error))
+})
+void import('./data/pms/material-purchase-orders.ts').then((mod) => {
+  mod.hydratePmsMaterialPurchaseOrdersFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('面辅料采购', error))
+})
+void import('./data/pms/payment-requests.ts').then((mod) => {
+  mod.hydratePmsPaymentFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('请款单', error))
+})
+void import('./data/pms/reconciliations.ts').then((mod) => {
+  mod.hydratePmsReconciliationsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('对账', error))
+})
+void import('./data/pms/material-requirements.ts').then((mod) => {
+  mod.hydratePmsMaterialRequirementsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('面辅料需求', error))
+})
+void import('./data/pms/suppliers.ts').then((mod) => {
+  mod.hydratePmsSuppliersFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商', error))
+})
+void import('./data/pms/supplier-confirmations.ts').then((mod) => {
+  mod.hydratePmsSupplierConfirmationsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商包装确认单', error))
+})
+void import('./data/pms/purchase-suggestions.ts').then((mod) => {
+  mod.hydratePmsPurchaseSuggestionsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('采购建议', error))
+})
+void import('./data/pms/product-purchase-orders.ts').then((mod) => {
+  mod.hydratePmsProductPurchaseOrdersFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('商品采购单', error))
+})
+void import('./data/pms/supplier-supply-archives.ts').then((mod) => {
+  mod.hydratePmsSupplyArchivesFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商供应档案', error))
+})
+void import('./data/pms/tmf-material-purchases.ts').then((mod) => {
+  mod.hydratePmsTmfPurchaseStateFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('织带厂状态', error))
+
+})
+
+}
+
+// 多标签页同步(§ 2.4.3.6):订阅 BroadcastChannel,其他标签页写入 IDB 时提示用户刷新。
+// 实现机制:
+// 1. IDB 抽象层的 pmsPut 在每次写入后自动调用 recordPmsHydratedAtSafely,记录本标签页的 entity 时间戳;
+// 2. hydrate 函数完成后也会通过 pmsGetVersionMap 等机制填充 hydratedAt;
+// 3. 收到 PMS_DATA_CHANGED 时,若本标签页 hydratedAt 在消息时间之前 → 显示 banner 提示用户刷新;
+// 4. 本标签页后续写入会更新自己的 hydratedAt,所以只有"其他标签页后写入"才会触发 banner。
+import('./data/pms/idb-storage.ts').then((mod) => {
+  mod.subscribePmsDataChanged((message) => {
+    console.info('[PMS_IDB_CROSS_TAB]', message)
+    const g = globalThis as unknown as { __pmsHydratedAt?: Map<string, number> }
+    const cacheKey = `${message.store}::${String(message.key)}`
+    const localAt = g.__pmsHydratedAt?.get(cacheKey)
+    // 仅当本标签页在消息之前已 hydrate/写过同 entity,且消息时间更新,才提示刷新。
+    if (localAt !== undefined && localAt < message.at) {
+      if (typeof document === 'undefined') return
+      const banner = document.createElement('div')
+      banner.setAttribute('role', 'alert')
+      banner.className = 'fixed top-4 right-4 z-50 max-w-md rounded-md border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-lg'
+      banner.textContent = `采购记录已在其他页面修改。请重新读取后继续操作。`
+      document.body.appendChild(banner)
+      setTimeout(() => banner.remove(), 8000)
+    }
+  })
+})
+
+const PRELOAD_ERROR_RELOAD_KEY = 'higood-vite-preload-reload'
+let dynamicModuleReloadScheduled = false
+const browserSessionStorage = getBrowserSessionStorage()
+
+function clearPreloadReloadFlag(): void {
+  removeBrowserStorageItem(browserSessionStorage, PRELOAD_ERROR_RELOAD_KEY)
+}
+
+function isDynamicModuleLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('error loading dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('ChunkLoadError')
+  )
+}
+
+function shouldReloadForModuleLoadError(): boolean {
+  try {
+    const currentPath = `${window.location.pathname}${window.location.search}`
+    const current = readBrowserStorageItem(browserSessionStorage, PRELOAD_ERROR_RELOAD_KEY)
+    if (current) {
+      const parsed = JSON.parse(current) as { path?: string; at?: number }
+      const samePath = parsed.path === currentPath
+      const recentlyReloaded = typeof parsed.at === 'number' && Date.now() - parsed.at < 30_000
+      if (samePath && recentlyReloaded) return false
+    }
+    writeBrowserStorageItem(
+      browserSessionStorage,
+      PRELOAD_ERROR_RELOAD_KEY,
+      JSON.stringify({ path: currentPath, at: Date.now() }),
+    )
+    return true
+  } catch {
+    return true
+  }
+}
+
+function reloadForDynamicModuleLoadError(error: unknown, source: string): boolean {
+  if (!isDynamicModuleLoadError(error)) return false
+
+  if (!shouldReloadForModuleLoadError()) {
+    console.error(`${source}动态模块加载失败，自动刷新后仍未恢复。`, error)
+    return true
+  }
+
+  console.warn(`${source}动态模块加载失败，将按当前地址刷新一次。`, error)
+  dynamicModuleReloadScheduled = true
+  window.location.reload()
+  return true
+}
+
+window.addEventListener('vite:preloadError', (event) => {
+  const preloadEvent = event as Event & { payload?: unknown; detail?: unknown }
+  const preloadError = preloadEvent.payload ?? preloadEvent.detail ?? event
+  reloadForDynamicModuleLoadError(preloadError, 'Vite 预加载')
+  // 只有已经安排恢复刷新时才阻止 Vite 抛出本次错误；若同一路由刷新后仍失败，
+  // 保留原始模块错误，不能把它吞掉后再变成“读取 undefined”的二次假象。
+  if (dynamicModuleReloadScheduled) event.preventDefault()
+})
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (reloadForDynamicModuleLoadError(event.reason, '未处理 Promise ')) {
+    event.preventDefault()
+    return
+  }
+  // PMS IDB 写入失败(§ 2.4.3.5 禁止静默回退):显式提示用户。
+  const reason = event.reason as { code?: string; name?: string; message?: string } | undefined
+  if (reason && typeof reason.code === 'string' && reason.code.startsWith('PMS_IDB_')) {
+    console.error('[PMS_IDB_UNHANDLED]', reason)
+    // 通过提示卡片显示,后续 toast 系统接入后可改为 toast。
+    const banner = document.createElement('div')
+    banner.setAttribute('role', 'alert')
+    banner.className = 'fixed top-4 right-4 z-50 max-w-md rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-lg'
+    banner.textContent = `PMS 业务数据保存失败:${reason.message ?? 'unknown'}。请检查浏览器存储后重试。`
+    document.body.appendChild(banner)
+    setTimeout(() => banner.remove(), 8000)
+    event.preventDefault()
+  }
+})
+
+window.addEventListener('error', (event) => {
+  if (reloadForDynamicModuleLoadError(event.error ?? event.message, '全局脚本')) {
+    event.preventDefault()
+  }
+})
+
+async function dispatchPageEvent(target: Element, event?: Event): Promise<boolean> {
+  const accessoryRecovery = target.closest<HTMLElement>('[data-accessory-read-error] [data-accessory-action]')
+  if (accessoryRecovery) {
+    if (event?.type !== 'click') return true
+    if (accessoryRecovery.dataset.accessoryAction === 'reload') { await renderPageContentOnly(); return true }
+    return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(accessoryRecovery, event)
+  }
+  const eventTarget = target as HTMLElement
+  if (target.closest('[data-fabric-washing-action], [data-washing-context-role], [data-washing-context-factory], [data-washing-judgment-root], [data-washing-detail-root], [data-washing-list-root]')) {
+    const page = await import('./pages/process-factory/dyeing/washing/work-orders.ts')
+    return page.handleFabricWashingEvent(eventTarget, event)
+  }
+  if (target.closest('[data-post-finishing-action^="storage-"]') || target.closest('[data-post-finishing-field="storage-import"]')) {
+    const page = await import('./pages/process-factory/post-finishing/storage-notice.ts')
+    return page.handlePostFinishingStorageEvent(eventTarget, event)
+  }
+  const pathname = appStore.getState().pathname
+  const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/craft/post-finishing/material-transfers' && target.closest('[data-post-material-root]')) {
+    return (await import('./pages/process-factory/post-finishing/material-transfers.ts')).handlePostFinishingMaterialTransfersEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/settlement/adjustments') {
+    return (await import('./pages/adjustments.ts')).handleAdjustmentsEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/settlement/statements') {
+    return (await import('./pages/statements.ts')).handleStatementsEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/quality/deduction-analysis') {
+    return (await import('./pages/deduction-analysis.ts')).handleDeductionAnalysisEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/craft/dyeing/reports') {
+    return (await import('./pages/process-factory/dyeing/events.ts')).handleCraftDyeingEvent(eventTarget)
+  }
+  if (pagePath.startsWith('/fcs/process-factory/special-craft/') && isIsolatedCraftReadEntry(pagePath)) {
+    const list = await import('./pages/process-factory/special-craft/task-orders.ts')
+    if (list.handleSpecialCraftTaskOrdersEvent(eventTarget, event)) return true
+    const detail = await import('./pages/process-factory/special-craft/task-detail.ts')
+    return detail.handleSpecialCraftTaskDetailEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/pda/auth/login') {
+    const page = await import('./pages/pda-login.ts')
+    return page.handlePdaLoginEvent(eventTarget)
+  }
+  if (pagePath === '/wls/finished-inbound') {
+    const page = await import('./pages/wls-finished-inbound.ts')
+    return page.handleWlsFinishedInboundEvent(eventTarget, event)
+  }
+  if (pagePath.startsWith('/fcs/craft/post-finishing/')) {
+    // These pages own their controls. The first inspection/image action must
+    // not initialize every unrelated FCS module through the aggregate handler.
+    const page = await import('./pages/process-factory/post-finishing/events.ts')
+    return page.handlePostFinishingEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/craft/cutting/cut-piece-release') {
+    const page = await import('./pages/process-factory/cutting/cut-piece-release.ts')
+    return page.handleCraftCuttingCutPieceReleaseEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/craft/cutting/replacement-fabric-fei-tickets') {
+    // Native filter input is read by the page's Query action; it must not
+    // initialize unrelated FCS handlers while the user is typing.
+    if (!event) return false
+    const page = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    return page.handleReplacementFabricEvent(eventTarget, event)
+  }
+  // DDS owns its local controls. Native details and column drags must not fall
+  // through to lazy-load every unrelated business system's event handlers.
+  if (pagePath.startsWith('/dds/supply-chain/production-fulfillment/') && target.closest('#pf-app')) return false
+  if (pagePath === '/fcs/sewing-outsourcing/cut-piece-handover') {
+    const page = await import('./pages/sewing-outsourcing/cut-piece-handover.ts')
+    return page.handleSewingCutPieceHandoverEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/material-handover' && target.closest('[data-sewing-material-page]')) {
+    if (event && event.type !== 'click') return false
+    return (await import('./pages/sewing-outsourcing/material-handover.ts')).handleSewingMaterialHandoverEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/tasks') {
+    const page = await import('./pages/sewing-outsourcing/tasks.ts')
+    return page.handleSewingOutsourcingTasksEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/daily-return-report') {
+    const page = await import('./pages/sewing-outsourcing/daily-return-report.ts')
+    return page.handlePpicDailyReturnReportEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/sewing-outsourcing/daily-return-summary') {
+    const page = await import('./pages/sewing-outsourcing/daily-return-summary.ts')
+    return page.handlePpicDailyReturnSummaryEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/dispatch/workbench') {
+    const page = await import('./pages/unified-dispatch-workbench.ts')
+    return page.handleUnifiedDispatchWorkbenchEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/craft/cutting/warehouse-management/wait-handover') {
+    if (eventTarget.closest('[data-warehouse-map-action]')) {
+      const map = await import('./pages/process-factory/cutting/warehouse-location-map.ts')
+      return map.handleCuttingWarehouseLocationMapEvent(eventTarget, event)
+    }
+    // 页面已加载仓储处理器；交出窗口不应再初始化整个 FCS 事件集合。
+    const page = await import('./pages/process-factory/cutting/warehouse-hub.ts')
+    return page.handleCraftCuttingWaitHandoverEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/contracts/print') {
+    const page = await import('./pages/production-contract-print.ts')
+    return page.handleProductionContractPrintEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/print/preview' || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print$/.test(pagePath)) {
+    const documentType = new URLSearchParams(pathname.split('?')[1] || '').get('documentType')
+    if (pagePath === '/fcs/print/preview' && documentType === 'TMF_PROCESS_SHEET') {
+      const page = await import('./pages/print/tmf-process-print-preview.ts')
+      return page.handleTmfProcessPrintPreviewEvent(eventTarget)
+    }
+    const page = await getPrintPreviewPageModule()
+    return page.handleUnifiedPrintPreviewEvent(eventTarget)
+  }
+  if (['/fcs/craft/cutting/handover-orders', '/fcs/craft/cutting/handover-records'].includes(pathname.split('?')[0])) {
+    const page = await import('./pages/process-factory/cutting/handover-orders.ts')
+    return page.handleCraftCuttingHandoverOrdersEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    try {
+      const factoryProfilePage = await getFactoryProfilePageModule()
+      return factoryProfilePage.handleFactoryPageEvent(eventTarget)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '工厂档案事件处理器')) return false
+      console.error('工厂档案事件处理器加载失败，已降级为不处理', error)
+      return false
+    }
+  }
+
+  if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
+    const dispatchAcceptanceSlaPage = await getDispatchAcceptanceSlaPageModule()
+    return dispatchAcceptanceSlaPage.handleDispatchAcceptanceSlaEvent(eventTarget)
+  }
+
+  if (pathname.startsWith('/fcs/process/task-breakdown')) {
+    const taskBreakdownPage = await getTaskBreakdownPageModule()
+    return taskBreakdownPage.handleTaskBreakdownEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
+    const page = await getProcessWaterSolubleOrdersPageModule()
+    return page.handleProcessWaterSolubleOrdersEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/process/dye-orders') {
+    const page = await import('./pages/process-dye-orders.ts')
+    return page.handleProcessDyeOrdersEvent(eventTarget, event)
+  }
+  if (pagePath.startsWith('/fcs/process/material-plans')) {
+    const page = await import('./pages/process-work-orders/material-process-plans.ts')
+    return event?.type === 'input' || event?.type === 'change' || event?.type === 'compositionend'
+      ? page.handleFcsMaterialProcessPlanInput(eventTarget)
+      : page.handleFcsMaterialProcessPlanEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/process/print-orders') {
+    const page = await import('./pages/process-print-orders.ts')
+    return page.handleProcessPrintOrdersEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
+    const page = await getCraftDyeingWaterSolubleOrdersPageModule()
+    return page.handleCraftDyeingWaterSolubleOrdersEvent(eventTarget)
+  }
+  if (
+    pathname.startsWith('/fcs/progress/production-orders') ||
+    pathname.startsWith('/fcs/production_order_track/index')
+  ) {
+    const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
+    return productionOrderProgressTrackingPage.handleProductionOrderProgressEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/production/craft-dict')) {
+    const fcsHandlers = await getFcsHandlersModule()
+    return fcsHandlers.dispatchFcsPageEvent(eventTarget, event)
+  }
+  if (isProductionRoutePath(pathname)) {
+    const productionEvents = await getProductionEventsModule()
+    return productionEvents.handleProductionEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/progress/board')) {
+    const progressBoardPage = await getProgressBoardPageModule()
+    return progressBoardPage.handleProgressBoardEvent(eventTarget)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/marker-list') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-create') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-edit') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-detail')
+  ) {
+    const markerPlanPage = await getCraftCuttingMarkerPlanPageModule()
+    return markerPlanPage.handleCraftCuttingMarkerPlanEvent(eventTarget)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/spreading') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-spreading') ||
+    pathname.startsWith('/fcs/craft/cutting/spreading-create') ||
+    pathname.startsWith('/fcs/craft/cutting/spreading-detail')
+  ) {
+    const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+    return markerSpreadingPage.handleCraftCuttingMarkerSpreadingEvent(eventTarget, event)
+  }
+  if (/^\/fcs\/craft\/cutting\/(?:fei-tickets(?:\/|$)|binding-fei-tickets$|fei-ticket-(?:detail|printed|print|reprint)$)/.test(pathname)) {
+    const feiTicketsPage = await import('./pages/process-factory/cutting/fei-tickets')
+    return feiTicketsPage.handleCraftCuttingFeiTicketsEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
+    const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
+    return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget, event)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/production-progress') ||
+    pathname.startsWith('/fcs/craft/cutting/production-order-progress')
+  ) {
+    const productionProgressPage = await import('./pages/process-factory/cutting/production-progress')
+    return productionProgressPage.handleCraftCuttingProductionProgressEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
+    const fcsHandlers = await getFcsHandlersModule()
+    return fcsHandlers.dispatchFcsPageEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/supplement-management')) {
+    const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+    return supplementManagementPage.handleCraftCuttingSupplementManagementEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/cut-piece-return-processing')) {
+    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-warehouse')
+    return cutPieceReturnPage.handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget, event)
+  }
+  // This board owns its events; do not load unrelated warehouse/PDA pages first.
+  if (pathname.startsWith('/wls/fabric-demand-board')) {
+    try {
+      const fabricDemandBoardPage = await getWlsFabricDemandBoardPageModule()
+      return fabricDemandBoardPage.handleWlsFabricDemandBoardEvent(eventTarget)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '面料需求看板事件处理器')) return false
+      console.error('面料需求看板事件处理器加载失败，已降级为不处理', error)
+      return false
+    }
+  }
+  if (pagePath === '/wls/accessory-warehouses/gtp/preparation') {
+    return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(eventTarget, event)
+  }
+  if (pagePath.startsWith('/wls/accessory-warehouses/')) {
+    const recovery = eventTarget.closest<HTMLElement>('[data-accessory-read-error] [data-accessory-action]')
+    if (recovery?.dataset.accessoryAction === 'reload' && event?.type === 'click') { await renderPageContentOnly(); return true }
+    if (recovery?.dataset.accessoryAction === 'data') return (await import('./pages/wls/accessory-warehouses/gtp-preparation.ts')).handleGtpPreparationEvent(eventTarget, event)
+    if (pagePath.endsWith('/pickups')) return (await import('./pages/wls/accessory-warehouses/pickups.ts')).handleAccessorySewingPickupEvent(eventTarget, event)
+    return (await import('./pages/wls/accessory-warehouses/transfers.ts')).handleAccessoryTransferEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/material-prep/sewing') {
+    return (await import('./pages/fcs/material-prep/sewing.ts')).handleFcsSewingPrepEvent(eventTarget)
+  }
+  if (pagePath.startsWith('/wls/')) {
+    const wlsPageHandlers = await getWlsPageHandlersModule()
+    const handled = wlsPageHandlers.dispatchWlsPageEvent(pagePath, eventTarget, event)
+    if (handled) return true
+  }
+  if (
+    /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pagePath)
+    && target.closest('[data-tech-pack-page-root="true"]')
+  ) {
+    const techPackPage = await import('./pages/tech-pack/events')
+    return techPackPage.handleTechPackEvent(eventTarget)
+  }
+  // Wool stage pages own their local rendering and already loaded their handlers.
+  // Keep the first action independent of the unrelated FCS/PDA handler bundles.
+  if (target.closest('[data-pda-wool-root], [data-pda-wool-access-blocked]')) {
+    if (target.closest('[data-pda-execd-action="back"]')) {
+      const params = new URLSearchParams(pathname.split('?')[1] || '')
+      const returnTo = params.get('returnTo')
+      if (returnTo && (returnTo.startsWith('/fcs/pda/exec') || returnTo.startsWith('/fcs/pda/handover'))) {
+        appStore.navigate(returnTo)
+        return true
+      }
+      if (!params.get('sourceType') || !params.get('sourceId')) {
+        appStore.navigate('/fcs/pda/exec')
+        return true
+      }
+      const detail = await import('./pages/pda-exec-detail.ts')
+      return detail.handlePdaExecDetailEvent(eventTarget, event)
+    }
+    const page = await import('./pages/pda-wool-fact-execution.ts')
+    return page.handlePdaWoolExecutionEvent(eventTarget)
+  }
+  if (target.closest('[data-wool-warehouse-root]')) {
+    const page = await import('./pages/process-factory/wool/warehouse.ts')
+    return page.handleCraftWoolWarehouseEvent(eventTarget, event)
+  }
+  if (target.closest('[data-wool-machine-associations-root]')) {
+    const page = await import('./pages/process-factory/wool/machine-associations.ts')
+    return page.handleCraftWoolMachineAssociationsEvent(eventTarget)
+  }
+  if (target.closest('[data-wool-machines-root]')) {
+    const page = await import('./pages/process-factory/wool/machines.ts')
+    return page.handleCraftWoolMachinesEvent(eventTarget)
+  }
+  if (target.closest<HTMLElement>('[data-special-craft-web-action]')?.dataset.sourceId?.startsWith('WSC:')) {
+    const page = await import('./pages/process-factory/wool/craft-actions.ts')
+    return page.handleWoolCraftActionUi(eventTarget)
+  }
+  if (target.closest('[data-wool-receiving-page], [data-wool-stock-page]')) {
+    const page = await import('./pages/process-factory/wool/pending-receipts.ts')
+    return event?.type === 'input' || event?.type === 'change'
+      ? page.handleWoolPendingReceiptsInput(eventTarget)
+      : page.handleWoolPendingReceiptsClick(eventTarget)
+  }
+  if (target.closest('[data-wool-work-orders-root]')) {
+    const page = await import('./pages/process-factory/wool/stage-orders.ts')
+    return page.handleCraftWoolStageOrdersEvent(eventTarget)
+  }
+  if (target.closest('[data-wool-detail-root]')) {
+    const page = await import('./pages/process-factory/wool/stage-order-detail.ts')
+    return page.handleCraftWoolStageOrderDetailEvent(eventTarget)
+  }
+  if (target.closest('[data-factory-receiving-root]')) {
+    const page = await import('./pages/process-factory/dyeing/pending-receipts.ts')
+    return page.handleFactoryReceivingEvent(eventTarget, event)
+  }
+  if (target.closest('[data-yarn-shipment-root]')) {
+    const page = await import('./pages/process-factory/dyeing/yarn-shipments.ts')
+    return page.handleDyeYarnShipmentEvent(eventTarget, event)
+  }
+  if (target.closest('[data-dye-output-page]')) {
+    const page = await import('./pages/process-factory/dyeing/output-documents.ts')
+    return page.handleDyeOutputEvent(eventTarget, event)
+  }
+  // These lists already render their own local controls; avoid loading the full
+  // FCS handler bundle before the first filter/selection interaction.
+  if (pathname === '/fcs/craft/dyeing/work-orders' && target.closest('[data-dye-work-orders-root]')) {
+    const page = await import('./pages/process-factory/dyeing/work-orders.ts')
+    return page.handleDyeWorkOrderListEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/craft/printing/') && target.closest('[data-printing-work-orders-root], [data-printing-work-order-detail-root], [data-printing-statistics-root], [data-printing-dashboards-root], [data-printing-warehouse-root], [data-printing-dispatch-root], [data-printing-dialog-panel]')) {
+    const page = await import('./pages/process-factory/printing/events.ts')
+    return page.handleCraftPrintingEvent(eventTarget)
+  }
+  const handlerSystem = getCurrentHandlerSystem(pathname)
+  try {
+    if (handlerSystem === 'pcs') {
+      const pcsHandlers = await getPcsHandlersModule()
+      return pcsHandlers.dispatchPcsPageEvent(eventTarget, event)
+    }
+    if (handlerSystem === 'fcs') {
+      const fcsHandlers = await getFcsHandlersModule()
+      return fcsHandlers.dispatchFcsPageEvent(eventTarget, event)
+    }
+    if (handlerSystem === 'pda') {
+      const pdaHandlers = await getPdaHandlersModule()
+      return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
+    }
+    if (handlerSystem === 'pms') {
+      const pmsHandlers = await getPmsHandlersModule()
+      return pmsHandlers.dispatchPmsPageEvent(eventTarget, event)
+    }
+
+    const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
+      getFcsHandlersModule(),
+      getPcsHandlersModule(),
+      getPdaHandlersModule(),
+    ])
+
+    if (await fcsHandlers.dispatchFcsPageEvent(eventTarget, event)) {
+      return true
+    }
+
+    if (await pcsHandlers.dispatchPcsPageEvent(eventTarget, event)) {
+      return true
+    }
+
+    return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
+  } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '页面事件处理器')) return false
+    console.error('页面事件处理器加载失败，已降级为不处理', error)
+    return false
+  }
+}
+
+async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
+  const pathname = appStore.getState().pathname
+  const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/craft/post-finishing/tasks' && form.matches('[data-post-finishing-task-filters]')) {
+    const page = await import('./pages/process-factory/post-finishing/tasks.ts')
+    page.handlePostFinishingTasksSubmit(form)
+    return false
+  }
+  if (pagePath.startsWith('/fcs/craft/post-finishing/') && form.method === 'get' && form.getAttribute('action') === pagePath) {
+    const filters = new URLSearchParams()
+    new FormData(form).forEach((value, name) => {
+      if (typeof value === 'string' && value.trim()) filters.append(name, value.trim())
+    })
+    appStore.navigate(`${pagePath}${filters.size ? `?${filters}` : ''}`)
+    return false
+  }
+  if (
+    pathname.split('?')[0] === '/fcs/craft/cutting/warehouse-management/wait-handover'
+    && form.matches('[data-cutting-wait-handover-filters]')
+  ) {
+    const params = new URLSearchParams()
+    new FormData(form).forEach((value, name) => {
+      if (typeof value === 'string' && value.trim()) params.append(name, value.trim())
+    })
+    appStore.navigate(`/fcs/craft/cutting/warehouse-management/wait-handover?${params}`)
+    return false
+  }
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    try {
+      const factoryProfilePage = await getFactoryProfilePageModule()
+      return factoryProfilePage.handleFactoryPageSubmit(form)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '工厂档案提交处理器')) return false
+      console.error('工厂档案提交处理器加载失败，已降级为不提交', error)
+      return false
+    }
+  }
+
+  if (isProductionRoutePath(pathname)) {
+    const productionEvents = await getProductionEventsModule()
+    return productionEvents.handleProductionSubmit(form)
+  }
+
+  try {
+    const fcsHandlers = await getFcsHandlersModule()
+    return fcsHandlers.dispatchFcsPageSubmit(form)
+  } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '页面提交处理器')) return false
+    console.error('页面提交处理器加载失败，已降级为不提交', error)
+    return false
+  }
+}
+
+async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
+  const pathname = appStore.getState().pathname || ''
+  if (!pathname.startsWith('/pcs')) return false
+  if (pathname.startsWith('/fcs/pda')) return false
+
+  try {
+    const pcsHandlers = await getPcsHandlersModule()
+    return pcsHandlers.dispatchPcsInputEvent(target)
+  } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '输入处理器')) return false
+    console.error('输入处理器加载失败，已降级为不处理', error)
+    return false
+  }
+}
+
+async function closeDialogsOnEscape(): Promise<boolean> {
+  const pathname = appStore.getState().pathname
+  const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/settlement/statements') {
+    const page = await import('./pages/statements.ts')
+    if (!page.isStatementsDialogOpen()) return false
+    const target = document.createElement('button')
+    target.dataset.stmAction = 'close-detail'
+    return page.handleStatementsEvent(target)
+  }
+  if (['/fcs/settlement/adjustments', '/fcs/quality/deduction-analysis', '/fcs/craft/dyeing/reports'].includes(pagePath)) return false
+  if (pagePath === '/wls/finished-inbound') {
+    return (await import('./pages/wls-finished-inbound.ts')).closeWlsFinishedInboundOverlays()
+  }
+  if (pagePath === '/fcs/process/dye-orders') {
+    return (await import('./pages/process-dye-orders.ts')).closeProcessDyeOrdersOverlays()
+  }
+  if (pagePath === '/fcs/process/print-orders') {
+    return (await import('./pages/process-print-orders.ts')).closeProcessPrintOrdersOverlays()
+  }
+  if (
+    pathname.startsWith('/fcs/progress/production-orders') ||
+    pathname.startsWith('/fcs/production_order_track/index')
+  ) {
+    const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
+    return productionOrderProgressTrackingPage.closeProductionOrderProgressOverlay()
+  }
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    try {
+      const factoryProfilePage = await getFactoryProfilePageModule()
+      if (!factoryProfilePage.isFactoryPageOpenDialog()) return false
+      const fakeButton = document.createElement('button')
+      fakeButton.dataset.factoryAction = 'close-dialog'
+      return factoryProfilePage.handleFactoryPageEvent(fakeButton)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '工厂档案弹窗处理器')) return false
+      console.error('工厂档案弹窗处理器加载失败', error)
+      return false
+    }
+  }
+
+  if (isProductionRoutePath(pathname)) {
+    try {
+      const productionDialogs = await getProductionDialogsModule()
+      if (!productionDialogs.isProductionDialogOpen()) return false
+      const productionEvents = await getProductionEventsModule()
+      const fakeButton = document.createElement('button')
+      fakeButton.dataset.prodAction = 'close-dialog'
+      return productionEvents.handleProductionEvent(fakeButton)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '生产单弹窗处理器')) return false
+      console.error('生产单弹窗处理器加载失败', error)
+      return false
+    }
+  }
+
+  // Printing dialogs and image previews already handle Escape locally. Loading
+  // the aggregate FCS closer here initializes unrelated cutting/warehouse pages.
+  if (pagePath.startsWith('/fcs/craft/printing/')) return false
+  // 辅料仓页面自行管理弹窗/图片的 Escape，不初始化无关裁床运行资料。
+  if (pagePath.startsWith('/wls/accessory-warehouses/')) return false
+
+  const handlerSystem = getCurrentHandlerSystem(pathname)
+  try {
+    if (handlerSystem === 'pcs') {
+      const pcsHandlers = await getPcsHandlersModule()
+      return pcsHandlers.closePcsDialogsOnEscape()
+    }
+    if (handlerSystem === 'fcs') {
+      const fcsHandlers = await getFcsHandlersModule()
+      return fcsHandlers.closeFcsDialogsOnEscape()
+    }
+    if (handlerSystem === 'pda') {
+      const pdaHandlers = await getPdaHandlersModule()
+      return pdaHandlers.closePdaDialogsOnEscape()
+    }
+    if (handlerSystem === 'pms') {
+      const pmsHandlers = await getPmsHandlersModule()
+      return pmsHandlers.closePmsDialogsOnEscape()
+    }
+
+    const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
+      getFcsHandlersModule(),
+      getPcsHandlersModule(),
+      getPdaHandlersModule(),
+    ])
+    if (fcsHandlers.closeFcsDialogsOnEscape()) {
+      return true
+    }
+
+    if (await pcsHandlers.closePcsDialogsOnEscape()) {
+      return true
+    }
+
+    return pdaHandlers.closePdaDialogsOnEscape()
+  } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '弹窗处理器')) return false
+    console.error('弹窗处理器加载失败', error)
+    return false
+  }
+}
+
+let renderSerial = 0
+
+function isPdaPath(pathname: string): boolean {
+  return pathname.split('?')[0].split('#')[0].startsWith('/fcs/pda')
+}
+
+function isProductionRoutePath(pathname: string): boolean {
+  const normalizedPathname = normalizePathname(pathname)
+  return normalizedPathname.startsWith('/fcs/production')
+}
+
+function isProductionScopedRenderPath(pathname: string): boolean {
+  const normalizedPathname = normalizePathname(pathname)
+  return (
+    normalizedPathname === '/fcs/production/demand-inbox' ||
+    normalizedPathname === '/fcs/production/orders' ||
+    /^\/fcs\/production\/orders\/[^/]+$/.test(normalizedPathname)
+  )
+}
+
+function renderPdaLoadingShell(): string {
+  return `
+    <section class="relative flex h-screen min-h-0 flex-col overflow-hidden bg-background">
+      <header class="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
+        <div class="h-5 w-44 rounded bg-muted"></div>
+        <div class="mt-1 h-3 w-16 rounded bg-muted"></div>
+      </header>
+      <main class="min-h-0 flex-1 overflow-hidden px-4 py-4">
+        <div class="rounded-3xl border bg-card px-4 py-4 shadow-sm">
+          <div class="h-5 w-24 rounded bg-muted"></div>
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+            <div class="h-20 rounded-2xl bg-muted/70"></div>
+          </div>
+        </div>
+        <div class="mt-4 rounded-3xl border bg-card px-4 py-4 shadow-sm">
+          <div class="h-5 w-20 rounded bg-muted"></div>
+          <div class="mt-3 h-14 rounded-2xl bg-muted/70"></div>
+          <div class="mt-3 grid grid-cols-4 gap-2">
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+            <div class="h-12 rounded-2xl bg-muted/70"></div>
+          </div>
+        </div>
+      </main>
+      <nav class="absolute bottom-0 left-0 right-0 z-10 flex h-[72px] items-center justify-around border-t bg-background px-1">
+        ${['接单', '执行', '交接', '仓管', '结算']
+          .map(
+            (label) => `
+              <div class="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2">
+                <div class="h-5 w-5 rounded bg-muted"></div>
+                <div class="text-[10px] font-medium leading-tight text-muted-foreground">${label}</div>
+              </div>
+            `,
+          )
+          .join('')}
+      </nav>
+    </section>
+  `
+}
+
+function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
+  if (!isPdaPath(state.pathname)) return
+  if (root.childElementCount > 0) return
+  root.innerHTML = renderAppShell(state, renderPdaLoadingShell())
+}
+
+const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+const cutPieceReturnProcessingRoutePath = '/fcs/craft/cutting/cut-piece-return-processing'
+const productionPreparationTimingRoutePath = '/fcs/production/preparation-timing'
+const productionPreparationTimingStatisticsRoutePath = '/fcs/production/preparation-timing-statistics'
+let previousRenderedPagePathname = ''
+let tmfMockBootstrapAttempted = false
+let tmfMockStorageWarning = false
+
+const tmfStorageCapacityError = '本次未保存，数量未改变。请检查浏览器存储后使用原操作重试。'
+
+function includeTmfStorageWarning(pageContent: string): string {
+  if (!tmfMockStorageWarning) return pageContent
+  return `<section role="status" aria-live="polite" class="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">织带厂演示数据未能全部保存，当前页面仍可查看已保存记录。请检查浏览器存储空间；处理后刷新页面可重新补齐演示数据。</section>${pageContent}`
+}
+
+let productionEntryHydration: Promise<void> | undefined
+let productionSourceEffectsHydration: Promise<void> | undefined
+let partTicketEntryHydration: Promise<void> | undefined
+let cuttingEntryHydration: Promise<void> | undefined
+async function hydratePartTicketsForEntry(normalizedPathname: string, snapshot?: import('./data/fcs/cutting/cutting-record-repository.ts').CuttingRecordSnapshot, force = false): Promise<void> {
+  // 后道确认同步更新PPIC承诺分摊；独立直达也先恢复其任务来源依赖。
+  // 仅只读恢复，不把部位票或演示种子写入数据库。
+  partTicketEntryHydration ??= import('./data/fcs/cutting/part-ticket-records.ts')
+    .then(partTickets => partTickets.hydratePartTicketRecords(snapshot))
+    .catch(error => { partTicketEntryHydration = undefined; throw error })
+  await partTicketEntryHydration
+}
+async function hydrateProductionSourceEffectsForEntry(normalizedPathname: string): Promise<void> {
+  // 后道及限定工艺页仍读取生产单与裁片来源。没有保存过分配产物时，静态默认值已由
+  // 各自来源提供，无需首次进入就加载整套车缝、结算及分配保存模块。
+  // 有持久覆盖值或随后进入其他生产页面时，按原规则恢复全部分配产物。
+  const productionContext = await import('./data/fcs/production-context-records.ts')
+  const postFinishingEntry = normalizedPathname.startsWith('/fcs/craft/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/post-finishing/')
+    || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-')
+    || normalizedPathname === '/fcs/pda/handover/sewing-self-return'
+    || normalizedPathname === '/fcs/pda/warehouse/wait-process'
+    || normalizedPathname === '/wls/finished-inbound'
+    || (normalizedPathname === '/fcs/print/preview'
+      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
+  const dailyReturnReadEntry = ['/fcs/sewing-outsourcing/daily-return-report',
+    '/fcs/sewing-outsourcing/daily-return-summary', '/fcs/sewing-outsourcing/returns',
+    '/fcs/dispatch/workbench', '/fcs/progress/production-orders', '/fcs/contracts/print'].includes(normalizedPathname)
+  if ((!postFinishingEntry && !dailyReturnReadEntry && !isIsolatedCraftReadEntry(normalizedPathname)) || productionContext.productionContextStorage.getItem(productionContext.PRODUCTION_CONTEXT_KEYS.effects) !== null) {
+    productionSourceEffectsHydration ??= import('./data/fcs/production-context-actions.ts')
+      .then(sourceActions => sourceActions.hydrateProductionSourceEffects())
+      .catch(error => { productionSourceEffectsHydration = undefined; throw error })
+    await productionSourceEffectsHydration
+  }
+}
+async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  // Direct downstream and print entries read committed wool facts without first
+  // visiting a wool page. Load their shared PCS/FCS dependencies before rendering.
+  if (/^\/(?:fcs\/(?:craft\/(?:cutting|post-finishing)|process-factory\/wool|pda\/post-finishing)(?:\/|$)|wls\/finished-inbound$|fcs\/print\/preview$)/.test(normalizedPathname)) {
+    await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
+  }
+  // Ordinary procurement pages hydrate their own direct sources; they do not load production/cutting records.
+  if (normalizedPathname.startsWith('/pms/') && !normalizedPathname.startsWith('/pms/tmf-')) {
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
+  // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
+  // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
+  if (/^\/los\/live-room(\/|$)/.test(normalizedPathname) || /^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
+  // 一次页面会话只初始化一次读视图；保存动作自行在同一快照上读回。
+  // 局部输入导致的render不得再次抢占保存/迁移锁，也不得并发初始化。
+  productionEntryHydration ??= (async () => {
+    const [productionContext,records] = await Promise.all([import('./data/fcs/production-context-records.ts'),import('./data/fcs/cutting/cutting-record-repository.ts')])
+    const snapshot=await records.readCuttingRecords()
+    await productionContext.hydrateProductionContextRecords(snapshot)
+    await hydratePartTicketsForEntry(normalizedPathname, snapshot)
+    await hydrateProductionSourceEffectsForEntry(normalizedPathname)
+    if(normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/') || normalizedPathname==='/fcs/print/preview') {
+      cuttingEntryHydration=import('./data/fcs/cutting/cutting-event-repository.ts').then(events=>events.hydrateCuttingEventRecords(snapshot,true)).catch(error=>{cuttingEntryHydration=undefined;throw error})
+      await cuttingEntryHydration
+    }
+  })().catch(error => { productionEntryHydration = undefined; throw error })
+  await productionEntryHydration
+  await hydratePartTicketsForEntry(normalizedPathname)
+  await hydrateProductionSourceEffectsForEntry(normalizedPathname)
+  if (normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/dispatch/') || normalizedPathname.startsWith('/fcs/pda/transfer-bag')
+    || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/tasks/')
+    || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
+    || normalizedPathname === '/fcs/pda/warehouse/wait-handover'
+    || normalizedPathname === '/fcs/print/preview') {
+    cuttingEntryHydration ??= import('./data/fcs/cutting/cutting-event-repository.ts').then(records => records.hydrateCuttingEventRecords())
+      .catch(error => { cuttingEntryHydration = undefined; throw error })
+    await cuttingEntryHydration
+  }
+  const isSupplementManagementEntry =
+    normalizedPathname === supplementManagementRoutePath &&
+    previousRenderedPagePathname !== supplementManagementRoutePath
+  const isCutPieceReturnProcessingEntry =
+    normalizedPathname === cutPieceReturnProcessingRoutePath &&
+    previousRenderedPagePathname !== cutPieceReturnProcessingRoutePath
+  const isProductionPreparationTimingEntry =
+    normalizedPathname === productionPreparationTimingRoutePath &&
+    previousRenderedPagePathname !== productionPreparationTimingRoutePath
+  const isProductionPreparationTimingStatisticsEntry =
+    normalizedPathname === productionPreparationTimingStatisticsRoutePath &&
+    previousRenderedPagePathname !== productionPreparationTimingStatisticsRoutePath
+  previousRenderedPagePathname = normalizedPathname
+  const isTmfPrototypeRoute = normalizedPathname.startsWith('/fcs/craft/accessory/webbing/')
+    || normalizedPathname.startsWith('/fcs/pda/accessory/webbing/')
+    || normalizedPathname.startsWith('/pms/tmf-')
+    || normalizedPathname.startsWith('/wls/raw/tmf-')
+    || normalizedPathname.startsWith('/print/tmf-')
+    || (normalizedPathname === '/fcs/print/preview'
+      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType')?.startsWith('TMF_'))
+  if (isTmfPrototypeRoute) {
+    if (!tmfMockBootstrapAttempted) {
+      // Avoid repeating a full connected-demo bootstrap on every TMF route.
+      // A quota failure is an initialization warning, not a page-module failure.
+      try {
+        const prototypeData = await import('./data/fcs/tmf-base-demo.ts')
+        tmfMockBootstrapAttempted = true
+        prototypeData.ensureTmfConnectedMockData()
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== tmfStorageCapacityError) throw error
+        tmfMockBootstrapAttempted = true
+        tmfMockStorageWarning = true
+        console.warn('织带厂演示数据初始化未能完整保存；继续显示当前页面。', error)
+      }
+    }
+  }
+  if (isSupplementManagementEntry) {
+    const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+    supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+  }
+  if (isCutPieceReturnProcessingEntry) {
+    const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-warehouse')
+    cutPieceReturnPage.enterCraftCuttingCutPieceReturnProcessingRoute()
+  }
+  if (!isProductionPreparationTimingEntry && !isProductionPreparationTimingStatisticsEntry) return
+
+  const productionPreparationTimingPage = await import('./pages/production/preparation-timing')
+  if (isProductionPreparationTimingEntry) productionPreparationTimingPage.enterProductionPreparationTimingRoute()
+  if (isProductionPreparationTimingStatisticsEntry)
+    productionPreparationTimingPage.enterProductionPreparationTimingStatisticsRoute()
+}
+
+async function renderCurrentPageContent(pathname: string): Promise<string> {
+  if (authorizedCostCleanupError) return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(authorizedCostCleanupError)
+  try {
+    const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // These page owners read no production/cutting sources. Keep their direct
+    // entries independent; later business navigation still prepares its records.
+    if (/^\/fcs\/craft\/workbench\/overview\/?$/.test(normalizedPathname)) {
+      previousRenderedPagePathname = normalizedPathname
+      return (await import('./pages/process-factory/workbench/overview.ts')).renderCraftWorkbenchOverviewPage()
+    }
+    if (/^\/fcs\/factories\/profile\/?$/.test(normalizedPathname)) {
+      previousRenderedPagePathname = normalizedPathname
+      return (await getFactoryProfilePageModule()).renderFactoryProfilePage()
+    }
+    // Authentication has no production records to hydrate. Loading its own
+    // renderer also keeps unrelated execution routes out of this first visit.
+    if (normalizedPathname === '/fcs/pda/auth/login') {
+      return (await import('./pages/pda-login.ts')).renderPdaLoginPage()
+    }
+    if (normalizedPathname === '/pms/purchase-suggestions') {
+      const [page, logs] = await Promise.all([
+        import('./pages/pms/purchase-suggestions.ts'),
+        import('./data/pms/runtime.ts'),
+      ])
+      // The page reads its current purchase and SKU facts independently.
+      // Keep this direct entry isolated from unrelated production records.
+      await logs.hydratePmsLogsFromIdb()
+      return await page.renderPmsPurchaseSuggestionsPage()
+    }
+    // 辅料仓与FCS配料跟进由页面读取同一份必要资料并提供存储故障恢复；
+    // 冷入口不先经过其他工艺/分配演示的初始化，避免在专页捕获前失败。
+    if (normalizedPathname.startsWith('/wls/accessory-warehouses/') || normalizedPathname === '/fcs/material-prep/sewing') return await resolvePage(pathname)
+    if (normalizedPathname === '/fcs/sewing-outsourcing/material-handover') {
+      const records = await import('./data/wls/accessory-warehouse-records.ts')
+      return await records.withAccessoryWarehouseRecords(async () => (await import('./pages/sewing-outsourcing/material-handover.ts')).renderSewingMaterialHandoverPage(),
+        (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing)
+    }
+    if (normalizedPathname === '/fcs/craft/post-finishing/material-transfers') return await resolvePage(pathname)
+    if (normalizedPathname === '/fcs/pda/handover') {
+      const pickupVersionId = new URLSearchParams(pathname.split('?')[1] || '').get('sewingPickupVersionId')
+      if (pickupVersionId) {
+        await (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+        const slips = await import('./data/fcs/sewing-pickup-slips.ts')
+        const version = slips.getSewingPickupSlipVersion(pickupVersionId)
+        if (version && version.objectKind !== 'CUT_PIECE' && slips.isWarehouseManagedSewingAssignment(version.assignmentId)) {
+          await hydratePartTicketsForEntry(normalizedPathname)
+          return (await getPdaHandoverPageModule()).renderPdaHandoverPage()
+        }
+      }
+      const materialOrderNo = new URLSearchParams(pathname.split('?')[1] || '').get('materialOrderNo')
+      if (materialOrderNo) {
+        const accessoryPost = await import('./data/wls/accessory-warehouse-post-finishing.ts')
+        await accessoryPost.prepareAccessoryPostFinishing()
+        // 已指定的本轮辅料调拨只读取其收货事实；普通交接页仍由原入口准备。
+        if (accessoryPost.isManagedAccessoryPostTransfer(materialOrderNo)) {
+          // PDA identity dependencies also read the original part-ticket scope.
+          await hydratePartTicketsForEntry(normalizedPathname)
+          const runtime = (await import('./pages/pda-runtime.ts')).getPdaRuntimeContext()
+          const access = await import('./pages/pda-accessory-post-access.ts')
+          if (runtime && !access.isPostFinishingFactoryId(runtime.factoryId)) return access.renderAccessoryPostFactoryAccessBlock()
+          return (await getPdaHandoverPageModule()).renderPdaHandoverPage()
+        }
+      }
+    }
+    if (normalizedPathname === '/fcs/print/preview' && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'PICKUP_SLIP') {
+      await hydratePartTicketsForEntry(normalizedPathname)
+      await (await import('./data/wls/accessory-warehouse-sewing.ts')).prepareAccessorySewing()
+      const sourceId = new URLSearchParams(pathname.split('?')[1] || '').get('sourceId') || ''
+      const slips = await import('./data/fcs/sewing-pickup-slips.ts')
+      const version = slips.getSewingPickupSlipVersion(sourceId)
+      if (version && version.objectKind !== 'CUT_PIECE' && slips.isWarehouseManagedSewingAssignment(version.assignmentId)) {
+        // Canonical slips print their committed version, including all frozen
+        // lines and pictures. They do not consume live PCS or finishing scopes.
+        return (await import('./pages/print/print-preview.ts')).renderPrintPreviewPage()
+      }
+      if (version) {
+        await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState()
+        return await resolvePage(pathname)
+      }
+    }
+    // Static timing pages and registered source documents do not initialize
+    // unrelated live module stores or run their legacy seed/migration actions.
+    if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) return await resolvePage(pathname)
+    if (/^\/(pcs|pms|fcs|wls)\//.test(normalizedPathname) && /%2[fF]/.test(normalizedPathname)) {
+      const { resolveTimingSourceDetail } = await import('./pages/production-fulfillment/source-document-detail')
+      const sourcePage = resolveTimingSourceDetail(normalizedPathname)
+      if (sourcePage) return sourcePage
+    }
+    // These physical entries hydrate their own committed records in the route
+    // renderer. The generic entry below also initializes unrelated procurement
+    // and workshop demos, and its direct handover branch bypasses that guard.
+    if (/^\/fcs\/(?:craft\/dyeing\/washing\/work-orders(?:\/[^/]+)?|pda\/washing(?:\/[^/]+)?|craft\/printing\/work-orders\/[^/]+|craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse|pda\/exec\/(?:TASK-PRINT-[^/]+|TASK-PWO-WASH-[^/]+)|pda\/handover|pda\/warehouse\/(?:wait-process|wait-handover))$/.test(normalizedPathname)) {
+      // Keep the existing PCS/FCS read contract ready before any later adjacent
+      // navigation starts its handlers or shared catalogue module evaluation.
+      try { await (await import('./data/pcs-record-runtime.ts')).ensurePcsRecordState() } catch(error) {
+        return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(error)
+      }
+      if (normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/warehouse/') || /^\/fcs\/craft\/(?:dyeing|printing)\/wait-(?:process|handover)-warehouse$/.test(normalizedPathname)) {
+        await preparePageRouteEntry(normalizedPathname)
+      }
+      else if (normalizedPathname.startsWith('/fcs/pda/')) await hydratePartTicketsForEntry(normalizedPathname)
+      return await resolvePage(pathname)
+    }
+    // Ordinary sewing execution reads PCS/FCS records below. Leave unrelated
+    // PMS initialization pending until its original module entry is visited.
+    const generatedPdaTask = normalizedPathname.match(/^\/fcs\/pda\/exec\/(TASKGEN-[^/]+)$/)
+    let isGeneratedIndependentSewing = false
+    const cuttingPrintEntry = normalizedPathname === '/fcs/print/preview'
+      && ['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'REPLACEMENT_FABRIC_LABEL'].includes(new URLSearchParams(pathname.split('?')[1] || '').get('documentType') || '')
+    const cuttingReleaseChainEntry=cuttingPrintEntry || /^\/fcs\/(?:dispatch\/workbench|sewing-outsourcing(?:\/|$)|craft\/cutting\/(?:cut-piece-release|supplement-management|replacement-fabric-fei-tickets|warehouse-management\/wait-handover|handover-orders|transfer-bags|transfer-bag-detail)|pda\/cutting(?:\/|$))/.test(normalizedPathname)
+    const postFinishingEntry = normalizedPathname.startsWith('/fcs/craft/post-finishing/')
+      || normalizedPathname.startsWith('/fcs/pda/post-finishing/')
+      || normalizedPathname.startsWith('/fcs/pda/exec/PF-POST-')
+      || normalizedPathname === '/fcs/pda/handover/sewing-self-return'
+      || normalizedPathname === '/fcs/pda/warehouse/wait-process'
+      || normalizedPathname === '/wls/finished-inbound'
+      || (normalizedPathname === '/fcs/print/preview'
+        && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'POST_FINISHING_QC_ORDER')
+    // These pages read their preparation and ticket facts from the hydrated FCS
+    // sources. PMS keeps its initialization on its original module entries.
+    const isolatedPcsList = ['/pcs/products/styles', '/pcs/products/specifications'].includes(normalizedPathname)
+    // 车缝执行及现场交接读取下方恢复的PCS/FCS事实。这里不同时启动
+    // 无关采购、请款和供应商列表的全部初始化，避免阻塞PDA实际任务。
+    const sewingPdaExecutionOrHandover = /^\/fcs\/pda\/exec\/PDA-SEW-[^/]+$/.test(normalizedPathname)
+      || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
+    const factoryReceiptReadEntry = /^\/fcs\/craft\/(?:dyeing|printing)\/pending-receipts$/.test(normalizedPathname)
+    if (!factoryReceiptReadEntry && !isolatedPcsList && !postFinishingEntry && !cuttingReleaseChainEntry && !sewingPdaExecutionOrHandover && !/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask && !isIsolatedCraftReadEntry(normalizedPathname)) startPmsInitialization()
+    if (normalizedPathname.startsWith('/pms/')) {
+      await (await import('./data/pms/runtime.ts')).hydratePmsLogsFromIdb()
+    }
+    // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
+    const pcsFirstScreenImages = normalizedPathname === '/pms/supplier-supply-archives'
+      ? ['/materials/archive/4595f8e168082d676f32f9b977984a2a.png', '/materials/pcs-reviewed/rib-blue.jpg', '/materials/pcs-reviewed/cotton-white.jpg']
+      : normalizedPathname === '/pms/material-purchase-orders'
+      ? ['/materials/fabric-main.jpg', '/shirt-sample.jpg', '/materials/accessory-button.jpg', '/dress-sample-1.jpg', '/materials/fei-ticket/fog-grey-sweatshirt-fleece.png', '/production-confirmation-demo/grey-zip-hoodie.png', '/materials/yarn-stitching.jpg']
+      : normalizedPathname === '/pcs/production-preparation/design-revision'
+      ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
+      : normalizedPathname === '/pcs/products/styles' || normalizedPathname === '/pcs/products/specifications'
+        ? ['/thumbnails/materials/pcs-reviewed/tee-black.webp', '/thumbnails/materials/pcs-reviewed/shirt-black.webp']
+        : []
+    for (const src of pcsFirstScreenImages) { const image = new Image(); image.src = src; void image.decode().catch(() => {}) }
+    // 改款加工、收货和 PDA 直达页须先读取同一份已提交资料。
+    const procurementCatalogEntry = /^\/pms\/(purchase-suggestions|kol-demands|product-purchase-orders|reorder|product-purchase-order-aftersales|material-requirements|material-purchase-orders|material-purchase-tracking|fitting-timeliness|material-supplier-confirmations|first-leg-shipments|material-inventory|material-payment-requests|logistics-payment-requests|kol-sample-stock|kol-sample-apply|kol-sample-link|supplier-supply-archives)(\/|$)/.test(normalizedPathname)
+      && normalizedPathname !== '/pms/kol-sample-stock/lock-log'
+    // Direct procurement entries must read persisted PCS catalog overrides before
+    // building names, images, units or published BOM candidates. This is read-only.
+    if (procurementCatalogEntry) {
+      try { await (await import('./data/pms/canonical-purchase-references.ts')).ensurePurchaseCatalogState() } catch (error) {
+        const { renderPcsStorageError } = await import('./pages/pcs-storage-error.ts')
+        return renderPcsStorageError(error)
+      }
+    }
+    if (/^\/pcs\/production-preparation\/(plate-making|artwork|color|display-sample|first-sample)\/[^/]+$/.test(normalizedPathname) || /^\/fcs\/craft\/(dyeing|printing)(\/|$)/.test(normalizedPathname)
+      || /^\/fcs\/production\/changes(\/|$)/.test(normalizedPathname)
+      || /^\/fcs\/(?:craft\/wool|process-factory\/special-craft|pda\/wool)(\/|$)/.test(normalizedPathname)
+      || /^\/fcs\/pda\/(task-receive|exec|handover|factory-receipts)(\/|$)/.test(normalizedPathname)
+      || (normalizedPathname === '/fcs/print/preview' && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'PRINTING_ROLL_LABEL')) {
+      const { ensurePcsRecordState } = await import('./data/pcs-record-runtime.ts')
+      try { await ensurePcsRecordState() } catch (error) {
+        const { renderPcsStorageError } = await import('./pages/pcs-storage-error.ts')
+        return renderPcsStorageError(error)
+      }
+    }
+    const woolExecution = normalizedPathname.match(/^\/fcs\/pda\/exec\/([^/]+)$/)
+    const woolTaskId = woolExecution ? decodeURIComponent(woolExecution[1]) : ''
+    const isWoolStageExecution = /:(KNITTING|LINKING)$/.test(woolTaskId)
+    // Start the actual first-screen image requests during this navigation, alongside the page module.
+    if (normalizedPathname.startsWith('/fcs/craft/wool/') || normalizedPathname.startsWith('/fcs/pda/wool/') || isWoolStageExecution) {
+      for (const src of [WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE]) {
+        const image = new Image()
+        image.src = src
+        void image.decode().catch(() => { /* The visible image retains its normal failure feedback. */ })
+      }
+    }
+    await preparePageRouteEntry(normalizedPathname)
+    if (['/fcs/craft/cutting/replacement-fabric-fei-tickets', '/fcs/craft/cutting/warehouse-management/wait-handover', '/fcs/pda/cutting/simple-cut-piece-handover'].includes(normalizedPathname)) {
+      // The same published ordinary-ticket fixtures used by task printing and
+      // handover must be independently readable after a direct open or refresh.
+      const { ensureSimpleCutPieceHandoverFixtures } = await import('./data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+      ensureSimpleCutPieceHandoverFixtures()
+    }
+    if (generatedPdaTask) {
+      // Resolve the actual task after source hydration. Generated independent
+      // sewing tasks use the same PCS/FCS facts as ordinary sewing; other
+      // generated processes retain their original PMS initialization.
+      const { getRuntimeTaskById, isRuntimeIndependentSewingTask } = await import('./data/fcs/runtime-process-tasks.ts')
+      const generatedTask = getRuntimeTaskById(decodeURIComponent(generatedPdaTask[1]))
+      isGeneratedIndependentSewing = Boolean(generatedTask && isRuntimeIndependentSewingTask(generatedTask))
+      if (!isGeneratedIndependentSewing) {
+        const printing = await import('./data/fcs/printing-task-domain.ts')
+        if (printing.getPrintWorkOrderByTaskId(decodeURIComponent(generatedPdaTask[1]))) return await resolvePage(pathname)
+        startPmsInitialization()
+      }
+    }
+    if (isWoolStageExecution) {
+      const [page, shell] = await Promise.all([
+        import('./pages/pda-wool-fact-execution.ts'),
+        import('./pages/pda-shell.ts'),
+      ])
+      // The wool renderer validates the exact stage task and current factory.
+      // Generic water/cutting detail initialization is unrelated to this task.
+      return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true })
+    }
+    if (/^\/fcs\/pda\/exec\/[^/]+$/.test(normalizedPathname)) {
+      // Handler dependencies read part tickets during module evaluation. Start
+      // them only after the required records are hydrated, alongside the detail.
+      if (isGeneratedIndependentSewing && generatedPdaTask) {
+        // This renderer retains the PDA frame's authentication and factory
+        // checks. Loading the generic registry would also evaluate unrelated
+        // cutting/supplement demo modules before this ordinary sewing page.
+        const [page] = await Promise.all([import('./pages/pda-exec-detail.ts'), getPdaHandlersModule()])
+        return page.renderPdaExecDetailPage(decodeURIComponent(generatedPdaTask[1]))
+      }
+      const [pageContent] = await Promise.all([resolvePage(pathname), getPdaHandlersModule()])
+      return pageContent
+    }
+    if (normalizedPathname === '/fcs/pda/warehouse/inbound-records' || normalizedPathname === '/fcs/pda/warehouse/outbound-records') {
+      const [page, session] = await Promise.all([
+        import('./pages/pda-wool-warehouse-flows.ts'),
+        import('./pages/pda-runtime.ts'),
+      ])
+      const identity = session.getPdaRuntimeContext()
+      if (identity) {
+        const wool = page.renderPdaWoolWarehouseFlows(identity.factoryId, identity.factoryName, normalizedPathname.endsWith('inbound-records') ? 'IN' : 'OUT')
+        if (wool) return wool
+      }
+      // Other factories retain the generic warehouse route and its permissions.
+    }
+    if (normalizedPathname === '/fcs/craft/wool/machines') {
+      const page = await import('./pages/process-factory/wool/machines.ts')
+      return page.renderCraftWoolMachinesPage()
+    }
+    if (normalizedPathname === '/fcs/process-factory/wool/machine-associations') {
+      const page = await import('./pages/process-factory/wool/machine-associations.ts')
+      return page.renderCraftWoolMachineAssociationsPage()
+    }
+    if (normalizedPathname === '/fcs/craft/wool/wait-process-warehouse' || normalizedPathname === '/fcs/craft/wool/wait-handover-warehouse') {
+      const page = await import('./pages/process-factory/wool/warehouse.ts')
+      return normalizedPathname.endsWith('wait-process-warehouse') ? page.renderCraftWoolWaitProcessWarehousePage() : page.renderCraftWoolWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/wool/pending-receipts' || normalizedPathname === '/fcs/pda/wool/pending-receipts') {
+      const page = await import('./pages/process-factory/wool/pending-receipts.ts')
+      return page.renderWoolPendingReceiptsPage()
+    }
+    const woolStagePath = normalizedPathname.match(/^\/fcs\/craft\/wool\/(knitting-orders|linking-orders)(?:\/([^/]+)(?:\/(handover-print)(?:\/([^/]+))?)?)?$/)
+    if (woolStagePath) {
+      const stage = woolStagePath[1] === 'knitting-orders' ? 'KNITTING' : 'LINKING'
+      if (!woolStagePath[2]) {
+        const page = await import('./pages/process-factory/wool/stage-orders.ts')
+        return page.renderCraftWoolStageOrdersPage(stage)
+      }
+      const orderId = decodeURIComponent(woolStagePath[2])
+      if (woolStagePath[3]) {
+        const page = await import('./pages/process-factory/wool/handover-print.ts')
+        return page.renderCraftWoolHandoverPrintPage(orderId, woolStagePath[4] ? decodeURIComponent(woolStagePath[4]) : undefined, stage)
+      }
+      const page = await import('./pages/process-factory/wool/stage-order-detail.ts')
+      return page.renderCraftWoolStageOrderDetailPage(orderId, stage)
+    }
+    if (normalizedPathname === '/fcs/production/demand-inbox') {
+      const productionDemandPage = await getProductionDemandPageModule()
+      const page = productionDemandPage.renderProductionDemandInboxPage()
+      scheduleProductionListPreload()
+      return page
+    }
+    if (normalizedPathname === '/fcs/production/orders') {
+      const productionOrdersPage = await getProductionOrdersPageModule()
+      const page = productionOrdersPage.renderProductionOrdersPage()
+      scheduleProductionListPreload()
+      return page
+    }
+    if (normalizedPathname === '/fcs/pda/task-receive') {
+      const pdaTaskReceivePage = await getPdaTaskReceivePageModule()
+      return pdaTaskReceivePage.renderPdaTaskReceivePage()
+    }
+    if (normalizedPathname === '/fcs/pda/exec') {
+      const pdaExecPage = await getPdaExecPageModule()
+      return pdaExecPage.renderPdaExecPage()
+    }
+    if (normalizedPathname.startsWith('/fcs/pda/handover/HOH-WOOL-')) {
+      const page = await getPdaHandoverDetailPageModule()
+      return page.renderPdaHandoverDetailPage(decodeURIComponent(normalizedPathname.slice('/fcs/pda/handover/'.length)))
+    }
+    if (normalizedPathname === '/fcs/pda/handover') {
+      const pdaHandoverPage = await getPdaHandoverPageModule()
+      return pdaHandoverPage.renderPdaHandoverPage()
+    }
+    if (normalizedPathname === '/fcs/pda/warehouse') {
+      const pdaWarehousePage = await getPdaWarehousePageModule()
+      return pdaWarehousePage.renderPdaWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/pda/settlement') {
+      const pdaSettlementPage = await getPdaSettlementPageModule()
+      return pdaSettlementPage.renderPdaSettlementPage()
+    }
+    if (normalizedPathname === '/fcs/craft/printing/wait-process-warehouse') {
+      const printingWarehousePage = await getCraftPrintingWarehousePageModule()
+      return printingWarehousePage.renderCraftPrintingWaitProcessWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/printing/wait-handover-warehouse') {
+      const printingWarehousePage = await getCraftPrintingWarehousePageModule()
+      return printingWarehousePage.renderCraftPrintingWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/dyeing/wait-process-warehouse') {
+      const dyeingWarehousePage = await getCraftDyeingWarehousePageModule()
+      return dyeingWarehousePage.renderCraftDyeingWaitProcessWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/dyeing/wait-handover-warehouse') {
+      const dyeingWarehousePage = await getCraftDyeingWarehousePageModule()
+      return dyeingWarehousePage.renderCraftDyeingWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/transfer-bags') {
+      const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
+      return transferBagsPage.renderCraftCuttingTransferBagsPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/transfer-bag-detail') {
+      const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
+      return transferBagsPage.renderCraftCuttingTransferBagDetailPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-list') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingListPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-create') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingCreatePage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-detail') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingDetailPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/spreading-edit') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingSpreadingEditPage()
+    }
+    if (normalizedPathname === '/fcs/craft/cutting/marker-spreading') {
+      const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+      return markerSpreadingPage.renderCraftCuttingMarkerSpreadingPage()
+    }
+    if (normalizedPathname === '/fcs/print/preview') {
+      const documentType = new URLSearchParams(pathname.split('?')[1] || '').get('documentType')
+      if (documentType === 'PRINTING_CONFIRMATION' || documentType === 'PRINTING_INFO_SHEET') {
+        return (await getPrintingSheetPreviewModule()).renderPrintingSheetPreview()
+      }
+      if (documentType === 'TMF_PROCESS_SHEET') {
+        const page = await import('./pages/print/tmf-process-print-preview.ts')
+        return page.renderTmfProcessPrintPreviewPage()
+      }
+      const printPreviewPage = await getPrintPreviewPageModule()
+      if (documentType === 'DISPATCH_TASK_SHEET' || documentType === 'PRODUCTION_CONFIRMATION' || documentType === 'REPLACEMENT_FABRIC_LABEL') {
+        const { ensureSimpleCutPieceHandoverFixtures } = await import('./data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+        ensureSimpleCutPieceHandoverFixtures()
+      }
+      return printPreviewPage.renderPrintPreviewPage()
+    }
+    return await resolvePage(pathname)
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && ['PRODUCTION_CONTEXT_RECOVERY', 'PART_TICKET_RECOVERY'].includes(String(error.code))) {
+      const failedPath = normalizePathname(pathname)
+      if (failedPath === '/pcs' || failedPath.startsWith('/pcs/')) {
+        const { renderPcsStorageError } = await import('./pages/pcs-storage-error.ts')
+        return renderPcsStorageError(new Error('关联的生产资料暂时无法读取。'))
+      }
+      const recovery = await import('./pages/production-context-recovery.ts')
+      return recovery.renderProductionContextRecovery(error instanceof Error ? error.message : String(error))
+    }
+    if (reloadForDynamicModuleLoadError(error, '路由模块')) {
+      return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
+    }
+    const postFinishingReadEntry = /^\/fcs\/(?:craft\/post-finishing\/|pda\/post-finishing\/|pda\/exec\/PF-POST-)/.test(pathname)
+      || pathname.split('?')[0] === '/wls/finished-inbound'
+    if (postFinishingReadEntry && error instanceof Error) {
+      const records = await import('./data/pcs-record-runtime.ts')
+      if (records.getPcsStorageFailure() === error.message) {
+        const notice = await import('./pages/process-factory/post-finishing/storage-notice.ts')
+        return notice.renderPostFinishingEntryStorageFailure(error)
+      }
+    }
+    // A material read may discover an attachment failure after the broad PCS
+    // preparation completed. Preserve that owner's reason and actual reread
+    // action only when the page consumed this exact failed collection.
+    if (isIsolatedCraftReadEntry(pathname)) {
+      const records = await import('./data/pcs-record-runtime.ts')
+      const reason = records.getPcsCollectionFailure('higood-pcs-material-archive-store-v2')
+      if (reason && error instanceof Error && error.message === reason) {
+        return (await import('./pages/pcs-storage-error.ts')).renderPcsStorageError(error)
+      }
+    }
+    console.error('路由模块加载失败，进入降级页', error)
+    if (pathname.startsWith('/pms/')) {
+      const reason = error instanceof Error ? error.message : '采购资料暂时无法读取。'
+      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>采购资料未能读取，当前不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">原记录没有被覆盖。恢复浏览器存储权限后重新读取。</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-pms-record-retry>重新读取</button></section>`
+    }
+    const sourceReportEntry = /^\/fcs\/(?:settlement\/(?:adjustments|statements)|quality\/deduction-analysis|craft\/dyeing\/reports)$/.test(pathname.split('?')[0].split('#')[0])
+    if (sourceReportEntry || pathname.includes('/cutting/') || pathname.startsWith('/fcs/dispatch/') || pathname.startsWith('/fcs/sewing-outsourcing/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
+      const reason = error instanceof Error ? error.message : String(error)
+      const recoveryHint = sourceReportEntry ? '请核对原记录，修正后重新读取；原记录没有被覆盖，请勿清除网站数据。' : '请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。'
+      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">${recoveryHint}</p><button type="button" class="mt-3 rounded border bg-white px-3 py-2 font-medium" data-cutting-record-retry>重新读取</button></section>`
+    }
+    return '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>'
+  }
+}
+
+async function render(): Promise<void> {
+  const currentSerial = ++renderSerial
+  const state = appStore.getState()
+
+  ensureInitialPdaLoadingShell(state)
+  const pageContentPromise = renderCurrentPageContent(state.pathname)
+  const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
+    || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
+  const pageContent = await pageContentPromise
+  const postFinishingEntryFailed = pageContent.includes('data-post-finishing-entry-storage-failure')
+  // PDA处理器含读取业务记录的模块，必须等同一页面的记录初始化完成。
+  const isPdaLogin = state.pathname.split('?')[0].split('#')[0] === '/fcs/pda/auth/login'
+  if (isPdaPath(state.pathname) && !isDirectWoolPda && !isPdaLogin && !postFinishingEntryFailed) await getPdaHandlersModule()
+  if (currentSerial !== renderSerial) {
+    return
+  }
+
+  root.innerHTML = renderAppShell(state, includeTmfStorageWarning(pageContent))
+  if (state.pathname.startsWith('/pms/')) {
+    const pmsSurface = await import('./pages/pms/shared.ts')
+    pmsSurface.hydratePmsSurface(root, { icons: false })
+  }
+  if (isPdaPath(state.pathname)) {
+    if (!isPdaLogin && !postFinishingEntryFailed && !root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
+      schedulePdaMainTabPreload()
+    }
+    queueMicrotask(() => hydrateIcons(root))
+  } else {
+    hydrateIcons(root)
+  }
+  hydrateRealQRCodes(root)
+  if (!dynamicModuleReloadScheduled) {
+    clearPreloadReloadFlag()
+  }
+}
+
+async function renderSidebarOnly(): Promise<void> {
+  const sidebarHost = root.querySelector('[data-shell-sidebar-root="true"]')
+  if (!(sidebarHost instanceof HTMLElement)) {
+    await render()
+    return
+  }
+
+  sidebarHost.innerHTML = renderSidebar(appStore.getState())
+  hydrateIcons(sidebarHost)
+}
+
+function markNextStoreRenderAsSidebarOnly(): void {
+  nextStoreRenderMode = 'sidebar'
+}
+
+function getPageContentHost(): HTMLDivElement | null {
+  const host = root.querySelector('[data-page-content-root="true"]')
+  return host instanceof HTMLDivElement ? host : null
+}
+
+function normalizePathname(pathname: string): string {
+  return pathname.split('?')[0].split('#')[0] || '/'
+}
+
+function isTechPackPageMounted(): boolean {
+  return Boolean(root.querySelector('[data-tech-pack-page-root="true"]'))
+}
+
+function shouldUseTechPackScopedRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
+  const isTechPackTarget = Boolean(target.closest('[data-tech-pack-page-root="true"]'))
+  const isCuttingMarkerTarget = Boolean(
+    target.closest(
+      [
+        '[data-testid="cutting-marker-plan-list-page"]',
+        '[data-testid="cutting-marker-plan-create-page"]',
+        '[data-testid="cutting-marker-plan-edit-page"]',
+        '[data-testid="cutting-marker-plan-detail-page"]',
+      ].join(','),
+    ),
+  )
+  if (!isTechPackTarget && !isCuttingMarkerTarget) return false
+
+  const actionNode = target.closest<HTMLElement>('[data-tech-action]')
+  const action = actionNode?.dataset.techAction
+  if (action === 'tech-back') return false
+
+  return true
+}
+
+function shouldUseTechPackTabOnlyRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
+  const actionNode = target.closest<HTMLElement>('[data-tech-action="switch-tab"]')
+  return Boolean(actionNode?.dataset.tab && target.closest('[data-tech-pack-page-root="true"]'))
+}
+
+function shouldUseProductionScopedRender(previousPathname: string, nextPathname: string): boolean {
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  return previous === next && isProductionScopedRenderPath(next)
+}
+
+function shouldUseProductionOrdersOverlayRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  if (previous !== next || next !== '/fcs/production/orders') return false
+
+  const actionNode = target.closest<HTMLElement>('[data-prod-action]')
+  const action = actionNode?.dataset.prodAction || ''
+  const overlayActions = new Set([
+    'open-material-draft-drawer',
+    'close-material-draft-drawer',
+    'toggle-material-draft-needed',
+    'toggle-material-draft-line',
+    'open-add-draft-materials',
+    'close-add-draft-materials',
+    'toggle-add-draft-material',
+    'add-draft-materials',
+    'restore-material-draft-suggestion',
+    'confirm-material-request-draft',
+    'open-order-print-dialog',
+    'close-order-print-dialog',
+    'open-order-garment-replacement-dialog',
+    'close-order-garment-replacement-dialog',
+    'toggle-order-print-select-all',
+    'toggle-order-print-select',
+    'reset-order-print-qty',
+    'print-order-sku-barcode',
+    'print-order-sku-hangtag',
+    'print-order-selected-barcode',
+    'print-order-selected-hangtag',
+  ])
+  if (overlayActions.has(action)) return true
+
+  const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  const field = fieldNode?.dataset.prodField || ''
+  return (
+    field.startsWith('materialDraftMode:') ||
+    field.startsWith('materialDraftRemark:') ||
+    field.startsWith('materialDraftLineQty:')
+  )
+}
+
+function shouldUseProductionDemandOverlayRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  if (previous !== next || next !== '/fcs/production/demand-inbox') return false
+
+  const actionNode = target.closest<HTMLElement>('[data-prod-action]')
+  const action = actionNode?.dataset.prodAction || ''
+  const overlayActions = new Set([
+    'open-demand-detail',
+    'close-demand-detail',
+    'open-demand-batch',
+    'open-demand-merge',
+    'open-demand-single',
+    'close-demand-generate',
+  ])
+  if (overlayActions.has(action)) return true
+
+  const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  const field = fieldNode?.dataset.prodField || ''
+  return field.startsWith('demandGenerateTechPackVersion:')
+}
+
+function shouldUseProductionDemandConfirmOverlayRender(
+  target: Element | null,
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (!(target instanceof Element)) return false
+  const previous = normalizePathname(previousPathname)
+  const next = normalizePathname(nextPathname)
+  if (previous !== next || next !== '/fcs/production/demand-inbox') return false
+
+  const actionNode = target.closest<HTMLElement>('[data-prod-action]')
+  const action = actionNode?.dataset.prodAction || ''
+  return action === 'open-demand-generate-confirm' || action === 'close-demand-generate-confirm'
+}
+
+async function renderPageContentOnly(): Promise<void> {
+  const currentSerial = ++renderSerial
+  const state = appStore.getState()
+  const pageContent = await renderCurrentPageContent(state.pathname)
+  if (currentSerial !== renderSerial) {
+    return
+  }
+
+  const pageContentHost = getPageContentHost()
+  if (!pageContentHost) {
+    await render()
+    return
+  }
+
+  pageContentHost.innerHTML = includeTmfStorageWarning(pageContent)
+  hydrateRealQRCodes(pageContentHost)
+  queueMicrotask(() => {
+    hydrateIcons(pageContentHost)
+  })
+}
+
+interface FocusSnapshot {
+  selector: string | null
+  path: number[]
+  selectionStart: number | null
+  selectionEnd: number | null
+  scrollTop: number | null
+}
+
+function escapeCssValue(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value)
+  }
+  return value.replace(/["\\]/g, '\\$&')
+}
+
+function datasetKeyToAttribute(key: string): string {
+  return `data-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
+}
+
+function isFocusableField(
+  element: Element | null,
+): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+  return (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  )
+}
+
+function buildFocusSelector(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string | null {
+  const tagName = element.tagName.toLowerCase()
+
+  if (element.id) {
+    return `${tagName}#${escapeCssValue(element.id)}`
+  }
+
+  const selectorParts: string[] = []
+  const datasetEntries = Object.entries(element.dataset)
+
+  for (const [key, value] of datasetEntries) {
+    selectorParts.push(`[${datasetKeyToAttribute(key)}="${escapeCssValue(value || '')}"]`)
+  }
+
+  const name = element.getAttribute('name')
+  if (name) {
+    selectorParts.push(`[name="${escapeCssValue(name)}"]`)
+  }
+
+  if (element instanceof HTMLInputElement && element.type) {
+    selectorParts.push(`[type="${escapeCssValue(element.type)}"]`)
+  }
+
+  return selectorParts.length > 0 ? `${tagName}${selectorParts.join('')}` : null
+}
+
+function buildFocusPath(element: Element): number[] {
+  const path: number[] = []
+  let current: Element | null = element
+
+  while (current && current !== root) {
+    const parentElement: HTMLElement | null = current.parentElement
+    if (!parentElement) break
+    const index = Array.prototype.indexOf.call(parentElement.children, current)
+    path.unshift(index)
+    current = parentElement
+  }
+
+  return path
+}
+
+function captureFocusSnapshot(): FocusSnapshot | null {
+  const activeElement = document.activeElement
+  if (!isFocusableField(activeElement) || !root.contains(activeElement)) return null
+  if (activeElement instanceof HTMLInputElement && activeElement.type === 'file') return null
+
+  return {
+    selector: buildFocusSelector(activeElement),
+    path: buildFocusPath(activeElement),
+    selectionStart:
+      activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
+        ? activeElement.selectionStart
+        : null,
+    selectionEnd:
+      activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
+        ? activeElement.selectionEnd
+        : null,
+    scrollTop: activeElement instanceof HTMLTextAreaElement ? activeElement.scrollTop : null,
+  }
+}
+
+function resolveFocusByPath(path: number[]): Element | null {
+  let current: Element = root
+
+  for (const childIndex of path) {
+    const next = current.children.item(childIndex)
+    if (!(next instanceof Element)) return null
+    current = next
+  }
+
+  return current
+}
+
+function restoreFocusSnapshot(snapshot: FocusSnapshot | null): void {
+  if (!snapshot) return
+
+  const candidate =
+    (snapshot.selector ? root.querySelector(snapshot.selector) : null) ?? resolveFocusByPath(snapshot.path)
+
+  if (!isFocusableField(candidate)) return
+
+  candidate.focus()
+
+  if (
+    (candidate instanceof HTMLInputElement || candidate instanceof HTMLTextAreaElement) &&
+    snapshot.selectionStart !== null &&
+    snapshot.selectionEnd !== null
+  ) {
+    try {
+      candidate.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd)
+    } catch {
+      // Ignore unsupported selection restoration.
+    }
+  }
+
+  if (candidate instanceof HTMLTextAreaElement && snapshot.scrollTop !== null) {
+    candidate.scrollTop = snapshot.scrollTop
+  }
+}
+
+async function renderWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
+  await render()
+  restoreFocusSnapshot(snapshot)
+}
+
+async function renderPageContentOnlyWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
+  await renderPageContentOnly()
+  restoreFocusSnapshot(snapshot)
+}
+
+async function renderTechPackTabOnly(target: HTMLElement): Promise<void> {
+  const headerHost = root.querySelector<HTMLElement>('[data-tech-pack-tab-header-root="true"]')
+  const contentHost = root.querySelector<HTMLElement>('[data-tech-pack-tab-content-root="true"]')
+  if (!headerHost || !contentHost) {
+    await renderPageContentOnly()
+    return
+  }
+
+  const activeTab = target.closest<HTMLElement>('[data-tech-action="switch-tab"]')?.dataset.tab || ''
+  const techPackPage = await import('./pages/tech-pack/core')
+  headerHost.innerHTML = techPackPage.renderTabHeader()
+  contentHost.innerHTML = techPackPage.renderCurrentTabContent()
+  hydrateRealQRCodes(contentHost)
+  queueMicrotask(() => {
+    hydrateIcons(headerHost)
+    hydrateIcons(contentHost)
+    if (activeTab) {
+      headerHost.querySelector<HTMLElement>(`[data-tech-action="switch-tab"][data-tab="${escapeCssValue(activeTab)}"]`)?.focus()
+    }
+  })
+}
+
+async function renderProductionOrdersOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
+  const host = root.querySelector('[data-production-orders-overlay-root="true"]')
+  if (!(host instanceof HTMLElement)) {
+    await renderPageContentOnlyWithFocusRestore(snapshot)
+    return
+  }
+
+  const productionOrdersPage = await getProductionOrdersPageModule()
+  host.innerHTML = `${productionOrdersPage.renderMaterialDraftDrawer()}${productionOrdersPage.renderOrderPrintDialog()}${productionOrdersPage.renderOrderGarmentReplacementDialog()}`
+  hydrateRealQRCodes(host)
+  queueMicrotask(() => {
+    hydrateIcons(host)
+    restoreFocusSnapshot(snapshot)
+  })
+}
+
+async function renderProductionDemandOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
+  const host = root.querySelector('[data-production-demand-overlay-root="true"]')
+  if (!(host instanceof HTMLElement)) {
+    await renderPageContentOnlyWithFocusRestore(snapshot)
+    return
+  }
+
+  const productionDemandPage = await getProductionDemandPageModule()
+  host.innerHTML = productionDemandPage.renderProductionDemandOverlays()
+  hydrateRealQRCodes(host)
+  queueMicrotask(() => {
+    hydrateIcons(host)
+    restoreFocusSnapshot(snapshot)
+  })
+}
+
+async function renderProductionDemandConfirmOverlayOnly(snapshot: FocusSnapshot | null = null): Promise<void> {
+  const host = root.querySelector('[data-production-demand-confirm-root="true"]')
+  if (!(host instanceof HTMLElement)) {
+    await renderProductionDemandOverlayOnly(snapshot)
+    return
+  }
+
+  const productionDemandPage = await getProductionDemandPageModule()
+  host.innerHTML = productionDemandPage.renderDemandConfirmDialog()
+  hydrateRealQRCodes(host)
+  queueMicrotask(() => {
+    hydrateIcons(host)
+    restoreFocusSnapshot(snapshot)
+  })
+}
+
+function closeMobileSidebar(): void {
+  const { sidebarOpen } = appStore.getState()
+  if (sidebarOpen) {
+    markNextStoreRenderAsSidebarOnly()
+    appStore.setSidebarOpen(false)
+  }
+}
+
+function navigateWithImmediateSidebar(pathname: string): void {
+  const currentPathname = appStore.getState().pathname
+  if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
+    preloadPdaMainTabModule(pathname)
+    appStore.navigate(pathname)
+    return
+  }
+
+  if (isStandalonePrintPath(currentPathname) !== isStandalonePrintPath(pathname)) {
+    appStore.navigate(pathname)
+    return
+  }
+
+  markNextStoreRenderAsSidebarOnly()
+  appStore.navigate(pathname)
+  closeMobileSidebar()
+  void renderPageContentOnly()
+}
+
+function buildNavigationFromFields(node: HTMLElement): string | null {
+  const scopeSelector = node.dataset.navFromFields
+  if (!scopeSelector) return null
+  const scope = node.closest<HTMLElement>(scopeSelector)
+  if (!scope) return null
+
+  const params = new URLSearchParams()
+  scope
+    .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      'input[name], select[name], textarea[name]',
+    )
+    .forEach((field) => {
+      if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+        if (!field.checked) return
+        const value = field.value.trim()
+        if (value) params.append(field.name, value)
+        return
+      }
+      if (field instanceof HTMLInputElement && field.type === 'radio' && !field.checked) return
+      const value = field.value.trim()
+      if (value) params.set(field.name, value)
+    })
+  scope.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((details) => {
+    details.open = false
+  })
+  if (node.dataset.navResetPage !== 'false') params.set('page', '1')
+
+  const base = node.dataset.navBase || window.location.pathname
+  const query = params.toString()
+  const hash = node.dataset.navHash ? `#${node.dataset.navHash.replace(/^#/, '')}` : ''
+  return `${base}${query ? `?${query}` : ''}${hash}`
+}
+
+function hasDatasetAction(node: HTMLElement): boolean {
+  return Object.keys(node.dataset).some((key) => key === 'action' || key.endsWith('Action'))
+}
+
+function hasDatasetFieldLike(node: HTMLElement): boolean {
+  return Object.keys(node.dataset).some(
+    (key) => key === 'field' || key === 'filter' || key.endsWith('Field') || key.endsWith('Filter'),
+  )
+}
+
+function shouldBypassClickDispatch(target: Element): boolean {
+  const controlNode = target.closest<HTMLElement>('input, textarea, select, option')
+  if (!controlNode) return false
+
+  const actionBound = hasDatasetAction(controlNode)
+
+  // Let native select keep its default open/select behavior.
+  if (controlNode instanceof HTMLSelectElement || controlNode instanceof HTMLOptionElement) return true
+  if (controlNode.closest('select') instanceof HTMLSelectElement) return true
+
+  if (controlNode instanceof HTMLTextAreaElement && !actionBound) return true
+
+  if (controlNode instanceof HTMLInputElement) {
+    const inputType = (controlNode.type || 'text').toLowerCase()
+    if (inputType === 'file') return true
+    const clickDrivenTypes = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'file', 'color'])
+    if (!clickDrivenTypes.has(inputType) && !actionBound) return true
+  }
+
+  // Field/filter controls are synced by global input/change listeners.
+  // Avoid click-triggered full rerender that causes flicker and focus loss.
+  if (hasDatasetFieldLike(controlNode) && !actionBound) return true
+
+  return false
+}
+
+type RerenderEventKind = 'input' | 'change'
+
+const RERENDER_DRIVEN_INPUT_TYPES = new Set(['checkbox', 'radio', 'file', 'range', 'color'])
+const TECH_CHANGE_RERENDER_DRIVEN_FIELDS = new Set([
+  'new-pattern-material-type',
+  'new-pattern-linked-bom-item',
+  'new-pattern-prj-file',
+  'new-pattern-marker-image-file',
+  'new-pattern-dxf-file',
+  'new-pattern-rul-file',
+  'new-pattern-single-file',
+  'new-pattern-piece-is-template',
+  'pattern-template-search-keyword',
+  'new-bom-print-requirement',
+  'new-bom-print-side-mode',
+  'new-design-file',
+  'new-attachment-file',
+])
+const MARKER_PLAN_INPUT_SELECTOR = [
+  '[data-marker-plan-filter-field]',
+  '[data-marker-plan-context-field]',
+  '[data-marker-plan-basic-field]',
+  '[data-marker-plan-textarea-field]',
+  '[data-marker-plan-size-piece-per-layer]',
+  '[data-marker-plan-matrix-cell]',
+  '[data-marker-plan-matrix-row-length]',
+  '[data-marker-plan-bed-field]',
+  '[data-marker-plan-fold-field]',
+  '[data-marker-plan-mapping-field]',
+].join(', ')
+
+function isInputOrTextArea(node: HTMLElement | null): node is HTMLInputElement | HTMLTextAreaElement {
+  return node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement
+}
+
+function getInputType(node: HTMLInputElement | HTMLTextAreaElement): string {
+  return node instanceof HTMLInputElement ? (node.type || 'text').toLowerCase() : 'text'
+}
+
+function shouldSkipRerenderForControlType(node: HTMLInputElement | HTMLTextAreaElement): boolean {
+  return !RERENDER_DRIVEN_INPUT_TYPES.has(getInputType(node))
+}
+
+function resolveSharedFieldRerenderDecision(target: Element, eventKind: RerenderEventKind): boolean | undefined {
+  const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
+  if (isInputOrTextArea(pdaLoginFieldNode)) return true
+
+  const productionFieldNode = target.closest<HTMLElement>('[data-prod-field]')
+  if (isInputOrTextArea(productionFieldNode)) return shouldSkipRerenderForControlType(productionFieldNode)
+
+  const pdaCutHandoverFieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
+  if (isInputOrTextArea(pdaCutHandoverFieldNode)) return true
+
+  const pdaCutSpreadingFieldNode = target.closest<HTMLElement>(
+    '[data-pda-cut-spreading-field], [data-pda-cut-spreading-operator-field]',
+  )
+  if (
+    isInputOrTextArea(pdaCutSpreadingFieldNode) ||
+    pdaCutSpreadingFieldNode instanceof HTMLSelectElement
+  ) {
+    return true
+  }
+
+  // Remarks already update the draft on input. Redrawing on blur replaces the
+  // save button between pointerdown and click, silently swallowing that click.
+  if (eventKind === 'change' && target.closest(
+    '[data-marker-plan-basic-field="remark"], [data-marker-plan-textarea-field="remark"], [data-marker-plan-bed-field="remark"]',
+  )) return true
+
+  if (eventKind === 'input') {
+    const markerPlanInputNode = target.closest<HTMLElement>(MARKER_PLAN_INPUT_SELECTOR)
+    if (isInputOrTextArea(markerPlanInputNode)) {
+      const inputType = getInputType(markerPlanInputNode)
+      return inputType !== 'checkbox' && inputType !== 'radio'
+    }
+  }
+
+  const pdaOnboardingFieldNode = target.closest<HTMLElement>(
+    '[data-pda-onboarding-field], [data-pda-onboarding-machine-field]',
+  )
+  if (isInputOrTextArea(pdaOnboardingFieldNode)) return true
+
+  const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
+  if (isInputOrTextArea(factoryOnboardingFieldNode)) {
+    const inputType = getInputType(factoryOnboardingFieldNode)
+    return inputType !== 'radio' && inputType !== 'checkbox'
+  }
+
+  const factoryProfileFieldNode = target.closest<HTMLElement>('[data-factory-field], [data-pda-field]')
+  if (isInputOrTextArea(factoryProfileFieldNode)) return shouldSkipRerenderForControlType(factoryProfileFieldNode)
+
+  return undefined
+}
+
+function shouldSkipInputRerender(target: Element): boolean {
+  if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
+  if (target.closest<HTMLElement>('[data-review-ui-field]')) return true
+
+  const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
+  if (techFieldNode) {
+    const field = techFieldNode.dataset.techField || ''
+    if (field === 'pattern-template-search-keyword') return false
+    if (field === 'new-pattern-piece-color-count') return false
+
+    if (techFieldNode instanceof HTMLTextAreaElement) return true
+
+    if (techFieldNode instanceof HTMLInputElement) {
+      return shouldSkipRerenderForControlType(techFieldNode)
+    }
+
+    return false
+  }
+
+  return resolveSharedFieldRerenderDecision(target, 'input') ?? false
+}
+
+function shouldSkipChangeRerender(target: Element): boolean {
+  if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
+
+  const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
+  if (techFieldNode) {
+    const field = techFieldNode.dataset.techField || ''
+    return !TECH_CHANGE_RERENDER_DRIVEN_FIELDS.has(field)
+  }
+
+  return resolveSharedFieldRerenderDecision(target, 'change') ?? false
+}
+
+function postFinishingEventNavigated(previousPathname: string): boolean {
+  // These handlers navigate after a completed command or an exact scan. The
+  // store subscription already renders that destination; a second render can
+  // overlap the same protected source read. Failed/non-navigating actions still
+  // use their normal outer render and retain recoverable input.
+  return appStore.getState().pathname !== previousPathname
+    && (/^\/fcs\/(?:craft\/post-finishing\/|pda\/post-finishing\/|pda\/exec\/PF-POST-)/.test(previousPathname)
+      || previousPathname.split('?')[0] === '/fcs/pda/handover/sewing-self-return')
+}
+
+async function renderAfterHandledPageEvent(
+  target: HTMLElement,
+  focusSnapshot: FocusSnapshot | null,
+  previousPathname: string,
+): Promise<void> {
+  const nextPathname = appStore.getState().pathname
+  if (postFinishingEventNavigated(previousPathname)) return
+  if (target.dataset.pmsEventHandledLocally === 'true' && nextPathname === previousPathname) return
+  if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+    await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+    return
+  }
+  if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+    await renderProductionDemandOverlayOnly(focusSnapshot)
+    return
+  }
+  if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+    await renderProductionOrdersOverlayOnly(focusSnapshot)
+    return
+  }
+  if (shouldUseTechPackTabOnlyRender(target, previousPathname, nextPathname)) {
+    await renderTechPackTabOnly(target)
+    return
+  }
+  if (
+    target.closest<HTMLElement>('[data-fast-page-render]') ||
+    shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+    shouldUseProductionScopedRender(previousPathname, nextPathname)
+  ) {
+    await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+  } else {
+    await renderWithFocusRestore(focusSnapshot)
+  }
+}
+
+function resolveEventElementTarget(eventTarget: EventTarget | null): HTMLElement | null {
+  if (eventTarget instanceof HTMLElement) return eventTarget
+  if (eventTarget instanceof Element) return eventTarget.parentElement
+  if (eventTarget instanceof Node) return eventTarget.parentElement
+  return null
+}
+
+function isComposingInputEvent(event: Event): boolean {
+  return event instanceof InputEvent && event.isComposing
+}
+
+const SHELL_ACTIONS = new Set([
+  'switch-system',
+  'set-sidebar-open',
+  'toggle-sidebar-collapsed',
+  'toggle-menu-group',
+  'toggle-menu-item',
+  'open-tab',
+  'activate-tab',
+  'close-tab',
+  'close-all-tabs',
+])
+
+function handleShellAction(actionNode: HTMLElement): boolean {
+  const action = actionNode.dataset.action
+  if (!action || !SHELL_ACTIONS.has(action)) return false
+
+  if (action === 'switch-system') {
+    const systemId = actionNode.dataset.systemId
+    if (systemId) {
+      appStore.switchSystem(systemId)
+      closeMobileSidebar()
+    }
+    return true
+  }
+
+  if (action === 'set-sidebar-open') {
+    markNextStoreRenderAsSidebarOnly()
+    appStore.setSidebarOpen(actionNode.dataset.sidebarOpen === 'true')
+    return true
+  }
+
+  if (action === 'toggle-sidebar-collapsed') {
+    markNextStoreRenderAsSidebarOnly()
+    appStore.toggleSidebarCollapsed()
+    return true
+  }
+
+  if (action === 'toggle-menu-group') {
+    const groupKey = actionNode.dataset.groupKey
+    if (groupKey) {
+      markNextStoreRenderAsSidebarOnly()
+      appStore.toggleGroup(groupKey)
+    }
+    return true
+  }
+
+  if (action === 'toggle-menu-item') {
+    const itemKey = actionNode.dataset.itemKey
+    if (itemKey) {
+      markNextStoreRenderAsSidebarOnly()
+      appStore.toggleItem(itemKey)
+    }
+    return true
+  }
+
+  if (action === 'open-tab') {
+    const href = actionNode.dataset.tabHref
+    const key = actionNode.dataset.tabKey
+    const title = actionNode.dataset.tabTitle
+
+    if (href && key && title) {
+      appStore.openTab({
+        href,
+        key,
+        title,
+        closable: true,
+      })
+      closeMobileSidebar()
+    }
+    return true
+  }
+
+  if (action === 'activate-tab') {
+    const key = actionNode.dataset.tabKey
+    if (key) appStore.activateTab(key)
+    return true
+  }
+
+  if (action === 'close-tab') {
+    const key = actionNode.dataset.tabKey
+    if (key) appStore.closeTab(key)
+    return true
+  }
+
+  if (action === 'close-all-tabs') {
+    appStore.closeAllTabs()
+    return true
+  }
+
+  return false
+}
+
+const STANDARD_LIST_COLUMN_DRAG_MIME = 'application/x-higood-list-column-key'
+
+interface StandardListColumnDragEvent extends DragEvent {
+  higoodStandardListColumnDrag?: true
+  higoodStandardListColumnKey?: string
+}
+
+let activeStandardListColumnDrag: { columnKey: string; pathname: string } | null = null
+
+function dispatchListColumnDragEvent(event: DragEvent): void {
+  const target = resolveEventElementTarget(event.target)
+  const dragNode = target?.closest<HTMLElement>('[data-standard-list-column-drag]')
+  const dataTransfer = event.dataTransfer
+  const pathname = appStore.getState().pathname
+
+  if (event.type === 'dragstart') {
+    const columnKey = dragNode?.dataset.dragSource || ''
+    if (!target || !dragNode || !dataTransfer || !columnKey) return
+    activeStandardListColumnDrag = { columnKey, pathname }
+    dataTransfer.setData(STANDARD_LIST_COLUMN_DRAG_MIME, columnKey)
+    dataTransfer.effectAllowed = 'move'
+  } else {
+    const activeDrag = activeStandardListColumnDrag
+    if (!target || !activeDrag || activeDrag.pathname !== pathname) {
+      if (event.type === 'dragend') activeStandardListColumnDrag = null
+      return
+    }
+
+    if (event.type === 'dragover' || event.type === 'drop') {
+      const hasInternalMime = Array.from(dataTransfer?.types ?? []).includes(STANDARD_LIST_COLUMN_DRAG_MIME)
+      if (!dragNode || !hasInternalMime) return
+      event.preventDefault()
+      if (dataTransfer) dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  const internalEvent = event as StandardListColumnDragEvent
+  internalEvent.higoodStandardListColumnDrag = true
+  internalEvent.higoodStandardListColumnKey = activeStandardListColumnDrag?.columnKey
+  if (event.type === 'drop' && event.target instanceof Element) handleProductionFulfillmentDrag(event.target,event)
+  if (event.type === 'drop' || event.type === 'dragend') activeStandardListColumnDrag = null
+  if (target?.closest('[data-hpb-page]')) {
+    void import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts').then(module => module.handleReplacementFabricEvent(target, internalEvent))
+    return
+  }
+  void dispatchPageEvent(target, internalEvent)
+}
+
+root.addEventListener('dragstart', dispatchListColumnDragEvent)
+root.addEventListener('dragover', dispatchListColumnDragEvent)
+root.addEventListener('drop', dispatchListColumnDragEvent)
+root.addEventListener('dragend', dispatchListColumnDragEvent)
+
+root.addEventListener('click', async (event) => {
+  const retryTarget = resolveEventElementTarget(event.target)
+  if (retryTarget?.closest('[data-pms-record-retry]')) {
+    event.preventDefault()
+    await render()
+    return
+  }
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
+  const nativeSummary = target.closest<HTMLElement>('summary')
+  if (appStore.getState().pathname.startsWith('/pms/') && !appStore.getState().pathname.startsWith('/pms/tmf-')
+    && nativeSummary && ![...nativeSummary.attributes].some((attribute) => attribute.name.startsWith('data-') && attribute.name.endsWith('action'))) return
+  // Registered timing source pages own their links; unrelated module dispatch
+  // must not consume their source-document navigation.
+  if (target.closest('[data-timing-source-detail]')) {
+    if (target.closest('[data-timing-source-action]') && handleTimingSourceClick(target as HTMLElement,event)) { event.preventDefault(); return }
+    const sourceLink = target.closest<HTMLAnchorElement>('a[href]')
+    if (sourceLink) {
+      if (sourceLink.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      event.preventDefault()
+      appStore.navigate(sourceLink.getAttribute('href')!)
+      return
+    }
+    return
+  }
+  if (target.closest('[data-pcs-storage-retry], [data-cutting-record-retry]')) {
+    event.preventDefault()
+    window.location.reload()
+    return
+  }
+  if (target.closest('[data-production-context-migrate]')) {
+    event.preventDefault()
+    const recovery = await import('./pages/production-context-recovery.ts')
+    await recovery.handleProductionContextRecovery(target as HTMLElement)
+    return
+  }
+  if (target.closest('[data-hpb-print-action]')) {
+    event.preventDefault()
+    const module = await import('./pages/print/replacement-fabric-preview.ts')
+    if (await module.handleReplacementFabricPrintEvent(target)) return
+  }
+  if (target.closest('[data-hpb-page]') && !target.closest('[data-pda-image-preview-url]')) {
+    const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    if (await module.handleReplacementFabricEvent(target, event)) return
+  }
+  if (dispatchMaterialDecisionClick(target)) { event.preventDefault(); return }
+  if (target.closest('[data-timing-source-action]') && handleTimingSourceClick(target as HTMLElement,event)) { event.preventDefault(); return }
+  if (target.closest('[data-pf-action],#production-timing') && handleProductionFulfillmentClick(target)) { event.preventDefault(); return }
+  if (target.closest('#pf-app [data-pf-field], #pf-app .pf-form')) return
+  const skipPageRerender = Boolean(
+    // The post-finishing image handler appends its own overlay. Replacing the
+    // underlying page adds work and can discard the current inspection input.
+    target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action], [data-post-finishing-action="full-flow-zoom-image"]'),
+  )
+  const preserveNativeClick = Boolean(target.closest<HTMLInputElement>('input[data-preserve-native-click="true"]'))
+  const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
+
+  if (shouldBypassClickDispatch(target)) return
+
+  if (previousPathname.startsWith('/fcs/print/preview?') && target.closest('[data-printing-sheet-print]')) {
+    event.preventDefault()
+    window.print()
+    return
+  }
+
+  if (handlePdaImagePreviewEvent(target)) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
+  const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
+  if (productionObjectActionNode) {
+    if (previousPathname.startsWith('/fcs/craft/post-finishing/')) await hydratePartTicketsForEntry(previousPathname.split('?')[0], undefined, true)
+    const productionObjectFloatingEntry = await getProductionObjectFloatingEntryModule()
+    if (productionObjectFloatingEntry.handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) {
+      event.preventDefault()
+      return
+    }
+    const productionObjectOverview = await getProductionObjectOverviewModule()
+    if (productionObjectOverview.handleProductionObjectOverviewEvent(productionObjectActionNode)) {
+      event.preventDefault()
+      return
+    }
+  }
+
+  const shellActionNode = target.closest<HTMLElement>('[data-action]')
+  if (shellActionNode && handleShellAction(shellActionNode)) {
+    event.preventDefault()
+    return
+  }
+
+  const warehouseSharedNode = target.closest<HTMLElement>(
+    '[data-warehouse-flow-action], [data-factory-warehouse-location-action]',
+  )
+  if (warehouseSharedNode) {
+    event.preventDefault()
+    const warehouseShared = await getFactoryWarehouseSharedModule()
+    if (await warehouseShared.handleFactoryWarehouseSharedEvent(warehouseSharedNode)) {
+      return
+    }
+  }
+
+  const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')
+  if (pdaCutInboundActionNode) {
+    event.preventDefault()
+    const inboundModule = await getPdaCuttingInboundModule()
+    const inboundResult = inboundModule.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
+    if (inboundResult) {
+      if (isPdaPageHandledLocally(inboundResult)) return
+      await renderWithFocusRestore(focusSnapshot)
+      return
+    }
+  }
+
+  const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')
+  if (pdaCutHandoverActionNode) {
+    event.preventDefault()
+    const handoverModule = await getPdaCuttingHandoverModule()
+    const handoverResult = handoverModule.handlePdaCuttingHandoverEvent(pdaCutHandoverActionNode)
+    if (handoverResult) {
+      if (isPdaPageHandledLocally(handoverResult)) return
+      await renderWithFocusRestore(focusSnapshot)
+      return
+    }
+  }
+
+  const pdaTicketNumberingActionNode = target.closest<HTMLElement>('[data-pda-ticket-numbering-action]')
+  if (pdaTicketNumberingActionNode) {
+    event.preventDefault()
+    const pdaTicketNumberingPage = await import('./pages/pda-cutting-fei-ticket-numbering')
+    if (pdaTicketNumberingPage.handlePdaCuttingFeiTicketNumberingEvent(pdaTicketNumberingActionNode)) {
+      await renderWithFocusRestore(focusSnapshot)
+      return
+    }
+  }
+
+  const fieldDrivenNavNode = target.closest<HTMLElement>('[data-nav-from-fields]')
+  const fieldDrivenPath = fieldDrivenNavNode ? buildNavigationFromFields(fieldDrivenNavNode) : null
+  if (fieldDrivenPath) {
+    event.preventDefault()
+    navigateWithImmediateSidebar(fieldDrivenPath)
+    return
+  }
+
+  const directNavNode = target.closest<HTMLElement>('[data-nav]')
+  if (directNavNode?.dataset.nav && !hasDatasetAction(directNavNode)) {
+    event.preventDefault()
+    navigateWithImmediateSidebar(directNavNode.dataset.nav)
+    return
+  }
+
+  const pageEventHandled = await dispatchPageEvent(target, event)
+  if (pageEventHandled) {
+    // Checkbox/radio actions read the browser's already-toggled state. Cancelling
+    // that click would roll the native control back after the local handler ran.
+    const pmsNativeControl = target.dataset.pmsEventHandledLocally === 'true'
+      && ((target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) || Boolean(target.closest('summary')))
+    if (!preserveNativeClick && !pmsNativeControl) event.preventDefault()
+    if (postFinishingEventNavigated(previousPathname)) return
+    if ((skipPageRerender || target.closest('[data-post-finishing-preserve-input="true"]')) && appStore.getState().pathname === previousPathname) {
+      return
+    }
+    const nextPathname = appStore.getState().pathname
+    if (target.dataset.pmsEventHandledLocally === 'true' && nextPathname === previousPathname) return
+    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionDemandOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+      await renderProductionOrdersOverlayOnly(focusSnapshot)
+      return
+    }
+    if (shouldUseTechPackTabOnlyRender(target, previousPathname, nextPathname)) {
+      await renderTechPackTabOnly(target)
+      return
+    }
+    if (
+      target.closest<HTMLElement>('[data-fast-page-render]') ||
+      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+      shouldUseProductionScopedRender(previousPathname, nextPathname)
+    ) {
+      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    } else {
+      await renderWithFocusRestore(focusSnapshot)
+    }
+    return
+  }
+
+  const navNode = target.closest<HTMLElement>('[data-nav]')
+  if (navNode?.dataset.nav) {
+    event.preventDefault()
+    navigateWithImmediateSidebar(navNode.dataset.nav)
+    return
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-action]')
+  if (!actionNode) return
+
+  if (handleShellAction(actionNode)) {
+    event.preventDefault()
+  }
+})
+
+root.addEventListener('input', async (event) => {
+  const replacementTarget = resolveEventElementTarget(event.target)
+  if (replacementTarget?.closest('[data-hpb-page]')) {
+    const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    await module.handleReplacementFabricEvent(replacementTarget, event)
+    return
+  }
+  const mdTarget = resolveEventElementTarget(event.target)
+  if (mdTarget && dispatchMaterialDecisionInput(mdTarget)) return
+  if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
+  // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
+  // input 与 change 竞争，导致文件控件被提前重绘或同一文件被保存两次。
+  if (target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]')) return
+  if (isComposingInputEvent(event)) return
+  const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
+
+  const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
+  if (productionObjectActionNode) {
+    if (previousPathname.startsWith('/fcs/craft/post-finishing/')) await hydratePartTicketsForEntry(previousPathname.split('?')[0], undefined, true)
+    const productionObjectFloatingEntry = await getProductionObjectFloatingEntryModule()
+    if (productionObjectFloatingEntry.handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) return
+    const productionObjectOverview = await getProductionObjectOverviewModule()
+    if (productionObjectOverview.handleProductionObjectOverviewEvent(productionObjectActionNode)) return
+  }
+
+  const pdaCuttingInputResult = await handleActivePdaCuttingEvent(target, event)
+  if (pdaCuttingInputResult) return
+
+  if (await dispatchPcsInputEvent(target)) {
+    if (shouldSkipInputRerender(target)) return
+    await renderWithFocusRestore(focusSnapshot)
+    return
+  }
+
+  const pageEventHandled = await dispatchPageEvent(target, event)
+  if (pageEventHandled) {
+    if (shouldSkipInputRerender(target)) return
+    await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
+  }
+})
+
+root.addEventListener('compositionend', async (event) => {
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
+  if (target.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(target)) return
+  const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
+
+  if (await dispatchPcsInputEvent(target)) {
+    if (shouldSkipInputRerender(target)) return
+    await renderWithFocusRestore(focusSnapshot)
+    return
+  }
+
+  if (await dispatchPageEvent(target, event)) {
+    if (shouldSkipInputRerender(target)) return
+    await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
+  }
+})
+
+root.addEventListener('change', async (event) => {
+  const replacementTarget = resolveEventElementTarget(event.target)
+  if (replacementTarget?.closest('[data-hpb-page]')) {
+    const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    if (await module.handleReplacementFabricEvent(replacementTarget, event)) return
+  }
+  const mdTarget = resolveEventElementTarget(event.target)
+  if (mdTarget && dispatchMaterialDecisionChange(mdTarget)) return
+  if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
+  const target = resolveEventElementTarget(event.target)
+  if (!target) return
+  const skipChangeRerender = shouldSkipChangeRerender(target)
+  const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
+
+  if (
+    target.closest<HTMLInputElement>('[data-engineering-upload-region] input[type="file"]') &&
+    (await dispatchPcsInputEvent(target))
+  ) {
+    return
+  }
+
+  if (await dispatchPageEvent(target, event)) {
+    if (skipChangeRerender || (target.closest('[data-post-finishing-preserve-input="true"]') && appStore.getState().pathname === previousPathname)) return
+    await renderAfterHandledPageEvent(target, focusSnapshot, previousPathname)
+  }
+})
+
+root.addEventListener('submit', async (event) => {
+  const target = event.target
+  if (!(target instanceof HTMLFormElement)) return
+
+  event.preventDefault()
+  if (await dispatchPageSubmit(target)) {
+    await render()
+  }
+})
+
+document.addEventListener('keydown', async (event) => {
+  if (handleTimingSourceKey(event) || handleProductionFulfillmentKey(event)) return
+  if (dispatchMaterialDecisionKey(event)) return
+  const target = resolveEventElementTarget(event.target)
+  const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
+  if (cuttingScanTarget) {
+    // Prevent the browser from submitting an enclosing form before the async
+    // scan handler finishes. Calling preventDefault after await is too late.
+    event.preventDefault()
+    const scanResult = await handleActivePdaCuttingEvent(cuttingScanTarget, event)
+    return
+  }
+  if(event.key==='Enter'&&target?.closest('[data-washing-scan]')){event.preventDefault();await (await import('./pages/process-factory/dyeing/washing/work-orders.ts')).handleFabricWashingEvent(target,event);return}
+  if(event.key==='Escape'&&document.querySelector('[data-washing-image-overlay]'))return
+  const scanEnterTarget =
+    event.key === 'Enter'
+      ? target?.closest<HTMLElement>('[data-pda-scan-enter="true"], [data-scan-enter="true"]')
+      : null
+  if (scanEnterTarget) {
+    // Scanner Enter must never fall through to native form submission while
+    // the lazily loaded page handler is being resolved.
+    event.preventDefault()
+    const focusSnapshot = captureFocusSnapshot()
+    const previousPathname = appStore.getState().pathname
+    if (await dispatchPageEvent(scanEnterTarget, event)) {
+      if (postFinishingEventNavigated(previousPathname)) return
+      await renderWithFocusRestore(focusSnapshot)
+    }
+    return
+  }
+  if (event.key !== 'Escape') return
+
+  if (document.querySelector('[data-ppic-daily-page]')) {
+    if ((await import('./pages/sewing-outsourcing/daily-return-report.ts')).closePpicDailyReturnDialog()) event.preventDefault()
+    return
+  }
+  if (document.querySelector('[data-ppic-summary-page]')) {
+    if ((await import('./pages/sewing-outsourcing/daily-return-summary.ts')).closePpicDailySummaryDialog()) event.preventDefault()
+    return
+  }
+
+  if (document.querySelector('[data-post-finishing-image-preview]')) {
+    // Its local key listener closes the image. Do not load unrelated dialog
+    // handlers after that visible action has already been handled locally.
+    event.preventDefault()
+    return
+  }
+
+  if (closePdaImagePreview()) {
+    event.preventDefault()
+    return
+  }
+
+  if (document.querySelector('[data-hpb-page]') && (await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')).closeReplacementFabricOverlay()) {
+    event.preventDefault(); return
+  }
+
+  const shouldUseScopedRender = isTechPackPageMounted()
+  const closesLocally = Boolean(document.querySelector('[data-testid="water-soluble-orders-page"], [data-process-dye-orders-root], [data-process-print-orders-root]'))
+  if (await closeDialogsOnEscape()) {
+    // These handlers already update their overlays; retain the list and scroll position.
+    if (closesLocally || appStore.getState().pathname.startsWith('/pms/')) return
+    if (shouldUseScopedRender) {
+      await renderPageContentOnly()
+    } else {
+      await render()
+    }
+    return
+  }
+
+  if (appStore.getState().sidebarOpen) {
+    appStore.setSidebarOpen(false)
+  }
+})
+
+window.addEventListener('popstate', () => {
+  const leave = new Event('higood:before-history-navigation', { cancelable: true })
+  window.dispatchEvent(leave)
+  if (leave.defaultPrevented) return
+  const pathname = `${window.location.pathname}${window.location.search}` || '/'
+  appStore.syncFromBrowser(pathname)
+})
+
+appStore.subscribe(() => {
+  const renderMode = nextStoreRenderMode
+  nextStoreRenderMode = 'full'
+
+  if (renderMode === 'sidebar') {
+    void renderSidebarOnly()
+    return
+  }
+
+  void render()
+})
+window.addEventListener('higood:request-render', () => {
+  const focusSnapshot = captureFocusSnapshot()
+  if (isTechPackPageMounted()) {
+    void renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    return
+  }
+  void renderWithFocusRestore(focusSnapshot)
+})
+// Separate, explicitly authorized deletion phase. Ordinary repository reads never
+// persist this projection; a clean browser does not load or write the old source.
+void (async () => {
+  try {
+    const storage = getBrowserLocalStorage()
+    if (storage && storage.getItem('higood-pcs-project-inline-node-records-v2') !== null) {
+      const { cleanupLegacyUncodedSampleOptionalCosts } = await import('./data/pcs-sample-cost-optional-cleanup.ts')
+      cleanupLegacyUncodedSampleOptionalCosts()
+    }
+  } catch (error) { authorizedCostCleanupError = error }
+  await render()
+})()

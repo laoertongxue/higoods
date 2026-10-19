@@ -471,19 +471,38 @@ const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = [
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
 let readingCuttingTaskSources = false
 let warehouseArtifactsStore: SpecialCraftTaskStore | null = null
+type DeferredPostSourceWarehouseWrite =
+  | { kind: 'inbound'; value: FactoryWarehouseInboundRecord }
+  | { kind: 'outbound'; value: FactoryWarehouseOutboundRecord }
+  | { kind: 'waitProcess'; value: FactoryWaitProcessStockItem }
+  | { kind: 'waitHandover'; value: FactoryWaitHandoverStockItem }
+let postSourceWarehouseCapture: DeferredPostSourceWarehouseWrite[] | undefined
+let deferredPostSourceWarehouseWrites: DeferredPostSourceWarehouseWrite[] = []
 
 // 裁床来源只构造相同的任务资料和关联编号，不提前初始化工艺厂库存。
 function upsertFactoryWarehouseInboundRecord(record: FactoryWarehouseInboundRecord): FactoryWarehouseInboundRecord {
-  return readingCuttingTaskSources ? structuredClone(record) : saveFactoryWarehouseInboundRecord(record)
+  if (!readingCuttingTaskSources) return saveFactoryWarehouseInboundRecord(record)
+  const value = structuredClone(record)
+  postSourceWarehouseCapture?.push({ kind: 'inbound', value })
+  return value
 }
 function upsertFactoryWarehouseOutboundRecord(record: FactoryWarehouseOutboundRecord): FactoryWarehouseOutboundRecord {
-  return readingCuttingTaskSources ? structuredClone(record) : saveFactoryWarehouseOutboundRecord(record)
+  if (!readingCuttingTaskSources) return saveFactoryWarehouseOutboundRecord(record)
+  const value = structuredClone(record)
+  postSourceWarehouseCapture?.push({ kind: 'outbound', value })
+  return value
 }
 function upsertFactoryWaitProcessStockItem(item: FactoryWaitProcessStockItem): FactoryWaitProcessStockItem {
-  return readingCuttingTaskSources ? structuredClone(item) : saveFactoryWaitProcessStockItem(item)
+  if (!readingCuttingTaskSources) return saveFactoryWaitProcessStockItem(item)
+  const value = structuredClone(item)
+  postSourceWarehouseCapture?.push({ kind: 'waitProcess', value })
+  return value
 }
 function upsertFactoryWaitHandoverStockItem(item: FactoryWaitHandoverStockItem): FactoryWaitHandoverStockItem {
-  return readingCuttingTaskSources ? structuredClone(item) : saveFactoryWaitHandoverStockItem(item)
+  if (!readingCuttingTaskSources) return saveFactoryWaitHandoverStockItem(item)
+  const value = structuredClone(item)
+  postSourceWarehouseCapture?.push({ kind: 'waitHandover', value })
+  return value
 }
 const retiredWoolPieceTaskOrderIds = new Set<string>()
 let cleanRetiredProcessWarehouseFacts: ((ids: ReadonlySet<string>) => void) | undefined
@@ -518,11 +537,24 @@ function retireLegacyWoolPieceTasks(store: SpecialCraftTaskStore): void {
       status: !generatedTaskOrderIds.length && !errorList.length ? '已跳过' : batch.status,
     }
   })
-  const warehouse = createFactoryInternalWarehouseMutationSnapshot()
   const ownIds = (field: 'inboundRecordIds' | 'outboundRecordIds' | 'waitProcessStockItemIds' | 'waitHandoverStockItemIds', prefix: string) =>
     new Set(removed.flatMap(task => [...(task[field] ?? []), `${prefix}${task.taskOrderId}`]))
   const inbound = ownIds('inboundRecordIds', 'SC-INB-'), outbound = ownIds('outboundRecordIds', 'SC-OUT-')
   const waitProcess = ownIds('waitProcessStockItemIds', 'SC-WPS-'), waitHandover = ownIds('waitHandoverStockItemIds', 'SC-WHS-')
+  const keepDeferredWrite = (write: DeferredPostSourceWarehouseWrite): boolean => {
+    if (write.kind === 'inbound') return !inbound.has(write.value.inboundRecordId)
+    if (write.kind === 'outbound') return !outbound.has(write.value.outboundRecordId)
+    return !(write.kind === 'waitProcess' ? waitProcess : waitHandover).has(write.value.stockItemId)
+  }
+  // 捕获器与getter的local capture共用同一数组，须原地剔除；否则finally会把
+  // 已退役写入重新追加到待补批次，普通仓投影便会复活刚删除的实体。
+  if (postSourceWarehouseCapture) {
+    for (let index = postSourceWarehouseCapture.length - 1; index >= 0; index--) {
+      if (!keepDeferredWrite(postSourceWarehouseCapture[index])) postSourceWarehouseCapture.splice(index, 1)
+    }
+  }
+  deferredPostSourceWarehouseWrites = deferredPostSourceWarehouseWrites.filter(keepDeferredWrite)
+  const warehouse = createFactoryInternalWarehouseMutationSnapshot()
   warehouse.inboundRecords = warehouse.inboundRecords.filter(record => !inbound.has(record.inboundRecordId))
   warehouse.outboundRecords = warehouse.outboundRecords.filter(record => !outbound.has(record.outboundRecordId))
   warehouse.waitProcessStockItems = warehouse.waitProcessStockItems.filter(record => !waitProcess.has(record.stockItemId))
@@ -2508,8 +2540,23 @@ function ensureStore(includeWarehouseArtifacts = true): SpecialCraftTaskStore {
     })
   }
   if (includeWarehouseArtifacts && !readingCuttingTaskSources && warehouseArtifactsStore !== specialCraftTaskStore) {
-    ensureSpecialCraftUnifiedWarehouseArtifacts(specialCraftTaskStore.taskOrders)
-    warehouseArtifactsStore = specialCraftTaskStore
+    // 首次后道来源读取跳过的生成过程也含最终任务集合之外的原盘扣仓记录。
+    // 普通工艺入口按原次序补齐一次，失败恢复原仓事实并保留整批供重试。
+    const before = deferredPostSourceWarehouseWrites.length ? createFactoryInternalWarehouseMutationSnapshot() : undefined
+    try {
+      for (const write of deferredPostSourceWarehouseWrites) {
+        if (write.kind === 'inbound') saveFactoryWarehouseInboundRecord(write.value)
+        else if (write.kind === 'outbound') saveFactoryWarehouseOutboundRecord(write.value)
+        else if (write.kind === 'waitProcess') saveFactoryWaitProcessStockItem(write.value)
+        else saveFactoryWaitHandoverStockItem(write.value)
+      }
+      ensureSpecialCraftUnifiedWarehouseArtifacts(specialCraftTaskStore.taskOrders)
+      warehouseArtifactsStore = specialCraftTaskStore
+      deferredPostSourceWarehouseWrites = []
+    } catch (error) {
+      if (before) restoreFactoryInternalWarehouseMutationSnapshot(before)
+      throw error
+    }
   }
   return specialCraftTaskStore
 }
@@ -2986,6 +3033,28 @@ export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
   return [...projectFinalWoolReceipts(), ...listWoolCraftTaskOrders()].filter((item) => !invalidatedIds.has(item.taskOrderId))
 }
 
+/** 后道只读取已分配工艺来源与实际交出量；普通工艺入口仍负责仓库投影。 */
+export function listPostFinishingSpecialCraftTaskOrderSources(): SpecialCraftTaskOrder[] {
+  const previous = readingCuttingTaskSources
+  const previousCapture = postSourceWarehouseCapture
+  const capture: DeferredPostSourceWarehouseWrite[] | undefined = !specialCraftTaskStore ? [] : undefined
+  if (capture) postSourceWarehouseCapture = capture
+  readingCuttingTaskSources = true
+  try {
+    const invalidatedIds = new Set(invalidatedMergedTaskOrderLogs.filter((item) => !item.restoredAt).map((item) => item.taskOrderId))
+    const tasks = ensureStore(false).taskOrders
+    const wool = readWoolStore()
+    return [
+      ...tasks.map((task) => projectWoolFinalCraftTask(task, wool, tasks)),
+      ...listWoolCraftTaskOrders(),
+    ].filter((item) => !invalidatedIds.has(item.taskOrderId))
+  } finally {
+    if (capture && specialCraftTaskStore) deferredPostSourceWarehouseWrites.push(...capture)
+    postSourceWarehouseCapture = previousCapture
+    readingCuttingTaskSources = previous
+  }
+}
+
 /** 裁床仅读取工艺任务来源；工艺厂仓库的库存投影在其原入口准备。 */
 export function listCutPieceSpecialCraftTaskOrderSources(): SpecialCraftTaskOrder[] {
   const previous = readingCuttingTaskSources
@@ -3003,6 +3072,8 @@ export function captureSpecialCraftTaskStore(): SpecialCraftTaskStoreSnapshot {
 }
 
 export function restoreSpecialCraftTaskStore(snapshot: SpecialCraftTaskStoreSnapshot): void {
+  // 旧来源构造的待补仓事实必须在替换任务集合前完成，不能追写到恢复后的集合。
+  if (deferredPostSourceWarehouseWrites.length) ensureStore()
   const warehouseArtifactsReady = warehouseArtifactsStore === specialCraftTaskStore
   const currentOrders = specialCraftTaskStore?.taskOrders ?? []
   const currentById = new Map(currentOrders.map((order) => [order.taskOrderId, order]))
@@ -3040,6 +3111,7 @@ export function resetSpecialCraftTaskStore(): void {
   specialCraftTaskStore = null
   finalWoolProjectionRevision = ''
   retiredWoolPieceTaskOrderIds.clear()
+  deferredPostSourceWarehouseWrites = []
 }
 
 export function listBlockingSpecialCraftTaskOrdersForMergedTask(productionOrderId: string): SpecialCraftTaskOrder[] {
@@ -3140,7 +3212,7 @@ export function listSpecialCraftOperationSlugs(): string[] {
   return listEnabledSpecialCraftOperationDefinitions().map((item) => buildSpecialCraftOperationSlug(item))
 }
 
-const disposePostFinishingSpecialCraftSourceResolver = installPostFinishingSpecialCraftSourceResolver(listSpecialCraftTaskOrders)
+const disposePostFinishingSpecialCraftSourceResolver = installPostFinishingSpecialCraftSourceResolver(listPostFinishingSpecialCraftTaskOrderSources)
 import.meta.hot?.dispose(disposePostFinishingSpecialCraftSourceResolver)
 
 /** 合并任务只改变失效责任记录，不修改加工数量或仓库事实。 */

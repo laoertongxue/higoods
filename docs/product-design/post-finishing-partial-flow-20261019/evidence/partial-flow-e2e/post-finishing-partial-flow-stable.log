@@ -1,0 +1,103 @@
+
+Running 6 tests using 1 worker
+
+
+(node:13320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/6] tests/post-finishing-partial-flow.spec.ts:136:1 › PFN-A01/A02/A17/A26：QC四项实际独立勾选，列表分清0与不涉及，查询统计与总数一致
+[2/6] tests/post-finishing-partial-flow.spec.ts:184:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环
+  1) tests/post-finishing-partial-flow.spec.ts:184:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环 
+
+    TypeError: Cannot read properties of undefined (reading 'outboundOrderNo')
+
+      121 |   await page.locator('[data-wls-finished-inbound-field="role"]').selectOption('GARMENT_RECEIVER')
+      122 |   await page.locator('[data-wls-finished-inbound-field="name"]').fill('分项验收成衣仓收货员')
+    > 123 |   await page.locator('[data-wls-finished-inbound-field="keyword"]').fill(outbound.outboundOrderNo)
+          |                                                                                   ^
+      124 |   await page.locator('[data-wls-finished-inbound-action="query"]').click()
+      125 |   await page.locator(`[data-wls-finished-inbound-action="open"][data-order-no="${outbound.outboundOrderNo}"]`).click()
+      126 |   const quantity = (await snapshot(page, seed)).outbounds.find(row => row.outboundOrderId === outbound.outboundOrderId)!.lines[0].outboundQty
+        at receiveUi (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-partial-flow.spec.ts:123:83)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-partial-flow.spec.ts:202:3
+
+    attachment #1: d1-four-process-500-300-200-100 (image/png) ─────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-four-process-500-300-200-100-d6fe9b6b47f06a429de4bcbca56d805d6dbb82d0.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: d1-parent-list-four-quantities (image/png) ──────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/attachments/d1-parent-list-four-quantities-7f50ec2c06336dbe7614a0c884dcb1e97b67594e.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-partial-flo-26093-PDA分项登记及100-100-800多次复检出货闭环/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:13523) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/6] tests/post-finishing-partial-flow.spec.ts:258:74 › PFN-A19：QuotaExceededError时本次加工不落半套、输入保留且恢复后同意图只保存一次
+[4/6] tests/post-finishing-partial-flow.spec.ts:258:74 › PFN-A19：AbortError时本次加工不落半套、输入保留且恢复后同意图只保存一次
+[5/6] tests/post-finishing-partial-flow.spec.ts:289:1 › PFN-A19：两个标签同revision竞争时第二次拒绝，保留输入且不超实物量
+  2) tests/post-finishing-partial-flow.spec.ts:289:1 › PFN-A19：两个标签同revision竞争时第二次拒绝，保留输入且不超实物量 ────
+
+    Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window': Access is denied for this document.
+        at UtilityScript.evaluate (<anonymous>:305:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at UtilityScript.evaluate (<anonymous>:305:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at detail (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-partial-flow.spec.ts:77:14)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-partial-flow.spec.ts:294:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/video-1.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-partial-flo-b151d-revision竞争时第二次拒绝，保留输入且不超实物量/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:13573) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[6/6] tests/post-finishing-partial-flow.spec.ts:309:1 › PFN-067样本：五次完整增量保存及五次预热后刷新加载，含持久读回
+  2 failed
+    tests/post-finishing-partial-flow.spec.ts:184:1 › PFN-A04/A08-A13/A17-A18/A29：D1实际Web/PDA分项登记及100/100/800多次复检出货闭环 
+    tests/post-finishing-partial-flow.spec.ts:289:1 › PFN-A19：两个标签同revision竞争时第二次拒绝，保留输入且不超实物量 ─────
+  4 passed (20.5s)

@@ -1,0 +1,43 @@
+
+Running 1 test using 1 worker
+
+
+(node:27553) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/post-finishing-full-flow.spec.ts:599:1 › PDA精确扫码后按四项增量登记，部分完成可交复检且保留正常在制
+  1) tests/post-finishing-full-flow.spec.ts:599:1 › PDA精确扫码后按四项增量登记，部分完成可交复检且保留正常在制 ────────────────
+
+    Test was interrupted.
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  getByRole('dialog')
+    Expected: visible
+    Received: undefined
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByRole('dialog')
+
+
+      610 |   if ((await firstProcess.getAttribute('open')) === null) await firstProcess.locator(':scope > summary').click()
+      611 |   await expectImagesLoaded(page)
+    > 612 |   await page.locator('[data-pda-post-action="zoom-image"]').first().click()
+          |                                          ^
+      613 |   await expect(page.getByRole('dialog')).toBeVisible()
+      614 |   await page.keyboard.press('Escape')
+      615 |   for (const item of ['开扣眼', '装扣子', '熨烫', '包装']) await registerPdaItem(page, item, 19)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-full-flow.spec.ts:612:42
+
+    Error: ENOENT: no such file or directory, open '/Users/laoer/.codex/worktrees/81b7/higoods/test-results/playwright/.playwright-artifacts-0/a7f30d309c6f1c359701573624bfc59b.zip'
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-full-flow-PDA精确扫码后按四项增量登记，部分完成可交复检且保留正常在制/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-full-flow-PDA精确扫码后按四项增量登记，部分完成可交复检且保留正常在制/error-context.md
+
+
+  1 interrupted
+    tests/post-finishing-full-flow.spec.ts:599:1 › PDA精确扫码后按四项增量登记，部分完成可交复检且保留正常在制 ─────────────────

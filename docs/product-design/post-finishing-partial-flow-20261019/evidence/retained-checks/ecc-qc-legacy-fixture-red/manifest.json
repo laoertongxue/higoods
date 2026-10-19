@@ -1,0 +1,67 @@
+[
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/error-context.md",
+    "bytes": 49334,
+    "sha256": "4a2ca0d3d388cf63adad7d148dcec9b0e3856c5f83ac8b314bf917e171de5dbe"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-1.png",
+    "bytes": 172319,
+    "sha256": "e8c6c87afbb0f446214c84f066fed72277a91ad69bad868edf411d6b07a5d307"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-2.png",
+    "bytes": 184290,
+    "sha256": "7301f4983295a0f44349ec9bf4a8d5d7f49436d8c9a51b6b1035cd458984fa5e"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-3.png",
+    "bytes": 185009,
+    "sha256": "b36e037ec7554828a5fb66598673cf40a4532d1ff73884fa97ea71b3da624c5a"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-4.png",
+    "bytes": 185038,
+    "sha256": "434362d3602691b0ffc2163bdbd2b880e3a8d5e3a49d45a09b1d6a8f85ebfef2"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-5.png",
+    "bytes": 156996,
+    "sha256": "0e109d350f18bb9b33a105a95f04368738d93600ce44ed63878cd1831d4bc078"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-6.png",
+    "bytes": 145280,
+    "sha256": "b10e4f08eda6706fe0d24a5dc02280eba581226e74eea06dbca9b5f5d60b71a0"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-7.png",
+    "bytes": 185009,
+    "sha256": "b36e037ec7554828a5fb66598673cf40a4532d1ff73884fa97ea71b3da624c5a"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/test-failed-8.png",
+    "bytes": 185009,
+    "sha256": "b36e037ec7554828a5fb66598673cf40a4532d1ff73884fa97ea71b3da624c5a"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/trace.zip",
+    "bytes": 4870169,
+    "sha256": "26814ab39b0031367353bc3003ef22e17dd6c96668da0be2c032ff179fc6398c"
+  },
+  {
+    "path": "post-finishing-full-flow-后道质检唯一执行、原子保存、版本冲突与显式资料转换/video.webm",
+    "bytes": 394044,
+    "sha256": "e95de2da58dbfa72dd60743d79ee82f8bc65b7461a893d3e43ec6969b9727130"
+  },
+  {
+    "path": "qc-browser-before-fixture-fix.js",
+    "bytes": 27184,
+    "sha256": "dd29f5eacd031d4d301f17f9aec8329930a08078a296210f6bb123bbb3776947"
+  },
+  {
+    "path": "raw.log",
+    "bytes": 13282,
+    "sha256": "d41d140940180c7b28401f4f2b2dd2a9589a664b04839ebeb0327c98742f0ccc"
+  }
+]

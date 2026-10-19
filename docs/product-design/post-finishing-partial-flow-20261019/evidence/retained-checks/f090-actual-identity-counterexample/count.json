@@ -1,0 +1,1 @@
+{"mode":"count","role":"ROLE_OPERATOR","factoryId":"F090","before":49,"after":62,"equal":false,"dyeOrderCount":22,"sourceSha256":{"src/data/fcs/factory-mobile-todos.ts":"402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd","src/data/fcs/dyeing-task-domain.ts":"6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"}}

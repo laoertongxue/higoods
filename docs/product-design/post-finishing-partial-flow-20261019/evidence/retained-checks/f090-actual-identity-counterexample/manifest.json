@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "child.mts.txt",
+      "bytes": 1213,
+      "sha256": "74ad0828d367e4c204493c5aaf43137a8fc58f1b5870a287f3902b1386031881"
+    },
+    {
+      "path": "count.json",
+      "bytes": 342,
+      "sha256": "3a1b39094fef4cb1f26f93e5b0e10fb6a83387bafe1c9d40f754a9dcfefb45e0"
+    },
+    {
+      "path": "count.stderr",
+      "bytes": 182,
+      "sha256": "ee827068a7be45662ecc6028d0a508379e3cd9d48a4b672b0f6908ace36d2d6c"
+    },
+    {
+      "path": "difference.json",
+      "bytes": 32322,
+      "sha256": "1b2a92997689d438b7e40f2d6bec589029a68166fd5544fbf65db68e12931405"
+    },
+    {
+      "path": "review.md",
+      "bytes": 630,
+      "sha256": "9b8a618b9c64cbc9dc45a9b76f687f72442c1d1fa0d401634f01e57edb5b7a30"
+    },
+    {
+      "path": "todos.json",
+      "bytes": 61357,
+      "sha256": "798cade903f76483386517bf41a6698779442d614f7f9344ed02be4c367c5881"
+    },
+    {
+      "path": "todos.stderr",
+      "bytes": 182,
+      "sha256": "f4cc937e24940b853bd686fed1c62c9b4233a633aa0f01095942e81b35951918"
+    }
+  ]
+}

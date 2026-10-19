@@ -1,0 +1,11 @@
+{
+  "kind": "actual integration product failure, after garment migration, archive query range",
+  "artifactsSHA256": {
+    "diagnosis.md": "3038ceab87430dc360d656b6e9438d4ed3c5a1df797ef45ba8d6eb6d15f2527c",
+    "error-context.md": "cbe05a6bec09b181e82f7fd1f29fe21f13071d53167c664cc6472517e6a7a647",
+    "run.log": "7a1ae8cbe43e6ecbe3943e33a449f0d6861e2d558b3690af6df02a6500fd7a03",
+    "test-failed-1.png": "6c5bf93dbac658f5d371b8ec80e7ca2fcff6c797449af9877e0aad7fc143bc8e",
+    "test-source.spec.ts.txt": "4d30af929fd75ccf6e400ebc49e8a9cac2460e4a9b8dc351255edada5126d183",
+    "trace.zip": "dbca7b0fa7d01e47072387cd807526c9198fb8393fdb06e89a4d9a84a282b613"
+  }
+}

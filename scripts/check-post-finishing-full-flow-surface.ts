@@ -101,11 +101,11 @@ for (const required of [
   'upsertOutboundFromRecheck',
   'upsertOutboundFromQc',
   'receivePostFinishingOutboundOrder',
-  'setPostFinishingPostProcessedQuantity',
-  'setPostFinishingPostUnprocessedQuantity',
+  'appendPostFinishingProcessCompletion',
+  'getPostFinishingProcessProgress',
+  'submitPostFinishingForRecheck',
   'defectReasonQuantities',
-  'completePostFinishingPostTaskFromDraft',
-  'takeOverPostFinishingPostTask',
+  'correctPostFinishingProcessCompletion',
   'tracePostFinishingFullFlow',
   'listPostFinishingWaitProcessWarehouseRecords',
   'listPostFinishingWaitProcessWarehouseMovements',
@@ -138,10 +138,10 @@ assert(files.pdaFlow.includes('不超过 5%，可直接确认') && files.pdaFlow
 assert(files.pdaFlow.includes('废弃本次回货') && files.pdaFlow.includes("action === 'discard-return'"), '回货确认 PDA 必须允许废弃尚未最终接收的回货记录')
 assert(files.pdaFlow.includes('质检单') && files.pdaFlow.includes('已自动生成'), '回货最终确认后 PDA 必须展示自动生成的质检单号')
 assert(files.pdaFlow.includes("actor('回货确认人员')"), '回货确认 PDA 必须读取当前登录账号')
-assert(files.pdaFlow.includes('核对无误，开始后道'), '后道 PDA 必须扫码核对后再开始')
-assert(files.pdaFlow.includes('data-post-processed-qty') && files.pdaFlow.includes('本批后道项目'), '后道 PDA 必须只读展示本批后道项目，并以逐 SKU 已处理数量为主动作')
+assert(files.pdaFlow.includes('未找到完整后道加工单号') && files.pdaFlow.includes('data-post-process-qty'), 'PDA精确识别原加工单并逐项登记本次数量')
+assert(files.pdaFlow.includes('save-process-completion') && files.pdaFlow.includes('本次完成数量'), 'PDA加工主动作表示本次增量而非覆盖累计')
 assert(!files.pdaFlow.includes('toggle-process-item'), '后道 PDA 不得再次勾选质检已确认的加工项目')
-assert(files.pdaFlow.includes('填写未处理数量') && files.pdaFlow.includes('data-post-adjust-field="unprocessedQty"') && files.pdaFlow.includes('data-post-adjust-field="unprocessedReason"'), '后道 PDA 必须从 SKU 入口记录未处理数量与说明')
+assert(!files.pdaFlow.includes('data-post-adjust-field="unprocessedQty"') && !files.pdaFlow.includes('data-post-adjust-field="unprocessedReason"') && files.pdaFlow.includes('旧整单“未处理数量”登记入口已停用'), '旧未处理归类表单退役，深链接只显示当前只读说明')
 for (const forbidden of ['data-post-defect-reason-qty', 'data-post-adjust-field="returnQty"', 'data-return-receiver-search', 'data-return-receiver-options']) {
   assert(!files.pdaFlow.includes(forbidden), `后道 PDA 不得保留质量或返厂字段：${forbidden}`)
 }
@@ -150,7 +150,7 @@ assert(!files.pdaFlow.includes('扫描后道出货单条码') && !files.pdaFlow.
 for (const summary of ['return-line', 'return-total', 'recheck-line', 'recheck-total']) {
   assert(files.pdaFlow.includes(`'${summary}'`), `PDA 缺少实时数量摘要 ${summary}`)
 }
-assert(files.pdaFlow.includes('本批数量归类') && files.pdaFlow.includes('个 SKU 未完成数量归类'), '后道 PDA 必须按已处理与未处理的逐 SKU 数量归类进度替代加工项目勾选')
+assert(files.pdaFlow.includes('submit-for-recheck') && files.pdaFlow.includes('可交复检') && files.pdaFlow.includes('data-post-recheck-qty'), 'PDA按可用量显式多次交复检，待领取即占用')
 assert(files.pdaFlow.includes('data-difference-authorization-block') && files.pdaFlow.includes("classList.toggle('hidden', !visible)"), 'PDA 各环节必须仅在有差异时显示授权区')
 
 assert(files.warehouse.includes('首次差异率超过 5%才要求二次点数'), 'Web 回货确认不得保留“任何差异都二次点数”的旧规则')
@@ -167,7 +167,9 @@ assert(files.warehouse.includes('处理后数量与条码复核完成后生成�
 assert(!files.pdaHandoverDetail.includes('POST_FINISHING_PICKUP') && !files.pdaHandoverDetail.includes('POST_FINISHING_SELF_RETURN_PICKUP'), '通用 PDA 交接详情不得继续识别旧后道回货接收单')
 assert(files.warehouse.includes("{ key: 'inventory', label: '库存' }") && files.warehouse.includes("{ key: 'movements', label: '流水记录' }") && files.warehouse.includes("{ key: 'locations', label: '库区库位' }"), '两类仓库必须保留线上库存、流水记录和库区库位页签')
 assert(files.warehouse.includes('>回货确认<') && files.warehouse.includes('完整送货单号'), 'Web 后道待加工仓必须提供输入完整单号的回货确认入口')
-assert(files.workOrders.includes('开始后道') && files.workOrders.includes('查看加工单') && !files.workOrders.includes('PDA 执行（优先）') && !files.workOrders.includes('Web 应急处理'), 'Web 后道加工单必须使用开始后道和查看加工单入口，不保留旧优先级标识')
+assert(files.workOrders.includes('登记加工') && files.workOrders.includes('查看加工单') && !files.workOrders.includes('PDA 执行（优先）') && !files.workOrders.includes('Web 应急处理'), 'Web加工单以逐项登记为入口，不建立整单抢占前置')
+assert(files.workOrders.includes('POST_FINISHING_PROCESS_ITEMS.map') && files.workOrders.includes('completedQty') && files.workOrders.includes('不涉及'), '加工单列表直接提供四项各自数量及不涉及表达')
+assert(files.workOrderDetail.includes('data-post-entry-responsible') && files.workOrderDetail.includes('data-post-entry-quantity') && files.workOrderDetail.includes('open-recheck'), 'Web提供本次数量、责任人及独立交复检动作')
 
 assert(files.qcWorkbench.includes('输入完整质检单号'), 'Web 质检执行页必须输入完整单号')
 assert(!files.qcWorkbench.includes('扫描完整质检单号'), 'Web 质检不得把单号输入描述为扫描')
@@ -178,7 +180,7 @@ assert(!files.qcWorkbench.includes('data-qc-result-file="defectImage"') && !file
 assert(files.qcWorkbench.includes('data-qc-rework-factory-block') && files.qcWorkbench.includes('listPostFinishingQcReworkFactoryOptions'), 'Web 质检有返工数量时必须从可搜索工厂列表选择')
 assert(files.qcWorkbench.includes('xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]') && files.qcWorkbench.includes('data-qc-spu-color-images'), 'Web 质检工作台必须左侧操作、右侧展示颜色款式图片')
 assert(files.qcWorkbench.includes('data-qc-difference-authorization') && files.qcWorkbench.includes("classList.toggle('hidden', differentSkuCount === 0)"), 'Web 质检授权区必须仅在有差异时显示')
-assert(files.qcWorkbench.includes('未勾选时不再扫码或点数，直接生成面向成衣仓的待接收交接单') && files.qcWorkbench.includes('完成质检并交接成衣仓'), 'QC 空项目分支必须明确直达成衣仓待接收')
+assert(files.qcWorkbench.includes('无项目时，合格量直接交成衣仓') && files.qcWorkbench.includes('完成质检并交接成衣仓'), 'QC空项目分支明确直达成衣仓；合格0不建空下游')
 assert(files.qcOrders.includes('主管释放'), '质检管理页必须提供主管释放')
 assert(files.recheckOrders.includes('full-flow-supervisor-release-recheck'), '复检管理页必须提供主管释放错误领取')
 assert(files.tasks.includes("title: '后道生产任务'") && files.tasks.includes('回货记录') && files.tasks.includes('view-qc-orders'), '后道生产任务页必须以生产单汇总并可查看多次回货与多张质检单')

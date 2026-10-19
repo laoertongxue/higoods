@@ -1,0 +1,25 @@
+{
+  "purpose": "Stage21 calibration only; original POST_ORDER invalid assertion retained, not a performance pass",
+  "sourceManifestSha256": "890b4aaef2bcf1afe1f4aee7460a2adc100405893b65a4e992e2d0760c7ca1d1",
+  "distIndexSha256": "9a31c351f6213bd09e7d8ff7dbcd83b8b9c3744fffbec2afdd6bbe480b7083b4",
+  "copies": [
+    {
+      "source": "scripts/verification/post-finishing-partial-performance.mjs",
+      "copy": "harness-at-calibration.mjs",
+      "bytes": 104354,
+      "sha256": "8341beb517ad0cdd3438ae235fcc5281611779b41a0d01e0bf19887d8eaacaf2"
+    },
+    {
+      "source": "docs/product-design/post-finishing-partial-flow-20261019/evidence/source-manifest.json",
+      "copy": "source-manifest-at-calibration.json",
+      "bytes": 234670,
+      "sha256": "890b4aaef2bcf1afe1f4aee7460a2adc100405893b65a4e992e2d0760c7ca1d1"
+    },
+    {
+      "source": "src/pages/process-factory/post-finishing/full-flow-print.ts",
+      "copy": "full-flow-print-at-calibration.ts.txt",
+      "bytes": 20944,
+      "sha256": "810d534f66d2c9341f24505d45251ad155725e93f1f1e49773acbf4ed9b95c5f"
+    }
+  ]
+}

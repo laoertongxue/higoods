@@ -3,8 +3,8 @@ import {
   type PostFinishingActor, type PostFinishingMaterialTransferOrder, type PostFinishingMaterialStock,
 } from '../fcs/post-finishing-full-flow.ts'
 import { ensurePostFinishingRecordState, getPostFinishingStorageFailure } from '../fcs/post-finishing-records.ts'
-import { readPcsRecords, pcsFileReferences, type PcsStoredFile } from '../pcs-record-db.ts'
-import { prepareAccessoryWarehouseSources, listAccessoryPreparations } from './accessory-warehouse-sources.ts'
+import { readPcsRecords, type PcsStoredFile } from '../pcs-record-db.ts'
+import { prepareAccessoryWarehouseSources, listAccessoryPreparations, listAccessoryPreparationProductionIdentities } from './accessory-warehouse-sources.ts'
 import { accessoryRecord, ensureAccessoryWarehouseRecords, listAccessoryRecords, saveAccessoryWarehouseAction } from './accessory-warehouse-records.ts'
 import { buildAccessoryReceiveChange, type AccessoryReceipt, type AccessoryWarehouseActor } from './accessory-warehouse-commands.ts'
 import { ACCESSORY_POST_WAREHOUSE, splitAccessoryLinesForTask, type AccessoryTransfer, type AccessoryPreparation, type AccessoryReceiptLine } from './accessory-warehouse-flow.ts'
@@ -28,7 +28,7 @@ const allTransfers = () => listAccessoryRecords<AccessoryTransfer & { legacyPost
 const batches = () => listAccessoryRecords<Batch>('migration').filter(row => row.kind === 'post-legacy-batch')
 const archives = () => listAccessoryRecords<Archive>('migration').filter(row => row.kind === 'post-legacy-archive')
 const preparationFor = (id: string) => listAccessoryPreparations().find(row => row.productionOrderId === id || row.productionOrderNo === id)
-const managed = (id: string) => Boolean(preparationFor(id))
+const managed = (id: string) => listAccessoryPreparationProductionIdentities(new Set([id])).has(id)
 function activeTransfer(row: AccessoryTransfer & { legacyPostBatchId?: string }): boolean { return row.kind === 'SITE_TO_POST' && row.toWarehouse === ACCESSORY_POST_WAREHOUSE && row.status !== '已作废' && (!row.legacyPostBatchId || batches().some(batch => batch.id === row.legacyPostBatchId && batch.phase === 'COMPLETE')) }
 function postTransfers() { return allTransfers().filter(activeTransfer).map(row => { requireValue(splitAccessoryLinesForTask(row.lines, 'SEWING').postLines.length === row.lines.length, '后道调拨明细包含不属于本次后道范围的物料，需核对原单。'); return row }) }
 function requireValue(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
@@ -57,8 +57,10 @@ function project(transfer: AccessoryTransfer, preparation = listAccessoryPrepara
 }
 export function listManagedAccessoryPostTransfers(): PostFinishingMaterialTransferOrder[] {
   requireValue(prepared, '请先读取后道辅料资料。')
+  const transfers = postTransfers()
+  if (!transfers.length) return []
   const preparations = new Map(listAccessoryPreparations().map(row => [row.id, row]))
-  return postTransfers().map(row => project(row, preparations.get(row.preparationId)))
+  return transfers.map(row => project(row, preparations.get(row.preparationId)))
 }
 export function isManagedAccessoryPostTransfer(id: string): boolean { return postTransfers().some(row => row.id === id || postNumber(row) === id) }
 function projectStocks(): PostFinishingMaterialStock[] {
@@ -91,9 +93,10 @@ function legacyDemonstrationHistory() {
   return { source: '原后道固定演示版本', readOnly: true as const, materialTransferOrders: transfers, materialStocks: legacy.materialStocks.filter(row => ids.has(row.transferOrderId)) }
 }
 async function readSources(): Promise<void> {
-  const owned = new Set(listAccessoryPreparations().flatMap(row => [row.productionOrderId, row.productionOrderNo]))
-  const read = await readPcsRecords([`${pcsPrefix}materialTransferOrders`, `${pcsPrefix}materialStocks`])
-  const rows: Array<Omit<Source, 'fingerprint'>> = read.records.filter(row => !row.deleted).flatMap(row => row.collection === 'flow/materialTransferOrders' || row.collection === 'flow/materialStocks' ? [{ key: `PCS:${row.id}`, collection: row.collection.split('/')[1] as Source['collection'], value: row.value as Source['value'] }] : [])
+  const archiveScope = 'higood-fcs-post-finishing-records/archive'
+  const archivePrefix = `${archiveScope}/`
+  const read = await readPcsRecords([`${pcsPrefix}materialTransferOrders`, `${pcsPrefix}materialStocks`, archiveScope])
+  const rows: Array<Omit<Source, 'fingerprint'> & { fingerprint?: string }> = read.records.filter(row => !row.deleted).flatMap(row => row.collection === 'flow/materialTransferOrders' || row.collection === 'flow/materialStocks' ? [{ key: `PCS:${row.id}`, collection: row.collection.split('/')[1] as Source['collection'], value: row.value as Source['value'] }] : [])
   let raw: string | null = null
   try { raw = globalThis.localStorage?.getItem(legacyKey) || null } catch { /* Existing IndexedDB facts remain readable when localStorage is unavailable. */ }
   if (raw) {
@@ -103,10 +106,46 @@ async function readSources(): Promise<void> {
       for (const item of value[collection] || []) rows.push({ key: `LS:${collection}:${collection === 'materialTransferOrders' ? item.transferOrderId : item.stockId}`, collection, value: item })
     }
   }
+  const identityArchive = read.records.find(row => row.id === `${archivePrefix}material-identities/${encodeURIComponent(legacyKey)}` && !row.deleted)?.value as { identities?: Array<{ key: string; fingerprint: string }> } | undefined
+  const identities = new Map(identityArchive?.identities?.map(row => [row.key, row.fingerprint]))
+  const originalPackage = read.records.find(row => row.id === `${archivePrefix}${encodeURIComponent(legacyKey)}` && !row.deleted)?.value as Record<string, Source['value'][]> | undefined
+  for (const collection of ['materialTransferOrders', 'materialStocks']) requireValue(originalPackage?.[collection] === undefined || Array.isArray(originalPackage[collection]), '原后道辅料只读归档结构无法核对，原资料已保留。')
+  for (const collection of ['materialTransferOrders', 'materialStocks'] as const) for (const value of originalPackage?.[collection] || []) {
+    const id = collection === 'materialTransferOrders' ? (value as PostFinishingMaterialTransferOrder).transferOrderId : (value as PostFinishingMaterialStock).stockId
+    const key = `LS:${collection}:${id}`
+    rows.push({ key, collection, value, fingerprint: identities.get(key) })
+  }
+  for (const record of read.records.filter(row => row.collection === 'archive' && !row.deleted)) {
+    const original = record.value as { format?: string; originalRecordId: string; originalCollection: string; originalDeleted?: boolean; original: Source['value']; sourceFingerprint?: string }
+    if (original?.format !== 'post-finishing-readonly-material-original' || original.originalDeleted) continue
+    rows.push({ key: `PCS:${original.originalRecordId}`, collection: original.originalCollection.split('/')[1] as Source['collection'], value: original.original, fingerprint: original.sourceFingerprint })
+  }
+  if (!rows.length) {
+    sourceRows = []
+    sourceFiles = []
+    return
+  }
+  const owned = new Set(listAccessoryPreparations().flatMap(row => [row.productionOrderId, row.productionOrderNo]))
   const oldTransfers = rows.filter(row => row.collection === 'materialTransferOrders')
   const ids = new Set(oldTransfers.filter(row => owned.has((row.value as PostFinishingMaterialTransferOrder).productionOrderId) || owned.has((row.value as PostFinishingMaterialTransferOrder).productionOrderNo)).map(row => (row.value as PostFinishingMaterialTransferOrder).transferOrderId))
-  sourceRows = await Promise.all(rows.filter(row => row.collection === 'materialTransferOrders' ? ids.has((row.value as PostFinishingMaterialTransferOrder).transferOrderId) : ids.has((row.value as PostFinishingMaterialStock).transferOrderId) || owned.has((row.value as PostFinishingMaterialStock).productionOrderNo)).map(async row => ({ ...row, fingerprint: await cuttingRecordFingerprint(JSON.stringify(row.value)) })))
-  const fileIds = new Set(sourceRows.flatMap(row => [...pcsFileReferences(row.value)]))
+  const candidates = await Promise.all(rows.filter(row => row.collection === 'materialTransferOrders' ? ids.has((row.value as PostFinishingMaterialTransferOrder).transferOrderId) : ids.has((row.value as PostFinishingMaterialStock).transferOrderId) || owned.has((row.value as PostFinishingMaterialStock).productionOrderNo)).map(async row => ({ ...row, fingerprint: row.fingerprint || await cuttingRecordFingerprint(JSON.stringify(row.value)) })))
+  const unique = new Map<string, Source>()
+  for (const row of candidates) {
+    const previous = unique.get(row.key)
+    requireValue(!previous || previous.fingerprint === row.fingerprint, '原后道辅料与只读归档内容不一致；两处原资料已保留，请核对来源版本。')
+    unique.set(row.key, row)
+  }
+  sourceRows = [...unique.values()]
+  // These are retained legacy originals, including pre-Blob inline images.
+  // Reading them must reach the explicit converter. Strict PCS validation is
+  // still applied to all newly committed records; here only locate existing IDs.
+  const fileIds = new Set<string>()
+  function collectExistingFiles(value: unknown): void {
+    if (typeof value === 'string' && value.startsWith('pcs-file:')) fileIds.add(value.slice(9))
+    else if (Array.isArray(value)) value.forEach(collectExistingFiles)
+    else if (value && typeof value === 'object') Object.values(value).forEach(collectExistingFiles)
+  }
+  sourceRows.forEach(row => collectExistingFiles(row.value))
   sourceFiles = read.files.filter(file => fileIds.has(file.id))
 }
 export async function prepareAccessoryPostFinishing(): Promise<void> {
@@ -116,7 +155,12 @@ export async function prepareAccessoryPostFinishing(): Promise<void> {
   requireValue(!getPostFinishingStorageFailure(), getPostFinishingStorageFailure())
   await readSources()
   prepared = true
-  installAccessoryPostFinishingReadBridge({ ownsProduction: managed, transfers: () => listManagedAccessoryPostTransfers(), stocks: projectStocks, readiness: no => {
+  installAccessoryPostFinishingReadBridge({ ownsProduction: managed,
+    ownedProductionIdentities: candidates => candidates
+      ? listAccessoryPreparationProductionIdentities(candidates)
+      : new Set(listAccessoryPreparations().flatMap(row => [row.productionOrderId, row.productionOrderNo])),
+    transfers: () => listManagedAccessoryPostTransfers(), stocks: projectStocks, readiness: no => {
+    if (!managed(no)) return undefined
     const preparation = preparationFor(no)
     if (!preparation) return undefined
     const all = postTransfers().filter(row => row.productionOrderId === preparation.productionOrderId)

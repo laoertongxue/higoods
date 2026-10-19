@@ -1,0 +1,77 @@
+{
+  "boundary": "Isolated public-domain commands, controlled read-only bridge; complete HTML equivalence only, no actual WLS/browser/persistence claim.",
+  "parents": 102,
+  "productions": [
+    "PO-QC-202608-001",
+    "PO-QC-202608-002"
+  ],
+  "pages": [
+    {
+      "search": "",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 229079
+    },
+    {
+      "search": "?page=2",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 229115
+    },
+    {
+      "search": "?keyword=PO-QC-202608-001-1-ZJ-HD",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 23102
+    },
+    {
+      "search": "?keyword=不存在的单号",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 12455
+    },
+    {
+      "search": "?status=后道中",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 12445
+    },
+    {
+      "search": "?processItem=%E8%A3%85%E6%89%A3%E5%AD%90",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 229087
+    },
+    {
+      "search": "?factory=PT%20Prima%20Printing%20Center",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 229087
+    },
+    {
+      "search": "after-current-source-change",
+      "calls": [
+        "PO-QC-202608-001",
+        "PO-QC-202608-002"
+      ],
+      "bytes": 229119
+    }
+  ],
+  "sourceChangeVisible": true,
+  "sourceFailurePropagates": true,
+  "sha256": "a6b5c97f157ef867bb62f8667f4a6f0fdddd0117f1a190101e44fb49dd03f2ee"
+}

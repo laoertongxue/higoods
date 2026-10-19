@@ -1,0 +1,121 @@
+{
+  "environment": "http://127.0.0.1:43197/newpda/index.html; standalone page-memory demo only",
+  "cases": [
+    {
+      "demo": "two",
+      "p": {
+        "items": [
+          "装扣子",
+          "包装"
+        ],
+        "counts": {
+          "开扣眼": [
+            0,
+            0
+          ],
+          "装扣子": [
+            60,
+            40
+          ],
+          "熨烫": [
+            0,
+            0
+          ],
+          "包装": [
+            60,
+            40
+          ]
+        },
+        "finished": [
+          60,
+          40
+        ],
+        "reserved": [
+          60,
+          40
+        ],
+        "available": [
+          0,
+          0
+        ]
+      },
+      "rechecks": 1,
+      "overflow": false
+    },
+    {
+      "demo": "single",
+      "p": {
+        "items": [
+          "熨烫"
+        ],
+        "counts": {
+          "开扣眼": [
+            0,
+            0
+          ],
+          "装扣子": [
+            0,
+            0
+          ],
+          "熨烫": [
+            60,
+            40
+          ],
+          "包装": [
+            0,
+            0
+          ]
+        },
+        "finished": [
+          60,
+          40
+        ],
+        "reserved": [
+          60,
+          40
+        ],
+        "available": [
+          0,
+          0
+        ]
+      },
+      "rechecks": 1,
+      "overflow": false
+    },
+    {
+      "demo": "direct",
+      "processEntries": 0,
+      "rechecks": 0,
+      "outbounds": 1
+    },
+    {
+      "demo": "zero",
+      "processEntries": 0,
+      "rechecks": 0,
+      "outbounds": 0
+    }
+  ],
+  "empty": {
+    "error": "逐码填写非负整数件数；本次没有数量填0，空白不算0。",
+    "retained": "",
+    "entries": 0
+  },
+  "upper": "超过该尺码本次可登记量：M 600 · L 400 件。不能跨尺码抵扣或补造前序。",
+  "failed": {
+    "error": "未保存，填写已保留。恢复后重试。",
+    "retained": "60",
+    "entries": 0
+  },
+  "material": {
+    "no": "DB-PF-082",
+    "status": "已入库",
+    "qty": 95,
+    "requested": 100,
+    "location": "PF-MAT-A01",
+    "inbound": {
+      "actor": "Rina · 018",
+      "time": "2026/10/19 21:57:31"
+    }
+  },
+  "errors": []
+}

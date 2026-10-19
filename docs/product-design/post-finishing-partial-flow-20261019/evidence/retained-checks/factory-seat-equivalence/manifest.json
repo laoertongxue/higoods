@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "after.json",
+      "bytes": 5148750,
+      "sha256": "db18195f6d911b22dda5636ab0790b6f6f1dc72c242657fe7b59939af4aa37fc"
+    },
+    {
+      "path": "after.log",
+      "bytes": 103,
+      "sha256": "b19a95dfe9c75196cfb1a826b6e32a87bb5ca676cfae17b6c70842ffcbdc020f"
+    },
+    {
+      "path": "before-hook.mjs.txt",
+      "bytes": 626,
+      "sha256": "4261dea857a5124bff5bbb2dedf1b2a17049922a0253d29c79f502639e2a7f4f"
+    },
+    {
+      "path": "before.json",
+      "bytes": 5148750,
+      "sha256": "db18195f6d911b22dda5636ab0790b6f6f1dc72c242657fe7b59939af4aa37fc"
+    },
+    {
+      "path": "before.log",
+      "bytes": 103,
+      "sha256": "b19a95dfe9c75196cfb1a826b6e32a87bb5ca676cfae17b6c70842ffcbdc020f"
+    },
+    {
+      "path": "factory-master-store.ts.txt",
+      "bytes": 19153,
+      "sha256": "4281795e16eef9e92015d3d1861b3fa7e03bedb895a413121dd52ab274bc3c60"
+    },
+    {
+      "path": "result.json",
+      "bytes": 513,
+      "sha256": "28f57e5be0d33a593d9ea54e59f15603187420aa6356e821376af0fee392b621"
+    },
+    {
+      "path": "run.mjs.txt",
+      "bytes": 2379,
+      "sha256": "1e5b2a8f7d711e1a3759ae00926b858fdf799c3f9822ce7374a059267d300625"
+    },
+    {
+      "path": "third-party-factory-rating.ts.txt",
+      "bytes": 28951,
+      "sha256": "bfe4f9cb24230ae013867104863cf13ef6b1c97d8da9f982d37f1093ec8e60ef"
+    }
+  ]
+}

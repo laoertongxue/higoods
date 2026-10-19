@@ -1,0 +1,12 @@
+{
+  "diagnosticOnly": true,
+  "source": "public loadPostFinishingDemoData/readLegacyMaterial plus hasMaterialPrepProductionIdentity in Node",
+  "materialTransfers": 5,
+  "materialStocks": 0,
+  "matchedPossibleIdentities": [
+    "PF-ACCEPT-PO-1",
+    "PO-QC-202608-001"
+  ],
+  "otherEightIdentitiesMatched": false,
+  "limitation": "This is the unchanged static material source, not a claim that CPU profile captured arguments or that D10 material records were reduced."
+}

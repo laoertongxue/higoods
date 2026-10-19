@@ -1,0 +1,58 @@
+{
+  "diagnosticOnly": true,
+  "page": [
+    {
+      "id": 54,
+      "inclusiveMs": 1546.786,
+      "selfMs": 0,
+      "path": [
+        {
+          "fn": "oe",
+          "file": "work-orders-De1W33Gj.js",
+          "column": 10782,
+          "excerpt": "unction oe(){var $;const e=k(),t=(($=e.get(\"keyword\"))==null?void 0:$.trim().toLowerCase())||\"\",s=e.get(\"status\")||\"\",n=e.get(\"processItem\")||\"\",o=e.get(\"factory\")||\"\",d=A(),l=M(),i=H(),u=d.map(a=>{const c=D(a);return{task:a,delivery:N(a.deliveryId),qcTask:_(a.qcTaskId),totalQty:a.lines.re"
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-DOGgoGbs.js",
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-Dh52O56b.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRec"
+        },
+        {
+          "fn": "(root)",
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "inclusiveMs": 1530.267,
+      "selfMs": 3.006,
+      "path": [
+        {
+          "fn": "",
+          "file": "work-orders-De1W33Gj.js",
+          "column": 10966,
+          "excerpt": "),u=d.map(a=>{const c=D(a);return{task:a,delivery:N(a.deliveryId),qcTask:_(a.qcTaskId),totalQty:a.lines.reduce((p,g)=>p+g.expectedQty,0),progress:c,rechecks:l.filter(p=>p.postTaskId===a.postTaskId),outbounds:i.filter(p=>p.postTaskId===a.postTaskId),unprocessedQty:Math.max(0,c.totalExpected"
+        },
+        {
+          "fn": "oe",
+          "file": "work-orders-De1W33Gj.js",
+          "column": 10782,
+          "excerpt": "unction oe(){var $;const e=k(),t=(($=e.get(\"keyword\"))==null?void 0:$.trim().toLowerCase())||\"\",s=e.get(\"status\")||\"\",n=e.get(\"processItem\")||\"\",o=e.get(\"factory\")||\"\",d=A(),l=M(),i=H(),u=d.map(a=>{const c=D(a);return{task:a,delivery:N(a.deliveryId),qcTask:_(a.qcTaskId),totalQty:a.lines.re"
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-DOGgoGbs.js",
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-Dh52O56b.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRec"
+        },
+        {
+          "fn": "(root)",
+          "column": -1
+        }
+      ]
+    }
+  ],
+  "progress": []
+}

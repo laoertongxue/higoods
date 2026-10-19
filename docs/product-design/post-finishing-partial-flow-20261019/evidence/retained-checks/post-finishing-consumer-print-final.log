@@ -1,0 +1,54 @@
+
+Running 1 test using 1 worker
+
+
+(node:38421) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries
+  1) tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.online-sku-barcode-label')
+    Expected: 800
+    Received: 0
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 10000ms
+      - waiting for locator('.online-sku-barcode-label')
+        22 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      48 |     await expect(page.locator('body')).not.toContainText('未找到后道出货单')
+      49 |     if (documentType.endsWith('BARCODE')) {
+    > 50 |       await expect(page.locator('.online-sku-barcode-label')).toHaveCount(800)
+         |                                                               ^
+      51 |       const count = await page.locator('.online-sku-barcode-label').count()
+      52 |       const content = await page.locator('body').innerText()
+      53 |       writeFileSync(`${evidence}/generic-label-content.json`, JSON.stringify({ count, text: content.slice(0, 800) }))
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:50:63
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries 

@@ -1,0 +1,1 @@
+原真实角色整单查询在final-current-material-pda-failure-before失败。只增加main现有导航去重helper的精确共享handover/materialOrderNo分支后，相同原测试同开发配置1/1通过，耗时7595ms为整项功能用例时长，不作单动作响应性能。完整单号/4物料图片/无手填量/无授权补料/确认整单/库存4行及495PCS和来源原断言全保留。相邻role8和I1–I4由最终51组合覆盖。

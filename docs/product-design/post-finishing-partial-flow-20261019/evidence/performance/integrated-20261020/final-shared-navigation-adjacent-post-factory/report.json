@@ -1,0 +1,2536 @@
+{
+  "version": 1,
+  "startedAt": "2026-10-19T21:48:18.645Z",
+  "timezone": "Asia/Shanghai",
+  "head": "ecc8af013b5f9d67f5fef14fe5b692483aada61d",
+  "dirty": "M  README.md\nMM architecture.md\nAM docs/implementation-plans/2026-10-19-后道逐项加工与多次复检出货实施及验收计划.md\nAM docs/product-design/2026-10-19-后道逐项加工与多次复检出货调整方案.md\nAM docs/prototype-review-records/2026-10-19-post-finishing-partial-flow.md\nAM docs/requirement-traceability/2026-10-19-后道逐项加工与多次复检出货矩阵.md\nM  public/newpda/handoff-context.js\nM  public/newpda/index.html\nM  public/newpda/post-flow.css\nM  public/newpda/post-flow.js\nM  scripts/check-post-finishing-current-read-model.ts\nM  scripts/check-post-finishing-full-flow-surface.ts\nM  scripts/check-post-finishing-full-flow.ts\nM  scripts/check-post-finishing-outbound-and-online-print.ts\nM  scripts/check-post-finishing-qc-colors.ts\nM  scripts/check-post-finishing-return-source-generalization.ts\nA  scripts/check-post-finishing-statistics-scope.ts\nM  scripts/check-post-finishing-web-pda-fallback.ts\nAM scripts/verification/post-finishing-partial-performance.mjs\nMM scripts/verification/post-finishing-qc-browser.js\nA  scripts/verification/post-finishing-standalone-performance.mjs\nMM scripts/workflow-governance/affected-checks.ts\n M scripts/workflow-governance/changed-paths.ts\n M src/data/fcs/cutting/production-material-prep.ts\n M src/data/fcs/factory-master-store.ts\nMM src/data/fcs/pda-handover-events.ts\nM  src/data/fcs/platform-process-result-view.ts\nMM src/data/fcs/post-finishing-current-read-model.ts\nM  src/data/fcs/post-finishing-document-numbering.ts\nMM src/data/fcs/post-finishing-full-flow.ts\nA  src/data/fcs/post-finishing-print-progress.ts\nMM src/data/fcs/post-finishing-records.ts\nM  src/data/fcs/process-statistics-domain.ts\nM  src/data/fcs/production-object-overview.ts\n M src/data/fcs/special-craft-task-orders.ts\nM  src/data/fcs/task-print-cards.ts\n M src/data/fcs/third-party-factory-rating.ts\nMM src/data/wls/accessory-warehouse-post-finishing.ts\n M src/data/wls/accessory-warehouse-sources.ts\nMM src/main.ts\nMM src/pages/pda-post-finishing-exec-detail.ts\nM  src/pages/pda-post-finishing-flow.ts\nMM src/pages/print/print-preview.ts\nM  src/pages/print/templates/post-finishing-outbound-template.ts\nM  src/pages/print/templates/post-finishing-route-card-template.ts\nM  src/pages/process-factory/post-finishing/audit-records.ts\nM  src/pages/process-factory/post-finishing/events.ts\nM  src/pages/process-factory/post-finishing/full-flow-print.ts\nM  src/pages/process-factory/post-finishing/qc-orders.ts\nM  src/pages/process-factory/post-finishing/qc-workbench.ts\nM  src/pages/process-factory/post-finishing/statistics.ts\nM  src/pages/process-factory/post-finishing/storage-notice.ts\nM  src/pages/process-factory/post-finishing/tasks.ts\nM  src/pages/process-factory/post-finishing/warehouse.ts\nMM src/pages/process-factory/post-finishing/work-order-detail.ts\nMM src/pages/process-factory/post-finishing/work-orders.ts\nM  src/router/route-renderers-fcs.ts\nM  src/router/route-renderers.ts\nA  tests/post-finishing-consumers.spec.ts\nM  tests/post-finishing-full-flow-cross-terminal.spec.ts\nMM tests/post-finishing-full-flow.spec.ts\nAM tests/post-finishing-migration.spec.ts\nAM tests/post-finishing-partial-flow.spec.ts\nMM tests/post-finishing-pda-role-boundary.spec.ts\nA  tests/unit/post-finishing-multiple-recheck.test.ts\nAM tests/unit/post-finishing-process-progress.test.ts\nMM tests/workflow-governance/affected-checks.test.ts\n M tests/workflow-governance/changed-paths.test.ts\n?? docs/product-design/post-finishing-partial-flow-20261019/\n?? tests/post-finishing-main-integration.spec.ts\n?? tests/unit/post-finishing-accessory-identity.test.ts\n?? tests/unit/post-finishing-factory-seat-read.test.ts\n?? tests/unit/post-finishing-special-craft-source-readonly.test.ts\n?? tests/unit/post-finishing-task-quantity-summaries.test.ts",
+  "scriptSha256": "c7c60cce5286b5b38d4414c5da3955a6c065e64394a91f531fd8a64984c689d8",
+  "config": {
+    "restoreAuthorization": {
+      "date": "2026-10-19",
+      "source": "User confirmation in the current session, relayed by the root agent",
+      "quote": "仅该规模完整恢复采用≤10秒，其余仍≤1秒",
+      "family": "storage:restore",
+      "maxMs": 10000,
+      "scope": {
+        "records": 27548,
+        "jsonBytes": 36178108,
+        "sha256": "78adb8de3cac155fd32499707c4d7d703f0f7f9e48e8bad72d0642f12bb1d586"
+      }
+    },
+    "arguments": [
+      "--run",
+      "--reuse-fixture",
+      "--fixture=docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json",
+      "--target=http://127.0.0.1:43198",
+      "--families=adjacent",
+      "--output=docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/integrated-20261020/final-shared-navigation-adjacent-post-factory"
+    ],
+    "sourceOrigin": "http://127.0.0.1:43197",
+    "targetOrigin": "http://127.0.0.1:43198",
+    "calibration": false,
+    "includeExtraPrint": false,
+    "preflight": false,
+    "stopOnFailure": true,
+    "profileRequested": false,
+    "routeFilter": [],
+    "printTypes": [
+      "OUTBOUND",
+      "OUTBOUND_BARCODE",
+      "OUTBOUND_HANGTAG",
+      "GENERIC_OUTBOUND",
+      "GENERIC_BARCODE"
+    ],
+    "trials": 5,
+    "maxMs": 1000,
+    "selected": [
+      "adjacent"
+    ],
+    "coldDefinition": "Fresh isolated browser context with empty application HTTP cache; a static CSS document establishes the origin for IndexedDB fixture preparation before app navigation. No main app assets or images are loaded during origin preparation.",
+    "acceptancePlan": {
+      "supplementalOnly": {
+        "families": 5,
+        "samples": 25
+      },
+      "notPartOfCore100Families520Samples": true
+    },
+    "D10": {
+      "parentOrders": 100,
+      "skusPerOrder": 5,
+      "quantityPerSku": 200,
+      "items": 4,
+      "entriesPerItem": 10,
+      "incrementPerSku": 20,
+      "processRecords": 4000,
+      "rechecks": 1000,
+      "outbounds": 1000
+    },
+    "dateBoundary": {
+      "fixtureBusinessDate": "2026-10-19",
+      "runtimeDate": "2026-10-20",
+      "clockOverride": false,
+      "statisticsScope": "ALL: the actual statistics page calls getPostFinishingExecutionStatistics() with no filter; the default {} has no time range and matchTimeRange returns true. No date selector exists on this route. Original return/processing/recheck/receipt D10 facts remain dated 2026-10-19; added UI actions use actual current date and are separate."
+    },
+    "additionalActions": {
+      "parents": 5,
+      "purpose": "Independent pending-QC parents, then genuine UI process/recheck/outbound actions; do not reduce the D10 backbone."
+    },
+    "responsibilityContract": {
+      "uiRule": "UI-02: eligible functions are directly available without prototype-role selectors. Real QC/recheck restrictions and the F090 PDA session remain actual tested business inputs.",
+      "postRegistration": "After QC, open the detail directly without switching to a post-finishing prototype identity. The form defaults to the legitimate post-finishing operator; native persisted recordedBy is checked.",
+      "supervisorReview": "Correction and historical carryover are opened by the default post-finishing operator. Select the actual reviewing supervisor in the required initially-empty form field; preserve reason and verify persisted reviewer identity. The supervisor is not substituted for historical process responsibility.",
+      "garmentReceipt": "No role selector. An eligible pending receipt opens directly; retain actual receiver name and SKU quantities, then verify persisted receipt and receiver."
+    },
+    "fixturePreparationTransport": "The unchanged public-command backup JSON is gzip-encoded only across the test-controller/browser boundary, then decoded before native IndexedDB preparation. No app routing/cache policy changes; outside all response timing.",
+    "boundary": "Mock browser only. No test/production database access, no factory/scanner/printer execution."
+  },
+  "fixture": {
+    "backupJsonSha256": "78adb8de3cac155fd32499707c4d7d703f0f7f9e48e8bad72d0642f12bb1d586",
+    "backupJsonBytes": 36178108,
+    "backupRecordRows": 27548,
+    "file": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/d10-fixture.json",
+    "sha256": "20fb87f28a78a7381603d0dd626850fe12b15f2ed756285e7105fc9fb9d0b84a",
+    "counts": {
+      "postTasks": 100,
+      "processCompletions": 4000,
+      "recheckOrders": 1000,
+      "outboundOrders": 1000,
+      "warehouseReceipts": 900,
+      "qcTasks": 105
+    },
+    "preparationMs": 10632.600000023842,
+    "sourceMethod": "Public source fixture clones -> register return -> confirm -> send QC -> claim/complete QC -> 4000 append commands -> 1000 submit -> barcode -> complete recheck -> 900 receipts. One fixture-preparation transaction; not a UI performance sample."
+  },
+  "distIndexSha256": "c36aad4a374b8509c1dec6d4a2e01551d4fce3b89c4c64186b7bec4a628400c1",
+  "host": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M3",
+    "logicalCpus": 8,
+    "ramBytes": 17179869184
+  },
+  "browser": "149.0.7827.55",
+  "samples": [
+    {
+      "family": "adjacent:material-query",
+      "generation": 1,
+      "handlerErrors": [],
+      "completionPhases": {
+        "readyAt": 97.30000007152557,
+        "imageDecodeMs": 0.09999990463256836,
+        "readbackMs": 0.30000007152557373,
+        "paintMs": 31.399999976158142
+      },
+      "transactions": [
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 679.3000000715256,
+          "end": 679.5,
+          "ms": 0.19999992847442627
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 679.5,
+          "end": 679.6000000238419,
+          "ms": 0.10000002384185791
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 679.8000000715256,
+          "end": 679.8000000715256,
+          "ms": 0
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 681.2000000476837,
+          "end": 681.3000000715256,
+          "ms": 0.10000002384185791
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 684,
+          "end": 684,
+          "ms": 0
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 684.1000000238419,
+          "end": 684.1000000238419,
+          "ms": 0
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 684.2000000476837,
+          "end": 684.3000000715256,
+          "ms": 0.10000002384185791
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "meta",
+            "records"
+          ],
+          "start": 684.3000000715256,
+          "end": 684.4000000953674,
+          "ms": 0.10000002384185791
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 684.5,
+          "end": 684.5,
+          "ms": 0
+        },
+        {
+          "generation": 1,
+          "mode": "readonly",
+          "stores": [
+            "files",
+            "meta",
+            "operations",
+            "records"
+          ],
+          "start": 685.7000000476837,
+          "end": 685.9000000953674,
+          "ms": 0.20000004768371582
+        }
+      ],
+      "handlers": [
+        {
+          "type": "click",
+          "generation": 1,
+          "start": 665.3000000715256,
+          "end": 672.6000000238419,
+          "ms": 7.299999952316284
+        }
+      ],
+      "ms": 129.10000002384186,
+      "start": 665.1000000238419,
+      "end": 794.2000000476837,
+      "proof": {
+        "valid": true,
+        "checked": true,
+        "collection": "materialTransferOrders",
+        "matching": 0,
+        "expected": {
+          "collection": "materialTransferOrders",
+          "min": 0
+        }
+      },
+      "event": {
+        "type": "click",
+        "isTrusted": true,
+        "target": "BUTTON"
+      },
+      "images": [
+        {
+          "src": "http://127.0.0.1:43198/materials/accessory-label.jpg",
+          "loaded": true,
+          "width": 960
+        },
+        {
+          "src": "http://127.0.0.1:43198/materials/accessory-label.jpg",
+          "loaded": true,
+          "width": 960
+        },
+        {
+          "src": "http://127.0.0.1:43198/materials/accessory-button.jpg",
+          "loaded": true,
+          "width": 960
+        },
+        {
+          "src": "http://127.0.0.1:43198/materials/accessory-label.jpg",
+          "loaded": true,
+          "width": 960
+        }
+      ],
+      "thresholdMs": 1000,
+      "profiled": false,
+      "trial": 1,
+      "kind": "action",
+      "url": "http://127.0.0.1:43198/fcs/pda/handover?tab=pickup&materialOrderNo=DB-PF-202608-001",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "pass": true
+    },
+    {
+      "family": "adjacent:material-confirm",
+      "trial": 1,
+      "kind": "action",
+      "url": "http://127.0.0.1:43198/fcs/pda/handover?tab=pickup&materialOrderNo=DB-PF-202608-001&refresh=1792446500367",
+      "ms": null,
+      "pass": false,
+      "error": "page.waitForFunction: Timeout 30000ms exceeded.",
+      "diagnostic": {
+        "title": "HiGood - Vanilla TypeScript Clone",
+        "text": "PT Prima Printing Center\n交接 · ID-F002\n待办\n16\nP\nPT_P\n← 返回\n后道辅料整单入库 · PT_Prima_管理员\n确认辅料入库\n整单入库成功，辅料库存已按调出方实配数量登记。\nDB-PF-202608-001\nPO-QC-202608-001 · HG-QC-001\n已入库\n辅料仓 → 后道待加工仓\n入库位置：后道辅料暂存区 / PF-MAT-A01-01\n物料明细\n\n数量以调出方实际配料为准，不分批、不修改。\n\nNew 吊粒 Clothing tag rope\nFLSZ24116-black\nSPU FLSZ24116\nblack\n495 PCS\n调出方实配\n服装吊牌 Clothing tags\nWLID009-fadfad\nSPU WLID009\nfadfad\n500 PCS\n调出方实配\n纯白色染色纽扣 1.1cm\nFLSZ25111845-black-322\nSPU FLSZ25111845\nblack / 322\n1500 PCS\n调出方实配\n后道包装辅件\nFLBF2609001-white\nSPU FLBF2609001\nwhite\n500 PCS\n调出方实配\n该调拨单已整单入库。\n接单\n执行\n交接\n仓管\n结算",
+        "active": {
+          "family": "adjacent:material-confirm",
+          "spec": {
+            "title": "确认辅料入库",
+            "contains": "该调拨单已整单入库",
+            "searchMaterial": "DB-PF-202608-001",
+            "pathname": "/fcs/pda/handover",
+            "allImages": true,
+            "count": {
+              "selector": "[data-pda-image-preview-url]",
+              "expected": 4
+            },
+            "readback": {
+              "collection": "materialTransferOrders",
+              "where": {
+                "transferOrderNo": "DB-PF-202608-001"
+              },
+              "field": "status",
+              "equals": "已入库",
+              "min": 1,
+              "max": 1,
+              "materialLines": [
+                {
+                  "materialCode": "FLSZ24116-black",
+                  "materialName": "New 吊粒 Clothing tag rope",
+                  "quantity": 495,
+                  "imageUrl": "/materials/accessory-label.jpg"
+                },
+                {
+                  "materialCode": "WLID009-fadfad",
+                  "materialName": "服装吊牌 Clothing tags",
+                  "quantity": 500,
+                  "imageUrl": "/materials/accessory-label.jpg"
+                },
+                {
+                  "materialCode": "FLSZ25111845-black-322",
+                  "materialName": "纯白色染色纽扣 1.1cm",
+                  "quantity": 1500,
+                  "imageUrl": "/materials/accessory-button.jpg"
+                },
+                {
+                  "materialCode": "FLBF2609001-white",
+                  "materialName": "后道包装辅件",
+                  "quantity": 500,
+                  "imageUrl": "/materials/accessory-label.jpg"
+                }
+              ],
+              "actorId": "ID-F002_admin",
+              "actorName": "PT_Prima_管理员",
+              "secondary": {
+                "collection": "materialStocks",
+                "where": {
+                  "transferOrderNo": "DB-PF-202608-001"
+                },
+                "min": 4,
+                "max": 4,
+                "stockLines": [
+                  {
+                    "materialCode": "FLSZ24116-black",
+                    "materialName": "New 吊粒 Clothing tag rope",
+                    "quantity": 495,
+                    "imageUrl": "/materials/accessory-label.jpg"
+                  },
+                  {
+                    "materialCode": "WLID009-fadfad",
+                    "materialName": "服装吊牌 Clothing tags",
+                    "quantity": 500,
+                    "imageUrl": "/materials/accessory-label.jpg"
+                  },
+                  {
+                    "materialCode": "FLSZ25111845-black-322",
+                    "materialName": "纯白色染色纽扣 1.1cm",
+                    "quantity": 1500,
+                    "imageUrl": "/materials/accessory-button.jpg"
+                  },
+                  {
+                    "materialCode": "FLBF2609001-white",
+                    "materialName": "后道包装辅件",
+                    "quantity": 500,
+                    "imageUrl": "/materials/accessory-label.jpg"
+                  }
+                ],
+                "actorId": "ID-F002_admin",
+                "secondary": {
+                  "collection": "operationLogs",
+                  "where": {
+                    "objectNo": "DB-PF-202608-001",
+                    "action": "整单确认入库",
+                    "operatorId": "ID-F002_admin"
+                  },
+                  "min": 1,
+                  "max": 1
+                }
+              }
+            },
+            "gone": "[data-pda-handover-action=\"confirm-material-inbound\"]"
+          },
+          "generation": 2,
+          "start": 947.8000000715256
+        },
+        "pendingHandlers": 0,
+        "pendingTransactions": 0,
+        "handlerErrors": []
+      }
+    }
+  ],
+  "coverage": [],
+  "assets": [
+    {
+      "url": "http://127.0.0.1:43198/assets/index-Cqj1qBHI.css",
+      "status": 200,
+      "localSha256": "32d861a8d37d826ea88f5c6ab944b818835f4bfce93d4b6036afa299f87703b5"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-domain-shared-DboXqEqI.js",
+      "status": 200,
+      "localSha256": "3eb8f55cc9226fe3a8e6e12feadf762d848cfd94f5746ca81b333d57aebba082"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/app-shared-_ZQpMwKQ.js",
+      "status": 200,
+      "localSha256": "0ef404c35267b1f3d7913ce6f857f1a114876bbb875fdd85e098d36c4d761915"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/index-bLIWA8Mr.js",
+      "status": 200,
+      "localSha256": "52f575b27bcb41367e4b406bd1181d1394e32aec37d62cbec73768a5c382530f"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/craft-image-storage-DNiDGD8Y.js",
+      "status": 200,
+      "localSha256": "e513d95b559687257467698dbce2d6cd19324ddf86c906537a4ec69bf02bffc8"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/craft-display-support-CIevcX4Y.js",
+      "status": 200,
+      "localSha256": "ba7e25f53401915b7bf5201c4c7670b9569c4944d2c1feb1123e8a3304d60292"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-core-CF2ALGu2.js",
+      "status": 200,
+      "localSha256": "34bcf4dac2cbbb01b2d0ff2101bac68d46922e44744559835875d5987e9288d4"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-bootstrap-46Jm-W8l.js",
+      "status": 200,
+      "localSha256": "24ced66e1f918c908cc5750ad4776c4177af5489604ddc52683e869c68dbb68e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-record-baseline-BdbNpplt.json",
+      "status": 200,
+      "localSha256": "66d320307a482c5f6260892aa14022e7677b6b939387e5cf54762dc37c4c4fc2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/design-revision-pcs-storage-BjfzS8H8.js",
+      "status": 200,
+      "localSha256": "36323f0d01b3f8259210f0635f144d986267be2ca78e995a23e629a8c85e2e14"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/post-finishing-authorization-D4Txud0l.js",
+      "status": 200,
+      "localSha256": "ece2105c270bc04e48810c114d48195c7b39197ebebef2571c363b38221f3815"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-receiving-CSiG2Hp3.js",
+      "status": 200,
+      "localSha256": "3871eef491bc9e1530842e44b8dcce428d189eb6e83ef018927227aca26f9266"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-order-runtime-store-BsOkUw7k.js",
+      "status": 200,
+      "localSha256": "11d486b252169f70cb29d1bbd1fc89d1f055a0c3b8051ae43d3e4c3e373d6990"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-CYJA5gqv.js",
+      "status": 200,
+      "localSha256": "4b090dce16f0836422fa9c80dac7c1ef14b9853da89fde9831f577b421a3b94a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-D16aZXEU.js",
+      "status": 200,
+      "localSha256": "368ef19ce54821c4f8a6847ca22b062ee93d4efe3b5f1e7bd1d6b06da6720fc7"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/effective-task-assignments-DOWe4SPq.js",
+      "status": 200,
+      "localSha256": "f91b33a6edbc0b56e34026f4b1e4f65a74bfac27c6cf09755b0bfb1596c1fd25"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/cut-piece-release-DjyJJSwA.js",
+      "status": 200,
+      "localSha256": "200751b0423032c1b0c33c6ff3df24c34da299bf2a44c1193ad53a7adc75e40b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-orders-B0mWjzNI.js",
+      "status": 200,
+      "localSha256": "37ade179c3f68c4df8f10df3bbb7070d4d15ce9e244cf2ea35c02105e4512ece"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-responsibility-1ydTyEXQ.js",
+      "status": 200,
+      "localSha256": "aac3d415ba0e28ea74d3d7bee71190f13ac12612407d7b836831dac672214f14"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-contracts-CZg3HjA0.js",
+      "status": 200,
+      "localSha256": "46191c2eb9645b32609e9afadf2bc7922308bc127f29f573363a82b7b163ac67"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-context-actions-Yt_h_RgF.js",
+      "status": 200,
+      "localSha256": "1f8ba9685474bc6afa2624bc00d667b035f818384bcf836fc5138a5b62f5ab5f"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-return-fulfillment-DL2KEB4I.js",
+      "status": 200,
+      "localSha256": "e08b5143374b0a87e20dc6fc8207750c8d056f0de1d1cb1b002fe264cabfc6ef"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/special-craft-task-orders-BJ8oxJ5y.js",
+      "status": 200,
+      "localSha256": "b23c49c1358ab3ce2647701ea76424f7f0e7f000102622e7ec032bbbf8e80bd6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/runtime-task-tenders-DOFRWwsh.js",
+      "status": 200,
+      "localSha256": "877cb63ea1e64887b12189d222c6a68a5b13ac8b181a8e06f3f3f1aa8cada9b7"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-records-DIZ2fFMw.js",
+      "status": 200,
+      "localSha256": "929237a98fb33953b1a2fd670e6883d4a8d2e9075284c90a43e456907be60e31"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-commands-OYniiFed.js",
+      "status": 200,
+      "localSha256": "f42a29450a068f9b97f435d30140a371cf99df7f30e0b73a975862becdbcc159"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-stock-shlNw7Ne.js",
+      "status": 200,
+      "localSha256": "ae9eccbaa48ae5d3831a9727e18d5ab36501060335e9eb755c555a4f601a82c5"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-handover-events-CIR_rxI7.js",
+      "status": 200,
+      "localSha256": "3d7f328ab1b748208bb204d7129384ce1e47e05822df28e738d7334145363e5c"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/cutting-event-repository-D74aYEF3.js",
+      "status": 200,
+      "localSha256": "20a8254a2f4bf7d3a4918cb13f34bb6e525c11d49a51d43d2227d015e0bab6ac"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/replacement-fabric-repository-DMUce2m5.js",
+      "status": 200,
+      "localSha256": "842fb7431945d2600b0ce34d47328819855d7f76bd3873c38a80ec51b79db90b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/replacement-fabric-fei-tickets-DrpSQtBj.js",
+      "status": 200,
+      "localSha256": "4669fa8ee51ba86a122a2a57abae7e94aad97bea52af0cad1e4c6b3bb9b65b59"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/retired-cut-piece-pickup-history-KCZ3QG8a.js",
+      "status": 200,
+      "localSha256": "2104fce3281aec7e5032c722ba51ec95ad136a74d610ad3c53a4e7ecf4f061bb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/manual-fei-tickets-cXv3yZgt.js",
+      "status": 200,
+      "localSha256": "4fd58b0695a1b5bba3ed9679d80d5feabf23ef56c08223cc9aa90cf87bf5a3d6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/warehouse-runtime-CuCiibvY.js",
+      "status": 200,
+      "localSha256": "af5672586ddf10734d048416192ac3d4e1b5683ab1809f5fca5c1552f0a08379"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/transfer-bag-operations-BTq4dvmj.js",
+      "status": 200,
+      "localSha256": "3021ae93a3aa6a9b7706afb17c6e608263aada01d19af223d3524cd5ed28968b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-tech-pack-change-domain-DbdOyb2n.js",
+      "status": 200,
+      "localSha256": "99622005fc9b1ebf7bb2f8e77f0cc13b484bbdac292982fc020375e4c46c527a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-Blmxbe1q.js",
+      "status": 200,
+      "localSha256": "149c5e8e66eca8f047f0b7bd25c91325f1c2bec26828f8d23d2fba6faca7c705"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/generated-cut-release-CHplhOJ9.js",
+      "status": 200,
+      "localSha256": "e28d79ec7ca1aa6078ae156eb1f390223ef357492e5c066a4a703090c768ba59"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/water-soluble-relation-sources-CYq71r6-.js",
+      "status": 200,
+      "localSha256": "c289691ab925b78fd1700167ed656cb6a9c01744b82ac1af80abb6110a3b20be"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+      "status": 200,
+      "localSha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-process-continuation-zBbGFh6j.js",
+      "status": 200,
+      "localSha256": "54a28f7baa2608b1d1ac4753c9fa15047468975609def1abae9d40eb3fb11f06"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/fabric-washing-CUK9yGTq.js",
+      "status": 200,
+      "localSha256": "0d31db7f3cfa4224615f5f8b8adde1a5103862e996540762407d6b6620391b05"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/tmf-reference-images-6geKcU1B.js",
+      "status": 200,
+      "localSha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-engineering-task-upload-repository-BFG5qrps.js",
+      "status": 200,
+      "localSha256": "fca910a0977ea5e1b88b13f1abaa9e56f90d654b41e960179708e17006f10bc0"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/fabric-washing-repository-WY_yaIkJ.js",
+      "status": 200,
+      "localSha256": "a3f358ca9f322c0a6a137afb3d84dc1b2dabe0eb565b65076160e0d11d63aaaa"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/printing-task-domain-VrjtdQP8.js",
+      "status": 200,
+      "localSha256": "31cdebfc9af4f07abf7f0ee08343434509efcb4b2efb4b90cadac13661685fec"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-return-tracking-BqduGpKu.js",
+      "status": 200,
+      "localSha256": "653d24ea03acaae9d2b40ae9dc563e45791d1038fd13d969e164bbcb815936d4"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/ppic-daily-return-records-BKhPZjIh.js",
+      "status": 200,
+      "localSha256": "114018f47023a15857c036e5235cc8ee0e03876e8fe0b9ca7f407450a29f48bb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/ppic-return-quantity-basis-BobDYUpo.js",
+      "status": 200,
+      "localSha256": "e0a5e2e6824ee753b81b463612a357dc7bf85b3fbf6a575530ac0d641cdb760c"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-cut-piece-responsibility-DJCoKMiK.js",
+      "status": 200,
+      "localSha256": "48e91d44170db6dc190b8e8b0a606ca2ad294775df13ddfd2becc56ed32cc467"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/fabric-washing-views-CegwNp6f.js",
+      "status": 200,
+      "localSha256": "c2b357f13449dbd07cd408319570c7ab113c84cebc6230086f664f6121a0b5f6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/real-barcode-BJdGy9l6.js",
+      "status": 200,
+      "localSha256": "8d34014ebe376752aeed12368726a567aa50e2fbbbb3aaa9a56f30322dce2cab"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/storage-notice-1jWh5EO-.js",
+      "status": 200,
+      "localSha256": "77ca9728fd5a26e9aec069ade95abe71327c46d7a2a5a258f036793ce33ec666"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/wool-craft-shared-BSZjYMm4.js",
+      "status": 200,
+      "localSha256": "006a0c87455e963e5243180d038a1333c3d9971c07c6b19b10c02499c6cf89a5"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/work-orders-D9GyMsbh.js",
+      "status": 200,
+      "localSha256": "e2842598d6bf2b59a4cb9ee02ba2716e4339fd23c9ea2a5e00528459c979c5b4"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-shell-CIqAHZKq.js",
+      "status": 200,
+      "localSha256": "e2079a5aaff02a4163e5ee220f5614b5f41494a5dd137df88ad516ce84e655fa"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/domain-snapshot-DmcyYSkN.js",
+      "status": 200,
+      "localSha256": "2f1864753ff2f827dc6e35707f39264fba5a8d34a9a23739d6118e041d8e1f01"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-handover-PJzAGpaC.js",
+      "status": 200,
+      "localSha256": "4f28d601232cbb756a8bfd7c865095743966ab51bf8e3772bd9c2dc79d63f8ce"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-cutting-execution-source-4qnygnI0.js",
+      "status": 200,
+      "localSha256": "feed6aa60b834c70a1af48d9f5ca09182877b65e0619eab48b4b3b0683bd85c5"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/runtime-inputs-CLr9k6qt.js",
+      "status": 200,
+      "localSha256": "5e624b8cb547c531603a3f4a9638578db56ac96388435d33338c0c196fe14dd4"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/index--GzcKvNw.js",
+      "status": 200,
+      "localSha256": "2cfba651db8627b7b6c7111fca72ab634ba4a72abcb23a885c2d19e10e9a8e22"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-bootstrap-DW-xVaqZ.js",
+      "status": 200,
+      "localSha256": "81a23dd564587aed9dbdc42bf5f83220b2ac916e011a9da47e8032fa79303e30"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/store-domain-progress-BBgxrAub.js",
+      "status": 200,
+      "localSha256": "f0b2fe09d2d900693227c44d9ff029e73744d881d588dbbe220394d99b033952"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-k21z0R8f.js",
+      "status": 200,
+      "localSha256": "c9a9874005fb294b35b7b76183d5eceb8d16f9cb4bfd905abc894dcdd6509482"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-product-archive-fixtures-CJrXRlwU.js",
+      "status": 200,
+      "localSha256": "f631aa9bf6164d5106a49f86a0b091d6cda911064d97bb0c856594662ffcffef"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/production-material-prep-BcumyurQ.js",
+      "status": 200,
+      "localSha256": "cfa4ef18d053f8f50499f6adde692be91ed490fd9ed08d9ca02635bbe60c35eb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-notification-repository-Bkasp4tL.js",
+      "status": 200,
+      "localSha256": "c8a3255f7878e8b4b3cb258b730b251dae1f77c8150989bf087ed044a0361b3a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-version-log-repository-FO9JJuHQ.js",
+      "status": 200,
+      "localSha256": "8ad3341633d1359349e500f73e7e4682529fe98d78bc2dbb6ddbe100ea981bda"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/los-live-room-master-D0CI4Si_.js",
+      "status": 200,
+      "localSha256": "ca4f49f7ae638ff4f74d5f9db0a8e264dfeb7893ffb38f817d626eef57f33555"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-engineering-bom-snapshot-source-ByQI2lfp.js",
+      "status": 200,
+      "localSha256": "5d121fff29374fa652749290776ccba770fbbd893204d7ed832b9957908cbf0b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/marker-plan-projection-U9gMummH.js",
+      "status": 200,
+      "localSha256": "9958f009bf03bd115cd699a007c0895608cf3a0e2ca1fbc59a1988c5e010f070"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-part-template-library-D36oswoa.js",
+      "status": 200,
+      "localSha256": "55bf15dcda7b425e43b2bc925cf102b80b2bd04e3aa18cda35d87db7c2d124d0"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-pattern-library-B6a-h1PA.js",
+      "status": 200,
+      "localSha256": "592664383ac7855821d5cb2107daf3f4fa4467e419f4b478de789b3a28ca0cbb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/marker-plan-source-model-CSiN8hs4.js",
+      "status": 200,
+      "localSha256": "bde5af81820353b317c1381b3eda336060ab37fd9a5d2d9f8504210153349e59"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/task-chain-pages-adapter-C7jRCds8.js",
+      "status": 200,
+      "localSha256": "e573e6b5be607eb315a0646a4f3ebe68605bbb16de89d38df577a5dff920e836"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/supplement-order-registry-CHnc7juB.js",
+      "status": 200,
+      "localSha256": "8b97ac8bd8b783a88b9812a78c9c5e0b8ffa3d53d5addc688494e5ac20910e40"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/index-DWsbSiYS.js",
+      "status": 200,
+      "localSha256": "d2e714579da0e3b5743fe4b9e2cee0b59e588e6b54174a8a2c2c78e7a44041e1"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/marker-plan-occupancy-B7IhCfxd.js",
+      "status": 200,
+      "localSha256": "85c990ecca817ec91182e4a69690c22d17d231cdf1f422b2506c9ba587efd785"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/marker-plan-model-BvcVitSY.js",
+      "status": 200,
+      "localSha256": "ffeafdf4b26af837ef796b559428bf50a2134fcc43781c9f8d07680368208557"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/task-execution-adapter-BwcMw1TH.js",
+      "status": 200,
+      "localSha256": "79b08491cb775e19cb4e091264e279a67768f96db4989c7aa790b194e8c0c286"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+      "status": 200,
+      "localSha256": "79c7418eb1d2cc2f99022b5130010378765b18a9e84eb85b33db1c74d9c513e8"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/store-domain-settlement-seeds-B-KRpcHU.js",
+      "status": 200,
+      "localSha256": "d40b76dd4093d3b5433b65682f377220b060871a4df9335ebaf9f9720c6d10f3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-mobile-task-binding-ClyzfdVD.js",
+      "status": 200,
+      "localSha256": "385c2d5c93b7d50a03b01173cd25e5a87fbd47655a2ee6f7511eb740f21f8304"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/settlement-linked-mock-factory-DZjDU19N.js",
+      "status": 200,
+      "localSha256": "130c2d3b0b80d75def53b636aa9e1a426d468c538e3f233c9d7ce023bccd056a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-DpovC78Q.js",
+      "status": 200,
+      "localSha256": "c89219a8cbaa3fb2eeb0893c522b63076228a5040d2cc57f2da47c5680ef3c6a"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/quality-deduction-repository-BVa-qD2z.js",
+      "status": 200,
+      "localSha256": "0170b2f737edd37e2fe1882dffded51bb02619dfb09ebfa6632829dfa5027feb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/factory-onboarding-flow-B7xNWXSv.js",
+      "status": 200,
+      "localSha256": "32e8adb701408e9bc29c898c4be82e2e76bbc2f6d88815c5efd3941edf93a9ba"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-runtime-tlCXXIrm.js",
+      "status": 200,
+      "localSha256": "fa9b3c6a7244a6ee3571889a884d09db717d7249a58c6ce5d9f596ffc53550f6"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-wool-fact-execution-DBRz7mNh.js",
+      "status": 200,
+      "localSha256": "7c37bcdd6082548495f3ee163e2bc3b8674c67ed9ec6996c2c258f93ab1074eb"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/wool-pda-scan-By-71BXo.js",
+      "status": 200,
+      "localSha256": "31ad9d8ed674aaab3b499c462f4890867f0077d5f2150ac81fff50fd134a16b3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/kol-goto-fixed-total-ledger-DCc1SU1Z.js",
+      "status": 200,
+      "localSha256": "d1ece250eba16a8114c2b9a9dc935689afd73b5737098610566d23522680a933"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/binding-process-pda-scan-BemsQTpO.js",
+      "status": 200,
+      "localSha256": "01883df65a96d1f670a011508551076aca6c433d124def20d868137b782cefef"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/kol-goto-pda-domain-C9Fgf6Ap.js",
+      "status": 200,
+      "localSha256": "64f93987fecb8abfa92e81bd2a10dd027bd8b21c91bf207c4d73fdd93ce898cd"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-accessory-post-access-oAY1gaCO.js",
+      "status": 200,
+      "localSha256": "015eecbb39b01fcd9fb799019104714977cdf2447e3e8a898511bc94593f580f"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-stock-sources-BFAjIrUO.js",
+      "status": 200,
+      "localSha256": "e8f853598c0770f86afcacbfe0f5d64d9529e663d35f06c65b249053270dca7e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-sources-rrCYiHIV.js",
+      "status": 200,
+      "localSha256": "ef19e23b6034fb30ebe57e68985ac2086ee7412d28af8858ee2ee05e726e7d15"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-pickup-slips-C27JqoE4.js",
+      "status": 200,
+      "localSha256": "ecff648dbf364f8cd7eac32f0e96f723338b6f39407272db75229e4d3e8aa60f"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-post-finishing-qLKmXPUC.js",
+      "status": 200,
+      "localSha256": "324548279eb16ff2f0bcd37328561960621ed9b4c7e4edc2f6b55cc71c84cdb3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/accessory-warehouse-sewing-BQsXBFFF.js",
+      "status": 200,
+      "localSha256": "07d48f462a38b39a7fb8318d4c0954896e1625497760e4f708dc1d83fc663999"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-handlers-CRZF4JP9.js",
+      "status": 200,
+      "localSha256": "4ad54f81c7a5c46dd38d5da309c25af19790803b44d20394d1649f7f38c8706d"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-warehouse-shared-BZTVC_5-.js",
+      "status": 200,
+      "localSha256": "e773bc1d9f277568bf058f6f9c947cd658b64880d751075ddb8007c3f2e5a8b2"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/sewing-dispatch-CHoShE2l.js",
+      "status": 200,
+      "localSha256": "2b15fec419e8973a926faf658668574b7bcd324addf8f38f15f4bd03839c3d01"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-cutting-nav-context-CHBoQ7fH.js",
+      "status": 200,
+      "localSha256": "31cd03b556543aef1af9fc35f358d26c2697ce3adf6197dfc60ab222ef4def94"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/design-revision-pcs-command-D7rK1Z5K.js",
+      "status": 200,
+      "localSha256": "26b63d148d09cd6bacbad75f65794bb838618ab0b4bd6133f966ccc91dce25df"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/special-craft-pda-scope-NiFvQ12d.js",
+      "status": 200,
+      "localSha256": "546bfbb59d1def29f46dddebc947e0fbce5ac77f570c7d7ab576526de36a8983"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/dye-work-order-times-w7U4XCtx.js",
+      "status": 200,
+      "localSha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/dye-work-order-online-domain-RYVElQVo.js",
+      "status": 200,
+      "localSha256": "1f947fde3731ea0f10e1257c00d2a7135e68cc4bc58e573bcfffe44187ac81af"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/mobile-execution-task-index-CGL2TegJ.js",
+      "status": 200,
+      "localSha256": "796853f008acd096e32a1c2fad7429ba991016e58f535a0cbe1fcffcaa0716ec"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-start-link-BKTBsqq7.js",
+      "status": 200,
+      "localSha256": "b64950486e7b42b326aee03804c393c9f59025d1f7f9b113b53259c39812747b"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-task-receive-CJVCF0BF.js",
+      "status": 200,
+      "localSha256": "0a0083649dcf35a5288014787d5f80f15766b8a3f83c63e4f13b9026bbfd5022"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/milestone-configs-D5c8q7IE.js",
+      "status": 200,
+      "localSha256": "e1dfc8a847eaa37303fd99f031cbf8b68bbbe2f87f190be7d23c3cd7278c4ad0"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-exec-link-b31zaT96.js",
+      "status": 200,
+      "localSha256": "4bb2f2c1d40fcbd10fc191e4608b895ec68be2f2e1df66ad49b10ae1d324b6f3"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/progress-exception-lifecycle-BJx0gSBY.js",
+      "status": 200,
+      "localSha256": "9c7e053d57bb011a221be10e8aa2852d35fbea06b4d36e0b5ded3cb3f24deeec"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-cutting-wait-handover-actions-CXTH1h4b.js",
+      "status": 200,
+      "localSha256": "aa180d33530cd9a3d1f04873a60567a14af7680c27ef671fc70bcddd93adbd00"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-warehouse-CvaL-tQ3.js",
+      "status": 200,
+      "localSha256": "a886aa97c5c6fea07db0013db75be3051c32007dd1465a56b6c8b92ce5849149"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-exec-BbzvJzpm.js",
+      "status": 200,
+      "localSha256": "a75c48c732b43c2319a4233d60ed4b0cb00c14a800287d34c1ff8d2cf61a7d89"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/store-domain-quality-bootstrap-WqnjVXO0.js",
+      "status": 200,
+      "localSha256": "3a69f34b175ce0c334778650c7f87065d749082bad835668c50790dafe9a8984"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-warehouse-domain-j8igUxMa.js",
+      "status": 200,
+      "localSha256": "cb54c7ecee6067f6f80f7538e9ee13d5c2e8f24f8fccc27dadd42bdb5f9ae423"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/process-work-order-quality-settlement-G0bQCBLM.js",
+      "status": 200,
+      "localSha256": "e0f2d36e70e1d34d6cf1279118575b54218c2ae72d24b5bb3ed17bca6e67d681"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pre-settlement-ledger-repository-M3yprsIX.js",
+      "status": 200,
+      "localSha256": "7670a97ed893b21db9d34e53205a37211d674b68e74d04416cbb633e677e9e13"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/fact-view-Dbh75FNo.js",
+      "status": 200,
+      "localSha256": "4b8029091eeb9d8bee3e5133d70e17b6f94efe107165813f011459954530b297"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/pda-settlement-0Sf-45LT.js",
+      "status": 200,
+      "localSha256": "76683c428a5a036abbfe9784785d0ab3ef44171ffef581395c2de182de2d92c1"
+    },
+    {
+      "url": "http://127.0.0.1:43198/assets/quality-deduction-selectors-C-1wCQXX.js",
+      "status": 200,
+      "localSha256": "dcf0808b93c6d5ae4f8071ec9432b2c0915628f5fc552434017a579e1eaf8fab"
+    }
+  ],
+  "errors": [
+    {
+      "phase": "adjacent",
+      "error": "page.waitForFunction: Timeout 30000ms exceeded.\n    at recorded (/private/tmp/pf-shared-navigation-adjacent.mjs:443:16)\n    at async adjacentFamilies (/private/tmp/pf-shared-navigation-adjacent.mjs:914:7)\n    at async file:///private/tmp/pf-shared-navigation-adjacent.mjs:959:11"
+    }
+  ],
+  "completed": false,
+  "passed": false,
+  "reuse": {
+    "sourceReport": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/formal-original-1s-report.json",
+    "sourceReportSha256": "fe2d2beaa24826f2822da79f93cf147d661c08d658e050d396b917d964441667",
+    "sourceScriptSha256": "c53e51a0c47efd0207098d99a8710b5b7e2c8dac8253982842cc974343debf39",
+    "sourceStartedAt": "2026-10-19T14:59:52.431Z",
+    "sourceAssets": [
+      {
+        "url": "http://127.0.0.1:43198/assets/index-lj0Y4NPX.css",
+        "status": 200,
+        "localSha256": "813c4ec0c25ba7584b5e57a6e4ccabcda0611e2bca7a468c69c5f3e80bfc8134"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-domain-shared-CfUVW7tX.js",
+        "status": 200,
+        "localSha256": "479e05509cf66dfd6bade4b100dfe4bf9f8fb6ae6a3df826d11d507db1273ed1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/index-BRQAPhkO.js",
+        "status": 200,
+        "localSha256": "fca418c1e15238a5112c6643319b03efe6e63be7b18d3e39e78fbee387a61e63"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/app-shared-Cjn7Rr--.js",
+        "status": 200,
+        "localSha256": "9d7fd48f45755d37a206f69fc946ce65c370fe0f823bd6b824b12149c4de25ec"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/craft-image-storage-BOXCycwI.js",
+        "status": 200,
+        "localSha256": "46910cdf9c8323b0697062f3251486a9acb34938d7f789443b10b9e386af7675"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/craft-display-support-DEGooIQD.js",
+        "status": 200,
+        "localSha256": "8f94d5fc9117c54c7cb225d24712aa4e41879ea75cd9f4d9e9ad575189682526"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-record-core-B1uPbuXZ.js",
+        "status": 200,
+        "localSha256": "a3ecb7ccb67353da0b61579c6f3800165bc60688a0cd967704f0e20a2e650b68"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-record-bootstrap-RjDtDYcC.js",
+        "status": 200,
+        "localSha256": "e5b0969eb51aab748632f736d314c451b8aa924be14dda00283386c31346ec2f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-record-baseline-BdbNpplt.json",
+        "status": 200,
+        "localSha256": "66d320307a482c5f6260892aa14022e7677b6b939387e5cf54762dc37c4c4fc2"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/design-revision-pcs-storage-BjfzS8H8.js",
+        "status": 200,
+        "localSha256": "36323f0d01b3f8259210f0635f144d986267be2ca78e995a23e629a8c85e2e14"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/post-finishing-authorization-CAJfsvUw.js",
+        "status": 200,
+        "localSha256": "c2d31fe95d67e8bbbb3fc575e85c1ce22c6febd36e4fa79f70aff59f1a0a281e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/factory-receiving-BSuh4IJl.js",
+        "status": 200,
+        "localSha256": "04c35d27c3af9bc821dc342e35194d3d331c8a483ec77661dbfa249540a46b7e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-order-runtime-store-Cl3bE9HQ.js",
+        "status": 200,
+        "localSha256": "331a85df828a913bddd7f3fe11828cc8fc46b4c348e7082959c7bcb2b8284de5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/post-finishing-full-flow-C-WUCbE8.js",
+        "status": 200,
+        "localSha256": "2efd74ada1f9025a0e33857310d7f428880dbe1c08661b41421b77ec50234ff9"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/effective-task-assignments-VW__ExH5.js",
+        "status": 200,
+        "localSha256": "793ca2d44ada96f735c490992bae523abf249f0a36c7920824777196b859140a"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-orders-DxAO3v7V.js",
+        "status": 200,
+        "localSha256": "e95e70c8338c987f66420d505273859656bab513d7877215a39e0eabd8d9a7ef"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/cut-piece-release--ubX5a3f.js",
+        "status": 200,
+        "localSha256": "65e88a9d8f4c5d519c853e480889547df6060022b6dfb5d1a595c6fad6da5013"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/runtime-process-tasks-E1H4SjBg.js",
+        "status": 200,
+        "localSha256": "dc225554932e69abea85a7aa80cb14a46fe18e0e3f568bfabbaae0815a0aeccc"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/route-renderers-fcs-61IwBa7m.js",
+        "status": 200,
+        "localSha256": "76854563a1cfa5689838b917c491e15dc1ab77fda6641e29ab4acdec759178d0"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-responsibility-CLuZ_MMT.js",
+        "status": 200,
+        "localSha256": "f13875caa82c3edc10f3bb446ae15df5fc7f87fcb6b98e74296abaa03477b4bc"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/sewing-outsourcing-return-tracking-DD_MPZ3T.js",
+        "status": 200,
+        "localSha256": "c235b210c3699ebb0591329823c7c143d33766d5a5680bb9a3bdba742b9df973"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/ppic-daily-return-records-fkADTkTj.js",
+        "status": 200,
+        "localSha256": "44f1ef6d0780715668174735093dfc502cd358ef224549f2a1e3f905aceb40bb"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/sewing-cut-piece-responsibility-BUnFv0Np.js",
+        "status": 200,
+        "localSha256": "3620239b5692e18f307e66305788acd56295d3686ad934013ef3da21ce8632e3"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/ppic-return-quantity-basis-e2u74GBJ.js",
+        "status": 200,
+        "localSha256": "94eb5c3ae6eb865258079ad05408cabc5c0890dbe44277b13c3f6961515c5cb6"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-return-fulfillment-DTKQwHGB.js",
+        "status": 200,
+        "localSha256": "b03624a8d5cae5d52819c6202bc8934e383c2a197b0cb5f97b95167a15ccd81b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/storage-notice-CdIBtTfh.js",
+        "status": 200,
+        "localSha256": "b16f3115ac9e2c5ac55f3eb80a830235caca8c385dbab0c8b4d3012017b926c2"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/shared-Cx8H_Bk_.js",
+        "status": 200,
+        "localSha256": "7ba4b1d518390ab5ebd7d7a69b35f6ed6ae774cdb1682fe1f00c2ffd9f878dab"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/work-orders-CqhnpUr9.js",
+        "status": 200,
+        "localSha256": "a375b78a2df5e4f0ac45a487e875763024d8739532dba5099f446edc38bcaf2f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/authorization-code-B2WE5g8D.js",
+        "status": 200,
+        "localSha256": "650974808371e92c3e840eabb98871cce2ccbb56e622c01e513c502978f466dd"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/work-order-detail-BM4MNo-E.js",
+        "status": 200,
+        "localSha256": "5aaf6950ed6a8db7148089e5741ce34bf5400c39247be739a75128cc8b71902d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-order-identity-BXFhDDYG.js",
+        "status": 200,
+        "localSha256": "faafc7ef97b81e65ec8428302bc2ad8520634e4be5c430200fea086777ca5395"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/qc-orders-CnurOOPL.js",
+        "status": 200,
+        "localSha256": "3c517b6cae0e8d3573cde199a1f56f679005db02050e9e23e8891ce60e266f19"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/recheck-orders-Da3OrUFN.js",
+        "status": 200,
+        "localSha256": "cb7c1ef9e51a99d92a0f9f842539451bf60d93cc5ee4e8904828ee6e857ec701"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/outbound-orders-G-RjfvxJ.js",
+        "status": 200,
+        "localSha256": "8674ddb869c5b548d27b020822b56592b74cae346ffe229bba219145991e69ff"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/warehouse-fHAo8AEv.js",
+        "status": 200,
+        "localSha256": "d797e44c6c76fc1c3957b524cf5cfd3623ab6e23bef10a580cb6a2be1475c7a3"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/ppic-return-business-time-ui-BuhotKS4.js",
+        "status": 200,
+        "localSha256": "3bd2fad1e6abfd861173ad9bc0e91f9ce4cf5a4fe2565728cd82c11435f8e7e5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/generated-fei-tickets-C11eaAmv.js",
+        "status": 200,
+        "localSha256": "5e94e8f1d6e8e4435f576f36efa7f9954a24b064759e94ca037c84793561de1c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/transfer-bag-operations-BIWZ5gZA.js",
+        "status": 200,
+        "localSha256": "464b7ef4794cc391443e926c24e0bcf161dff39f3e44bb99e5c53cbf7a911101"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-handover-events-CVziZALl.js",
+        "status": 200,
+        "localSha256": "ab8bd444d8321dcb1cca83db4abb360d045746b0de088f74accadba3748c6ea3"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/cutting-event-repository-Dbyow8hU.js",
+        "status": 200,
+        "localSha256": "7ef285fe4612bebb712625306bd806965fd10bc85df5b859e0c671059bc5fb16"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/replacement-fabric-repository-DLQWSE1F.js",
+        "status": 200,
+        "localSha256": "a56aa449ee27d8cefbeba48c0b80ef4f59e64337f5c0b545707f1c19b02928cd"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/replacement-fabric-fei-tickets-DaySqkWn.js",
+        "status": 200,
+        "localSha256": "ac85d6b8eedb54b6b522fd3ea65be6f3735042a1199d6d4130d6147c4233cc4f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/retired-cut-piece-pickup-history-DNYoRdqQ.js",
+        "status": 200,
+        "localSha256": "5b86d4798562d3e1c75fc804fc16cbe61c7acfb64bf1b42246b9625e009cc6ed"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/generated-cut-release-BzXu6wc_.js",
+        "status": 200,
+        "localSha256": "ca6b2833863616be04c2fbf23f63fb69f82eacd1e40a8ae01a4c72abe3f9a66b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-tech-pack-change-domain-INDXGLk8.js",
+        "status": 200,
+        "localSha256": "8ed386dba9661f2bd8abc8206e1ef179c18282dc0089bbf7436cd107d5c2e565"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/manual-fei-tickets-rq7-ufcr.js",
+        "status": 200,
+        "localSha256": "6264f1d57e90989db6f146fb250a68e73cb6e3fac83232ab45744729f490ed21"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/warehouse-runtime-D-Ws6VFl.js",
+        "status": 200,
+        "localSha256": "40be18cabad4b85a16218770808179704a5b6b7699d24facfafa39db7c72edb7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/special-craft-task-orders-Dt-KE9cl.js",
+        "status": 200,
+        "localSha256": "0f87495ef4cf22921483e83949ab916cf082ddca7bc7660b22fd23b5fd91ab95"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/water-soluble-relation-sources-B0A5wzAv.js",
+        "status": 200,
+        "localSha256": "8255047c10e82c66c2b2cd122e2b3800cd3433148d48e75d8fd53a608e3da167"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/factory-capacity-profile-mock-Dv5YtZGT.js",
+        "status": 200,
+        "localSha256": "0b4d0d9d06575a88bc053221fb1a9be87bbf05c7b1b4d5c6d3ee36dd0bc5330b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-reference-images-6geKcU1B.js",
+        "status": 200,
+        "localSha256": "be87f26ccd59968242b94401adbb071dcbac60f4880002015328163eb1d6b71a"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-process-continuation-CH4qT0ec.js",
+        "status": 200,
+        "localSha256": "f5cdecbd07f82044e2499d7186b7c192939f6c1df8db28a702ed9ed1fe4e0736"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fabric-washing-DGqidPXW.js",
+        "status": 200,
+        "localSha256": "0236ca24735db9af7b9b074199517f9d9b5a7430eac8cd700ab1ff9822aa24d7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-engineering-task-upload-repository-W38nh_Sq.js",
+        "status": 200,
+        "localSha256": "8e7d34323a3cf87ad68217a1c28c82ff7fb2de1669cdba710d9fa3cd57ad2743"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fabric-washing-repository-CYs_GU1F.js",
+        "status": 200,
+        "localSha256": "057e73a1e0a00ea523e86e52927b6a6802b9678e52b4d7de6d18624ca8af4f74"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/printing-task-domain-DPgbbIla.js",
+        "status": 200,
+        "localSha256": "6d8f270b4eafb8e5d4b64d37f4e8cf7a255ef5613be73d0b376f8e4ef5a758de"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tasks-B_wUH1rJ.js",
+        "status": 200,
+        "localSha256": "3dd0f82c865591fccb7eaf109c6797efb78eb94c81f22beaa7a94620fee50441"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/audit-records-Bw_SOwtX.js",
+        "status": 200,
+        "localSha256": "9cdcaaa8f6f0408425d9a0d9f69f86e96896a642ec20354089b4331388e681bf"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/statistics-BOCLJlSj.js",
+        "status": 200,
+        "localSha256": "1ee3059c73a235b1c17db88ac8d28c78393992707ae93c72f42d10b465785ea2"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-statistics-domain-zXJ6xDOw.js",
+        "status": 200,
+        "localSha256": "03ed1fadfd9964d9078ca6ff7f440a08bdf6c624f109a55e8603824686f67069"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dyeing-warehouse-view-ByW8ZR2R.js",
+        "status": 200,
+        "localSha256": "997944469e5be8be403e1f92ece06582786cc7fc87169dc5e1ff0f3d2a159ae2"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-warehouse-domain-l49mD6XF.js",
+        "status": 200,
+        "localSha256": "00af924f7d4426c3554298258cb1411f1d3c825c5508f5b429385e74839e32d6"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-order-list-controller-89PxyZoJ.js",
+        "status": 200,
+        "localSha256": "7e912f6bdb43ff75939410f01e186e210145418080fe4b89e37b5c6242a2bd00"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/wls-finished-inbound-Dzj2A-Qn.js",
+        "status": 200,
+        "localSha256": "0c3ca4e6684b34b03c63f50afc6d086ce0a1781d8e72aaa33f2a1aae199b2be1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/factory-receiving-links-Da2Bu2XN.js",
+        "status": 200,
+        "localSha256": "bbfa25677e6a849abb97e385c9c96b19ce0675ac4110612968df035bda40c846"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/routes-pda-52MfnvYz.js",
+        "status": 200,
+        "localSha256": "c4398aed08d1dc06620b0ad9a6dfe3529d238c58fa5f3c8334870662c01c363b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pending-receipts-jKurAV0v.js",
+        "status": 200,
+        "localSha256": "a32c3299fac8d2319a33603ef7135b1e3427a13ca750d7699ae08c5ce841402e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/wool-craft-shared-BnwtzJP7.js",
+        "status": 200,
+        "localSha256": "0d2c0f2ffc7e66ee29c849a3a37f06f99fcd668258a240caa95a279f1675537d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/design-revision-pcs-command-D2uUEqhl.js",
+        "status": 200,
+        "localSha256": "53c8fbff555a9faba9cdeb4e14a5c4cf3ac452aeaebdf50c4f074854a05c9e06"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-order-task-link-core-C0lxnKwx.js",
+        "status": 200,
+        "localSha256": "fd69122ef8b5d2e58f1ab443a23ee9cc877b1bf31530c75ccbf1a6c5ab5c867f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/lace-factory-domain-cJkQri2R.js",
+        "status": 200,
+        "localSha256": "035abd075a921a9a06ed90ef0a023d8ab65b529f7a62926702a8cdd1129389c7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-upstream-receiving-C-_bSKVv.js",
+        "status": 200,
+        "localSha256": "bc65eead73eaaa1f37f4747580fc000fc149db064306beb718997c344ebd1860"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-bootstrap-DenVoqXh.js",
+        "status": 200,
+        "localSha256": "79564880110f93d6f835ee8a307cebdfd6411b5510ef99a84cff26d09c704e85"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pending-receipts-DsNBqOZx.js",
+        "status": 200,
+        "localSha256": "db208912896a4442734a0db7ef8303234dacf4de4459a63f826ff12c10f67c67"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/canonical-purchase-references-C5A5ldl-.js",
+        "status": 200,
+        "localSha256": "e5912fd481098f9132a78c6c369edf65c72134ca017d482c661bd7ccb2eb952d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-config-workspace-repository-BTNkCuhV.js",
+        "status": 200,
+        "localSha256": "a6c40300cff9a3d9c143dcf546d6f10cd59ddf2129671255d1657dfe1b9c19ba"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-notification-repository-Dbo4U35a.js",
+        "status": 200,
+        "localSha256": "8b0707a3d05d8ab5eaf1e33b5b0eb36bf481763e3b6717fdec3896852dbd6e7b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-version-log-repository-D9iksLMW.js",
+        "status": 200,
+        "localSha256": "fac58912b1999817f4bb5f27a26b944fd4be264db9ab94807c1dbd38f54cc0d5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-product-archive-fixtures-Bi2sC6yL.js",
+        "status": 200,
+        "localSha256": "33b4413a8c19ed6dbe1b176dc78b5fdc0d8449eb36da2257dc8a63e18acfad16"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/los-live-room-master-4rgXtuKa.js",
+        "status": 200,
+        "localSha256": "c2d319a7ba3fadc253c75468bbacaea05b8556f8ba42924417189d76cee76220"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-engineering-bom-snapshot-source-CmaM9MR1.js",
+        "status": 200,
+        "localSha256": "da7d3431123e84f56efd7145fa18852d04f0b05dd75954afa56b83fb243f6519"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-part-template-library-CwugEyc_.js",
+        "status": 200,
+        "localSha256": "b916a3129932735eef6cfae2c07a58a6473187e9be4f83fc5f03b6836f03d827"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-pattern-library-glrlPwTz.js",
+        "status": 200,
+        "localSha256": "38eddaccfeec0a77a17313d31127636272adf5aa38408108a6253f585c23d9a1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-material-purchases-D0g8zyhK.js",
+        "status": 200,
+        "localSha256": "c0e8d121ce86fa1686b50b91fb5eac06b2c3596980eb6701b0d81ed2e654e6fb"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pcs-tech-pack-review-D0N0cbrA.js",
+        "status": 200,
+        "localSha256": "82c7496392fb1a1290632bd3e11c218c70edaa27bb94850ecaad5265f5809143"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/real-barcode-CA41ssAJ.js",
+        "status": 200,
+        "localSha256": "2a5482b2c0f21aacb1cd4dd15a41a051e79856e9fcfc3594392d2934aeda6810"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-order-task-links-YYrULAWi.js",
+        "status": 200,
+        "localSha256": "21b0fbc93de82e64c6ac548aea989e30242e925103783fa1378313ff83bf1ed9"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/preparation-material-receipt-sources-DlLyJHsC.js",
+        "status": 200,
+        "localSha256": "41f03e4f0a04e0dcd098f0d4030b4e1265d8e25a91ab8a647eb28e0658c39d7d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/suppliers-Dc0ktaMW.js",
+        "status": 200,
+        "localSha256": "58a27cccb09d4939cf8068d499eeb75479c1306b67b399bc78d177900bc1fd67"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/shared-seed-8Pp0x6XQ.js",
+        "status": 200,
+        "localSha256": "58387d23512641414a695c1afab760b078737628aa659fe7521191596328d7f4"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/factory-onboarding-flow-CuRqqib5.js",
+        "status": 200,
+        "localSha256": "05d389eab4e19d0729dff1033c0d007304354f837817b82ff6d62bf1cc9dfd7c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dyeing-material-receipts-Bg4LqoXH.js",
+        "status": 200,
+        "localSha256": "2a22aa15be46c1f3546e31d4e1405a50c726e4303d07cb6dd9b6881e98b964b3"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/platform-process-result-view-B8rRGDBP.js",
+        "status": 200,
+        "localSha256": "971cc9f4acea284994ce791e3e20a348f3a317d37d9cc0965c5ffc4037092b6c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pickup-management-runtime-DrncE-9f.js",
+        "status": 200,
+        "localSha256": "3d9a7e021697cf2e94cbfb791c8030e5147a874620cfa584ad209a1fd1f20ad5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-mobile-task-binding-DIjE7LR4.js",
+        "status": 200,
+        "localSha256": "7449026c96118af5c02ef8e1b015303fba2c46f46cea864a6dd6807af03572d4"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-action-writeback-service-Bym-5lfY.js",
+        "status": 200,
+        "localSha256": "a3487bccb3a0c876cf5a7198433d96382d2b063280fdccb8a8fa3421049810e5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-material-prep-DehDWItb.js",
+        "status": 200,
+        "localSha256": "7243b500fbc419309edc9c4c3d6d59399e75c6f5625cc6e53e495981ecda4264"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/domain-snapshot-CA4frqoQ.js",
+        "status": 200,
+        "localSha256": "8c197e97796716c949c1619aa4813dcdffae61d4419fa298a5d488e7f89d897e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/runtime-inputs-DXIj25Zt.js",
+        "status": 200,
+        "localSha256": "7306b68741657db1a6e8a5d8e0655b06127d60144e8bd81af4bc51b3056851d1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/store-domain-progress-Jydqpj6Z.js",
+        "status": 200,
+        "localSha256": "bc118d881060f99f62925965ff36ab1fccb5a16bde09eebc51090cece621f57e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/marker-plan-projection-TIbQzCjW.js",
+        "status": 200,
+        "localSha256": "6c46ac91d89731165f8140aa341d280bc30716067cff290ee298627c63623fe4"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-cutting-execution-source-Bi-hCLpP.js",
+        "status": 200,
+        "localSha256": "3ba407790474a928e993430d9fe7127fe693beae11ffe45659c3e7641d371dbd"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/supplement-order-registry-CHnc7juB.js",
+        "status": 200,
+        "localSha256": "8b97ac8bd8b783a88b9812a78c9c5e0b8ffa3d53d5addc688494e5ac20910e40"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/marker-plan-source-model-DgMkifV5.js",
+        "status": 200,
+        "localSha256": "80939c138ad955b447cc086614bde8f5ae181d3c9f0ef24cea85c6082e9bf97f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/index-DxBzDZA4.js",
+        "status": 200,
+        "localSha256": "8c8f9429a0118318a0a8e989af891320d0b367ad2b7ee98116b6d631da2de472"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/marker-plan-occupancy-D_lnaYos.js",
+        "status": 200,
+        "localSha256": "bf4dcbe0d179f1468ad7aede6c1ea13c65ba0ec26e8452fa0f369264175dd836"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dye-work-order-online-domain-DGu5eAcX.js",
+        "status": 200,
+        "localSha256": "9063cea63bdbd5f3c06c46d1f469f8a83bbd3ad1cbc47ba4005dd2eded459a58"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/task-execution-adapter-B5mTOPED.js",
+        "status": 200,
+        "localSha256": "f999e8a8ceb4d3ea7f75dc588729a43e7ca3a783b0ea796af311f0567ae73d78"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/task-chain-pages-adapter-DPQbnKp_.js",
+        "status": 200,
+        "localSha256": "67d0e2d46b1a17fbbbc2c68d9983c1caaa787adfca33e7a1fc1baa520822b8d0"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dye-work-order-times-w7U4XCtx.js",
+        "status": 200,
+        "localSha256": "d8512d552ee1ae930387858c7dbe39d38868b93cd5764897d415acbdcb768e5e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/marker-plan-model-Dm6b2x4t.js",
+        "status": 200,
+        "localSha256": "7544e9ea975fc3695ee3a76b85d26632eb440f73b1da062ff343724882ad9254"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/supplement-material-prep-demand-registry-DI-N3DvB.js",
+        "status": 200,
+        "localSha256": "63462fcb6dea27116c79d872d3db523f3e108eae687e1504f727e12778ce7494"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-work-order-generation-service-BgSnetOO.js",
+        "status": 200,
+        "localSha256": "8ab6786958a43442ba15b221f5550bce027e3e4d6cc2d04e46d8e2dded2f6fb0"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-object-overview-gG5meVZP.js",
+        "status": 200,
+        "localSha256": "97df3ecd9c36c601aec21f78c6356bae72abaa6a69e73cffc870e2c549995c36"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/cut-order-supplement-fixture-Dcl__dtr.js",
+        "status": 200,
+        "localSha256": "ad5e8e71eacaa64f6403a4cd5b711169249fd37214799470d12207ab3d982d4b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/supplement-node-facts-fOVdxGkP.js",
+        "status": 200,
+        "localSha256": "69df470f05d40d9cea59a710f16d712132f41f3a4104cded2be6030f13276789"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/supplement-management-BqK5Nmry.js",
+        "status": 200,
+        "localSha256": "7670129b8b9a3275f7ab63f4e3915e63374113e10ecd8c3d60bf3c7d8c9ddcb7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-runtime-DPObgme3.js",
+        "status": 200,
+        "localSha256": "ab3f1922315c67aeba270c9f8130b2c099b8ca70947a399216e2d089a922aa07"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-post-finishing-flow-BGSav4f0.js",
+        "status": 200,
+        "localSha256": "1f34d77dce897cc362a3ee9c6f6e89dc6328de2a885426f5318837f139c8e33a"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/runtime-task-tenders-vOeuzLov.js",
+        "status": 200,
+        "localSha256": "a033ca356b785c7fe7d01016615ee12e507718fe94cc788eeaa57ba24d1b748a"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/store-domain-settlement-seeds-lrArI1A6.js",
+        "status": 200,
+        "localSha256": "ff3fe29df3ed36735d04ea02d0e538082ee9dbc2f5bf25020c223f88b5d34bb4"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-handlers-0BOU-o1r.js",
+        "status": 200,
+        "localSha256": "dc67063daa7a313c4d2a10ccc73cd6d3611d18ffc4d46a6b27289a3e07baa5bc"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-shell-Cbl-TOgf.js",
+        "status": 200,
+        "localSha256": "daa1684fd234cd1064484d289d3ddcb14fc7a48522e4edd85b5c6dabec8fb758"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/settlement-linked-mock-factory-BJI6Cr_d.js",
+        "status": 200,
+        "localSha256": "da716a7c9252a74b3da6af0598f2ada6a7982dbd2c30500b13657064e9ba90df"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-sewing-self-return-mode-CVT5AEl1.js",
+        "status": 200,
+        "localSha256": "79c7418eb1d2cc2f99022b5130010378765b18a9e84eb85b33db1c74d9c513e8"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/quality-deduction-repository-CGu5X6IS.js",
+        "status": 200,
+        "localSha256": "97bfed334f493451b88781e33196fa3f3904c6f90212f6ef321918517c9d232d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-warehouse-shared-B9bFfwds.js",
+        "status": 200,
+        "localSha256": "6ee17c25ee26f84fde6b3ab9d7720e49913265a7be1d722920514a94afa38c7d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/sewing-dispatch-eok7BNvB.js",
+        "status": 200,
+        "localSha256": "0f4d1331cdb53ffa4b44efbf001a9d0370fd6f41acad6b00589e986b053b0195"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-cutting-nav-context-DYE0-Zej.js",
+        "status": 200,
+        "localSha256": "fce546c9a3710791ee1b2afa087cbb33cfbadd34f94beebe87c713c669a02ad7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-context-actions-Bol1gxi3.js",
+        "status": 200,
+        "localSha256": "227c4ad16e6945fe083f789222cf5d321bba302278a3162ccdb42342d2895ecc"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/special-craft-pda-scope-DY4GKT4g.js",
+        "status": 200,
+        "localSha256": "61bbad961a1b3ef11a9e6231744c2dcd10f30c1c3df02e020836e4cb17a5897f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-contracts-DSOU391Q.js",
+        "status": 200,
+        "localSha256": "8ad13d078041894db4d1121a6391a05bfb8dd6be37994ad0585ffc1bfbf66e08"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/kol-goto-pda-domain-BSoL5a9V.js",
+        "status": 200,
+        "localSha256": "988c5d9a439dee91b7bd690a79f87758f8d8abe5302bb4695f30b17fc849444e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/kol-goto-fixed-total-ledger-7b4P6AH5.js",
+        "status": 200,
+        "localSha256": "0cb4b652d1c9a454fc9a2ab1b3d688966c815da42f4ef1d125c986979fe2a782"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/mobile-execution-task-index-98cIM5v6.js",
+        "status": 200,
+        "localSha256": "b27b60628a44c240304b56f3cb39cad0b56beff51c620fe129422538842f5b9c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/binding-process-pda-scan-BmDmW53b.js",
+        "status": 200,
+        "localSha256": "d5f60eeb4ffe892a0bf9ee9061eee2dce356c6d486b2318b0fda3c6da85a43b1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/wool-pda-scan-D_IivsPc.js",
+        "status": 200,
+        "localSha256": "46ddfbbcbe373bc2e906ab21527874afb1873da1b1c7ed77bc63f4eb96e305dc"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-task-receive-CZXB6bMu.js",
+        "status": 200,
+        "localSha256": "1da002033339ba2b5114431ca35b00b9d6935b09aa2af29f642e481816a53851"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/milestone-configs-Bc94XPzG.js",
+        "status": 200,
+        "localSha256": "a124f30cd2fff36fcd93f05d461cd25d5435dcfabb961c7f94cda9338cd770fc"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/progress-exception-lifecycle-BJx0gSBY.js",
+        "status": 200,
+        "localSha256": "9c7e053d57bb011a221be10e8aa2852d35fbea06b4d36e0b5ded3cb3f24deeec"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-exec-link-DRoxjjzF.js",
+        "status": 200,
+        "localSha256": "3d838716912a9d5abdf83114c661307de1f9775b186b06fb38396ee045556a57"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-start-link-BHOSAJb8.js",
+        "status": 200,
+        "localSha256": "2bb0f2696e1f709b3d49965ea98192b7b38ea348b789f84466d40b91aca7a11c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-exec-uqJeI5tM.js",
+        "status": 200,
+        "localSha256": "556283a00614b24f227e8256b07e0d1110dc6c2babc95b0e32a5afbc338a8ab5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fabric-washing-views-C6k7-HKl.js",
+        "status": 200,
+        "localSha256": "238215741570f2f839eb38eaca3dd1911ce671359a3013aca8edbc09ef1fdcf5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-handover-BPngaU5P.js",
+        "status": 200,
+        "localSha256": "243f865450657af2aee9b10bd52a645e254b51f5701b42eb6e798f4163b06577"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/sewing-pickup-slips-BOP0hHBi.js",
+        "status": 200,
+        "localSha256": "5cf17f3de63af3dcd0e781fd2b1f40d9c0491bc876ec02e113699cd45276adde"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-wool-fact-execution-3_PRiOFt.js",
+        "status": 200,
+        "localSha256": "4b1efe23b263c44e20330e8a91553cdbe1d0bbef520cdb5b9641d419e6c425bd"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/work-orders-C1WMQA7c.js",
+        "status": 200,
+        "localSha256": "f6c83b682fb6aa53d53ebc4a397b24952df3acd8ddbda6f53ac6b0726d020a91"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/index--GzcKvNw.js",
+        "status": 200,
+        "localSha256": "2cfba651db8627b7b6c7111fca72ab634ba4a72abcb23a885c2d19e10e9a8e22"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-cutting-wait-handover-actions-C0rDGrCU.js",
+        "status": 200,
+        "localSha256": "df98c8eb5666be6644067752a1f5e66261f5984ddc1a33fa2b6686f7e574ce8d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/store-domain-quality-bootstrap-Csww5t2h.js",
+        "status": 200,
+        "localSha256": "9d2b05935c57524096f86afafbd5883e1e8d50db67d85949b2a74b01e9149a3b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-warehouse-RqaJqoMl.js",
+        "status": 200,
+        "localSha256": "f2a4a5600b6ef898eefb5f0c2aea440d654f6342a0ab7c6b0bd98a30a106af5f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-work-order-quality-settlement-BJJNpUe2.js",
+        "status": 200,
+        "localSha256": "5069f5c6a86782bf5cd135d54df3110e55b1d3c190f3beb8909e3a07318d642e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pre-settlement-ledger-repository-Cba3V7kC.js",
+        "status": 200,
+        "localSha256": "688a6404fad0bb8c6cca0225ba6f3787cb3b2bf4057d14a536c7a5b3a7946be7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fact-view-CJ_MRgzh.js",
+        "status": 200,
+        "localSha256": "169a24ae574719bee85bf9ab283d32039054c4e36fdc549437bcea052aeabf8c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-settlement-Bw6XpF8q.js",
+        "status": 200,
+        "localSha256": "09851f08cd6a9f2ec98e098947ecbcba1675b7fbedd4f63631e7c7239ea42bee"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/quality-deduction-selectors-DXxxk_S9.js",
+        "status": 200,
+        "localSha256": "825cb232491d8fe3e6292ed5bd5c59d2974e30a7b46e1ef82f8fecb45524ea21"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pda-post-finishing-exec-detail-BUQQCHEB.js",
+        "status": 200,
+        "localSha256": "92812d7bd1de8f41898bbdc1b50655b5999a6fd63bd462a21f6575bd5f6673a5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/qc-workbench-KUYzd3KB.js",
+        "status": 200,
+        "localSha256": "e220e5b13fe46cdaebd80e907dbd577403f9a491aefcfe45ccac88f2d799e604"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/events-Dpi4OPTF.js",
+        "status": 200,
+        "localSha256": "5d1ebe70bd265f43eb55ef71f636b005e6fb2248845052ac470fab0968eb8e0d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/material-transfers-BFo-poAK.js",
+        "status": 200,
+        "localSha256": "4941c9c8833103c6c5c2c197a57026c6242ad7fd27302c5c7a1361f6f70f36b3"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/post-finishing-print-progress-DKndZG1y.js",
+        "status": 200,
+        "localSha256": "b0db30194930307d1c8f3d16c6cf3bfdf06a0ce681ce3cb08371167b8bbe2b3b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/real-qr-placeholder-BeYWFv88.js",
+        "status": 200,
+        "localSha256": "9b39da3d4467fcbb2970b35987c27569e600524bf9753fc6633421b742572668"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/full-flow-print-i79iBxHT.js",
+        "status": 200,
+        "localSha256": "36cd9c5664d9161e38e4970167fa28bab70551af6d1e82dd73f701f8ad9d8656"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/post-finishing-qc-print-template-C0asKByR.js",
+        "status": 200,
+        "localSha256": "6a33b04c049caf73e58a9a58d9ea6a30dc275d8d65f223f097388399a92ce192"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-confirmation-C9pwQQl4.js",
+        "status": 200,
+        "localSha256": "27b021b4f3f8978366b474d6c89e537ed5ca9fa73552dcec9396708b61d288f5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-tech-pack-snapshot-types-DCtvPcqH.js",
+        "status": 200,
+        "localSha256": "798fbd7c95cecbd2a0098ef129567d5b8c0a4d2a5220993deaad42867cf26fd8"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/first-leg-logistics-DQpdjOqC.js",
+        "status": 200,
+        "localSha256": "d8899fd0c862d721daff8f1a43eb394c51d6854319290e1e5044933d75d737b4"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/material-requirements-D4cX3v0o.js",
+        "status": 200,
+        "localSha256": "c3d26c23fbf5359e0e891a938f545212618dea2e55568226cf691da2cdefcfb7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fabric-demand-board-BKoakYCy.js",
+        "status": 200,
+        "localSha256": "1eb93d909e4637d3efce14e3933a77f0071537343d068a6a2e9a3331979291be"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/pms-business-number-y_Q1IIYb.js",
+        "status": 200,
+        "localSha256": "b903797c4aaf1bf9279d99f1073da3d12241a5f8e4776882790983ef6d35fa70"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/raw-seed-DthZoDag.js",
+        "status": 200,
+        "localSha256": "a1f91d5a983fe633d2b7318052c140cc9fcb28540c0145c9bea591a51e58713b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/kol-sample-stock-lock-log-CUKyJ5xb.js",
+        "status": 200,
+        "localSha256": "941c3ab5eb18c3f56e9f3170488b589df6aa8f24daa96532b176bff928dd4b4c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/payment-requests-CP8Lh8o6.js",
+        "status": 200,
+        "localSha256": "10719bee29110ad9b15da584eafcde015812dff264dac8dd08688fd498470e4d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/supplier-confirmations-tZw6woNB.js",
+        "status": 200,
+        "localSha256": "97cc7e9785262b4d95ea39529aafac4af19a546edd5d6f35c2ca34de1bdc743d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/reconciliations-DCYPRx9w.js",
+        "status": 200,
+        "localSha256": "e8735e4cd182f08b7ec82facecdac76e320eb42476bb67a322d3fcbe189993e1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/supplier-supply-archives-yAFgfZ1J.js",
+        "status": 200,
+        "localSha256": "9cee31e57be402da53fab7ab32ca8608a3beb3c777da6e7e0f6badf83c9a0ffe"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/purchase-suggestions-PLljzthM.js",
+        "status": 200,
+        "localSha256": "acdc6cd2e4a558130c90f8c542e08b4e3f0bf52b4ede4a6088a3ee2d7a25dd06"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/print-preview-gQ-KIu7P.js",
+        "status": 200,
+        "localSha256": "b496ae5d8cf5fbdac635d42b487f5e5d1c3bec2bd12382c2879e3369c32da11f"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/transfer-bag-return-model-sYzoXkSt.js",
+        "status": 200,
+        "localSha256": "39ddf334aa9b7d4028790e88c19ccaa0af84bcd787747b4d2b9619979324a88e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fei-tickets-CnzoaSrO.js",
+        "status": 200,
+        "localSha256": "4b81f90344d400a123f9b330c80f9b45d2fd86c9e35053f05749414e766b547e"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/layout.helpers-CoDL1A-e.js",
+        "status": 200,
+        "localSha256": "6b71f200aaafdccb376ccdef4bb02bc0ebd5a8652134d0a4363dfcb66a1dae15"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/material-identity-DRyUxKRM.js",
+        "status": 200,
+        "localSha256": "0e1ebf90c3536e84e7e7610ff6053eebc2d7cddc636bbea7dbb2726179f78e6c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/meta-3Hj7yy4x.js",
+        "status": 200,
+        "localSha256": "c7f9717b77c472ede26c9c7333acf844010f9aae205c26f52610d0d3f8c050d6"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/navigation-context-Bd-d8twH.js",
+        "status": 200,
+        "localSha256": "27b551a90a137be6ff359e749725e79a07df850ae3e484d34b8a181433a72912"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/warehouse-shared-EGEipTJr.js",
+        "status": 200,
+        "localSha256": "9cd7c8b264477663352d6e2e1f24017ea0e08408d3a0d5b12831c5adedc07f7c"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/execution-prep-projection-helpers-C8pyZkB_.js",
+        "status": 200,
+        "localSha256": "df5cf4d8e94a5f2a7ac31a835a6a2fd3c00b8eb63c49e0d088f2501aa570fe12"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/marker-spreading-projection-CnKNdY3r.js",
+        "status": 200,
+        "localSha256": "63513e85fad45797becd79c3a50d946a75985916321d064abbf50c89a0695267"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/marker-spreading-utils-CKGWLf_3.js",
+        "status": 200,
+        "localSha256": "b0962eae260e60af521e2ba52791e7d62a633d01a7078ad614dd87b63e201e6b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/fei-ticket-numbering-DX3Ipf0y.js",
+        "status": 200,
+        "localSha256": "0d64e5d49d69fd6d0d974bc44414f19f634a131297c8c06370f92bda8d7349b5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/print-styles-BjQBw8jj.js",
+        "status": 200,
+        "localSha256": "2222d0c366d459d919b2ea15f0f395f0c7ecb5ba15bd53a93d7df3cd46977f34"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/runtime-projections-9Uk8douR.js",
+        "status": 200,
+        "localSha256": "ee54811a757b42c1f0709d67d9db51ea3720837aed63ba72cb030a20ef60e75d"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-work-order-view-D9K124Ti.js",
+        "status": 200,
+        "localSha256": "0910d9d8f63d86a92293b5ba3df6c6fea73292f66d52ee0c15fecabcb4c94eb1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/tmf-process-sheet-template-BynjozfO.js",
+        "status": 200,
+        "localSha256": "28167b54a058ea5ac4169b2c6e3aa1de38bde578d0e379bbb0251f0e29c54dad"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/replacement-fabric-label-template-Bu9FIfX4.js",
+        "status": 200,
+        "localSha256": "666c128f28b8151aba74f93d8bf34353ba06b76c8704c2e261bbd49e6e62b9b0"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dispatch-task-sheet-template-BP1_SbWF.js",
+        "status": 200,
+        "localSha256": "519fe9bd502e91712129cc27ea8b6f6bd58291bd937757529b4c247bc9567bd1"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dispatch-task-sheet-LCF-n0u2.js",
+        "status": 200,
+        "localSha256": "8809ee487d97236b237c1d25c0d20cf56c03904fa961bb04365b88f7a217fcd5"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/label-print-template-BA3SdRrG.js",
+        "status": 200,
+        "localSha256": "8d5cfdbbfbd2646903ce31cf378e85cec3222ad6fc7d6dcde6a6340578b67203"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/transfer-bags-projection-_ijya3vQ.js",
+        "status": 200,
+        "localSha256": "aed873271cc4edca049b0ad1471b2aea5f18bc4b4074ec2d0a4f999861bd3351"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/transfer-bag-goods-label-tbd8wDQP.js",
+        "status": 200,
+        "localSha256": "431b6a5a873c3565876f24bbe3db023714914cf3dbbf365cc2c8b5bc4b1b1db4"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/print-template-registry-i-kALmi7.js",
+        "status": 200,
+        "localSha256": "e746aee8aff8bd61716d563fdd15d85bf610314635699f41ad5379d1e3517574"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/wait-handover-runtime-DVswEAA_.js",
+        "status": 200,
+        "localSha256": "84bc4e479d19c29fe94df8e86d49f090e3b6586028b34b287a8bcf1a34d0e9fe"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/dye-work-order-online-view-D6fc7DDp.js",
+        "status": 200,
+        "localSha256": "72a03611a2c2eadc37a49d207bcd3243f2e965b7a8d17f63f14b18c75764e7f3"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/process-order-three-axis-view-B2xkbLXD.js",
+        "status": 200,
+        "localSha256": "4db991a41f43a9621ff72559f75cf6e46ce307801d8cff5a8555a64077561f2b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/helpers-BFKa6pUf.js",
+        "status": 200,
+        "localSha256": "bc22540ee400538ec15cb5a0f38d58a370045fa9d6a3fd90c9f75ef96a2e74a7"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/production-contract-master-template-mKsHWdvZ.js",
+        "status": 200,
+        "localSha256": "32c1dcb0c1e9a219ef30a82b4ce5b8e38e6a9f59a80a74dc01db98e845362010"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/printing-statistics-BJuls6YP.js",
+        "status": 200,
+        "localSha256": "b283dab2016e7ca3008dfca27f0fcd9d290af1fdc4fa2f5d8756a8c53b7ba5c8"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/printing-work-order-template-DBHKGA7j.js",
+        "status": 200,
+        "localSha256": "a7ee521d933a0a32ac39d0fbcdd518a823606521397f1ecb4892fc09e137a8c2"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/presentation-BLCo7BJ9.js",
+        "status": 200,
+        "localSha256": "3349223b3f23f91db7edd5698a8de4a4dd29cbaf108041121567ffb17147b2ce"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/printing-sheet-template-CVNOTU8v.js",
+        "status": 200,
+        "localSha256": "702b31212f044212e9e00d0dc61c91216668b3adbfe9ab1d33a872f0e5fcfdec"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/relations-Bbj6YlfY.js",
+        "status": 200,
+        "localSha256": "bd6fc46874aed1138a71d696ab81fa9a22b580697ca957b67da00c15b9a48c0b"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/garment-spu-replacement-CWSsAxr4.js",
+        "status": 200,
+        "localSha256": "0ab7d3d6134815dd69b9cedc824cf23472150f549d64044b403bad216dad6e42"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/garment-spu-replacement-records-CgGuXKz5.js",
+        "status": 200,
+        "localSha256": "fabbcc6f8d36ab29c4df0e01f00cc2cc3ef665105a30ccdf7c814fc9809a7ed6"
+      },
+      {
+        "url": "http://127.0.0.1:43198/assets/real-qr-2esk5VOE.js",
+        "status": 200,
+        "localSha256": "1d715ae311916ce84884495e7aee4e481f8fef39996241ba49c90889be7fadf1"
+      }
+    ],
+    "unchangedFamilies": [],
+    "pdfArtifacts": [
+      {
+        "family": "print:OUTBOUND:100:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-100-1.pdf",
+        "sha256": "410b40eeb44cec905006a8e0e04c12fa7aa9c983736ed71a784bbdb20c33b619"
+      },
+      {
+        "family": "print:OUTBOUND:100:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-100-2.pdf",
+        "sha256": "91c22f8e0af25e27c46062ecbe9aaf8f11022f66a59acf2080e294e542af88e7"
+      },
+      {
+        "family": "print:OUTBOUND:100:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-100-3.pdf",
+        "sha256": "cd16931814d6238c6936b6567ae143c148eabb070f18599fa8f92c3118fdc3bb"
+      },
+      {
+        "family": "print:OUTBOUND:100:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-100-4.pdf",
+        "sha256": "a248a009e7307640d688038b9c1ef494aca9e0e48f239335d5a7a478a6178299"
+      },
+      {
+        "family": "print:OUTBOUND:100:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-100-5.pdf",
+        "sha256": "af1730e2cbc5ec382202197a7b7a5d39a7534369a3d0ba5d3dc622a7fb0ec66a"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:100:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-100-1.pdf",
+        "sha256": "9e2d1e6e1b16fbc1fbdd6ee453673008e43822db4bfb7686ba81a8c3a84aaeee"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:100:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-100-2.pdf",
+        "sha256": "58ce46983f416e5aff4c9e8dc60df566d200bd9d0217ebc85eafc2e469c32a42"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:100:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-100-3.pdf",
+        "sha256": "9f0f38049c5f1448b0eda34a831d98136145758a15d0aabbc76df47d8943df61"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:100:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-100-4.pdf",
+        "sha256": "1ecf0d568333c1ed988d3bd6e4e6a140831a2d51252b9c5dcd328d752005bc7a"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:100:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-100-5.pdf",
+        "sha256": "dc7894a7fe3dd958a719ba3d6bfd1f09244989f4cf77e53ec34eb95101133cb8"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:100:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-100-1.pdf",
+        "sha256": "7fa7031b860f78c79ae2a51a141bd22b1cd159437200a74d60f4983c7316116e"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:100:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-100-2.pdf",
+        "sha256": "0bede84017841ab1829c0e087576e74f5f934b340a9e1847cc8947f839a6c9f6"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:100:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-100-3.pdf",
+        "sha256": "502eda6a10c02bbdf5061f56448fa6eae61a7cd59d84bc4f745686228d65602a"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:100:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-100-4.pdf",
+        "sha256": "fa7be2836b261164b979129b7909ddde882eb73a7a5c04f66f0d601a83ec6dfb"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:100:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-100-5.pdf",
+        "sha256": "2b1cb2f43c0fecaff548eca3aa3e4b7931db729ccd0641bebb8391d541ed3dd4"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:100:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-100-1.pdf",
+        "sha256": "35926040af95c0b428d2428d50dccd8093fc926269e175523d57edfd492bb5d8"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:100:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-100-2.pdf",
+        "sha256": "464bbf184fb086070d2ffe785c90eff5e427e32101be882f3cd4d2f089552214"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:100:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-100-3.pdf",
+        "sha256": "ca436688ce552b72b46f49008fd8450540d1fbd38e22493697c6d7f395f44bc8"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:100:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-100-4.pdf",
+        "sha256": "312b02b4dc4414f3cecbbfbc0ebc8af9b5d390054bb422b79188af06597e11ce"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:100:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-100-5.pdf",
+        "sha256": "8b345f9a575c5a4b16f2447803d17e1b1ba29b66c2e2f558b1b715e312337150"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:100:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-100-1.pdf",
+        "sha256": "7d64d581af694287980f3eaf01581e3d8173c29120a057a2137295f2f0b34faf"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:100:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-100-2.pdf",
+        "sha256": "b22585560a8b4f9e2b76c038d26751d87a57e167755b9c9ac7d4497127ecff75"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:100:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-100-3.pdf",
+        "sha256": "82836dfde37276872b5c808bc6980ef144cc74f35790568e7284fe862a9ab847"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:100:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-100-4.pdf",
+        "sha256": "b3b48fd7aeb74e32676e58d63323e403bffc6ad674b108110f51fdf9b370b107"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:100:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-100-5.pdf",
+        "sha256": "d7173eeee1b2fda854583b3ac5d44d33eb0a38f80e3960bfd57095ebac9f1be9"
+      },
+      {
+        "family": "print:OUTBOUND:1000:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-1000-1.pdf",
+        "sha256": "e2a1b18f664304a95c23b66508d1268adc120696f9fd2fcd10e0443cbac9935b"
+      },
+      {
+        "family": "print:OUTBOUND:1000:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-1000-2.pdf",
+        "sha256": "1bfdcfacb4702e96dde6e5bb4d0eaa7a468c6732dffa62b656be4ea00a7326fc"
+      },
+      {
+        "family": "print:OUTBOUND:1000:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-1000-3.pdf",
+        "sha256": "704e7cf7f4a6c8253a5fe7c9a795aafd2c23f6d48f1187ad9baf313a02cb60f6"
+      },
+      {
+        "family": "print:OUTBOUND:1000:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-1000-4.pdf",
+        "sha256": "d9af8943b267ab18ed9a1ef42c68dccd69b47b1e1321c410577d80c927c52a9c"
+      },
+      {
+        "family": "print:OUTBOUND:1000:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND-1000-5.pdf",
+        "sha256": "e87d7a832c58ea4beddb5077c2c7a107c0a972f105cd4780e2819ce6175104a6"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:1000:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-1000-1.pdf",
+        "sha256": "f1135807409a3be01638cdbc26bae0449aff68da8bc34fcd60592b8ea81b9e92"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:1000:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-1000-2.pdf",
+        "sha256": "b280c48599ff26ae155a4c64accd24a806da3b78979f6486e3377804424b8a7b"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:1000:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-1000-3.pdf",
+        "sha256": "0d2c821f2f40771558dc0088d836f2521ff65718c89bcba15085bb049849397e"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:1000:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-1000-4.pdf",
+        "sha256": "b3d5faa2e9bae8d25d1978c6b27f0082cdb6ca5e975046d09abdcc05d3975925"
+      },
+      {
+        "family": "print:OUTBOUND_BARCODE:1000:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_BARCODE-1000-5.pdf",
+        "sha256": "a2fa33c5ad2ce3f0abebe77aa6462c87db5f731465d46545af676dcbbcd9180b"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:1000:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-1000-1.pdf",
+        "sha256": "0bff38ed3ad85b599e284afea8eed385a1e5c73567f815b31eb55947b6197e38"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:1000:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-1000-2.pdf",
+        "sha256": "6470c186e808f5fc969c08e46b36ff56f4aae90337881f998cdae5d5d7215ad3"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:1000:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-1000-3.pdf",
+        "sha256": "891c2c66752f975e5abf72dd95ecb134e87fb32614ad8682e96a47e72c08a6b6"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:1000:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-1000-4.pdf",
+        "sha256": "79f33bd264af39f745f811c75e9e22525d4162ba9f6dcd4aae5616959272ac7e"
+      },
+      {
+        "family": "print:OUTBOUND_HANGTAG:1000:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-OUTBOUND_HANGTAG-1000-5.pdf",
+        "sha256": "558afd9b640566cb9dedef12543fd654ae3a15bf393489573d5abbbc6432ce89"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:1000:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-1000-1.pdf",
+        "sha256": "9b3555be597866f9feb6d9f7ba801520dbfd943652a76e2ef489e6b283021653"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:1000:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-1000-2.pdf",
+        "sha256": "cb99e3b8ac52953289bafdd43127d3d10de4d9157801fc51dd0896d8933828bd"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:1000:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-1000-3.pdf",
+        "sha256": "1692fe1b910c2b5d77dd3b51c4cf50f54d2b127962b7768a35b6f999066bc7f8"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:1000:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-1000-4.pdf",
+        "sha256": "f02909e16a93f3ce07ed0d44e282b2aa0f6d42aa38002e26f5badf6e9a31c2dd"
+      },
+      {
+        "family": "print:GENERIC_OUTBOUND:1000:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_OUTBOUND-1000-5.pdf",
+        "sha256": "2a8b2189059482a957389a41ec1e6246e30ee8563c0f88d659ebc3da7ee225be"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:1000:pdf",
+        "trial": 1,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-1000-1.pdf",
+        "sha256": "b41083fbd4b7f2e466065eb58e626030cabbfb632df2322a420ce1bbfd45d571"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:1000:pdf",
+        "trial": 2,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-1000-2.pdf",
+        "sha256": "0746103a3706f629ab11147ae719c184c9e4680be70583ea95f68716a689f2a8"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:1000:pdf",
+        "trial": 3,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-1000-3.pdf",
+        "sha256": "0dfa6258ff975abd5d26956c33d26b5793254f202ca3e97a06b46a7ad26f2f09"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:1000:pdf",
+        "trial": 4,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-1000-4.pdf",
+        "sha256": "49a20ddcea3d4fd8ad357c65b42e115f3e4f00c94b04ac1e21285952fd0aac6f"
+      },
+      {
+        "family": "print:GENERIC_BARCODE:1000:pdf",
+        "trial": 5,
+        "path": "/Users/laoer/.codex/worktrees/81b7/higoods/docs/product-design/post-finishing-partial-flow-20261019/evidence/performance/print-GENERIC_BARCODE-1000-5.pdf",
+        "sha256": "128a86086d205d578105049dc7e0d2c7b3f4ee432341e0fd3c580a99c2463c57"
+      }
+    ],
+    "reasons": {
+      "readPages": "All 45 cold/refresh/navigation families are re-tested. New outbound/receipt/warehouse/source-QC relationship validation executes in the ordinary ensure callback and changes every full hydration.",
+      "actions": "All 18 original action families are re-tested after integrating main eb1b8c92 and ecc8af01: the persistence/source guard affects already-ready commands, and UI-02 removes prototype-role gates while retaining actual responsibility. The prior plan to inherit 13 local families has been withdrawn; no old local action timing is counted toward final acceptance.",
+      "print": "All 13 print cold families and all 10 independent PDF-generation families are re-tested on final assets. Old PDF paths/hashes remain history and visual-reference provenance only. New DOM/source/print-media geometry is checked before new PDF actions; no old timing samples count toward final acceptance.",
+      "storage": "All three storage families are re-tested. Restore is bound to stricter external-import/relationship validation and the exact scope-only user authorization."
+    },
+    "boundary": "Historical reference only: no old samples are inherited in final performance acceptance. Prior asset/PDF bindings and old 1s restore failures remain unchanged."
+  },
+  "families": [
+    {
+      "family": "adjacent:material-query",
+      "total": 1,
+      "valid": 1,
+      "thresholdMs": 1000,
+      "maxMs": 129.10000002384186,
+      "passed": false
+    },
+    {
+      "family": "adjacent:material-confirm",
+      "total": 1,
+      "valid": 0,
+      "thresholdMs": 1000,
+      "maxMs": 0,
+      "passed": false
+    }
+  ],
+  "supplemental": {
+    "identityApplicability": "pda-accessory-post-access.ts accepts only PF-DEDICATED-001 or ID-F002. This supplement uses the existing ID-F002_admin allowed role for material receipt and self-return; core F090 measurements remain unchanged. Invalid F090 preparation is retained separately with zero action samples.",
+    "scope": "Five adjacent shared-navigation actions, five independent isolated contexts each. Separate from the fixed D10 core 100/520 performance acceptance.",
+    "dataset": "Unmodified actual static post-finishing material catalogue. No D10 or material rows are injected in these contexts. Native IndexedDB receives only the actual whole-order confirmation command result.",
+    "canonicalSourceSha256": "36685ba3face8530284be6a2411b093f7968b45034186c10ca047d6e33c90d14",
+    "thresholdMs": 1000,
+    "expectedFamilies": 5,
+    "expectedSamples": 25,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "coldHot": "Fresh isolated browser for each three-action material sequence and each two-action admin-mode sequence. List cold entry is preparation; query is the first genuine action, confirm and return are subsequent genuine actions. No action is replaced by a warm API call."
+  },
+  "representative": {
+    "selected": {
+      "no": "DB-PF-202608-001",
+      "count": 4,
+      "pending": true,
+      "text": "DB-PF-202608-001\nPO-QC-202608-001 · HG-QC-001\n待入库\n物料\n4 种\n调出方实配\n2995\n目标库位\nPF-MAT-A01-01\n查看并整单入库"
+    },
+    "selection": "Maximum line count among the actual visible eligible list; exact business-number tie-break. Chosen before any action timing.",
+    "catalogue": [
+      {
+        "no": "DB-PF-202608-005",
+        "count": 4,
+        "pending": true,
+        "text": "DB-PF-202608-005\nPO-QC-202609-014 · HG-QC-014\n待入库\n物料\n4 种\n调出方实配\n1913\n目标库位\nPF-MAT-B01-02\n查看并整单入库"
+      },
+      {
+        "no": "DB-PF-202608-004",
+        "count": 3,
+        "pending": true,
+        "text": "DB-PF-202608-004\nPO-QC-202609-013 · HG-QC-013\n待入库\n物料\n3 种\n调出方实配\n3766\n目标库位\nPF-MAT-B01-01\n查看并整单入库"
+      },
+      {
+        "no": "DB-PF-202608-003",
+        "count": 4,
+        "pending": true,
+        "text": "DB-PF-202608-003\nPO-QC-202609-012 · HG-QC-012\n待入库\n物料\n4 种\n调出方实配\n1436\n目标库位\nPF-MAT-A01-03\n查看并整单入库"
+      },
+      {
+        "no": "DB-PF-202608-002",
+        "count": 3,
+        "pending": true,
+        "text": "DB-PF-202608-002\nPO-QC-202609-011 · HG-QC-011\n待入库\n物料\n3 种\n调出方实配\n1674\n目标库位\nPF-MAT-A01-02\n查看并整单入库"
+      },
+      {
+        "no": "DB-PF-202608-001",
+        "count": 4,
+        "pending": true,
+        "text": "DB-PF-202608-001\nPO-QC-202608-001 · HG-QC-001\n待入库\n物料\n4 种\n调出方实配\n2995\n目标库位\nPF-MAT-A01-01\n查看并整单入库"
+      }
+    ],
+    "lines": [
+      {
+        "materialCode": "FLSZ24116-black",
+        "materialName": "New 吊粒 Clothing tag rope",
+        "quantity": 495,
+        "imageUrl": "/materials/accessory-label.jpg"
+      },
+      {
+        "materialCode": "WLID009-fadfad",
+        "materialName": "服装吊牌 Clothing tags",
+        "quantity": 500,
+        "imageUrl": "/materials/accessory-label.jpg"
+      },
+      {
+        "materialCode": "FLSZ25111845-black-322",
+        "materialName": "纯白色染色纽扣 1.1cm",
+        "quantity": 1500,
+        "imageUrl": "/materials/accessory-button.jpg"
+      },
+      {
+        "materialCode": "FLBF2609001-white",
+        "materialName": "后道包装辅件",
+        "quantity": 500,
+        "imageUrl": "/materials/accessory-label.jpg"
+      }
+    ]
+  },
+  "finishedAt": "2026-10-19T21:48:50.403Z"
+}

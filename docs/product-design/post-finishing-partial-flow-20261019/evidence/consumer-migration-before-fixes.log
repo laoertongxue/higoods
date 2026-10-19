@@ -1,0 +1,213 @@
+(node:21438) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 7 tests using 1 worker
+
+
+(node:21440) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/7] tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries
+  1) tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries 
+
+    Error: page.evaluate: Error: 备份含未知事实集合，未导入。
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:6:5)
+        at async <anonymous>:329:30
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:6:5)
+        at async <anonymous>:329:30
+        at restoreActual (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:13:14)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:24:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-consumers-A-dcbd3-ails-and-both-print-entries/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:21516) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[2/7] tests/post-finishing-consumers.spec.ts:83:1 › A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results
+  2) tests/post-finishing-consumers.spec.ts:83:1 › A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results 
+
+    Error: page.evaluate: Error: 备份含未知事实集合，未导入。
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:6:5)
+        at async <anonymous>:329:30
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:6:5)
+        at async <anonymous>:329:30
+        at restoreActual (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:13:14)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:84:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-consumers-A-383b9--actual-multi-child-results/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:21523) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[3/7] tests/post-finishing-consumers.spec.ts:123:1 › A22: restored new facts reject overquantity, duplicate intent and forged recheck reservation
+  3) tests/post-finishing-consumers.spec.ts:123:1 › A22: restored new facts reject overquantity, duplicate intent and forged recheck reservation 
+
+    Error: page.evaluate: Error: 备份含未知事实集合，未导入。
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:6:5)
+        at async <anonymous>:329:30
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:6:5)
+        at async <anonymous>:329:30
+        at restoreActual (/Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:13:14)
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-consumers.spec.ts:124:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-5970d--forged-recheck-reservation/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-5970d--forged-recheck-reservation/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-consumers-A-5970d--forged-recheck-reservation/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-consumers-A-5970d--forged-recheck-reservation/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-consumers-A-5970d--forged-recheck-reservation/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:21531) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:21531) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[4/7] tests/post-finishing-migration.spec.ts:53:1 › A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history
+  4) tests/post-finishing-migration.spec.ts:53:1 › A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      114 |     try { await r.importPostFinishingBackup(new File([JSON.stringify(backup)], 'forged-history.json')); return false } catch(e) { return String(e).includes('历史承接') && !(await db.readPcsRecords(['higood-fcs-post-finishing-records'])).records.length }
+      115 |   }, forgedBackup)
+    > 116 |   expect(rejected).toBe(true)
+          |                    ^
+      117 |   await isolated.close()
+      118 | })
+      119 |
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-migration.spec.ts:116:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-migration-A-b32d9-ld-and-unknown-item-history/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:21743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:21743) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[5/7] tests/post-finishing-migration.spec.ts:120:1 › A20: schema2 IndexedDB marker upgrade writes no static seeds or invented completion records
+[6/7] tests/post-finishing-migration.spec.ts:139:1 › A22: complete restore retains records, while future/duplicate/orphan/overquantity backup leaves database unchanged
+[7/7] tests/post-finishing-migration.spec.ts:164:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved
+  5) tests/post-finishing-migration.spec.ts:164:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved 
+
+    Error: page.evaluate: Error: 备份含未知事实集合，未导入。
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:60:5)
+        at async <anonymous>:329:30
+        at applyCandidateRecords (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:98:129)
+        at Module.importPostFinishingBackup (http://127.0.0.1:43197/src/data/fcs/post-finishing-records.ts:422:5)
+        at async eval (eval at evaluate (:303:30), <anonymous>:60:5)
+        at async <anonymous>:329:30
+        at /Users/laoer/.codex/worktrees/81b7/higoods/tests/post-finishing-migration.spec.ts:170:29
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/post-finishing-migration-A-5509d-nd-legacy-sources-preserved/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  5 failed
+    tests/post-finishing-consumers.spec.ts:23:1 › A15/A23: second and third children retain identities through search, details and both print entries 
+    tests/post-finishing-consumers.spec.ts:83:1 › A16/A18/A24/A26: direct consumer routes, viewports and object images retain actual multi-child results 
+    tests/post-finishing-consumers.spec.ts:123:1 › A22: restored new facts reject overquantity, duplicate intent and forged recheck reservation 
+    tests/post-finishing-migration.spec.ts:53:1 › A20/A21/A30: explicit old-source conversion and supervised carryover preserve H/N, old child and unknown item history 
+    tests/post-finishing-migration.spec.ts:164:1 › A20/A21/A22: interrupted schema1 conversion resumes with archive Blob, common records and legacy sources preserved 
+  2 passed (14.8s)

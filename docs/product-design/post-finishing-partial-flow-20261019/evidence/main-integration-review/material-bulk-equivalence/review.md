@@ -1,0 +1,7 @@
+# 每次材料读取的bulk来源身份等价控制
+
+2026-10-20，公开Node内存命令，无浏览器/持久用户写入。初次探针发现静态来源有5张调拨但无已入库stock，因此前置非空断言失败；日志按输入夹具校准保留，不计产品失败。随后通过原合法非managed receivePostFinishingMaterialTransfer公开命令创建首张调拨的4条stock，再读取同一真实静态材料集合。
+
+以相同ownsProduction回调与动态owned ID/No集合，先注册原仅逐条owns的公开桥，再注册附ownedProductionIdentities的桥；完整公开调拨和stock对象/顺序完全一致。5张调拨/4条stock，实际接管2张来源后只显示其余3张调拨/0stock，证明不是空输入巧合。
+
+改变下一次读取的owned集合为空，恢复5张调拨/4条stock，与原逐条回调行为一致；bulk回调次数从2增至3，没有跨同步读取缓存。完整actual含before/after和来源metadata，script及源码SHA绑定。此契约不代替WLS真实prepare后的混合旧源/业务写入浏览器验证。

@@ -1,0 +1,48 @@
+✖ 后道特殊工艺只读来源保留非空正式交出、毛织投影及普通页面仓事实 (627.900042ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1084.720167
+
+✖ failing tests:
+
+test at tests/unit/post-finishing-special-craft-source-readonly.test.ts:1:14099
+✖ 后道特殊工艺只读来源保留非空正式交出、毛织投影及普通页面仓事实 (627.900042ms)
+  Error: Command failed: /opt/homebrew/Cellar/node/26.8.2/bin/node --import tsx /Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-special-craft-source-readonly.test.ts --post-special-source-child original-full-reader retired-wool-source /var/folders/p5/sm3z8lc52y7gycyy2dg4y6380000gn/T/post-special-source-read-8HFkcg/retired-wool-source-original-full-reader.json
+  /Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/runtime-process-tasks.ts:1772
+    if (!registeredDelayedDemoOrder) throw new Error('含车缝接收确认延迟演示任务登记车缝工厂失败')
+                                           ^
+  
+  Error: 含车缝接收确认延迟演示任务登记车缝工厂失败
+      at ensureDispatchBoardSeedData (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/runtime-process-tasks.ts:1772:42)
+      at listRuntimeProcessTasks (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/runtime-process-tasks.ts:1839:3)
+      at listRuntimeExecutionTasks (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/runtime-process-tasks.ts:2123:10)
+      at buildWarehouseExecutionDocumentSnapshot (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/warehouse-material-execution.ts:667:40)
+      at listWarehouseIssueOrders (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/warehouse-material-execution.ts:770:14)
+      at seedFactoryWarehouseStore (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/factory-internal-warehouse.ts:1658:3)
+      at ensureFactoryInternalWarehouseStore (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/factory-internal-warehouse.ts:2526:30)
+      at Module.createFactoryInternalWarehouseMutationSnapshot (/Users/laoer/.codex/worktrees/81b7/higoods/src/data/fcs/factory-internal-warehouse.ts:2617:17)
+      at <anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-special-craft-source-readonly.test.ts:92:37)
+  
+  Node.js v26.8.2
+  
+      at genericNodeError (node:internal/errors:999:15)
+      at wrappedFn (node:internal/errors:544:14)
+      at checkExecSyncError (node:child_process:942:11)
+      at execFileSync (node:child_process:978:15)
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/81b7/higoods/tests/unit/post-finishing-special-craft-source-readonly.test.ts:209:11)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    status: 1,
+    signal: null,
+    output: [ null, <Buffer >, <Buffer 2f 55 73 65 72 73 2f 6c 61 6f 65 72 2f 2e 63 6f 64 65 78 2f 77 6f 72 6b 74 72 65 65 73 2f 38 31 62 37 2f 68 69 67 6f 6f 64 73 2f 73 72 63 2f 64 61 74 ... 1488 more bytes> ],
+    pid: 37657,
+    stdout: <Buffer >,
+    stderr: <Buffer 2f 55 73 65 72 73 2f 6c 61 6f 65 72 2f 2e 63 6f 64 65 78 2f 77 6f 72 6b 74 72 65 65 73 2f 38 31 62 37 2f 68 69 67 6f 6f 64 73 2f 73 72 63 2f 64 61 74 ... 1488 more bytes>
+  }

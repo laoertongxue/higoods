@@ -1,5 +1,6 @@
 import {
   listMaterialPrepOrderProjections,
+  listMaterialPrepProductionIdsForIdentities,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   isAccessoryWarehouseScopeLine,
   type MaterialPrepLine,
@@ -233,6 +234,30 @@ export async function prepareAccessoryWarehouseSources(): Promise<void> {
     await hydrateProductionContextRecords()
     await ensureAccessoryWarehouseRecords()
     checkedLegacyStorage()
+  } catch (error) {
+    preparationReadFailure = error instanceof Error ? error.message : String(error)
+    throw error
+  }
+}
+/** Current ownership only; ordinary preparation pages still use the full projection below. */
+export function listAccessoryPreparationProductionIdentities(candidates: ReadonlySet<string>): ReadonlySet<string> {
+  if (preparationReadFailure) throw new Error(preparationReadFailure)
+  try {
+    const legacyStorage = checkedLegacyStorage()
+    const saved = listAccessoryRecords<AccessoryPreparation>('preparation')
+    const productionOrderIds = listMaterialPrepProductionIdsForIdentities(candidates)
+    for (const row of saved) if (candidates.has(row.productionOrderId) || candidates.has(row.productionOrderNo)) productionOrderIds.add(row.productionOrderId)
+    // Keep the existing stock integrity gate even when the source scope is empty.
+    listAccessoryStockSources(listAccessoryRecords<AccessoryStock>('stock'))
+    if (!productionOrderIds.size) return new Set<string>()
+    const result = buildAccessoryPreparationSources({
+      projections: listMaterialPrepOrderProjections(legacyStorage, { productionOrderIds }), orders: productionOrders,
+      tasks: listRuntimeProcessTasks(), factories: listFactoryMasterRecords(), assignments: listEffectiveTaskAssignments(),
+      savedPreparations: saved.filter(row => productionOrderIds.has(row.productionOrderId)),
+    })
+    // Ownership needs neither copied availability rows nor changes to the
+    // business-page issue catalogue.
+    return new Set(result.preparations.flatMap(row => [row.productionOrderId, row.productionOrderNo]))
   } catch (error) {
     preparationReadFailure = error instanceof Error ? error.message : String(error)
     throw error

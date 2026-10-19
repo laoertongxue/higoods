@@ -1,0 +1,5 @@
+--- canonical-b943.mjs
++++ diagnostic-cold-only.mjs
+@@ after unchanged cold await @@
+         await loaded(page,cold,trial,()=>page.goto(targetOrigin+route.path,{waitUntil:'domcontentloaded'}));
++        if(profileRequested&&profileFamilies.includes(cold))return;

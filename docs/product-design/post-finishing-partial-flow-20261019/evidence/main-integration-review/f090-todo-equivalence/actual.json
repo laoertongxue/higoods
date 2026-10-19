@@ -1,0 +1,266 @@
+{
+  "head": "eb1b8c92d9a050e8bbbf0d39fdb9e4092fb57103",
+  "kind": "twenty fresh isolated Node processes, count-first and whole-todo controls separately, no browser/perf conclusion",
+  "actual": [
+    {
+      "mode": "count",
+      "role": "(undefined)",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_ADMIN",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_OPERATOR",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_DISPATCH",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_PRODUCTION",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_HANDOVER",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_QC",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_FINANCE",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_VIEWER",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "count",
+      "role": "ROLE_UNKNOWN",
+      "factoryId": "ID-F090",
+      "before": 0,
+      "after": 0,
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "(undefined)",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_ADMIN",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_OPERATOR",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_DISPATCH",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_PRODUCTION",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_HANDOVER",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_QC",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_FINANCE",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_VIEWER",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    },
+    {
+      "mode": "todos",
+      "role": "ROLE_UNKNOWN",
+      "factoryId": "ID-F090",
+      "before": [],
+      "after": [],
+      "equal": true,
+      "dyeOrderCount": 22,
+      "sourceSha256": {
+        "src/data/fcs/factory-mobile-todos.ts": "402209d44b4eced1721e0c711106b473809fc94b2ac5758d9b2177ce1aa4dccd",
+        "src/data/fcs/dyeing-task-domain.ts": "6629896b9c60663ffeb63ac7a9d57595900729dbe997244d01758743e811ec39"
+      }
+    }
+  ]
+}

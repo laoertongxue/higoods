@@ -1,0 +1,7 @@
+
+> higoods-vanilla-clone@1.0.0 check:post-finishing-sewing-self-return
+> node --import tsx scripts/check-post-finishing-sewing-self-return.ts
+
+post-finishing sewing self-return acceptance passed: 任意回货序号、部分 SKU 为 0、累计守恒、±5%边界和旧入口收口均通过
+(node:1770) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

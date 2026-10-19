@@ -7,7 +7,7 @@ async (page) => {
   const open = async () => {
     const ctx = await page.context().browser().newContext({ viewport: { width: 1366, height: 768 } })
     contexts.push(ctx)
-    const p = await ctx.newPage(); await p.goto(base + route); await p.waitForSelector('[data-qc-workbench-task]')
+    const p = await ctx.newPage(); p.on('dialog', dialog => dialog.accept()); await p.goto(base + route); await p.waitForSelector('[data-qc-workbench-task]')
     return p
   }
   const modules = async p => p.evaluate(async () => {
@@ -28,7 +28,7 @@ async (page) => {
     await p.waitForSelector('[role="dialog"] img'); await p.keyboard.press('Escape')
     check(await p.locator('[role="dialog"]').count() === 0, '颜色大图可打开并以 Escape 关闭')
     await p.locator('[data-qc-spu-color-images] button').first().click()
-    await p.locator('[role="dialog"] button').click()
+    await p.getByRole('button', { name: '关闭图片', exact: true }).click()
     check(await p.locator('[role="dialog"]').count()===0,'颜色大图关闭按钮可关闭')
     await p.locator('[data-qc-spu-color-images] button').first().click()
     await p.locator('[role="dialog"]').click({position:{x:8,y:8}})
@@ -49,7 +49,7 @@ async (page) => {
     await failedImagePage.getByText('该颜色图片加载失败',{exact:true}).first().waitFor()
     check(await failedImagePage.getByText('该颜色图片加载失败',{exact:true}).count()===5,'图片失败时每种颜色都有明确失败提示')
     await failedImagePage.locator('[data-qc-spu-color-images] button').first().click()
-    await failedImagePage.getByText('图片加载失败，请核对原图后重试',{exact:true}).waitFor()
+    await failedImagePage.locator('[data-post-image-status]').filter({ hasText: '图片加载失败，可重新加载。' }).waitFor()
     await failedImagePage.keyboard.press('Escape')
     check(await failedImagePage.locator('[role="dialog"]').count()===0,'大图失败提示明确且仍可 Escape 关闭')
     const blocked = await p.evaluate(async () => {
@@ -63,7 +63,7 @@ async (page) => {
       const task = f.getPostFinishingActiveQcTask(a.actorId), before = JSON.stringify(await d.readPcsRecords(['higood-fcs-post-finishing-records']))
       const original = IDBDatabase.prototype.transaction
       IDBDatabase.prototype.transaction = function(stores, mode, ...args) { if (mode === 'readwrite') throw new DOMException('验收：容量不足', 'QuotaExceededError'); return original.call(this, stores, mode, ...args) }
-      let error = ''; try { await r.runPostFinishingCommand(() => f.completePostFinishingQcTask({ qcTaskId: task.qcTaskId, actor: a, results: task.lines.map(l => ({ skuId:l.sku.skuId, passedQty:l.expectedQty, defectQty:0, returnQty:0 })), processItems: [] })) } catch (e) { error=e.message } finally { IDBDatabase.prototype.transaction = original }
+      let error = ''; try { await r.runPostFinishingCommand(() => f.completePostFinishingQcTask({ qcTaskId: task.qcTaskId, actor: a, results: task.lines.map(l => ({ skuId:l.sku.skuId, passedQty:l.expectedQty, defectQty:0, returnQty:0 })), processItems: [...f.POST_FINISHING_PROCESS_ITEMS] })) } catch (e) { error=e.message } finally { IDBDatabase.prototype.transaction = original }
       return { error, unchanged: before === JSON.stringify(await d.readPcsRecords(['higood-fcs-post-finishing-records'])), active: f.getPostFinishingActiveQcTask(a.actorId)?.qcTaskId === task.qcTaskId }
     })
     check(failure.error && failure.unchanged && failure.active, '容量不足时主单下游日志均不改变')
@@ -80,7 +80,7 @@ async (page) => {
       const {f,r,d}=window.pfCheck,a=f.POST_FINISHING_ACCEPTANCE_ACTORS.qcA,t=f.getPostFinishingActiveQcTask(a.actorId)
       const before=JSON.stringify(await d.readPcsRecords(['higood-fcs-post-finishing-records'])),original=IDBDatabase.prototype.transaction
       IDBDatabase.prototype.transaction=function(stores,mode,...args){const tx=original.call(this,stores,mode,...args);if(mode==='readwrite')queueMicrotask(()=>tx.abort());return tx}
-      let error='';try{await r.runPostFinishingCommand(()=>f.completePostFinishingQcTask({qcTaskId:t.qcTaskId,actor:a,processItems:[],results:t.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0}))}))}catch(e){error=e.message}finally{IDBDatabase.prototype.transaction=original}
+      let error='';try{await r.runPostFinishingCommand(()=>f.completePostFinishingQcTask({qcTaskId:t.qcTaskId,actor:a,processItems:[...f.POST_FINISHING_PROCESS_ITEMS],results:t.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0}))}))}catch(e){error=e.message}finally{IDBDatabase.prototype.transaction=original}
       return error&&before===JSON.stringify(await d.readPcsRecords(['higood-fcs-post-finishing-records']))&&f.getPostFinishingActiveQcTask(a.actorId)?.qcTaskId===t.qcTaskId
     })
     check(aborted,'事务中止不发布成功、不改变主单下游和已有记录')
@@ -103,7 +103,7 @@ async (page) => {
     check(saved.task.status === '质检完成' && saved.task.postTaskNo === 'PO-QC-202608-001-4-ZJ-HD' && saved.count < 20, `页面保存主单后道编号日志并仅写变化记录：${JSON.stringify({status:saved.task.status,post:saved.task.postTaskNo,count:saved.count})}`)
     const conflict = await p2.evaluate(async () => {
       const {f,r}=window.pfCheck,a=f.POST_FINISHING_ACCEPTANCE_ACTORS.qcA,t=f.getPostFinishingActiveQcTask(a.actorId)
-      try { await r.runPostFinishingCommand(() => f.completePostFinishingQcTask({ qcTaskId:t.qcTaskId,actor:a,processItems:[],results:t.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0})) })); return '' } catch(e) { return e.message }
+      try { await r.runPostFinishingCommand(() => f.completePostFinishingQcTask({ qcTaskId:t.qcTaskId,actor:a,processItems:[...f.POST_FINISHING_PROCESS_ITEMS],results:t.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0})) })); return '' } catch(e) { return e.message }
     })
     check(/冲突|其他页面|变化|版本|重新读取/.test(conflict), '旧标签页提交识别版本冲突')
     await p.reload(); await p.waitForSelector('[data-post-finishing-field="qc-task-input"]')
@@ -138,7 +138,18 @@ async (page) => {
       const {f,r,d}=window.pfCheck
       const mapping={deliveries:'listPostFinishingFactoryReturns',waitProcessWarehouseRecords:'listPostFinishingWaitProcessWarehouseRecords',waitProcessWarehouseMovements:'listPostFinishingWaitProcessWarehouseMovements',waitHandoverWarehouseRecords:'listPostFinishingWaitHandoverWarehouseRecords',waitHandoverWarehouseMovements:'listPostFinishingWaitHandoverWarehouseMovements',returnConfirmationVersions:'listPostFinishingReturnConfirmationVersions',qcTasks:'listPostFinishingFullFlowQcTasks',postTasks:'listPostFinishingFullFlowPostTasks',recheckOrders:'listPostFinishingFullFlowRecheckOrders',outboundOrders:'listPostFinishingFullFlowOutboundOrders',warehouseReceipts:'listPostFinishingWarehouseReceipts',defects:'listPostFinishingDefectRecords',materialTransferOrders:'listPostFinishingMaterialTransferOrders',materialStocks:'listPostFinishingMaterialStocks'}
       const state={schemaVersion:2,unknownHistory:{image:'data:image/png;base64,dGVzdA==',raw:JSON.stringify({historicalImage:'data:image/png;base64,dGVzdA=='})}}
-      for(const [key,method]of Object.entries(mapping))state[key]=f[method]({})
+      for(const [key,method]of Object.entries(mapping))state[key]=f[method]()
+      // This isolated input represents schema 2's whole-process results. A
+      // current ITEMS_V1 task without its completion records is not a valid old
+      // snapshot. Derive H from its actual public progress before conversion.
+      state.postTasks=state.postTasks.map(task=>{
+        if(task.executionModel!=='ITEMS_V1')return task
+        const progress=f.getPostFinishingProcessProgress(task)
+        return {...task,executionModel:undefined,legacyCarryover:undefined,results:task.lines.map(line=>{
+          const completed=progress.lines.find(item=>item.sku.skuId===line.sku.skuId).completedQty
+          return {...line,processedQty:completed,unprocessedQty:line.expectedQty-completed}
+        })}
+      })
       state.deliveries[0].evidenceImageUrls=['data:image/png;base64,dGVzdA==']
       localStorage.setItem('higood-fcs-post-finishing-full-flow-v1',JSON.stringify(state));localStorage.setItem('unrelated-contract','keep')
       await r.ensurePostFinishingRecordState()
@@ -174,18 +185,19 @@ async (page) => {
     await pda.evaluate(async()=>{
       const {f,r}=window.pfCheck
       localStorage.setItem('fcs_pda_session',JSON.stringify({userId:'ID-F002_operator',loginId:'ID-F002_operator',userName:'后道操作员',roleId:'ROLE_OPERATOR',factoryId:'ID-F002',factoryName:'后道工厂',loggedAt:'2026-10-10'}))
-      await r.runPostFinishingCommand(()=>f.startPostFinishingPostTask({postTaskNo:'PO-QC-202608-001-5-ZJ-HD',actor:{actorId:'ID-F002_operator',actorName:'后道操作员',roleName:'后道操作员'}}))
     })
     await pda.setViewportSize({width:390,height:844})
     await pda.goto(base+'/fcs/pda/post-finishing/execute?id=PO-QC-202608-001-5-ZJ-HD')
-    await pda.locator('[data-post-processed-qty]').first().fill('9')
+    const firstProcess = pda.locator('[data-post-process="开扣眼"]')
+    if ((await firstProcess.getAttribute('open')) === null) await firstProcess.locator(':scope > summary').click()
+    await pda.locator('[data-post-process="开扣眼"] [data-post-process-qty]').first().fill('9')
     await pda.evaluate(()=>{
       window.pfOriginalTransaction=IDBDatabase.prototype.transaction
       IDBDatabase.prototype.transaction=function(stores,mode,...args){if(mode==='readwrite')throw new DOMException('验收：空间不足','QuotaExceededError');return window.pfOriginalTransaction.call(this,stores,mode,...args)}
     })
-    await pda.locator('[data-pda-post-action="save-processed-qty"]').first().click()
+    await pda.locator('[data-pda-post-action="save-process-completion"][data-process-item="开扣眼"]').first().click()
     await pda.locator('[data-post-finishing-action-error]').waitFor()
-    check((await pda.locator('[data-post-finishing-action-error]').innerText()).includes('空间不足') && await pda.locator('[data-post-processed-qty]').first().inputValue()==='9','PDA 保存失败保留员工输入数量并显示未保存')
+    check((await pda.locator('[data-post-finishing-action-error]').innerText()).includes('空间不足') && await pda.locator('[data-post-process="开扣眼"] [data-post-process-qty]').first().inputValue()==='9','PDA 保存失败保留员工输入数量并显示未保存')
     await pda.evaluate(()=>{IDBDatabase.prototype.transaction=window.pfOriginalTransaction})
     const lifecycle=await open();await modules(lifecycle)
     await lifecycle.evaluate(()=>localStorage.setItem('fcs_pda_session',JSON.stringify({userId:'ID-F002_operator',loginId:'ID-F002_operator',userName:'后道操作员',roleId:'ROLE_OPERATOR',factoryId:'ID-F002',factoryName:'后道工厂',loggedAt:'2026-10-10'})))
@@ -223,7 +235,7 @@ async (page) => {
       try {
         await r.ensurePostFinishingRecordState()
         const task=f.getPostFinishingActiveQcTask(f.POST_FINISHING_ACCEPTANCE_ACTORS.qcA.actorId)
-        await r.runPostFinishingCommand(()=>f.completePostFinishingQcTask({qcTaskId:task.qcTaskId,actor:f.getCurrentPostFinishingActor(),processItems:[],results:task.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0}))}))
+        await r.runPostFinishingCommand(()=>f.completePostFinishingQcTask({qcTaskId:task.qcTaskId,actor:f.getCurrentPostFinishingActor(),processItems:[...f.POST_FINISHING_PROCESS_ITEMS],results:task.lines.map(l=>({skuId:l.sku.skuId,passedQty:l.expectedQty,defectQty:0,returnQty:0}))}))
         return (await d.readPcsRecords(['higood-fcs-post-finishing-records'])).records.some(row=>row.value?.qcTaskId===task.qcTaskId&&row.value?.status==='质检完成')
       } finally {Storage.prototype.getItem=originalGet;Storage.prototype.setItem=originalSet}
     })

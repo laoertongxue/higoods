@@ -1,0 +1,1990 @@
+{
+  "diagnosticOnly": true,
+  "definition": "Weighted CPU samples. Inclusive times overlap; hit/sample counts are not invocation counts.",
+  "durationMs": 1057.024,
+  "files": [
+    [
+      "pda-handover-events-CZFTG6W8.js",
+      158.83900000000006
+    ],
+    [
+      "post-finishing-full-flow-CMr6I3rx.js",
+      150.595
+    ],
+    [
+      "(program)",
+      139.703
+    ],
+    [
+      "pcs-record-core-CUHoxsZG.js",
+      130.26799999999997
+    ],
+    [
+      "(idle)",
+      103.088
+    ],
+    [
+      "app-shared-_ZQpMwKQ.js",
+      50.53800000000001
+    ],
+    [
+      "printing-task-domain-CSdjlFuY.js",
+      43.533
+    ],
+    [
+      "runtime-process-tasks-BkBTALaZ.js",
+      35.222
+    ],
+    [
+      "getBoundingClientRect",
+      31.589
+    ],
+    [
+      "production-material-prep-BGIQLXCu.js",
+      30.345000000000002
+    ],
+    [
+      "(garbage collector)",
+      28.265
+    ],
+    [
+      "production-orders-CZH0DeUS.js",
+      25.128999999999998
+    ],
+    [
+      "structuredClone",
+      16.490000000000002
+    ],
+    [
+      "tmf-domain-shared-DboXqEqI.js",
+      15.008999999999997
+    ],
+    [
+      "cut-piece-release-D0grHew1.js",
+      11.971
+    ],
+    [
+      "request.onsuccess",
+      10.728
+    ],
+    [
+      "factory-receiving-CSiG2Hp3.js",
+      10.509
+    ],
+    [
+      "generated-fei-tickets-CaqTb-3q.js",
+      10.097999999999999
+    ],
+    [
+      "index-D6fepCZI.js",
+      10.058
+    ],
+    [
+      "accessory-warehouse-stock-shlNw7Ne.js",
+      8.711
+    ]
+  ],
+  "top": [
+    {
+      "frame": {
+        "fn": "(program)",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 139.703
+    },
+    {
+      "frame": {
+        "fn": "(idle)",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 103.088
+    },
+    {
+      "frame": {
+        "fn": "N",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37670,
+        "excerpt": "function N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qc"
+      },
+      "selfMs": 60.111000000000004
+    },
+    {
+      "frame": {
+        "fn": "e.onsuccess",
+        "file": "pcs-record-core-CUHoxsZG.js",
+        "line": 1,
+        "column": 1210,
+        "excerpt": "onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!N"
+      },
+      "selfMs": 52.352
+    },
+    {
+      "frame": {
+        "fn": "we",
+        "file": "pda-handover-events-CZFTG6W8.js",
+        "line": 1,
+        "column": 177354,
+        "excerpt": "unction we(e,t){if(e.sourceType===\"DESIGN_REVISION\"){const O=mo().find(P=>P.taskId===e.taskId);O&&(e={...e,taskStatus:O.status===\"DONE\"?\"DONE\":\"IN_PROGRESS\"})}else if(e.factoryCompletionRequired){const O=me(e.taskId);O&&(e={...e,taskStatus:Co(O)})}const r=e.sourceBusinessType===\"WATER_SOLUBLE_WORK_ORDER\"?Le(e.taskId):void 0;r&&r.waterOrderId===e.sourceDocId&&(e={...e,plannedQty:r.completedQty,qtyExpectedTotal:r.completedQty});const o=St(e),a=o.filter(O=>O.handoverRecordStatus===\"SUBMITTED_WAIT_WRITEBACK\").length,s=o.filter(O=>O.handoverRecordStatus===\"OB"
+      },
+      "selfMs": 46.640999999999984
+    },
+    {
+      "frame": {
+        "fn": "Wt",
+        "file": "pda-handover-events-CZFTG6W8.js",
+        "line": 1,
+        "column": 113263,
+        "excerpt": "unction Wt(e,t){const r=e.handoverOrderId||e.handoverId,o=Ma(e.targetKind,e.receiverKind),a=po(e),n=Rr({productionOrderId:e.productionOrderId,taskUnitType:e.taskTypeCode,processCode:e.processBusinessCode,processBusinessCode:e.processBusinessCode,assignedFactoryId:e.factoryId})?t.filter(O=>O.handoverRecordStatus!==\"VOIDED\"):t,d=F(n,O=>it(O)),c=F(n,O=>ie(O)??0),i=F(n,O=>Ha(O)??0),u=e.sourceType===\"DESIGN_REVISION\"?e.taskStatus===\"DONE\":e.factoryMarkedComplete??e.completionStatus===\"COMPLETED\",m=e.headType===\"HANDOUT\"?Jd(n,u):void 0,l=n.map(O=>O.handoverRec"
+      },
+      "selfMs": 44.105000000000004
+    },
+    {
+      "frame": {
+        "fn": "Me",
+        "file": "pcs-record-core-CUHoxsZG.js",
+        "line": 1,
+        "column": 52337,
+        "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+      },
+      "selfMs": 41.856
+    },
+    {
+      "frame": {
+        "fn": "getBoundingClientRect",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 31.589
+    },
+    {
+      "frame": {
+        "fn": "z",
+        "file": "printing-task-domain-CSdjlFuY.js",
+        "line": 0,
+        "column": 230416,
+        "excerpt": "function z(e){return{...e,sourceSnapshot:e.sourceSnapshot?structuredClone(e.sourceSnapshot):void 0,sourceArtifactIds:e.sourceArtifactIds?[...e.sourceArtifactIds]:void 0,productionOrderIds:[...e.productionOrderIds],formalProductionOrderSnapshot:e.formalProductionOrderSnapshot?structuredClone(e.formalProductionOrderSnapshot):void 0,changeImpact:e.changeImpact?structuredClone(e.changeImpact):void 0,autoSyncHistory:e.autoSyncHistory?structuredClone(e.autoSyncHistory):void 0,businessView:e.businessView?structuredClone(e.businessView):void 0}}function Hr(e){re"
+      },
+      "selfMs": 30.011
+    },
+    {
+      "frame": {
+        "fn": "(garbage collector)",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 28.265
+    },
+    {
+      "frame": {
+        "fn": "c",
+        "file": "pcs-record-core-CUHoxsZG.js",
+        "line": 1,
+        "column": 1895,
+        "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+      },
+      "selfMs": 19.694
+    },
+    {
+      "frame": {
+        "fn": "structuredClone",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 16.490000000000002
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "tmf-domain-shared-DboXqEqI.js",
+        "line": 0,
+        "column": 14816,
+        "excerpt": "o(s)).map(s=>({...structuredClone(s),predecessorEntryIds:[...new Set((s.predecessorEntryIds??[]).flatMap(a=>u(a)))]}))}let Y=()=>{},v=()=>{};function Ee(e){Y=e}function fe(e){v=e}function le(e){return Y(e)}function Se(e){return v(e)}const B=[{id:\"tmf-webbing-reference\",code:\"TMF-WB-REF\",name:\"白色织带半成品（幅宽待确认）\",english:\"White webbing reference\",category:\"织带\",dimension:\"幅宽待确认\",image:\"/materials/tmf/webbing-real-roll.jpg\"},{id:\"tmf-rope-reference\",code:\"TMF-RP-REF\",name:\"白色绳子半成品（绳径待确认）\",english:\"White cord reference\",category:\"绳子\",dimension:\"绳径待确认\",image:\"/ma"
+      },
+      "selfMs": 15.008999999999997
+    },
+    {
+      "frame": {
+        "fn": "request.onsuccess",
+        "line": 47,
+        "column": 28
+      },
+      "selfMs": 10.728
+    },
+    {
+      "frame": {
+        "fn": "I",
+        "file": "app-shared-_ZQpMwKQ.js",
+        "line": 0,
+        "column": 2283,
+        "excerpt": "function I(e){const t=/^CRAFT_(\\d+)$/.exec(e);return t&&Et.has(Number(t[1]))?S.craftCode:e}function It(e){const t=(a,r=new Set)=>{if(!a||typeof a!=\"object\")return;if(Array.isArray(a)){a.forEach((c,l)=>{typeof c==\"string\"?a[l]=r.has(c)?S.craftName:I(c):t(c,r)});return}const i=a;typeof i.areaId==\"string\"&&/^AUX-WP-AREA-(?:08|09|10)$/.test(i.areaId)&&(i.areaId=\"AUX-WP-AREA-08\",\"areaName\"in i&&(i.areaName=\"缝边绣-裁片库区\"));const s=typeof i.craftCode==\"string\"?new Set:new Set(r),o=c=>{typeof c==\"string\"&&c.trim()&&s.add(c)},n=typeof i.craftCode==\"string\"&&I(i.craf"
+      },
+      "selfMs": 10.693
+    },
+    {
+      "frame": {
+        "fn": "b",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 37948,
+        "excerpt": "function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qcPrintMaterials.flatMap((n,c)=>{const d=n.materialCode.split(\"-\")[0]||n.materialCode;if(!Dt({materialName:n.materialName,materialSpuCode:d}))return[];const l=n.unitConsumption.match(/^([0-9.]+)\\s*(\\S+)/),I=Number((l==null?void 0:l[1])||1),i=(l==null?void 0:l[2])||\"PCS\",y=Math.ma"
+      },
+      "selfMs": 10.507
+    },
+    {
+      "frame": {
+        "fn": "N",
+        "file": "app-shared-_ZQpMwKQ.js",
+        "line": 0,
+        "column": 73718,
+        "excerpt": "function N(e){const t=structuredClone(Ur(xr(e))),a=Gr(t.processAbilities),r=It(t);return{...r,factoryShortName:r.factoryShortName||r.code||r.name,mobilePhone:r.mobilePhone||r.phone,inferredFactoryTypes:r.inferredFactoryTypes?r.inferredFactoryTypes.map(i=>({...i,matchedCapabilities:[...i.matchedCapabilities]})):void 0,identityFile:r.identityFile?{...r.identityFile}:r.identityFile,selectedCapabilities:r.selectedCapabilities?r.selectedCapabilities.map(i=>({...i})):void 0,machines:r.machines?r.machines.map(i=>({...i})):void 0,processAbilities:a,eligibility:{"
+      },
+      "selfMs": 9.041
+    },
+    {
+      "frame": {
+        "fn": "Xs",
+        "file": "pda-handover-events-CZFTG6W8.js",
+        "line": 1,
+        "column": 1511,
+        "excerpt": "unction Xs(e){return Number(Number(e||0).toFixed(2))}function en(e,t=Qs()){try{const r=t==null?void 0:t.getItem(Zs);if(!r)return[];const o=JSON.parse(r);return Array.isArray(o.prepRecords)?o.prepRecords.filter(a=>(a==null?void 0:a.prepOrderId)===e&&a.recordStatus===\"CONFIRMED\"&&Array.isArray(a.items)&&a.items.every(s=>s&&Number.isFinite(s.preparedQty)&&s.preparedQty>=0)):[]}catch{return[]}}function tn(e){return(Array.isArray(e.items)&&e.items.length>0?e.items:[{prepRecordItemId:`${e.prepRecordId}:item:${e.prepLineId}`,prepLineId:e.prepLineId,preparedQty:"
+      },
+      "selfMs": 9.015
+    },
+    {
+      "frame": {
+        "fn": "ot",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 76193,
+        "excerpt": "unction ot(e,t,r=!0){var f;const o=typeof e==\"string\"?Qe(e):e,s=o.executionModel!==\"ITEMS_V1\",a=(m.processCompletions||[]).filter(k=>k.postTaskId===o.postTaskId&&!(s&&k.operationId.startsWith(\"DEMO:\"))),n=m.recheckOrders.filter(k=>k.postTaskId===o.postTaskId),c=((f=o.legacyCarryover)==null?void 0:f.history)||(s&&o.results?o.results.map(k=>({skuId:k.sku.skuId,completedQty:k.processedQty})):[]),d=k=>o.lines.map(E=>{var w,F,u,A;const S=((w=c.find(Q=>Q.skuId===E.sku.skuId))==null?void 0:w.completedQty)||0,R=E.expectedQty-S,D=(((A=(u=(F=o.legacyCarryover)==nu"
+      },
+      "selfMs": 7.705
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "pcs-record-core-CUHoxsZG.js",
+        "line": 1,
+        "column": 2945,
+        "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+      },
+      "selfMs": 7.516
+    },
+    {
+      "frame": {
+        "fn": "hs",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 111117,
+        "excerpt": "unction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};co"
+      },
+      "selfMs": 7.516
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "post-finishing-full-flow-CMr6I3rx.js",
+        "line": 0,
+        "column": 107933,
+        "excerpt": "cords.map(e=>{var t;return{outboundOrderId:e.outboundOrderId,outboundOrderNo:e.outboundOrderNo,postTaskId:e.postTaskId,postTaskNo:e.postTaskNo,qcTaskId:e.qcTaskId,qcTaskNo:e.qcTaskNo,deliveryOrderNo:e.deliveryOrderNo,productionOrderNo:e.productionOrderNo,status:e.status,qtyUnit:((t=e.lines[0])==null?void 0:t.sku.qtyUnit)||\"件\",skuCount:e.lines.length,inboundQty:b(e.lines.map(r=>r.inboundQty)),handedOverQty:b(e.lines.map(r=>r.handedOverQty))}})}function cs(){return N(m.waitHandoverWarehouseMovements).sort((e,t)=>t.operatedAt.localeCompare(e.operatedAt))}fu"
+      },
+      "selfMs": 7.509
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "app-shared-_ZQpMwKQ.js",
+        "line": 0,
+        "column": 34219,
+        "excerpt": "ce().sort((e,t)=>{var s,o;const a=((s=ce.get(e.stageCode))==null?void 0:s.sort)??999,r=((o=ce.get(t.stageCode))==null?void 0:o.sort)??999;if(a!==r)return a-r;const i=se.compare(e.processName,t.processName);return i!==0?i:e.processCode.localeCompare(t.processCode)})}function G(e){return oe.get(e)}function An(e){var t;return((t=G(e))==null?void 0:t.generatesExternalTask)??!1}function Sn(e){const t=G(e);return(t==null?void 0:t.stageCode)===\"POST\"&&t.capacityEnabled&&t.isActive}function En(e){return wt().filter(t=>t.stageCode===e)}function In(){return Ce.sli"
+      },
+      "selfMs": 7.4319999999999995
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "app-shared-_ZQpMwKQ.js",
+        "line": 0,
+        "column": 0,
+        "excerpt": "var Wt=Object.defineProperty;var Kt=(e,t,a)=>t in e?Wt(e,t,{enumerable:!0,configurable:!0,writable:!0,value:a}):e[t]=a;var Pe=(e,t,a)=>Kt(e,typeof t!=\"symbol\"?t+\"\":t,a);import{T as Ht,a as qt,b as W,A as ht,c as gt,d as xe,S as At,e as St,f as ne}from\"./tmf-domain-shared-DboXqEqI.js\";function y(e){return(e==null?\"\":String(e)).replaceAll(\"&\",\"&amp;\").replaceAll(\"<\",\"&lt;\").replaceAll(\">\",\"&gt;\").replaceAll('\"',\"&quot;\").replaceAll(\"'\",\"&#39;\")}function Vt(...e){return e.filter(Boolean).join(\" \")}function Xt(e){return typeof CSS<\"u\"&&typeof CSS.e"
+      },
+      "selfMs": 7.118
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "generated-fei-tickets-CaqTb-3q.js",
+        "line": 0,
+        "column": 0,
+        "excerpt": "import{Q as be,R as Te,T as Je,U as Vt}from\"./craft-display-support-DsFy7BKv.js\";import{p as Ht,i as Kt,b as lt,e as Yt}from\"./production-orders-CZH0DeUS.js\";import{o as Pe,a4 as Xt,a5 as Ze,a6 as Jt}from\"./app-shared-_ZQpMwKQ.js\";import{u as W,v as ct}from\"./runtime-process-tasks-BkBTALaZ.js\";import{g as Zt}from\"./production-tech-pack-change-domain-B9FWo-iF.js\";const ke=\"FCSQR\",Re=\"2.0.0\";function ea(e){return`${ke}:${encodeURIComponent(JSON.stringify(e))}`}function it(e){return ea(e)}function ta(e){if(!e)return null;const t=e.startsWith(`${ke"
+      },
+      "selfMs": 7.105
+    }
+  ],
+  "important": [
+    {
+      "id": 200,
+      "inclusiveMs": 472.278,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 293,
+      "inclusiveMs": 470.776,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 349,
+      "inclusiveMs": 410.707,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 358,
+      "inclusiveMs": 373.047,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 248,
+      "inclusiveMs": 71.071,
+      "selfMs": 41.856,
+      "frames": [
+        {
+          "fn": "Me",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 52337,
+          "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 240,
+      "inclusiveMs": 52.352,
+      "selfMs": 52.352,
+      "frames": [
+        {
+          "fn": "e.onsuccess",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1210,
+          "excerpt": "onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!N"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 801,
+      "inclusiveMs": 40.055,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "tt",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 44856,
+          "excerpt": "unction tt(){const e=m.materialTransferOrders.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.product"
+        },
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 802,
+      "inclusiveMs": 40.055,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 44899,
+          "excerpt": "rs.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.froz"
+        },
+        {
+          "fn": "tt",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 44856,
+          "excerpt": "unction tt(){const e=m.materialTransferOrders.filter(t=>!(C!=null&&C.ownsProduction(t.productionOrderId))&&!(C!=null&&C.ownsProduction(t.productionOrderNo)));return[...N(e),...(C==null?void 0:C.transfers())||[]].sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt))}function Ro(e){const t=tt().find(r=>r.transferOrderId===e||r.transferOrderNo===e);return t?N(t):void 0}function Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.product"
+        },
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 350,
+      "inclusiveMs": 37.66,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 14044,
+          "excerpt": "),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).redu"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 351,
+      "inclusiveMs": 37.66,
+      "selfMs": 1.504,
+      "frames": [
+        {
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "excerpt": "unction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};co"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 14044,
+          "excerpt": "),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).redu"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 947,
+      "inclusiveMs": 36.07,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 16198,
+          "excerpt": "),X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:gri"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 948,
+      "inclusiveMs": 36.07,
+      "selfMs": 6.012,
+      "frames": [
+        {
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "excerpt": "unction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};co"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 16198,
+          "excerpt": "),X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:gri"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 251,
+      "inclusiveMs": 27.882,
+      "selfMs": 1.503,
+      "frames": [
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 53245,
+          "excerpt": "e.forEach(n=>n());const i=t.records.some(n=>n.id===`${$}/flow/schemaVersion/value`&&!n.deleted&&n.value===2);try{Ve=Wt().size>0||i}catch{Ve||(Ve=i)}je=!0,he=\"\"}catch(t){ue(e),je=!1,he=`后道用户资料无法读取或保存。${t instanceof Error?t.message:String(t)}`}}function Bt(e){if(e instanceof Error&&\"code\"in e)return e;const o=e instanceof Error?e.message:String(e);return new Error(o.replaceAll(\"PCS\",\"后道\").replace(\"关联房间或地点\",\"后道资料\"))}async function xo(e){var n,r,c,s,a;if(typeof window>\"u\")return e();if(je||await Me(),!je||he)throw new Error(he||\"请重新读取后道资料后重试。\");if(Ve)throw n"
+        },
+        {
+          "fn": "Me",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 52337,
+          "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 252,
+      "inclusiveMs": 26.379,
+      "selfMs": 4.281,
+      "frames": [
+        {
+          "fn": "",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 117026,
+          "excerpt": "on=3});Qr(()=>{var R,v,D,w,F;const e=new Map(m.deliveries.map(u=>[u.deliveryId,u])),t=new Map(m.qcTasks.map(u=>[u.qcTaskId,u])),r=new Map(m.postTasks.map(u=>[u.postTaskId,u])),o=new Map(m.recheckOrders.map(u=>[u.recheckOrderId,u])),s=new Map(m.outboundOrders.map(u=>[u.outboundOrderId,u])),a=u=>{var A;return!!(u.operationId||u.postTaskId&&((A=r.get(u.postTaskId))==null?void 0:A.executionModel)===\"ITEMS_V1\")},n=u=>!!(u.recheckOrderId&&o.has(u.recheckOrderId)&&!a(o.get(u.recheckOrderId))),c=[\"deliveryId\",\"deliveryOrderNo\",\"productionOrderNo\",\"qcTaskId\",\"qcT"
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 53245,
+          "excerpt": "e.forEach(n=>n());const i=t.records.some(n=>n.id===`${$}/flow/schemaVersion/value`&&!n.deleted&&n.value===2);try{Ve=Wt().size>0||i}catch{Ve||(Ve=i)}je=!0,he=\"\"}catch(t){ue(e),je=!1,he=`后道用户资料无法读取或保存。${t instanceof Error?t.message:String(t)}`}}function Bt(e){if(e instanceof Error&&\"code\"in e)return e;const o=e instanceof Error?e.message:String(e);return new Error(o.replaceAll(\"PCS\",\"后道\").replace(\"关联房间或地点\",\"后道资料\"))}async function xo(e){var n,r,c,s,a;if(typeof window>\"u\")return e();if(je||await Me(),!je||he)throw new Error(he||\"请重新读取后道资料后重试。\");if(Ve)throw n"
+        },
+        {
+          "fn": "Me",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 52337,
+          "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 241,
+      "inclusiveMs": 25.718,
+      "selfMs": 6.024,
+      "frames": [
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 353,
+      "inclusiveMs": 25.559,
+      "selfMs": 25.559,
+      "frames": [
+        {
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "excerpt": "function N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qc"
+        },
+        {
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "excerpt": "unction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};co"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 14044,
+          "excerpt": "),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{order:s,deliveries:c,qcTasks:m,plannedQty:s.plannedGarmentQty,waitProcessQty:f.filter(n=>n.productionOrderNo===s.productionOrderNo).redu"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 950,
+      "inclusiveMs": 24.038,
+      "selfMs": 24.038,
+      "frames": [
+        {
+          "fn": "N",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 37670,
+          "excerpt": "function N(e){return JSON.parse(JSON.stringify(e))}function G(e=Date.now()){return new Date(e).toISOString()}function H(e,t){const r=t.strictlyPositive?1:0;if(!Number.isInteger(e)||e<r)throw new T(\"INVALID_QUANTITY\",`${t.label}必须是${t.strictlyPositive?\"大于 0 的\":\"不小于 0 的\"}整数件数。`)}function b(e){return e.reduce((t,r)=>t+r,0)}function Ke(e,t){return e===0?t===0?0:1:Math.abs(t-e)/e}function Co(e){return e>0?\"多\":e<0?\"少\":\"一致\"}function Fo(){var a;const e=Y.find(n=>n.sewingTaskType===\"INDEPENDENT_SEWING\");if(!e)return[];const t=b(e.skus.map(n=>n.plannedQty)),r=e.qc"
+        },
+        {
+          "fn": "hs",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 111117,
+          "excerpt": "unction hs(e){const t=e.trim(),r=m.outboundOrders.find(p=>p.outboundOrderNo===t||p.outboundOrderId===t),o=m.recheckOrders.find(p=>p.recheckOrderNo===t||p.recheckOrderId===t||p.recheckOrderId===(r==null?void 0:r.recheckOrderId)),s=m.postTasks.find(p=>p.postTaskNo===t||p.postTaskId===t),a=m.qcTasks.find(p=>p.qcTaskNo===t||p.qcTaskId===t),n=m.deliveries.find(p=>p.deliveryOrderNo===t||p.deliveryId===t||p.deliveryId===((r==null?void 0:r.deliveryId)||(o==null?void 0:o.deliveryId)||(s==null?void 0:s.deliveryId)||(a==null?void 0:a.deliveryId)));if(!n)return{};co"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 16198,
+          "excerpt": "),X=i.map(s=>q(s.deliveryOrderNo).outboundOrder).filter(s=>(s==null?void 0:s.sourceType)===\"质检直达\"&&s.status===\"待仓库接收\").reduce((s,c)=>s+((c==null?void 0:c.lines.reduce((m,g)=>m+g.outboundQty,0))||0),0),Y=x.reduce((s,c)=>s+c.lines.reduce((m,g)=>m+g.availableQty,0),0)+X;return`${oe({title:\"后道生产任务\",primaryActionsHtml:'<span class=\"text-xs text-muted-foreground\">一张后道生产任务对应一个生产单，可关联多次回货和多张质检单</span>',filtersHtml:`<form data-post-finishing-task-filters action=\"/fcs/craft/post-finishing/tasks\" class=\"grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-4 xl:gri"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 242,
+      "inclusiveMs": 19.694,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "M",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 243,
+      "inclusiveMs": 19.694,
+      "selfMs": 2.843,
+      "frames": [
+        {
+          "fn": "c",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "M",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 545,
+      "inclusiveMs": 19.579,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "Ju",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 24024,
+          "excerpt": "unction Ju(){return Us().filter(e=>e.artifactType===\"PREPARATION_ORDER\")}function mo(e,t){return`FCS:${e}:v1:${t}`}function Kt(e){return mo(\"TASK\",e)}function Zu(e){return mo(\"WORK_ORDER\",e)}function Xu(e){return mo(\"HANDOVER_ORDER\",e)}function Od(e){return mo(\"HANDOVER_RECORD\",e)}const Jo=e=>String(e||\"\").trim(),_e=(e,t)=>Jo(e).toLocaleLowerCase()===Jo(t).toLocaleLowerCase(),rt=e=>e.sourcePatternPackageId||e.id,Ct=e=>[...new Set([e.id,e.patternFileId,rt(e)].filter(Boolean))],Zt=e=>!!e.craftCode&&(e.routeSourceKind===\"PIECE_CRAFT\"||e.targetObject===\"CUT_"
+        },
+        {
+          "fn": "wa",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 91120,
+          "excerpt": "unction wa(){const e=As().filter(Ad),t=new Map,r=new Map;e.forEach(s=>{const n=r.get(s.orderId)??[];n.push(s),r.set(s.orderId,n)}),r.forEach(s=>{s.sort((n,d)=>n.bomItemId.localeCompare(d.bomItemId)).forEach((n,d)=>{t.set(ur(n.orderId,n.bomItemId),d+1)})});const o=e.map(s=>{const n=ur(s.orderId,s.bomItemId),d=t.get(n);if(!d)throw new Error(`水溶加工单缺少稳定物料序号：${n}`);return hd(s,d)}),a=new Set;return o.forEach(s=>{if(a.has(s.waterOrderNo))throw new Error(`水溶加工单号冲突：${s.waterOrderNo}，请检查正式生产单与 BOM 来源`);a.add(s.waterOrderNo)}),o}function vd(e){return e.status===\"W"
+        },
+        {
+          "fn": "gd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 93446,
+          "excerpt": "unction gd(){if(dr&&G)return;if(!G){const o=bd();Rd(o),G=o;return}const e=G??new Map,t=new Map,r=new Map;e.forEach(o=>{if(o.handoverDemoSourceOrderId){t.set(o.generationKey,o);return}const a=ur(o.productionOrderId,o.bomItemId);if(r.has(a))throw new Error(`水溶加工单业务身份冲突：${a}，请检查历史加工单`);r.set(a,o)}),wa().forEach(o=>{const a=e.get(o.generationKey)??r.get(o.generationKey);if(!a){t.set(o.generationKey,o);return}if(vd(a)){t.set(o.generationKey,{...a,generationKey:o.generationKey,sourceArtifactId:o.sourceArtifactId,productionOrderId:o.productionOrderId,production"
+        },
+        {
+          "fn": "It",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 94296,
+          "excerpt": "unction It(){var t;gd();const e=ps();for(const r of G.values()){const o=ga(r.waterOrderId,r.qtyUnit,\"water\"),a=(r.materialReceipts??[]).filter(s=>!s.receiptId.startsWith(\"FRP-\"));r.inputQty===void 0&&![\"WAIT_MATERIAL\",\"WAIT_WATER_SOLUBLE\"].includes(r.status)&&(r.inputQty=a.reduce((s,n)=>s+n.qty,0)),r.materialReceipts=[...a,...o],r.status===\"WAIT_MATERIAL\"&&r.materialReceipts.some(s=>s.qty>0)&&(r.status=\"WAIT_WATER_SOLUBLE\");for(const s of e.filter(n=>n.workOrderNo===r.waterOrderNo)){const n=(t=r.handoverBatches)==null?void 0:t.find(c=>c.batchId===s.water"
+        },
+        {
+          "fn": "Qd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 96109,
+          "excerpt": "unction Qd(){return[...It().values()].map(e=>(Io(e),e)).sort((e,t)=>e.generationKey.localeCompare(t.generationKey)).map(le)}function Ld(e){const t=ee(e);return t&&Io(t),t?le(t):null}function Bd(e,t){const r=G==null?void 0:G.get(e.generationKey);if(!r||r.waterOrderId!==e.waterOrderId||r.taskId!==e.taskId||r.productionOrderId!==e.productionOrderId)throw new Error(\"水溶原单身份已变化，不能撤回到其他单据。\");G.set(e.generationKey,le(e)),t!==void 0&&_a(t)}function Le(e){const t=[...It().values()].find(r=>r.taskId===e);return t&&Io(t),t?le(t):null}function Wd(){return Qd().map((e"
+        },
+        {
+          "fn": "c",
+          "file": "water-soluble-relation-sources-BhwGTu6Z.js",
+          "line": 0,
+          "column": 144,
+          "excerpt": "function c(){return o().map(t=>({taskId:t.taskId,taskNo:t.taskNo,factoryId:t.factoryId||\"\",factoryName:t.factoryName||\"待分配染厂\",sourceArtifactIds:[t.sourceArtifactId],workOrderId:t.waterOrderId,workOrderNo:t.waterOrderNo,processType:\"WATER_SOLUBLE\",sourceType:\"PRODUCTION_ORDER\",sourceSnapshot:{sourceType:\"PRODUCTION_ORDER\",productionOrderId:t.productionOrderId,productionOrderNo:t.productionOrderNo,techPackVersionId:t.techPackVersionId,bomItemId:t.bomItemId},sourceProductionOrderId:t.productionOrderId,sourceProductionOrderNo:t.productionOrderNo,objectType:\""
+        },
+        {
+          "fn": "cc",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 199447,
+          "excerpt": "unction cc(e){const t=e&&!e.has(\"PRINT\")?xs():void 0,r=e&&!e.has(\"DYE\")?Za():void 0,o=(t&&!t.needsRestoration?t.orders:js()).map(n=>({taskId:n.taskId,taskNo:n.taskNo,factoryId:n.printFactoryId,factoryName:n.printFactoryName,sourceArtifactIds:n.sourceArtifactIds?[...n.sourceArtifactIds]:void 0,workOrderId:n.printOrderId,workOrderNo:n.printOrderNo,processType:\"PRINT\",sourceType:n.sourceType,sourceSnapshot:n.sourceSnapshot||lr(n),sourceProductionOrderId:n.sourceProductionOrderId,sourceProductionOrderNo:n.sourceProductionOrderNo,objectType:n.objectType,mater"
+        },
+        {
+          "fn": "u",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38786,
+          "excerpt": "new Map,u=d=>{let i=s.get(d);return i||(i=dr(new Set([d])),s.set(d,i)),i};let n;return[...G.filter(d=>!o||o.has(d.productionOrderId)),...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 41704,
+          "excerpt": "e.flatMap(O=>u(O.processCode).filter(L=>{var J,Y;const x=L.sourceSnapshot;return L.sourceType===\"PRODUCTION_ORDER\"&&L.processType===O.processCode&&x.productionOrderId===d.productionOrderId&&x.techPackVersionId===i.sourceTechPackVersionId&&(x.bomItemId===m.id||((J=x.bomItemIds)==null?void 0:J.includes(m.id)))&&(x.processEntryId===O.sourceEntryId||((Y=L.sourceArtifactIds)==null?void 0:Y.includes(O.artifactId)))}).map(L=>({taskId:L.taskId,taskNo:L.taskNo||L.workOrderNo,taskName:`${L.processType===\"PRINT\"?\"印花\":L.processType===\"DYE\"?\"染色\":\"水溶\"}加工单 ${L.workOrde"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 39127,
+          "excerpt": "\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.round(S*m.unitConsumption*(1+m.lossRate)*1e6)/1e6:0,Q=[N?\"\":\"冻结BOM缺少物料编码\",R?\"\":\"冻结BOM缺少数量单位\",T?\"\":\"冻结BOM单耗、损耗或需求数量无效\"].filter(Boolean),E=m.type===\"包装材料\"?\"包材\":m.type===\"面料\"||m.type===\"辅料\"||m.type===\"纱线\"?m.type:\"其"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38919,
+          "excerpt": ",...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.rou"
+        },
+        {
+          "fn": "de",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38125,
+          "excerpt": "unction de(e=[],o){const p=new Set(G.map(d=>d.productionOrderId)),a=te.filter(d=>!p.has(d.productionOrderId)&&d.techPackSnapshot&&(!o||o.has(d.productionOrderId))),r=Er.filter(d=>d.sourceId.trim()&&d.sourceDescription.trim()&&d.materialSku.trim()&&d.unit.trim()&&d.warehouseArea.trim()&&d.locationCode.trim()&&Number.isFinite(d.quantity)&&d.quantity>=0).map(d=>({...d})),t=new Map;for(const d of e.filter(i=>i.recordStatus!==\"REJECTED\"))for(const i of w(d)){if(!i.sourceMaterialSku||!i.sourceUnit||!i.stockWarehouseName)continue;const k=JSON.stringify([i.sourc"
+        },
+        {
+          "fn": "H",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 92393,
+          "excerpt": "function H(e=M(),o={}){const p=$(e),a=de(p.prepRecords,o.productionOrderIds),r=JSON.stringify(a);if((ee==null?void 0:ee.storage)===e&&ee.sourceFingerprint===r)return ee.rows;const t=Vr(e),c=z([...p.pickupRecords,...t],y=>y.prepOrderId),s=z(p.pickupSessions,y=>y.prepOrderId),u=z(p.pickupReturnRecords,y=>y.prepOrderId),n=z(p.prepRecords,y=>y.prepOrderId),d=z(p.rejectRecords,y=>y.prepOrderId),i=z(p.stagingRecords,y=>y.prepOrderId),k=lt(),I=Ue(\"中转仓配料完成通知\",e),A=new Map;I.forEach(y=>{const m=y.payload&&typeof y.payload==\"object\"?y.payload.prepOrderId:\"\";typeof"
+        },
+        {
+          "fn": "V",
+          "file": "accessory-warehouse-sources-IP8t33SW.js",
+          "line": 0,
+          "column": 8272,
+          "excerpt": "function V(){var t,r;if(y)throw new Error(y);try{const o=E(),i=F({projections:N(o),orders:C,tasks:k(),factories:R(),assignments:P(),savedPreparations:g(\"preparation\")});S=i.issues;const p=g(\"migration\");if(g(\"migration\").some(c=>c.id===\"legacy-preparation-v1\"&&[\"COMPLETE\",\"RESTORED\"].includes(c.phase||\"\")))for(const c of U((o==null?void 0:o.getItem(T))||null,i.preparations,p))S.push({code:\"LEGACY_CONFLICT\",preparationId:c.preparationId,message:\"迁移后原配料资料又出现本范围记录，可能仍有旧页面写入。新旧资料均已保留；停止旧页面操作并核对冲突前，不能继续办理。\",blocking:!0});for(const c of p.filter(u=>{var s;retu"
+        },
+        {
+          "fn": "W",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 2094,
+          "excerpt": "chive\"),W=e=>b().find(o=>o.productionOrderId===e||o.productionOrderNo===e),Ne=e=>V(new Set([e])).has(e);function Se(e){return e.kind===\"SITE_TO_POST\"&&e.toWarehouse===ge&&e.status!==\"已作废\"&&(!e.legacyPostBatchId||Q().some(o=>o.id===e.legacyPostBatchId&&o.phase===\"COMPLETE\"))}function E(){return j().filter(Se).map(e=>(I(Z(e.lines,\"SEWING\").postLines.length===e.lines.length,\"后道调拨明细包含不属于本次后道范围的物料，需核对原单。\"),e))}function I(e,o){if(!e)throw new Error(o)}function _(e,o=b().find(c=>c.id===e.preparationId)){const c=j().filter(s=>s.kind===\"SITE_TO_POST\"&&s.preparati"
+        },
+        {
+          "fn": "readiness",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 9087,
+          "excerpt": "readiness:e=>{const o=W(e);if(!o)return;const c=E().filter(n=>n.productionOrderId===o.productionOrderId),s=c.filter(n=>!n.legacyPostBatchId);if(g.filter(n=>n.value.productionOrderNo===o.productionOrderNo||\"productionOrderId\"in n.value&&n.value.productionOrderId===o.productionOrderId).some(n=>!P().some(r=>r.sourceKey===n.key&&r.sourceFingerprint===n.fingerprint&&Q().some(a=>a.id===r.batchId&&a.phase===\"COMPLETE\"))))return{applicable:!0,status:\"申请调拨\",label:\"本单原后道辅料资料尚未归档核验，请先核对原资料\"};if(!s.length)return c.length?{applicable:!0,status:\"申请调拨\",label:\"原后道库存已承接，"
+        },
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 546,
+      "inclusiveMs": 19.579,
+      "selfMs": 1.504,
+      "frames": [
+        {
+          "fn": "Us",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 23471,
+          "excerpt": "unction Us(){return $.flatMap(e=>Nr(e.productionOrderId)).sort((e,t)=>e.orderId!==t.orderId?e.orderId.localeCompare(t.orderId):e.sortKey.localeCompare(t.sortKey))}function yd(){const e=Us().filter(o=>o.artifactType===\"DEMAND\"),t=Ot().filter(o=>o.defaultDocType===\"DEMAND\");return bs(e,ad(),t)}function zu(){return yd()}function $s(){const e=$.flatMap(o=>ld(o.productionOrderId)),t=Ot().filter(o=>o.defaultDocType===\"TASK\"&&o.stageCode===\"PROD\"&&![\"CUT_PANEL\",\"SEW\",\"BUTTONHOLE\",\"BUTTON_ATTACH\",\"IRON_PACK\"].includes(o.processCode));return bs(e,dd(),t)}function"
+        },
+        {
+          "fn": "Ju",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 24024,
+          "excerpt": "unction Ju(){return Us().filter(e=>e.artifactType===\"PREPARATION_ORDER\")}function mo(e,t){return`FCS:${e}:v1:${t}`}function Kt(e){return mo(\"TASK\",e)}function Zu(e){return mo(\"WORK_ORDER\",e)}function Xu(e){return mo(\"HANDOVER_ORDER\",e)}function Od(e){return mo(\"HANDOVER_RECORD\",e)}const Jo=e=>String(e||\"\").trim(),_e=(e,t)=>Jo(e).toLocaleLowerCase()===Jo(t).toLocaleLowerCase(),rt=e=>e.sourcePatternPackageId||e.id,Ct=e=>[...new Set([e.id,e.patternFileId,rt(e)].filter(Boolean))],Zt=e=>!!e.craftCode&&(e.routeSourceKind===\"PIECE_CRAFT\"||e.targetObject===\"CUT_"
+        },
+        {
+          "fn": "wa",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 91120,
+          "excerpt": "unction wa(){const e=As().filter(Ad),t=new Map,r=new Map;e.forEach(s=>{const n=r.get(s.orderId)??[];n.push(s),r.set(s.orderId,n)}),r.forEach(s=>{s.sort((n,d)=>n.bomItemId.localeCompare(d.bomItemId)).forEach((n,d)=>{t.set(ur(n.orderId,n.bomItemId),d+1)})});const o=e.map(s=>{const n=ur(s.orderId,s.bomItemId),d=t.get(n);if(!d)throw new Error(`水溶加工单缺少稳定物料序号：${n}`);return hd(s,d)}),a=new Set;return o.forEach(s=>{if(a.has(s.waterOrderNo))throw new Error(`水溶加工单号冲突：${s.waterOrderNo}，请检查正式生产单与 BOM 来源`);a.add(s.waterOrderNo)}),o}function vd(e){return e.status===\"W"
+        },
+        {
+          "fn": "gd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 93446,
+          "excerpt": "unction gd(){if(dr&&G)return;if(!G){const o=bd();Rd(o),G=o;return}const e=G??new Map,t=new Map,r=new Map;e.forEach(o=>{if(o.handoverDemoSourceOrderId){t.set(o.generationKey,o);return}const a=ur(o.productionOrderId,o.bomItemId);if(r.has(a))throw new Error(`水溶加工单业务身份冲突：${a}，请检查历史加工单`);r.set(a,o)}),wa().forEach(o=>{const a=e.get(o.generationKey)??r.get(o.generationKey);if(!a){t.set(o.generationKey,o);return}if(vd(a)){t.set(o.generationKey,{...a,generationKey:o.generationKey,sourceArtifactId:o.sourceArtifactId,productionOrderId:o.productionOrderId,production"
+        },
+        {
+          "fn": "It",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 94296,
+          "excerpt": "unction It(){var t;gd();const e=ps();for(const r of G.values()){const o=ga(r.waterOrderId,r.qtyUnit,\"water\"),a=(r.materialReceipts??[]).filter(s=>!s.receiptId.startsWith(\"FRP-\"));r.inputQty===void 0&&![\"WAIT_MATERIAL\",\"WAIT_WATER_SOLUBLE\"].includes(r.status)&&(r.inputQty=a.reduce((s,n)=>s+n.qty,0)),r.materialReceipts=[...a,...o],r.status===\"WAIT_MATERIAL\"&&r.materialReceipts.some(s=>s.qty>0)&&(r.status=\"WAIT_WATER_SOLUBLE\");for(const s of e.filter(n=>n.workOrderNo===r.waterOrderNo)){const n=(t=r.handoverBatches)==null?void 0:t.find(c=>c.batchId===s.water"
+        },
+        {
+          "fn": "Qd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 96109,
+          "excerpt": "unction Qd(){return[...It().values()].map(e=>(Io(e),e)).sort((e,t)=>e.generationKey.localeCompare(t.generationKey)).map(le)}function Ld(e){const t=ee(e);return t&&Io(t),t?le(t):null}function Bd(e,t){const r=G==null?void 0:G.get(e.generationKey);if(!r||r.waterOrderId!==e.waterOrderId||r.taskId!==e.taskId||r.productionOrderId!==e.productionOrderId)throw new Error(\"水溶原单身份已变化，不能撤回到其他单据。\");G.set(e.generationKey,le(e)),t!==void 0&&_a(t)}function Le(e){const t=[...It().values()].find(r=>r.taskId===e);return t&&Io(t),t?le(t):null}function Wd(){return Qd().map((e"
+        },
+        {
+          "fn": "c",
+          "file": "water-soluble-relation-sources-BhwGTu6Z.js",
+          "line": 0,
+          "column": 144,
+          "excerpt": "function c(){return o().map(t=>({taskId:t.taskId,taskNo:t.taskNo,factoryId:t.factoryId||\"\",factoryName:t.factoryName||\"待分配染厂\",sourceArtifactIds:[t.sourceArtifactId],workOrderId:t.waterOrderId,workOrderNo:t.waterOrderNo,processType:\"WATER_SOLUBLE\",sourceType:\"PRODUCTION_ORDER\",sourceSnapshot:{sourceType:\"PRODUCTION_ORDER\",productionOrderId:t.productionOrderId,productionOrderNo:t.productionOrderNo,techPackVersionId:t.techPackVersionId,bomItemId:t.bomItemId},sourceProductionOrderId:t.productionOrderId,sourceProductionOrderNo:t.productionOrderNo,objectType:\""
+        },
+        {
+          "fn": "cc",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 199447,
+          "excerpt": "unction cc(e){const t=e&&!e.has(\"PRINT\")?xs():void 0,r=e&&!e.has(\"DYE\")?Za():void 0,o=(t&&!t.needsRestoration?t.orders:js()).map(n=>({taskId:n.taskId,taskNo:n.taskNo,factoryId:n.printFactoryId,factoryName:n.printFactoryName,sourceArtifactIds:n.sourceArtifactIds?[...n.sourceArtifactIds]:void 0,workOrderId:n.printOrderId,workOrderNo:n.printOrderNo,processType:\"PRINT\",sourceType:n.sourceType,sourceSnapshot:n.sourceSnapshot||lr(n),sourceProductionOrderId:n.sourceProductionOrderId,sourceProductionOrderNo:n.sourceProductionOrderNo,objectType:n.objectType,mater"
+        },
+        {
+          "fn": "u",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38786,
+          "excerpt": "new Map,u=d=>{let i=s.get(d);return i||(i=dr(new Set([d])),s.set(d,i)),i};let n;return[...G.filter(d=>!o||o.has(d.productionOrderId)),...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 41704,
+          "excerpt": "e.flatMap(O=>u(O.processCode).filter(L=>{var J,Y;const x=L.sourceSnapshot;return L.sourceType===\"PRODUCTION_ORDER\"&&L.processType===O.processCode&&x.productionOrderId===d.productionOrderId&&x.techPackVersionId===i.sourceTechPackVersionId&&(x.bomItemId===m.id||((J=x.bomItemIds)==null?void 0:J.includes(m.id)))&&(x.processEntryId===O.sourceEntryId||((Y=L.sourceArtifactIds)==null?void 0:Y.includes(O.artifactId)))}).map(L=>({taskId:L.taskId,taskNo:L.taskNo||L.workOrderNo,taskName:`${L.processType===\"PRINT\"?\"印花\":L.processType===\"DYE\"?\"染色\":\"水溶\"}加工单 ${L.workOrde"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 39127,
+          "excerpt": "\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.round(S*m.unitConsumption*(1+m.lossRate)*1e6)/1e6:0,Q=[N?\"\":\"冻结BOM缺少物料编码\",R?\"\":\"冻结BOM缺少数量单位\",T?\"\":\"冻结BOM单耗、损耗或需求数量无效\"].filter(Boolean),E=m.type===\"包装材料\"?\"包材\":m.type===\"面料\"||m.type===\"辅料\"||m.type===\"纱线\"?m.type:\"其"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38919,
+          "excerpt": ",...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.rou"
+        },
+        {
+          "fn": "de",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38125,
+          "excerpt": "unction de(e=[],o){const p=new Set(G.map(d=>d.productionOrderId)),a=te.filter(d=>!p.has(d.productionOrderId)&&d.techPackSnapshot&&(!o||o.has(d.productionOrderId))),r=Er.filter(d=>d.sourceId.trim()&&d.sourceDescription.trim()&&d.materialSku.trim()&&d.unit.trim()&&d.warehouseArea.trim()&&d.locationCode.trim()&&Number.isFinite(d.quantity)&&d.quantity>=0).map(d=>({...d})),t=new Map;for(const d of e.filter(i=>i.recordStatus!==\"REJECTED\"))for(const i of w(d)){if(!i.sourceMaterialSku||!i.sourceUnit||!i.stockWarehouseName)continue;const k=JSON.stringify([i.sourc"
+        },
+        {
+          "fn": "H",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 92393,
+          "excerpt": "function H(e=M(),o={}){const p=$(e),a=de(p.prepRecords,o.productionOrderIds),r=JSON.stringify(a);if((ee==null?void 0:ee.storage)===e&&ee.sourceFingerprint===r)return ee.rows;const t=Vr(e),c=z([...p.pickupRecords,...t],y=>y.prepOrderId),s=z(p.pickupSessions,y=>y.prepOrderId),u=z(p.pickupReturnRecords,y=>y.prepOrderId),n=z(p.prepRecords,y=>y.prepOrderId),d=z(p.rejectRecords,y=>y.prepOrderId),i=z(p.stagingRecords,y=>y.prepOrderId),k=lt(),I=Ue(\"中转仓配料完成通知\",e),A=new Map;I.forEach(y=>{const m=y.payload&&typeof y.payload==\"object\"?y.payload.prepOrderId:\"\";typeof"
+        },
+        {
+          "fn": "V",
+          "file": "accessory-warehouse-sources-IP8t33SW.js",
+          "line": 0,
+          "column": 8272,
+          "excerpt": "function V(){var t,r;if(y)throw new Error(y);try{const o=E(),i=F({projections:N(o),orders:C,tasks:k(),factories:R(),assignments:P(),savedPreparations:g(\"preparation\")});S=i.issues;const p=g(\"migration\");if(g(\"migration\").some(c=>c.id===\"legacy-preparation-v1\"&&[\"COMPLETE\",\"RESTORED\"].includes(c.phase||\"\")))for(const c of U((o==null?void 0:o.getItem(T))||null,i.preparations,p))S.push({code:\"LEGACY_CONFLICT\",preparationId:c.preparationId,message:\"迁移后原配料资料又出现本范围记录，可能仍有旧页面写入。新旧资料均已保留；停止旧页面操作并核对冲突前，不能继续办理。\",blocking:!0});for(const c of p.filter(u=>{var s;retu"
+        },
+        {
+          "fn": "W",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 2094,
+          "excerpt": "chive\"),W=e=>b().find(o=>o.productionOrderId===e||o.productionOrderNo===e),Ne=e=>V(new Set([e])).has(e);function Se(e){return e.kind===\"SITE_TO_POST\"&&e.toWarehouse===ge&&e.status!==\"已作废\"&&(!e.legacyPostBatchId||Q().some(o=>o.id===e.legacyPostBatchId&&o.phase===\"COMPLETE\"))}function E(){return j().filter(Se).map(e=>(I(Z(e.lines,\"SEWING\").postLines.length===e.lines.length,\"后道调拨明细包含不属于本次后道范围的物料，需核对原单。\"),e))}function I(e,o){if(!e)throw new Error(o)}function _(e,o=b().find(c=>c.id===e.preparationId)){const c=j().filter(s=>s.kind===\"SITE_TO_POST\"&&s.preparati"
+        },
+        {
+          "fn": "readiness",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 9087,
+          "excerpt": "readiness:e=>{const o=W(e);if(!o)return;const c=E().filter(n=>n.productionOrderId===o.productionOrderId),s=c.filter(n=>!n.legacyPostBatchId);if(g.filter(n=>n.value.productionOrderNo===o.productionOrderNo||\"productionOrderId\"in n.value&&n.value.productionOrderId===o.productionOrderId).some(n=>!P().some(r=>r.sourceKey===n.key&&r.sourceFingerprint===n.fingerprint&&Q().some(a=>a.id===r.batchId&&a.phase===\"COMPLETE\"))))return{applicable:!0,status:\"申请调拨\",label:\"本单原后道辅料资料尚未归档核验，请先核对原资料\"};if(!s.length)return c.length?{applicable:!0,status:\"申请调拨\",label:\"原后道库存已承接，"
+        },
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 547,
+      "inclusiveMs": 18.075,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 23491,
+          "excerpt": "$.flatMap(e=>Nr(e.productionOrderId)).sort((e,t)=>e.orderId!==t.orderId?e.orderId.localeCompare(t.orderId):e.sortKey.localeCompare(t.sortKey))}function yd(){const e=Us().filter(o=>o.artifactType===\"DEMAND\"),t=Ot().filter(o=>o.defaultDocType===\"DEMAND\");return bs(e,ad(),t)}function zu(){return yd()}function $s(){const e=$.flatMap(o=>ld(o.productionOrderId)),t=Ot().filter(o=>o.defaultDocType===\"TASK\"&&o.stageCode===\"PROD\"&&![\"CUT_PANEL\",\"SEW\",\"BUTTONHOLE\",\"BUTTON_ATTACH\",\"IRON_PACK\"].includes(o.processCode));return bs(e,dd(),t)}function Ju(){return Us().fi"
+        },
+        {
+          "fn": "Us",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 23471,
+          "excerpt": "unction Us(){return $.flatMap(e=>Nr(e.productionOrderId)).sort((e,t)=>e.orderId!==t.orderId?e.orderId.localeCompare(t.orderId):e.sortKey.localeCompare(t.sortKey))}function yd(){const e=Us().filter(o=>o.artifactType===\"DEMAND\"),t=Ot().filter(o=>o.defaultDocType===\"DEMAND\");return bs(e,ad(),t)}function zu(){return yd()}function $s(){const e=$.flatMap(o=>ld(o.productionOrderId)),t=Ot().filter(o=>o.defaultDocType===\"TASK\"&&o.stageCode===\"PROD\"&&![\"CUT_PANEL\",\"SEW\",\"BUTTONHOLE\",\"BUTTON_ATTACH\",\"IRON_PACK\"].includes(o.processCode));return bs(e,dd(),t)}function"
+        },
+        {
+          "fn": "Ju",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 24024,
+          "excerpt": "unction Ju(){return Us().filter(e=>e.artifactType===\"PREPARATION_ORDER\")}function mo(e,t){return`FCS:${e}:v1:${t}`}function Kt(e){return mo(\"TASK\",e)}function Zu(e){return mo(\"WORK_ORDER\",e)}function Xu(e){return mo(\"HANDOVER_ORDER\",e)}function Od(e){return mo(\"HANDOVER_RECORD\",e)}const Jo=e=>String(e||\"\").trim(),_e=(e,t)=>Jo(e).toLocaleLowerCase()===Jo(t).toLocaleLowerCase(),rt=e=>e.sourcePatternPackageId||e.id,Ct=e=>[...new Set([e.id,e.patternFileId,rt(e)].filter(Boolean))],Zt=e=>!!e.craftCode&&(e.routeSourceKind===\"PIECE_CRAFT\"||e.targetObject===\"CUT_"
+        },
+        {
+          "fn": "wa",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 91120,
+          "excerpt": "unction wa(){const e=As().filter(Ad),t=new Map,r=new Map;e.forEach(s=>{const n=r.get(s.orderId)??[];n.push(s),r.set(s.orderId,n)}),r.forEach(s=>{s.sort((n,d)=>n.bomItemId.localeCompare(d.bomItemId)).forEach((n,d)=>{t.set(ur(n.orderId,n.bomItemId),d+1)})});const o=e.map(s=>{const n=ur(s.orderId,s.bomItemId),d=t.get(n);if(!d)throw new Error(`水溶加工单缺少稳定物料序号：${n}`);return hd(s,d)}),a=new Set;return o.forEach(s=>{if(a.has(s.waterOrderNo))throw new Error(`水溶加工单号冲突：${s.waterOrderNo}，请检查正式生产单与 BOM 来源`);a.add(s.waterOrderNo)}),o}function vd(e){return e.status===\"W"
+        },
+        {
+          "fn": "gd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 93446,
+          "excerpt": "unction gd(){if(dr&&G)return;if(!G){const o=bd();Rd(o),G=o;return}const e=G??new Map,t=new Map,r=new Map;e.forEach(o=>{if(o.handoverDemoSourceOrderId){t.set(o.generationKey,o);return}const a=ur(o.productionOrderId,o.bomItemId);if(r.has(a))throw new Error(`水溶加工单业务身份冲突：${a}，请检查历史加工单`);r.set(a,o)}),wa().forEach(o=>{const a=e.get(o.generationKey)??r.get(o.generationKey);if(!a){t.set(o.generationKey,o);return}if(vd(a)){t.set(o.generationKey,{...a,generationKey:o.generationKey,sourceArtifactId:o.sourceArtifactId,productionOrderId:o.productionOrderId,production"
+        },
+        {
+          "fn": "It",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 94296,
+          "excerpt": "unction It(){var t;gd();const e=ps();for(const r of G.values()){const o=ga(r.waterOrderId,r.qtyUnit,\"water\"),a=(r.materialReceipts??[]).filter(s=>!s.receiptId.startsWith(\"FRP-\"));r.inputQty===void 0&&![\"WAIT_MATERIAL\",\"WAIT_WATER_SOLUBLE\"].includes(r.status)&&(r.inputQty=a.reduce((s,n)=>s+n.qty,0)),r.materialReceipts=[...a,...o],r.status===\"WAIT_MATERIAL\"&&r.materialReceipts.some(s=>s.qty>0)&&(r.status=\"WAIT_WATER_SOLUBLE\");for(const s of e.filter(n=>n.workOrderNo===r.waterOrderNo)){const n=(t=r.handoverBatches)==null?void 0:t.find(c=>c.batchId===s.water"
+        },
+        {
+          "fn": "Qd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 96109,
+          "excerpt": "unction Qd(){return[...It().values()].map(e=>(Io(e),e)).sort((e,t)=>e.generationKey.localeCompare(t.generationKey)).map(le)}function Ld(e){const t=ee(e);return t&&Io(t),t?le(t):null}function Bd(e,t){const r=G==null?void 0:G.get(e.generationKey);if(!r||r.waterOrderId!==e.waterOrderId||r.taskId!==e.taskId||r.productionOrderId!==e.productionOrderId)throw new Error(\"水溶原单身份已变化，不能撤回到其他单据。\");G.set(e.generationKey,le(e)),t!==void 0&&_a(t)}function Le(e){const t=[...It().values()].find(r=>r.taskId===e);return t&&Io(t),t?le(t):null}function Wd(){return Qd().map((e"
+        },
+        {
+          "fn": "c",
+          "file": "water-soluble-relation-sources-BhwGTu6Z.js",
+          "line": 0,
+          "column": 144,
+          "excerpt": "function c(){return o().map(t=>({taskId:t.taskId,taskNo:t.taskNo,factoryId:t.factoryId||\"\",factoryName:t.factoryName||\"待分配染厂\",sourceArtifactIds:[t.sourceArtifactId],workOrderId:t.waterOrderId,workOrderNo:t.waterOrderNo,processType:\"WATER_SOLUBLE\",sourceType:\"PRODUCTION_ORDER\",sourceSnapshot:{sourceType:\"PRODUCTION_ORDER\",productionOrderId:t.productionOrderId,productionOrderNo:t.productionOrderNo,techPackVersionId:t.techPackVersionId,bomItemId:t.bomItemId},sourceProductionOrderId:t.productionOrderId,sourceProductionOrderNo:t.productionOrderNo,objectType:\""
+        },
+        {
+          "fn": "cc",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 199447,
+          "excerpt": "unction cc(e){const t=e&&!e.has(\"PRINT\")?xs():void 0,r=e&&!e.has(\"DYE\")?Za():void 0,o=(t&&!t.needsRestoration?t.orders:js()).map(n=>({taskId:n.taskId,taskNo:n.taskNo,factoryId:n.printFactoryId,factoryName:n.printFactoryName,sourceArtifactIds:n.sourceArtifactIds?[...n.sourceArtifactIds]:void 0,workOrderId:n.printOrderId,workOrderNo:n.printOrderNo,processType:\"PRINT\",sourceType:n.sourceType,sourceSnapshot:n.sourceSnapshot||lr(n),sourceProductionOrderId:n.sourceProductionOrderId,sourceProductionOrderNo:n.sourceProductionOrderNo,objectType:n.objectType,mater"
+        },
+        {
+          "fn": "u",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38786,
+          "excerpt": "new Map,u=d=>{let i=s.get(d);return i||(i=dr(new Set([d])),s.set(d,i)),i};let n;return[...G.filter(d=>!o||o.has(d.productionOrderId)),...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 41704,
+          "excerpt": "e.flatMap(O=>u(O.processCode).filter(L=>{var J,Y;const x=L.sourceSnapshot;return L.sourceType===\"PRODUCTION_ORDER\"&&L.processType===O.processCode&&x.productionOrderId===d.productionOrderId&&x.techPackVersionId===i.sourceTechPackVersionId&&(x.bomItemId===m.id||((J=x.bomItemIds)==null?void 0:J.includes(m.id)))&&(x.processEntryId===O.sourceEntryId||((Y=L.sourceArtifactIds)==null?void 0:Y.includes(O.artifactId)))}).map(L=>({taskId:L.taskId,taskNo:L.taskNo||L.workOrderNo,taskName:`${L.processType===\"PRINT\"?\"印花\":L.processType===\"DYE\"?\"染色\":\"水溶\"}加工单 ${L.workOrde"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 39127,
+          "excerpt": "\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.round(S*m.unitConsumption*(1+m.lossRate)*1e6)/1e6:0,Q=[N?\"\":\"冻结BOM缺少物料编码\",R?\"\":\"冻结BOM缺少数量单位\",T?\"\":\"冻结BOM单耗、损耗或需求数量无效\"].filter(Boolean),E=m.type===\"包装材料\"?\"包材\":m.type===\"面料\"||m.type===\"辅料\"||m.type===\"纱线\"?m.type:\"其"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38919,
+          "excerpt": ",...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.rou"
+        },
+        {
+          "fn": "de",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38125,
+          "excerpt": "unction de(e=[],o){const p=new Set(G.map(d=>d.productionOrderId)),a=te.filter(d=>!p.has(d.productionOrderId)&&d.techPackSnapshot&&(!o||o.has(d.productionOrderId))),r=Er.filter(d=>d.sourceId.trim()&&d.sourceDescription.trim()&&d.materialSku.trim()&&d.unit.trim()&&d.warehouseArea.trim()&&d.locationCode.trim()&&Number.isFinite(d.quantity)&&d.quantity>=0).map(d=>({...d})),t=new Map;for(const d of e.filter(i=>i.recordStatus!==\"REJECTED\"))for(const i of w(d)){if(!i.sourceMaterialSku||!i.sourceUnit||!i.stockWarehouseName)continue;const k=JSON.stringify([i.sourc"
+        },
+        {
+          "fn": "H",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 92393,
+          "excerpt": "function H(e=M(),o={}){const p=$(e),a=de(p.prepRecords,o.productionOrderIds),r=JSON.stringify(a);if((ee==null?void 0:ee.storage)===e&&ee.sourceFingerprint===r)return ee.rows;const t=Vr(e),c=z([...p.pickupRecords,...t],y=>y.prepOrderId),s=z(p.pickupSessions,y=>y.prepOrderId),u=z(p.pickupReturnRecords,y=>y.prepOrderId),n=z(p.prepRecords,y=>y.prepOrderId),d=z(p.rejectRecords,y=>y.prepOrderId),i=z(p.stagingRecords,y=>y.prepOrderId),k=lt(),I=Ue(\"中转仓配料完成通知\",e),A=new Map;I.forEach(y=>{const m=y.payload&&typeof y.payload==\"object\"?y.payload.prepOrderId:\"\";typeof"
+        },
+        {
+          "fn": "V",
+          "file": "accessory-warehouse-sources-IP8t33SW.js",
+          "line": 0,
+          "column": 8272,
+          "excerpt": "function V(){var t,r;if(y)throw new Error(y);try{const o=E(),i=F({projections:N(o),orders:C,tasks:k(),factories:R(),assignments:P(),savedPreparations:g(\"preparation\")});S=i.issues;const p=g(\"migration\");if(g(\"migration\").some(c=>c.id===\"legacy-preparation-v1\"&&[\"COMPLETE\",\"RESTORED\"].includes(c.phase||\"\")))for(const c of U((o==null?void 0:o.getItem(T))||null,i.preparations,p))S.push({code:\"LEGACY_CONFLICT\",preparationId:c.preparationId,message:\"迁移后原配料资料又出现本范围记录，可能仍有旧页面写入。新旧资料均已保留；停止旧页面操作并核对冲突前，不能继续办理。\",blocking:!0});for(const c of p.filter(u=>{var s;retu"
+        },
+        {
+          "fn": "W",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 2094,
+          "excerpt": "chive\"),W=e=>b().find(o=>o.productionOrderId===e||o.productionOrderNo===e),Ne=e=>V(new Set([e])).has(e);function Se(e){return e.kind===\"SITE_TO_POST\"&&e.toWarehouse===ge&&e.status!==\"已作废\"&&(!e.legacyPostBatchId||Q().some(o=>o.id===e.legacyPostBatchId&&o.phase===\"COMPLETE\"))}function E(){return j().filter(Se).map(e=>(I(Z(e.lines,\"SEWING\").postLines.length===e.lines.length,\"后道调拨明细包含不属于本次后道范围的物料，需核对原单。\"),e))}function I(e,o){if(!e)throw new Error(o)}function _(e,o=b().find(c=>c.id===e.preparationId)){const c=j().filter(s=>s.kind===\"SITE_TO_POST\"&&s.preparati"
+        },
+        {
+          "fn": "readiness",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 9087,
+          "excerpt": "readiness:e=>{const o=W(e);if(!o)return;const c=E().filter(n=>n.productionOrderId===o.productionOrderId),s=c.filter(n=>!n.legacyPostBatchId);if(g.filter(n=>n.value.productionOrderNo===o.productionOrderNo||\"productionOrderId\"in n.value&&n.value.productionOrderId===o.productionOrderId).some(n=>!P().some(r=>r.sourceKey===n.key&&r.sourceFingerprint===n.fingerprint&&Q().some(a=>a.id===r.batchId&&a.phase===\"COMPLETE\"))))return{applicable:!0,status:\"申请调拨\",label:\"本单原后道辅料资料尚未归档核验，请先核对原资料\"};if(!s.length)return c.length?{applicable:!0,status:\"申请调拨\",label:\"原后道库存已承接，"
+        },
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 548,
+      "inclusiveMs": 18.075,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "Nr",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 22796,
+          "excerpt": "unction Nr(e){const t=$.find(n=>n.productionOrderId===e),o=yt(e);if(!t||!o||!o.sourceTechPackVersionId)return[];const r=o.sourceTechPackVersionId,s=fd(e);if(!s.length)return[];const d=[],c=[];return s.forEach((n,i)=>{var u;if(n.processCode===\"WASH\"||n.processCode===\"craft-wash\")return;const a=Ms(e,n,i);if(a.techPackId=r,a.stageCode===\"PREP\"){const I=Id({order:t,snapshot:o,entry:n,entryIndex:i});I.length>0||(((u=n.linkedBomItemIds)==null?void 0:u.length)??0)>0?d.push(...I):d.push(Ws(a));return}pd(a)&&c.push(a)}),d.push(...c.map(n=>cd(n))),md(d).sort((n,i)"
+        },
+        {
+          "fn": "",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 23491,
+          "excerpt": "$.flatMap(e=>Nr(e.productionOrderId)).sort((e,t)=>e.orderId!==t.orderId?e.orderId.localeCompare(t.orderId):e.sortKey.localeCompare(t.sortKey))}function yd(){const e=Us().filter(o=>o.artifactType===\"DEMAND\"),t=Ot().filter(o=>o.defaultDocType===\"DEMAND\");return bs(e,ad(),t)}function zu(){return yd()}function $s(){const e=$.flatMap(o=>ld(o.productionOrderId)),t=Ot().filter(o=>o.defaultDocType===\"TASK\"&&o.stageCode===\"PROD\"&&![\"CUT_PANEL\",\"SEW\",\"BUTTONHOLE\",\"BUTTON_ATTACH\",\"IRON_PACK\"].includes(o.processCode));return bs(e,dd(),t)}function Ju(){return Us().fi"
+        },
+        {
+          "fn": "Us",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 23471,
+          "excerpt": "unction Us(){return $.flatMap(e=>Nr(e.productionOrderId)).sort((e,t)=>e.orderId!==t.orderId?e.orderId.localeCompare(t.orderId):e.sortKey.localeCompare(t.sortKey))}function yd(){const e=Us().filter(o=>o.artifactType===\"DEMAND\"),t=Ot().filter(o=>o.defaultDocType===\"DEMAND\");return bs(e,ad(),t)}function zu(){return yd()}function $s(){const e=$.flatMap(o=>ld(o.productionOrderId)),t=Ot().filter(o=>o.defaultDocType===\"TASK\"&&o.stageCode===\"PROD\"&&![\"CUT_PANEL\",\"SEW\",\"BUTTONHOLE\",\"BUTTON_ATTACH\",\"IRON_PACK\"].includes(o.processCode));return bs(e,dd(),t)}function"
+        },
+        {
+          "fn": "Ju",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 24024,
+          "excerpt": "unction Ju(){return Us().filter(e=>e.artifactType===\"PREPARATION_ORDER\")}function mo(e,t){return`FCS:${e}:v1:${t}`}function Kt(e){return mo(\"TASK\",e)}function Zu(e){return mo(\"WORK_ORDER\",e)}function Xu(e){return mo(\"HANDOVER_ORDER\",e)}function Od(e){return mo(\"HANDOVER_RECORD\",e)}const Jo=e=>String(e||\"\").trim(),_e=(e,t)=>Jo(e).toLocaleLowerCase()===Jo(t).toLocaleLowerCase(),rt=e=>e.sourcePatternPackageId||e.id,Ct=e=>[...new Set([e.id,e.patternFileId,rt(e)].filter(Boolean))],Zt=e=>!!e.craftCode&&(e.routeSourceKind===\"PIECE_CRAFT\"||e.targetObject===\"CUT_"
+        },
+        {
+          "fn": "wa",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 91120,
+          "excerpt": "unction wa(){const e=As().filter(Ad),t=new Map,r=new Map;e.forEach(s=>{const n=r.get(s.orderId)??[];n.push(s),r.set(s.orderId,n)}),r.forEach(s=>{s.sort((n,d)=>n.bomItemId.localeCompare(d.bomItemId)).forEach((n,d)=>{t.set(ur(n.orderId,n.bomItemId),d+1)})});const o=e.map(s=>{const n=ur(s.orderId,s.bomItemId),d=t.get(n);if(!d)throw new Error(`水溶加工单缺少稳定物料序号：${n}`);return hd(s,d)}),a=new Set;return o.forEach(s=>{if(a.has(s.waterOrderNo))throw new Error(`水溶加工单号冲突：${s.waterOrderNo}，请检查正式生产单与 BOM 来源`);a.add(s.waterOrderNo)}),o}function vd(e){return e.status===\"W"
+        },
+        {
+          "fn": "gd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 93446,
+          "excerpt": "unction gd(){if(dr&&G)return;if(!G){const o=bd();Rd(o),G=o;return}const e=G??new Map,t=new Map,r=new Map;e.forEach(o=>{if(o.handoverDemoSourceOrderId){t.set(o.generationKey,o);return}const a=ur(o.productionOrderId,o.bomItemId);if(r.has(a))throw new Error(`水溶加工单业务身份冲突：${a}，请检查历史加工单`);r.set(a,o)}),wa().forEach(o=>{const a=e.get(o.generationKey)??r.get(o.generationKey);if(!a){t.set(o.generationKey,o);return}if(vd(a)){t.set(o.generationKey,{...a,generationKey:o.generationKey,sourceArtifactId:o.sourceArtifactId,productionOrderId:o.productionOrderId,production"
+        },
+        {
+          "fn": "It",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 94296,
+          "excerpt": "unction It(){var t;gd();const e=ps();for(const r of G.values()){const o=ga(r.waterOrderId,r.qtyUnit,\"water\"),a=(r.materialReceipts??[]).filter(s=>!s.receiptId.startsWith(\"FRP-\"));r.inputQty===void 0&&![\"WAIT_MATERIAL\",\"WAIT_WATER_SOLUBLE\"].includes(r.status)&&(r.inputQty=a.reduce((s,n)=>s+n.qty,0)),r.materialReceipts=[...a,...o],r.status===\"WAIT_MATERIAL\"&&r.materialReceipts.some(s=>s.qty>0)&&(r.status=\"WAIT_WATER_SOLUBLE\");for(const s of e.filter(n=>n.workOrderNo===r.waterOrderNo)){const n=(t=r.handoverBatches)==null?void 0:t.find(c=>c.batchId===s.water"
+        },
+        {
+          "fn": "Qd",
+          "file": "pda-handover-events-CZFTG6W8.js",
+          "line": 1,
+          "column": 96109,
+          "excerpt": "unction Qd(){return[...It().values()].map(e=>(Io(e),e)).sort((e,t)=>e.generationKey.localeCompare(t.generationKey)).map(le)}function Ld(e){const t=ee(e);return t&&Io(t),t?le(t):null}function Bd(e,t){const r=G==null?void 0:G.get(e.generationKey);if(!r||r.waterOrderId!==e.waterOrderId||r.taskId!==e.taskId||r.productionOrderId!==e.productionOrderId)throw new Error(\"水溶原单身份已变化，不能撤回到其他单据。\");G.set(e.generationKey,le(e)),t!==void 0&&_a(t)}function Le(e){const t=[...It().values()].find(r=>r.taskId===e);return t&&Io(t),t?le(t):null}function Wd(){return Qd().map((e"
+        },
+        {
+          "fn": "c",
+          "file": "water-soluble-relation-sources-BhwGTu6Z.js",
+          "line": 0,
+          "column": 144,
+          "excerpt": "function c(){return o().map(t=>({taskId:t.taskId,taskNo:t.taskNo,factoryId:t.factoryId||\"\",factoryName:t.factoryName||\"待分配染厂\",sourceArtifactIds:[t.sourceArtifactId],workOrderId:t.waterOrderId,workOrderNo:t.waterOrderNo,processType:\"WATER_SOLUBLE\",sourceType:\"PRODUCTION_ORDER\",sourceSnapshot:{sourceType:\"PRODUCTION_ORDER\",productionOrderId:t.productionOrderId,productionOrderNo:t.productionOrderNo,techPackVersionId:t.techPackVersionId,bomItemId:t.bomItemId},sourceProductionOrderId:t.productionOrderId,sourceProductionOrderNo:t.productionOrderNo,objectType:\""
+        },
+        {
+          "fn": "cc",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 199447,
+          "excerpt": "unction cc(e){const t=e&&!e.has(\"PRINT\")?xs():void 0,r=e&&!e.has(\"DYE\")?Za():void 0,o=(t&&!t.needsRestoration?t.orders:js()).map(n=>({taskId:n.taskId,taskNo:n.taskNo,factoryId:n.printFactoryId,factoryName:n.printFactoryName,sourceArtifactIds:n.sourceArtifactIds?[...n.sourceArtifactIds]:void 0,workOrderId:n.printOrderId,workOrderNo:n.printOrderNo,processType:\"PRINT\",sourceType:n.sourceType,sourceSnapshot:n.sourceSnapshot||lr(n),sourceProductionOrderId:n.sourceProductionOrderId,sourceProductionOrderNo:n.sourceProductionOrderNo,objectType:n.objectType,mater"
+        },
+        {
+          "fn": "u",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38786,
+          "excerpt": "new Map,u=d=>{let i=s.get(d);return i||(i=dr(new Set([d])),s.set(d,i)),i};let n;return[...G.filter(d=>!o||o.has(d.productionOrderId)),...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 41704,
+          "excerpt": "e.flatMap(O=>u(O.processCode).filter(L=>{var J,Y;const x=L.sourceSnapshot;return L.sourceType===\"PRODUCTION_ORDER\"&&L.processType===O.processCode&&x.productionOrderId===d.productionOrderId&&x.techPackVersionId===i.sourceTechPackVersionId&&(x.bomItemId===m.id||((J=x.bomItemIds)==null?void 0:J.includes(m.id)))&&(x.processEntryId===O.sourceEntryId||((Y=L.sourceArtifactIds)==null?void 0:Y.includes(O.artifactId)))}).map(L=>({taskId:L.taskId,taskNo:L.taskNo||L.workOrderNo,taskName:`${L.processType===\"PRINT\"?\"印花\":L.processType===\"DYE\"?\"染色\":\"水溶\"}加工单 ${L.workOrde"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 39127,
+          "excerpt": "\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.round(S*m.unitConsumption*(1+m.lossRate)*1e6)/1e6:0,Q=[N?\"\":\"冻结BOM缺少物料编码\",R?\"\":\"冻结BOM缺少数量单位\",T?\"\":\"冻结BOM单耗、损耗或需求数量无效\"].filter(Boolean),E=m.type===\"包装材料\"?\"包材\":m.type===\"面料\"||m.type===\"辅料\"||m.type===\"纱线\"?m.type:\"其"
+        },
+        {
+          "fn": "",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38919,
+          "excerpt": ",...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.rou"
+        },
+        {
+          "fn": "de",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 38125,
+          "excerpt": "unction de(e=[],o){const p=new Set(G.map(d=>d.productionOrderId)),a=te.filter(d=>!p.has(d.productionOrderId)&&d.techPackSnapshot&&(!o||o.has(d.productionOrderId))),r=Er.filter(d=>d.sourceId.trim()&&d.sourceDescription.trim()&&d.materialSku.trim()&&d.unit.trim()&&d.warehouseArea.trim()&&d.locationCode.trim()&&Number.isFinite(d.quantity)&&d.quantity>=0).map(d=>({...d})),t=new Map;for(const d of e.filter(i=>i.recordStatus!==\"REJECTED\"))for(const i of w(d)){if(!i.sourceMaterialSku||!i.sourceUnit||!i.stockWarehouseName)continue;const k=JSON.stringify([i.sourc"
+        },
+        {
+          "fn": "H",
+          "file": "production-material-prep-BGIQLXCu.js",
+          "line": 0,
+          "column": 92393,
+          "excerpt": "function H(e=M(),o={}){const p=$(e),a=de(p.prepRecords,o.productionOrderIds),r=JSON.stringify(a);if((ee==null?void 0:ee.storage)===e&&ee.sourceFingerprint===r)return ee.rows;const t=Vr(e),c=z([...p.pickupRecords,...t],y=>y.prepOrderId),s=z(p.pickupSessions,y=>y.prepOrderId),u=z(p.pickupReturnRecords,y=>y.prepOrderId),n=z(p.prepRecords,y=>y.prepOrderId),d=z(p.rejectRecords,y=>y.prepOrderId),i=z(p.stagingRecords,y=>y.prepOrderId),k=lt(),I=Ue(\"中转仓配料完成通知\",e),A=new Map;I.forEach(y=>{const m=y.payload&&typeof y.payload==\"object\"?y.payload.prepOrderId:\"\";typeof"
+        },
+        {
+          "fn": "V",
+          "file": "accessory-warehouse-sources-IP8t33SW.js",
+          "line": 0,
+          "column": 8272,
+          "excerpt": "function V(){var t,r;if(y)throw new Error(y);try{const o=E(),i=F({projections:N(o),orders:C,tasks:k(),factories:R(),assignments:P(),savedPreparations:g(\"preparation\")});S=i.issues;const p=g(\"migration\");if(g(\"migration\").some(c=>c.id===\"legacy-preparation-v1\"&&[\"COMPLETE\",\"RESTORED\"].includes(c.phase||\"\")))for(const c of U((o==null?void 0:o.getItem(T))||null,i.preparations,p))S.push({code:\"LEGACY_CONFLICT\",preparationId:c.preparationId,message:\"迁移后原配料资料又出现本范围记录，可能仍有旧页面写入。新旧资料均已保留；停止旧页面操作并核对冲突前，不能继续办理。\",blocking:!0});for(const c of p.filter(u=>{var s;retu"
+        },
+        {
+          "fn": "W",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 2094,
+          "excerpt": "chive\"),W=e=>b().find(o=>o.productionOrderId===e||o.productionOrderNo===e),Ne=e=>V(new Set([e])).has(e);function Se(e){return e.kind===\"SITE_TO_POST\"&&e.toWarehouse===ge&&e.status!==\"已作废\"&&(!e.legacyPostBatchId||Q().some(o=>o.id===e.legacyPostBatchId&&o.phase===\"COMPLETE\"))}function E(){return j().filter(Se).map(e=>(I(Z(e.lines,\"SEWING\").postLines.length===e.lines.length,\"后道调拨明细包含不属于本次后道范围的物料，需核对原单。\"),e))}function I(e,o){if(!e)throw new Error(o)}function _(e,o=b().find(c=>c.id===e.preparationId)){const c=j().filter(s=>s.kind===\"SITE_TO_POST\"&&s.preparati"
+        },
+        {
+          "fn": "readiness",
+          "file": "accessory-warehouse-post-finishing-Bjfjqq4H.js",
+          "line": 0,
+          "column": 9087,
+          "excerpt": "readiness:e=>{const o=W(e);if(!o)return;const c=E().filter(n=>n.productionOrderId===o.productionOrderId),s=c.filter(n=>!n.legacyPostBatchId);if(g.filter(n=>n.value.productionOrderNo===o.productionOrderNo||\"productionOrderId\"in n.value&&n.value.productionOrderId===o.productionOrderId).some(n=>!P().some(r=>r.sourceKey===n.key&&r.sourceFingerprint===n.fingerprint&&Q().some(a=>a.id===r.batchId&&a.phase===\"COMPLETE\"))))return{applicable:!0,status:\"申请调拨\",label:\"本单原后道辅料资料尚未归档核验，请先核对原资料\"};if(!s.length)return c.length?{applicable:!0,status:\"申请调拨\",label:\"原后道库存已承接，"
+        },
+        {
+          "fn": "Po",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 45224,
+          "excerpt": "unction Po(e){const t=C==null?void 0:C.readiness(e);if(t)return t;const r=Y.find(n=>n.productionOrderNo===e),o=tt().find(n=>n.productionOrderNo===e),s=m.qcTasks.some(n=>{var c;return n.productionOrderNo===e&&!!n.completedAt&&((c=n.frozenProcessItems)==null?void 0:c.includes(\"装扣子\"))});if(!o&&!s&&(!r||r.sewingTaskType!==\"INDEPENDENT_SEWING\"))return{applicable:!1,status:\"不适用\",label:\"当前没有已确认的装扣子项目，无需后道扣子调拨\"};if(!o)return{applicable:!0,status:\"申请调拨\",label:\"后道辅料尚未形成调拨单\"};const a={申请调拨:\"后道辅料尚未备妥，请关注调拨进度\",待调拨:\"后道辅料尚未备妥，请关注调拨进度\",待入库:\"后道辅料已由辅料仓备妥，请领料并完成入库\",已入库:\"后道"
+        },
+        {
+          "fn": "",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13912,
+          "excerpt": "\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter(n=>n.productionOrderNo===s.productionOrderNo),ee=g.some(n=>{var p;return(p=n.receipts)==null?void 0:p.length}),te=g.length>0&&g.every(n=>n.delivery&&xe(n.delivery.deliveryId)),W=g.map(n=>n.outboundOrder).filter(n=>(n==null?void 0:n.sourceType)===\"质检直达\"),se=F.some(n=>n.status===\"待交出\")||W.some(n=>(n==null?void 0:n.status)===\"待仓库接收\"),re=te?\"已出库\":ee?\"部分已出库\":se?\"待出库\":\"未出库\";return{orde"
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 244,
+      "inclusiveMs": 16.851,
+      "selfMs": 2.997,
+      "frames": [
+        {
+          "fn": "c",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "c",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "M",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 294,
+      "inclusiveMs": 16.487,
+      "selfMs": 1.494,
+      "frames": [
+        {
+          "fn": "k",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 633,
+          "excerpt": "function k(){return me().map(e=>({productionOrderId:e.productionOrderId,productionOrderNo:e.productionOrderNo,styleNo:e.styleNo,styleName:e.styleName,managedPostFactoryName:e.managedPostFactoryName,skus:e.skus,sourceTypes:[...new Set(e.sourceTasks.map(t=>t.taskType))],sourceTaskNos:e.sourceTaskNos,sewingTaskNo:e.sourceTaskNos.join(\"、\"),plannedGarmentQty:e.plannedGarmentQty,techPackVersionLabel:e.techPackVersionLabel,saleType:e.saleType,sourceKinds:[...new Set(e.sourceTasks.map(t=>t.sourceKind||\"UNKNOWN\"))]}))}function S(e){return{INDEPENDENT_SEWING:\"仅车缝\""
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 295,
+      "inclusiveMs": 14.993,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "fr",
+          "file": "post-finishing-full-flow-CMr6I3rx.js",
+          "line": 0,
+          "column": 132155,
+          "excerpt": "unction fr(e){const t=Et({productionOrders:te,runtimeTasks:pt(),woolStore:Nt(),specialCraftTaskOrders:kt()}),r=[...Y,...t].filter(d=>!e||e.has(d.productionOrderId)),o=fe(e),s=e?new Set([...r.map(d=>d.productionOrderNo),...o.map(d=>d.productionOrderNo)]):void 0,a=Zt(s),n={deliveries:o,qcTasks:ne(s),postTasks:Yt(s),...a},c=new Map;return r.forEach(d=>{const l=c.get(d.productionOrderId);c.set(d.productionOrderId,{productionOrderId:d.productionOrderId,productionOrderNo:d.productionOrderNo,styleNo:d.styleNo,styleName:d.styleName,skus:[...new Map([...(l==null?"
+        },
+        {
+          "fn": "k",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 633,
+          "excerpt": "function k(){return me().map(e=>({productionOrderId:e.productionOrderId,productionOrderNo:e.productionOrderNo,styleNo:e.styleNo,styleName:e.styleName,managedPostFactoryName:e.managedPostFactoryName,skus:e.skus,sourceTypes:[...new Set(e.sourceTasks.map(t=>t.taskType))],sourceTaskNos:e.sourceTaskNos,sewingTaskNo:e.sourceTaskNos.join(\"、\"),plannedGarmentQty:e.plannedGarmentQty,techPackVersionLabel:e.techPackVersionLabel,saleType:e.saleType,sourceKinds:[...new Set(e.sourceTasks.map(t=>t.sourceKind||\"UNKNOWN\"))]}))}function S(e){return{INDEPENDENT_SEWING:\"仅车缝\""
+        },
+        {
+          "fn": "Ce",
+          "file": "tasks-BBNdcd9D.js",
+          "line": 1,
+          "column": 13530,
+          "excerpt": "unction Ce(){var A;const e=C(),t=k(),a=e.get(\"taskId\")||\"\",i=K(),d=U(),f=ge(),x=fe(),y=z(),l=((A=e.get(\"keyword\"))==null?void 0:A.trim().toLowerCase())||\"\",b=e.get(\"outboundStatus\")||\"\",o=e.get(\"source\")||\"\",u=o===\"SEWING_TO_IRON_PACK\"?\"SEWING_IRON_PACK\":o===\"CUTTING_TO_IRON_PACK\"?\"CUTTING_SEWING_IRON_PACK\":o,v=e.get(\"assignment\")||\"\",h=e.get(\"factory\")||\"\",I=e.get(\"saleType\")||\"\",D=t.map(s=>{const c=i.filter(n=>n.productionOrderNo===s.productionOrderNo),m=d.filter(n=>n.productionOrderNo===s.productionOrderNo),g=c.map(n=>q(n.deliveryOrderNo)),F=x.filter("
+        },
+        {
+          "fn": "",
+          "file": "route-renderers-fcs-CrbmRhFm.js",
+          "line": 1,
+          "column": 428,
+          "excerpt": "ll;return async(...s)=>{if(/Printing|Dyeing|ProductionOrderDetail|WaitProcess|WaitHandover/.test(i)){await e(()=>import(\"./fabric-washing-BqjNnoyK.js\"),__vite__mapDeps([30,31,32,26,10,11,2,3,9,6,4,1,7,12,13,14,15,16,33,34,35,36,24,37,29]));try{await(await e(async()=>{const{ensureWashingRecords:t}=await import(\"./fabric-washing-repository-BIC2YFlX.js\").then(o=>o.s);return{ensureWashingRecords:t}},__vite__mapDeps([37,1,2,3,11,13,4,29]))).ensureWashingRecords()}catch(t){return'<p class=\"p-4 text-red-700\" role=\"alert\">'+(await e(async()=>{const{escapeHtml:o}"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 245,
+      "inclusiveMs": 13.854,
+      "selfMs": 6.02,
+      "frames": [
+        {
+          "fn": "c",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "c",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "c",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "M",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 155,
+      "inclusiveMs": 13.479,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 34883,
+          "excerpt": "t=Ge.then(async()=>{if(!e.length||e.some(r=>r.startsWith(\"higood-pcs-fcs-\")||r===\"higood-fcs-wool-stage-store-v3\")){await o,I??(I=await ye(()=>import(\"./design-revision-pcs-storage-BjfzS8H8.js\").then(s=>s.t),[]));for(const s of I.PCS_FCS_COLLECTIONS)Se.add(s),_.has(s)||_.set(s,\"[]\");let r=k,c=new Set(k.filter(s=>!s.deleted).map(s=>s.id));I.configureDesignRevisionPcsStorage({getItem:s=>Le.getItem(s),getBaselineItem:s=>_.get(s)??null,isPersistedRow(s,a){return r!==k&&(r=k,c=new Set(k.filter(f=>!f.deleted).map(f=>f.id))),c.has(`${s}/items/${encodeURICompone"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 156,
+      "inclusiveMs": 11.988,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "js",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 80139,
+          "excerpt": "unction js(){if(ss)return;const e=ws(Co());Qa(()=>{ja(()=>Fd(e)),We(e),Dt.setItem(xe,JSON.stringify(e))}),ss=!0}function $d(e){if(!e||typeof e!=\"object\"||Array.isArray(e))return!1;const t=e;return!!(t.workOrders&&typeof t.workOrders==\"object\"&&!Array.isArray(t.workOrders)&&_r.every(o=>Array.isArray(t[o])))}function Kd(e,t){if(!Array.isArray(e[t]))throw new Error(`毛织存储校验失败：${t} 必须是数组`)}function U(e,t,o){const r=new Set;for(const s of e){const d=t(s);if(!d)throw new Error(`毛织存储校验失败：${o} ID 不能为空`);if(r.has(d))throw new Error(`毛织存储校验失败：${o}存在重复 ID ${d}`);r.a"
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 34883,
+          "excerpt": "t=Ge.then(async()=>{if(!e.length||e.some(r=>r.startsWith(\"higood-pcs-fcs-\")||r===\"higood-fcs-wool-stage-store-v3\")){await o,I??(I=await ye(()=>import(\"./design-revision-pcs-storage-BjfzS8H8.js\").then(s=>s.t),[]));for(const s of I.PCS_FCS_COLLECTIONS)Se.add(s),_.has(s)||_.set(s,\"[]\");let r=k,c=new Set(k.filter(s=>!s.deleted).map(s=>s.id));I.configureDesignRevisionPcsStorage({getItem:s=>Le.getItem(s),getBaselineItem:s=>_.get(s)??null,isPersistedRow(s,a){return r!==k&&(r=k,c=new Set(k.filter(f=>!f.deleted).map(f=>f.id))),c.has(`${s}/items/${encodeURICompone"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 124,
+      "inclusiveMs": 10.483,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 0,
+          "excerpt": "import{l as co,a as lr,g as qr,b as Ir,c as xt,r as nt,i as ea,d as ta,p as oa,s as ra,e as _o,f as sa,h as na,j as Ho,k as aa}from\"./factory-receiving-CSiG2Hp3.js\";import{p as $,g as yt,a as da,i as ca,b as ia,c as hs,R as ua,d as bo,r as He,m as gs,s as la,w as Ia,e as pa}from\"./production-orders-CZH0DeUS.js\";import{S as pr,U as Ot,V as io,g as fa,W as uo,X as fr,Y as lo,n as ws,t as Hr,K as ma,O as jr,p as ya,Z as mr,_ as Oa,T as jo,o as Yo,s as Sa,f as Ea,j as Ta,v as Aa}from\"./app-shared-_ZQpMwKQ.js\";import{r as Ra,f as Yr,S as Ca}from\"./t"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 125,
+      "inclusiveMs": 10.483,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "$c",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 141985,
+          "excerpt": "unction $c(){const e=rn();return e.length?e.concat(Ec($.find(t=>t.productionOrderId===\"PO-202603-0002\"),ia(\"PO-202603-0002\"))):[]}const q=$c();function jt(e,t){const o=t.trim().toUpperCase(),r=q.filter(d=>d.productionOrderId===e&&(d.processBusinessCode||d.processCode).trim().toUpperCase()===o);if(r.length!==1)return null;const s=r[0];return{baseTaskId:s.taskId,runtimeTaskId:`${s.taskId}__ORDER`,taskNo:s.taskNo||s.taskId}}const ps=new Map;function Kc(e){return Zs(e).taskId}function Gc(e){var i,a;const t=((i=e.sourceEntryId)==null?void 0:i.trim())||\"\",o=(("
+        },
+        {
+          "fn": "",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 0,
+          "excerpt": "import{l as co,a as lr,g as qr,b as Ir,c as xt,r as nt,i as ea,d as ta,p as oa,s as ra,e as _o,f as sa,h as na,j as Ho,k as aa}from\"./factory-receiving-CSiG2Hp3.js\";import{p as $,g as yt,a as da,i as ca,b as ia,c as hs,R as ua,d as bo,r as He,m as gs,s as la,w as Ia,e as pa}from\"./production-orders-CZH0DeUS.js\";import{S as pr,U as Ot,V as io,g as fa,W as uo,X as fr,Y as lo,n as ws,t as Hr,K as ma,O as jr,p as ya,Z as mr,_ as Oa,T as jo,o as Yo,s as Sa,f as Ea,j as Ta,v as Aa}from\"./app-shared-_ZQpMwKQ.js\";import{r as Ra,f as Yr,S as Ca}from\"./t"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 126,
+      "inclusiveMs": 10.483,
+      "selfMs": 1.489,
+      "frames": [
+        {
+          "fn": "rn",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 137856,
+          "excerpt": "unction rn(e=new Set,t){const o=$s();if(!o.length)return[];const r=[],s=new Map;for(const d of o){const c=$.find(i=>i.productionOrderId===d.orderId);if(!c||!Cc(d.orderId)&&!Pt(c)&&!e.has(d.orderId))continue;const n=s.get(d.orderId)??[];n.push(d),s.set(d.orderId,n)}for(const[d,c]of s.entries()){const n=$.find(f=>f.productionOrderId===d);if(!n)continue;if(Pt(n)){r.push(Wr(n,n.createdAt,\"系统\",c));continue}const i=Fc(d,c,[]),a=[];i.forEach(({artifact:f,unitSourceArtifacts:p,taskId:y,seq:m})=>{const O=bc(f),S=en(y,p),E=Math.max(f.orderQty,0),A=f.processCode==="
+        },
+        {
+          "fn": "$c",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 141985,
+          "excerpt": "unction $c(){const e=rn();return e.length?e.concat(Ec($.find(t=>t.productionOrderId===\"PO-202603-0002\"),ia(\"PO-202603-0002\"))):[]}const q=$c();function jt(e,t){const o=t.trim().toUpperCase(),r=q.filter(d=>d.productionOrderId===e&&(d.processBusinessCode||d.processCode).trim().toUpperCase()===o);if(r.length!==1)return null;const s=r[0];return{baseTaskId:s.taskId,runtimeTaskId:`${s.taskId}__ORDER`,taskNo:s.taskNo||s.taskId}}const ps=new Map;function Kc(e){return Zs(e).taskId}function Gc(e){var i,a;const t=((i=e.sourceEntryId)==null?void 0:i.trim())||\"\",o=(("
+        },
+        {
+          "fn": "",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 0,
+          "excerpt": "import{l as co,a as lr,g as qr,b as Ir,c as xt,r as nt,i as ea,d as ta,p as oa,s as ra,e as _o,f as sa,h as na,j as Ho,k as aa}from\"./factory-receiving-CSiG2Hp3.js\";import{p as $,g as yt,a as da,i as ca,b as ia,c as hs,R as ua,d as bo,r as He,m as gs,s as la,w as Ia,e as pa}from\"./production-orders-CZH0DeUS.js\";import{S as pr,U as Ot,V as io,g as fa,W as uo,X as fr,Y as lo,n as ws,t as Hr,K as ma,O as jr,p as ya,Z as mr,_ as Oa,T as jo,o as Yo,s as Sa,f as Ea,j as Ta,v as Aa}from\"./app-shared-_ZQpMwKQ.js\";import{r as Ra,f as Yr,S as Ca}from\"./t"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 163,
+      "inclusiveMs": 10.125,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "io",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 22098,
+          "excerpt": "unction io(e){Q++;try{return e()}finally{Q--}}function ze(e,o=crypto.randomUUID()){if(C.has(o)&&C.get(o)!==e)throw new Error(\"附件编号已存在；替换文件请使用新编号，不能覆盖原文件。\");C.set(o,e);let t=be.get(o);return t||(t=URL.createObjectURL(e),be.set(o,t),Oe.set(t,o)),{fileId:o,url:t}}function ao(e){const o=Oe.get(e);if(o)return`pcs-file:${o}`;if(e.startsWith(\"blob:\")||e.startsWith(\"data:\"))throw new Error(\"图片尚未登记为可复用文件，请重新保存图片后导出。\");if(e.startsWith(\"pcs-file:\")&&!C.has(e.slice(9)))throw new Error(\"引用的图片文件不存在，请重新选择图片。\");return e}function co(e){if(e.startsWith(\"blob:\")||e.startsW"
+        },
+        {
+          "fn": "js",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 80139,
+          "excerpt": "unction js(){if(ss)return;const e=ws(Co());Qa(()=>{ja(()=>Fd(e)),We(e),Dt.setItem(xe,JSON.stringify(e))}),ss=!0}function $d(e){if(!e||typeof e!=\"object\"||Array.isArray(e))return!1;const t=e;return!!(t.workOrders&&typeof t.workOrders==\"object\"&&!Array.isArray(t.workOrders)&&_r.every(o=>Array.isArray(t[o])))}function Kd(e,t){if(!Array.isArray(e[t]))throw new Error(`毛织存储校验失败：${t} 必须是数组`)}function U(e,t,o){const r=new Set;for(const s of e){const d=t(s);if(!d)throw new Error(`毛织存储校验失败：${o} ID 不能为空`);if(r.has(d))throw new Error(`毛织存储校验失败：${o}存在重复 ID ${d}`);r.a"
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 34883,
+          "excerpt": "t=Ge.then(async()=>{if(!e.length||e.some(r=>r.startsWith(\"higood-pcs-fcs-\")||r===\"higood-fcs-wool-stage-store-v3\")){await o,I??(I=await ye(()=>import(\"./design-revision-pcs-storage-BjfzS8H8.js\").then(s=>s.t),[]));for(const s of I.PCS_FCS_COLLECTIONS)Se.add(s),_.has(s)||_.set(s,\"[]\");let r=k,c=new Set(k.filter(s=>!s.deleted).map(s=>s.id));I.configureDesignRevisionPcsStorage({getItem:s=>Le.getItem(s),getBaselineItem:s=>_.get(s)??null,isPersistedRow(s,a){return r!==k&&(r=k,c=new Set(k.filter(f=>!f.deleted).map(f=>f.id))),c.has(`${s}/items/${encodeURICompone"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 164,
+      "inclusiveMs": 10.125,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 80175,
+          "excerpt": "(Co());Qa(()=>{ja(()=>Fd(e)),We(e),Dt.setItem(xe,JSON.stringify(e))}),ss=!0}function $d(e){if(!e||typeof e!=\"object\"||Array.isArray(e))return!1;const t=e;return!!(t.workOrders&&typeof t.workOrders==\"object\"&&!Array.isArray(t.workOrders)&&_r.every(o=>Array.isArray(t[o])))}function Kd(e,t){if(!Array.isArray(e[t]))throw new Error(`毛织存储校验失败：${t} 必须是数组`)}function U(e,t,o){const r=new Set;for(const s of e){const d=t(s);if(!d)throw new Error(`毛织存储校验失败：${o} ID 不能为空`);if(r.has(d))throw new Error(`毛织存储校验失败：${o}存在重复 ID ${d}`);r.add(d)}}const Gd=new Set([\"WOOL_YARN_"
+        },
+        {
+          "fn": "io",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 22098,
+          "excerpt": "unction io(e){Q++;try{return e()}finally{Q--}}function ze(e,o=crypto.randomUUID()){if(C.has(o)&&C.get(o)!==e)throw new Error(\"附件编号已存在；替换文件请使用新编号，不能覆盖原文件。\");C.set(o,e);let t=be.get(o);return t||(t=URL.createObjectURL(e),be.set(o,t),Oe.set(t,o)),{fileId:o,url:t}}function ao(e){const o=Oe.get(e);if(o)return`pcs-file:${o}`;if(e.startsWith(\"blob:\")||e.startsWith(\"data:\"))throw new Error(\"图片尚未登记为可复用文件，请重新保存图片后导出。\");if(e.startsWith(\"pcs-file:\")&&!C.has(e.slice(9)))throw new Error(\"引用的图片文件不存在，请重新选择图片。\");return e}function co(e){if(e.startsWith(\"blob:\")||e.startsW"
+        },
+        {
+          "fn": "js",
+          "file": "runtime-process-tasks-BkBTALaZ.js",
+          "line": 0,
+          "column": 80139,
+          "excerpt": "unction js(){if(ss)return;const e=ws(Co());Qa(()=>{ja(()=>Fd(e)),We(e),Dt.setItem(xe,JSON.stringify(e))}),ss=!0}function $d(e){if(!e||typeof e!=\"object\"||Array.isArray(e))return!1;const t=e;return!!(t.workOrders&&typeof t.workOrders==\"object\"&&!Array.isArray(t.workOrders)&&_r.every(o=>Array.isArray(t[o])))}function Kd(e,t){if(!Array.isArray(e[t]))throw new Error(`毛织存储校验失败：${t} 必须是数组`)}function U(e,t,o){const r=new Set;for(const s of e){const d=t(s);if(!d)throw new Error(`毛织存储校验失败：${o} ID 不能为空`);if(r.has(d))throw new Error(`毛织存储校验失败：${o}存在重复 ID ${d}`);r.a"
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-CUHoxsZG.js",
+          "line": 1,
+          "column": 34883,
+          "excerpt": "t=Ge.then(async()=>{if(!e.length||e.some(r=>r.startsWith(\"higood-pcs-fcs-\")||r===\"higood-fcs-wool-stage-store-v3\")){await o,I??(I=await ye(()=>import(\"./design-revision-pcs-storage-BjfzS8H8.js\").then(s=>s.t),[]));for(const s of I.PCS_FCS_COLLECTIONS)Se.add(s),_.has(s)||_.set(s,\"[]\");let r=k,c=new Set(k.filter(s=>!s.deleted).map(s=>s.id));I.configureDesignRevisionPcsStorage({getItem:s=>Le.getItem(s),getBaselineItem:s=>_.get(s)??null,isPersistedRow(s,a){return r!==k&&(r=k,c=new Set(k.filter(f=>!f.deleted).map(f=>f.id))),c.has(`${s}/items/${encodeURICompone"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    }
+  ]
+}

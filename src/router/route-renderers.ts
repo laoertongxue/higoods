@@ -53,7 +53,8 @@ function createAsyncRenderer<TArgs extends unknown[]>(
     if (ppicReturnReadScope) await (await import('../data/fcs/ppic-daily-return-records.ts')).ensurePpicDailyReturnState()
     if (postFinishingScope) {
       await import('../data/fcs/post-finishing-full-flow.ts')
-      await (await import('../data/fcs/post-finishing-records.ts')).ensurePostFinishingRecordState()
+      // The accessory boundary below hydrates the same finishing repository
+      // before installing its read bridge. Read it once per route entry.
     }
     if (["renderPdaCuttingSimpleCutPieceHandoverPage", "renderPdaWarehouseWaitHandoverPage"].includes(exportName)) {
       const { ensureSimpleCutPieceHandoverFixtures } = await import('../data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')

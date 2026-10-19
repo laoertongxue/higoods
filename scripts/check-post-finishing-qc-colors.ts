@@ -16,7 +16,11 @@ assert.equal(flow.claimPostFinishingQcTask({ qcTaskNo: next.qcTaskNo, actor: a.q
 for (const row of flow.listPostFinishingFactoryReturns()) assert.equal(row.deliveryOrderNo, `${row.productionOrderNo}-${row.returnIndex}`)
 for (const row of flow.listPostFinishingFullFlowQcTasks()) assert.equal(row.qcTaskNo, `${row.deliveryOrderNo}-ZJ`)
 for (const row of flow.listPostFinishingFullFlowPostTasks()) assert.equal(row.postTaskNo, `${row.qcTaskNo}-HD`)
-for (const row of flow.listPostFinishingFullFlowRecheckOrders()) assert.equal(row.recheckOrderNo, `${row.postTaskNo}-FJ`)
+for (const row of flow.listPostFinishingFullFlowRecheckOrders()) {
+  assert.equal(row.recheckOrderNo, `${row.postTaskNo}-FJ-${String(row.sequence).padStart(3, '0')}`, '新复检按加工单内实际创建序次编号')
+}
+const rechecks = flow.listPostFinishingFullFlowRecheckOrders()
+assert.equal(new Set(rechecks.map(row => row.recheckOrderNo)).size, rechecks.length, '同加工单多次复检的编号不得碰撞')
 for (const row of flow.listPostFinishingFullFlowOutboundOrders()) assert.equal(row.outboundOrderNo, `${row.recheckOrderNo || row.qcTaskNo}-CH`)
 const page = readFileSync('src/pages/process-factory/post-finishing/qc-workbench.ts', 'utf8')
 assert(page.includes('data-qc-spu-color-images'))

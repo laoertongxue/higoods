@@ -1,0 +1,155 @@
+{
+  "reason": "Web异步弹窗未等待就绪，locator.all得到空列表，实际全零提交被正确阻断；仅归档本次cross输出，其他未移动的历史证据仍在原处。",
+  "files": [
+    {
+      "path": "cross-before.spec.ts",
+      "bytes": 53004,
+      "sha256": "a9ba1fb0f3cbe3183fa764ef1668913e189ac3f048ba37c6d0282645ddff2c2c"
+    },
+    {
+      "path": "playwright/.last-run.json",
+      "bytes": 96,
+      "sha256": "d4c030cda2949154824f18a198903e5a5e1d8f579bf65e572788f73353d7c463"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/error-context.md",
+      "bytes": 39374,
+      "sha256": "8180ecda13ec2c1e60c28b193e97dc2205b3abb0e06498b66caa40717d1e5bcc"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/test-failed-1.png",
+      "bytes": 144080,
+      "sha256": "aea6f14408fe42d1e13a43443b62caab442504315afd6324c8e39db6696d1889"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/trace.zip",
+      "bytes": 57197249,
+      "sha256": "d534e79b7720f629f4d91e1dee7254d29fc77455086851bb1fd8614ed4ab53f4"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-1.webm",
+      "bytes": 38468,
+      "sha256": "fdad2ab46b15371abbc3002bc1b3b6662f2c9c541aa0bf3b4a0c8d68811c58e4"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-2.webm",
+      "bytes": 186763,
+      "sha256": "e5d116b8feb466aae088901d899d8cd4509568beb475d0f85bbd4c089b9ce92c"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video-3.webm",
+      "bytes": 79598,
+      "sha256": "f687906d847769c00b456e90cca175998a4da74e2cb6caf235221ff5611e0225"
+    },
+    {
+      "path": "playwright/post-finishing-full-flow-c-62253-跨公共PDA、唯一Web质检、可选后道处理与成衣仓交接/video.webm",
+      "bytes": 9337640,
+      "sha256": "14d30d37c51aa5ea6583bf9dd55eae6319eae09981c8c1edb165ae9fcb6618af"
+    },
+    {
+      "path": "progress.json",
+      "bytes": 41210,
+      "sha256": "114dbc9c61ce559cda39b93cbab366f5bb2a8928ea61928ec629734dd4d74578"
+    },
+    {
+      "path": "raw.log",
+      "bytes": 10578,
+      "sha256": "a28a5973ca7d4b5caf5dbefabe9866844e4e6157f78e1155fd4311614e152d46"
+    },
+    {
+      "path": "screenshots/01-PO-QC-202608-001-R1-wait-handover-pending.png",
+      "bytes": 117475,
+      "sha256": "180f6580490cfed9898484ce929363139e59bc0c7e4f0d3b5cf543c879350804"
+    },
+    {
+      "path": "screenshots/01-PO-QC-202608-001-R1-wait-handover-ready.png",
+      "bytes": 117475,
+      "sha256": "180f6580490cfed9898484ce929363139e59bc0c7e4f0d3b5cf543c879350804"
+    },
+    {
+      "path": "screenshots/01-PO-QC-202608-001-R1-web-qc-completed.png",
+      "bytes": 114136,
+      "sha256": "3e6529bff09f2269a7ce04299440d1f1849b388ac0eb116416aae43e735d88c9"
+    },
+    {
+      "path": "screenshots/02-PO-QC-202608-001-R2-wait-handover-pending.png",
+      "bytes": 136957,
+      "sha256": "2ddb2598109306fb73ea8eb9d6adeb22581d968c4ca37e42e5e22ceccd08994d"
+    },
+    {
+      "path": "screenshots/02-PO-QC-202608-001-R2-wait-handover-ready.png",
+      "bytes": 136957,
+      "sha256": "2ddb2598109306fb73ea8eb9d6adeb22581d968c4ca37e42e5e22ceccd08994d"
+    },
+    {
+      "path": "screenshots/03-PO-QC-202608-001-R3-wait-handover-pending.png",
+      "bytes": 157217,
+      "sha256": "edb777265a16b9fb898d05e803320d45fecb42b27616ae658a7cf4f996e89bc1"
+    },
+    {
+      "path": "screenshots/03-PO-QC-202608-001-R3-wait-handover-ready.png",
+      "bytes": 157217,
+      "sha256": "edb777265a16b9fb898d05e803320d45fecb42b27616ae658a7cf4f996e89bc1"
+    },
+    {
+      "path": "screenshots/03-PO-QC-202608-001-R3-web-return-authorization.png",
+      "bytes": 147546,
+      "sha256": "35bbd86d438828326efe92aeb7b46ab27b1e0ff1bbb254a4bad4aaf884cf92ff"
+    },
+    {
+      "path": "screenshots/04-PO-QC-202608-001-R4-pda-post-completed.png",
+      "bytes": 521187,
+      "sha256": "d584b9c34083ee3e02899ca3feb8d9ca77950fe309bb3c86b6291778667693c9"
+    },
+    {
+      "path": "screenshots/04-PO-QC-202608-001-R4-wait-handover-pending.png",
+      "bytes": 177727,
+      "sha256": "654cb8e4e294cfd9bc83b1619c1f1a783e76bda934e298a6a863a8ed18e54097"
+    },
+    {
+      "path": "screenshots/04-PO-QC-202608-001-R4-wait-handover-ready.png",
+      "bytes": 177727,
+      "sha256": "654cb8e4e294cfd9bc83b1619c1f1a783e76bda934e298a6a863a8ed18e54097"
+    },
+    {
+      "path": "screenshots/04-PO-QC-202608-001-R4-web-qc-completed.png",
+      "bytes": 116882,
+      "sha256": "a1519e2ad42d91c17b9ebdb1ffbf0824bb84f08b63f20aedd1c8bcab8b1400ef"
+    },
+    {
+      "path": "screenshots/05-PO-QC-202608-001-R5-barcode-relabel-block.png",
+      "bytes": 180654,
+      "sha256": "310db5ac49f58573d445ae1c6f268b130576a4ad7612b7e602a7b3ab387a15d6"
+    },
+    {
+      "path": "screenshots/05-PO-QC-202608-001-R5-wait-handover-pending.png",
+      "bytes": 178967,
+      "sha256": "5a0b075b4ea44ae25c69d97d5062a131209a775fbfb407bc478d031cc351ceb3"
+    },
+    {
+      "path": "screenshots/05-PO-QC-202608-001-R5-wait-handover-ready.png",
+      "bytes": 178967,
+      "sha256": "5a0b075b4ea44ae25c69d97d5062a131209a775fbfb407bc478d031cc351ceb3"
+    },
+    {
+      "path": "screenshots/06-PO-QC-202608-002-R1-qc-direct-warehouse-pending.png",
+      "bytes": 111319,
+      "sha256": "e9021b7e4678dedeb92bb19d104ce2a30ccb1b8a75429b4b261fcbe25019482b"
+    },
+    {
+      "path": "screenshots/07-PO-QC-202608-002-R2-qc-authorization.png",
+      "bytes": 223310,
+      "sha256": "6e0f9e00ef0d6bafb13e7f60348d6902a1420d9ea92a7acd1e5aa82001cc98be"
+    },
+    {
+      "path": "screenshots/07-PO-QC-202608-002-R2-qc-direct-warehouse-pending.png",
+      "bytes": 111355,
+      "sha256": "0594e9288f5b7817bcfefab1ce90982a6cf9a847c7f06b2a8497836e47b62938"
+    },
+    {
+      "path": "screenshots/07-PO-QC-202608-002-R2-web-qc-completed.png",
+      "bytes": 118962,
+      "sha256": "e014831f78f243ea125125d0043e68cbff7176b5fc4b603e9a4f130a547b5989"
+    }
+  ]
+}

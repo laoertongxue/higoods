@@ -7,6 +7,10 @@ import {
   POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS,
   PostFinishingFlowGateError,
   claimPostFinishingQcTask,
+  appendPostFinishingProcessCompletion,
+  getPostFinishingProcessProgress,
+  listPostFinishingFullFlowRecheckOrders,
+  submitPostFinishingForRecheck,
   completePostFinishingPostTaskFromDraft,
   completePostFinishingQcTask,
   confirmPostFinishingFactoryReturn,
@@ -63,123 +67,54 @@ const completedQc = completePostFinishingQcTask({
   qcTaskId: qcTask.qcTaskId,
   actor: POST_FINISHING_ACCEPTANCE_ACTORS.qcA,
   results: qcTask.lines.map((line) => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })),
+  processItems: ['包装', '装扣子'],
   nowMs: nextTime(),
 })
 assert(completedQc.postTaskNo, '质检完成后必须生成后道加工单')
-let task = startPostFinishingPostTask({
-  postTaskNo: completedQc.postTaskNo,
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-  nowMs: nextTime(),
-})
-assert.equal(task.draftLines?.length, task.lines.length, '开始后道时必须逐 SKU 建立共享草稿')
-
-expectGate('INVALID_QUANTITY', () => completePostFinishingPostTaskFromDraft({
-  postTaskId: task.postTaskId,
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-  nowMs: nextTime(),
-}))
-
+const task = getPostFinishingFullFlowPostTask(completedQc.postTaskNo!)!
+assert.deepEqual(task.processItems, ['装扣子', '包装'], '实际加工链按质检选择排序，未选项目不参与')
 const firstLine = task.lines[0]
-expectGate('INVALID_STATUS', () => setPostFinishingPostUnprocessedQuantity({
-  postTaskId: task.postTaskId,
-  skuId: firstLine.sku.skuId,
-  unprocessedQty: 3,
-  unprocessedReason: '',
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-  nowMs: nextTime(),
-}))
-task = setPostFinishingPostProcessedQuantity({
-  postTaskId: task.postTaskId,
-  skuId: firstLine.sku.skuId,
-  processedQty: firstLine.expectedQty - 3,
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-  nowMs: nextTime(),
+const pdaActor = POST_FINISHING_ACCEPTANCE_ACTORS.postOperator
+const webActor = POST_FINISHING_ACCEPTANCE_ACTORS.postSupervisor
+const register = (processItem: '装扣子' | '包装', quantity: number, actor: PostFinishingActor, operationId: string) => appendPostFinishingProcessCompletion({
+  postTaskId: task.postTaskId, processItem, quantities: task.lines.map(line => ({ skuId: line.sku.skuId, quantity })),
+  actor, responsible: actor, operationId, nowMs: nextTime(),
 })
-assert.equal(task.draftLines?.[0].processedQty, firstLine.expectedQty - 3, 'PDA/Web 已处理数量必须写入同一份 SKU 草稿')
-expectGate('INVALID_QUANTITY', () => setPostFinishingPostUnprocessedQuantity({
-  postTaskId: task.postTaskId,
-  skuId: firstLine.sku.skuId,
-  unprocessedQty: 4,
-  unprocessedReason: '超过本 SKU 剩余数量',
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-  nowMs: nextTime(),
-}))
-task = setPostFinishingPostUnprocessedQuantity({
-  postTaskId: task.postTaskId,
-  skuId: firstLine.sku.skuId,
-  unprocessedQty: 3,
-  unprocessedReason: '现场尚未完成本批处理',
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.postOperator,
-  nowMs: nextTime(),
-})
-assert.equal(task.draftLines?.[0].unprocessedQty, 3, '未处理数量必须独立保存在共享草稿')
-assert.equal(task.draftLines?.[0].unprocessedReason, '现场尚未完成本批处理', '未处理数量必须保存现场说明')
-expectGate('NOT_CLAIM_OWNER', () => setPostFinishingPostProcessedQuantity({
-  postTaskId: task.postTaskId,
-  skuId: firstLine.sku.skuId,
-  processedQty: firstLine.expectedQty - 1,
-  actor: POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA,
-  nowMs: nextTime(),
-}))
-
-const webFallbackActor: PostFinishingActor = {
-  actorId: 'PF-WEB-FALLBACK-001',
-  actorName: 'Web接管操作员',
-  roleName: '后道操作员',
-  account: 'PF_WEB_FALLBACK',
+expectGate('INVALID_QUANTITY', () => register('包装', 1, webActor, 'BEFORE-PREVIOUS'))
+register('装扣子', 10, pdaActor, 'PDA-BUTTON-10')
+register('包装', 4, webActor, 'WEB-PACK-4')
+register('包装', 4, webActor, 'WEB-PACK-4')
+let progress = getPostFinishingProcessProgress(task.postTaskId)
+assert.equal(progress.processes.find(row => row.processItem === '装扣子')?.completedQty, 50)
+assert.equal(progress.totalCompletedQty, 20, '5SKU各包装4件只提供20件成衣，不累加不同工序工作量')
+assert.equal(progress.records.length, 2, '同意图跨端重试不增加加工事实')
+assert.deepEqual(progress.records.map(row => row.responsible.actorId), [pdaActor.actorId, webActor.actorId], '各条责任保留，不锁死在开始人名下')
+assert.equal(listPostFinishingFullFlowRecheckOrders().length, 0, '加工保存不自动建复检')
+expectGate('NOT_CLAIM_OWNER', () => register('装扣子', 1, POST_FINISHING_ACCEPTANCE_ACTORS.recheckerA, 'NON-POST'))
+for (const run of [
+  () => setPostFinishingPostProcessedQuantity({ postTaskId: task.postTaskId, skuId: firstLine.sku.skuId, processedQty: 20, actor: pdaActor }),
+  () => setPostFinishingPostUnprocessedQuantity({ postTaskId: task.postTaskId, skuId: firstLine.sku.skuId, unprocessedQty: 20, unprocessedReason: '旧归类', actor: pdaActor }),
+  () => completePostFinishingPostTaskFromDraft({ postTaskId: task.postTaskId, actor: pdaActor }),
+  () => takeOverPostFinishingPostTask({ postTaskId: task.postTaskId, actor: webActor, reason: '旧接管' }),
+]) expectGate('INVALID_STATUS', run)
+assert.equal(getPostFinishingFullFlowPostTask(task.postTaskId)?.status, '后道中', '正常80件余量不被未处理归类结案')
+const first = submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities: task.lines.map(line => ({ skuId: line.sku.skuId, quantity: 4 })), actor: webActor, operationId: 'WEB-RECHECK-1', nowMs: nextTime() })
+assert.equal(getPostFinishingProcessProgress(task.postTaskId).availableForRecheckQty, 0, '待领取即扣减可交量')
+appendPostFinishingProcessCompletion({ postTaskId: task.postTaskId, processItem: '包装', quantities: [{ skuId: firstLine.sku.skuId, quantity: 2 }], responsible: pdaActor, actor: pdaActor, operationId: 'PDA-PACK-2', nowMs: nextTime() })
+const second = submitPostFinishingForRecheck({ postTaskId: task.postTaskId, quantities: [{ skuId: firstLine.sku.skuId, quantity: 2 }], actor: pdaActor, operationId: 'PDA-RECHECK-2', nowMs: nextTime() })
+assert.notEqual(second.recheckOrderId, first.recheckOrderId)
+assert.equal(listPostFinishingFullFlowRecheckOrders().length, 2, 'Web与PDA交替创建两次真实复检，原记录保留')
+for (const processItem of ['装扣子', '包装'] as const) {
+  const item = getPostFinishingProcessProgress(task.postTaskId).processes.find(row => row.processItem === processItem)!
+  appendPostFinishingProcessCompletion({ postTaskId: task.postTaskId, processItem, quantities: item.lines.map(line => ({ skuId: line.sku.skuId, quantity: line.availableQty })), responsible: webActor, actor: webActor, operationId: `WEB-REMAINDER-${processItem}`, nowMs: nextTime() })
 }
-expectGate('INVALID_STATUS', () => takeOverPostFinishingPostTask({
-  postTaskId: task.postTaskId,
-  actor: webFallbackActor,
-  reason: ' ',
-  nowMs: nextTime(),
-}))
-task = takeOverPostFinishingPostTask({
-  postTaskId: task.postTaskId,
-  actor: webFallbackActor,
-  reason: 'PDA故障，转Web继续',
-  nowMs: nextTime(),
-})
-assert.equal(task.startedBy?.actorId, webFallbackActor.actorId, 'Web 接管必须切换当前操作人')
-assert.equal(task.lastTakeoverReason, 'PDA故障，转Web继续', 'Web 接管必须留存原因')
-
-const allUnprocessedLine = task.lines.at(-1)!
-for (const line of task.lines.slice(0, -1)) {
-  if (line.sku.skuId === firstLine.sku.skuId) continue
-  task = setPostFinishingPostProcessedQuantity({
-    postTaskId: task.postTaskId,
-    skuId: line.sku.skuId,
-    processedQty: line.expectedQty,
-    actor: webFallbackActor,
-    nowMs: nextTime(),
-  })
-}
-task = setPostFinishingPostUnprocessedQuantity({
-  postTaskId: task.postTaskId,
-  skuId: allUnprocessedLine.sku.skuId,
-  unprocessedQty: allUnprocessedLine.expectedQty,
-  unprocessedReason: '整批未处理，待人工后续决定',
-  actor: webFallbackActor,
-  nowMs: nextTime(),
-})
-assert.equal(task.draftLines?.at(-1)?.processedQty, 0, '整批未处理场景不应强迫填写已处理数量')
-task = completePostFinishingPostTaskFromDraft({
-  postTaskId: task.postTaskId,
-  actor: webFallbackActor,
-  nowMs: nextTime(),
-})
-assert.equal(task.status, '后道完成', '每个 SKU 的已处理与未处理数量归类完成后才允许完成后道')
-assert(task.results?.every((line) => line.processedQty + line.unprocessedQty === line.expectedQty), '完成结果必须逐 SKU 保持处理数量守恒')
-assert.equal(task.results?.[0].processedQty, firstLine.expectedQty - 3, '第一条 SKU 必须保留真实已处理数量')
-assert.equal(task.results?.at(-1)?.processedQty, 0, '整批未处理时必须允许零已处理')
-assert.equal(task.results?.at(-1)?.unprocessedQty, allUnprocessedLine.expectedQty, '整批未处理数量必须完整保留到完成结果')
-assert(task.results?.every((line) => !('defectQty' in line) && !('returnQty' in line) && !('passedQty' in line)), '后道完成结果不得包含质检或返厂字段')
-assert(getPostFinishingFullFlowPostTask(task.postTaskNo)?.recheckOrderNo, '有已处理产出时完成后道必须生成处理后交出复核单')
-
-const logActions = listPostFinishingOperationLogs({ keyword: task.postTaskNo }).map((log) => log.action)
-for (const action of ['填报后道已处理数量', '填报后道未处理数量', '接管后道加工单', '完成后道']) {
-  assert(logActions.includes(action), `操作日志必须包含：${action}`)
-}
+progress = getPostFinishingProcessProgress(task.postTaskId)
+assert.equal(progress.totalCompletedQty, 100)
+assert.equal(progress.totalReservedQty, 22)
+assert.equal(progress.availableForRecheckQty, 78)
+assert.equal(getPostFinishingFullFlowPostTask(task.postTaskId)?.status, '后道完成')
+const logActions = listPostFinishingOperationLogs({ keyword: task.postTaskNo }).map(log => log.action)
+for (const action of ['登记装扣子完成', '登记包装完成', '交复检']) assert(logActions.includes(action), `操作日志保留分项和具体交复检动作：${action}`)
 
 const warehouseSource = source('../src/pages/process-factory/post-finishing/warehouse.ts')
 const workOrdersSource = source('../src/pages/process-factory/post-finishing/work-orders.ts')
@@ -189,26 +124,28 @@ const auditSource = source('../src/pages/process-factory/post-finishing/audit-re
 const pdaRoutesSource = source('../src/router/routes-pda.ts')
 
 assert(warehouseSource.includes('回货确认') && warehouseSource.includes('完整送货单号'), '待加工仓必须保留 Web 输入完整送货单号的回货确认入口')
-assert(workOrdersSource.includes('开始后道') && workOrdersSource.includes('查看加工单') && !workOrdersSource.includes('PDA 执行（优先）'), '后道加工单列表必须提供 Web 开始后道与查看加工单入口')
-assert(workOrderDetailSource.includes('执行后道加工单') && workOrderDetailSource.includes('data-web-post-processed-qty') && workOrderDetailSource.includes('data-web-post-adjust-field="unprocessedQty"') && !workOrderDetailSource.includes('toggle-process-item'), 'Web 后道详情必须执行共享已处理/未处理数量，不重复勾选质检已确认项目')
-assert(pdaSource.includes('本批后道项目') && pdaSource.includes('data-post-processed-qty') && !pdaSource.includes('toggle-process-item'), 'PDA 后道详情必须以 SKU 已处理数量为主动作')
-assert(pdaSource.includes('data-post-adjust-field="unprocessedQty"') && pdaSource.includes('data-post-adjust-field="unprocessedReason"'), 'PDA 必须支持填写未处理数量与说明')
+assert(workOrdersSource.includes('登记加工') && workOrdersSource.includes('查看加工单') && !workOrdersSource.includes('PDA 执行（优先）'), 'Web列表使用分项登记及查看入口')
+assert(workOrderDetailSource.includes('data-post-entry-quantity') && workOrderDetailSource.includes('data-post-entry-responsible') && workOrderDetailSource.includes('open-recheck'), 'Web提供本次数量、责任及独立交复检')
+assert(!workOrderDetailSource.includes('data-web-post-processed-qty') && !workOrderDetailSource.includes('data-web-post-adjust-field'), 'Web旧整单归类表单退出活跃表面')
+assert(pdaSource.includes('data-post-process-qty') && pdaSource.includes('save-process-completion') && pdaSource.includes('submit-for-recheck'), 'PDA提供同一分项增量和独立交复检命令')
+assert(!pdaSource.includes('data-post-adjust-field=') && !pdaSource.includes('data-post-processed-qty'), 'PDA没有旧已处理/未处理可写控件')
+assert(pdaSource.includes('旧整单“未处理数量”登记入口已停用'), '旧深链接显示退役说明而不继续写旧事实')
 for (const forbidden of ['data-post-defect-adjustment-mode', 'data-post-defect-reason-qty', 'data-return-receiver-search', 'select-return-receiver']) {
   assert(!pdaSource.includes(forbidden), `PDA 后道执行不得保留质量或返厂能力：${forbidden}`)
 }
-assert(pdaRoutesSource.includes("'/fcs/pda/post-finishing/sku-adjustment'"), 'PDA SKU 未处理数量路由必须注册')
+assert(pdaRoutesSource.includes("'/fcs/pda/post-finishing/sku-adjustment'"), '旧SKU深链接仍有明确只读退役落点')
 for (const tab of ['业务链总览', '差异与质检', '操作时间线']) {
   assert(auditSource.includes(tab), `差异与操作日志详情缺少分层页签：${tab}`)
 }
 assert(auditSource.includes('按阶段查看单据链') && auditSource.includes('按环节归组的操作记录'), '差异与操作日志必须按阶段和环节组织，不得继续全量平铺')
 
 console.log(JSON.stringify({
-  suite: '后道 Web 执行与 PDA 数量归类一致性',
+  suite: '后道Web与PDA分项增量、责任与多次交复检一致性',
   skuCount: task.lines.length,
-  processedQuantityFacts: task.results?.map((line) => line.processedQty),
-  unprocessedQuantityFacts: task.results?.map((line) => line.unprocessedQty),
-  webTakeoverActor: task.startedBy?.actorName,
-  status: task.status,
-  recheckOrderNo: task.recheckOrderNo,
+  processProgress: progress.processes.map(row => ({ processItem: row.processItem, applicable: row.applicable, completedQty: row.completedQty })),
+  totalCompletedQty: progress.totalCompletedQty,
+  reservedQty: progress.totalReservedQty,
+  availableForRecheckQty: progress.availableForRecheckQty,
+  recheckOrderNos: listPostFinishingFullFlowRecheckOrders().map(row => row.recheckOrderNo),
   result: '通过',
 }, null, 2))

@@ -1,0 +1,643 @@
+{
+  "diagnosticOnly": true,
+  "definition": "Weighted CPU samples. Inclusive times overlap; hit/sample counts are not invocation counts.",
+  "durationMs": 1047.19,
+  "files": [
+    [
+      "(program)",
+      281.885
+    ],
+    [
+      "(idle)",
+      136.471
+    ],
+    [
+      "pcs-config-workspace-repository-C2b23W0w.js",
+      114.35399999999998
+    ],
+    [
+      "pcs-record-core-cpCRWSNv.js",
+      101.702
+    ],
+    [
+      "pcs-tech-pack-review-zWkNl40_.js",
+      86.16800000000002
+    ],
+    [
+      "structuredClone",
+      74.95700000000001
+    ],
+    [
+      "index-DzdCIoHq.js",
+      55.983000000000004
+    ],
+    [
+      "post-finishing-full-flow-D4GT2Gll.js",
+      37.132
+    ],
+    [
+      "runtime-process-tasks-lLxUBxZN.js",
+      25.808
+    ],
+    [
+      "(garbage collector)",
+      17.254
+    ],
+    [
+      "app-shared-_ZQpMwKQ.js",
+      14.693999999999999
+    ],
+    [
+      "cut-piece-release-CB1gOTvJ.js",
+      14.624999999999998
+    ],
+    [
+      "generated-fei-tickets-DLbNME30.js",
+      10.479000000000001
+    ],
+    [
+      "production-orders-B1wMGm7o.js",
+      9.046000000000001
+    ],
+    [
+      "request.onsuccess",
+      7.515
+    ],
+    [
+      "pcs-product-archive-fixtures-B62ErDcE.js",
+      7.468
+    ],
+    [
+      "real-barcode-BJdGy9l6.js",
+      5.996
+    ],
+    [
+      "factory-receiving-CSiG2Hp3.js",
+      5.718999999999999
+    ],
+    [
+      "querySelectorAll",
+      4.577999999999999
+    ],
+    [
+      "appendChild",
+      3.474
+    ]
+  ],
+  "top": [
+    {
+      "frame": {
+        "fn": "(program)",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 281.885
+    },
+    {
+      "frame": {
+        "fn": "(idle)",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 136.471
+    },
+    {
+      "frame": {
+        "fn": "Y",
+        "file": "pcs-config-workspace-repository-C2b23W0w.js",
+        "line": 0,
+        "column": 10781,
+        "excerpt": "function Y(e){return structuredClone(e)}function L(e){return{...e,aliases:[...e.aliases||[]],logs:e.logs.map(Y)}}function G(e){return{...e,logs:e.logs.map(Y)}}function V(e){return{version:e.version,flatOptions:Object.fromEntries(Object.entries(e.flatOptions).map(([r,t])=>[r,t.map(L)])),categoryNodes:e.categoryNodes.map(G)}}function v(e,r,t,o){return{id:`cfg-log-${e}-${r}`.replace(/[^a-zA-Z0-9_-]/g,\"-\"),action:r,detail:t,operator:F[e%F.length],time:o}}function Oe(e,r){const t=[\"2026-03-27 14:00\",\"2026-03-29 22:00\",\"2026-04-01 12:00\"].map((o,s)=>{const[n,i"
+      },
+      "selfMs": 106.844
+    },
+    {
+      "frame": {
+        "fn": "structuredClone",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 74.95700000000001
+    },
+    {
+      "frame": {
+        "fn": "N",
+        "file": "index-DzdCIoHq.js",
+        "line": 1224,
+        "column": 26293,
+        "excerpt": "function N(){const e=++me,t=f.getState();pl(t);const a=Gt(t.pathname),n=t.pathname.startsWith(\"/fcs/pda/wool/\")||/^\\/fcs\\/pda\\/exec\\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\\?|$)/.test(t.pathname),o=await a,d=o.includes(\"data-post-finishing-entry-storage-failure\"),u=t.pathname.split(\"?\")[0].split(\"#\")[0]===\"/fcs/pda/auth/login\";oe(t.pathname)&&!n&&!u&&!d&&await j(),e===me&&(w.innerHTML=je(t,Kt(o)),t.pathname.startsWith(\"/pms/\")&&(await r(()=>import(\"./shared-DCgBRv2O.js\"),__vite__mapDeps([505,1,2,48,4]))).hydratePmsSurface(w,{icons:!1}),oe(t.pathname)?("
+      },
+      "selfMs": 52.986000000000004
+    },
+    {
+      "frame": {
+        "fn": "e.onsuccess",
+        "file": "pcs-record-core-cpCRWSNv.js",
+        "line": 1,
+        "column": 1210,
+        "excerpt": "onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!N"
+      },
+      "selfMs": 49.176
+    },
+    {
+      "frame": {
+        "fn": "Ye",
+        "file": "pcs-tech-pack-review-zWkNl40_.js",
+        "line": 1,
+        "column": 85430,
+        "excerpt": "unction Ye(e){var t,r,a;return{...e,legacyValues:e.legacyValues?structuredClone(e.legacyValues):void 0,packageSpecs:(t=e.packageSpecs)==null?void 0:t.map(s=>({...s})),packageSpecHistory:(r=e.packageSpecHistory)==null?void 0:r.map(s=>({...s})),extraIdentityValues:e.extraIdentityValues?{...e.extraIdentityValues}:void 0,skuNameTranslations:e.skuNameTranslations?{...e.skuNameTranslations}:void 0,barcodeAliases:e.barcodeAliases?[...e.barcodeAliases]:void 0,bundleComponents:(a=e.bundleComponents)==null?void 0:a.map(s=>({...s})),archiveLogs:e.archiveLogs?struct"
+      },
+      "selfMs": 45.544
+    },
+    {
+      "frame": {
+        "fn": "Me",
+        "file": "pcs-record-core-cpCRWSNv.js",
+        "line": 1,
+        "column": 52337,
+        "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+      },
+      "selfMs": 18.673
+    },
+    {
+      "frame": {
+        "fn": "(garbage collector)",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 17.254
+    },
+    {
+      "frame": {
+        "fn": "c",
+        "file": "pcs-record-core-cpCRWSNv.js",
+        "line": 1,
+        "column": 1895,
+        "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+      },
+      "selfMs": 16.044
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "post-finishing-full-flow-D4GT2Gll.js",
+        "line": 0,
+        "column": 117026,
+        "excerpt": "on=3});Qr(()=>{var R,v,D,w,F;const e=new Map(m.deliveries.map(u=>[u.deliveryId,u])),t=new Map(m.qcTasks.map(u=>[u.qcTaskId,u])),r=new Map(m.postTasks.map(u=>[u.postTaskId,u])),o=new Map(m.recheckOrders.map(u=>[u.recheckOrderId,u])),s=new Map(m.outboundOrders.map(u=>[u.outboundOrderId,u])),a=u=>{var A;return!!(u.operationId||u.postTaskId&&((A=r.get(u.postTaskId))==null?void 0:A.executionModel)===\"ITEMS_V1\")},n=u=>!!(u.recheckOrderId&&o.has(u.recheckOrderId)&&!a(o.get(u.recheckOrderId))),c=[\"deliveryId\",\"deliveryOrderNo\",\"productionOrderNo\",\"qcTaskId\",\"qcT"
+      },
+      "selfMs": 10.085
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "pcs-record-core-cpCRWSNv.js",
+        "line": 1,
+        "column": 2945,
+        "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+      },
+      "selfMs": 9.672
+    },
+    {
+      "frame": {
+        "fn": "at",
+        "file": "pcs-tech-pack-review-zWkNl40_.js",
+        "line": 3,
+        "column": 73292,
+        "excerpt": "unction at(e){return structuredClone(e)}function Pe(e){return structuredClone(e)}function Gg(e){return{...e}}function ml(e){return{...e}}function hs(e){return structuredClone(e)}function M(){const e=new Date,t=r=>String(r).padStart(2,\"0\");return`${e.getFullYear()}-${t(e.getMonth()+1)}-${t(e.getDate())} ${t(e.getHours())}:${t(e.getMinutes())}`}function Sn(e){return[\"INACTIVE\",\"ARCHIVED\",\"NOT_ENABLED\"].includes(e)?e:\"ACTIVE\"}function Cn(e){return typeof e==\"string\"?e.trim():\"\"}function Ai(e){const t=new Set;return e.map(Cn).filter(r=>!r||t.has(r)?!1:(t.add"
+      },
+      "selfMs": 9.017
+    },
+    {
+      "frame": {
+        "fn": "request.onsuccess",
+        "line": 47,
+        "column": 28
+      },
+      "selfMs": 7.515
+    },
+    {
+      "frame": {
+        "fn": "b",
+        "file": "real-barcode-BJdGy9l6.js",
+        "line": 0,
+        "column": 1235,
+        "excerpt": "function b(n,c=\"库位条码\"){const o=n.trim();if(!o)return\"\";const e=h(o).map(t=>f[t]),r=10,s=e.reduce((t,d)=>t+Array.from(d).reduce((u,a)=>u+Number(a),0),r*2);let i=r;const l=[];return e.forEach(t=>{Array.from(t).forEach((d,u)=>{const a=Number(d);u%2===0&&l.push(`<rect x=\"${i}\" y=\"0\" width=\"${a}\" height=\"56\" fill=\"currentColor\" />`),i+=a})}),`<svg viewBox=\"0 0 ${s} 56\" role=\"img\" aria-label=\"${m(c)}\" preserveAspectRatio=\"none\" class=\"h-14 w-full text-black\" data-real-barcode data-barcode-value=\"${m(o)}\">${l.join(\"\")}</svg>`}export{b as r};"
+      },
+      "selfMs": 5.996
+    },
+    {
+      "frame": {
+        "fn": "Jn",
+        "file": "runtime-process-tasks-lLxUBxZN.js",
+        "line": 0,
+        "column": 277063,
+        "excerpt": "unction Jn(e){if(!gt||!Mt||!At){const o=zn(),r=JSON.stringify([o.map(s=>[s.productionOrderId,s.productionOrderNo,s.demandSnapshot,s.techPackSnapshot,s.taskBreakdownSummary]),q.filter(s=>s.processCode===\"PROC_CUT\"||s.processBusinessCode===\"CUT_PANEL\").map(s=>[s.taskId,s.taskNo,s.productionOrderId,s.sourceEntryId,s.sourceEntryIds,s.consumedBomItemIds,s.assignmentStatus,s.assignedFactoryId,s.assignedFactoryName]),Gn().map(s=>[s.taskId,s.rootTaskNo,s.productionOrderId,s.sourceEntryId,s.sourceEntryIds,s.assignmentStatus,s.assignedFactoryId,s.assignedFactoryNa"
+      },
+      "selfMs": 5.99
+    },
+    {
+      "frame": {
+        "fn": "querySelectorAll",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 4.577999999999999
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "app-shared-_ZQpMwKQ.js",
+        "line": 0,
+        "column": 0,
+        "excerpt": "var Wt=Object.defineProperty;var Kt=(e,t,a)=>t in e?Wt(e,t,{enumerable:!0,configurable:!0,writable:!0,value:a}):e[t]=a;var Pe=(e,t,a)=>Kt(e,typeof t!=\"symbol\"?t+\"\":t,a);import{T as Ht,a as qt,b as W,A as ht,c as gt,d as xe,S as At,e as St,f as ne}from\"./tmf-domain-shared-DboXqEqI.js\";function y(e){return(e==null?\"\":String(e)).replaceAll(\"&\",\"&amp;\").replaceAll(\"<\",\"&lt;\").replaceAll(\">\",\"&gt;\").replaceAll('\"',\"&quot;\").replaceAll(\"'\",\"&#39;\")}function Vt(...e){return e.filter(Boolean).join(\" \")}function Xt(e){return typeof CSS<\"u\"&&typeof CSS.e"
+      },
+      "selfMs": 4.519
+    },
+    {
+      "frame": {
+        "fn": "Wr",
+        "file": "pcs-tech-pack-review-zWkNl40_.js",
+        "line": 1,
+        "column": 17939,
+        "excerpt": "unction Wr(e,t=Xa()){var a,s,n,o,i,d,c;const r={...e,productConfigRefs:e.productConfigRefs?{...e.productConfigRefs}:void 0};for(const[u,m]of Object.entries(Za)){const p=(a=e.productConfigRefs)==null?void 0:a[m];if(!p)continue;const l=t.options[m]||[],f=p.map(I=>Pu(m,I,l));r.productConfigRefs&&(r.productConfigRefs[m]=p.map((I,y)=>{var S;return((S=f[y])==null?void 0:S.id)||I}));const g=f.map(I=>(I==null?void 0:I.name_zh)||\"配置项已删除\");Object.assign(r,{[u]:u.endsWith(\"Tags\")?g:g.join(\"、\")}),m===\"brands\"&&(r.brandId=p[0]||\"\"),m===\"categoryNumbers\"&&(r.categoryC"
+      },
+      "selfMs": 4.510999999999999
+    },
+    {
+      "frame": {
+        "fn": "I",
+        "file": "app-shared-_ZQpMwKQ.js",
+        "line": 0,
+        "column": 2283,
+        "excerpt": "function I(e){const t=/^CRAFT_(\\d+)$/.exec(e);return t&&Et.has(Number(t[1]))?S.craftCode:e}function It(e){const t=(a,r=new Set)=>{if(!a||typeof a!=\"object\")return;if(Array.isArray(a)){a.forEach((c,l)=>{typeof c==\"string\"?a[l]=r.has(c)?S.craftName:I(c):t(c,r)});return}const i=a;typeof i.areaId==\"string\"&&/^AUX-WP-AREA-(?:08|09|10)$/.test(i.areaId)&&(i.areaId=\"AUX-WP-AREA-08\",\"areaName\"in i&&(i.areaName=\"缝边绣-裁片库区\"));const s=typeof i.craftCode==\"string\"?new Set:new Set(r),o=c=>{typeof c==\"string\"&&c.trim()&&s.add(c)},n=typeof i.craftCode==\"string\"&&I(i.craf"
+      },
+      "selfMs": 3.879
+    },
+    {
+      "frame": {
+        "fn": "appendChild",
+        "line": -1,
+        "column": -1
+      },
+      "selfMs": 3.474
+    },
+    {
+      "frame": {
+        "fn": "",
+        "file": "post-finishing-full-flow-D4GT2Gll.js",
+        "line": 0,
+        "column": 112771,
+        "excerpt": "Y.forEach((t,r)=>{var o;for(let s=1;s<=5;s+=1){const a=e+(r*5+s)*60*60*1e3,n=Gt({productionOrderNo:t.productionOrderNo,returnIndex:s,triggerSource:s%2===0?\"公共PDA自助回货\":\"车缝正常交出\",idempotencyKey:`DEMO:${t.productionOrderNo}:${s}`,quantities:t.skus.map(S=>({skuId:S.skuId,registeredQty:20})),deliveryPersonName:`演示送货员 ${r+1}`,deliveryPersonPhone:`0812000${r+1}${s}00`,evidenceImageUrls:[((o=t.skus[0])==null?void 0:o.imageUrl)||\"/shirt-sample.jpg\"],actor:W.factoryCourier,nowMs:a});if(s===1)continue;const c=Bt({deliveryId:n.deliveryId,firstCounts:n.lines.map((S,R)"
+      },
+      "selfMs": 3.053
+    },
+    {
+      "frame": {
+        "fn": "Pe",
+        "file": "pcs-tech-pack-review-zWkNl40_.js",
+        "line": 3,
+        "column": 73333,
+        "excerpt": "unction Pe(e){return structuredClone(e)}function Gg(e){return{...e}}function ml(e){return{...e}}function hs(e){return structuredClone(e)}function M(){const e=new Date,t=r=>String(r).padStart(2,\"0\");return`${e.getFullYear()}-${t(e.getMonth()+1)}-${t(e.getDate())} ${t(e.getHours())}:${t(e.getMinutes())}`}function Sn(e){return[\"INACTIVE\",\"ARCHIVED\",\"NOT_ENABLED\"].includes(e)?e:\"ACTIVE\"}function Cn(e){return typeof e==\"string\"?e.trim():\"\"}function Ai(e){const t=new Set;return e.map(Cn).filter(r=>!r||t.has(r)?!1:(t.add(r),!0))}function zg(e){const t=ul[e.kind"
+      },
+      "selfMs": 3.008
+    },
+    {
+      "frame": {
+        "fn": "ea",
+        "file": "generated-fei-tickets-DLbNME30.js",
+        "line": 0,
+        "column": 404,
+        "excerpt": "unction ea(e){return`${ke}:${encodeURIComponent(JSON.stringify(e))}`}function it(e){return ea(e)}function ta(e){if(!e)return null;const t=e.startsWith(`${ke}:`)?decodeURIComponent(e.slice(ke.length+1)):e;try{const a=JSON.parse(t);return!a||typeof a!=\"object\"||typeof a.codeType!=\"string\"||!a.version||!a.issuedAt?null:a.codeType===\"CUT_ORDER\"?!a.cutOrderId||!a.cutOrderNo?null:a:a.codeType===\"FEI_TICKET\"?!a.feiTicketId||!a.feiTicketNo||!a.cutOrderId?null:a:a.codeType===\"CARRIER\"?!a.carrierId||!a.carrierCode?null:{codeType:\"CARRIER\",version:a.version,issuedA"
+      },
+      "selfMs": 2.992
+    },
+    {
+      "frame": {
+        "fn": "be",
+        "file": "pcs-config-workspace-repository-C2b23W0w.js",
+        "line": 0,
+        "column": 15811,
+        "excerpt": "unction be(e){return($().flatOptions[e]||[]).map(L).sort((r,t)=>r.sortOrder-t.sortOrder||Number(r.code)-Number(t.code))}function Le(e){return($().flatOptions[e]||[]).map(({id:r,code:t,name_zh:o,status:s,sortOrder:n,aliases:i})=>({id:r,code:t,name_zh:o,status:s,sortOrder:n,aliases:[...i||[]]})).sort((r,t)=>r.sortOrder-t.sortOrder||Number(r.code)-Number(t.code))}function ke(e,r){return be(e).find(t=>t.id===r)??null}function Be(e,r,t,o=\"当前用户\"){var b,A,k,l,O,p,d,h;const s=X(),n=((b=Ne(e))==null?void 0:b.name)||\"配置维度\",i=s.flatOptions[e]||[];if(!t.nameZh.trim("
+      },
+      "selfMs": 2.991
+    }
+  ],
+  "important": [
+    {
+      "id": 596,
+      "inclusiveMs": 52.417,
+      "selfMs": 18.673,
+      "frames": [
+        {
+          "fn": "Me",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 52337,
+          "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 589,
+      "inclusiveMs": 49.176,
+      "selfMs": 49.176,
+      "frames": [
+        {
+          "fn": "e.onsuccess",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1210,
+          "excerpt": "onsuccess=()=>o(e.result),e.onerror=()=>t(e.error)})}async function ae(e,o,t=!1){var n;const i=await Qt();He++;try{const r=i.transaction(St,e);let c;const s=new Promise((a,f)=>{r.oncomplete=()=>a(),r.onabort=()=>f(c??r.error??new Error(\"PCS 保存已中止，原有数据保持不变，请重试。\")),r.onerror=()=>{}});s.catch(()=>{});try{const a=await o(r);return t||(n=r.commit)==null||n.call(r),await s,a}catch(a){c=a;try{r.abort()}catch{}throw await s.catch(()=>{}),me(a)}}finally{He--,He||(i.close(),ie=void 0)}}function B(e){return typeof e==\"string\"&&e.trim().length>0}function pt(e){if(!N"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 598,
+      "inclusiveMs": 32.584,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 53245,
+          "excerpt": "e.forEach(n=>n());const i=t.records.some(n=>n.id===`${$}/flow/schemaVersion/value`&&!n.deleted&&n.value===2);try{Ve=Wt().size>0||i}catch{Ve||(Ve=i)}je=!0,he=\"\"}catch(t){ue(e),je=!1,he=`后道用户资料无法读取或保存。${t instanceof Error?t.message:String(t)}`}}function Bt(e){if(e instanceof Error&&\"code\"in e)return e;const o=e instanceof Error?e.message:String(e);return new Error(o.replaceAll(\"PCS\",\"后道\").replace(\"关联房间或地点\",\"后道资料\"))}async function xo(e){var n,r,c,s,a;if(typeof window>\"u\")return e();if(je||await Me(),!je||he)throw new Error(he||\"请重新读取后道资料后重试。\");if(Ve)throw n"
+        },
+        {
+          "fn": "Me",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 52337,
+          "excerpt": "unction Me(){var o;if(typeof window>\"u\"||$e)return;const e=pe(!1);try{if(!oe.size)for(const[n,r]of H)oe.set(n,Pe(r.read()));const t=await D([$]);Kt(t.records),ee=new Map(t.records.map(n=>[n.id,n]));for(const n of t.files){if(!ke.has(n.id)){const r=URL.createObjectURL(n.blob);ke.set(n.id,r),Ne.set(r,n.id)}We.add(n.id)}for(const[n,r]of H){const c=Pe(oe.get(n)),s=new Map(ft(n,c));for(const a of t.records)a.id.startsWith(`${$}/${n}/`)&&(a.deleted?s.delete(a.id):s.set(a.id,{collection:a.collection,value:a.value&&typeof a.value==\"object\"&&((o=t.referenceFreeVa"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 590,
+      "inclusiveMs": 27.216,
+      "selfMs": 9.672,
+      "frames": [
+        {
+          "fn": "",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 591,
+      "inclusiveMs": 17.544,
+      "selfMs": 1.5,
+      "frames": [
+        {
+          "fn": "M",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 592,
+      "inclusiveMs": 16.044,
+      "selfMs": 4.017,
+      "frames": [
+        {
+          "fn": "c",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "M",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 586,
+      "inclusiveMs": 13.504,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "x",
+          "file": "print-preview-DkmAlr59.js",
+          "line": 16,
+          "column": 20,
+          "excerpt": "function x(e){const t=R(e);if(!t.sourceType||!t.sourceId)return S(\"缺少打印来源或来源 ID，无法生成打印预览。\");const n=h();if(t.documentType===\"FEI_TICKET_REPRINT_LABEL\"&&await g(t.sourceId)&&!n)return S(\"手动菲票补打必须填写补打原因，请返回菲票明细重新发起补打。\",\"/fcs/craft/cutting/fei-tickets\");try{const{buildPrintDocument:i,renderPrintDocument:a}=await w(t.documentType,t.sourceId);if(t.sourceType.startsWith(\"POST_FINISHING_\")){const u=await c(()=>import(\"./pcs-record-core-cpCRWSNv.js\").then(d=>d.L),__vite__mapDeps([4,5,1,2,6,24]));await u.ensurePostFinishingRecordState();const r=u.getPostFinishing"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 443,
+      "inclusiveMs": 13.486,
+      "selfMs": 1.491,
+      "frames": [
+        {
+          "fn": "",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 34883,
+          "excerpt": "t=Ge.then(async()=>{if(!e.length||e.some(r=>r.startsWith(\"higood-pcs-fcs-\")||r===\"higood-fcs-wool-stage-store-v3\")){await o,I??(I=await ye(()=>import(\"./design-revision-pcs-storage-BjfzS8H8.js\").then(s=>s.t),[]));for(const s of I.PCS_FCS_COLLECTIONS)Se.add(s),_.has(s)||_.set(s,\"[]\");let r=k,c=new Set(k.filter(s=>!s.deleted).map(s=>s.id));I.configureDesignRevisionPcsStorage({getItem:s=>Le.getItem(s),getBaselineItem:s=>_.get(s)??null,isPersistedRow(s,a){return r!==k&&(r=k,c=new Set(k.filter(f=>!f.deleted).map(f=>f.id))),c.has(`${s}/items/${encodeURICompone"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 593,
+      "inclusiveMs": 12.027,
+      "selfMs": 6.011,
+      "frames": [
+        {
+          "fn": "c",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "c",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1895,
+          "excerpt": "function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\"fileId\")&&typeof a.fileId==\"string\"&&a.fileId&&i.add(a.fileId),Arr"
+        },
+        {
+          "fn": "M",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 1829,
+          "excerpt": "function M(e,o=new Set,t=!0){const i=new Set,n=new Set,r=o.size>0;function c(s){if(typeof s==\"string\"){const a=s.charCodeAt(0);if(t&&(a===100||a===68)&&/^data:.*;base64,/i.test(s))throw new Error(\"PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。\");a===112&&s.startsWith(\"pcs-file:\")?i.add(s.slice(9)):r&&o.has(s)&&i.add(s)}else if(s&&typeof s==\"object\"&&!n.has(s)){if(n.add(s),s instanceof Blob){if(t)throw new Error(\"请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。\");return}const a=s,f=a.fileStorage===\"static\"&&typeof a.dataUrl==\"string\"&&a.dataUrl.startsWith(\"/\");if(!f&&Object.hasOwn(a,\""
+        },
+        {
+          "fn": "",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 2945,
+          "excerpt": "readonly\",async o=>{const t=o.objectStore(\"records\"),i=o.objectStore(\"files\"),n=e!=null&&e.length?[...new Set(e)]:void 0,r=n?Promise.all(n.map(w=>j(t.getAll(IDBKeyRange.bound(`${w}/`,`${w}0`,!1,!0))))).then(w=>w.flat()):j(t.getAll()),[c,s]=await Promise.all([r,j(o.objectStore(\"meta\").getAll())]),a=new Set,f=new WeakSet;if(n){for(const w of c)if(!w.deleted)try{const S=M(w.value);for(const E of S)a.add(E);if(!S.size&&w.value&&typeof w.value==\"object\"){f.add(w.value);const E=w.value.data;E&&typeof E==\"object\"&&f.add(E)}}catch{}}const g=n?(await Promise.all("
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    },
+    {
+      "id": 131,
+      "inclusiveMs": 10.528,
+      "selfMs": 0,
+      "frames": [
+        {
+          "fn": "io",
+          "file": "pcs-record-core-cpCRWSNv.js",
+          "line": 1,
+          "column": 22098,
+          "excerpt": "unction io(e){Q++;try{return e()}finally{Q--}}function ze(e,o=crypto.randomUUID()){if(C.has(o)&&C.get(o)!==e)throw new Error(\"附件编号已存在；替换文件请使用新编号，不能覆盖原文件。\");C.set(o,e);let t=be.get(o);return t||(t=URL.createObjectURL(e),be.set(o,t),Oe.set(t,o)),{fileId:o,url:t}}function ao(e){const o=Oe.get(e);if(o)return`pcs-file:${o}`;if(e.startsWith(\"blob:\")||e.startsWith(\"data:\"))throw new Error(\"图片尚未登记为可复用文件，请重新保存图片后导出。\");if(e.startsWith(\"pcs-file:\")&&!C.has(e.slice(9)))throw new Error(\"引用的图片文件不存在，请重新选择图片。\");return e}function co(e){if(e.startsWith(\"blob:\")||e.startsW"
+        },
+        {
+          "fn": "ee",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 5,
+          "column": 86493,
+          "excerpt": "unction ee(){if(F)return Jt(F);if(!Ll())return F=$(()=>bt()),Jt(F);try{const e=E.getItem(_l);if(!e)return F=$(()=>bt()),Jt(F);const t=JSON.parse(e);if(!Array.isArray(t.records)||!Array.isArray(t.contents)||!Array.isArray(t.pendingItems)){if(typeof window<\"u\"&&!Ot())throw new Error(\"技术资料格式不完整，原有资料已保留，请重新读取。\");return F=$(()=>bt()),Jt(F)}return Pt={version:za,records:t.records,contents:t.contents,pendingItems:t.pendingItems},F=Ky(zr(zi({version:za,records:t.records,contents:t.contents,pendingItems:t.pendingItems},$(()=>bt())))),Jt(F)}catch(e){if(typeof wind"
+        },
+        {
+          "fn": "fr",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 5,
+          "column": 89004,
+          "excerpt": "unction fr(e){return(F??ee()).records.filter(t=>t.styleId===e).sort((t,r)=>r.versionNo-t.versionNo||r.updatedAt.localeCompare(t.updatedAt)).map(Ze)}function Sh(e){return(F??ee()).records.filter(t=>t.sourceProjectId===e).sort((t,r)=>r.updatedAt.localeCompare(t.updatedAt)).map(Ze)}function Ch(e){const t=O(e);return t!=null&&t.currentTechPackVersionId?j(t.currentTechPackVersionId):null}function Ya(e){return(e==null?void 0:e.createdFromTaskType)===\"ENGINEERING_MASTER\"}function zl(e,t){if(Ya(e)&&t)throw new Error(\"新工程来源技术包正式 BOM/COST 快照属于正式字段，禁止修改或通过通用入口提供，必须"
+        },
+        {
+          "fn": "Kg",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 3,
+          "column": 59472,
+          "excerpt": "unction Kg(e){const t=O(e);return fr(e).map(r=>{const a=jg(r);return{technicalVersionId:r.technicalVersionId,technicalVersionCode:r.technicalVersionCode,versionLabel:r.versionLabel,versionStatus:r.versionStatus,versionStatusLabel:Fg(r,(t==null?void 0:t.currentTechPackVersionId)||\"\"),isCurrentTechPackVersion:(t==null?void 0:t.currentTechPackVersionId)===r.technicalVersionId,completenessScore:r.completenessScore,missingItemNames:[...r.missingItemNames],sourceTaskText:Mg(r).taskChainText,sourceProjectText:xg(r),createdAt:r.createdAt,updatedAt:r.updatedAt,pu"
+        },
+        {
+          "fn": "te",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 4,
+          "column": 3410,
+          "excerpt": "unction te(e,t,r){const a=Ie().find(n=>n.styleCode===r.styleCode),s=a?Kg(a.styleId)[0]:null;return Po({usageId:`${e}-usage-${String(t+1).padStart(2,\"0\")}`,materialId:e,styleId:(a==null?void 0:a.styleId)||\"\",styleCode:(a==null?void 0:a.styleCode)||r.styleCode,styleName:(a==null?void 0:a.styleName)||r.styleCode,technicalVersionId:(s==null?void 0:s.technicalVersionId)||(a==null?void 0:a.currentTechPackVersionId)||\"\",technicalVersionLabel:(s==null?void 0:s.versionLabel)||(a==null?void 0:a.currentTechPackVersionLabel)||\"未建立\",consumptionText:r.consumptionText,"
+        },
+        {
+          "fn": "Qg",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 4,
+          "column": 3995,
+          "excerpt": "unction Qg(){const e=[{materialId:\"material_fabric_001\",kind:\"fabric\",materialCode:\"CNIDML360\",materialName:\"经编8坑-C2813\",materialNameEn:\"Warp Wool Rib C2813\",categoryName:\"经编布\",specSummary:\"白色主布 / 可分色扩展\",composition:\"100% polyester\",processTags:[\"经编\",\"基础弹力\"],widthText:\"155cm\",gramWeightText:\"90g\",pricingUnit:\"Yard\",mainUnit:\"Yard\",auxiliaryUnits:[\"米\",\"公斤\",\"卷\"],mainImageUrl:\"/materials/archive/4595f8e168082d676f32f9b977984a2a.png\",galleryImageUrls:[\"/materials/archive/4595f8e168082d676f32f9b977984a2a.png\"],status:\"ACTIVE\",skuCount:2,usedStyleCount:2,usedT"
+        },
+        {
+          "fn": "Zg",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 4,
+          "column": 23644,
+          "excerpt": "unction Zg(){return Gs||(Gs=Rs(qg(Qg()))),hs(Gs)}function Rs(e,t=!1){var p,l;const r=new Map,a=new Map(e.records.map(f=>[f.materialId,{...f}])),s=e.records.map(f=>ko(f,r,t)),n=new Map(s.map(f=>[f.materialId,f])),o=new Set(e.usageRecords.map(f=>f.materialId)),i=e.skuRecords.map(f=>{var y;const g=n.get(f.materialId),I=t?f:Pe(f);if(g&&v(g.kind)){const S=fl(a.get(f.materialId)||g,{...f.identityValues,...f.effectiveSpecValues});S&&!((y=I.specDescription)!=null&&y.includes(\"既有规格：\"))&&(I.specDescription=[I.specDescription,\"既有规格：\"+S].filter(Boolean).join(`"
+        },
+        {
+          "fn": "gl",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 5,
+          "column": 2620,
+          "excerpt": "unction gl(){if(Ve)return;const e=Eu(),t=(e==null?void 0:e.token)??E.getItem(yn);if(!t){Ve=Zg();return}const r=E.getItem(\"higood-pcs-material-config-v1\");if((kt==null?void 0:kt.raw)===t&&kt.config===r){Ve=kt.snapshot;return}const a=e?e.project(s=>{var o,i;const n=s;return{...n,records:(o=n.records)==null?void 0:o.map(d=>({...d})),skuRecords:(i=n.skuRecords)==null?void 0:i.map(d=>({...d,effectiveSpecValues:d.effectiveSpecValues?{...d.effectiveSpecValues}:void 0}))}}):JSON.parse(t);if(!Array.isArray(a.records)||!Array.isArray(a.skuRecords))throw new Error("
+        },
+        {
+          "fn": "G",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 5,
+          "column": 4300,
+          "excerpt": "function G(){return U||(gl(),Ve)}function yl(e){if(U)return U;const t=G();return{...t,records:t.records.map(r=>r.materialId===e?at(r):r),skuRecords:t.skuRecords.map(r=>r.materialSkuId===e||r.materialId===e?Pe(r):r),logRecords:[...t.logRecords]}}function H0(){const e=G();return{rootCodes:new Set(e.records.map(t=>t.materialCode)),skuCodes:new Set(e.skuRecords.map(t=>t.materialSkuCode))}}function G0(e){const t=G(),r=t.records.filter(s=>e.has(s.materialCode)),a=new Set(r.map(s=>s.materialId));return{records:r.map(at),skuRecords:t.skuRecords.filter(s=>a.has(s"
+        },
+        {
+          "fn": "W0",
+          "file": "pcs-tech-pack-review-zWkNl40_.js",
+          "line": 5,
+          "column": 5930,
+          "excerpt": "unction W0(){return G().skuRecords.map(Pe)}function qr(e){return(it().skusByRoot.get(e)||[]).map(Pe)}function _(e){const t=it().skus.get(e);return t?Pe(t):null}function wi(e){const t=e.replace(/^pcs-material-sku:/,\"\").trim(),r=G().skuRecords.find(a=>[a.materialSkuId,a.materialSkuCode,a.barcode,...a.barcodeAliases||[]].includes(t));return r?Pe(r):null}function J0(e){return G().logRecords.filter(t=>t.materialId===e).map(ml)}function Q0(e,t,r={}){var y,S,C,h;const a=G(),s=it(a);if(v(e)){const A=a.records.filter(R=>{if(R.kind!==e)return!1;const k=s.skusByRoo"
+        },
+        {
+          "fn": "U",
+          "file": "canonical-purchase-references-CA2hq1vQ.js",
+          "line": 1,
+          "column": 1393,
+          "excerpt": "function U(){return N().map(e=>{const a=u(e.materialId);return{materialSpu:(a==null?void 0:a.materialCode)||\"\",materialId:e.materialId,materialSkuId:e.materialSkuId,colorName:e.colorName,specName:e.specName,materialCode:e.materialSkuCode,materialName:[e.materialName,e.colorName,e.sizeName].filter(Boolean).join(\" · \"),imageUrl:e.skuImageUrl||(a==null?void 0:a.mainImageUrl)||\"\",category:(a==null?void 0:a.kind)===\"fabric\"?\"面料\":(a==null?void 0:a.kind)===\"yarn\"?\"纱线\":\"辅料\",unit:e.mainUnit||(a==null?void 0:a.mainUnit)||e.pricingUnit,referencePrice:e.costPrice,ac"
+        },
+        {
+          "fn": "",
+          "file": "supplier-supply-archives-CYL-T0jF.js",
+          "line": 0,
+          "column": 0,
+          "excerpt": "import{listPurchaseMaterialReferences as A,getPurchaseGoodsReference as _}from\"./canonical-purchase-references-CA2hq1vQ.js\";import{hydratePmsSuppliersFromIdb as S,getPmsSupplier as U}from\"./suppliers-BdUA7nk0.js\";import{c as i,r as h,p as C,P as u,b as Q,d as I,e as N}from\"./craft-image-storage-BHkM9C_h.js\";import\"./index-DzdCIoHq.js\";import\"./app-shared-_ZQpMwKQ.js\";import\"./tmf-domain-shared-DboXqEqI.js\";import\"./pcs-tech-pack-review-zWkNl40_.js\";import\"./pcs-record-core-cpCRWSNv.js\";import\"./craft-display-support-C4HLoQM1.js\";import\"./pcs-te"
+        },
+        {
+          "fn": "(root)",
+          "line": -1,
+          "column": -1
+        }
+      ]
+    }
+  ]
+}

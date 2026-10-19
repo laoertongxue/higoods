@@ -9,18 +9,19 @@ import {
   claimPostFinishingRecheckOrder,
   confirmPostFinishingFactoryReturn,
   discardPostFinishingFactoryReturn,
-  completePostFinishingPostTaskFromDraft,
+  appendPostFinishingProcessCompletion,
   completePostFinishingRecheckOrderFullFlow,
   getPostFinishingFactoryReturn,
   getPostFinishingFullFlowPostTask,
   getPostFinishingMaterialReadiness,
   getPostFinishingFullFlowRecheckOrder,
+  getPostFinishingProcessProgress,
+  listPostFinishingFullFlowRecheckOrders,
+  listPostFinishingFullFlowOutboundOrders,
   markPostFinishingRecheckSkuRelabeled,
   releasePostFinishingRecheckOrder,
   scanPostFinishingRecheckSkuBarcode,
-  setPostFinishingPostProcessedQuantity,
-  setPostFinishingPostUnprocessedQuantity,
-  startPostFinishingPostTask,
+  submitPostFinishingForRecheck,
   type PostFinishingActor,
   type PostFinishingFactoryReturnDelivery,
   type PostFinishingPostTask,
@@ -32,6 +33,27 @@ import { getPdaRuntimeContext, renderPdaLoginRedirect } from './pda-runtime.ts'
 
 let message = ''
 let messageTone: 'success' | 'error' = 'success'
+const submittingPostIntent = new Set<string>()
+const postOperationIntents = new Map<string, { signature: string; operationId: string }>()
+
+function operationIntent(key: string, signature: string): string {
+  const previous = postOperationIntents.get(key)
+  if (previous?.signature === signature) return previous.operationId
+  const operationId = `PDA-POST-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`
+  postOperationIntents.set(key, { signature, operationId })
+  return operationId
+}
+
+function hasPostUnsavedInput(): boolean {
+  return typeof document !== 'undefined' && Array.from(document.querySelectorAll<HTMLInputElement>('[data-post-process-qty], [data-post-recheck-qty]'))
+    .some((input) => input.value.trim() !== '0')
+}
+
+if (typeof window !== 'undefined') window.addEventListener('beforeunload', (event) => {
+  if (!hasPostUnsavedInput()) return
+  event.preventDefault()
+  event.returnValue = ''
+})
 
 function query(): URLSearchParams {
   return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
@@ -67,7 +89,7 @@ function shell(title: string, subtitle: string, body: string, testId: string, ba
     <div class="min-h-screen bg-slate-100 pb-8" data-testid="${testId}">
       <header class="sticky top-0 z-20 border-b bg-white px-4 py-3 shadow-sm">
         <div class="mx-auto flex max-w-[480px] items-center gap-3">
-          ${backHref ? `<button type="button" class="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border bg-white px-3 text-sm font-medium text-slate-700" data-nav="${escapeHtml(backHref)}" data-testid="pda-post-back"><span aria-hidden="true">←</span>返回</button>` : ''}
+          ${backHref ? `<button type="button" class="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border bg-white px-3 text-sm font-medium text-slate-700" data-pda-post-action="leave-post" data-destination="${escapeHtml(backHref)}" data-skip-page-rerender="true" data-testid="pda-post-back"><span aria-hidden="true">←</span>返回</button>` : ''}
           <div class="min-w-0">
             <div class="truncate text-[11px] text-slate-500">${escapeHtml(subtitle)} · ${escapeHtml(runtime.userName)}</div>
             <h1 class="text-base font-semibold">${escapeHtml(title)}</h1>
@@ -96,7 +118,7 @@ function image(sku: { imageUrl: string; skuCode: string; spuName: string; colorN
   const label = `${sku.skuCode} ${sku.colorName} ${sku.sizeName}`
   return `
     <button type="button" class="relative flex h-16 w-16 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-xl border bg-white" data-pda-post-action="zoom-image" data-image-url="${escapeHtml(sku.imageUrl)}" data-image-label="${escapeHtml(label)}">
-      <img src="${escapeHtml(staticImageThumbnail(sku.imageUrl))}" alt="${escapeHtml(`${sku.spuName} ${sku.colorName} ${sku.sizeName}`)}" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" />
+      <img src="${escapeHtml(staticImageThumbnail(sku.imageUrl))}" alt="${escapeHtml(`${sku.spuName} ${sku.colorName} ${sku.sizeName}`)}" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" />
       <span class="px-1 text-center text-[10px] text-slate-500">图片加载中…</span>
     </button>
   `
@@ -194,105 +216,111 @@ export function renderPdaPostFinishingReturnConfirmationPage(): string {
 
 function renderPostTask(task: PostFinishingPostTask): string {
   const runtime = getPdaRuntimeContext()
-  const isStarted = task.status === '后道中'
-  const isOwner = Boolean(runtime && task.startedBy?.actorId === runtime.userId)
+  const progress = getPostFinishingProcessProgress(task)
+  const historicalUnsplit = task.executionModel !== 'ITEMS_V1' && !task.legacyCarryover
+  const historicalCompletedQty = progress.lines.reduce((sum, line) => sum + line.historyCompletedQty, 0)
   const materialReadiness = getPostFinishingMaterialReadiness(task.productionOrderNo)
-  const drafts = task.draftLines ?? []
-  const lineProgress = task.lines.map((line) => {
-    const draft = drafts.find((item) => item.skuId === line.sku.skuId)
-    const finalResult = task.results?.find((item) => item.sku.skuId === line.sku.skuId)
-    const processedQty = finalResult?.processedQty ?? draft?.processedQty ?? 0
-    const unprocessedQty = finalResult?.unprocessedQty ?? draft?.unprocessedQty ?? 0
-    return {
-      line,
-      processedQty,
-      unprocessedQty,
-      quantityResolved: processedQty + unprocessedQty === line.expectedQty,
-    }
-  })
-  const completedLineCount = lineProgress.filter((item) => item.quantityResolved).length
-  const allCompletedQuantitiesFilled = completedLineCount === task.lines.length
-  const totalExpectedQty = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
-  const totalProcessedQty = lineProgress.reduce((sum, item) => sum + item.processedQty, 0)
-  const totalUnprocessedQty = lineProgress.reduce((sum, item) => sum + item.unprocessedQty, 0)
-  const lines = lineProgress.map(({ line, processedQty, unprocessedQty, quantityResolved }) => {
-    const canEdit = isStarted && isOwner
-    return `
-      <article class="rounded-2xl border bg-white p-3 shadow-sm" data-post-completion-line="${escapeHtml(line.sku.skuId)}">
-        <div class="flex gap-3">
-          ${image(line.sku)}
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-semibold">${escapeHtml(line.sku.spuCode)} / ${escapeHtml(line.sku.skuCode)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div>
-            <div class="mt-1 text-xs font-medium">应处理 ${line.expectedQty} 件</div>
-          </div>
-        </div>
-        <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
-          <label class="block text-sm font-semibold text-blue-950">已处理数量</label>
-          <div class="mt-2 flex gap-2">
-            <input type="number" min="0" max="${line.expectedQty}" step="1" inputmode="numeric" value="${processedQty}" class="h-12 min-w-0 flex-1 rounded-xl border bg-white px-3 text-right text-base font-semibold" data-post-processed-qty data-skip-page-rerender="true" ${canEdit ? '' : 'disabled'} />
-            ${canEdit ? `<button type="button" class="shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white" data-pda-post-action="save-processed-qty" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(line.sku.skuId)}">保存</button>` : ''}
-          </div>
-          <div class="mt-2 text-xs text-blue-800">后道只记录处理数量，不在这里再次质检或决定返厂。</div>
-        </div>
-        <div class="mt-3 flex items-center justify-between gap-3 rounded-xl border px-3 py-2">
-          <div class="min-w-0 text-xs text-slate-600"><div>已处理 ${processedQty} 件 · 未处理 ${unprocessedQty} 件</div><div class="mt-1 ${quantityResolved ? 'text-emerald-700' : 'text-amber-700'}">合计 ${processedQty + unprocessedQty} / ${line.expectedQty} 件</div></div>
-          ${task.status === '后道中' ? `<a data-nav="/fcs/pda/post-finishing/sku-adjustment?id=${encodeURIComponent(task.postTaskNo)}&skuId=${encodeURIComponent(line.sku.skuId)}" class="shrink-0 rounded-xl border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">填写未处理</a>` : ''}
-        </div>
-      </article>
-    `
+  const rechecks = listPostFinishingFullFlowRecheckOrders().filter((item) => item.postTaskId === task.postTaskId)
+  const outbounds = listPostFinishingFullFlowOutboundOrders().filter((item) => item.postTaskId === task.postTaskId)
+  const canRegister = Boolean(runtime && !progress.legacyPending)
+  const firstAvailable = progress.processes.find((item) => item.applicable && item.availableQty > 0)?.processItem
+  const processes = progress.processes.map((process) => {
+    if (historicalUnsplit) return `<div class="flex items-center justify-between rounded-xl border bg-amber-50 px-3 py-3 text-sm"><span>${escapeHtml(process.processItem)}</span><span class="text-amber-800">历史未分项</span></div>`
+    if (!process.applicable) return `<div class="flex items-center justify-between rounded-xl border bg-slate-50 px-3 py-3 text-sm"><span>${escapeHtml(process.processItem)}</span><span class="text-slate-500">不涉及</span></div>`
+    const records = progress.records.filter((record) => record.processItem === process.processItem)
+    const quantityLines = process.lines.map((line) => `
+      <article class="rounded-xl border bg-white p-3" data-post-process-line="${escapeHtml(line.sku.skuId)}">
+        <div class="flex gap-3">${image(line.sku)}<div class="min-w-0 flex-1">
+          <div class="break-all text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div>
+          <div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div>
+          <div class="mt-2 text-xs">${historicalUnsplit ? '历史未分项' : `${historicalCompletedQty > 0 ? '新增分项累计' : '累计'} ${line.completedQty} / ${line.expectedQty} 件 · 本次可登记 ${line.availableQty} 件`}</div>
+        </div></div>
+        <label class="mt-3 block text-xs font-medium">本次完成数量（件）
+          <input aria-label="${escapeHtml(`${process.processItem} ${line.sku.skuCode} 本次完成数量`)}" type="number" min="0" max="${line.availableQty}" step="1" inputmode="numeric" value="0" class="mt-1 h-12 w-full rounded-xl border px-3 text-right text-base" data-post-process-qty data-skip-page-rerender="true" ${canRegister && line.availableQty > 0 ? '' : 'disabled'} />
+        </label>
+        ${line.availableQty === 0 && line.completedQty < line.expectedQty ? '<p class="mt-2 text-xs text-amber-800">前序尚无可登记数量。</p>' : ''}
+      </article>`).join('')
+    return `<details class="rounded-2xl border bg-white shadow-sm" data-post-process="${escapeHtml(process.processItem)}" ${firstAvailable === process.processItem ? 'open' : ''}>
+      <summary class="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm"><span class="font-semibold">${escapeHtml(process.processItem)}</span><span class="text-right">${historicalUnsplit ? '历史未分项' : `${process.completedQty} / ${process.expectedQty} 件`}<span class="mt-1 block text-xs text-slate-500">${historicalUnsplit ? '历史合并记录' : process.completedQty >= process.expectedQty ? '已完成' : process.completedQty > 0 ? '部分完成' : '待加工'}</span></span></summary>
+      <div class="space-y-3 border-t p-3">
+        <div class="rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-900">本次责任人：${escapeHtml(runtime?.userName || '请先登录')} · 录入人：${escapeHtml(runtime?.userName || '—')}</div>
+        ${quantityLines}
+        ${canRegister && process.availableQty > 0 ? `<button type="button" class="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white" data-pda-post-action="save-process-completion" data-task-id="${escapeHtml(task.postTaskId)}" data-process-item="${escapeHtml(process.processItem)}">保存本次${escapeHtml(process.processItem)}数量</button>` : ''}
+        ${records.length ? `<details class="rounded-xl border px-3 py-2"><summary class="min-h-8 cursor-pointer text-xs font-medium">查看 ${records.length} 次登记</summary><ol class="mt-2 space-y-2">${records.map((record) => `<li class="rounded-lg bg-slate-50 p-2 text-xs"><div class="font-medium">${record.correctionOf ? '订正增减' : '本次完成'} ${record.quantities.reduce((sum, line) => sum + line.quantity, 0)} 件 · 责任人 ${escapeHtml(record.responsible.actorName)}</div><div class="mt-1 text-slate-500">录入 ${escapeHtml(record.recordedBy.actorName)} · ${escapeHtml(record.recordedAt)}</div>${record.reason ? `<div class="mt-1 text-amber-800">订正原因：${escapeHtml(record.reason)}</div>` : ''}${record.quantities.map((entry) => `<div class="mt-1">${escapeHtml(task.lines.find((line) => line.sku.skuId === entry.skuId)?.sku.skuCode || '历史SKU')}：${entry.quantity} 件</div>`).join('')}</li>`).join('')}</ol></details>` : ''}
+      </div>
+    </details>`
   }).join('')
   return `
     <div class="space-y-4" data-pda-post-task="${escapeHtml(task.postTaskId)}" data-skip-page-rerender="true">
+      <div data-pda-post-task-notice>${notice()}</div>
       <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-        <button type="button" class="text-xs text-blue-700 underline" data-pda-post-action="clear-post">重新扫描</button>
-        <div class="mt-2 flex items-start justify-between gap-3">
-          <div><div class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次</div></div>
-          <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-blue-800">${escapeHtml(task.status)}</span>
-        </div>
-        <div class="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-blue-900"><div><span class="font-semibold">任务范围：</span>${escapeHtml(task.responsibility.taskTypeLabel)} · ${escapeHtml(task.responsibility.responsibilityLabel)}</div><div class="mt-1"><span class="font-semibold">加工来源：</span>${escapeHtml(task.sourceType)}</div><div class="mt-1"><span class="font-semibold">本批后道项目（质检已确认）：</span>${task.processItems.map(escapeHtml).join('、')}</div></div>
-        ${task.startedBy && isStarted ? `<div class="mt-2 text-xs text-blue-900">开始人：${escapeHtml(task.startedBy.actorName)} · ${escapeHtml(task.startedAt || '')}</div>` : ''}
-        ${task.startedBy && isStarted && !isOwner ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">已由 ${escapeHtml(task.startedBy.actorName)} 加工中。请由本人继续，错误领取请联系主管处理。</div>` : ''}
+        <button type="button" class="min-h-9 text-xs text-blue-700 underline" data-pda-post-action="clear-post">重新扫描</button>
+        <div class="mt-2 flex items-start justify-between gap-3"><div class="min-w-0"><div class="break-all font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</div><div class="mt-1 text-xs text-blue-800">${escapeHtml(task.productionOrderNo)} · 第 ${task.returnIndex} 次回货</div></div><span class="shrink-0 rounded-full bg-white px-3 py-1 text-xs">${escapeHtml(task.status)}</span></div>
+        <div class="mt-3 text-xs text-blue-900">实际加工顺序：${task.processItems.map(escapeHtml).join(' → ')}</div>
+        <div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/80 p-3 text-xs"><div>应加工<span class="mt-1 block text-base font-semibold">${progress.totalExpectedQty} 件</span></div><div>全部后道完成<span class="mt-1 block text-base font-semibold">${progress.totalCompletedQty} 件</span></div><div>已交复检占用<span class="mt-1 block text-base font-semibold">${progress.totalReservedQty} 件</span></div><div>可交复检<span class="mt-1 block text-base font-semibold">${progress.availableForRecheckQty} 件</span></div></div>
       </section>
-      ${materialReadiness.applicable && materialReadiness.status !== '已入库' ? `<section class="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>后道辅料未到齐。</strong><span class="mt-1 block text-xs">${escapeHtml(materialReadiness.label)}。当前仅提示，不阻断开始或完成加工。</span></section>` : ''}
-      ${lines}
-      ${task.status === '待后道' ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="start-post" data-task-no="${escapeHtml(task.postTaskNo)}">核对无误，开始后道</button>` : ''}
-      ${isStarted && isOwner ? `<section class="rounded-2xl border bg-white p-3"><div class="flex items-center justify-between gap-3 text-sm"><span class="font-semibold">本批数量归类</span><span class="${allCompletedQuantitiesFilled ? 'text-emerald-700' : 'text-amber-700'}">${completedLineCount} / ${task.lines.length} 个 SKU</span></div><div class="mt-2 text-xs text-slate-600">应处理 ${totalExpectedQty} 件 · 已处理 ${totalProcessedQty} 件 · 未处理 ${totalUnprocessedQty} 件</div></section><button type="button" class="h-12 w-full rounded-2xl text-base font-semibold ${allCompletedQuantitiesFilled ? 'bg-blue-600 text-white' : 'cursor-not-allowed bg-slate-200 text-slate-500'}" data-pda-post-action="complete-post" data-task-id="${escapeHtml(task.postTaskId)}" ${allCompletedQuantitiesFilled ? '' : 'disabled'}>${allCompletedQuantitiesFilled ? '完成并生成处理后交出复核单' : `还有 ${task.lines.length - completedLineCount} 个 SKU 未完成数量归类`}</button>` : ''}
-      ${task.status === '后道完成' ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">后道处理已完成，处理后交出复核单：${escapeHtml(task.recheckOrderNo || '生成中')}</div>` : ''}
+      ${progress.legacyPending ? '<div class="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">历史加工尚未分项，请由主管在管理端核对承接后继续登记；原数量和下游记录保留。</div>' : ''}
+      ${historicalCompletedQty > 0 ? `<div class="rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-700">历史合并完成 ${historicalCompletedQty} 件，历史未分项；各项数量仅显示剩余新加工范围，不补造历史责任人和时间。</div>` : ''}
+      ${materialReadiness.applicable && materialReadiness.status !== '已入库' ? `<section class="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><strong>后道辅料未到齐。</strong><span class="mt-1 block text-xs">${escapeHtml(materialReadiness.label)}。当前仅提示，不阻断登记。</span></section>` : ''}
+      <section class="space-y-2" aria-label="各加工项数量">${processes}</section>
+      <details class="rounded-2xl border bg-white" data-post-recheck-form>
+        <summary class="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold text-blue-700">交复检 · 当前可交 ${progress.availableForRecheckQty} 件</summary>
+        <div class="space-y-3 border-t p-3">
+          <p class="text-xs text-slate-600">仅填写本次交复检数量。确认后立即占用，待领取时也不能重复交出。</p>
+          ${progress.lines.map((line) => `<article class="rounded-xl border p-3" data-post-recheck-line="${escapeHtml(line.sku.skuId)}"><div class="flex gap-3">${image(line.sku)}<div class="min-w-0 flex-1"><div class="break-all text-sm font-medium">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div class="mt-2 text-xs">全部完成 ${line.completedQty} · 已占用 ${line.reservedQty} · 可交 ${line.availableForRecheckQty} 件</div></div></div><label class="mt-3 block text-xs font-medium">本次交复检数量（件）<input aria-label="${escapeHtml(`${line.sku.skuCode} 本次交复检数量`)}" type="number" min="0" max="${line.availableForRecheckQty}" step="1" inputmode="numeric" value="0" class="mt-1 h-12 w-full rounded-xl border px-3 text-right text-base" data-post-recheck-qty data-skip-page-rerender="true" ${canRegister && line.availableForRecheckQty > 0 ? '' : 'disabled'} /></label></article>`).join('')}
+          ${canRegister && progress.availableForRecheckQty > 0 ? `<button type="button" class="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white" data-pda-post-action="submit-for-recheck" data-task-id="${escapeHtml(task.postTaskId)}">核对并交复检</button>` : '<div class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">当前没有可交复检数量。</div>'}
+        </div>
+      </details>
+      <section class="rounded-2xl border bg-white p-4"><h2 class="text-sm font-semibold">复检记录（${rechecks.length} 张）</h2><div class="mt-3 space-y-2">${rechecks.length ? rechecks.map((record) => `<button type="button" class="block min-h-12 w-full rounded-xl border px-3 py-3 text-left" data-pda-post-action="open-recheck" data-recheck-no="${escapeHtml(record.recheckOrderNo)}"><span class="break-all font-mono text-xs font-medium text-blue-700">${escapeHtml(record.recheckOrderNo)}</span><span class="mt-1 block text-xs">${escapeHtml(record.status)} · 本次 ${record.lines.reduce((sum, line) => sum + line.expectedQty, 0)} 件${record.claimedBy ? ` · ${escapeHtml(record.claimedBy.actorName)}` : ''}</span></button>`).join('') : '<p class="text-xs text-slate-500">尚未交复检。</p>'}</div></section>
+      <section class="rounded-2xl border bg-white p-4"><h2 class="text-sm font-semibold">出货记录（${outbounds.length} 张）</h2><div class="mt-3 space-y-2">${outbounds.length ? outbounds.map((record) => `<div class="rounded-xl border p-3 text-xs"><div class="break-all font-mono font-medium">${escapeHtml(record.outboundOrderNo)}</div><div class="mt-1">${escapeHtml(record.status)} · 本次 ${record.lines.reduce((sum, line) => sum + line.outboundQty, 0)} 件</div></div>`).join('') : '<p class="text-xs text-slate-500">尚未生成出货单。</p>'}</div></section>
     </div>
   `
 }
 
+function refreshPostTaskLocally(task: PostFinishingPostTask, savedProcess?: string, submittedRecheck = false): void {
+  document.querySelector('[data-post-finishing-action-error]')?.remove()
+  const previous = document.querySelector<HTMLElement>('[data-pda-post-task]')
+  if (!previous) { refresh('/fcs/pda/post-finishing/execute', task.postTaskNo); return }
+  const preserved = new Map<string, string>()
+  previous.querySelectorAll<HTMLElement>('[data-post-process]').forEach((process) => {
+    if (process.dataset.postProcess === savedProcess) return
+    process.querySelectorAll<HTMLElement>('[data-post-process-line]').forEach((line) => {
+      const input = line.querySelector<HTMLInputElement>('[data-post-process-qty]')
+      if (input) preserved.set(`${process.dataset.postProcess}:${line.dataset.postProcessLine}`, input.value)
+    })
+  })
+  if (!submittedRecheck) previous.querySelectorAll<HTMLElement>('[data-post-recheck-line]').forEach((line) => {
+    const input = line.querySelector<HTMLInputElement>('[data-post-recheck-qty]')
+    if (input) preserved.set(`RECHECK:${line.dataset.postRecheckLine}`, input.value)
+  })
+  const openProcesses = new Set(Array.from(previous.querySelectorAll<HTMLDetailsElement>('details[data-post-process][open]')).map((details) => details.dataset.postProcess))
+  const recheckOpen = previous.querySelector<HTMLDetailsElement>('[data-post-recheck-form]')?.open || false
+  const template = document.createElement('template')
+  template.innerHTML = renderPostTask(task)
+  const next = template.content.firstElementChild as HTMLElement
+  next.querySelectorAll<HTMLElement>('[data-post-process]').forEach((process) => {
+    const details = process as HTMLDetailsElement
+    details.open = openProcesses.has(process.dataset.postProcess)
+    process.querySelectorAll<HTMLElement>('[data-post-process-line]').forEach((line) => {
+      const input = line.querySelector<HTMLInputElement>('[data-post-process-qty]')
+      const value = preserved.get(`${process.dataset.postProcess}:${line.dataset.postProcessLine}`)
+      if (input && value !== undefined && !input.disabled) input.value = value
+    })
+  })
+  next.querySelectorAll<HTMLElement>('[data-post-recheck-line]').forEach((line) => {
+    const input = line.querySelector<HTMLInputElement>('[data-post-recheck-qty]')
+    const value = preserved.get(`RECHECK:${line.dataset.postRecheckLine}`)
+    if (input && value !== undefined && !input.disabled) input.value = value
+  })
+  const recheckDetails = next.querySelector<HTMLDetailsElement>('[data-post-recheck-form]')
+  if (recheckDetails) recheckDetails.open = recheckOpen
+  previous.replaceWith(next)
+}
+
 export function renderPdaPostFinishingSkuAdjustmentPage(): string {
-  const id = query().get('id') || ''
-  const skuId = query().get('skuId') || ''
-  const task = id ? getPostFinishingFullFlowPostTask(id) : undefined
-  const line = task?.lines.find((item) => item.sku.skuId === skuId)
-  if (!task || !line) {
-    return shell('填写未处理数量', '后道加工', '<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">未找到后道加工单或 SKU。请返回重新扫描。</div><a data-nav="/fcs/pda/post-finishing/execute" class="block rounded-2xl bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white">返回后道加工</a>', 'pda-post-finishing-sku-adjustment-page')
-  }
-  const runtime = getPdaRuntimeContext()
-  const isOwner = Boolean(runtime && task.status === '后道中' && task.startedBy?.actorId === runtime.userId)
-  const draft = task.draftLines?.find((item) => item.skuId === skuId)
-  const processedQty = draft?.processedQty ?? 0
-  const unprocessedQty = draft?.unprocessedQty ?? 0
-  const body = `
-    <div class="space-y-4" data-post-sku-adjustment-root data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}" data-skip-page-rerender="true">
-      <a data-nav="/fcs/pda/post-finishing/execute?id=${encodeURIComponent(task.postTaskNo)}" class="inline-flex min-h-10 items-center text-sm font-medium text-blue-700">← 返回后道加工单</a>
-      <section class="rounded-2xl border bg-white p-3 shadow-sm"><div class="flex gap-3">${image(line.sku)}<div class="min-w-0 flex-1"><div class="font-mono text-sm font-semibold">${escapeHtml(line.sku.skuCode)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(line.sku.spuName)} · ${escapeHtml(line.sku.colorName)} / ${escapeHtml(line.sku.sizeName)}</div><div class="mt-2 text-sm font-medium">应处理 ${line.expectedQty} 件 · 已处理 ${processedQty} 件</div></div></div></section>
-      ${isOwner ? `
-        <section class="rounded-2xl border bg-white p-4 shadow-sm">
-          <h2 class="font-semibold">未处理数量与说明</h2>
-          <p class="mt-1 text-xs text-slate-500">这里不做质量或返厂判断；只说明本次后道没有处理的数量。</p>
-          <label class="mt-4 block text-sm">未处理数量<input type="number" min="0" max="${line.expectedQty}" step="1" inputmode="numeric" value="${unprocessedQty}" class="mt-1 h-12 w-full rounded-xl border px-3 text-right text-base" data-post-adjust-field="unprocessedQty" data-skip-page-rerender="true" /></label>
-          <label class="mt-3 block text-sm">未处理说明<textarea class="mt-1 min-h-24 w-full rounded-xl border px-3 py-2" placeholder="未处理数量大于 0 时必填" data-post-adjust-field="unprocessedReason">${escapeHtml(draft?.unprocessedReason || '')}</textarea></label>
-        </section>
-        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">应处理 ${line.expectedQty} 件 · 已处理 ${processedQty} 件 · 未处理 ${unprocessedQty} 件 · 当前合计 ${processedQty + unprocessedQty} 件</div>
-        <button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="save-unprocessed-qty" data-task-id="${escapeHtml(task.postTaskId)}" data-sku-id="${escapeHtml(skuId)}">保存并返回后道加工单</button>
-      ` : `<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">当前任务由 ${escapeHtml(task.startedBy?.actorName || '其他操作员')} 处理，不能修改该 SKU。</div>`}
-    </div>
-  `
-  return shell('填写未处理数量', '后道加工', body, 'pda-post-finishing-sku-adjustment-page')
+  const task = getPostFinishingFullFlowPostTask(query().get('id') || '')
+  const body = `<section class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">旧整单“未处理数量”登记入口已停用。正常余量由各加工项进度计算；历史记录保留，请返回当前加工单查看。</section><button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-sm font-semibold text-white" data-pda-post-action="return-to-post" data-task-no="${escapeHtml(task?.postTaskNo || '')}">返回后道加工单</button>`
+  return shell('查看当前加工进度', '后道加工', body, 'pda-post-finishing-sku-adjustment-page')
 }
 
 export function renderPdaPostFinishingExecutionPage(): string {
@@ -300,7 +328,7 @@ export function renderPdaPostFinishingExecutionPage(): string {
   const task = id ? getPostFinishingFullFlowPostTask(id) : undefined
   const body = task
     ? renderPostTask(task)
-    : scanner({ label: '扫描后道加工单号', placeholder: '生产单号-回货次数-ZJ-HD', action: 'scan-post', field: 'postScan', help: '只按完整后道加工单号查询；加工项目已由质检确认，后道只填已处理和未处理数量。' })
+    : scanner({ label: '扫描或输入后道加工单号', placeholder: '生产单号-回货次数-ZJ-HD', action: 'scan-post', field: 'postScan', help: '输入完整加工单号也可查询；加工项由质检确认，按项登记本次数量与责任。' })
   return shell('后道加工', '精确扫描后道加工单', body, 'pda-post-finishing-execution-page', '/fcs/pda/exec')
 }
 
@@ -338,6 +366,7 @@ function renderRecheckTask(record: PostFinishingRecheckOrder): string {
   }).join('')
   return `
     <div class="space-y-4" data-pda-recheck-task="${escapeHtml(record.recheckOrderId)}" data-skip-page-rerender="true">
+      <div data-pda-recheck-notice>${notice()}</div>
       <section class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
         <button type="button" class="text-xs text-blue-700 underline" data-pda-post-action="clear-recheck">重新扫描</button>
         <div class="mt-2 flex items-start justify-between gap-3">
@@ -348,17 +377,51 @@ function renderRecheckTask(record: PostFinishingRecheckOrder): string {
       </section>
       ${lines}
       ${editable ? `${initialSummary(expectedTotal, actualTotal, `整单应交 ${expectedTotal} 件，当前交出 ${actualTotal} 件`, 'recheck-total')}${authorizationBlock('recheck', hasDifference)}<div class="grid grid-cols-2 gap-2"><button type="button" class="h-11 rounded-2xl border border-amber-300 text-sm text-amber-800" data-pda-post-action="release-recheck" data-recheck-id="${escapeHtml(record.recheckOrderId)}">错误领取，释放</button><button type="button" class="h-11 rounded-2xl bg-blue-600 text-sm font-semibold text-white" data-pda-post-action="complete-recheck" data-recheck-id="${escapeHtml(record.recheckOrderId)}">确认数量条码并交出</button></div>` : ''}
-      ${record.status === '复检完成' ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">处理后数量与条码已复核，货物已进入后道待交出仓，并生成唯一出货单：${escapeHtml(record.outboundOrderNo || '生成中')}</div>` : ''}
+      ${record.status === '待复检' ? `<button type="button" class="h-12 w-full rounded-2xl bg-blue-600 text-base font-semibold text-white" data-pda-post-action="claim-recheck" data-recheck-id="${escapeHtml(record.recheckOrderId)}">领取本张复检单</button>` : ''}
+      ${record.status === '复检完成' ? `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">本次数量与条码已复核，货物已进入后道待交出仓，对应出货单：${escapeHtml(record.outboundOrderNo || '生成中')}</div>` : ''}
     </div>
   `
+}
+
+function refreshRecheckTaskLocally(record: PostFinishingRecheckOrder, preserveInput = true): void {
+  document.querySelector('[data-post-finishing-action-error]')?.remove()
+  const previous = document.querySelector<HTMLElement>('[data-pda-recheck-task]')
+  if (!previous) { refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo); return }
+  const quantities = new Map<string, string>()
+  previous.querySelectorAll<HTMLElement>('[data-recheck-result-line]').forEach((line) => {
+    const input = line.querySelector<HTMLInputElement>('[data-recheck-result-field="handoverQty"]')
+    if (input) quantities.set(line.dataset.recheckResultLine || '', input.value)
+  })
+  const authorization = readValue(previous, '[data-recheck-authorization]')
+  const differenceReason = readValue(previous, '[data-recheck-difference-reason]')
+  const template = document.createElement('template')
+  template.innerHTML = renderRecheckTask(record)
+  const next = template.content.firstElementChild as HTMLElement
+  if (preserveInput) {
+    next.querySelectorAll<HTMLElement>('[data-recheck-result-line]').forEach((line) => {
+      const input = line.querySelector<HTMLInputElement>('[data-recheck-result-field="handoverQty"]')
+      const value = quantities.get(line.dataset.recheckResultLine || '')
+      if (input && value !== undefined) input.value = value
+    })
+    const authorizationInput = next.querySelector<HTMLTextAreaElement>('[data-recheck-authorization]')
+    const reasonInput = next.querySelector<HTMLInputElement>('[data-recheck-difference-reason]')
+    if (authorizationInput) authorizationInput.value = authorization
+    if (reasonInput) reasonInput.value = differenceReason
+  }
+  previous.replaceWith(next)
+  updateQuantitySummaries()
 }
 
 export function renderPdaPostFinishingRecheckPage(): string {
   const id = query().get('id') || ''
   const record = id ? getPostFinishingFullFlowRecheckOrder(id) : undefined
+  const task = !record && id ? getPostFinishingFullFlowPostTask(id) : undefined
+  const records = task ? listPostFinishingFullFlowRecheckOrders().filter((item) => item.postTaskId === task.postTaskId) : []
   const body = record
     ? renderRecheckTask(record)
-    : scanner({ label: '扫描复检单号', placeholder: '生产单号-回货次数-ZJ-HD-FJ', action: 'scan-recheck', field: 'recheckScan', help: '扫描成功即由当前账号领取；条码错误必须重贴并复扫。' })
+    : task
+      ? `<section class="rounded-2xl border bg-white p-4" data-skip-page-rerender="true"><h2 class="text-sm font-semibold">选择本次复检单</h2><div class="mt-2 break-all font-mono text-xs text-slate-500">${escapeHtml(task.postTaskNo)}</div><div class="mt-3 space-y-2">${records.length ? records.map((item) => `<button type="button" class="min-h-12 w-full rounded-xl border p-3 text-left" data-pda-post-action="open-recheck" data-recheck-no="${escapeHtml(item.recheckOrderNo)}"><span class="break-all font-mono text-xs font-medium text-blue-700">${escapeHtml(item.recheckOrderNo)}</span><span class="mt-1 block text-xs">${escapeHtml(item.status)} · ${item.lines.reduce((sum, line) => sum + line.expectedQty, 0)} 件</span></button>`).join('') : '<p class="text-sm text-slate-600">尚未交复检，请先在加工单登记完成量并交复检。</p>'}</div></section>`
+      : scanner({ label: '扫描或输入完整复检单号', placeholder: '生产单号-回货次数-ZJ-HD-FJ-001', action: 'scan-recheck', field: 'recheckScan', help: '扫描成功即由当前账号领取本张单；条码错误必须重贴并复扫。' })
   return shell('处理后交出复核', '数量清点与 SKU 条码核对', body, 'pda-post-finishing-recheck-page', '/fcs/pda/exec')
 }
 
@@ -433,19 +496,23 @@ function updateQuantitySummaries(): void {
 }
 
 function showImage(url: string, label: string): void {
+  const previousFocus = document.activeElement as HTMLElement | null
   const overlay = document.createElement('div')
   overlay.className = 'fixed inset-0 z-[220] flex items-center justify-center bg-black/75 p-4'
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-label', `${label} 原图`)
   overlay.innerHTML = `<button type="button" class="absolute right-4 top-4 rounded-full bg-white px-3 py-2 text-sm">关闭</button><div class="flex min-h-40 min-w-64 items-center justify-center rounded-xl bg-white p-3"><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="max-h-[82vh] max-w-[86vw] rounded-xl object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败，请核对原图后重试';this.nextElementSibling.hidden=false" /><span class="p-8 text-sm text-slate-500">图片加载中…</span></div>`
   const close = () => {
     overlay.remove()
     document.removeEventListener('keydown', onKeydown)
+    if (previousFocus?.isConnected) previousFocus.focus()
   }
   const onKeydown = (keydownEvent: KeyboardEvent) => { if (keydownEvent.key === 'Escape') close() }
   overlay.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
   document.body.appendChild(overlay)
+  overlay.querySelector<HTMLButtonElement>('button')?.focus()
 }
 
 function setError(error: unknown): void {
@@ -455,7 +522,7 @@ function setError(error: unknown): void {
 
 function isQuantityInput(target: HTMLElement, event?: Event): boolean {
   if (event?.type !== 'input' || !(target instanceof HTMLInputElement)) return false
-  return target.matches('[data-return-first-count], [data-return-second-count], [data-post-processed-qty], [data-post-adjust-field="unprocessedQty"], [data-recheck-result-field="handoverQty"]')
+  return target.matches('[data-return-first-count], [data-return-second-count], [data-post-process-qty], [data-post-recheck-qty], [data-recheck-result-field="handoverQty"]')
 }
 
 export async function handlePdaPostFinishingFlowEvent(target: HTMLElement, event?: Event): Promise<boolean> {
@@ -484,7 +551,11 @@ export async function handlePdaPostFinishingFlowEvent(target: HTMLElement, event
       return true
     }
     if (action === 'clear-return') { refresh('/fcs/pda/post-finishing/return-confirm', ''); return true }
-    if (action === 'clear-post') { refresh('/fcs/pda/post-finishing/execute', ''); return true }
+    if (action === 'clear-post') {
+      if (hasPostUnsavedInput() && !window.confirm('本次填写的加工或交复检数量尚未保存，重新扫描后需要重新填写。确认重新扫描？')) return true
+      refresh('/fcs/pda/post-finishing/execute', '')
+      return true
+    }
     if (action === 'clear-recheck') { refresh('/fcs/pda/post-finishing/recheck', ''); return true }
     if (action === 'scan-return') {
       const scanValue = (field?.value || readValue(document, '[data-pda-post-field="returnScan"]')).trim()
@@ -540,58 +611,95 @@ export async function handlePdaPostFinishingFlowEvent(target: HTMLElement, event
       refresh('/fcs/pda/post-finishing/return-confirm', discarded.deliveryOrderNo)
       return true
     }
+    if (action === 'return-to-post') {
+      refresh('/fcs/pda/post-finishing/execute', actionNode?.dataset.taskNo || '')
+      return true
+    }
+    if (action === 'leave-post') {
+      if (hasPostUnsavedInput() && !window.confirm('本次填写的加工或交复检数量尚未保存，离开后需要重新填写。确认离开？')) return true
+      appStore.navigate(actionNode?.dataset.destination || '/fcs/pda/exec')
+      return true
+    }
+    if (action === 'open-recheck') {
+      if (hasPostUnsavedInput() && !window.confirm('本次填写的加工或交复检数量尚未保存，前往复检后需要重新填写。确认前往？')) return true
+      refresh('/fcs/pda/post-finishing/recheck', actionNode?.dataset.recheckNo || '')
+      return true
+    }
     if (action === 'scan-post') {
       const scanValue = (field?.value || readValue(document, '[data-pda-post-field="postScan"]')).trim()
       const task = getPostFinishingFullFlowPostTask(scanValue)
-      if (!task || task.postTaskNo !== scanValue) throw new Error('未找到完整后道加工单号，请重新扫描加工单条码。')
-      message = `已识别 ${task.postTaskNo}，请核对产品并填写各 SKU 已处理和未处理数量。`
+      if (!task || task.postTaskNo !== scanValue) throw new Error('未找到完整后道加工单号，请重新扫描或输入完整单号。')
+      message = `已识别 ${task.postTaskNo}，请选择加工项填写本次完成数量。`
       messageTone = 'success'
       refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
       return true
     }
-    if (action === 'start-post') {
-      const task = await runPostFinishingCommand(() => startPostFinishingPostTask({ postTaskNo: actionNode?.dataset.taskNo || '', actor: actor('后道操作员') }))
-      message = '已开始后道，请逐 SKU 填写已处理和未处理数量。'
-      messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
+    if (['start-post', 'save-processed-qty', 'save-unprocessed-qty', 'complete-post'].includes(action)) {
+      throw new Error('旧整单加工登记已停用。请返回加工单，按实际加工项登记本次完成数量，再独立交复检。')
+    }
+    if (action === 'save-process-completion' || action === 'submit-for-recheck') {
+      if (actionNode && !actionNode.isConnected) return true
+      const taskId = actionNode?.dataset.taskId || ''
+      const task = getPostFinishingFullFlowPostTask(taskId)
+      if (!task) throw new Error('未找到后道加工单，请重新读取。')
+      const isSubmission = action === 'submit-for-recheck'
+      const processItem = actionNode?.dataset.processItem
+      const form = actionNode?.closest<HTMLElement>(isSubmission ? '[data-post-recheck-form]' : '[data-post-process]')
+      if (!form) throw new Error('未找到本次登记表单。')
+      const lines = Array.from(form.querySelectorAll<HTMLElement>(isSubmission ? '[data-post-recheck-line]' : '[data-post-process-line]'))
+      const quantities = lines.map((line) => {
+        const input = line.querySelector<HTMLInputElement>(isSubmission ? '[data-post-recheck-qty]' : '[data-post-process-qty]')
+        const raw = input?.value.trim() || ''
+        if (!input || input.disabled) return { skuId: line.dataset.postRecheckLine || line.dataset.postProcessLine || '', quantity: 0 }
+        if (!raw) throw new Error('本次数量不能为空；本次不登记的行填写0。')
+        const quantity = Number(raw)
+        if (!Number.isSafeInteger(quantity) || quantity < 0) throw new Error('本次数量必须是0或正整数件。')
+        return { skuId: line.dataset.postRecheckLine || line.dataset.postProcessLine || '', quantity }
+      })
+      const total = quantities.reduce((sum, line) => sum + line.quantity, 0)
+      if (total <= 0) throw new Error('至少填写一个SKU的正整数数量。')
+      const currentActor = actor('后道操作员')
+      const key = `${taskId}:${isSubmission ? 'RECHECK' : processItem}`
+      if (submittingPostIntent.has(key)) return true
+      const signature = JSON.stringify({ taskId, processItem, quantities, actorId: currentActor.actorId })
+      const operationId = operationIntent(key, signature)
+      if (isSubmission) {
+        const detail = quantities.filter((line) => line.quantity > 0).map((entry) => `${task.lines.find((line) => line.sku.skuId === entry.skuId)?.sku.skuCode || 'SKU'}：${entry.quantity} 件`).join('\n')
+        if (!window.confirm(`将加工单 ${task.postTaskNo} 的以下数量交复检：\n${detail}\n合计 ${total} 件。创建后立即占用，不可重复交出。确认交复检？`)) return true
+      }
+      submittingPostIntent.add(key)
+      if (actionNode instanceof HTMLButtonElement) actionNode.disabled = true
+      try {
+        if (isSubmission) {
+          const recheck = await runPostFinishingCommand(() => submitPostFinishingForRecheck({ postTaskId: taskId, quantities, actor: currentActor, operationId }))
+          message = `已交复检 ${total} 件，复检单 ${recheck.recheckOrderNo}；本次数量已占用。`
+          messageTone = 'success'
+          refreshPostTaskLocally(getPostFinishingFullFlowPostTask(taskId) || task, undefined, true)
+          postOperationIntents.delete(key)
+        } else {
+          const process = getPostFinishingProcessProgress(task).processes.find((item) => item.processItem === processItem && item.applicable)
+          if (!process) throw new Error('该加工项不在质检确认的范围内。')
+          const saved = await runPostFinishingCommand(() => appendPostFinishingProcessCompletion({ postTaskId: taskId, processItem: process.processItem, quantities, responsible: currentActor, actor: currentActor, operationId }))
+          const progress = getPostFinishingProcessProgress(saved)
+          const cumulative = progress.processes.find((item) => item.processItem === process.processItem)?.completedQty || 0
+          message = `${process.processItem}本次已保存 ${total} 件，累计 ${cumulative} 件；当前可交复检 ${progress.availableForRecheckQty} 件。`
+          messageTone = 'success'
+          refreshPostTaskLocally(saved, process.processItem)
+          postOperationIntents.delete(key)
+        }
+      } finally {
+        submittingPostIntent.delete(key)
+        if (actionNode instanceof HTMLButtonElement) actionNode.disabled = false
+      }
       return true
     }
-    if (action === 'save-processed-qty') {
-      const line = actionNode?.closest<HTMLElement>('[data-post-completion-line]')
-      const task = await runPostFinishingCommand(() => setPostFinishingPostProcessedQuantity({
-        postTaskId: actionNode?.dataset.taskId || '',
-        skuId: actionNode?.dataset.skuId || '',
-        processedQty: numberValue(line || document, '[data-post-processed-qty]'),
-        actor: actor('后道操作员'),
-      }))
-      message = '已处理数量已保存。'
+    if (action === 'claim-recheck') {
+      const current = getPostFinishingFullFlowRecheckOrder(actionNode?.dataset.recheckId || '')
+      if (!current) throw new Error('未找到复检单，请重新读取。')
+      const claimed = await runPostFinishingCommand(() => claimPostFinishingRecheckOrder({ recheckOrderNo: current.recheckOrderNo, actor: actor('复检员') }))
+      message = `已领取 ${claimed.recheckOrderNo}。`
       messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
-      return true
-    }
-    if (action === 'save-unprocessed-qty') {
-      const root = document.querySelector<HTMLElement>('[data-post-sku-adjustment-root]')
-      if (!root) throw new Error('未找到当前 SKU 未处理数量表单。')
-      const task = await runPostFinishingCommand(() => setPostFinishingPostUnprocessedQuantity({
-        postTaskId: actionNode?.dataset.taskId || '',
-        skuId: actionNode?.dataset.skuId || '',
-        unprocessedQty: numberValue(root, '[data-post-adjust-field="unprocessedQty"]'),
-        unprocessedReason: readValue(root, '[data-post-adjust-field="unprocessedReason"]'),
-        actor: actor('后道操作员'),
-      }))
-      message = '当前 SKU 的未处理数量与说明已保存。'
-      messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/execute', task.postTaskNo)
-      return true
-    }
-    if (action === 'complete-post') {
-      const completed = await runPostFinishingCommand(() => completePostFinishingPostTaskFromDraft({
-        postTaskId: actionNode?.dataset.taskId || '',
-        actor: actor('后道操作员'),
-      }))
-      message = `后道处理完成，处理后交出复核单 ${completed.recheckOrderNo}`
-      messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/execute', completed.postTaskNo)
+      refresh('/fcs/pda/post-finishing/recheck', claimed.recheckOrderNo)
       return true
     }
     if (action === 'scan-recheck') {
@@ -606,37 +714,42 @@ export async function handlePdaPostFinishingFlowEvent(target: HTMLElement, event
       const record = await runPostFinishingCommand(() => scanPostFinishingRecheckSkuBarcode({ recheckOrderId: actionNode?.dataset.recheckId || '', skuId: actionNode?.dataset.skuId || '', scannedBarcode: readValue(card, '[data-recheck-barcode-input]'), actor: actor('复检员') }))
       message = record.status === '条码异常待重贴' ? '条码错误，已阻断出货；请打印正确贴标并重新贴码。' : '条码正确。'
       messageTone = record.status === '条码异常待重贴' ? 'error' : 'success'
-      refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
+      refreshRecheckTaskLocally(record)
       return true
     }
     if (action === 'mark-relabeled') {
       const record = await runPostFinishingCommand(() => markPostFinishingRecheckSkuRelabeled({ recheckOrderId: actionNode?.dataset.recheckId || '', skuId: actionNode?.dataset.skuId || '', actor: actor('复检员') }))
       message = '已记录重新贴码，必须复扫正确后才能完成。'
       messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
+      refreshRecheckTaskLocally(record)
       return true
     }
     if (action === 'release-recheck') {
+      if (!window.confirm('释放后由其他复检员领取本张单；本单数量仍占用，未提交的复核输入不保存。确认释放？')) return true
       const record = await runPostFinishingCommand(() => releasePostFinishingRecheckOrder({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), reason: '错误领取' }))
-      message = '已释放并回到待复检。'
+      message = '已释放并回到待复检；本单数量占用保留。'
       messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
+      refreshRecheckTaskLocally(record, false)
       return true
     }
     if (action === 'complete-recheck') {
       const root = document.querySelector<HTMLElement>('[data-pda-recheck-task]')!
       const lines = Array.from(root.querySelectorAll<HTMLElement>('[data-recheck-result-line]'))
-      const results = lines.map((line) => ({ skuId: line.dataset.recheckResultLine || '', handoverQty: numberValue(line, '[data-recheck-result-field="handoverQty"]') }))
+      const results = lines.map((line) => {
+        const raw = readValue(line, '[data-recheck-result-field="handoverQty"]')
+        if (!raw || !Number.isSafeInteger(Number(raw)) || Number(raw) < 0) throw new Error('逐SKU实际交出数量须为0或正整数件，不能为空。')
+        return { skuId: line.dataset.recheckResultLine || '', handoverQty: Number(raw) }
+      })
       const diff = lines.some((line, index) => Number(line.dataset.expectedQty) !== results[index]!.handoverQty)
       const record = await runPostFinishingCommand(() => completePostFinishingRecheckOrderFullFlow({ recheckOrderId: actionNode?.dataset.recheckId || '', actor: actor('复检员'), results, authorization: diff ? { scanValue: readValue(root, '[data-recheck-authorization]'), differenceReason: readValue(root, '[data-recheck-difference-reason]') } : undefined }))
       message = `数量与条码复核完成，已进入后道待交出仓并生成出货单 ${record.outboundOrderNo}`
       messageTone = 'success'
-      refresh('/fcs/pda/post-finishing/recheck', record.recheckOrderNo)
+      refreshRecheckTaskLocally(record, false)
       return true
     }
   } catch (error) {
     setError(error)
-    const nextStep = error instanceof Error && 'code' in error && ['SECOND_COUNT_REQUIRED', 'AUTHORIZATION_REQUIRED'].includes(String(error.code))
+    const nextStep = action === 'confirm-return' && error instanceof Error && 'code' in error && ['SECOND_COUNT_REQUIRED', 'AUTHORIZATION_REQUIRED'].includes(String(error.code))
     if (!nextStep) {
       showPostFinishingActionFailure(error instanceof Error ? error.message : '本次未保存，请保留输入后重试。', target)
       return true

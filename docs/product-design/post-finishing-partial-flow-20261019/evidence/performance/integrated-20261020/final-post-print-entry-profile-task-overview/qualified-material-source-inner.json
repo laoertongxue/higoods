@@ -1,0 +1,250 @@
+{
+  "id": 372,
+  "fn": "u",
+  "file": "production-material-prep-BGIQLXCu.js",
+  "line": 0,
+  "column": 38786,
+  "ms": 263.668,
+  "selfMs": 0,
+  "excerpt": "ew Map,u=d=>{let i=s.get(d);return i||(i=dr(new Set([d])),s.set(d,i)),i};let n;return[...G.filter(d=>!o||o.has(d.productionOrderId)),...a.map(d=>{var y;const i=d.techPackSnapshot,k=`prep-order-${d.productionOrderId}`,I=((y=cr(d.productionOrderId))==null?void 0:y.materialFacts)??[],A=pr(d.productionOrderId),l=i.bomItems.filter(m=>m.type!==\"成衣\").map(m=>{var Oe,Pe;const{replacement:f,materialSku:N,unit:R}=tr(d,m,I),C=new Set(m.applicableSkuCodes??[]),S=d.demandSnapshot.skuLines.reduce((O,L)=>O+(C.size===0||C.has(L.skuCode)?L.qty:0),0),T=Number.isFinite(S)&&S>=0&&Number.isFinite(m.unitConsumption)&&m.unitConsumption>0&&Number.isFinite(m.lossRate)&&m.lossRate>=0&&m.lossRate<1,B=T?Math.round(S*m.unitConsumption*(1+m.lossRate)*1e6)/1e6:0,Q=[N?\"\":\"冻结BOM缺少物料编码\",R?\"\":\"冻结BOM缺少数量单位\",T?\"\":\"冻结BOM单耗、损耗或需求数量无效\"].filter(Boolean),E=m.type===\"包装材料\"?\"包材\":m.type===\"面料",
+  "children": [
+    {
+      "id": 373,
+      "fn": "cc",
+      "file": "printing-task-domain-CSdjlFuY.js",
+      "line": 0,
+      "column": 199447,
+      "ms": 263.668,
+      "selfMs": 1.505,
+      "excerpt": "nction cc(e){const t=e&&!e.has(\"PRINT\")?xs():void 0,r=e&&!e.has(\"DYE\")?Za():void 0,o=(t&&!t.needsRestoration?t.orders:js()).map(n=>({taskId:n.taskId,taskNo:n.taskNo,factoryId:n.printFactoryId,factoryName:n.printFactoryName,sourceArtifactIds:n.sourceArtifactIds?[...n.sourceArtifactIds]:void 0,workOrderId:n.printOrderId,workOrderNo:n.printOrderNo,processType:\"PRINT\",sourceType:n.sourceType,sourceSnapshot:n.sourceSnapshot||lr(n),sourceProductionOrderId:n.sourceProductionOrderId,sourceProductionOrderNo:n.sourceProductionOrderNo,objectType:n.objectType,materialSku:n.materialSku,materialName:n.materialColor?`${n.materialSku} / ${n.materialColor}`:n.materialSku,plannedQty:n.plannedQty,plannedUnit:n.qtyUnit})),a=(r&&!r.needsRestoration?r.orders:hr()).map(n=>{var i;const d=[...new Set((((i=n.formalProductionOrderSnapshot)==null?void 0:i.materialItems)??[])",
+      "children": [
+        {
+          "id": 555,
+          "fn": "hr",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 124109,
+          "ms": 126.098,
+          "selfMs": 1.503,
+          "excerpt": "nction hr(){return Se()?[...S.values()].map(M):(we(),Gt().map(e=>{const t=S.get(e.dyeOrderId)??e;return gt(t),M({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.rejectedAt,rejectedBy:t.rejectedBy,rejectionReason:t.rejectionReason})}))}function ii(){return we(),Array.from(ge).map(e=>S.get(e)).filter(e=>!!e).map(M)}function es(e,t){var d;Re();const r=S.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.sourceType)!==\"PRODUCTION_DEMAND\")throw new Error(\"未找到对应的生产需求提前染色加工单\");const o=M(r),a=M(r),s=t.matchStatus===\"MATCHED\"?\"MATCH\":t.matchStatus===\"MATCH_FAILED\"?\"MATCH_FAILED\":\"RETRY\";a.sourceSnapshot={...structuredClone(r.sourceSnapshot),matchStatus:t.matchStatus,matchCheckedAt:t.checkedAt,matchFailureReason:t.failureReason,...t.productionOrderId?{productionOrderId:t.productionOrderId,matchedProducti",
+          "children": [
+            {
+              "id": 556,
+              "fn": "we",
+              "file": "printing-task-domain-CSdjlFuY.js",
+              "line": 0,
+              "column": 70332,
+              "ms": 121.588,
+              "selfMs": 1.501,
+              "excerpt": "nction we(e){var o;if(Se())return;Re(),vt();const t=e?[S.get(e)].filter(a=>!!a):[...S.values()],r=pa({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType===\"HANDOUT\");for(const a of S.values()){if(e&&a.dyeOrderId!==e)continue;const s=Jr(a.dyeOrderId,a.qtyUnit);if(s.length){a.materialReceipts=[...(a.materialReceipts??[]).filter(c=>!c.receiptId.startsWith(\"FRP-\")),...s];const i=a.materialReceipts.reduce((c,u)=>c+u.qty,0);if(i>0){const c=Z.get(a.dyeOrderId)??[],u=c.find(I=>I.nodeCode===\"INPUT_RECEIVED\"),l=s.at(-1),m={...u,nodeRecordId:(u==null?void 0:u.nodeRecordId)||`FRP-${a.dyeOrderId}`,dyeOrderId:a.dyeOrderId,taskId:a.taskId,nodeCode:\"INPUT_RECEIVED\",nodeName:\"接收原料\",operatorUserId:\"FACTORY-RECEIVER\",operatorName:l.receiverName,finishedAt:l.receivedAt,inputQty:i,outputQty:i,qtyUnit:De(a),remark:\"按工厂实收记录汇总；接收不代表开工\"};Z.set(a.dye",
+              "children": [
+                {
+                  "id": 557,
+                  "fn": "Re",
+                  "file": "printing-task-domain-CSdjlFuY.js",
+                  "line": 0,
+                  "column": 112814,
+                  "ms": 72.426,
+                  "selfMs": 0,
+                  "excerpt": "nction Re(){if(!Se()&&!tt){tt=!0,Kd(),Ld(),zn.forEach(e=>{var r;const t=S.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.workOrderId}`,upstreamRecordId:`ISSUE-DYE-${e.workOrderId}-L001`,qty:e.qty,receiverName:e.targetFactoryName,receivedAt:e.issuedAt}])}),Gd(),jd(),xd(),Jd();for(const[e,t]of[[\"DWO-008\",2016],[\"DWO-009\",3798],[\"DWO-010\",5600]]){const r=S.get(e),o=Z.get(e);o.some(a=>a.nodeCode===\"DYE\")||o.unshift({nodeRecordId:`${e}-DYE`,dyeOrderId:e,taskId:r.taskId,nodeCode:\"DYE\",nodeName:\"染色\",operatorUserId:\"USR-DYE-01\",operatorName:\"染色工厂\",startedAt:e===\"DWO-009\"?\"2026-06-04 11:30:00\":\"2026-03-28 11:30:00\",finishedAt:{\"DWO-008\":\"2026-03-28 15:00:00\",\"DWO-009\":\"2026-06-04 13:00:00\",\"DWO-010\":\"2026-03-28 12:30:00\"}[e],inputQty:t,outputQty:t,lossQty:0,qtyUnit:r.qtyUnit,remark:\"预设演示",
+                  "children": [
+                    {
+                      "id": 558,
+                      "fn": "Kd",
+                      "file": "printing-task-domain-CSdjlFuY.js",
+                      "line": 0,
+                      "column": 77209,
+                      "ms": 35.989,
+                      "selfMs": 0,
+                      "excerpt": "nction Kd(){const e=Ea(te),t=e[0],r=e[1]??e[0],o=pt(7,910,910),a=pt(8,980,980),s=pt(8,980,900),n=pt(9,860,860),d=pt(9,860,842),i=pt(10,1180,1172),c=\"TASK-DYE-000734\";[{taskId:\"TASK-DYE-000727\",productionOrderId:\"PO-20260328-414\",qty:1100,createdAt:\"2026-03-28 10:10:00\"},{taskId:\"TASK-DYE-000728\",productionOrderId:\"PO-20260328-415\",qty:910,createdAt:\"2026-03-28 10:50:00\"},{taskId:c,productionOrderId:\"PO-20260328-416\",qty:980,createdAt:\"2026-06-03 14:50:00\"},{taskId:\"TASK-DYE-000730\",productionOrderId:\"PO-20260328-417\",qty:860,createdAt:\"2026-03-27 15:00:00\"},{taskId:\"TASK-DYE-000731\",productionOrderId:\"PO-20260328-418\",qty:1180,createdAt:\"2026-03-28 07:00:00\"}].forEach(k=>{de(k.taskId)||j(jt({...k,taskNo:k.taskId,factoryId:te,factoryName:ne,qtyDisplayUnit:\"米\",processName:\"染色\",dispatchedBy:\"平台加工单\",receiveSummary:\"染色加工单已分配，待工厂接收。\",executionSummary:\"按"
+                    },
+                    {
+                      "id": 662,
+                      "fn": "Ld",
+                      "file": "printing-task-domain-CSdjlFuY.js",
+                      "line": 0,
+                      "column": 59590,
+                      "ms": 27.056,
+                      "selfMs": 0,
+                      "excerpt": "nction Ld(){ao().forEach((e,t)=>{if(ge.has(e.dyeOrderId)||e.sourceType===\"STOCK\"){$r(e);return}const r=e.plannedQty,o=Fd(e,t);S.set(o.dyeOrderId,o);const a=o.plannedQty/r,s=Z.get(o.dyeOrderId);s&&a!==1&&Z.set(o.dyeOrderId,s.map(d=>({...d,inputQty:typeof d.inputQty==\"number\"?Number((d.inputQty*a).toFixed(2)):void 0,outputQty:typeof d.outputQty==\"number\"?Number((d.outputQty*a).toFixed(2)):void 0,lossQty:typeof d.lossQty==\"number\"?Number((d.lossQty*a).toFixed(2)):void 0})));const n=de(o.taskId);n&&(n.sourceType=o.sourceType,n.sourceSnapshot=o.sourceSnapshot?structuredClone(o.sourceSnapshot):void 0,n.productionOrderId=o.sourceProductionOrderId,n.productionOrderNo=o.sourceProductionOrderNo,n.sourceProductionOrderId=o.sourceProductionOrderId,n.stockMaterialId=o.stockMaterialId,n.stockMaterialName=o.stockMaterialName,j(n),$r(o))})}function M(e){var t,r,o"
+                    }
+                  ]
+                },
+                {
+                  "id": 736,
+                  "fn": "it",
+                  "file": "printing-task-domain-CSdjlFuY.js",
+                  "line": 0,
+                  "column": 63124,
+                  "ms": 34.332,
+                  "selfMs": 0,
+                  "excerpt": "nction it(e){const t=de(e);if(!(t!=null&&t.startedAt))return;const r=pr(e,{includeWool:!1});return xa(e,r.handoverOrderId),r.handoverOrderId}function je(e){var d,i,c,u;const t=it(e.taskId);if(!t)return{recordIds:[]};const r=G(t,{includeWool:!1});if(!r)return{handoverOrderId:t,recordIds:[]};if(F(r.handoverId,r).length===0||e.createNewBatch){const l=Array.from(S.values()).find(y=>y.taskId===e.taskId),m=(i=(d=l==null?void 0:l.formalProductionOrderSnapshot)==null?void 0:d.materialItems)==null?void 0:i.find(y=>{var N;return y.materialId===l.rawMaterialSku&&(!((N=l.sourceSnapshot)!=null&&N.bomItemId)||y.sourceBomItemId===l.sourceSnapshot.bomItemId)}),I=(c=m==null?void 0:m.materialType)==null?void 0:c.trim(),R=(!l||!Ot(l))&&(!I||I===\"FABRIC\"||I.includes(\"面料\"));qt({dyeExecutionConfirmed:!0,handoverOrderId:t,submittedQty:e.submittedQty,qtyUnit:r.qtyUnit,fa",
+                  "children": [
+                    {
+                      "id": 737,
+                      "fn": "Vi",
+                      "file": "pda-handover-events-CZFTG6W8.js",
+                      "line": 1,
+                      "column": 192923,
+                      "ms": 34.332,
+                      "selfMs": 0,
+                      "excerpt": "nction Vi(e,t={}){var l;const r=Le(e),o=ji(e,t)[0];if(o){if(r&&r.status!==\"DONE\"&&((r.handoverQty??0)+1e-6<r.completedQty||r.completedQty+1e-6<r.plannedQty&&r.supervisorDecision!==\"CONTINUE_WITH_ACTUAL_QTY\")&&(Ie.delete(o.handoverId),z()),r){const R=Ko(r.waterOrderId,e,o.handoverOrderId||o.handoverId);if(!R.ok)throw new Error(R.message)}return{taskId:e,handoverOrderId:o.handoverOrderId||o.handoverId,created:!1}}const a=Qi(e);if(!a)throw new Error(`未找到任务：${e}`);if(r&&r.status!==\"WAIT_HANDOVER\")throw new Error(`水溶加工单当前为“${r.status}”，只有待交出时才能创建交出单。`);if(r&&(!r.factoryId||r.factoryId!==a.assignedFactoryId))throw new Error(\"水溶加工单尚未正确派厂，不能创建交出单。\");const s=a.waterSolubleHandoverEligible;if(!r&&s===!1)throw new Error(\"含水溶染色加工单尚未完成包装，不能创建中间交出单。\");if(!r&&!Li(a))throw new Error(`当前任务不进入交出链路：${e}`);if(!r&&!a.startedAt)throw new Error(`任务尚未开工，不能创建交出单：${e}`);co"
+                    }
+                  ]
+                },
+                {
+                  "id": 727,
+                  "fn": "at",
+                  "file": "pda-handover-events-CZFTG6W8.js",
+                  "line": 1,
+                  "column": 185784,
+                  "ms": 8.779,
+                  "selfMs": 0,
+                  "excerpt": "nction at(e={}){return _t(void 0,e.includeWool!==!1,e.taskIds)}function Pu(e){return _t(void 0,!0,void 0,t=>t.headType===e)}function bu(e){return _t(e)}function ho(e){const t=H(e);if(!(t!=null&&t.sourceDocId))return;const r=io(t.sourceDocId);if(r&&!(r.docType!==\"ISSUE\"&&r.docType!==\"RETURN\"))return r}function rs(e){const t=H(e);return t!=null&&t.runtimeTaskId?me(t.runtimeTaskId):null}function gu(e){return _t(e,!0,void 0,t=>t.headType===\"PICKUP\"&&t.completionStatus===\"OPEN\")}function Du(e){return _t(e,!0,void 0,t=>t.headType===\"HANDOUT\"&&t.completionStatus===\"OPEN\")}function _u(){return ts(e=>e.headType===\"PICKUP\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function wu(){return ts(e=>e.headType===\"HANDOUT\"&&e.completionStatus===\"OPEN\"&&e.processBusinessCode===\"POST_FINISHING\")}function Qu(e){return _t(e,!0,void 0,t=>t.co",
+                  "children": [
+                    {
+                      "id": 728,
+                      "fn": "_t",
+                      "file": "pda-handover-events-CZFTG6W8.js",
+                      "line": 1,
+                      "column": 180934,
+                      "ms": 8.779,
+                      "selfMs": 0,
+                      "excerpt": "nction _t(e,t=!0,r,o){return Ne(),[...t?es():Nt(),...jt().heads].filter(a=>(!e||Di(a,e))&&(!r||r.has(a.taskId))&&(!o||o(a))).sort((a,s)=>{const n=te(s.lastRecordAt||s.completedByWarehouseAt||\"\"),d=te(a.lastRecordAt||a.completedByWarehouseAt||\"\"),c=Number.isFinite(n)?n:0,i=Number.isFinite(d)?d:0;return c-i}).map(K)}function ts(e){Ne();const t=wi();return(e?t.filter(e):t.slice()).sort((r,o)=>{const a=te(o.lastRecordAt||o.completedByWarehouseAt||\"\"),s=te(r.lastRecordAt||r.completedByWarehouseAt||\"\"),n=Number.isFinite(a)?a:0,d=Number.isFinite(s)?s:0;return n-d}).map(K)}function H(e){const t=jt().heads.find(a=>a.handoverId===e);if(t)return t;Ne();const r=V.get(e);if(r&&r.processBusinessCode!==\"WOOL\")return r.headType===\"PICKUP\"?ot(K(r)):we(K(r));if(/^SC-(DISPATCH|PICKUP|RETURN)-/.test(e))return;const o=Nt().find(a=>a.handoverId===e);return o||Xt().find"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 374,
+          "fn": "js",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 283064,
+          "ms": 92.677,
+          "selfMs": 0,
+          "excerpt": "nction js(){return Ee(!1),wt(),ho().map(z)}function xs(){if(Je)throw new Error(Je);return{orders:rt?ho().map(z):[],needsRestoration:!rt&&(typeof window<\"u\"||typeof localStorage<\"u\")&&le().getItem(be)!==null}}function Js(){return Se()?[...v.values()].map(z):(Te(),ho().map(e=>(bt(e),z(e))))}function Xs(){return Js().map(e=>{const t=re.get(e.printOrderId),r=e.handoverOrderId?G(e.handoverOrderId,{includeWool:!1}):void 0;return{order:e,review:t?Xt(t):void 0,handoverRecords:r?F(r.handoverId,r):[]}})}function zs(e,t){var d;Ee();const r=v.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.sourceType)!==\"PRODUCTION_DEMAND\")throw new Error(\"未找到对应的生产需求提前印花加工单\");const o=z(r),a=z(r),s=t.matchStatus===\"MATCHED\"?\"MATCH\":t.matchStatus===\"MATCH_FAILED\"?\"MATCH_FAILED\":\"RETRY\";a.sourceSnapshot={...structuredClone(r.sourceSnapshot),matchStatus:t.matchStatus,matchChec",
+          "children": [
+            {
+              "id": 375,
+              "fn": "Ee",
+              "file": "printing-task-domain-CSdjlFuY.js",
+              "line": 0,
+              "column": 273991,
+              "ms": 80.691,
+              "selfMs": 0,
+              "excerpt": "nction Ee(e=!0){return Kn(()=>Jc(e))}function Jc(e=!0){if(Se())return;if(Je)throw new Error(Je);if(rt){e&&ra();return}rt=!0,Hc(),Wc(),Kc(),Gc(),Mc(),jc();for(const o of se)for(const a of Va(o,\"PRINT\"))Co(a);const t=[\"PWO-PRINT-001\",\"PWO-PRINT-002\"].map(o=>v.get(o)),r=[...fd(t),...Id(t)];for(const o of r){v.set(o.printOrderId,o),o.printOrderId.startsWith(\"PWO-WASH-DEMO-\")&&Hs.set(o.printOrderId,JSON.stringify(o)),X.set(o.printOrderId,[]);const a=o.businessView,s=gr({taskId:o.taskId,taskNo:o.taskNo,sourceType:o.sourceType,sourceSnapshot:o.sourceSnapshot,productionOrderId:o.sourceProductionOrderId,productionOrderNo:o.sourceProductionOrderNo,spuCode:a.product.spu,spuName:a.product.productName,requiredDeliveryDate:\"2026-09-21\",factoryId:o.printFactoryId,factoryName:o.printFactoryName,qty:o.plannedQty,qtyDisplayUnit:o.qtyUnit,processName:\"印花\",createdAt:",
+              "children": [
+                {
+                  "id": 376,
+                  "fn": "ne",
+                  "file": "design-revision-pcs-storage-BjfzS8H8.js",
+                  "line": 0,
+                  "column": 849,
+                  "ms": 80.691,
+                  "selfMs": 0,
+                  "excerpt": "nction ne(r){j++;try{return r()}finally{j--,j||L.clear()}}function oe(r){O=r}function q(r,e){return j&&L.has(r)?L.get(r):(O==null?void 0:O.read(r,e))??e}function G(r,e,t){return j&&Q.includes(r)?(L.set(r,e),{handled:!0}):(O==null?void 0:O.write(r,e,t))??{handled:!1}}function ie(r){return(O==null?void 0:O.owns(r))??!1}const Q=[\"higoods.formal-dye-execution.v1\",\"higoods.formal-print-execution.v1\",\"higood.formal-merged-handout-actions.v1\",\"higood-factory-material-receiving-v1\"];function X(r){if(!r)return[];const e=U(r),t=[],o=(n,s,i)=>s.forEach(a=>{var f;const l=i?a[0]:a.id??a.taskId??((f=a.head)==null?void 0:f.handoverId)??a.orderId;if(typeof l!=\"string\"||!l)throw new Error(\"加工记录缺少稳定身份，未覆盖原资料。\");t.push({path:n,key:l,tuple:i,value:i?a[1]:a})});if(e.state)for(const[n,s]of Object.entries(e.state))Array.isArray(s)&&o(\"state.\"+n,s,!0);for(const[n,s]of Ob",
+                  "children": [
+                    {
+                      "id": 377,
+                      "fn": "",
+                      "file": "printing-task-domain-CSdjlFuY.js",
+                      "line": 0,
+                      "column": 274008,
+                      "ms": 80.691,
+                      "selfMs": 0,
+                      "excerpt": "eturn Kn(()=>Jc(e))}function Jc(e=!0){if(Se())return;if(Je)throw new Error(Je);if(rt){e&&ra();return}rt=!0,Hc(),Wc(),Kc(),Gc(),Mc(),jc();for(const o of se)for(const a of Va(o,\"PRINT\"))Co(a);const t=[\"PWO-PRINT-001\",\"PWO-PRINT-002\"].map(o=>v.get(o)),r=[...fd(t),...Id(t)];for(const o of r){v.set(o.printOrderId,o),o.printOrderId.startsWith(\"PWO-WASH-DEMO-\")&&Hs.set(o.printOrderId,JSON.stringify(o)),X.set(o.printOrderId,[]);const a=o.businessView,s=gr({taskId:o.taskId,taskNo:o.taskNo,sourceType:o.sourceType,sourceSnapshot:o.sourceSnapshot,productionOrderId:o.sourceProductionOrderId,productionOrderNo:o.sourceProductionOrderNo,spuCode:a.product.spu,spuName:a.product.productName,requiredDeliveryDate:\"2026-09-21\",factoryId:o.printFactoryId,factoryName:o.printFactoryName,qty:o.plannedQty,qtyDisplayUnit:o.qtyUnit,processName:\"印花\",createdAt:o.createdAt});s.r"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 537,
+              "fn": "z",
+              "file": "printing-task-domain-CSdjlFuY.js",
+              "line": 0,
+              "column": 230416,
+              "ms": 11.986,
+              "selfMs": 11.986,
+              "excerpt": "unction z(e){return{...e,sourceSnapshot:e.sourceSnapshot?structuredClone(e.sourceSnapshot):void 0,sourceArtifactIds:e.sourceArtifactIds?[...e.sourceArtifactIds]:void 0,productionOrderIds:[...e.productionOrderIds],formalProductionOrderSnapshot:e.formalProductionOrderSnapshot?structuredClone(e.formalProductionOrderSnapshot):void 0,changeImpact:e.changeImpact?structuredClone(e.changeImpact):void 0,autoSyncHistory:e.autoSyncHistory?structuredClone(e.autoSyncHistory):void 0,businessView:e.businessView?structuredClone(e.businessView):void 0}}function Hr(e){return{...e,proofImageIds:e.proofImageIds?[...e.proofImageIds]:void 0}}function Xt(e){return{...e,handoverRecordIds:e.handoverRecordIds?[...e.handoverRecordIds]:void 0}}function $(e=new Date){return ma(e)}function W(e,t){const r=10**t;return Math.round((e+Number.EPSILON)*r)/r}function mr(e){return W(e",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 538,
+          "fn": "c",
+          "file": "water-soluble-relation-sources-BhwGTu6Z.js",
+          "line": 0,
+          "column": 144,
+          "ms": 25.363,
+          "selfMs": 0,
+          "excerpt": "unction c(){return o().map(t=>({taskId:t.taskId,taskNo:t.taskNo,factoryId:t.factoryId||\"\",factoryName:t.factoryName||\"待分配染厂\",sourceArtifactIds:[t.sourceArtifactId],workOrderId:t.waterOrderId,workOrderNo:t.waterOrderNo,processType:\"WATER_SOLUBLE\",sourceType:\"PRODUCTION_ORDER\",sourceSnapshot:{sourceType:\"PRODUCTION_ORDER\",productionOrderId:t.productionOrderId,productionOrderNo:t.productionOrderNo,techPackVersionId:t.techPackVersionId,bomItemId:t.bomItemId},sourceProductionOrderId:t.productionOrderId,sourceProductionOrderNo:t.productionOrderNo,objectType:\"BOM 物料\",materialSku:t.materialCode,materialName:t.materialName,plannedQty:t.plannedQty,plannedUnit:t.qtyUnit}))}export{r as D,a as P,c as l};",
+          "children": [
+            {
+              "id": 539,
+              "fn": "Qd",
+              "file": "pda-handover-events-CZFTG6W8.js",
+              "line": 1,
+              "column": 96109,
+              "ms": 25.363,
+              "selfMs": 0,
+              "excerpt": "nction Qd(){return[...It().values()].map(e=>(Io(e),e)).sort((e,t)=>e.generationKey.localeCompare(t.generationKey)).map(le)}function Ld(e){const t=ee(e);return t&&Io(t),t?le(t):null}function Bd(e,t){const r=G==null?void 0:G.get(e.generationKey);if(!r||r.waterOrderId!==e.waterOrderId||r.taskId!==e.taskId||r.productionOrderId!==e.productionOrderId)throw new Error(\"水溶原单身份已变化，不能撤回到其他单据。\");G.set(e.generationKey,le(e)),t!==void 0&&_a(t)}function Le(e){const t=[...It().values()].find(r=>r.taskId===e);return t&&Io(t),t?le(t):null}function Wd(){return Qd().map((e,t)=>{const r=pr({sourceType:\"PRODUCTION_ORDER\",productionOrderNo:e.productionOrderNo});return{taskId:e.taskId,taskNo:e.taskNo,productionOrderId:e.productionOrderId,seq:t+1,processCode:\"PROC_WATER_SOLUBLE\",processNameZh:\"水溶\",stage:\"PREP\",qty:e.plannedQty,qtyUnit:_d(e.qtyUnit),qtyDisplayUnit:e.qtyUni",
+              "children": [
+                {
+                  "id": 540,
+                  "fn": "It",
+                  "file": "pda-handover-events-CZFTG6W8.js",
+                  "line": 1,
+                  "column": 94296,
+                  "ms": 25.363,
+                  "selfMs": 0,
+                  "excerpt": "nction It(){var t;gd();const e=ps();for(const r of G.values()){const o=ga(r.waterOrderId,r.qtyUnit,\"water\"),a=(r.materialReceipts??[]).filter(s=>!s.receiptId.startsWith(\"FRP-\"));r.inputQty===void 0&&![\"WAIT_MATERIAL\",\"WAIT_WATER_SOLUBLE\"].includes(r.status)&&(r.inputQty=a.reduce((s,n)=>s+n.qty,0)),r.materialReceipts=[...a,...o],r.status===\"WAIT_MATERIAL\"&&r.materialReceipts.some(s=>s.qty>0)&&(r.status=\"WAIT_WATER_SOLUBLE\");for(const s of e.filter(n=>n.workOrderNo===r.waterOrderNo)){const n=(t=r.handoverBatches)==null?void 0:t.find(c=>c.batchId===s.waterBatchId),d=jr(s.id);n&&d.length&&(n.receivedQty=d.reduce((c,i)=>c+(Zo(i.qty,i.unit,r.qtyUnit)??(i.businessUnit===r.qtyUnit?i.businessQty??0:0)),0),r.receivedQty=(r.handoverBatches??[]).reduce((c,i)=>c+(i.receivedQty??0),0))}}return G}function ee(e){return[...It().values()].find(t=>t.waterOrderId===e",
+                  "children": [
+                    {
+                      "id": 543,
+                      "fn": "gd",
+                      "file": "pda-handover-events-CZFTG6W8.js",
+                      "line": 1,
+                      "column": 93446,
+                      "ms": 19.579,
+                      "selfMs": 0,
+                      "excerpt": "nction gd(){if(dr&&G)return;if(!G){const o=bd();Rd(o),G=o;return}const e=G??new Map,t=new Map,r=new Map;e.forEach(o=>{if(o.handoverDemoSourceOrderId){t.set(o.generationKey,o);return}const a=ur(o.productionOrderId,o.bomItemId);if(r.has(a))throw new Error(`水溶加工单业务身份冲突：${a}，请检查历史加工单`);r.set(a,o)}),wa().forEach(o=>{const a=e.get(o.generationKey)??r.get(o.generationKey);if(!a){t.set(o.generationKey,o);return}if(vd(a)){t.set(o.generationKey,{...a,generationKey:o.generationKey,sourceArtifactId:o.sourceArtifactId,productionOrderId:o.productionOrderId,productionOrderNo:o.productionOrderNo,techPackVersionId:o.techPackVersionId,bomItemId:o.bomItemId,materialCode:o.materialCode,materialName:o.materialName,materialSpec:o.materialSpec,plannedQty:o.plannedQty,qtyUnit:o.qtyUnit});return}t.set(o.generationKey,{...a,generationKey:o.generationKey})}),G=t}function It"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 553,
+          "fn": "xs",
+          "file": "printing-task-domain-CSdjlFuY.js",
+          "line": 0,
+          "column": 283109,
+          "ms": 18.025,
+          "selfMs": 0,
+          "excerpt": "nction xs(){if(Je)throw new Error(Je);return{orders:rt?ho().map(z):[],needsRestoration:!rt&&(typeof window<\"u\"||typeof localStorage<\"u\")&&le().getItem(be)!==null}}function Js(){return Se()?[...v.values()].map(z):(Te(),ho().map(e=>(bt(e),z(e))))}function Xs(){return Js().map(e=>{const t=re.get(e.printOrderId),r=e.handoverOrderId?G(e.handoverOrderId,{includeWool:!1}):void 0;return{order:e,review:t?Xt(t):void 0,handoverRecords:r?F(r.handoverId,r):[]}})}function zs(e,t){var d;Ee();const r=v.get(e);if(!r||((d=r.sourceSnapshot)==null?void 0:d.sourceType)!==\"PRODUCTION_DEMAND\")throw new Error(\"未找到对应的生产需求提前印花加工单\");const o=z(r),a=z(r),s=t.matchStatus===\"MATCHED\"?\"MATCH\":t.matchStatus===\"MATCH_FAILED\"?\"MATCH_FAILED\":\"RETRY\";a.sourceSnapshot={...structuredClone(r.sourceSnapshot),matchStatus:t.matchStatus,matchCheckedAt:t.checkedAt,matchFailureReason:t.failur",
+          "children": [
+            {
+              "id": 554,
+              "fn": "z",
+              "file": "printing-task-domain-CSdjlFuY.js",
+              "line": 0,
+              "column": 230416,
+              "ms": 18.025,
+              "selfMs": 18.025,
+              "excerpt": "unction z(e){return{...e,sourceSnapshot:e.sourceSnapshot?structuredClone(e.sourceSnapshot):void 0,sourceArtifactIds:e.sourceArtifactIds?[...e.sourceArtifactIds]:void 0,productionOrderIds:[...e.productionOrderIds],formalProductionOrderSnapshot:e.formalProductionOrderSnapshot?structuredClone(e.formalProductionOrderSnapshot):void 0,changeImpact:e.changeImpact?structuredClone(e.changeImpact):void 0,autoSyncHistory:e.autoSyncHistory?structuredClone(e.autoSyncHistory):void 0,businessView:e.businessView?structuredClone(e.businessView):void 0}}function Hr(e){return{...e,proofImageIds:e.proofImageIds?[...e.proofImageIds]:void 0}}function Xt(e){return{...e,handoverRecordIds:e.handoverRecordIds?[...e.handoverRecordIds]:void 0}}function $(e=new Date){return ma(e)}function W(e,t){const r=10**t;return Math.round((e+Number.EPSILON)*r)/r}function mr(e){return W(e",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

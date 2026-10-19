@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import * as flow from '../src/data/fcs/post-finishing-full-flow.ts'
 import '../src/data/fcs/runtime-process-tasks.ts'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS as actors,
@@ -75,5 +76,36 @@ assert.equal(projected.warehouseAllocations?.[0].productionOrderNo, order.produc
 assert.equal(projected.warehouseAllocations?.[0].postTaskId, getPostFinishingTaskByProductionOrder(order.productionOrderId)?.postTaskId)
 assert.equal(projected.qcSkuResults?.reduce((sum, line) => sum + (line.sourceChargeback?.amount || 0), 0), 50000)
 assert.equal(listPostFinishingActionRecords().filter((item) => item.actionRecordId === qc.qcTaskId).length, 1, '同一 QC 只投影一次')
+// PFN-033/035/046/048: a current reader must project every actual child,
+// while retaining the existing formal-source/QC-only/chargeback assertions above.
+const partialSource = POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS[0]
+const partialDelivery = registerPostFinishingFactoryReturn({ productionOrderNo: partialSource.productionOrderNo,
+  returnIndex: 1, triggerSource: '车缝正常交出', idempotencyKey: 'READ-MODEL-MULTIPLE',
+  quantities: partialSource.skus.map(sku => ({ skuId: sku.skuId, registeredQty: 20 })),
+  deliveryPersonName: '多次读取验收送货人', deliveryPersonPhone: '', evidenceImageUrls: [partialSource.skus[0].imageUrl], actor: actors.factoryCourier })
+confirmPostFinishingFactoryReturn({ deliveryId: partialDelivery.deliveryId, actor: actors.returnConfirmer,
+  firstCounts: partialDelivery.lines.map(line => ({ skuId: line.sku.skuId, actualQty: line.registeredQty })) })
+const partialQc = sendPostFinishingFactoryReturnToQc({ deliveryId: partialDelivery.deliveryId, actor: actors.sender })
+claimPostFinishingQcTask({ qcTaskNo: partialQc.qcTaskNo, actor: actors.qcA })
+completePostFinishingQcTask({ qcTaskId: partialQc.qcTaskId, actor: actors.qcA, processItems: ['包装'],
+  results: partialQc.lines.map(line => ({ skuId: line.sku.skuId, passedQty: line.expectedQty, defectQty: 0, returnQty: 0 })) })
+const partialPost = listPostFinishingFullFlowPostTasks().find(row => row.qcTaskId === partialQc.qcTaskId)!
+flow.appendPostFinishingProcessCompletion({ postTaskId: partialPost.postTaskId, processItem: '包装',
+  quantities: [{ skuId: partialSource.skus[0].skuId, quantity: 20 }], actor: actors.postOperator, responsible: actors.postOperator, operationId: 'READ-MODEL-PACK' })
+const partialChildren = [5, 15].map((quantity, index) => flow.submitPostFinishingForRecheck({ postTaskId: partialPost.postTaskId,
+  quantities: [{ skuId: partialSource.skus[0].skuId, quantity }], actor: actors.postOperator, operationId: `READ-MODEL-RECHECK-${index}` }))
+const firstChild = partialChildren[0]
+flow.claimPostFinishingRecheckOrder({ recheckOrderNo: firstChild.recheckOrderNo, actor: actors.recheckerA })
+flow.scanPostFinishingRecheckSkuBarcode({ recheckOrderId: firstChild.recheckOrderId, skuId: firstChild.lines[0].sku.skuId, scannedBarcode: firstChild.lines[0].sku.barcode, actor: actors.recheckerA })
+flow.completePostFinishingRecheckOrderFullFlow({ recheckOrderId: firstChild.recheckOrderId, actor: actors.recheckerA,
+  results: firstChild.lines.map(line => ({ skuId: line.sku.skuId, handoverQty: line.expectedQty })) })
+const childActions = listPostFinishingActionRecords('复检').filter(row => row.postOrderId === partialPost.postTaskId)
+assert.equal(childActions.length, 2, '读取模型不能只取第一张复检')
+assert.deepEqual(new Set(childActions.map(row => row.actionRecordId)), new Set(partialChildren.map(row => row.recheckOrderId)))
+assert.equal(childActions.reduce((sum, row) => sum + row.acceptedGarmentQty, 0), 5, '未完成复检不能提前计为已复核成衣')
+const partialView = getPostFinishingTaskByProductionOrder(partialSource.productionOrderId)!
+assert.equal(partialView.recheckOrderCount, 2)
+assert.equal(partialView.recheckDoneQty, 5)
+assert.equal(flow.getPostFinishingProcessProgress(partialPost).totalCompletedQty, 20, '分项成衣完成量与复检完成量分别表达')
 resetPostFinishingFullFlow()
 console.log('post-finishing current read model passed: formal task visibility, independent QC facts, quantities and chargeback preserved')
