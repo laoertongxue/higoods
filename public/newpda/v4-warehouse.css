@@ -1,0 +1,13 @@
+/* Cutting warehouses have different objects and action sets. */
+.cw-context{display:flex;flex-direction:column;gap:3px;padding:2px 0 8px}.cw-context b{font-size:18px}.cw-context span{font-size:13px;color:var(--muted)}
+.cw-action{min-height:108px;padding:15px 12px;gap:8px}.cw-action b{font-size:16px;line-height:1.3}.cw-action small{font-size:12px;line-height:1.4}.cw-action svg{width:24px;height:24px}
+@media(max-width:360px){.cw-action{padding:13px 10px}.cw-action b{font-size:15px}}
+
+/* V4.1: direct warehouse actions, warehouse labels are not navigation. */
+.warehouse-flat>section+section{margin-top:20px}
+.cw-group-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.cw-group-title h3{font-size:18px;line-height:26px}.cw-group-title span{font-size:12px;color:var(--muted)}
+.warehouse-flat .action-grid{gap:8px}
+.warehouse-flat .cw-action{min-height:56px;padding:10px 8px;gap:8px;flex-direction:row;align-items:center;border-radius:9px}
+.warehouse-flat .cw-action svg{width:18px;height:18px}
+.warehouse-flat .cw-action b{font-size:15px;line-height:1.4}
